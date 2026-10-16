@@ -49,6 +49,48 @@ let idCounter = 0;
 const genId = (prefix: string) =>
   `${prefix}_${Date.now().toString(36)}_${(idCounter++).toString(36)}`;
 
+function WorkflowStageBranch({ childStages, stageNumber, isDark }: {
+  childStages: WorkflowSubTask[];
+  stageNumber: number;
+  isDark: boolean;
+}) {
+  const cardHeight = 44;
+  const gap = 8;
+  const stackHeight = childStages.length * cardHeight + Math.max(0, childStages.length - 1) * gap;
+  const height = Math.max(112, stackHeight);
+  const middle = height / 2;
+  const childCenters = childStages.map((_, index) => (height - stackHeight) / 2 + index * (cardHeight + gap) + cardHeight / 2);
+  const lineColor = isDark ? "#38bdf8" : "#00adfc";
+
+  return (
+    <div className="flex shrink-0 items-center" aria-label={`${childStages.length} giai đoạn con của bước ${stageNumber}`}>
+      <svg width="58" height={height} viewBox={`0 0 58 ${height}`} fill="none" aria-hidden="true" className="shrink-0 overflow-visible">
+        {childCenters.map((y, index) => (
+          <g key={childStages[index].id} stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d={`M0 ${middle} C26 ${middle} 28 ${y} 58 ${y}`} />
+            <path d={`m52 ${y - 4} 6 4 -6 4`} />
+          </g>
+        ))}
+      </svg>
+      <div className="flex w-40 shrink-0 flex-col justify-center gap-2" style={{ minHeight: height }}>
+        {childStages.map((child, index) => (
+          <div key={child.id} className={`canvas-node flex h-11 items-center gap-2 rounded-xl border px-2.5 text-xs shadow-sm ${isDark ? "border-zinc-700 bg-zinc-800 text-zinc-100" : "border-[#bceaff] bg-white text-slate-800"}`} title={child.title}>
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#00adfc]" />
+            <span className="line-clamp-2 leading-snug">{stageNumber}.{index + 1} {child.title}</span>
+          </div>
+        ))}
+      </div>
+      <svg width="62" height={height} viewBox={`0 0 62 ${height}`} fill="none" aria-hidden="true" className="shrink-0 overflow-visible">
+        <g stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          {childCenters.map((y, index) => <path key={childStages[index].id} d={`M0 ${y} C28 ${y} 28 ${middle} 48 ${middle}`} />)}
+          <path d={`M48 ${middle} H62`} />
+          <path d={`m56 ${middle - 4} 6 4 -6 4`} />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
 const WEEKDAY_LABELS = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 
 const fmtScheduleDatetime = (d: Date) =>
@@ -1403,17 +1445,23 @@ function NewWorkflowWizard({
                 >
                   {(() => {
                     const rows: { step: WorkflowStep; index: number }[][] = [];
-                    for (let i = 0; i < steps.length; i += 3) {
-                      rows.push(
-                        steps.slice(i, i + 3).map((step, idx) => ({
-                          step,
-                          index: i + idx,
-                        }))
-                      );
+                    const expandedIndex = steps.findIndex((step) => step.id === expandedStageId && (step.subTasks?.length || 0) > 0);
+                    const addRows = (start: number, end: number) => {
+                      for (let i = start; i < end; i += 3) {
+                        rows.push(steps.slice(i, Math.min(i + 3, end)).map((step, idx) => ({ step, index: i + idx })));
+                      }
+                    };
+                    if (expandedIndex >= 0) {
+                      addRows(0, expandedIndex);
+                      const branchEnd = Math.min(expandedIndex + 2, steps.length);
+                      rows.push(steps.slice(expandedIndex, branchEnd).map((step, idx) => ({ step, index: expandedIndex + idx })));
+                      addRows(branchEnd, steps.length);
+                    } else {
+                      addRows(0, steps.length);
                     }
 
                     return rows.map((row, rowIndex) => (
-                      <div key={rowIndex} className="relative flex w-max min-w-max items-start gap-x-3">
+                      <div key={rowIndex} className="relative flex w-max min-w-max items-center">
                         {row.map(({ step: s, index: idx }, cellIndex) => {
                           const isSelected = selectedId === s.id;
                           const isExpanded = expandedStageId === s.id;
@@ -1423,7 +1471,6 @@ function NewWorkflowWizard({
                           return (
                             <React.Fragment key={s.id}>
                               {/* Node Card */}
-                              <div className="flex w-48 shrink-0 flex-col gap-2">
                               <div
                                 draggable
                                 onClick={() => setSelectedId(s.id)}
@@ -1454,7 +1501,7 @@ function NewWorkflowWizard({
                                   setDragId(null);
                                   setDropTargetId(null);
                                 }}
-                                className={`canvas-node relative min-h-28 w-full cursor-grab rounded-2xl border p-4 text-left shadow-[0_8px_22px_rgba(35,67,113,0.10)] transition-all duration-200 active:cursor-grabbing ${dragId === s.id ? "opacity-50" : ""} ${dropTargetId === s.id ? "ring-2 ring-[#00adfc] ring-offset-2" : ""} ${
+                                className={`canvas-node relative min-h-28 w-48 shrink-0 cursor-grab rounded-2xl border p-4 text-left shadow-[0_8px_22px_rgba(35,67,113,0.10)] transition-all duration-200 active:cursor-grabbing ${dragId === s.id ? "opacity-50" : ""} ${dropTargetId === s.id ? "ring-2 ring-[#00adfc] ring-offset-2" : ""} ${
                                   isSelected
                                     ? isDark
                                       ? "border-sky-500 bg-sky-950/20 ring-2 ring-sky-500/20"
@@ -1500,24 +1547,20 @@ function NewWorkflowWizard({
                                 )}
                                 {childStages.length > 0 && !isExpanded && <p className={`mt-2 text-[10px] ${isDark ? "text-zinc-400" : "text-slate-500"}`}>{childStages.length} giai đoạn con</p>}
                               </div>
-                              {isExpanded && (
-                                <div className={`canvas-node space-y-1.5 rounded-xl border p-2 ${isDark ? "border-zinc-700 bg-zinc-900/70" : "border-[#dce7f4] bg-white/90"}`}>
-                                  {childStages.length ? childStages.map((child, childIndex) => (
-                                    <div key={child.id} className={`flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs ${isDark ? "bg-zinc-800 text-zinc-200" : "bg-[#f3faff] text-slate-700"}`}>
-                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#00adfc]" />
-                                      <span className="break-words">{idx + 1}.{childIndex + 1} {child.title}</span>
+                              {isExpanded && childStages.length > 0 ? (
+                                <>
+                                  <WorkflowStageBranch childStages={childStages} stageNumber={idx + 1} isDark={isDark} />
+                                  {!hasNextInRow && (
+                                    <div className={`canvas-node flex min-h-28 w-48 shrink-0 items-center justify-center rounded-2xl border text-sm ${isDark ? "border-zinc-700 bg-zinc-900 text-zinc-200" : "border-[#dce7f4] bg-white text-slate-700"}`}>
+                                      Kết thúc
                                     </div>
-                                  )) : <p className={`px-1 py-1 text-[11px] ${isDark ? "text-zinc-400" : "text-slate-500"}`}>Chưa có giai đoạn con.</p>}
-                                </div>
-                              )}
-                              </div>
-
-                              {/* Connector Line */}
-                              {hasNextInRow && (
-                                <div className="mt-12 flex shrink-0 items-center justify-center">
-                                  <ArrowRight className={`h-5 w-5 ${isDark ? "text-sky-400" : "text-[#00adfc]"}`} />
-                                </div>
-                              )}
+                                  )}
+                                </>
+                              ) : hasNextInRow ? (
+                                <svg width="46" height="112" viewBox="0 0 46 112" fill="none" aria-hidden="true" className="shrink-0">
+                                  <path d="M0 56h46m-6-5 6 5-6 5" stroke={isDark ? "#38bdf8" : "#00adfc"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              ) : null}
                             </React.Fragment>
                           );
                         })}
