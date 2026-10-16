@@ -1952,7 +1952,7 @@ export default function ChatTab() {
             /* CONVERSATIONS LIST */
             <div className="space-y-1">
               <div className="px-2 py-1.5 flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-semibold text-slate-500">
                   Tất cả cuộc trò chuyện ({filteredRooms.length})
                 </span>
               </div>
