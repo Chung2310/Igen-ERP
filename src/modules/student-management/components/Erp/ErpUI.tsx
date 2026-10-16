@@ -30,7 +30,7 @@ export function ErpPageHeader({ title, subtitle, action }: { title: string; subt
       <div className="flex items-center gap-2.5">
         <div className="h-5 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
         <div>
-          <h1 className={cn("text-xl font-bold tracking-tight normal-case", darkMode ? "text-white" : "text-slate-900")}>{title}</h1>
+          <h1 className={cn("text-xl font-medium tracking-tight normal-case", darkMode ? "text-white" : "text-slate-900")}>{title}</h1>
           {subtitle && <p className={cn("text-xs font-medium mt-0.5", darkMode ? "text-slate-400" : "text-slate-500")}>{subtitle}</p>}
         </div>
       </div>

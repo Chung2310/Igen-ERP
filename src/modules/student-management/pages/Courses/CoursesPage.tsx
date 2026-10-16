@@ -469,7 +469,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const paginatedCourses = filteredCourses.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="space-y-5 rounded-2xl bg-[#F8FBFF] px-3 py-5 text-left sm:px-5 sm:py-6 [&_h1]:font-semibold">
+    <div className="space-y-5 rounded-2xl bg-[#F8FBFF] px-3 py-5 text-left sm:px-5 sm:py-6">
       <ErpPageHeader
         title={copy.pageTitle}
         action={canManage ? (

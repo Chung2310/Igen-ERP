@@ -114,7 +114,7 @@ export function StudentQualityPage({ selectedCenter, canManage, onSelectStudent,
     <header className="flex flex-col gap-2 border-b border-slate-100 pb-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex items-start gap-3">
         <span className="mt-1 h-9 w-1 shrink-0 rounded-full bg-brand-primary" />
-        <div><h1 className="text-xl font-semibold text-slate-900">Chất lượng học viên</h1><p className="mt-1 text-sm text-slate-500">Theo dõi quá trình đào tạo và kết quả học tập theo từng lớp.</p></div>
+        <div><h1 className="text-xl font-medium tracking-tight text-slate-900">Chất lượng học viên</h1><p className="mt-1 text-sm text-slate-500">Theo dõi quá trình đào tạo và kết quả học tập theo từng lớp.</p></div>
       </div>
       <div className="flex shrink-0 gap-2 self-start sm:self-auto">
         {canManage ? <button type="button" title="Thiết lập ngưỡng đánh giá" aria-label="Thiết lập ngưỡng đánh giá" onClick={() => setShowThresholds(true)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-brand-primary"><Settings className="h-4 w-4" /></button> : null}
