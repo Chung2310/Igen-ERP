@@ -13,7 +13,7 @@ import { getRoadmaps, type LearningRoadmap } from '../../api/learningRoadmap.api
 import { authService } from '../../../../services/authService';
 import { useStudents } from '../../hooks/useStudents';
 import { useResources } from '../../hooks/useResources';
-import { Batch, BatchStatus, BatchProgress, BatchProgressLevel, BatchAgeLabel } from '../../types';
+import { Batch, BatchStatus, BatchProgressLevel, BatchAgeLabel } from '../../types';
 import {
   ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
   ErpModal, ErpField, ErpInput, ErpSelect,
@@ -82,14 +82,6 @@ const statusStyle = (status: BatchStatus) => {
   return "bg-slate-100 text-slate-600 border-slate-200";
 };
 
-const progressStyle = (level: BatchProgressLevel) => {
-  if (level === 'red') return "bg-rose-500/10 text-rose-500 border-rose-500/20";
-  if (level === 'yellow') return "bg-amber-500/10 text-amber-500 border-amber-500/20";
-  if (level === 'green') return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
-  if (level === 'black') return "bg-slate-950 text-white border-slate-950";
-  return "bg-slate-500/10 text-slate-400 border-slate-500/15";
-};
-
 const progressStatusText = (level: BatchProgressLevel) => {
   if (level === 'red') return "Quá hạn";
   if (level === 'yellow') return "Cần chú ý";
@@ -106,25 +98,12 @@ const progressColor = (level: BatchProgressLevel, colors: BatchProgressColors) =
   return '#64748b';
 };
 
-const progressText = (p: BatchProgress) => {
-  const sessionSummary = `Đã điểm danh ${p.doneSessions}/${p.totalSessions} buổi`;
-  if (p.progressLevel === 'red') return `Quá hạn — chưa đóng lớp • ${sessionSummary}`;
-  if (p.progressLevel === 'grey') return sessionSummary;
-  const missing = p.missingAttendanceSessions > 0 ? ` • chưa điểm danh ${p.missingAttendanceSessions} buổi` : '';
-  return `${sessionSummary}${missing} • còn lịch ${p.remainingSessions} buổi`;
-};
-
 /** Nhãn phụ theo tuổi lớp đã hoàn thành, độc lập với màu tiến độ */
 const ageLabelText = (label: BatchAgeLabel) => {
   if (label === 'red') return 'Hoàn thành quá 1 năm';
   if (label === 'yellow') return 'Hoàn thành 6–12 tháng';
   return '';
 };
-
-const ageLabelStyle = (label: BatchAgeLabel) =>
-  label === 'red'
-    ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-    : "bg-amber-500/10 text-amber-500 border-amber-500/20";
 
 interface BatchForm {
   code: string;
@@ -631,10 +610,11 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
   const renderStatusSelect = (b: Batch) => (
     <select
+      aria-label={`Trạng thái ${b.code}`}
       value={b.status}
       onChange={(e) => handleChangeStatus(b, e.target.value as BatchStatus)}
       className={cn(
-        "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border outline-none cursor-pointer",
+        "max-w-full rounded-lg border px-2 py-1.5 text-xs font-medium outline-none cursor-pointer focus:ring-2 focus:ring-brand-primary/15",
         statusStyle(b.status),
         darkMode ? "bg-slate-900" : "bg-white"
       )}
@@ -643,76 +623,72 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     </select>
   );
 
-  /**
-   * Chip cảnh báo tiến độ + nhãn tuổi lớp. Nhãn tuổi là nhãn phụ, hiển thị
-   * song song chứ không thay thế màu tiến độ.
-   */
-  const renderProgressChips = (b: Batch) => {
+  const renderProgressSummary = (b: Batch) => {
     if (!b.progress) return null;
+    const progress = b.progress;
+    const color = progressColor(progress.progressLevel, progressColors);
+    const completion = progress.totalSessions > 0
+      ? Math.min(100, Math.max(0, progress.doneSessions / progress.totalSessions * 100))
+      : 0;
+    const details = [
+      progress.missingAttendanceSessions > 0 ? `Chưa điểm danh ${progress.missingAttendanceSessions} buổi` : null,
+      progress.remainingSessions > 0 ? `Còn ${progress.remainingSessions} buổi` : null,
+      progress.ageLabel ? ageLabelText(progress.ageLabel) : null,
+    ].filter(Boolean);
     return (
-      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        <span style={{ color: progressColor(b.progress.progressLevel, progressColors), borderColor: progressColor(b.progress.progressLevel, progressColors) }} className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wide">
-          <i className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: progressColor(b.progress.progressLevel, progressColors) }} />
-          {progressStatusText(b.progress.progressLevel)}
-        </span>
-        <span style={{ color: progressColor(b.progress.progressLevel, progressColors), borderColor: progressColor(b.progress.progressLevel, progressColors) }} className={cn(
-          "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border",
-          progressStyle(b.progress.progressLevel)
-        )}>
-          {progressText(b.progress)}
-        </span>
-        {b.progress.ageLabel && (
-          <span
-            title="Nhãn rà soát dữ liệu lớp cũ"
-            className={cn(
-              "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border",
-              ageLabelStyle(b.progress.ageLabel)
-            )}
-          >
-            {ageLabelText(b.progress.ageLabel)}
+      <div className="min-w-[160px] space-y-1.5 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1.5 font-medium" style={{ color }}>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+            {progressStatusText(progress.progressLevel)}
           </span>
-        )}
+          <span className="whitespace-nowrap tabular-nums text-slate-600">{progress.doneSessions}/{progress.totalSessions} buổi</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Tiến độ điểm danh" aria-valuemin={0} aria-valuemax={progress.totalSessions} aria-valuenow={Math.min(progress.doneSessions, progress.totalSessions)}>
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${completion}%`, backgroundColor: color }} />
+        </div>
+        {details.length > 0 && <p className="text-[11px] leading-4 text-slate-500">{details.join(' · ')}</p>}
       </div>
     );
   };
 
   const actionButtonClass = (tone: 'neutral' | 'danger' | 'brand' | 'emerald' | 'sky') => cn(
-    "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+    "inline-flex h-7 w-7 items-center justify-center rounded-lg border border-transparent transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30",
     tone === 'danger'
-      ? (darkMode ? "bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-450 border-transparent" : "bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-550 border-slate-200/60")
+      ? "text-rose-500 hover:bg-rose-50"
       : tone === 'brand'
-        ? (darkMode ? "bg-slate-800 hover:bg-brand-primary/20 text-slate-450 hover:text-brand-primary border-transparent" : "bg-slate-50 hover:bg-brand-primary/10 text-slate-450 hover:text-brand-primary border-slate-200/60")
+        ? "text-sky-600 hover:bg-sky-50"
         : tone === 'emerald'
-          ? (darkMode ? "bg-slate-800 hover:bg-emerald-900/40 text-slate-450 hover:text-emerald-400 border-transparent" : "bg-slate-50 hover:bg-emerald-50 text-slate-450 hover:text-emerald-600 border-slate-200/60")
+          ? "text-emerald-600 hover:bg-emerald-50"
           : tone === 'sky'
-            ? (darkMode ? "bg-slate-800 hover:bg-sky-900/40 text-slate-450 hover:text-sky-400 border-transparent" : "bg-slate-50 hover:bg-sky-50 text-slate-450 hover:text-sky-600 border-slate-200/60")
-            : (darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-450 hover:text-slate-700 border-slate-200/60")
+            ? "text-sky-600 hover:bg-sky-50"
+            : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
   );
 
   const renderRowActions = (b: Batch) => {
     const canOperateAssignedBatch = canManage || (hasTeacherOperation && b.instructorId === user?.uid);
     return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-0.5" role="group" aria-label={`Thao tác ${b.code}`}>
       <button onClick={() => setViewingBatch(b)} title={`Xem chi tiết ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
-        <Eye className="w-3 h-3" />
+        <Eye className="h-4 w-4" />
       </button>
       {canManage && <button onClick={() => openEditModal(b)} title={`Chỉnh sửa ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
-        <Pencil className="w-3 h-3" />
+        <Pencil className="h-4 w-4" />
       </button>}
       {canManage && <button onClick={() => setDeleteConfirm({ isOpen: true, id: b.id, code: b.code })} title={`Xóa ${copy.entityNameLower}`} className={actionButtonClass('danger')}>
-        <Trash2 className="w-3 h-3" />
+        <Trash2 className="h-4 w-4" />
       </button>}
       {canManage && <button onClick={() => setManageLearnersId(b.id)} title={`Quản lý ${entityLabel.singular}`} className={actionButtonClass('brand')}>
-        <Users className="w-3 h-3" />
+        <Users className="h-4 w-4" />
       </button>}
       {canOperateAssignedBatch && <button onClick={() => setAssignmentBatchId(b.id)} title={entityLabel.preset === 'worker' ? 'Giao nhiệm vụ' : 'Giao bài tập'} className={actionButtonClass('brand')}>
-        <ClipboardList className="w-3 h-3" />
+        <ClipboardList className="h-4 w-4" />
       </button>}
       {canOperateAssignedBatch && <button onClick={() => setAttendanceBatchId(b.id)} title="Điểm danh thủ công & QR" className={actionButtonClass('emerald')}>
-        <CalendarCheck className="w-3 h-3" />
+        <CalendarCheck className="h-4 w-4" />
       </button>}
       <button onClick={() => setViewAttendanceBatchId(b.id)} title="Lịch sử & Thống kê điểm danh" className={actionButtonClass('sky')}>
-        <BarChart2 className="w-3 h-3" />
+        <BarChart2 className="h-4 w-4" />
       </button>
     </div>
     );
@@ -722,12 +698,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     <button
       onClick={() => { setManageLearnersId(b.id); setSelectedStudentId(''); }}
       title={`Quản lý ${entityLabel.singular} trong ${copy.entityNameLower}`}
-      className={cn(
-        "flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black transition-all border cursor-pointer shadow-sm",
-        darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60"
-      )}
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100"
     >
-      <Users className="w-3 h-3 text-brand-primary" />
+      <Users className="h-3.5 w-3.5" />
       {b.learnerIds.length}{b.maxLearners ? `/${b.maxLearners}` : ''} {entityLabel.singular}
     </button>
   );
@@ -744,61 +717,45 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       />
 
       {/* Controls */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
-        {canManage && (
-          <button type="button" onClick={() => setShowProgressColors(true)} className="flex h-9 items-center gap-1.5 self-start rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 hover:bg-slate-50">
-            <Settings className="h-3.5 w-3.5" /> Màu tiến độ
-          </button>
-        )}
-        <ErpFilterRail>
-          <ErpFilterTab active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
-            Tất cả
-          </ErpFilterTab>
-          {BATCH_STATUSES.map((st) => (
-            <ErpFilterTab key={st} active={statusFilter === st} onClick={() => setStatusFilter(st)}>
-              {statusLabel(st)}
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
+          {canManage && (
+            <button type="button" onClick={() => setShowProgressColors(true)} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-600 hover:bg-slate-50">
+              <Settings className="h-3.5 w-3.5" /> Màu tiến độ
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+            <button type="button" onClick={() => changeViewMode('table')} title="Dạng bảng" aria-label="Dạng bảng" aria-pressed={viewMode === 'table'} className={cn("rounded-lg p-1.5 transition-colors", viewMode === 'table' ? "bg-brand-primary text-white" : "text-slate-500 hover:bg-white hover:text-slate-700")}>
+              <Rows3 className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => changeViewMode('card')} title="Dạng thẻ" aria-label="Dạng thẻ" aria-pressed={viewMode === 'card'} className={cn("rounded-lg p-1.5 transition-colors", viewMode === 'card' ? "bg-brand-primary text-white" : "text-slate-500 hover:bg-white hover:text-slate-700")}>
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <ErpFilterRail className="max-w-full">
+            <ErpFilterTab active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
+              Tất cả
             </ErpFilterTab>
-          ))}
-        </ErpFilterRail>
-        {/* Lọc nhanh theo cảnh báo tiến độ — dữ liệu do server tính sẵn */}
-        <ErpFilterRail>
-          <ErpFilterTab active={progressFilter === 'all'} onClick={() => setProgressFilter('all')}>
-            Mọi tiến độ
-          </ErpFilterTab>
-          <ErpFilterTab active={progressFilter === 'yellow'} onClick={() => setProgressFilter('yellow')}>
-            Sắp hết buổi
-          </ErpFilterTab>
-          <ErpFilterTab active={progressFilter === 'red'} onClick={() => setProgressFilter('red')}>
-            Quá hạn
-          </ErpFilterTab>
-        </ErpFilterRail>
-        <div className={cn(
-          "flex items-center gap-1 p-1 rounded-xl border self-start",
-          darkMode ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-200/60"
-        )}>
-          <button
-            type="button"
-            onClick={() => changeViewMode('table')}
-            title="Dạng bảng"
-            className={cn(
-              "p-1.5 rounded-lg transition-all cursor-pointer",
-              viewMode === 'table' ? "bg-brand-primary text-white shadow-sm" : "text-slate-450 hover:text-slate-700"
-            )}
-          >
-            <Rows3 className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => changeViewMode('card')}
-            title="Dạng thẻ"
-            className={cn(
-              "p-1.5 rounded-lg transition-all cursor-pointer",
-              viewMode === 'card' ? "bg-brand-primary text-white shadow-sm" : "text-slate-450 hover:text-slate-700"
-            )}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
+            {BATCH_STATUSES.map((st) => (
+              <ErpFilterTab key={st} active={statusFilter === st} onClick={() => setStatusFilter(st)}>
+                {statusLabel(st)}
+              </ErpFilterTab>
+            ))}
+          </ErpFilterRail>
+          <ErpFilterRail className="max-w-full">
+            <ErpFilterTab active={progressFilter === 'all'} onClick={() => setProgressFilter('all')}>
+              Mọi tiến độ
+            </ErpFilterTab>
+            <ErpFilterTab active={progressFilter === 'yellow'} onClick={() => setProgressFilter('yellow')}>
+              Sắp hết buổi
+            </ErpFilterTab>
+            <ErpFilterTab active={progressFilter === 'red'} onClick={() => setProgressFilter('red')}>
+              Quá hạn
+            </ErpFilterTab>
+          </ErpFilterRail>
         </div>
       </div>
 
@@ -815,37 +772,31 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         </ErpCard>
       ) : viewMode === 'card' ? (
         <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {paginatedBatches.map((b) => (
-              <ErpCard key={b.id} className="overflow-hidden border border-slate-200 bg-white p-4 shadow-none transition-colors hover:border-slate-300 flex flex-col gap-3">
+              <ErpCard key={b.id} className="flex min-w-0 flex-col gap-3 border border-slate-200 bg-white p-4 shadow-none transition-colors hover:border-sky-200">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <span aria-label={`Trạng thái tiến độ: ${progressStatusText(b.progress?.progressLevel || 'grey')}`} className="relative mt-1.5 flex h-3 w-3 shrink-0" style={{ color: b.progress ? progressColor(b.progress.progressLevel, progressColors) : '#94a3b8' }}>
-                      {b.progress && ['yellow', 'red'].includes(b.progress.progressLevel) ? <span className="absolute inset-0 animate-ping rounded-full opacity-40" style={{ backgroundColor: 'currentColor' }} /> : null}
-                      <span className="relative h-3 w-3 rounded-full ring-4 ring-slate-100" style={{ backgroundColor: 'currentColor' }} />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{b.code}</p>
-                      <p className="mt-0.5 truncate text-sm font-bold text-slate-800" title={displayTitle(b)}>{displayTitle(b)}</p>
-                      {displaySubtitle(b) && <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">{displaySubtitle(b)}</p>}
-                    </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-sky-700">{b.code}</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-slate-900" title={displayTitle(b)}>{displayTitle(b)}</p>
+                    {displaySubtitle(b) && <p className="mt-0.5 text-xs font-normal text-slate-500">{displaySubtitle(b)}</p>}
                   </div>
                   {renderStatusSelect(b)}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-y border-slate-100 py-2.5 text-xs font-semibold text-slate-600">
-                  <span className="inline-flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5 text-slate-400" />{b.instructorName || <i className="font-medium text-slate-400">Chưa gán giáo viên</i>}</span>
-                  <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-slate-400" />{formatDays(b.daysOfWeek)} · {b.startTime}–{b.endTime}</span>
-                  {b.location && <span className="inline-flex min-w-0 items-center gap-1.5"><MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="max-w-28 truncate" title={b.location}>{b.location}</span></span>}
+                <div className="grid gap-1.5 border-y border-slate-100 py-3 text-xs font-normal text-slate-600">
+                  <span className="inline-flex items-center gap-2"><GraduationCap className="h-3.5 w-3.5 shrink-0 text-slate-400" />{b.instructorName || <span className="text-slate-400">Chưa gán giáo viên</span>}</span>
+                  <span className="inline-flex items-center gap-2"><Clock className="h-3.5 w-3.5 shrink-0 text-slate-400" />{formatDays(b.daysOfWeek)} · {b.startTime}–{b.endTime}</span>
+                  {b.location && <span className="inline-flex min-w-0 items-center gap-2"><MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="truncate" title={b.location}>{b.location}</span></span>}
                 </div>
 
                 <div className="space-y-2">
-                  {renderProgressChips(b)}
-                  <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400"><CalendarRange className="h-3.5 w-3.5" />{formatDate(b.startDate)} → {formatDate(b.endDate)}</p>
-                  {b.instructorQualification && <p className="text-[10px] font-semibold text-indigo-600">Trình độ giáo viên: {b.instructorQualification}</p>}
+                  {renderProgressSummary(b)}
+                  <p className="flex items-center gap-2 text-xs font-normal text-slate-500"><CalendarRange className="h-3.5 w-3.5" />{formatDate(b.startDate)} → {formatDate(b.endDate)}</p>
+                  {b.instructorQualification && <p className="text-xs text-slate-500">Trình độ giáo viên: {b.instructorQualification}</p>}
                 </div>
 
-                <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                   {renderLearnerCountButton(b)}
                   {renderRowActions(b)}
                 </div>
@@ -864,44 +815,45 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       ) : (
         <ErpCard className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <ErpTableHead columns={[copy.codeLabel, copy.courseLabel, copy.instructorLabel, 'Lịch hoạt động', 'Thời gian', 'Tiến độ', copy.capacityLabel, 'Trạng thái', 'Thao tác']} />
+            <table className="w-full min-w-[1100px] border-collapse text-left text-xs">
+              <ErpTableHead columns={[copy.entityName, copy.instructorLabel, 'Lịch học', 'Thời gian', 'Tiến độ', copy.capacityLabel, 'Trạng thái', 'Thao tác']} />
               <tbody className={cn("divide-y", darkMode ? "divide-slate-800/30" : "divide-slate-100")}>
                 {paginatedBatches.map((b) => (
-                  <tr key={b.id} className={cn("transition-colors hover:bg-slate-50/50", darkMode ? "text-slate-355 hover:bg-slate-800/10" : "text-slate-600")}>
-                    <td className="py-2 px-4 font-black text-sm">{b.code}</td>
-                    <td className="py-2 px-4">
-                      <p className="font-bold">{displayTitle(b)}</p>
+                  <tr key={b.id} className="text-slate-600 transition-colors hover:bg-sky-50/30">
+                    <td className="max-w-[240px] px-4 py-3">
+                      <p className="text-xs font-medium text-sky-700">{b.code}</p>
+                      <p className="mt-0.5 text-sm font-semibold leading-5 text-slate-900">{displayTitle(b)}</p>
                       {displaySubtitle(b) && (
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{displaySubtitle(b)}</p>
+                        <p className="mt-0.5 text-xs font-normal text-slate-500">{displaySubtitle(b)}</p>
                       )}
                     </td>
-                    <td className="py-2 px-4 font-bold">
+                    <td className="px-4 py-3">
                       {b.instructorName ? (
                         <span className="flex items-center gap-1.5">
-                          <GraduationCap className="w-3.5 h-3.5 text-slate-400" /> {b.instructorName}
+                          <GraduationCap className="h-3.5 w-3.5 shrink-0 text-slate-400" /> {b.instructorName}
                         </span>
                       ) : (
-                        <span className="text-slate-400 italic">Chưa gán</span>
+                        <span className="text-slate-400">Chưa gán</span>
                       )}
                     </td>
-                    <td className="py-2 px-4 font-bold">
-                      <p>{formatDays(b.daysOfWeek)}</p>
-                      <p className="text-[9px] text-slate-400">{b.startTime} - {b.endTime}{b.location ? ` • ${b.location}` : ''}</p>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-slate-700">{formatDays(b.daysOfWeek)}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{b.startTime}–{b.endTime}</p>
+                      {b.location && <p className="mt-0.5 max-w-[140px] truncate text-xs text-slate-500" title={b.location}>{b.location}</p>}
                     </td>
-                    <td className="py-2 px-4 font-bold whitespace-nowrap">
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                       {formatDate(b.startDate)} → {formatDate(b.endDate)}
                     </td>
-                    <td className="py-2 px-4">
-                      {renderProgressChips(b)}
+                    <td className="min-w-[180px] px-4 py-3">
+                      {renderProgressSummary(b)}
                     </td>
-                    <td className="py-2 px-4">
+                    <td className="px-4 py-3">
                       {renderLearnerCountButton(b)}
                     </td>
-                    <td className="py-2 px-4">
+                    <td className="px-4 py-3">
                       {renderStatusSelect(b)}
                     </td>
-                    <td className="py-2 px-4">
+                    <td className="px-4 py-3">
                       {renderRowActions(b)}
                     </td>
                   </tr>
