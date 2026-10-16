@@ -1346,53 +1346,53 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       })()}
 
       {viewingBatch && (
-        <ErpModal title={`Chi tiết lớp học: ${viewingBatch.code}`} onClose={() => setViewingBatch(null)}>
-          <div className="space-y-4 text-slate-700 text-left">
-            <div className="grid grid-cols-2 gap-4">
+        <ErpModal title={`Chi tiết lớp học: ${viewingBatch.code}`} titleClassName="font-medium" maxWidth="max-w-xl" onClose={() => setViewingBatch(null)}>
+          <div className="space-y-5 text-left text-slate-700">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mã lớp</label>
-                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingBatch.code}</p>
+                <p className="text-xs font-normal text-slate-500">Mã lớp</p>
+                <p className="mt-1 text-sm font-medium text-slate-800">{viewingBatch.code}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Khóa học</label>
-                <p className="text-sm font-bold text-slate-800 mt-0.5">
+                <p className="text-xs font-normal text-slate-500">Khóa học</p>
+                <p className="mt-1 text-sm font-medium text-slate-800">
                   {courses.find(c => c.id === viewingBatch.courseId)?.title || viewingBatch.courseTitle || 'N/A'}
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Giáo viên / Phụ trách</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.instructorName || "Chưa gán"}</p>
-                {viewingBatch.instructorQualification && <p className="text-xs text-slate-400 mt-0.5">Trình độ: {viewingBatch.instructorQualification}</p>}
+                <p className="text-xs font-normal text-slate-500">Giáo viên / Phụ trách</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">{viewingBatch.instructorName || "Chưa gán"}</p>
+                {viewingBatch.instructorQualification && <p className="mt-0.5 text-xs text-slate-500">Trình độ: {viewingBatch.instructorQualification}</p>}
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</label>
-                <p className="text-sm font-bold text-slate-700 mt-0.5">{statusLabel(viewingBatch.status)}</p>
+                <p className="text-xs font-normal text-slate-500">Trạng thái</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">{statusLabel(viewingBatch.status)}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời gian học</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                <p className="text-xs font-normal text-slate-500">Thời gian học</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">
                   {formatDays(viewingBatch.daysOfWeek)} • {viewingBatch.startTime} - {viewingBatch.endTime}
                 </p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời hạn lớp học</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                <p className="text-xs font-normal text-slate-500">Thời hạn lớp học</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">
                   {formatDate(viewingBatch.startDate)} → {formatDate(viewingBatch.endDate)}
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Địa điểm</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.location || 'Chưa cập nhật'}</p>
+                <p className="text-xs font-normal text-slate-500">Địa điểm</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">{viewingBatch.location || 'Chưa cập nhật'}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sức chứa</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                <p className="text-xs font-normal text-slate-500">Sức chứa</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">
                   {viewingBatch.learnerIds.length} / {viewingBatch.maxLearners || 'Không giới hạn'} {entityLabel.singular}
                 </p>
               </div>
@@ -1400,12 +1400,12 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
             {viewingBatch.customFields && Object.keys(viewingBatch.customFields).length > 0 && (
               <div className="border-t border-slate-100 pt-4">
-                <h5 className="text-xs font-bold text-slate-800 mb-3">Trường thông tin thêm</h5>
-                <div className="grid grid-cols-2 gap-4">
+                <h5 className="mb-3 text-sm font-medium text-slate-800">Trường thông tin thêm</h5>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {Object.entries(viewingBatch.customFields).map(([key, val]) => (
                     <div key={key}>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{key}</label>
-                      <p className="text-sm font-medium text-slate-700 mt-0.5">{String(val || 'N/A')}</p>
+                      <p className="break-words text-xs font-normal text-slate-500">{key}</p>
+                      <p className="mt-1 break-words text-sm font-normal text-slate-700">{String(val || 'N/A')}</p>
                     </div>
                   ))}
                 </div>
