@@ -733,17 +733,22 @@ code, kbd, samp, pre {
 }
 
 .org-chart-detail-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
-.org-chart-edit-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong) {
+.org-chart-edit-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
+.training-course-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
+.training-study-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong) {
   font-weight: 400;
 }
 
 .org-chart-detail-popup .uppercase,
-.org-chart-edit-popup .uppercase {
+.org-chart-edit-popup .uppercase,
+.training-course-popup .uppercase,
+.training-study-popup .uppercase {
   text-transform: none;
   letter-spacing: normal;
 }
 
-.org-chart-edit-popup label {
+.org-chart-edit-popup label,
+.training-course-popup label {
   color: #334155;
   font-size: 12px;
   font-weight: 400;
