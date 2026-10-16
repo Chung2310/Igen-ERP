@@ -43,7 +43,7 @@ interface WorkflowTabProps {
   activeBranchId?: string;
 }
 
-const ACCENT = "#4f46e5";
+const ACCENT = "#00adfc";
 
 let idCounter = 0;
 const genId = (prefix: string) =>
@@ -406,16 +406,16 @@ export default function WorkflowTab({
 
   if (view === "list") {
     return (
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden" id="workflow_tab">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-white" id="workflow_tab">
+        <div className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dce7f4] bg-white px-4 py-3 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
-              <Layers className="h-5 w-5 text-white" />
+            <div className="rounded-xl bg-[#e8f7ff] p-2.5 text-[#009fdf]">
+              <Layers className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-cyan-700 tracking-tight flex items-center gap-2">
+              <h2 className="flex items-center gap-2 text-base font-medium text-slate-800">
                 Quy trình làm việc
-                <span className="rounded-full bg-cyan-50 border border-cyan-200 px-2.5 py-0.5 text-xs font-bold text-cyan-600">
+                <span className="rounded-full border border-[#bceaff] bg-[#f0faff] px-2.5 py-0.5 text-xs font-normal text-[#008dcc]">
                   {workflows.length}
                 </span>
               </h2>
@@ -424,7 +424,7 @@ export default function WorkflowTab({
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={fetchWorkflows}
-              className="p-1.5 rounded-lg hover:bg-gray-100 text-slate-500"
+              className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-[#f1f8fd] hover:text-[#009fdf]"
               title="Tải lại"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -435,7 +435,7 @@ export default function WorkflowTab({
                 setWizardOpen(true);
               }}
               disabled={!canEdit}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-bold text-white hover:bg-indigo-500 disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-xl bg-[#00adfc] px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0097df] disabled:opacity-40"
             >
               <Plus className="h-4 w-4" /> Quy trình mới
             </button>
@@ -453,14 +453,14 @@ export default function WorkflowTab({
           />
         )}
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-5">
           {workflows.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <WorkflowIcon className="h-10 w-10 text-slate-300" />
-              <p className="mt-3 text-sm font-semibold text-slate-400">
+            <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-[#dce7f4] bg-[#f8fbff] px-5 text-center">
+              <span className="rounded-2xl bg-[#e8f7ff] p-3 text-[#00a4ee]"><WorkflowIcon className="h-7 w-7" /></span>
+              <p className="mt-3 text-sm font-medium text-slate-700">
                 Chưa có quy trình nào
               </p>
-              <p className="text-xs text-slate-400">
+              <p className="mt-1 text-xs text-slate-500">
                 Nhấn “Quy trình mới” để tạo quy trình gồm các bước thực hiện.
               </p>
             </div>
@@ -471,15 +471,15 @@ export default function WorkflowTab({
                 return (
                   <div
                     key={wf.id}
-                    className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md"
+                    className="group flex flex-col rounded-2xl border border-[#dce7f4] bg-white p-4 text-left shadow-sm transition-all hover:border-[#70d5ff] hover:shadow-md"
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f7ff] text-[#009fdf]">
                         <WorkflowIcon className="h-5 w-5" />
                       </div>
                       <div className="flex items-center gap-1">
                         {wf.category && (
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 mr-1">
+                          <span className="mr-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-normal text-slate-500">
                             {wf.category}
                           </span>
                         )}
@@ -489,7 +489,7 @@ export default function WorkflowTab({
                             e.stopPropagation();
                             openDetail(wf);
                           }}
-                          className="rounded-lg p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                          className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-[#e8f7ff] hover:text-[#009fdf]"
                           title="Xem chi tiết quy trình"
                         >
                           <Eye className="h-4 w-4" />
@@ -502,7 +502,7 @@ export default function WorkflowTab({
                               setWizardData(wf);
                               setWizardOpen(true);
                             }}
-                            className="rounded-lg p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                            className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-[#e8f7ff] hover:text-[#009fdf]"
                             title="Sửa quy trình"
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -510,7 +510,7 @@ export default function WorkflowTab({
                         )}
                       </div>
                     </div>
-                    <h3 className="mt-3 line-clamp-2 text-sm font-bold text-slate-800 group-hover:text-indigo-700">
+                    <h3 className="mt-3 line-clamp-2 text-sm font-medium text-slate-800 group-hover:text-[#008dcc]">
                       {wf.name}
                     </h3>
                     {wf.description && (
@@ -518,7 +518,7 @@ export default function WorkflowTab({
                         {wf.description}
                       </p>
                     )}
-                    <div className="mt-3 flex items-center gap-3 border-t border-gray-100 pt-3 text-[11px] font-semibold text-slate-500">
+                    <div className="mt-3 flex items-center gap-3 border-t border-gray-100 pt-3 text-[11px] font-normal text-slate-500">
                       <span className="flex items-center gap-1">
                         <Layers className="h-3.5 w-3.5" /> {total} bước
                       </span>
@@ -541,7 +541,7 @@ export default function WorkflowTab({
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <button
             onClick={backToList}
-            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-indigo-650 transition-all cursor-pointer shadow-3xs shrink-0 active:scale-95"
+            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-[#008dcc] transition-all cursor-pointer shadow-3xs shrink-0 active:scale-95"
             title="Quay lại danh sách quy trình"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -552,11 +552,11 @@ export default function WorkflowTab({
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-extrabold text-slate-900 truncate font-sans tracking-tight">
+              <h2 className="text-base font-medium text-slate-900 truncate font-sans tracking-tight">
                 {wfName || "Quy trình chưa đặt tên"}
               </h2>
               {wfCategory && (
-                <span className="shrink-0 rounded-md bg-cyan-50 border border-cyan-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-700">
+                <span className="shrink-0 rounded-md bg-cyan-50 border border-cyan-200 px-2 py-0.5 text-[10px] font-medium tracking-wider text-cyan-700">
                   {wfCategory}
                 </span>
               )}
@@ -570,13 +570,13 @@ export default function WorkflowTab({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="hidden md:flex items-center gap-1 rounded-xl bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-600">
+          <span className="hidden md:flex items-center gap-1 rounded-xl bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-600">
             <Layers className="h-3.5 w-3.5 text-cyan-600" /> {steps.length} bước
           </span>
           <button
             onClick={openNewStep}
             disabled={!canEdit}
-            className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-medium text-white shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-40"
             style={{ background: ACCENT }}
           >
             <Plus className="h-4 w-4" /> Thêm bước
@@ -584,14 +584,14 @@ export default function WorkflowTab({
           <button
             onClick={handleSave}
             disabled={!canEdit || saving}
-            className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3.5 py-2 text-xs font-bold text-white hover:bg-slate-700 shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3.5 py-2 text-xs font-medium text-white hover:bg-slate-700 shadow-xs transition-all cursor-pointer active:scale-95 disabled:opacity-50"
           >
             <Save className="h-4 w-4" /> {saving ? "Đang lưu..." : "Lưu"}
           </button>
           <button
             onClick={handleDeleteWorkflow}
             disabled={!canEdit}
-            className="flex items-center gap-1 rounded-xl border border-red-200 bg-red-50/50 p-2 text-xs font-bold text-red-600 hover:bg-red-100 transition-all cursor-pointer disabled:opacity-40"
+            className="flex items-center gap-1 rounded-xl border border-red-200 bg-red-50/50 p-2 text-xs font-medium text-red-600 hover:bg-red-100 transition-all cursor-pointer disabled:opacity-40"
             title="Xóa quy trình"
           >
             <Trash2 className="h-4 w-4" />
@@ -603,7 +603,7 @@ export default function WorkflowTab({
       {steps.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center text-center p-8">
           <Layers className="h-8 w-8 text-slate-300" />
-          <p className="mt-2 text-sm font-semibold text-slate-400">
+          <p className="mt-2 text-sm font-medium text-slate-400">
             Chưa có bước nào trong quy trình
           </p>
           <p className="text-xs text-slate-400 mt-1">
@@ -612,7 +612,7 @@ export default function WorkflowTab({
           {canEdit && (
             <button
               onClick={openNewStep}
-              className="mt-4 flex items-center gap-1.5 rounded-xl bg-indigo-650 hover:bg-indigo-750 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
+              className="mt-4 flex items-center gap-1.5 rounded-xl bg-[#00adfc] hover:bg-[#0097df] text-white px-4 py-2 text-xs font-medium transition-all shadow-xs cursor-pointer"
             >
               <Plus className="h-4 w-4" /> Thêm bước mới
             </button>
@@ -678,13 +678,13 @@ export default function WorkflowTab({
                       key={s.id}
                       onClick={() => setStepDraft(s)}
                       className={`w-32 h-20 relative rounded-xl border flex flex-col justify-center items-center p-2.5 transition-all duration-300 cursor-pointer shadow-xs ${isDark
-                        ? "border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800/85 hover:border-indigo-500"
-                        : "border-gray-200 bg-white hover:bg-indigo-50/50 hover:border-indigo-400 hover:shadow-md"
+                        ? "border-zinc-700 bg-zinc-900/50 hover:bg-zinc-800/85 hover:border-sky-500"
+                        : "border-gray-200 bg-white hover:bg-sky-50/50 hover:border-sky-400 hover:shadow-md"
                         }`}
                       title="Bấm để xem chi tiết / chỉnh sửa giai đoạn"
                     >
                       <span
-                        className={`absolute -top-3 left-3 text-[9px] font-bold px-1.5 py-0.5 rounded border shadow-3xs transition-colors ${isDark
+                        className={`absolute -top-3 left-3 text-[9px] font-medium px-1.5 py-0.5 rounded border shadow-3xs transition-colors ${isDark
                           ? "bg-zinc-800 text-zinc-400 border-zinc-700"
                           : "bg-white text-slate-550 border-gray-200"
                           }`}
@@ -693,14 +693,14 @@ export default function WorkflowTab({
                       </span>
 
                       <span
-                        className={`text-[10px] font-extrabold uppercase text-center tracking-wide leading-tight px-1 line-clamp-3 transition-colors ${isDark ? "text-zinc-100" : "text-slate-800"
+                        className={`text-[10px] font-medium text-center tracking-wide leading-tight px-1 line-clamp-3 transition-colors ${isDark ? "text-zinc-100" : "text-slate-800"
                           }`}
                       >
-                        {s.title || "(CHƯA ĐẶT TÊN)"}
+                        {s.title || "(Chưa đặt tên)"}
                       </span>
 
                       {idx === 0 && (
-                        <div className="absolute -left-6 top-1/2 -translate-y-1/2 -rotate-90 bg-emerald-600/90 text-white font-extrabold text-[7px] uppercase tracking-wider px-1.5 py-0.5 rounded-t-md shadow-3xs">
+                        <div className="absolute -left-6 top-1/2 -translate-y-1/2 -rotate-90 bg-emerald-600/90 text-white font-medium text-[7px] tracking-wider px-1.5 py-0.5 rounded-t-md shadow-3xs">
                           Bắt đầu
                         </div>
                       )}
@@ -722,14 +722,14 @@ export default function WorkflowTab({
               className={`px-4 py-3 border-b flex items-center justify-between shadow-2xs transition-colors duration-300 ${isDark ? "bg-[#1d1d1d] border-zinc-800/85" : "bg-slate-50 border-gray-200"
                 }`}
             >
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <span className="text-xs font-medium tracking-wider text-slate-500">
                 Danh sách giai đoạn
               </span>
               {canEdit && (
                 <button
                   type="button"
                   onClick={openNewStep}
-                  className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1 text-[11px] font-bold px-2.5"
+                  className="p-1.5 bg-[#00adfc] hover:bg-[#0097df] text-white rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 flex items-center gap-1 text-[11px] font-medium px-2.5"
                   title="Thêm giai đoạn"
                 >
                   <Plus className="h-3.5 w-3.5" /> Thêm
@@ -745,11 +745,11 @@ export default function WorkflowTab({
                   onClick={() => setStepDraft(s)}
                   className={`flex items-center gap-3 border p-2.5 rounded-xl transition-all cursor-pointer shadow-3xs ${isDark
                     ? "bg-[#242424] hover:bg-[#2e2e2e] border-zinc-800"
-                    : "bg-white hover:bg-slate-50/80 border-gray-200 hover:border-indigo-300"
+                    : "bg-white hover:bg-slate-50/80 border-gray-200 hover:border-sky-300"
                     }`}
                 >
                   <span
-                    className={`font-extrabold text-xs px-2 py-0.5 rounded-lg shadow-3xs border transition-colors ${isDark
+                    className={`font-medium text-xs px-2 py-0.5 rounded-lg shadow-3xs border transition-colors ${isDark
                       ? "bg-zinc-800 text-zinc-350 border-zinc-700"
                       : "bg-gray-100 text-slate-500 border-gray-200"
                       }`}
@@ -757,13 +757,13 @@ export default function WorkflowTab({
                     {i + 1}
                   </span>
                   <span
-                    className={`text-xs font-bold truncate flex-1 transition-colors ${isDark ? "text-zinc-200" : "text-slate-750"
+                    className={`text-xs font-medium truncate flex-1 transition-colors ${isDark ? "text-zinc-200" : "text-slate-750"
                       }`}
                   >
                     {s.title || "(Chưa đặt tên)"}
                   </span>
                   {i === 0 && (
-                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold shadow-3xs">
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] px-1.5 py-0.5 rounded-md font-medium shadow-3xs">
                       Bắt đầu
                     </span>
                   )}
@@ -791,8 +791,8 @@ export default function WorkflowTab({
                         type="button"
                         onClick={() => setStepDraft(s)}
                         className={`p-1 rounded-md transition-colors cursor-pointer ${isDark
-                          ? "text-zinc-450 hover:bg-zinc-800 hover:text-indigo-400"
-                          : "text-slate-400 hover:bg-slate-100 hover:text-indigo-650"
+                          ? "text-zinc-450 hover:bg-zinc-800 hover:text-sky-400"
+                          : "text-slate-400 hover:bg-slate-100 hover:text-[#008dcc]"
                           }`}
                         title="Sửa giai đoạn"
                       >
@@ -871,21 +871,21 @@ export function WorkflowReader({
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-slate-50" id="workflow_tab">
-        <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
-          <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-650 hover:bg-gray-100">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-white" id="workflow_tab">
+        <div className="mx-5 mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#dce7f4] bg-white px-4 py-3 shadow-sm">
+          <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-[#f1f8fd]">
             <ArrowLeft className="h-4 w-4" /> Danh sách quy trình
           </button>
           <div className="ml-auto flex items-center gap-2">
             {canEdit && (
               <>
-                <button onClick={onAddStep} className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500">
+                <button onClick={onAddStep} className="flex items-center gap-1 rounded-xl bg-[#00adfc] px-3 py-2 text-xs font-medium text-white hover:bg-[#0097df]">
                   <Plus className="h-3.5 w-3.5" /> Thêm bước
                 </button>
-                <button onClick={onSave} disabled={saving} className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 disabled:opacity-50">
+                <button onClick={onSave} disabled={saving} className="flex items-center gap-1 rounded-xl border border-[#bceaff] bg-[#e8f7ff] px-3 py-2 text-xs font-medium text-[#008dcc] hover:bg-[#d7f2ff] disabled:opacity-50">
                   <Save className="h-3.5 w-3.5" /> {saving ? "Đang lưu..." : "Lưu"}
                 </button>
-                <button onClick={onDelete} className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs font-bold text-red-650 hover:bg-red-50" title="Xóa quy trình">
+                <button onClick={onDelete} className="flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-2 py-2 text-xs font-medium text-red-600 hover:bg-red-100" title="Xóa quy trình">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </>
@@ -893,14 +893,14 @@ export function WorkflowReader({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+        <div className="flex-1 overflow-y-auto px-5 py-5">
           <div className="mx-auto max-w-3xl">
-            <div className="rounded-3xl border border-indigo-100 bg-white p-6 shadow-sm sm:p-8">
+            <div className="rounded-2xl border border-[#dce7f4] bg-[#f8fbff] p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-500">Hướng dẫn quy trình</p>
-                  <h1 className="mt-2 text-2xl font-extrabold text-cyan-700">{workflow.name}</h1>
-                  {workflow.category && <p className="mt-1 text-xs font-semibold text-slate-400">{workflow.category}</p>}
+                  <p className="text-xs font-normal text-[#008dcc]">Hướng dẫn quy trình</p>
+                  <h1 className="mt-2 text-xl font-medium text-slate-800">{workflow.name}</h1>
+                  {workflow.category && <p className="mt-1 text-xs font-normal text-slate-500">{workflow.category}</p>}
                 </div>
                 <CheckCircle2 className="h-8 w-8 text-emerald-500" />
               </div>
@@ -908,7 +908,7 @@ export function WorkflowReader({
             </div>
 
             {workflow.steps.length === 0 ? (
-              <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm font-semibold text-slate-400">
+              <div className="mt-5 rounded-2xl border border-dashed border-[#dce7f4] bg-[#f8fbff] p-8 text-center text-sm font-normal text-slate-500">
                 Chưa có bước nào trong quy trình.
               </div>
             ) : (
@@ -917,13 +917,13 @@ export function WorkflowReader({
                   <li
                     key={step.id}
                     onClick={() => setSelectedStep(step)}
-                    className="relative h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
+                    className="relative h-full cursor-pointer rounded-2xl border border-[#dce7f4] bg-white p-5 shadow-sm transition-all hover:border-[#70d5ff] hover:shadow-md"
                   >
-                    {index < workflow.steps.length - 1 && <ArrowRight className="pointer-events-none absolute -bottom-3 left-1/2 z-10 h-5 w-5 -translate-x-1/2 rotate-90 rounded-full bg-white text-indigo-500 sm:-right-3 sm:bottom-auto sm:left-auto sm:top-1/2 sm:translate-x-0 sm:-translate-y-1/2 sm:rotate-0" aria-hidden="true" />}
+                    {index < workflow.steps.length - 1 && <ArrowRight className="pointer-events-none absolute -bottom-3 left-1/2 z-10 h-5 w-5 -translate-x-1/2 rotate-90 rounded-full bg-white text-[#00adfc] sm:-right-3 sm:bottom-auto sm:left-auto sm:top-1/2 sm:translate-x-0 sm:-translate-y-1/2 sm:rotate-0" aria-hidden="true" />}
                     <div className="flex items-start gap-4">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm font-extrabold text-white">{index + 1}</span>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#00adfc] text-sm font-medium text-white">{index + 1}</span>
                       <div className="min-w-0 flex-1">
-                        <h2 className="text-base font-extrabold text-slate-800 break-words leading-snug">{step.title || `Bước ${index + 1}`}</h2>
+                        <h2 className="break-words text-base font-medium leading-snug text-slate-800">{step.title || `Bước ${index + 1}`}</h2>
                       </div>
                     </div>
                   </li>
@@ -962,22 +962,19 @@ function WorkflowStepDetailModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" role="presentation" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="workflow-step-detail-title" onClick={(event) => event.stopPropagation()}>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#dce7f4] bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="workflow-step-detail-title" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-500">Bước {stepIndex + 1}</p>
-            <h2 id="workflow-step-detail-title" className="mt-1 text-xl font-extrabold text-cyan-700">{step.title || `Bước ${stepIndex + 1}`}</h2>
+            <p className="text-xs font-normal text-[#008dcc]">Bước {stepIndex + 1}</p>
+            <h2 id="workflow-step-detail-title" className="mt-1 text-xl font-medium text-slate-800">{step.title || `Bước ${stepIndex + 1}`}</h2>
           </div>
-          <button onClick={onClose} className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100" aria-label="Đóng">×</button>
+          <button onClick={onClose} className="rounded-full bg-rose-500 p-2 text-white hover:bg-rose-600" aria-label="Đóng"><X className="h-4 w-4" /></button>
         </div>
         {step.description && <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-700">{step.description}</p>}
         {step.note && <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"><strong>Lưu ý:</strong> {step.note}</div>}
         {step.deliverable && <div className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800"><strong>Kết quả cần đạt:</strong> {step.deliverable}</div>}
-        {!!step.subTasks?.length && <div className="mt-5"><h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Công việc cần làm</h3><ul className="mt-2 space-y-2">{step.subTasks.map((task) => <li key={task.id} className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500" />{task.title}</li>)}</ul></div>}
-        {!!step.attachments?.length && <div className="mt-5"><h3 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Tệp đính kèm</h3><div className="mt-2 flex flex-wrap gap-2">{step.attachments.map((attachment) => <button key={attachment.id} type="button" onClick={() => onPreview(attachment)} className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50"><ExternalLink className="h-3.5 w-3.5" />Xem preview: {attachment.name}</button>)}</div></div>}
-        <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
-          <button onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Đóng</button>
-        </div>
+        {!!step.subTasks?.length && <div className="mt-5"><h3 className="text-xs font-medium tracking-wide text-slate-500">Công việc cần làm</h3><ul className="mt-2 space-y-2">{step.subTasks.map((task) => <li key={task.id} className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500" />{task.title}</li>)}</ul></div>}
+        {!!step.attachments?.length && <div className="mt-5"><h3 className="text-xs font-medium tracking-wide text-slate-500">Tệp đính kèm</h3><div className="mt-2 flex flex-wrap gap-2">{step.attachments.map((attachment) => <button key={attachment.id} type="button" onClick={() => onPreview(attachment)} className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-sky-600 hover:bg-sky-50"><ExternalLink className="h-3.5 w-3.5" />Xem preview: {attachment.name}</button>)}</div></div>}
       </div>
     </div>
   );
@@ -993,9 +990,9 @@ function WorkflowAttachmentPreview({ attachment, onClose }: { attachment: TaskAt
   const downloadUrl = `/api/v1/media/download?url=${encodeURIComponent(attachment.url)}&filename=${encodeURIComponent(attachment.name || "tai-lieu-quy-trinh")}&token=${encodeURIComponent(accessToken)}`; const previewUrl = `${downloadUrl}&inline=true`;
   useEffect(() => { const fn = (e: KeyboardEvent) => e.key === "Escape" && onClose(); document.addEventListener("keydown", fn); return () => document.removeEventListener("keydown", fn); }, [onClose]);
   useEffect(() => { if (!isDocx || !containerRef.current) return; let cancelled = false; void fetch(attachment.url).then((r) => r.ok ? r.blob() : Promise.reject(new Error("download failed"))).then((blob) => !cancelled && containerRef.current && renderAsync(blob, containerRef.current, undefined, { className: "docx-preview" })).catch(() => !cancelled && setDocxError(true)); return () => { cancelled = true; }; }, [attachment.url, isDocx]);
-  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="presentation" onClick={onClose}><div className="w-full max-w-5xl rounded-2xl bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain" role="dialog" aria-modal="true" aria-label="Preview tệp" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><h2 className="truncate text-base font-bold text-slate-800">{attachment.name}</h2><button type="button" onClick={onClose} aria-label="Đóng preview" className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100">×</button></div><div className="mt-4 flex min-h-48 max-h-[70vh] items-center justify-center overflow-auto rounded-xl bg-slate-100 p-4">{isImage && <img src={attachment.url} alt={attachment.name} className="max-h-[65vh] max-w-full object-contain" />}{isVideo && <video src={attachment.url} controls className="max-h-[65vh] max-w-full" />}{isAudio && <audio src={attachment.url} controls />}{isPdf && <iframe src={previewUrl} className="h-[65vh] w-full border-0 bg-white" title={attachment.name} />}{isDocx && !docxError && <div ref={containerRef} className="w-full bg-white p-4" />}{isOffice && !isPdf && !isDocx && <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(attachment.url)}&embedded=true`} className="h-[65vh] w-full border-0 bg-white" title={attachment.name} />}{!isImage && !isVideo && !isAudio && !isPdf && !isOffice && <PreviewFallback downloadUrl={downloadUrl} />}{docxError && <PreviewFallback downloadUrl={downloadUrl} />}</div><div className="mt-4 flex justify-end gap-2"><a href={downloadUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Tải xuống</a><button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Đóng</button></div></div></div>;
+  return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="presentation" onClick={onClose}><div className="w-full max-w-5xl rounded-2xl bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain" role="dialog" aria-modal="true" aria-label="Preview tệp" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3"><h2 className="truncate text-base font-medium text-slate-800">{attachment.name}</h2><button type="button" onClick={onClose} aria-label="Đóng preview" className="rounded-lg px-2 py-1 text-xl text-slate-400 hover:bg-slate-100">×</button></div><div className="mt-4 flex min-h-48 max-h-[70vh] items-center justify-center overflow-auto rounded-xl bg-slate-100 p-4">{isImage && <img src={attachment.url} alt={attachment.name} className="max-h-[65vh] max-w-full object-contain" />}{isVideo && <video src={attachment.url} controls className="max-h-[65vh] max-w-full" />}{isAudio && <audio src={attachment.url} controls />}{isPdf && <iframe src={previewUrl} className="h-[65vh] w-full border-0 bg-white" title={attachment.name} />}{isDocx && !docxError && <div ref={containerRef} className="w-full bg-white p-4" />}{isOffice && !isPdf && !isDocx && <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(attachment.url)}&embedded=true`} className="h-[65vh] w-full border-0 bg-white" title={attachment.name} />}{!isImage && !isVideo && !isAudio && !isPdf && !isOffice && <PreviewFallback downloadUrl={downloadUrl} />}{docxError && <PreviewFallback downloadUrl={downloadUrl} />}</div><div className="mt-4 flex justify-end gap-2"><a href={downloadUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-[#00adfc] px-3 py-2 text-xs font-medium text-white">Tải xuống</a><button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600">Đóng</button></div></div></div>;
 }
-function PreviewFallback({ downloadUrl }: { downloadUrl: string }) { return <div className="text-center text-sm text-slate-600"><p>Không thể xem trước trực tiếp loại tệp này.</p><a href={downloadUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-lg bg-indigo-600 px-3 py-2 font-bold text-white">Mở tệp</a></div>; }
+function PreviewFallback({ downloadUrl }: { downloadUrl: string }) { return <div className="text-center text-sm text-slate-600"><p>Không thể xem trước trực tiếp loại tệp này.</p><a href={downloadUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-lg bg-[#00adfc] px-3 py-2 font-medium text-white">Mở tệp</a></div>; }
 function NewWorkflowWizard({
   initialData,
   onClose,
@@ -1194,15 +1191,14 @@ function NewWorkflowWizard({
             }`}
         >
           <div className="flex items-center gap-2">
-            <WorkflowIcon className={`h-5 w-5 ${isDark ? "text-indigo-400" : "text-indigo-650"}`} />
-            <h3 className={`text-sm font-extrabold uppercase tracking-wide ${isDark ? "text-zinc-150" : "text-slate-800"}`}>
+            <WorkflowIcon className="h-5 w-5 text-[#00adfc]" />
+            <h3 className={`text-base font-medium ${isDark ? "text-zinc-150" : "text-slate-800"}`}>
               {isEditing ? "Sửa quy trình" : "Tạo quy trình mới"}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-xl transition-colors cursor-pointer ${isDark ? "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200" : "hover:bg-gray-100 text-slate-405"
-              }`}
+            className="cursor-pointer rounded-full bg-rose-500 p-2 text-white transition-colors hover:bg-rose-600"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1218,12 +1214,12 @@ function NewWorkflowWizard({
               <React.Fragment key={s.n}>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${step >= (s.n as 1 | 2) ? "bg-indigo-650 text-white" : "bg-gray-200 text-slate-500"
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-medium ${step >= (s.n as 1 | 2) ? "bg-[#00adfc] text-white" : "bg-gray-200 text-slate-500"
                       }`}
                   >
                     {s.n}
                   </span>
-                  <span className={`text-xs font-bold ${step === s.n ? "text-indigo-700" : "text-slate-400"}`}>
+                  <span className={`text-xs font-medium ${step === s.n ? "text-[#008dcc]" : "text-slate-400"}`}>
                     {s.label}
                   </span>
                 </div>
@@ -1242,9 +1238,9 @@ function NewWorkflowWizard({
             <button
               type="button"
               onClick={() => setActiveTab("diagram")}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              className={`flex-1 py-1.5 text-xs font-medium rounded-xl transition-all ${
                 activeTab === "diagram"
-                  ? "bg-indigo-600 text-white shadow-xs"
+                  ? "bg-[#00adfc] text-white shadow-xs"
                   : isDark
                     ? "text-zinc-400 hover:bg-zinc-800"
                     : "text-slate-500 hover:bg-gray-105"
@@ -1255,9 +1251,9 @@ function NewWorkflowWizard({
             <button
               type="button"
               onClick={() => setActiveTab("list")}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              className={`flex-1 py-1.5 text-xs font-medium rounded-xl transition-all ${
                 activeTab === "list"
-                  ? "bg-indigo-600 text-white shadow-xs"
+                  ? "bg-[#00adfc] text-white shadow-xs"
                   : isDark
                     ? "text-zinc-400 hover:bg-zinc-800"
                     : "text-slate-500 hover:bg-gray-105"
@@ -1272,37 +1268,37 @@ function NewWorkflowWizard({
         {step === 1 && (
           <div className="flex-1 space-y-4 overflow-y-auto p-6">
             <div>
-              <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+              <label className="flex items-center gap-1.5 text-sm font-normal text-slate-700">
                 <FileText className="h-4 w-4" /> Tên quy trình
               </label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ví dụ: Hướng dẫn nhân viên mới"
-                className="mt-1.5 w-full rounded-2xl border border-gray-250 px-4 py-2.5 text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-2xs"
+                className="mt-1.5 w-full rounded-xl border border-[#dce7f4] px-4 py-2.5 text-sm font-normal outline-none transition-all focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/10"
               />
             </div>
             <div>
-              <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+              <label className="flex items-center gap-1.5 text-sm font-normal text-slate-700">
                 <Layers className="h-4 w-4" /> Nhóm / phân loại
               </label>
               <input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="VD: Nhân sự, Vận hành…"
-                className="mt-1.5 w-full rounded-2xl border border-gray-250 px-4 py-2.5 text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-2xs"
+                className="mt-1.5 w-full rounded-xl border border-[#dce7f4] px-4 py-2.5 text-sm font-normal outline-none transition-all focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/10"
               />
             </div>
             <div>
-              <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+              <label className="flex items-center gap-1.5 text-sm font-normal text-slate-700">
                 <Info className="h-4 w-4" /> Ghi chú / mô tả quy trình
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={5}
+                rows={3}
                 placeholder="Mục tiêu, phạm vi áp dụng, lưu ý chung của quy trình…"
-                className="mt-1.5 w-full resize-none rounded-2xl border border-gray-250 px-4 py-2.5 text-xs font-semibold outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all shadow-2xs"
+                className="mt-1.5 w-full resize-none rounded-xl border border-[#dce7f4] px-4 py-2.5 text-sm font-normal outline-none transition-all focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/10"
               />
             </div>
           </div>
@@ -1356,7 +1352,7 @@ function NewWorkflowWizard({
               {steps.length === 0 ? (
                 <div className={`text-center transition-colors ${isDark ? "text-zinc-550" : "text-slate-400"}`}>
                   <WorkflowIcon className={`h-10 w-10 mx-auto mb-3 ${isDark ? "text-zinc-700" : "text-slate-300"}`} />
-                  <p className="text-xs font-bold">Chưa có giai đoạn nào</p>
+                  <p className="text-xs font-medium">Chưa có giai đoạn nào</p>
                   <p className={`text-[10px] mt-1 ${isDark ? "text-zinc-650" : "text-slate-400"}`}>
                     Hãy thêm giai đoạn ở danh sách bên phải.
                   </p>
@@ -1395,8 +1391,8 @@ function NewWorkflowWizard({
                                 className={`canvas-node w-48 rounded-2xl border p-4.5 transition-all duration-300 cursor-pointer shadow-md relative shrink-0 ${
                                   isSelected
                                     ? isDark
-                                      ? "border-indigo-500 bg-indigo-950/20 ring-4 ring-indigo-500/10 scale-102"
-                                      : "border-indigo-500 bg-indigo-50/70 ring-4 ring-indigo-500/10 scale-102 shadow-lg"
+                                      ? "border-sky-500 bg-sky-950/20 ring-4 ring-sky-500/10 scale-102"
+                                      : "border-sky-500 bg-sky-50/70 ring-4 ring-sky-500/10 scale-102 shadow-lg"
                                     : isDark
                                       ? "border-zinc-750 bg-zinc-900/60 hover:bg-zinc-800/80 hover:border-zinc-500"
                                       : "border-gray-200 bg-white hover:bg-slate-50/50 hover:border-gray-300"
@@ -1404,7 +1400,7 @@ function NewWorkflowWizard({
                               >
                                 {/* Step Number Badge */}
                                 <span
-                                  className={`absolute -top-3 left-4 text-[9px] font-extrabold px-2 py-0.5 rounded-lg border shadow-3xs transition-colors ${
+                                  className={`absolute -top-3 left-4 text-[9px] font-medium px-2 py-0.5 rounded-lg border shadow-3xs transition-colors ${
                                     isDark
                                       ? "bg-zinc-800 text-zinc-400 border-zinc-700"
                                       : "bg-white text-slate-550 border-gray-200"
@@ -1414,11 +1410,11 @@ function NewWorkflowWizard({
                                 </span>
 
                                 <h4
-                                  className={`text-xs font-black uppercase tracking-wide leading-tight line-clamp-2 transition-colors mt-1 ${
+                                  className={`text-xs font-medium tracking-wide leading-tight line-clamp-2 transition-colors mt-1 ${
                                     isSelected
                                       ? isDark
-                                        ? "text-indigo-400"
-                                        : "text-indigo-700"
+                                        ? "text-sky-400"
+                                        : "text-sky-700"
                                       : isDark
                                         ? "text-zinc-100"
                                         : "text-slate-800"
@@ -1428,13 +1424,13 @@ function NewWorkflowWizard({
                                 </h4>
 
                                 {s.description && (
-                                  <p className="text-[10px] text-slate-400 line-clamp-2 mt-1.5 leading-relaxed font-semibold">
+                                  <p className="text-[10px] text-slate-400 line-clamp-2 mt-1.5 leading-relaxed font-medium">
                                     {s.description}
                                   </p>
                                 )}
 
                                 {idx === 0 && (
-                                  <div className="absolute -left-3 -top-3 bg-emerald-600 text-white font-extrabold text-[7px] uppercase tracking-wider px-2 py-0.5 rounded-lg shadow-sm">
+                                  <div className="absolute -left-3 -top-3 bg-emerald-600 text-white font-medium text-[7px] tracking-wider px-2 py-0.5 rounded-lg shadow-sm">
                                     Khởi đầu
                                   </div>
                                 )}
@@ -1443,7 +1439,7 @@ function NewWorkflowWizard({
                               {/* Connector Line */}
                               {hasNextInRow && (
                                 <div className="flex items-center justify-center shrink-0">
-                                  <ArrowRight className={`h-5 w-5 animate-pulse ${isDark ? "text-indigo-400" : "text-indigo-600"}`} />
+                                  <ArrowRight className={`h-5 w-5 animate-pulse ${isDark ? "text-sky-400" : "text-sky-600"}`} />
                                 </div>
                               )}
                             </React.Fragment>
@@ -1461,7 +1457,7 @@ function NewWorkflowWizard({
                   <button
                     type="button"
                     onClick={() => handleZoom(0.85)}
-                    className={`h-8 w-8 flex items-center justify-center rounded-xl border shadow-3xs text-sm font-black transition-all active:scale-90 cursor-pointer ${
+                    className={`h-8 w-8 flex items-center justify-center rounded-xl border shadow-3xs text-sm font-medium transition-all active:scale-90 cursor-pointer ${
                       isDark ? "bg-[#1f1f1f] border-zinc-800 text-zinc-300 hover:bg-zinc-800" : "bg-white border-gray-200 text-slate-600 hover:bg-slate-50"
                     }`}
                     title="Thu nhỏ"
@@ -1471,7 +1467,7 @@ function NewWorkflowWizard({
                   <button
                     type="button"
                     onClick={() => { setPan({ x: 0, y: 0 }); setZoom(1); }}
-                    className={`h-8 px-3 flex items-center justify-center rounded-xl border shadow-3xs text-[10px] font-black uppercase tracking-wider transition-all active:scale-90 cursor-pointer ${
+                    className={`h-8 px-3 flex items-center justify-center rounded-xl border shadow-3xs text-[10px] font-medium tracking-wider transition-all active:scale-90 cursor-pointer ${
                       isDark ? "bg-[#1f1f1f] border-zinc-800 text-zinc-300 hover:bg-zinc-800" : "bg-white border-gray-200 text-slate-600 hover:bg-slate-50"
                     }`}
                     title="Đặt lại"
@@ -1481,7 +1477,7 @@ function NewWorkflowWizard({
                   <button
                     type="button"
                     onClick={() => handleZoom(1.15)}
-                    className={`h-8 w-8 flex items-center justify-center rounded-xl border shadow-3xs text-sm font-black transition-all active:scale-90 cursor-pointer ${
+                    className={`h-8 w-8 flex items-center justify-center rounded-xl border shadow-3xs text-sm font-medium transition-all active:scale-90 cursor-pointer ${
                       isDark ? "bg-[#1f1f1f] border-zinc-800 text-zinc-300 hover:bg-zinc-800" : "bg-white border-gray-200 text-slate-600 hover:bg-slate-50"
                     }`}
                     title="Phóng to"
@@ -1506,7 +1502,7 @@ function NewWorkflowWizard({
                   <button
                     type="button"
                     onClick={addStage}
-                    className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
+                    className="p-1.5 bg-[#00adfc] hover:bg-[#0097df] text-white rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
                     title="Thêm giai đoạn"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -1536,7 +1532,7 @@ function NewWorkflowWizard({
               {/* Sidebar scrollable list */}
               <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
                 {steps.length === 0 ? (
-                  <p className="text-center text-xs text-zinc-650 py-8 font-bold">Danh sách trống</p>
+                  <p className="text-center text-xs text-zinc-650 py-8 font-medium">Danh sách trống</p>
                 ) : (
                   steps.map((s, i) => (
                     <div
@@ -1547,8 +1543,8 @@ function NewWorkflowWizard({
                       onDrop={() => reorder(s.id)}
                       className={`flex items-center gap-3 border p-2.5 rounded-xl transition-all cursor-pointer shadow-3xs ${selectedId === s.id
                         ? isDark
-                          ? "border-indigo-500/80 bg-indigo-950/10"
-                          : "border-indigo-500/80 bg-indigo-50/50"
+                          ? "border-sky-500/80 bg-sky-950/10"
+                          : "border-sky-500/80 bg-sky-50/50"
                         : isDark
                           ? "bg-[#242424] hover:bg-[#2e2e2e] border-zinc-800"
                           : "bg-white hover:bg-slate-50/80 border-gray-200"
@@ -1560,7 +1556,7 @@ function NewWorkflowWizard({
                           }`}
                       />
                       <span
-                        className={`font-extrabold text-xs px-2 py-0.5 rounded-lg shadow-3xs border transition-colors ${isDark
+                        className={`font-medium text-xs px-2 py-0.5 rounded-lg shadow-3xs border transition-colors ${isDark
                           ? "bg-zinc-800 text-zinc-350 border-zinc-700"
                           : "bg-gray-100 text-slate-500 border-gray-200"
                           }`}
@@ -1568,13 +1564,13 @@ function NewWorkflowWizard({
                         {i + 1}
                       </span>
                       <span
-                        className={`text-xs font-bold truncate flex-1 transition-colors ${isDark ? "text-zinc-200" : "text-slate-750"
+                        className={`text-xs font-medium truncate flex-1 transition-colors ${isDark ? "text-zinc-200" : "text-slate-750"
                           }`}
                       >
                         {s.title || "(Chưa đặt tên)"}
                       </span>
                       {i === 0 && (
-                        <span className="bg-emerald-955 text-emerald-400 border border-emerald-900/40 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold shadow-3xs">
+                        <span className="bg-emerald-955 text-emerald-400 border border-emerald-900/40 text-[9px] px-1.5 py-0.5 rounded-md font-medium shadow-3xs">
                           Bắt đầu
                         </span>
                       )}
@@ -1604,8 +1600,8 @@ function NewWorkflowWizard({
                             setEditingStep(s);
                           }}
                           className={`p-1 rounded-md transition-colors cursor-pointer ${isDark
-                            ? "text-zinc-450 hover:bg-zinc-800 hover:text-indigo-400"
-                            : "text-slate-400 hover:bg-slate-100 hover:text-indigo-650"
+                            ? "text-zinc-450 hover:bg-zinc-800 hover:text-sky-400"
+                            : "text-slate-400 hover:bg-slate-100 hover:text-[#008dcc]"
                             }`}
                           title="Sửa giai đoạn"
                         >
@@ -1642,7 +1638,7 @@ function NewWorkflowWizard({
             {isDark && (
               <button
                 onClick={() => setStep(1)}
-                className="flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-[#1f1f1f] text-zinc-400 px-4.5 py-2 text-xs font-bold hover:bg-zinc-800 hover:text-zinc-200 transition-all cursor-pointer shadow-3xs"
+                className="flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-[#1f1f1f] text-zinc-400 px-4.5 py-2 text-xs font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-all cursor-pointer shadow-3xs"
               >
                 <ArrowLeft className="h-4 w-4" /> Quay lại
               </button>
@@ -1652,14 +1648,8 @@ function NewWorkflowWizard({
             {step === 1 ? (
               <>
                 <button
-                  onClick={onClose}
-                  className="rounded-xl border border-gray-250 px-5 py-2 text-xs font-bold text-slate-650 hover:bg-slate-50 transition-all cursor-pointer shadow-3xs"
-                >
-                  Hủy
-                </button>
-                <button
                   onClick={goNext}
-                  className="flex items-center gap-1.5 rounded-xl bg-indigo-650 px-5 py-2 text-xs font-bold text-white hover:bg-indigo-750 transition-all cursor-pointer shadow-sm shadow-indigo-500/10"
+                  className="flex items-center gap-1.5 rounded-xl bg-[#00adfc] px-5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#0097df]"
                 >
                   Tiếp tục <ChevronRight className="h-4 w-4" />
                 </button>
@@ -1667,15 +1657,9 @@ function NewWorkflowWizard({
             ) : (
               <>
                 <button
-                  onClick={onClose}
-                  className="rounded-xl border border-zinc-800 px-5 py-2 text-xs font-bold text-zinc-450 hover:text-zinc-200 hover:bg-zinc-800 transition-all cursor-pointer shadow-3xs"
-                >
-                  Hủy
-                </button>
-                <button
                   onClick={handleFinish}
                   disabled={submitting}
-                  className="flex items-center gap-1.5 rounded-xl bg-indigo-655 hover:bg-indigo-750 text-white px-6 py-2 text-xs font-extrabold shadow-sm transition-all cursor-pointer disabled:opacity-50 active:scale-98"
+                  className="flex items-center gap-1.5 rounded-xl bg-[#00adfc] px-6 py-2 text-xs font-medium text-white transition-colors hover:bg-[#0097df] disabled:opacity-50"
                 >
                   {submitting ? "Đang lưu..." : "Lưu"}
                 </button>
@@ -1751,7 +1735,7 @@ function WizardStepEditorModal({
     });
   };
 
-  const inp = `w-full px-3 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-semibold transition-all ${isDark
+  const inp = `w-full px-3 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 font-medium transition-all ${isDark
     ? "bg-[#242424] border border-zinc-750 text-zinc-200"
     : "bg-white border border-gray-200 text-slate-800"
     }`;
@@ -1759,7 +1743,7 @@ function WizardStepEditorModal({
   const row = `flex items-start gap-3 py-2.5 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"
     }`;
 
-  const rowLabel = `w-28 shrink-0 text-[11px] font-bold pt-0.5 ${isDark ? "text-zinc-500" : "text-slate-450"
+  const rowLabel = `w-28 shrink-0 text-[11px] font-medium pt-0.5 ${isDark ? "text-zinc-500" : "text-slate-450"
     }`;
 
   return (
@@ -1780,20 +1764,19 @@ function WizardStepEditorModal({
             }`}
         >
           <div className="flex items-center gap-2">
-            <span className={`text-xs font-bold ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
+            <span className={`text-xs font-medium ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
               Giai đoạn
             </span>
-            <span className="text-sm font-extrabold text-indigo-500">{title.toUpperCase() || "(CHƯA ĐẶT TÊN)"}</span>
+            <span className="text-sm font-medium text-[#008dcc]">{title || "(Chưa đặt tên)"}</span>
             {isFirstStep && (
-              <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] font-extrabold uppercase">
+              <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] font-medium">
                 Bắt đầu
               </span>
             )}
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isDark ? "hover:bg-zinc-800 text-zinc-450 hover:text-zinc-200" : "hover:bg-gray-100 text-slate-400"
-              }`}
+            className="cursor-pointer rounded-full bg-rose-500 p-2 text-white transition-colors hover:bg-rose-600"
           >
             <X className="h-4 w-4" />
           </button>
@@ -1809,7 +1792,7 @@ function WizardStepEditorModal({
               <input
                 value={stepIndex + 1}
                 disabled
-                className={`w-10 text-center rounded-xl text-xs font-bold border transition-all ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
+                className={`w-10 text-center rounded-xl text-xs font-medium border transition-all ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
                   } py-1.5`}
               />
               <input
@@ -1840,7 +1823,7 @@ function WizardStepEditorModal({
           <div className={`py-2.5 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"
             }`}>
             <div className="flex items-center justify-between mb-2">
-              <span className={`text-[11px] font-extrabold uppercase tracking-wide ${isDark ? "text-cyan-400" : "text-cyan-600"
+              <span className={`text-[11px] font-medium tracking-wide ${isDark ? "text-cyan-400" : "text-cyan-600"
                 }`}>
                 Công việc con ({subTasks.length})
               </span>
@@ -1849,11 +1832,11 @@ function WizardStepEditorModal({
               {subTasks.map((t) => (
                 <div
                   key={t.id}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors ${isDark ? "bg-zinc-800/60 border-zinc-700 text-zinc-200" : "bg-slate-50 border-gray-100 text-slate-700"
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-colors ${isDark ? "bg-zinc-800/60 border-zinc-700 text-zinc-200" : "bg-slate-50 border-gray-100 text-slate-700"
                     }`}
                 >
                   <Check className="h-3 w-3 text-emerald-500 shrink-0" />
-                  <span className="flex-1 uppercase tracking-wide">{t.title}</span>
+                  <span className="flex-1 tracking-wide">{t.title}</span>
                   <button onClick={() => removeSubTask(t.id)} className={`hover:text-red-400 ${isDark ? "text-zinc-600" : "text-slate-350"
                     }`}>
                     <X className="h-3.5 w-3.5" />
@@ -1866,13 +1849,13 @@ function WizardStepEditorModal({
                   onChange={(e) => setNewSubTask(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") addSubTask(); }}
                   placeholder="Thêm công việc con..."
-                  className={`flex-1 text-xs font-semibold outline-none bg-transparent transition-colors ${isDark ? "text-zinc-300 placeholder-zinc-700" : "text-slate-700 placeholder-slate-350"
+                  className={`flex-1 text-xs font-medium outline-none bg-transparent transition-colors ${isDark ? "text-zinc-300 placeholder-zinc-700" : "text-slate-700 placeholder-slate-350"
                     }`}
                 />
                 {newSubTask && (
                   <button
                     onClick={addSubTask}
-                    className="rounded-lg p-1 text-indigo-500 hover:text-indigo-400 hover:bg-indigo-500/10"
+                    className="rounded-lg p-1 text-sky-500 hover:text-sky-400 hover:bg-sky-500/10"
                     title="Thêm công việc con"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -1884,7 +1867,7 @@ function WizardStepEditorModal({
 
           {/* File đính kèm */}
           <div className={`py-3 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"}`}>
-            <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${isDark ? "text-cyan-400" : "text-cyan-600"}`}>
+            <span className={`text-[11px] font-medium tracking-wide mb-2 block ${isDark ? "text-cyan-400" : "text-cyan-600"}`}>
               Tệp, ảnh, video, ghi âm và liên kết
             </span>
             <AttachmentEditor attachments={attachments} onChange={setAttachments} />
@@ -1893,7 +1876,7 @@ function WizardStepEditorModal({
           {/* Giai đoạn tiếp theo */}
           {nextStep && (
             <div className={`py-2.5`}>
-              <span className={`text-[11px] font-extrabold uppercase tracking-wide mb-2 block ${isDark ? "text-cyan-400" : "text-cyan-600"
+              <span className={`text-[11px] font-medium tracking-wide mb-2 block ${isDark ? "text-cyan-400" : "text-cyan-600"
                 }`}>
                 Giai đoạn tiếp theo
               </span>
@@ -1904,10 +1887,10 @@ function WizardStepEditorModal({
                 <ArrowRight className={`h-4 w-4 shrink-0 ${isDark ? "text-zinc-600" : "text-slate-300"
                   }`} />
                 <div
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-extrabold uppercase tracking-wide ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-white border-gray-200 text-slate-700"
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium tracking-wide ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-white border-gray-200 text-slate-700"
                     }`}
                 >
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border mr-1 ${isDark ? "bg-zinc-700 border-zinc-600 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border mr-1 ${isDark ? "bg-zinc-700 border-zinc-600 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
                     }`}>
                     {steps.indexOf(nextStep) + 1}
                   </span>
@@ -1924,17 +1907,8 @@ function WizardStepEditorModal({
             }`}
         >
           <button
-            onClick={onClose}
-            className={`px-4.5 py-2 border rounded-xl text-xs font-bold transition-all cursor-pointer ${isDark
-              ? "border-zinc-700 text-zinc-450 hover:text-zinc-200 hover:bg-zinc-800"
-              : "border-gray-250 text-slate-600 hover:bg-gray-100"
-              }`}
-          >
-            Hủy
-          </button>
-          <button
             onClick={handleSave}
-            className="px-5.5 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-sm active:scale-98"
+            className="cursor-pointer rounded-xl bg-[#00adfc] px-5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#0097df]"
           >
             Ghi nhận
           </button>
