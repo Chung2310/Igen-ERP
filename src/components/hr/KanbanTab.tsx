@@ -2200,13 +2200,13 @@ function KanbanCard({
       className="p-4 bg-white border border-[#DCE7F4] rounded-2xl shadow-2xs hover:shadow-md hover:border-[#00ADFC] transition-all duration-300 text-left cursor-pointer group space-y-3"
     >
       <div className="space-y-1.5">
-        <div className="flex justify-between items-start gap-2 select-none">
-          <span className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
-            task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-205 border-amber-200"
+        <div className="flex flex-col items-start gap-1.5 select-none">
+          <span className={`whitespace-nowrap rounded-lg px-2 py-0.5 text-[11px] ${task.priority === "High" ? "bg-rose-100 text-rose-700" :
+            task.priority === "Low" ? "bg-slate-100 text-slate-600" : "bg-amber-100 text-amber-800"
             }`}>
             {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
           </span>
-          <span className="text-[11px] font-normal text-[#007EB8] bg-[#E8F7FF] border border-[#B8E8FF] px-2 py-0.5 rounded-lg">
+          <span className="max-w-full rounded-lg bg-[#E8F7FF] px-2 py-0.5 text-[11px] text-[#007EB8]">
             {formatTaskCategory(task.category)}
           </span>
         </div>
