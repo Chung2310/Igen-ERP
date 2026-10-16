@@ -1780,17 +1780,14 @@ export default function KanbanTab({
               </button>
             </div>
             <p className="text-[11px] text-slate-400 mb-4 line-clamp-1">{quickDone.task.title}</p>
-            <p className="text-sm text-slate-500 mb-3">
-              Chỉ còn thiếu {quickDone.missing.length} thông tin để hoàn thành:
-            </p>
             <div className="space-y-3 text-xs">
               {quickDone.missing.some((m) => m.key === "description") && (
                 <div>
-                  <label className="block text-slate-600 mb-1">Mô tả công việc</label>
+                  <label className="block text-slate-600 mb-1">Mô tả</label>
                   <textarea
                     value={qdFields.description}
                     onChange={(e) => setQdFields((f) => ({ ...f, description: e.target.value }))}
-                    placeholder="Kết quả / nội dung đã thực hiện..."
+                    placeholder="Nội dung đã thực hiện..."
                     className="w-full p-2.5 bg-white border border-[#DCE7F4] focus:border-[#00ADFC] rounded-xl outline-none resize-none min-h-[64px]"
                     autoFocus
                   />
@@ -1808,7 +1805,7 @@ export default function KanbanTab({
               )}
               {quickDone.missing.some((m) => m.key === "startTime") && (
                 <div>
-                  <label className="block text-slate-600 mb-1">Ngày giờ bắt đầu</label>
+                  <label className="block text-slate-600 mb-1">Bắt đầu</label>
                   <DateTimeInput24
                     value={qdFields.startTime}
                     onChange={(v) => setQdFields((f) => ({ ...f, startTime: v }))}
@@ -1818,7 +1815,7 @@ export default function KanbanTab({
               )}
               {quickDone.missing.some((m) => m.key === "estTime") && (
                 <div>
-                  <label className="block text-slate-600 mb-1">Số giờ phải làm (h)</label>
+                  <label className="block text-slate-600 mb-1">Số giờ (h)</label>
                   <input
                     type="number"
                     min={0.5}
@@ -1846,7 +1843,7 @@ export default function KanbanTab({
                 }}
                 className="text-[#007EB8] hover:text-[#00ADFC]"
               >
-                Mở chi tiết đầy đủ…
+                Xem chi tiết
               </button>
               <button
                 onClick={submitQuickDone}
@@ -1991,12 +1988,12 @@ export default function KanbanTab({
                       const kpi = getDynamicKPI();
                       if (!kpi) return <span className="text-gray-450 italic text-[10px]">Chưa đủ dữ liệu tính KPI</span>;
                       return kpi.status === "ontime" ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-250 font-bold rounded-lg text-[10px]">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-250 font-normal rounded-lg text-[10px]">
                           <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                           {kpi.text}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-250 font-bold rounded-lg text-[10px]">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-250 font-normal rounded-lg text-[10px]">
                           <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
                           {kpi.text}
                         </span>

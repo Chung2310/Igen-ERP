@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { List, LayoutGrid, School, Clock, Users, CalendarDays, ChevronDown, ChevronRight, Pencil, Trash2, SlidersHorizontal } from 'lucide-react';
+import { List, School, Clock, CalendarDays, Pencil, Trash2, SlidersHorizontal, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
@@ -13,6 +13,8 @@ import {
 import { Pagination } from '../../components/ui/Pagination';
 import { AddResourceModal } from '../Resources/components/AddResourceModal';
 import { ResourceTable } from '../Resources/components/ResourceTable';
+import { PartnerFormDropdown } from '../Partners/components/PartnerFormDropdown';
+import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
 
 const DAY_LABELS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 const DAY_COLORS = [
@@ -65,34 +67,34 @@ function RoomScheduleCard({ room, batches, canManage, onEdit, onDelete, onViewSc
 
   return (
     <div className={cn(
-      "p-3 rounded-xl border flex flex-col justify-between transition-all duration-300 group bg-white",
+      "p-4 rounded-xl border flex flex-col justify-between transition-colors group bg-white",
       hasConflict
-        ? "border-red-300 shadow-red-100 shadow-md"
-        : "border-slate-200 shadow-sm shadow-slate-100/50 hover:border-brand-primary/20"
+        ? "border-rose-200"
+        : "border-slate-200 hover:border-sky-200"
     )}>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+          <span className="text-xs font-medium text-slate-500">
             {room.identifier}
           </span>
           <span className={cn(
-            "px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border",
+            "px-2 py-0.5 rounded-full text-[11px] font-medium border",
             hasConflict ? "bg-red-100 text-red-700 border-red-200" : "bg-blue-50 text-blue-700 border-blue-200"
           )}>
             {hasConflict ? "⚠ Trùng lịch" : "Phòng học"}
           </span>
         </div>
 
-        <h4 className="text-xs font-black line-clamp-1 text-left mt-1 text-slate-800">
+        <h4 className="text-sm font-medium line-clamp-1 text-left text-slate-800">
           {room.name}
         </h4>
 
-        <div className="flex flex-col gap-1 text-[9px] font-bold text-left text-slate-550">
+        <div className="flex flex-col gap-1 text-xs text-left text-slate-600">
           <p>
-            Sức chứa: <span className="font-black text-slate-705">{room.capacity || '—'}</span>
+            Sức chứa: <span className="font-medium text-slate-700">{room.capacity || '—'}</span>
           </p>
           <p>
-            Đang sử dụng: <span className="font-black text-brand-primary">{activeBatches.length} lớp học</span>
+            Đang sử dụng: <span className="font-medium text-brand-primary">{activeBatches.length} lớp học</span>
           </p>
         </div>
 
@@ -104,17 +106,19 @@ function RoomScheduleCard({ room, batches, canManage, onEdit, onDelete, onViewSc
               <>
                 <button
                   onClick={() => onEdit(room)}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 text-slate-500 transition-colors hover:bg-sky-50 hover:text-sky-700 cursor-pointer"
                   title="Chỉnh sửa"
+                  aria-label="Chỉnh sửa phòng học"
                 >
-                  <Pencil className="w-3.5 h-3.5" />
+                  <Pencil className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => onDelete(room)}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-700 cursor-pointer"
                   title="Xóa"
+                  aria-label="Xóa phòng học"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </>
             )}
@@ -123,10 +127,11 @@ function RoomScheduleCard({ room, batches, canManage, onEdit, onDelete, onViewSc
           {/* View schedule popup trigger */}
           <button
             onClick={() => onViewSchedule(room)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-primary text-white hover:bg-brand-primary/90 transition-all cursor-pointer shadow-sm shadow-brand-primary/20 shrink-0"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 text-brand-primary transition-colors hover:bg-sky-50 cursor-pointer shrink-0"
+            title="Lịch học"
+            aria-label={`Xem lịch học phòng ${room.name}`}
           >
-            <CalendarDays className="w-3 h-3" />
-            Lịch học
+            <CalendarDays className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -202,18 +207,18 @@ function RoomScheduleModal({ room, batches, onClose }: RoomScheduleModalProps) {
   }, [activeBatches]);
 
   return (
-    <ErpModal title={`Lịch phòng học: ${room.name} (${room.identifier})`} onClose={onClose} maxWidth="max-w-2xl">
-      <div className="space-y-4 text-left">
+    <ErpModal title={`Lịch phòng học: ${room.name} (${room.identifier})`} titleClassName="font-medium" onClose={onClose} maxWidth="max-w-3xl">
+      <div className="space-y-3 text-left">
         {/* Toggle View Mode */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <span className="text-xs font-bold text-slate-500">Chế độ hiển thị:</span>
-          <div className="flex border border-slate-200 bg-white p-0.5 rounded-lg text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <span className="text-xs text-slate-600">Chế độ hiển thị</span>
+          <div className="flex rounded-lg border border-sky-100 bg-white p-1 text-sm">
             <button
               type="button"
               onClick={() => setViewType('week')}
               className={cn(
-                "px-3 py-1.5 rounded-md font-bold transition-all cursor-pointer",
-                viewType === 'week' ? "bg-brand-primary text-white" : "text-slate-500 hover:text-slate-800"
+                "rounded-md px-3 py-1.5 font-medium transition-colors cursor-pointer",
+                viewType === 'week' ? "bg-brand-primary text-white" : "text-slate-600 hover:bg-sky-50 hover:text-sky-700"
               )}
             >
               Theo Thứ
@@ -222,8 +227,8 @@ function RoomScheduleModal({ room, batches, onClose }: RoomScheduleModalProps) {
               type="button"
               onClick={() => setViewType('date')}
               className={cn(
-                "px-3 py-1.5 rounded-md font-bold transition-all cursor-pointer",
-                viewType === 'date' ? "bg-brand-primary text-white" : "text-slate-500 hover:text-slate-800"
+                "rounded-md px-3 py-1.5 font-medium transition-colors cursor-pointer",
+                viewType === 'date' ? "bg-brand-primary text-white" : "text-slate-600 hover:bg-sky-50 hover:text-sky-700"
               )}
             >
               Theo Ngày cụ thể
@@ -232,7 +237,7 @@ function RoomScheduleModal({ room, batches, onClose }: RoomScheduleModalProps) {
         </div>
 
         {viewType === 'week' ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Week mini overview */}
             <div className="grid grid-cols-7 gap-1.5">
               {[0, 1, 2, 3, 4, 5, 6].map(day => {
@@ -240,14 +245,14 @@ function RoomScheduleModal({ room, batches, onClose }: RoomScheduleModalProps) {
                 const isConflict = slots.some(s => s.hasConflict);
                 return (
                   <div key={day} className="flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-bold text-slate-400">{DAY_LABELS[day]}</span>
+                    <span className="text-xs font-medium text-slate-500">{DAY_LABELS[day]}</span>
                     {slots.length === 0 ? (
                       <div className="w-full h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center">
                         <span className="text-[10px] text-slate-300">—</span>
                       </div>
                     ) : (
                       <div className={cn(
-                        "w-full h-8 rounded-lg flex items-center justify-center text-[10px] font-black border",
+                        "w-full h-8 rounded-lg flex items-center justify-center text-xs font-medium border",
                         isConflict ? "bg-red-100 text-red-700 border-red-300" : DAY_COLORS[day]
                       )}>
                         {isConflict ? `${slots.filter(s => s.hasConflict).length}!` : '●'}
@@ -259,20 +264,20 @@ function RoomScheduleModal({ room, batches, onClose }: RoomScheduleModalProps) {
             </div>
 
             {/* Week detailed breakdown */}
-            <div className="space-y-3 pt-2">
-              <p className="text-xs font-black uppercase tracking-wider text-slate-500">Chi tiết lịch học</p>
+            <div className="space-y-2 border-t border-slate-100 pt-3">
+              <p className="text-sm font-medium text-slate-800">Chi tiết lịch học</p>
               {[0, 1, 2, 3, 4, 5, 6].map(day => {
                 const slots = scheduleByDay[day];
                 if (slots.length === 0) return null;
                 const isConflict = slots.some(s => s.hasConflict);
                 return (
                   <div key={day} className={cn(
-                    "rounded-xl border p-3",
-                    isConflict ? "bg-red-50 border-red-200" : "bg-white border-slate-200"
+                    "rounded-lg border px-3 py-2",
+                    isConflict ? "bg-rose-50/60 border-rose-200" : "bg-white border-slate-200"
                   )}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className={cn(
-                        "text-xs font-black px-2 py-0.5 rounded-full border",
+                        "text-xs font-medium px-2 py-0.5 rounded-full border",
                         isConflict ? "bg-red-100 text-red-700 border-red-200" : DAY_COLORS[day]
                       )}>
                         {DAY_LABELS[day]}
@@ -281,17 +286,17 @@ function RoomScheduleModal({ room, batches, onClose }: RoomScheduleModalProps) {
                         <span className="text-xs text-red-600 font-semibold">⚠ Phát hiện trùng lịch (nhiều lớp cùng giờ)!</span>
                       )}
                     </div>
-                    <div className="space-y-2">
+                    <div className="divide-y divide-slate-100">
                       {slots.map(({ batch, slot }) => (
-                        <div key={batch.id} className="flex items-center justify-between text-xs">
+                        <div key={batch.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
                           <div className="flex items-center gap-2">
                             <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="font-semibold text-slate-700">{slot}</span>
+                            <span className="font-medium text-slate-700">{slot}</span>
                             <span className="text-slate-400">·</span>
-                            <span className="font-bold text-slate-800">{batch.code}</span>
+                            <span className="font-medium text-slate-800">{batch.code}</span>
                             <span className="text-slate-500">{batch.courseTitle}</span>
                           </div>
-                          <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0", STATUS_COLORS[batch.status])}>
+                          <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0", STATUS_COLORS[batch.status])}>
                             {batch.status}
                           </span>
                         </div>
@@ -302,42 +307,39 @@ function RoomScheduleModal({ room, batches, onClose }: RoomScheduleModalProps) {
               })}
 
               {activeBatches.length === 0 && (
-                <div className="text-center py-6 text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <div className="text-center py-5 text-sm text-slate-500 bg-white rounded-lg border border-slate-200">
                   Phòng học hiện chưa có lịch học nào.
                 </div>
               )}
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Date Input */}
-            <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200">
-              <span className="text-xs font-semibold text-slate-500 shrink-0">Chọn ngày:</span>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-brand-primary"
-              />
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+              <span className="text-sm text-slate-600">Chọn ngày</span>
+              <div className="w-44">
+                <VietnameseDatePicker ariaLabel="Ngày xem lịch phòng" value={selectedDate} onChange={setSelectedDate} selectionOnly variant="filter" />
+              </div>
             </div>
 
             {/* Date breakdown list */}
             {dateOccupants.length === 0 ? (
-              <div className="text-center py-8 text-xs text-slate-400 bg-white border border-slate-200 rounded-xl">
+              <div className="text-center py-6 text-sm text-slate-500 bg-white border border-slate-200 rounded-lg">
                 Không có lớp học nào sử dụng phòng vào ngày này.
               </div>
             ) : (
               <div className="space-y-2">
                 {dateOccupants.map(b => (
-                  <div key={b.id} className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs">
+                  <div key={b.id} className="bg-white border-b border-slate-100 px-2 py-3 flex flex-wrap items-center justify-between gap-2 text-sm last:border-b-0">
                     <div className="flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="font-bold text-slate-800">{b.startTime} - {b.endTime}</span>
+                      <span className="font-medium text-slate-800">{b.startTime} - {b.endTime}</span>
                       <span className="text-slate-400">·</span>
-                      <span className="font-semibold text-slate-700">{b.code}</span>
+                      <span className="font-medium text-slate-700">{b.code}</span>
                       <span className="text-slate-500">{b.courseTitle}</span>
                     </div>
-                    <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0", STATUS_COLORS[b.status])}>
+                    <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0", STATUS_COLORS[b.status])}>
                       {b.status}
                     </span>
                   </div>
@@ -350,11 +352,11 @@ function RoomScheduleModal({ room, batches, onClose }: RoomScheduleModalProps) {
         {/* Ended/Historical Classes section */}
         {allBatches.filter(b => b.status === 'Đã kết thúc').length > 0 && (
           <div className="border-t border-slate-100 pt-3">
-            <p className="text-xs font-black uppercase tracking-wider text-slate-400 mb-2">Lịch sử lớp đã kết thúc</p>
-            <div className="space-y-1 bg-white border border-slate-200 rounded-xl p-3">
+            <p className="text-sm font-medium text-slate-700 mb-2">Lớp đã kết thúc</p>
+            <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 px-3">
               {allBatches.filter(b => b.status === 'Đã kết thúc').map(b => (
-                <div key={b.id} className="flex items-center justify-between text-xs text-slate-500">
-                  <span className="font-semibold">{b.code}</span>
+                <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs text-slate-500">
+                  <span className="font-medium">{b.code}</span>
                   <span>{b.startDate} → {b.endDate}</span>
                   <span>{b.startTime} – {b.endTime}</span>
                 </div>
@@ -374,6 +376,7 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingResource, setEditingResource] = useState<ResourceItem | null>(null);
+  const [resourcePendingDeletion, setResourcePendingDeletion] = useState<ResourceItem | null>(null);
   const [viewMode, setViewMode] = useState<'schedule' | 'list'>(() => {
     return (localStorage.getItem('erp_view_mode_classrooms') as 'schedule' | 'list') || 'schedule';
   });
@@ -396,8 +399,14 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
     return [selectedBatchId, filterDate, filterDayOfWeek, filterStartTime, filterEndTime, searchTerm].filter(Boolean).length;
   }, [selectedBatchId, filterDate, filterDayOfWeek, filterStartTime, filterEndTime, searchTerm]);
 
-  const handleDelete = async (resource: ResourceItem) => {
-    if (!window.confirm(`Xóa phòng học "${resource.name}"?`)) return;
+  const handleDelete = (resource: ResourceItem) => {
+    setResourcePendingDeletion(resource);
+  };
+
+  const confirmDelete = async () => {
+    if (!resourcePendingDeletion) return;
+    const resource = resourcePendingDeletion;
+    setResourcePendingDeletion(null);
     try {
       await apiFetch(`/student-resources/${resource.id}`, { method: 'DELETE' });
       window.dispatchEvent(new Event('resource-mutation'));
@@ -543,19 +552,20 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowFilters(!showFilters)}
+              aria-expanded={showFilters}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-sm whitespace-nowrap",
+                "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap",
                 showFilters
-                  ? "bg-slate-900 border-slate-900 text-white"
-                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                  ? "bg-sky-50 border-sky-200 text-sky-700"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-sky-50 hover:border-sky-200"
               )}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>{showFilters ? "Đóng bộ lọc" : "Bộ lọc"}</span>
               {activeFiltersCount > 0 && (
                 <span className={cn(
-                  "flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[9px] font-black",
-                  showFilters ? "bg-white text-slate-900" : "bg-brand-primary text-white"
+                  "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-medium",
+                  "bg-brand-primary text-white"
                 )}>
                   {activeFiltersCount}
                 </span>
@@ -572,79 +582,76 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
 
       {/* Search & Advanced Filters Panel (Collapsible) */}
       {showFilters && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-left animate-fadeIn">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-left animate-fadeIn">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-12">
             {/* Search Input */}
-            <div className="xl:col-span-2">
-              <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Tìm kiếm phòng</label>
+            <div className="xl:col-span-3">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">Tìm phòng</label>
               <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Tên hoặc mã số phòng..." />
             </div>
 
             {/* Filter by Batch */}
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Theo Lớp</label>
-              <select
+            <div className="xl:col-span-3">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">Lớp học</label>
+              <PartnerFormDropdown
+                label="Lọc theo lớp học"
                 value={selectedBatchId}
-                onChange={(e) => setSelectedBatchId(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-700 cursor-pointer"
-              >
-                <option value="">-- Tất cả các lớp --</option>
-                {batches.filter(b => b.status !== 'Đã kết thúc').map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.code} ({b.courseTitle})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Filter by Date */}
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Theo Ngày</label>
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-700 cursor-pointer"
+                onChange={setSelectedBatchId}
+                triggerClassName="flex h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 text-left text-sm text-slate-700 transition-colors hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00adfc]"
+                options={[
+                  { value: '', label: 'Tất cả các lớp' },
+                  ...batches.filter(b => b.status !== 'Đã kết thúc').map(b => ({ value: b.id, label: `${b.code} (${b.courseTitle})` })),
+                ]}
               />
             </div>
 
+            {/* Filter by Date */}
+            <div className="xl:col-span-2">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">Ngày học</label>
+              <VietnameseDatePicker ariaLabel="Ngày học" value={filterDate} onChange={setFilterDate} selectionOnly variant="filter" />
+            </div>
+
             {/* Filter by Day of Week */}
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Theo Thứ</label>
-              <select
+            <div className="xl:col-span-2">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">Thứ trong tuần</label>
+              <PartnerFormDropdown
+                label="Lọc theo thứ"
                 value={filterDayOfWeek}
-                onChange={(e) => setFilterDayOfWeek(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-700 cursor-pointer"
-              >
-                <option value="">-- Tất cả các thứ --</option>
-                <option value="1">Thứ Hai</option>
-                <option value="2">Thứ Ba</option>
-                <option value="3">Thứ Tư</option>
-                <option value="4">Thứ Năm</option>
-                <option value="5">Thứ Sáu</option>
-                <option value="6">Thứ Bảy</option>
-                <option value="0">Chủ Nhật</option>
-              </select>
+                onChange={setFilterDayOfWeek}
+                triggerClassName="flex h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 text-left text-sm text-slate-700 transition-colors hover:bg-sky-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00adfc]"
+                options={[
+                  { value: '', label: 'Tất cả các thứ' },
+                  { value: '1', label: 'Thứ Hai' },
+                  { value: '2', label: 'Thứ Ba' },
+                  { value: '3', label: 'Thứ Tư' },
+                  { value: '4', label: 'Thứ Năm' },
+                  { value: '5', label: 'Thứ Sáu' },
+                  { value: '6', label: 'Thứ Bảy' },
+                  { value: '0', label: 'Chủ Nhật' },
+                ]}
+              />
             </div>
 
             {/* Filter by Time Range */}
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Khung Giờ</label>
+            <div className="xl:col-span-2">
+              <label className="mb-1.5 block text-xs font-medium text-slate-600">Khung giờ</label>
               <div className="flex items-center gap-1">
                 <input
                   type="time"
                   value={filterStartTime}
                   onChange={(e) => setFilterStartTime(e.target.value)}
-                  className="w-1/2 px-2 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-700 cursor-pointer"
+                  className="h-9 min-w-0 w-1/2 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 cursor-pointer"
                   title="Giờ bắt đầu"
+                  aria-label="Giờ bắt đầu"
                 />
-                <span className="text-slate-400 text-xs">-</span>
+                <span className="text-slate-400 text-xs">–</span>
                 <input
                   type="time"
                   value={filterEndTime}
                   onChange={(e) => setFilterEndTime(e.target.value)}
-                  className="w-1/2 px-2 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-slate-700 cursor-pointer"
+                  className="h-9 min-w-0 w-1/2 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 cursor-pointer"
                   title="Giờ kết thúc"
+                  aria-label="Giờ kết thúc"
                 />
               </div>
             </div>
@@ -653,16 +660,16 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
       )}
 
       {/* Info & View Switcher Bar (Always visible) */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-sm text-left">
+      <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-left">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold text-xs">
+          <span className="px-2.5 py-1 rounded-full bg-slate-50 text-slate-600 text-xs">
             {classrooms.length} phòng tổng số
           </span>
-          <span className="px-2.5 py-1 rounded-full bg-blue-50 text-brand-primary font-semibold text-xs">
+          <span className="px-2.5 py-1 rounded-full bg-sky-50 text-brand-primary text-xs">
             Lọc được {filtered.length} phòng
           </span>
           {conflictCount > 0 && (
-            <span className="px-2.5 py-1 rounded-full bg-red-100 text-red-700 font-bold border border-red-200 text-xs">
+            <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100 text-xs">
               ⚠ {conflictCount} phòng trùng lịch
             </span>
           )}
@@ -679,22 +686,25 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
                 setFilterEndTime('');
                 setSearchTerm('');
               }}
-              className="text-xs font-bold uppercase tracking-wider text-rose-500 hover:text-rose-600 transition-colors cursor-pointer mr-2 whitespace-nowrap"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-700 cursor-pointer"
+              title="Xóa bộ lọc"
+              aria-label="Xóa bộ lọc"
             >
-              Xóa bộ lọc
+              <X className="h-4 w-4" />
             </button>
           )}
 
           {/* View Mode Switcher */}
-          <div className="flex items-center border border-slate-200 bg-slate-50 p-1 rounded-xl gap-0.5 shrink-0">
+          <div className="flex items-center border border-sky-100 bg-white p-1 rounded-lg gap-1 shrink-0">
             <button
               type="button"
               onClick={() => { setViewMode('schedule'); localStorage.setItem('erp_view_mode_classrooms', 'schedule'); }}
               className={cn(
-                "p-1.5 rounded-lg active:scale-95 transition-all cursor-pointer",
-                viewMode === 'schedule' ? "bg-white text-slate-800 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                "flex h-8 w-8 items-center justify-center rounded-md transition-colors cursor-pointer",
+                viewMode === 'schedule' ? "bg-sky-50 text-sky-700" : "text-slate-500 hover:bg-slate-50"
               )}
               title="Xem lưới"
+              aria-label="Xem dạng lịch"
             >
               <CalendarDays className="w-3.5 h-3.5" />
             </button>
@@ -702,10 +712,11 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
               type="button"
               onClick={() => { setViewMode('list'); localStorage.setItem('erp_view_mode_classrooms', 'list'); }}
               className={cn(
-                "p-1.5 rounded-lg active:scale-95 transition-all cursor-pointer",
-                viewMode === 'list' ? "bg-white text-slate-800 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                "flex h-8 w-8 items-center justify-center rounded-md transition-colors cursor-pointer",
+                viewMode === 'list' ? "bg-sky-50 text-sky-700" : "text-slate-500 hover:bg-slate-50"
               )}
               title="Xem danh sách"
+              aria-label="Xem dạng danh sách"
             >
               <List className="w-3.5 h-3.5" />
             </button>
@@ -751,15 +762,15 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
           </ErpCard>
         </div>
       ) : (
-        <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-sm">
+        <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white">
           <table className="min-w-full divide-y divide-slate-200 text-left">
-            <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+            <thead className="bg-sky-50/70 text-xs font-medium text-slate-600">
               <tr>
-                <th className="px-4 py-3">Mã phòng</th>
-                <th className="px-4 py-3">Tên phòng học</th>
-                <th className="px-4 py-3">Sức chứa</th>
-                <th className="px-4 py-3">Số lớp đang sử dụng</th>
-                <th className="px-4 py-3 text-right">Thao tác</th>
+                <th className="px-4 py-3 font-medium">Mã phòng</th>
+                <th className="px-4 py-3 font-medium">Tên phòng học</th>
+                <th className="px-4 py-3 font-medium">Sức chứa</th>
+                <th className="px-4 py-3 font-medium">Số lớp đang sử dụng</th>
+                <th className="px-4 py-3 text-right font-medium">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-xs text-slate-700 bg-white">
@@ -767,33 +778,36 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
                 const activeCount = batches.filter(b => b.location === room.name && b.status !== 'Đã kết thúc').length;
                 return (
                   <tr key={room.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3.5 font-bold text-slate-800">{room.identifier}</td>
-                    <td className="px-4 py-3.5 font-black text-slate-900">{room.name}</td>
-                    <td className="px-4 py-3.5 font-medium">{room.capacity || '—'}</td>
-                    <td className="px-4 py-3.5 font-medium text-brand-primary">{activeCount} lớp học</td>
+                    <td className="px-4 py-3 font-normal text-slate-600">{room.identifier}</td>
+                    <td className="px-4 py-3 font-medium text-slate-800">{room.name}</td>
+                    <td className="px-4 py-3 text-slate-700">{room.capacity || '—'}</td>
+                    <td className="px-4 py-3 text-brand-primary">{activeCount} lớp học</td>
                     <td className="px-4 py-3.5 text-right flex items-center justify-end gap-2">
                       <button
                         onClick={() => setActiveScheduleRoom(room)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border border-slate-200 text-slate-600 hover:border-brand-primary hover:text-brand-primary hover:bg-blue-50 transition-all cursor-pointer"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 text-brand-primary transition-colors hover:bg-sky-50 cursor-pointer"
+                        title="Lịch học"
+                        aria-label={`Xem lịch học phòng ${room.name}`}
                       >
-                        <CalendarDays className="w-3 h-3" />
-                        Lịch học
+                        <CalendarDays className="w-4 h-4" />
                       </button>
                       {canManage && (
                         <>
                           <button
                             onClick={() => setEditingResource(room)}
-                            className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 text-slate-500 transition-colors hover:bg-sky-50 hover:text-sky-700 cursor-pointer"
                             title="Sửa"
+                            aria-label="Sửa phòng học"
                           >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <Pencil className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(room)}
-                            className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-700 cursor-pointer"
                             title="Xóa"
+                            aria-label="Xóa phòng học"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </>
                       )}
@@ -826,6 +840,32 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
           resource={editingResource || undefined}
           forceType="Phòng học"
         />
+      )}
+
+      {resourcePendingDeletion && (
+        <ErpModal
+          title="Xóa phòng học"
+          titleClassName="font-medium"
+          onClose={() => setResourcePendingDeletion(null)}
+          maxWidth="max-w-md"
+        >
+          <div className="space-y-4 text-left">
+            <p className="text-sm text-slate-600">
+              Bạn muốn xóa phòng học “{resourcePendingDeletion.name}”?
+            </p>
+            <div className="flex justify-end border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={() => void confirmDelete()}
+                className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500 text-white transition-colors hover:bg-rose-600"
+                title="Xác nhận xóa phòng học"
+                aria-label="Xác nhận xóa phòng học"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </ErpModal>
       )}
 
       {/* View Schedule Modal Popup */}

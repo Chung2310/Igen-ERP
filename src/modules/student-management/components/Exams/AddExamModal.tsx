@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Save, ChevronDown, Loader2 } from 'lucide-react';
+import { X, Save, ChevronDown, Loader2, Pencil, Archive, Trash2, RotateCcw } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { ExamSession } from '../../types';
 import { toast } from '../../../../pages/Toast';
@@ -120,12 +120,10 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
     return (
-      <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
-        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => openEditStdField(fieldConfig)}>Sửa</button>
-        <span>|</span>
-        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => archiveStd(fieldConfig)}>Lưu trữ</button>
-        <span>|</span>
-        <button type="button" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => deleteStd(fieldConfig)}>Xóa</button>
+      <div className="absolute right-0 top-0 z-10 flex items-center gap-1" role="group" aria-label={`Công cụ trường ${fieldConfig.label}`}>
+        <button type="button" title={`Sửa ${fieldConfig.label}`} aria-label={`Sửa ${fieldConfig.label}`} className="flex h-7 w-7 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600 transition-colors hover:bg-sky-100" onClick={() => openEditStdField(fieldConfig)}><Pencil className="h-3.5 w-3.5" /></button>
+        <button type="button" title={`Lưu trữ ${fieldConfig.label}`} aria-label={`Lưu trữ ${fieldConfig.label}`} className="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-100 bg-amber-50 text-amber-700 transition-colors hover:bg-amber-100" onClick={() => archiveStd(fieldConfig)}><Archive className="h-3.5 w-3.5" /></button>
+        <button type="button" title={`Xóa ${fieldConfig.label}`} aria-label={`Xóa ${fieldConfig.label}`} className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100" onClick={() => deleteStd(fieldConfig)}><Trash2 className="h-3.5 w-3.5" /></button>
       </div>
     );
   };
@@ -573,11 +571,12 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                       <button
                         type="button"
                         disabled={isSubmitting}
-                        className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600 transition-colors hover:bg-sky-100 disabled:opacity-50"
                         aria-label={`Khôi phục ${field.label}`}
+                        title={`Khôi phục ${field.label}`}
                         onClick={() => restoreStdField(field.key)}
                       >
-                        Khôi phục
+                        <RotateCcw className="h-3.5 w-3.5" />
                       </button>
                     </li>
                   ))}

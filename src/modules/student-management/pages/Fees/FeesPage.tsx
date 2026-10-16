@@ -239,34 +239,44 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 gap-3 rounded-xl border border-sky-100 bg-brand-primary/5 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-800 sm:col-span-2 lg:col-span-1">
-          <CalendarDays className="h-4 w-4" />
-          Dữ liệu thu học phí theo thời gian
+      <div className="space-y-3 rounded-xl border border-sky-100 bg-brand-primary/5 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
+            <CalendarDays className="h-4 w-4" />
+            Dữ liệu thu học phí theo thời gian
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              ['Hôm nay', 0], ['1 tuần', 7], ['1 tháng', 30], ['3 tháng', 90],
+            ].map(([label, days]) => (
+              <button key={String(days)} type="button" onClick={() => applyQuickRange(Number(days))} disabled={paymentsLoading} className="h-8 rounded-lg border border-sky-200 bg-white px-2.5 text-xs font-normal text-brand-primary hover:bg-sky-50 disabled:opacity-50">
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 sm:col-span-2 lg:col-span-2 lg:justify-end">
-          {[
-            ['Hôm nay', 0], ['1 tuần', 7], ['1 tháng', 30], ['3 tháng', 90],
-          ].map(([label, days]) => (
-            <button key={String(days)} type="button" onClick={() => applyQuickRange(Number(days))} disabled={paymentsLoading} className="h-8 rounded-lg border border-sky-200 bg-white px-2.5 text-xs font-normal text-brand-primary hover:bg-sky-50 disabled:opacity-50">
-              {label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex w-full min-w-0 items-center gap-2 text-sm font-normal text-slate-600 sm:w-auto">
+            <span className="shrink-0">Từ ngày</span>
+            <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
+              <VietnameseDatePicker ariaLabel="Từ ngày" value={startDate} max={endDate || undefined} onChange={setStartDate} selectionOnly variant="filter" />
+            </div>
+          </div>
+          <div className="flex w-full min-w-0 items-center gap-2 text-sm font-normal text-slate-600 sm:w-auto">
+            <span className="shrink-0">Đến ngày</span>
+            <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
+              <VietnameseDatePicker ariaLabel="Đến ngày" value={endDate} min={startDate || undefined} max={toDateInput(new Date())} onChange={setEndDate} selectionOnly variant="filter" />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setAppliedStartDate(startDate); setAppliedEndDate(endDate); }}
+            disabled={paymentsLoading || (Boolean(startDate) !== Boolean(endDate))}
+            className="h-9 w-full rounded-lg bg-brand-primary px-5 text-sm font-medium text-white transition-colors hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+          >
+            {paymentsLoading ? 'Đang lọc...' : 'Lọc'}
+          </button>
         </div>
-        <div className="space-y-1 text-xs font-normal text-slate-600"><span>Từ ngày</span>
-          <VietnameseDatePicker ariaLabel="Từ ngày" value={startDate} max={endDate || undefined} onChange={setStartDate} selectionOnly variant="filter" />
-        </div>
-        <div className="space-y-1 text-xs font-normal text-slate-600"><span>Đến ngày</span>
-          <VietnameseDatePicker ariaLabel="Đến ngày" value={endDate} min={startDate || undefined} max={toDateInput(new Date())} onChange={setEndDate} selectionOnly variant="filter" />
-        </div>
-        <button
-          type="button"
-          onClick={() => { setAppliedStartDate(startDate); setAppliedEndDate(endDate); }}
-          disabled={paymentsLoading || (Boolean(startDate) !== Boolean(endDate))}
-          className="h-9 self-end rounded-xl bg-brand-primary px-5 text-xs font-medium text-white transition-colors hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {paymentsLoading ? 'Đang lọc...' : 'Lọc'}
-        </button>
       </div>
       <div className="grid grid-cols-1 gap-2 rounded-xl border border-sky-100 bg-white p-3 shadow-sm sm:grid-cols-3">
         <div className="space-y-0.5">

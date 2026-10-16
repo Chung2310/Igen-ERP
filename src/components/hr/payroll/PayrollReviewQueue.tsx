@@ -15,7 +15,7 @@ export function PayrollReviewQueue({ adjustments, onApprove, onReject }: {
   onApprove: (adjustment: Adjustment) => void;
   onReject: (adjustment: Adjustment) => void;
 }) {
-  if (!adjustments.length) return <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Không có điều chỉnh nào trong kỳ.</p>;
+  if (!adjustments.length) return <p className="rounded-xl bg-[#F1FAFE] p-4 text-sm font-normal text-slate-600">Chưa có khoản chờ duyệt.</p>;
 
   // Sort: pending first
   const sorted = [...adjustments].sort((a, b) => {
@@ -27,15 +27,15 @@ export function PayrollReviewQueue({ adjustments, onApprove, onReject }: {
   return (
     <div className="space-y-2">
       {sorted.map((item) => (
-        <div key={item._id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3">
+        <div key={item._id} className="flex items-center justify-between gap-3 rounded-xl border border-[#DCE7F4] bg-white p-3">
           <div className="min-w-0">
-            <p className="font-semibold text-slate-800">{item.employeeName || item.employeeId}</p>
+            <p className="font-normal text-slate-700">{item.employeeName || item.employeeId}</p>
             <p className="text-xs text-slate-500">
               {item.kind === "bonus" ? "Thưởng / Cộng thêm" : item.kind === "deduction" ? "Khấu trừ / Phạt" : item.kind} · {item.reason}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-4">
-            <strong className={item.kind === "deduction" ? "text-rose-600" : "text-slate-850"}>
+            <strong className={`font-normal ${item.kind === "deduction" ? "text-rose-600" : "text-slate-700"}`}>
               {item.kind === "deduction" ? "-" : ""}{item.amount.toLocaleString()} đ
             </strong>
             {item.status === "pending" ? (
@@ -44,7 +44,7 @@ export function PayrollReviewQueue({ adjustments, onApprove, onReject }: {
                   type="button"
                   title="Duyệt điều chỉnh"
                   onClick={() => onApprove(item)}
-                  className="rounded-md p-1.5 text-emerald-600 hover:bg-emerald-50 cursor-pointer"
+                  className="rounded-lg p-2 text-[#008C75] transition-colors hover:bg-[#E7F8F4] cursor-pointer"
                 >
                   <Check size={16} />
                 </button>
@@ -52,17 +52,17 @@ export function PayrollReviewQueue({ adjustments, onApprove, onReject }: {
                   type="button"
                   title="Từ chối điều chỉnh"
                   onClick={() => onReject(item)}
-                  className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50 cursor-pointer"
+                  className="rounded-lg p-2 text-rose-500 transition-colors hover:bg-rose-50 cursor-pointer"
                 >
                   <X size={16} />
                 </button>
               </div>
             ) : item.status === "approved" ? (
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-normal bg-[#E7F8F4] text-[#008C75]">
                 Đã duyệt
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 border border-slate-200">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-normal bg-slate-100 text-slate-500">
                 Đã từ chối
               </span>
             )}

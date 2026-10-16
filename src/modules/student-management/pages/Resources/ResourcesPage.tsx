@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { List, LayoutGrid, Warehouse } from 'lucide-react';
+import { List, LayoutGrid, Tags, Warehouse } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
@@ -8,7 +8,7 @@ import { useResourceCategories } from '../../hooks/useResourceCategories';
 import { ResourceItem } from '../../types';
 import {
   ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
-  ErpEmptyState, ErpLoadingState, ErpCard
+  ErpLoadingState, ErpCard
 } from '../../components/Erp/ErpUI';
 import { Pagination } from '../../components/ui/Pagination';
 
@@ -19,8 +19,6 @@ import { ResourceCard } from './components/ResourceCard';
 import { ResourceTable } from './components/ResourceTable';
 
 export function ResourcesPage({ canManage = true, forceType, excludeType }: { canManage?: boolean; forceType?: string; excludeType?: string }) {
-  const darkMode = false;
-
   const { resources, loading } = useResources();
   const { categories, loading: categoriesLoading } = useResourceCategories();
 
@@ -120,22 +118,18 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
   };
 
   return (
-    <div className="space-y-6 text-left">
+    <div className="space-y-4 text-left">
       <ErpPageHeader
-        title={forceType === 'Phòng học' ? "Quản lý Phòng học" : "Quản lý Thiết bị & Tài nguyên"}
+        title={forceType === 'Phòng học' ? "Quản lý phòng học" : "Quản lý thiết bị & tài nguyên"}
         subtitle={forceType === 'Phòng học' ? "Quản lý danh sách các phòng học của trung tâm." : "Bấm 'Khai báo tài nguyên mới' để thêm phòng học, thiết bị hoặc công cụ giảng dạy."}
         action={canManage ? (
           <div className="flex gap-2">
             {!forceType && (
               <button
                 onClick={() => setShowCategoryModal(true)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all border cursor-pointer shrink-0",
-                  darkMode
-                    ? "bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700"
-                    : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                )}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-medium normal-case text-slate-700 transition-colors hover:border-sky-200 hover:bg-sky-50"
               >
+                <Tags className="h-4 w-4 text-brand-primary" />
                 Quản lý phân loại
               </button>
             )}
@@ -147,9 +141,9 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
       />
 
       {/* Controls */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      <div className="flex flex-col items-stretch justify-between gap-3 md:flex-row md:items-center">
         <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Tìm tài nguyên bằng tên hoặc số nhận diện..." />
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 md:justify-end">
           {!forceType && (
             <ErpFilterRail>
               <ErpFilterTab active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>
@@ -163,32 +157,26 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
             </ErpFilterRail>
           )}
 
-          <div className={cn("flex items-center border p-1 rounded-xl gap-0.5 shrink-0", darkMode ? "border-slate-800 bg-slate-900/50" : "border-slate-200 bg-slate-50")}>
+          <div className="flex shrink-0 items-center gap-1 rounded-xl border border-sky-100 bg-white p-1">
             <button
               type="button"
               onClick={() => { setViewMode('list'); localStorage.setItem('erp_view_mode_resources', 'list'); }}
-              className={cn(
-                "p-1.5 rounded-lg active:scale-95 transition-all cursor-pointer",
-                viewMode === 'list'
-                  ? (darkMode ? "bg-slate-800 text-white" : "bg-white text-slate-855 shadow-sm")
-                  : "text-slate-400 hover:text-slate-650"
-              )}
+              aria-label="Hiển thị dạng danh sách"
+              aria-pressed={viewMode === 'list'}
+              className={cn("inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors", viewMode === 'list' ? "bg-brand-primary text-white" : "text-slate-500 hover:bg-sky-50 hover:text-brand-primary")}
               title="Hiển thị dạng danh sách"
             >
-              <List className="w-3.5 h-3.5" />
+              <List className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={() => { setViewMode('grid'); localStorage.setItem('erp_view_mode_resources', 'grid'); }}
-              className={cn(
-                "p-1.5 rounded-lg active:scale-95 transition-all cursor-pointer",
-                viewMode === 'grid'
-                  ? (darkMode ? "bg-slate-800 text-white" : "bg-white text-slate-855 shadow-sm")
-                  : "text-slate-400 hover:text-slate-600"
-              )}
+              aria-label="Hiển thị dạng lưới"
+              aria-pressed={viewMode === 'grid'}
+              className={cn("inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors", viewMode === 'grid' ? "bg-brand-primary text-white" : "text-slate-500 hover:bg-sky-50 hover:text-brand-primary")}
               title="Hiển thị dạng lưới"
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -198,12 +186,16 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
       {loading && resources.length === 0 ? (
         <ErpCard><ErpLoadingState message="Đang tải danh sách tài nguyên..." /></ErpCard>
       ) : filteredResources.length === 0 ? (
-        <ErpCard>
-          <ErpEmptyState
-            icon={Warehouse}
-            title="Chưa có tài nguyên nào"
-            subtitle="Bấm 'Khai báo tài nguyên mới' để thêm phòng học, thiết bị hoặc công cụ giảng dạy."
-          />
+        <ErpCard className="overflow-hidden">
+          <div className="flex min-h-[220px] flex-col items-center justify-center px-5 py-8 text-center">
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-brand-primary">
+              <Warehouse className="h-5 w-5" />
+            </div>
+            <h2 className="text-base font-medium text-slate-800">Chưa có tài nguyên nào</h2>
+            <p className="mt-1 max-w-lg text-sm font-normal text-slate-500">
+              Bấm “Khai báo tài nguyên mới” để thêm phòng học, thiết bị hoặc công cụ giảng dạy.
+            </p>
+          </div>
         </ErpCard>
       ) : viewMode === 'grid' ? (
         <div className="space-y-4">

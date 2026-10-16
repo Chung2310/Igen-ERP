@@ -76,13 +76,6 @@ const formatDays = (days: number[]) =>
 
 const formatDate = (d: string) => (d ? d.split('-').reverse().join('/') : '');
 
-const statusStyle = (status: BatchStatus) => {
-  if (status === 'Đang học') return "bg-cyan-50 text-cyan-700 border-cyan-200";
-  if (status === 'Sắp khai giảng') return "bg-slate-100 text-slate-600 border-slate-200";
-  if (status === 'Đã hủy') return "bg-rose-50 text-rose-700 border-rose-200";
-  return "bg-slate-100 text-slate-600 border-slate-200";
-};
-
 const progressStatusText = (level: BatchProgressLevel) => {
   if (level === 'red') return "Quá hạn";
   if (level === 'yellow') return "Cần chú ý";
@@ -610,18 +603,16 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     entityLabel.preset === 'worker' ? '' : b.courseCode;
 
   const renderStatusSelect = (b: Batch) => (
-    <select
-      aria-label={`Trạng thái ${b.code}`}
+    <RoadmapPicker
+      ariaLabel={`Trạng thái ${b.code}`}
       value={b.status}
-      onChange={(e) => handleChangeStatus(b, e.target.value as BatchStatus)}
-      className={cn(
-        "max-w-full rounded-lg border px-2 py-1.5 text-xs font-medium outline-none cursor-pointer focus:ring-2 focus:ring-brand-primary/15",
-        statusStyle(b.status),
-        darkMode ? "bg-slate-900" : "bg-white"
-      )}
-    >
-      {BATCH_STATUSES.map(st => <option key={st} value={st}>{statusLabel(st)}</option>)}
-    </select>
+      options={BATCH_STATUSES.map(st => ({ value: st, label: statusLabel(st) }))}
+      placeholder={statusLabel(b.status)}
+      allowClear={false}
+      portal
+      className="min-w-[150px] rounded-lg border-slate-200 text-xs"
+      onChange={(value) => handleChangeStatus(b, value as BatchStatus)}
+    />
   );
 
   const renderProgressSummary = (b: Batch, compact = false) => {
@@ -816,9 +807,14 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       ) : (
         <ErpCard className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] border-collapse text-left text-xs [&_thead_tr]:border-brand-primary/15 [&_thead_tr]:bg-brand-primary/10">
+            <table className={cn(
+              "w-full min-w-[1100px] border-collapse text-left text-xs [&_thead_tr]:border-brand-primary/15 [&_thead_tr]:bg-brand-primary/10 [&_th:not(:last-child)]:border-r [&_td:not(:last-child)]:border-r [&_tbody_tr:not(:last-child)]:border-b",
+              darkMode
+                ? "[&_th]:border-slate-800/40 [&_td]:border-slate-800/40 [&_tbody_tr]:border-slate-800/40"
+                : "[&_th]:border-[#E8F0F8] [&_td]:border-[#E8F0F8] [&_tbody_tr]:border-[#E8F0F8]"
+            )}>
               <ErpTableHead columns={[copy.entityName, copy.instructorLabel, 'Lịch học', 'Thời gian', 'Tiến độ', copy.capacityLabel, 'Trạng thái', 'Thao tác']} />
-              <tbody className={cn("divide-y", darkMode ? "divide-slate-800/30" : "divide-slate-100")}>
+              <tbody>
                 {paginatedBatches.map((b) => (
                   <tr key={b.id} className="text-slate-600 transition-colors hover:bg-sky-50/30">
                     <td className="max-w-[240px] px-4 py-3">
@@ -872,27 +868,28 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
       {/* Create / Edit Batch Modal */}
       {showProgressColors && (
-        <ErpModal title="Cấu hình màu tiến độ lớp" onClose={() => setShowProgressColors(false)} maxWidth="max-w-md">
-          <p className="mb-4 text-sm text-slate-500">Màu này áp dụng cho toàn bộ lớp học của chi nhánh hiện tại.</p>
-          <div className="space-y-3">
+        <ErpModal title="Cấu hình màu tiến độ lớp" titleClassName="font-normal" onClose={() => setShowProgressColors(false)} maxWidth="max-w-lg">
+          <p className="text-sm font-normal text-slate-500">Áp dụng cho các lớp học của chi nhánh hiện tại.</p>
+          <div className="space-y-2">
             {([
               ['green', 'Xanh — dưới 80%'],
               ['yellow', 'Vàng — từ 80% số buổi'],
               ['red', 'Đỏ — quá buổi cuối, chưa kết thúc'],
               ['black', 'Đen — đã kết thúc 6–12 tháng'],
             ] as const).map(([key, label]) => (
-              <label key={key} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm font-semibold text-slate-700">
-                {label}
-                <span className="flex items-center gap-2">
-                  <input type="color" value={progressColors[key]} onChange={(event) => setProgressColors((current) => ({ ...current, [key]: event.target.value }))} className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0" />
-                  <span className="w-16 font-mono text-xs text-slate-500">{progressColors[key]}</span>
+              <label key={key} className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal text-slate-700 transition-colors hover:border-sky-200 hover:bg-sky-50/30">
+                <span className="min-w-0">{label}</span>
+                <span className="flex shrink-0 items-center gap-2.5">
+                  <span className="relative h-8 w-8 overflow-hidden rounded-lg border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-brand-primary/20" style={{ backgroundColor: progressColors[key] }}>
+                    <input type="color" aria-label={`Chọn màu ${label}`} value={progressColors[key]} onChange={(event) => setProgressColors((current) => ({ ...current, [key]: event.target.value }))} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+                  </span>
+                  <span className="w-[4.5rem] font-mono text-xs font-normal tabular-nums text-slate-500">{progressColors[key]}</span>
                 </span>
               </label>
             ))}
           </div>
-          <div className="mt-5 flex justify-end gap-2">
-            <button type="button" onClick={() => setShowProgressColors(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Hủy</button>
-            <button type="button" disabled={savingProgressColors} onClick={() => void saveProgressColors()} className="rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{savingProgressColors ? 'Đang lưu...' : 'Lưu màu'}</button>
+          <div className="flex justify-end border-t border-slate-100 pt-3">
+            <button type="button" disabled={savingProgressColors} onClick={() => void saveProgressColors()} className="inline-flex h-9 items-center rounded-lg bg-brand-primary px-4 text-sm font-medium text-white transition-colors hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:opacity-50">{savingProgressColors ? 'Đang lưu...' : 'Lưu màu'}</button>
           </div>
         </ErpModal>
       )}

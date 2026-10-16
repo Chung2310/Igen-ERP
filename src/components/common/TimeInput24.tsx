@@ -207,6 +207,20 @@ interface DateTimeInput24Props {
   disabled?: boolean;
 }
 
+interface DateInput24Props extends Omit<DateTimeInput24Props, "className"> {
+  className?: string;
+  ariaLabel?: string;
+}
+
+/** Branded date-only field with the same calendar popover used by DateTimeInput24. */
+export function DateInput24({ value, onChange, className = "", required, disabled, ariaLabel = "Chọn ngày" }: DateInput24Props) {
+  return (
+    <div className={`flex min-h-10 w-full items-center rounded-xl border border-[#DCE7F4] bg-white px-2.5 transition-colors hover:border-[#B8DFF3] focus-within:border-[#70D5FF] focus-within:ring-2 focus-within:ring-[#00ADFC]/15 ${className}`}>
+      <BrandedDateInput value={value} onChange={onChange} required={required} disabled={disabled} ariaLabel={ariaLabel} />
+    </div>
+  );
+}
+
 /** Ngày + giờ 24h, thay cho <input type="datetime-local"> native. */
 export function DateTimeInput24({ value, onChange, className = "", required, disabled }: DateTimeInput24Props) {
   const [datePart = "", rawTime = ""] = value ? value.split("T") : ["", ""];
@@ -221,7 +235,7 @@ export function DateTimeInput24({ value, onChange, className = "", required, dis
     <div
       className={`flex items-center gap-1.5 bg-white border border-slate-200 hover:border-sky-200 focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primary/15 rounded-xl px-3.5 py-2 transition-all ${className}`}
     >
-      <BrandedDateInput value={datePart} onChange={(date) => emit(date, timePart)} required={required} disabled={disabled} />
+        <BrandedDateInput value={datePart} onChange={(date) => emit(date, timePart)} required={required} disabled={disabled} ariaLabel="Chọn ngày" />
       <div className="w-px bg-gray-200 self-stretch my-0.5 shrink-0" />
       <TimeInput24
         value={timePart}
@@ -240,7 +254,7 @@ const parseDateValue = (value: string) => {
   return year && month && day ? new Date(year, month - 1, day) : null;
 };
 
-function BrandedDateInput({ value, onChange, required, disabled }: Pick<DateTimeInput24Props, "value" | "onChange" | "required" | "disabled">) {
+function BrandedDateInput({ value, onChange, required, disabled, ariaLabel }: Pick<DateTimeInput24Props, "value" | "onChange" | "required" | "disabled"> & { ariaLabel: string }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -305,7 +319,7 @@ function BrandedDateInput({ value, onChange, required, disabled }: Pick<DateTime
         ref={triggerRef}
         type="button"
         disabled={disabled}
-        aria-label="Chọn ngày"
+        aria-label={ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-required={required}
