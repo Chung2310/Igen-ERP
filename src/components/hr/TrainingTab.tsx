@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Award,
   BookOpen,
   CheckCircle2,
   ExternalLink,
@@ -35,6 +34,20 @@ function TrainingBookIcon({ className = "h-6 w-6" }: { className?: string }) {
       <path d="M7.2 9c2.7-.5 4.9-.1 7 1.1M7.2 13c2.7-.5 4.9-.1 7 1.1M24.8 9c-2.7-.5-4.9-.1-7 1.1M24.8 13c-2.7-.5-4.9-.1-7 1.1" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity=".9" />
       <path d="M16 6.8v20.7" stroke="#006AA6" strokeWidth="1.5" strokeLinecap="round" />
       <path d="M4 26.2c4.7-1.5 8.4-1.2 12 1.3 3.6-2.5 7.3-2.8 12-1.3" stroke="#005D93" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TrainingProgressIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <rect x="3" y="4" width="26" height="24" rx="7" fill="#D9F3FF" stroke="#8DDCFF" />
+      <path d="M8 22h16" stroke="#007EB8" strokeWidth="1.5" strokeLinecap="round" />
+      <rect x="9" y="17" width="3" height="5" rx="1" fill="#76CFFF" />
+      <rect x="15" y="13" width="3" height="9" rx="1" fill="#25B6FA" />
+      <rect x="21" y="9" width="3" height="13" rx="1" fill="#007EB8" />
+      <path d="m9.5 12.5 4.2-3 3.4 1.5 5.2-4" stroke="#006AA6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="m19.8 7 2.5-.5-.3 2.5" stroke="#006AA6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -790,25 +803,6 @@ export default function TrainingTab({
     <>
       <div className="flex-1 overflow-y-auto p-3 md:p-5" id="hr_tab_content">
         <div className="space-y-4" id="elearning_catalog">
-          {/* Monitor Training Progress Banner */}
-          {trainingFilter && (
-            <div className="relative rounded-2xl border border-[#beeaff] bg-[#E8F7FF] p-4 text-left text-slate-800">
-              <h5 className="mb-2 flex items-center gap-1.5 text-xs text-[#007eb8]">
-                <Award className="h-4.5 w-4.5 text-[#00ADFC]" />
-                Tiến trình Đào tạo của: {employees.find(e => e.id === trainingFilter)?.name || "Nhân sự"}
-              </h5>
-              <p className="mb-3 text-xs text-slate-700">Các khóa học chuyên môn nhân sự này đã hoàn thành hoặc đang nghiên cứu phục vụ đánh giá thăng cấp và KPI.</p>
-              <div className="flex items-center justify-end border-t border-[#beeaff] pt-3 text-xs">
-                <button
-                  onClick={() => setTrainingFilter(null)}
-                  className="rounded-xl border border-[#beeaff] bg-white px-3 py-1.5 text-xs text-[#007eb8] shadow-xs transition-all hover:bg-[#f5fbff] cursor-pointer"
-                >
-                  Đóng giám sát
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Supervisor view controls */}
           <div className="flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-[#E1EAF5] bg-white p-3 shadow-2xs text-left md:px-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -946,6 +940,25 @@ export default function TrainingTab({
               })
             )}
           </div>
+          {/* Monitor Training Progress Banner */}
+          {trainingFilter && (
+            <div className="flex flex-col gap-2 rounded-xl border border-[#beeaff] bg-[#E8F7FF] px-3 py-2.5 text-left sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <TrainingProgressIcon className="h-8 w-8 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs text-[#007eb8]">Tiến trình đào tạo của: {employees.find(e => e.id === trainingFilter)?.name || "Nhân sự"}</p>
+                  <p className="text-xs text-slate-700">Các khóa học chuyên môn nhân sự này đã hoàn thành hoặc đang nghiên cứu phục vụ đánh giá thăng cấp và KPI.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTrainingFilter(null)}
+                className="shrink-0 self-end rounded-lg border border-[#beeaff] bg-white px-2.5 py-1.5 text-xs text-[#007eb8] shadow-xs transition-all hover:bg-[#f5fbff] cursor-pointer sm:self-auto"
+              >
+                Đóng giám sát
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
