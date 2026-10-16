@@ -197,6 +197,7 @@ export default function AuthPage() {
                 {loading ? <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="h-4 w-4" aria-hidden="true" />}
                 Đăng nhập
               </button>
+              <p className="text-center text-[11px] font-medium text-slate-400">Version 2.0</p>
             </form>
 
             <a href="/" className="mt-5 inline-flex items-center justify-center gap-2 text-[13px] font-medium text-blue-600 transition hover:text-blue-800">
