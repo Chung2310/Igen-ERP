@@ -63,7 +63,7 @@ export default function RepairBoardPage({ createPrefill, onCreatePrefillConsumed
   };
   const startMoveForward = (ticket: RepairTicket) => { if (ticket.status === "received") setReceivingTicket(ticket); else if (ticket.status === "diagnosing") setSelected(ticket); else void moveForward(ticket).catch(() => undefined); };
   return <div className="space-y-4">
-    <div><h1 className="text-2xl font-bold">Bảng phiếu sửa chữa</h1><p className="text-sm text-slate-500">Theo dõi trạng thái, bảo hành, báo giá, thanh toán và giao máy.</p></div>
+    <div><h1 className="text-xl font-bold">Phiếu sửa chữa</h1><p className="mt-1 text-sm text-slate-500">Theo dõi tiến độ, báo giá và bàn giao thiết bị.</p></div>
     {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <div data-testid="repair-board-scroll" className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"><div className="grid min-w-[1250px] grid-cols-9 gap-3">
       {columns.map((column) => <section key={column.status} className="min-h-48 rounded-xl bg-slate-100 p-2"><h2 className="mb-2 px-2 text-sm font-bold">{column.label} <span className="text-slate-400">{board[column.status]?.length || 0}</span></h2><div className="space-y-2">

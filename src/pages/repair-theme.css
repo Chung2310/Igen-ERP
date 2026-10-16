@@ -10,6 +10,46 @@
   box-shadow: 0 3px 12px rgb(25 70 110 / 5%);
 }
 
+.repair-warranty-page > header {
+  padding: 2px 2px 0;
+}
+
+.repair-warranty-page > div > form {
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+}
+
+.repair-warranty-page > div > form input {
+  height: 46px;
+  padding-block: 0;
+}
+
+.repair-warranty-page > div > form button {
+  min-height: 46px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.repair-warranty-page > section {
+  padding: 20px;
+}
+
+.repair-warranty-page > section h2 {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.repair-warranty-page > section > div:nth-of-type(2) {
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.repair-warranty-page > section > p {
+  margin-top: 14px;
+  font-size: 0.8125rem;
+}
+
 .repair-ui-tabs button[aria-current="page"] {
   background: var(--repair-blue);
   box-shadow: 0 8px 18px rgb(0 173 252 / 17%);
@@ -152,12 +192,46 @@
   letter-spacing: -0.02em;
 }
 
-@media (max-width: 640px) {
-  .repair-ui > div.space-y-5 form[class~="border"] {
-    flex-direction: column;
+@media (min-width: 768px) {
+  .repair-warranty-page > section > div:nth-of-type(2) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1080px) {
+  .repair-warranty-page > section > div:nth-of-type(2) {
+    grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(130px, 1fr));
   }
 
-  .repair-ui > div.space-y-5 form[class~="border"] button {
-    justify-content: center;
+  .repair-warranty-page > section > div:nth-of-type(2) > :first-child {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .repair-ui-tabs {
+    gap: 6px;
+  }
+
+  .repair-ui-tabs button {
+    padding: 9px 12px;
+    font-size: 0.8125rem;
+  }
+
+  .repair-warranty-page > div > form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .repair-warranty-page > section {
+    padding: 16px;
+  }
+
+  .repair-warranty-page > section > div:nth-of-type(2) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .repair-warranty-page > section > div:nth-of-type(2) > :first-child {
+    grid-column: span 2;
   }
 }
