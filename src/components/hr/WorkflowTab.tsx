@@ -954,12 +954,21 @@ export function WorkflowReader({
     const count = showStageBranches ? step.subTasks?.length || 0 : 0;
     return count ? count * 44 + (count - 1) * 8 : 112;
   }));
-  const flowRows: { start: number; end: number; width: number; height: number }[] = [];
+  const flowRows: { start: number; end: number; width: number; height: number; offset: number }[] = [];
   const availableWidth = Math.max(640, (flowWidth || 948) - 48);
   for (let start = 0; start < workflow.steps.length;) {
+    const previousRow = flowRows[flowRows.length - 1];
+    let desiredOffset = 0;
+    if (previousRow) {
+      desiredOffset = previousRow.offset;
+      for (let index = previousRow.start; index < previousRow.end - 1; index++) {
+        desiredOffset += 192 + (branchWidth(workflow.steps[index]) || 46);
+      }
+    }
     let end = start + 1;
-    while (end < workflow.steps.length && rowWidth(start, end + 1) <= availableWidth) end++;
-    flowRows.push({ start, end, width: rowWidth(start, end), height: rowHeight(start, end) });
+    while (end < workflow.steps.length && rowWidth(start, end + 1) <= availableWidth - desiredOffset) end++;
+    const offset = Math.min(desiredOffset, Math.max(0, availableWidth - rowWidth(start, end)));
+    flowRows.push({ start, end, width: rowWidth(start, end), height: rowHeight(start, end), offset });
     start = end;
   }
 
@@ -1026,7 +1035,10 @@ export function WorkflowReader({
                   const hasNextRow = rowIndex < flowRows.length - 1;
                   const nextRow = flowRows[rowIndex + 1];
                   const connectorHeight = row.height / 2 + 64 + (nextRow ? (nextRow.height - 112) / 2 : 0);
-                  return <div key={row.start} className="relative" style={{ width: row.width, minHeight: row.height, marginBottom: hasNextRow ? 64 : 0 }}>
+                  const nextCenter = nextRow ? nextRow.offset - row.offset + 96 : 96;
+                  const connectorLeft = Math.min(0, nextCenter);
+                  const connectorWidth = Math.max(row.width, nextCenter) - connectorLeft;
+                  return <div key={row.start} className="relative" style={{ width: row.width, minHeight: row.height, marginBottom: hasNextRow ? 64 : 0, marginLeft: row.offset }}>
                   <ol className="relative z-10 flex items-center" style={{ minHeight: row.height }}>
                   {workflow.steps.slice(row.start, row.end).map((step, offset) => {
                     const index = row.start + offset;
@@ -1055,7 +1067,7 @@ export function WorkflowReader({
                     );
                   })}
                 </ol>
-                {hasNextRow && <svg className="pointer-events-none absolute left-0 top-1/2 overflow-visible" width={row.width + 24} height={connectorHeight} viewBox={`0 0 ${row.width + 24} ${connectorHeight}`} fill="none" aria-hidden="true"><path d={`M${row.width} 0 H${row.width + 24} V${connectorHeight - 22} H96 V${connectorHeight}`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d={`m91 ${connectorHeight - 5} 5 5 5 -5`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                {hasNextRow && <svg className="pointer-events-none absolute top-1/2 overflow-visible" style={{ left: connectorLeft }} width={connectorWidth} height={connectorHeight} viewBox={`${connectorLeft} 0 ${connectorWidth} ${connectorHeight}`} fill="none" aria-hidden="true"><path d={`M${row.width} 0 V${connectorHeight - 22} H${nextCenter} V${connectorHeight}`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d={`m${nextCenter - 5} ${connectorHeight - 5} 5 5 5 -5`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                   </div>;
                 })}
                 </div>
