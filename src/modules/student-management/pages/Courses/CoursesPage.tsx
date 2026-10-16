@@ -41,6 +41,7 @@ import { FieldActionButtons } from '../../../shared/custom-fields/FieldActionBut
 import type { CustomFieldValues } from '../../../shared/custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { CustomFieldEditorModal } from '../../../shared/custom-fields/CustomFieldEditorModal';
+import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
 import { canManageCustomFields } from '../../../shared/custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../../shared/custom-fields/types';
 import { Pagination } from '../../components/ui/Pagination';
@@ -144,6 +145,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const manageable = canManageCustomFields(user?.permissions);
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
+  const [pendingStdFieldAction, setPendingStdFieldAction] = useState<{ action: 'archive' | 'delete'; field: StandardFieldConfig } | null>(null);
 
   const openEditStdField = (field: StandardFieldConfig) => {
     setEditingStdField(getAdaptedFieldDefinition(field, "courses"));
@@ -161,16 +163,12 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
     }
   };
 
-  const archiveStd = (field: StandardFieldConfig) => {
-    if (window.confirm(`Lưu trữ trường “${field.label}”?`)) {
-      archiveStdField(field.key);
-    }
-  };
-
-  const deleteStd = (field: StandardFieldConfig) => {
-    if (window.confirm(`Xóa vĩnh viễn trường “${field.label}”?`)) {
-      deleteStdField(field.key);
-    }
+  const confirmStdFieldAction = () => {
+    if (!pendingStdFieldAction) return;
+    const { action, field } = pendingStdFieldAction;
+    if (action === 'archive') archiveStdField(field.key);
+    else deleteStdField(field.key);
+    setPendingStdFieldAction(null);
   };
 
   const [isEditingFields, setIsEditingFields] = useState(false);
@@ -179,7 +177,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
     if (!manageable || !isEditingFields) return null;
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
-    return <FieldActionButtons label={fieldConfig.label} onEdit={() => openEditStdField(fieldConfig)} onArchive={() => archiveStd(fieldConfig)} onDelete={() => deleteStd(fieldConfig)} />;
+    return <FieldActionButtons label={fieldConfig.label} onEdit={() => openEditStdField(fieldConfig)} onArchive={() => setPendingStdFieldAction({ action: 'archive', field: fieldConfig })} onDelete={() => setPendingStdFieldAction({ action: 'delete', field: fieldConfig })} />;
   };
 
   const isFieldVisible = (fieldKey: string) => {
@@ -1082,6 +1080,19 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
         onClose={() => setStdEditorOpen(false)}
         onSubmit={handleStdFieldSubmit}
         isStandard={true}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingStdFieldAction !== null}
+        title={pendingStdFieldAction?.action === 'archive' ? 'Lưu trữ trường?' : 'Xóa trường vĩnh viễn?'}
+        description={pendingStdFieldAction?.action === 'archive'
+          ? `Lưu trữ trường “${pendingStdFieldAction.field.label}”? Dữ liệu hiện có sẽ được giữ lại.`
+          : `Xóa vĩnh viễn trường “${pendingStdFieldAction?.field.label ?? ''}”? Dữ liệu liên quan có thể bị mất.`}
+        tone={pendingStdFieldAction?.action === 'archive' ? 'warning' : 'danger'}
+        confirmLabel={pendingStdFieldAction?.action === 'archive' ? 'Lưu trữ' : 'Xóa trường'}
+        cancelLabel="Hủy"
+        onClose={() => setPendingStdFieldAction(null)}
+        onConfirm={confirmStdFieldAction}
       />
 
       {viewingCourse && (

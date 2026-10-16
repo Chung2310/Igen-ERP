@@ -208,7 +208,7 @@ describe("CustomFieldsSection", () => {
     const onChange = vi.fn();
     const { rerender } = render(<CustomFieldsSection moduleKey="students" values={{ favoriteColor: "X", fixed: "keep" }} onChange={onChange} mode="create" />);
     expect(screen.queryByRole("button", { name: /thêm trường/i })).toBeNull();
-    mockedUseAuth.mockReturnValue({ userProfile: { role: "manager" } } as ReturnType<typeof useAuth>);
+    mockedUseAuth.mockReturnValue({ userProfile: { role: "manager", permissions: ["settings:manage"] } } as ReturnType<typeof useAuth>);
     rerender(<CustomFieldsSection moduleKey="students" values={{ favoriteColor: "X", fixed: "keep" }} onChange={onChange} mode="create" isEditingFields={true} />);
     fireEvent.click(screen.getByRole("button", { name: /thêm trường/i }));
     fireEvent.change(screen.getByLabelText(/nhãn trường/i), { target: { value: "Mới" } });
@@ -216,6 +216,11 @@ describe("CustomFieldsSection", () => {
     await waitFor(() => expect(customHook.createField).toHaveBeenCalled());
     expect(onChange).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: /lưu trữ/i }));
+    expect(customHook.archiveField).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /^hủy$/i }));
+    expect(customHook.archiveField).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /lưu trữ/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^lưu trữ$/i }));
     await waitFor(() => expect(customHook.archiveField).toHaveBeenCalledWith("field-1"));
   });
 
@@ -223,7 +228,7 @@ describe("CustomFieldsSection", () => {
     const customHook = hookResult([field()], [field({ id: "old", key: "old", label: "Cũ", isArchived: true })]);
     customHook.error = "Không tải được";
     mockedUseCustomFields.mockReturnValue(customHook);
-    mockedUseAuth.mockReturnValue({ userProfile: { role: "admin" } } as ReturnType<typeof useAuth>);
+    mockedUseAuth.mockReturnValue({ userProfile: { role: "admin", permissions: ["settings:manage"] } } as ReturnType<typeof useAuth>);
     render(<CustomFieldsSection moduleKey="students" values={{ favoriteColor: "X" }} onChange={vi.fn()} mode="edit" />);
     expect(screen.getByDisplayValue("X")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /thử lại/i }));

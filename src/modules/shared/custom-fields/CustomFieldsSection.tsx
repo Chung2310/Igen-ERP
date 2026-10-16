@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../../../context/AuthContext";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import { canManageCustomFields } from "./permissions";
 import { CustomFieldEditorModal } from "./CustomFieldEditorModal";
 import { CustomFieldRenderer } from "./CustomFieldRenderer";
@@ -43,6 +44,8 @@ export function CustomFieldsSection({
   const { fields, archivedFields, loading, error, refresh, createField, updateField, archiveField, restoreField, deleteField } = useCustomFields(moduleKey, requestedTenantId);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<FieldDefinition | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ action: "archive" | "delete"; field: FieldDefinition } | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const manageable = canManageCustomFields(userProfile?.permissions);
   const activeFields = useMemo(() => [...fields].filter((field) => !field.isArchived && field.isVisible).sort((left, right) => left.order - right.order), [fields]);
 
@@ -63,13 +66,19 @@ export function CustomFieldsSection({
     if (editing) await updateField(editing.id, input);
     else await createField(input);
   };
-  const archive = async (field: FieldDefinition) => {
-    if (!window.confirm(`Lưu trữ trường “${field.label}”? Dữ liệu hiện có sẽ được giữ lại.`)) return;
-    await archiveField(field.id);
-  };
-  const remove = async (field: FieldDefinition) => {
-    if (!window.confirm(`Xóa vĩnh viễn trường “${field.label}”? Dữ liệu liên quan đến trường này trên tất cả hồ sơ cũng sẽ bị mất.`)) return;
-    await deleteField(field.id);
+  const confirmFieldAction = async () => {
+    if (!pendingAction) return;
+    setConfirming(true);
+    try {
+      if (pendingAction.action === "archive") await archiveField(pendingAction.field.id);
+      else await deleteField(pendingAction.field.id);
+      setPendingAction(null);
+    } catch {
+      // The hook displays the mutation error in this section.
+      setPendingAction(null);
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
@@ -110,7 +119,7 @@ export function CustomFieldsSection({
       <div className={compact ? "grid grid-cols-1 sm:grid-cols-2 gap-2.5" : "space-y-4"}>
         {activeFields.map((field) => (
           <div key={field.id} className="relative space-y-1">
-            <CustomFieldRenderer field={field} value={values[field.key] ?? (mode === "create" ? field.defaultValue : undefined)} onChange={(value) => onChange({ ...values, [field.key]: value })} error={errors[field.key]} disabled={disabled} actions={manageable && isEditing ? <FieldActionButtons label={field.label} disabled={disabled} onEdit={() => openEdit(field)} onArchive={() => void archive(field)} onDelete={() => void remove(field)} /> : undefined} />
+            <CustomFieldRenderer field={field} value={values[field.key] ?? (mode === "create" ? field.defaultValue : undefined)} onChange={(value) => onChange({ ...values, [field.key]: value })} error={errors[field.key]} disabled={disabled} actions={manageable && isEditing ? <FieldActionButtons label={field.label} disabled={disabled} onEdit={() => openEdit(field)} onArchive={() => setPendingAction({ action: "archive", field })} onDelete={() => setPendingAction({ action: "delete", field })} /> : undefined} />
           </div>
         ))}
       </div>
@@ -136,6 +145,19 @@ export function CustomFieldsSection({
         </div>
       ) : null}
       <CustomFieldEditorModal open={editorOpen} moduleKey={moduleKey} initialField={editing} onClose={() => setEditorOpen(false)} onSubmit={submit} />
+      <ConfirmDialog
+        isOpen={pendingAction !== null}
+        title={pendingAction?.action === "archive" ? "Lưu trữ trường?" : "Xóa trường vĩnh viễn?"}
+        description={pendingAction?.action === "archive"
+          ? `Lưu trữ trường “${pendingAction.field.label}”? Dữ liệu hiện có sẽ được giữ lại.`
+          : `Xóa vĩnh viễn trường “${pendingAction?.field.label ?? ""}”? Dữ liệu liên quan đến trường này trên tất cả hồ sơ cũng sẽ bị mất.`}
+        tone={pendingAction?.action === "archive" ? "warning" : "danger"}
+        confirmLabel={pendingAction?.action === "archive" ? "Lưu trữ" : "Xóa trường"}
+        cancelLabel="Hủy"
+        isSubmitting={confirming}
+        onClose={() => setPendingAction(null)}
+        onConfirm={confirmFieldAction}
+      />
     </section>
   );
 }
