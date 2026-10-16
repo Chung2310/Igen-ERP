@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
-  Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList,
+  Tag, BookOpen, Clock, CalendarRange, MapPin, ClipboardList,
   CalendarCheck, BarChart2, LayoutGrid, Rows3, Eye, ChevronDown, Settings
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -34,6 +34,7 @@ import { getBatchPageCopy, getBatchStatusLabel } from '../../config/workerRecrui
 import { CustomFieldEditorModal } from '../../../shared/custom-fields/CustomFieldEditorModal';
 import { AssignmentModal } from '../../components/Batches/AssignmentModal';
 import { InstructorCombobox } from '../../components/Batches/InstructorCombobox';
+import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
 import { AttendanceModal } from '../../components/Batches/AttendanceModal';
 import { AttendanceViewModal } from '../../components/Batches/AttendanceViewModal';
 import { ManageLearnersModal } from '../../components/Batches/ManageLearnersModal';
@@ -1100,18 +1101,12 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   <div className="relative group/std">
                     {renderFieldActions('startDate')}
                     <ErpField label={getFieldLabel('startDate', entityLabel.preset === 'worker' ? 'Ngày bắt đầu' : 'Ngày khai giảng')}>
-                      <div className="relative">
-                        <ErpInput
-                          type="date"
-                          required={isFieldRequired('startDate', true)}
-                          value={form.startDate}
-                          onChange={(e) => setForm((current) => withEstimatedEndDate({ ...current, startDate: e.target.value }))}
-                          className="pl-10"
-                        />
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                          <Calendar className="w-4 h-4" />
-                        </div>
-                      </div>
+                      <VietnameseDatePicker
+                        ariaLabel={entityLabel.preset === 'worker' ? 'Ngày bắt đầu' : 'Ngày khai giảng'}
+                        required={isFieldRequired('startDate', true)}
+                        value={form.startDate}
+                        onChange={(value) => setForm((current) => withEstimatedEndDate({ ...current, startDate: value }))}
+                      />
                     </ErpField>
                   </div>
                 )}
@@ -1119,18 +1114,12 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   <div className="relative group/std">
                     {renderFieldActions('endDate')}
                     <ErpField label={getFieldLabel('endDate', entityLabel.preset === 'worker' ? 'Ngày kết thúc' : 'Ngày bế giảng dự kiến')}>
-                      <div className="relative">
-                        <ErpInput
-                          type="date"
-                          required={isFieldRequired('endDate', true)}
-                          value={form.endDate}
-                          onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                          className="pl-10"
-                        />
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                          <Calendar className="w-4 h-4" />
-                        </div>
-                      </div>
+                      <VietnameseDatePicker
+                        ariaLabel={entityLabel.preset === 'worker' ? 'Ngày kết thúc' : 'Ngày bế giảng dự kiến'}
+                        required={isFieldRequired('endDate', true)}
+                        value={form.endDate}
+                        onChange={(value) => setForm({ ...form, endDate: value })}
+                      />
                     </ErpField>
                   </div>
                 )}
