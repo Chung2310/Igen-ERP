@@ -29,11 +29,16 @@ const emojiIconPattern = /[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u;
 function TrainingBookIcon({ className = "h-6 w-6" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="M4 5.5c4.7-1.5 8.4-1.2 12 1.3v20.7c-3.6-2.5-7.3-2.8-12-1.3V5.5Z" fill="#0089D0" />
-      <path d="M28 5.5c-4.7-1.5-8.4-1.2-12 1.3v20.7c3.6-2.5 7.3-2.8 12-1.3V5.5Z" fill="#00ADFC" />
-      <path d="M7.2 9c2.7-.5 4.9-.1 7 1.1M7.2 13c2.7-.5 4.9-.1 7 1.1M24.8 9c-2.7-.5-4.9-.1-7 1.1M24.8 13c-2.7-.5-4.9-.1-7 1.1" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity=".9" />
-      <path d="M16 6.8v20.7" stroke="#006AA6" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M4 26.2c4.7-1.5 8.4-1.2 12 1.3 3.6-2.5 7.3-2.8 12-1.3" stroke="#005D93" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="m5 22 19-1.8 3 1.6v4.1L8 27.8l-3-1.6V22Z" fill="#7954D9" stroke="#5737AD" strokeWidth=".8" strokeLinejoin="round" />
+      <path d="m8 23.4 19-1.6v3.2L8 26.7v-3.3Z" fill="#FFF9EF" />
+      <path d="m5 22 19-1.8 3 1.6L8 23.4 5 22Z" fill="#A98AF8" />
+      <path d="m6 15.3 19-1.8 3 1.6v4.1L9 21l-3-1.6v-4.1Z" fill="#F58449" stroke="#CB5B2E" strokeWidth=".8" strokeLinejoin="round" />
+      <path d="m9 16.7 19-1.6v3.2L9 20v-3.3Z" fill="#FFF9EF" />
+      <path d="m6 15.3 19-1.8 3 1.6-19 1.6-3-1.4Z" fill="#FFB667" />
+      <path d="m4 8.6 19-1.8 3 1.6v4.1L7 14.3l-3-1.6V8.6Z" fill="#00A9B7" stroke="#087D95" strokeWidth=".8" strokeLinejoin="round" />
+      <path d="m7 10 19-1.6v3.2L7 13.2V10Z" fill="#FFF9EF" />
+      <path d="m4 8.6 19-1.8 3 1.6L7 10 4 8.6Z" fill="#5CE2D1" />
+      <path d="m9.4 11.3 13.5-1.2M11.4 18 24 16.9M10.4 24.7l13.6-1.2" stroke="#CFD4DE" strokeWidth=".65" strokeLinecap="round" />
     </svg>
   );
 }
@@ -57,10 +62,10 @@ function displayTrainingIcon(icon: string | undefined, className?: string) {
 }
 
 const courseCardThemes = [
-  { border: "border-violet-200 hover:border-violet-400", wash: "from-violet-200 via-violet-50 to-white", glow: "bg-fuchsia-300/70", icon: "bg-white/90 ring-violet-300", badge: "bg-violet-200 text-violet-800", line: "from-violet-500 to-fuchsia-400", action: "from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600" },
-  { border: "border-teal-200 hover:border-teal-400", wash: "from-teal-200 via-cyan-50 to-white", glow: "bg-cyan-300/70", icon: "bg-white/90 ring-teal-300", badge: "bg-teal-200 text-teal-800", line: "from-teal-500 to-cyan-400", action: "from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600" },
-  { border: "border-amber-200 hover:border-amber-400", wash: "from-amber-200 via-amber-50 to-white", glow: "bg-orange-300/70", icon: "bg-white/90 ring-amber-300", badge: "bg-amber-200 text-amber-900", line: "from-amber-500 to-orange-400", action: "from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600" },
-  { border: "border-rose-200 hover:border-rose-400", wash: "from-rose-200 via-pink-50 to-white", glow: "bg-pink-300/70", icon: "bg-white/90 ring-rose-300", badge: "bg-rose-200 text-rose-800", line: "from-rose-500 to-pink-400", action: "from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600" },
+  { border: "border-violet-200 hover:border-violet-400", wash: "from-violet-200 via-violet-50 to-white", glow: "bg-fuchsia-300/70", icon: "bg-white/90 ring-violet-300", badge: "bg-violet-200 text-violet-800", line: "from-violet-500 to-fuchsia-400", action: "bg-violet-600 hover:bg-violet-700" },
+  { border: "border-teal-200 hover:border-teal-400", wash: "from-teal-200 via-cyan-50 to-white", glow: "bg-cyan-300/70", icon: "bg-white/90 ring-teal-300", badge: "bg-teal-200 text-teal-800", line: "from-teal-500 to-cyan-400", action: "bg-teal-600 hover:bg-teal-700" },
+  { border: "border-amber-200 hover:border-amber-400", wash: "from-amber-200 via-amber-50 to-white", glow: "bg-orange-300/70", icon: "bg-white/90 ring-amber-300", badge: "bg-amber-200 text-amber-900", line: "from-amber-500 to-orange-400", action: "bg-orange-600 hover:bg-orange-700" },
+  { border: "border-rose-200 hover:border-rose-400", wash: "from-rose-200 via-pink-50 to-white", glow: "bg-pink-300/70", icon: "bg-white/90 ring-rose-300", badge: "bg-rose-200 text-rose-800", line: "from-rose-500 to-pink-400", action: "bg-pink-600 hover:bg-pink-700" },
 ] as const;
 
 type TrainingGlyphName = "clock" | "instructor" | "learners" | "document" | "video" | "tip";
@@ -934,7 +939,7 @@ export default function TrainingTab({
                           onClick={() => handleEnrollAndStart(course)}
                           className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all shadow-3xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isCompleted
                               ? "bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 text-emerald-705 text-emerald-700"
-                              : `bg-gradient-to-r text-white shadow-sm ${cardTheme.action}`
+                              : `text-white shadow-sm ${cardTheme.action}`
                             }`}
                         >
                           {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
