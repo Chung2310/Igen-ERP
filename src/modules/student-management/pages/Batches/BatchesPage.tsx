@@ -623,7 +623,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     </select>
   );
 
-  const renderProgressSummary = (b: Batch) => {
+  const renderProgressSummary = (b: Batch, compact = false) => {
     if (!b.progress) return null;
     const progress = b.progress;
     const color = progressColor(progress.progressLevel, progressColors);
@@ -636,18 +636,18 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       progress.ageLabel ? ageLabelText(progress.ageLabel) : null,
     ].filter(Boolean);
     return (
-      <div className="min-w-[160px] space-y-1.5 text-xs">
+      <div className={cn("space-y-1.5 text-xs", compact ? "min-w-[88px]" : "min-w-[160px]")} title={compact ? [progressStatusText(progress.progressLevel), ...details].join(' · ') : undefined}>
         <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1.5 font-medium" style={{ color }}>
+          {!compact && <span className="inline-flex items-center gap-1.5 font-medium" style={{ color }}>
             <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
             {progressStatusText(progress.progressLevel)}
-          </span>
+          </span>}
           <span className="whitespace-nowrap tabular-nums text-slate-600">{progress.doneSessions}/{progress.totalSessions} buổi</span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Tiến độ điểm danh" aria-valuemin={0} aria-valuemax={progress.totalSessions} aria-valuenow={Math.min(progress.doneSessions, progress.totalSessions)}>
+        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label={`Tiến độ điểm danh: ${progressStatusText(progress.progressLevel)}`} aria-valuemin={0} aria-valuemax={progress.totalSessions} aria-valuenow={Math.min(progress.doneSessions, progress.totalSessions)}>
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${completion}%`, backgroundColor: color }} />
         </div>
-        {details.length > 0 && <p className="text-[11px] leading-4 text-slate-500">{details.join(' · ')}</p>}
+        {!compact && details.length > 0 && <p className="text-[11px] leading-4 text-slate-500">{details.join(' · ')}</p>}
       </div>
     );
   };
@@ -665,10 +665,10 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
   );
 
-  const renderRowActions = (b: Batch) => {
+  const renderRowActions = (b: Batch, compact = false) => {
     const canOperateAssignedBatch = canManage || (hasTeacherOperation && b.instructorId === user?.uid);
     return (
-    <div className="flex flex-wrap items-center gap-0.5" role="group" aria-label={`Thao tác ${b.code}`}>
+    <div className={cn("flex items-center gap-0.5", compact ? "flex-nowrap" : "flex-wrap")} role="group" aria-label={`Thao tác ${b.code}`}>
       <button onClick={() => setViewingBatch(b)} title={`Xem chi tiết ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
         <Eye className="h-4 w-4" />
       </button>
@@ -694,14 +694,14 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     );
   };
 
-  const renderLearnerCountButton = (b: Batch) => (
+  const renderLearnerCountButton = (b: Batch, compact = false) => (
     <button
       onClick={() => { setManageLearnersId(b.id); setSelectedStudentId(''); }}
       title={`Quản lý ${entityLabel.singular} trong ${copy.entityNameLower}`}
       className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100"
     >
       <Users className="h-3.5 w-3.5" />
-      {b.learnerIds.length}{b.maxLearners ? `/${b.maxLearners}` : ''} {entityLabel.singular}
+      {b.learnerIds.length}{b.maxLearners ? `/${b.maxLearners}` : ''}{!compact && ` ${entityLabel.singular}`}
     </button>
   );
 
@@ -822,10 +822,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   <tr key={b.id} className="text-slate-600 transition-colors hover:bg-sky-50/30">
                     <td className="max-w-[240px] px-4 py-3">
                       <p className="text-xs font-medium text-sky-700">{b.code}</p>
-                      <p className="mt-0.5 text-sm font-semibold leading-5 text-slate-900">{displayTitle(b)}</p>
-                      {displaySubtitle(b) && (
-                        <p className="mt-0.5 text-xs font-normal text-slate-500">{displaySubtitle(b)}</p>
-                      )}
+                      <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-5 text-slate-900" title={displayTitle(b)}>{displayTitle(b)}</p>
                     </td>
                     <td className="px-4 py-3">
                       {b.instructorName ? (
@@ -844,17 +841,17 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                     <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                       {formatDate(b.startDate)} → {formatDate(b.endDate)}
                     </td>
-                    <td className="min-w-[180px] px-4 py-3">
-                      {renderProgressSummary(b)}
+                    <td className="min-w-[110px] px-4 py-3">
+                      {renderProgressSummary(b, true)}
                     </td>
                     <td className="px-4 py-3">
-                      {renderLearnerCountButton(b)}
+                      {renderLearnerCountButton(b, true)}
                     </td>
                     <td className="px-4 py-3">
                       {renderStatusSelect(b)}
                     </td>
-                    <td className="px-4 py-3">
-                      {renderRowActions(b)}
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {renderRowActions(b, true)}
                     </td>
                   </tr>
                 ))}
