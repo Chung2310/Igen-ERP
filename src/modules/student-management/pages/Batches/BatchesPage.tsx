@@ -897,18 +897,18 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       )}
 
       {showFormModal && (
-        <ErpModal title={editingId ? copy.editTitle : copy.createTitle} onClose={() => setShowFormModal(false)} maxWidth="max-w-lg">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <ErpModal title={editingId ? copy.editTitle : copy.createTitle} titleClassName="font-medium" onClose={() => setShowFormModal(false)} maxWidth="max-w-2xl">
+          <form onSubmit={handleSubmit} className="space-y-6 [&_.erp-field-label]:font-normal [&_.erp-field-label]:text-slate-600 [&_h3]:font-medium">
             {/* Section 1: Thông tin lớp học */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <div className="h-4 w-1 rounded-full bg-brand-primary" />
+                <h4 className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
                   <School className="w-4 h-4 text-brand-primary" />
                   Thông tin {copy.entityNameLower}
                 </h4>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {isFieldVisible('code') && (
                   <div className="relative group/std">
                     {renderFieldActions('code')}
@@ -935,12 +935,12 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   </div>
                 )}
                 {entityLabel.preset !== 'worker' && (
-                  <div className="col-span-2 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-bold text-slate-700">Cách áp dụng khóa học</p>
+                  <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:col-span-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs font-normal text-slate-600">Cách áp dụng khóa học</p>
                       <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
-                        <button type="button" onClick={() => setForm((current) => ({ ...current, learningMode: 'standalone', roadmapId: '', roadmapStepId: '' }))} className={`rounded-md px-3 py-1.5 text-xs font-bold ${form.learningMode === 'standalone' ? 'bg-slate-800 text-white' : 'text-slate-600'}`}>Lớp độc lập</button>
-                        <button type="button" onClick={() => setForm((current) => ({ ...current, learningMode: 'roadmap', courseId: '', roadmapId: '', roadmapStepId: '' }))} className={`rounded-md px-3 py-1.5 text-xs font-bold ${form.learningMode === 'roadmap' ? 'bg-cyan-700 text-white' : 'text-slate-600'}`}>Theo lộ trình</button>
+                        <button type="button" onClick={() => setForm((current) => ({ ...current, learningMode: 'standalone', roadmapId: '', roadmapStepId: '' }))} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${form.learningMode === 'standalone' ? 'bg-brand-primary text-white' : 'text-slate-600 hover:bg-slate-50'}`}>Lớp độc lập</button>
+                        <button type="button" onClick={() => setForm((current) => ({ ...current, learningMode: 'roadmap', courseId: '', roadmapId: '', roadmapStepId: '' }))} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${form.learningMode === 'roadmap' ? 'bg-brand-primary text-white' : 'text-slate-600 hover:bg-slate-50'}`}>Theo lộ trình</button>
                       </div>
                     </div>
                     {form.learningMode === 'roadmap' && (
@@ -1009,7 +1009,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                       </div>
                     </div>
                   </ErpField>
-                  <p className="mt-1 text-[10px] text-slate-400">
+                  <p className="mt-1 text-xs text-slate-500">
                     Để trống sẽ lấy theo {entityLabel.preset === 'worker' ? 'danh mục gốc' : 'sĩ số tối đa của khóa học'}.
                   </p>
                 </div>
@@ -1037,25 +1037,25 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
               <div className="space-y-4 pt-2 relative group/std">
                 {renderFieldActions('schedule')}
                 <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                  <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <div className="h-4 w-1 rounded-full bg-brand-primary" />
+                  <h4 className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
                     <Clock className="w-4 h-4 text-brand-primary" />
                     {getFieldLabel('schedule', entityLabel.preset === 'worker' ? 'Lịch hoạt động & Khung giờ' : 'Lịch học & Khung giờ')}
                   </h4>
                 </div>
 
                 <ErpField label={entityLabel.preset === 'worker' ? 'Ngày hoạt động trong tuần' : 'Ngày học trong tuần'}>
-                  <div className="grid grid-cols-7 gap-1 mt-1">
+                  <div className="mt-1 grid grid-cols-4 gap-1.5 sm:grid-cols-7">
                     {DAY_OPTIONS.map((d) => (
                       <button
                         key={d.value}
                         type="button"
                         onClick={() => toggleDay(d.value)}
                         className={cn(
-                          "py-1.5 rounded-lg text-[10px] font-black transition-all border cursor-pointer text-center",
+                          "rounded-lg border py-2 text-xs font-medium text-center transition-colors cursor-pointer",
                           form.daysOfWeek.includes(d.value)
-                            ? "bg-brand-primary text-white border-brand-primary shadow-sm shadow-brand-primary/15 scale-[1.02]"
-                            : "bg-slate-50 text-slate-550 border-slate-200 hover:bg-slate-100 hover:border-slate-300 active:scale-95"
+                            ? "border-brand-primary bg-brand-primary text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50"
                         )}
                       >
                         {d.label}
@@ -1064,7 +1064,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   </div>
                 </ErpField>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <ErpField label="Giờ bắt đầu">
                     <TimeInput24
                       required={isFieldRequired('schedule', true)}
@@ -1088,14 +1088,14 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             {/* Section 3: Thời gian & Địa điểm */}
             <div className="space-y-4 pt-2">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <div className="h-4 w-1 rounded-full bg-brand-primary" />
+                <h4 className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
                   <CalendarRange className="w-4 h-4 text-brand-primary" />
                   Thời gian & Địa điểm
                 </h4>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {isFieldVisible('startDate') && (
                   <div className="relative group/std">
                     {renderFieldActions('startDate')}
@@ -1177,7 +1177,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                         )}
                       >
                         <MapPin className="w-4 h-4 shrink-0" />
-                        <span className="truncate text-xs font-semibold">
+                        <span className="truncate text-xs font-normal">
                           {(form.geoLat !== '' && form.geoLng !== '')
                             ? `Đã lưu tọa độ GPS`
                             : `Chưa thiết lập tọa độ`}
@@ -1198,7 +1198,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                           type="button"
                           onClick={useCurrentLocation}
                           disabled={locating}
-                          className="h-7 px-2.5 rounded-md text-[10px] font-black uppercase tracking-wide bg-slate-800 text-white hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                          className="flex h-7 items-center gap-1 rounded-md bg-brand-primary px-2.5 text-xs font-medium text-white transition-colors hover:bg-sky-600 disabled:opacity-50"
                         >
                           {locating ? 'Đang lấy...' : 'Lấy vị trí'}
                         </button>
@@ -1215,7 +1215,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                           onChange={(e) => setForm({ ...form, geoRadius: e.target.value === '' ? '' : Number(e.target.value) })}
                           className="pl-2 pr-8"
                         />
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-normal text-slate-400">
                           m
                         </div>
                       </div>
@@ -1223,7 +1223,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   </div>
                 </ErpField>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-xs text-slate-500">
                     Để trống thì {copy.entityNameLower} không giới hạn nơi chấm công.
                   </p>
                 </div>
@@ -1243,7 +1243,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
             {manageable && archivedStdFields.length ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
+                <h4 className="text-sm font-medium text-slate-700">Trường mặc định đã lưu trữ</h4>
                 <ul className="mt-2 divide-y divide-slate-100">
                   {archivedStdFields.map((field) => (
                     <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
@@ -1251,7 +1251,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                       <button
                         type="button"
                         disabled={isSubmitting}
-                        className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        className="font-medium text-cyan-600 transition-colors hover:text-cyan-700 disabled:opacity-50"
                         aria-label={`Khôi phục ${field.label}`}
                         onClick={() => restoreStdField(field.key)}
                       >
@@ -1267,7 +1267,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-2 bg-gradient-to-r from-brand-primary to-sky-600 hover:from-brand-primary/95 hover:to-sky-700 text-white rounded-lg text-xs font-black uppercase tracking-wider shadow-md shadow-brand-primary/10 hover:shadow-brand-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand-primary py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSubmitting ? (
                 <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
