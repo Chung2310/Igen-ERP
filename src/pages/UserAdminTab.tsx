@@ -10,7 +10,8 @@ import { authService } from "../services/authService";
 import { branchService, BranchRecord } from "../services/branchService";
 import { CompanyProfile, UserProfile } from "../types";
 import { toast } from "./Toast";
-import { Shield, RefreshCw, Plus, User, X, Wallet, Mail, Lock, SlidersHorizontal } from "lucide-react";
+import { Shield, RefreshCw, Plus, User, X, Wallet, Mail, Lock, SlidersHorizontal, UsersRound, Check } from "lucide-react";
+import "./user-admin-theme.css";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { getApiErrorMessage } from "../utils/errorMessage";
 import { rolePermissionService, RolePermission, Permission } from "../services/rolePermissionService";
@@ -702,7 +703,7 @@ export default function UserAdminTab() {
 
 
   return (
-    <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="user_admin_tab_wrapper">
+    <div className="user-admin-ui flex h-full max-h-[85vh] flex-col overflow-hidden rounded-2xl bg-white" id="user_admin_tab_wrapper">
       <h1 className="sr-only">Quản trị Hệ thống & Phân quyền - {activeTab}</h1>
       
       <UserAdminHeader
@@ -739,11 +740,13 @@ export default function UserAdminTab() {
             {loading ? (
               <div className="h-48 flex flex-col items-center justify-center text-center">
                 <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
-                <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-widest">Đang tải danh sách tài khoản...</span>
+                <span className="text-sm text-slate-500">Đang tải danh sách tài khoản...</span>
               </div>
             ) : visibleUsers.length === 0 ? (
-              <div className="p-12 text-center bg-gray-50 text-gray-400 italic rounded-2xl border border-dashed">
-                Không tìm thấy tài khoản nào trong hệ thống!
+              <div className="flex min-h-44 flex-col items-center justify-center rounded-2xl bg-slate-50 px-6 py-8 text-center">
+                <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600"><UsersRound className="h-5 w-5" /></span>
+                <p className="text-sm font-medium text-slate-700">Không tìm thấy tài khoản</p>
+                <p className="mt-1 text-xs text-slate-500">{searchQuery || filterStartDate || filterEndDate ? "Thử thay đổi từ khóa hoặc khoảng ngày." : "Danh sách sẽ hiển thị khi có tài khoản."}</p>
               </div>
             ) : (
               <UserListTable
@@ -767,7 +770,7 @@ export default function UserAdminTab() {
         <div className="flex-1 space-y-6 overflow-y-auto p-3 sm:p-6" id="roles_permissions_tab_content">
           <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
             <div>
-              <h5 className="font-bold text-slate-800 text-sm">Danh sách vai trò & Cấu hình phân quyền</h5>
+              <h5 className="text-sm font-medium text-slate-800">Vai trò và phân quyền</h5>
             </div>
             <button
               disabled={!(userProfile?.role === "superadmin" || userProfile?.role === "admin" || userProfile?.permissions?.includes("*") || userProfile?.permissions?.includes("access:manage"))}
@@ -780,7 +783,7 @@ export default function UserAdminTab() {
                 setSelectedPermissions([]);
                 setIsRoleModalOpen(true);
               }}
-              className="p-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 text-center justify-center"
+              className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-cyan-600 px-3.5 py-2.5 text-center text-sm font-medium text-white transition-colors hover:bg-cyan-700"
             >
               <Plus className="h-3.5 w-3.5" />
               Thêm vai trò tùy chỉnh
@@ -790,7 +793,7 @@ export default function UserAdminTab() {
           {roleLoading ? (
             <div className="h-48 flex flex-col items-center justify-center text-center">
               <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
-              <span className="text-xs font-bold font-mono text-indigo-800 uppercase tracking-widest">Đang tải danh sách vai trò...</span>
+              <span className="text-sm text-slate-500">Đang tải danh sách vai trò...</span>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -875,14 +878,14 @@ export default function UserAdminTab() {
                         <div className="flex justify-between items-start">
                           <div>
                             <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded text-[9px] font-bold font-mono tracking-wider">
-                              LEVEL {userProfile?.role === "superadmin" ? roleInfo.level : roleInfo.level - 1}
+                              Cấp {userProfile?.role === "superadmin" ? roleInfo.level : roleInfo.level - 1}
                             </span>
                             <h6 className="font-bold text-slate-800 text-sm mt-1">{roleInfo.displayName}</h6>
                             <span className="text-[10px] text-gray-400 font-mono block">Mã: {roleInfo.role}</span>
                           </div>
                           {roleInfo.isDefault && (
                             <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-150 rounded-sm text-[8px] font-bold font-mono">
-                              MẶC ĐỊNH
+                              Mặc định
                             </span>
                           )}
                         </div>
@@ -894,8 +897,8 @@ export default function UserAdminTab() {
                             {roleInfo.permissions.length === 0 ? (
                               <span className="text-[10px] text-gray-400 italic">Chưa cấu hình quyền nào</span>
                             ) : roleInfo.permissions.includes("*") ? (
-                              <span className="px-2.5 py-1 bg-sky-50 text-[#00ADFC] border border-sky-200 rounded-xl text-[10px] font-bold flex items-center gap-1">
-                                ✓ Toàn quyền hệ thống
+                              <span className="flex items-center gap-1 rounded-xl bg-sky-50 px-2.5 py-1 text-[10px] font-medium text-cyan-700">
+                                <Check className="h-3 w-3" /> Toàn quyền hệ thống
                               </span>
                             ) : (
                               roleInfo.permissions.map(p => {

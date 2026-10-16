@@ -23,16 +23,16 @@ export function UserAdminHeader({
   loading,
 }: Props) {
   return (
-    <div className="border-b border-gray-200 bg-gray-50/50 p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-4 shrink-0" id="user_admin_header">
+    <div className="flex shrink-0 flex-col justify-between gap-4 bg-white px-5 py-5 sm:flex-row sm:items-center sm:px-6" id="user_admin_header">
       <div className="flex items-center gap-3">
-        <div className="p-2.5 bg-cyan-600 rounded-2xl shadow-sm text-white">
-          <Users className="h-5 w-5 text-white" />
+        <div className="rounded-2xl bg-cyan-50 p-2.5 text-cyan-700">
+          <Users className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="font-extrabold text-cyan-700 text-xl lg:text-2xl tracking-tight">
-            Quản trị Tài khoản & Phân quyền
+          <h1 className="text-xl font-semibold tracking-tight text-slate-800">
+            Quản lý người dùng
           </h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">Quản lý danh sách thành viên, phân quyền vai trò & số dư hệ thống</p>
+          <p className="mt-1 text-sm text-slate-500">Tài khoản và vai trò trong hệ thống</p>
         </div>
       </div>
 
@@ -40,11 +40,11 @@ export function UserAdminHeader({
         {userProfile?.role === "superadmin" && (
           <>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider font-mono">Doanh nghiệp:</span>
+              <span className="text-xs text-slate-500">Doanh nghiệp</span>
               <select
                 value={selectedCompanyCode}
                 onChange={(e) => onSelectedCompanyCodeChange(e.target.value)}
-                className="p-1.5 border border-gray-200 bg-white rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                className="min-h-10 cursor-pointer rounded-xl bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-cyan-200"
               >
                 <option value="all">Tất cả doanh nghiệp</option>
                 {companies.map((c) => (
@@ -58,7 +58,7 @@ export function UserAdminHeader({
             <button
               type="button"
               onClick={onOpenCompanyModal}
-              className="p-2 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold font-sans flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+              className="flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-cyan-600 px-3.5 text-sm font-medium text-white transition-colors hover:bg-cyan-700"
             >
               <Plus className="h-3.5 w-3.5" />
               Đăng ký doanh nghiệp

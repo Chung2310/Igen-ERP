@@ -1,4 +1,6 @@
-﻿interface Props {
+﻿import { Search, X } from "lucide-react";
+
+interface Props {
   searchQuery: string;
   filterStartDate: string;
   filterEndDate: string;
@@ -10,72 +12,55 @@
   onClear: () => void;
 }
 
-export function UserFiltersBar(props: Props) {
-  const {
-    searchQuery,
-    filterStartDate,
-    filterEndDate,
-    visibleUsersCount,
-    totalUsersCount,
-    onSearchChange,
-    onFilterStartDateChange,
-    onFilterEndDateChange,
-    onClear,
-  } = props;
-
+export function UserFiltersBar({
+  searchQuery,
+  filterStartDate,
+  filterEndDate,
+  visibleUsersCount,
+  totalUsersCount,
+  onSearchChange,
+  onFilterStartDateChange,
+  onFilterEndDateChange,
+  onClear,
+}: Props) {
   return (
-    <div className="bg-white border-b border-gray-200 px-6 py-3.5 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center shrink-0">
-      <div className="flex flex-wrap items-center gap-3 flex-1">
-        <div className="relative min-w-[240px] flex-1 max-w-sm">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">🔍</span>
+    <div className="flex shrink-0 flex-col gap-3 bg-white px-5 py-4 lg:flex-row lg:items-end lg:justify-between sm:px-6">
+      <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="relative w-full sm:max-w-sm sm:flex-1">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Tìm theo tên hoặc email..."
+            aria-label="Tìm tài khoản"
+            placeholder="Tìm tên hoặc email"
             value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-9 pr-3.5 py-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+            onChange={(event) => onSearchChange(event.target.value)}
+            className="min-h-10 w-full rounded-xl bg-slate-50 py-2 pl-10 pr-10 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-cyan-200"
           />
           {searchQuery && (
-            <button
-              onClick={() => onSearchChange("")}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-650 text-[10px] font-bold"
-            >
-              ✕
+            <button type="button" onClick={() => onSearchChange("")} aria-label="Xóa tìm kiếm" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-700">
+              <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
-
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider font-mono">Từ ngày:</span>
-          <input
-            type="date"
-            value={filterStartDate}
-            onChange={(e) => onFilterStartDateChange(e.target.value)}
-            className="p-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold cursor-pointer"
-          />
-
-          <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider font-mono">Đến ngày:</span>
-          <input
-            type="date"
-            value={filterEndDate}
-            onChange={(e) => onFilterEndDateChange(e.target.value)}
-            className="p-1.5 border border-gray-200 bg-gray-50/50 hover:bg-white focus:bg-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold cursor-pointer"
-          />
-        </div>
-
-        <div className="text-[10px] text-gray-400 font-semibold font-mono">
-          Kết quả: {visibleUsersCount} / {totalUsersCount}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-end">
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
+            Từ ngày
+            <input type="date" value={filterStartDate} onChange={(event) => onFilterStartDateChange(event.target.value)} className="min-h-10 min-w-0 rounded-xl bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-cyan-200" />
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
+            Đến ngày
+            <input type="date" value={filterEndDate} onChange={(event) => onFilterEndDateChange(event.target.value)} className="min-h-10 min-w-0 rounded-xl bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-cyan-200" />
+          </label>
         </div>
       </div>
-
-      {(searchQuery || filterStartDate || filterEndDate) && (
-        <button
-          onClick={onClear}
-          className="px-3.5 py-1.5 border border-dashed border-red-200 hover:border-red-400 bg-red-50/30 hover:bg-red-50 text-red-650 hover:text-red-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 active:scale-95"
-        >
-          ✕ Xóa bộ lọc
-        </button>
-      )}
+      <div className="flex items-center justify-between gap-3 pb-1 text-xs text-slate-500 lg:justify-end">
+        <span>{visibleUsersCount} / {totalUsersCount} tài khoản</span>
+        {(searchQuery || filterStartDate || filterEndDate) && (
+          <button type="button" onClick={onClear} className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-2.5 py-1.5 font-medium text-slate-600 hover:bg-cyan-50 hover:text-cyan-700">
+            <X className="h-3.5 w-3.5" /> Xóa lọc
+          </button>
+        )}
+      </div>
     </div>
   );
 }
