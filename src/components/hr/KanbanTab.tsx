@@ -1814,9 +1814,9 @@ export default function KanbanTab({
       {/* NOTION TASK DETAIL MODAL */}
       {selectedKanbanTask && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-[#DCE7F4] text-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl p-6 relative text-left flex flex-col max-h-[90vh] overflow-y-auto font-sans">
+          <div className="bg-white border border-[#DCE7F4] text-slate-800 rounded-2xl shadow-2xl w-full max-w-6xl relative text-left flex flex-col max-h-[calc(100dvh-2rem)] overflow-hidden font-sans">
             {/* Top Breadcrumb and Close */}
-            <div className="flex justify-between items-center mb-5 border-b border-[#E8F0F8] pb-4 text-sm text-slate-500 select-none">
+            <div className="flex shrink-0 justify-between items-center border-b border-[#E8F0F8] px-5 py-3 text-sm text-slate-500 select-none">
               <div className="flex items-center gap-1">
                 <span className="text-gray-500">Nhân sự</span>
                 <ChevronRight className="h-3 w-3 text-gray-450" />
@@ -1833,20 +1833,22 @@ export default function KanbanTab({
               </button>
             </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
+
             {/* Editable Title Input */}
-            <div className="mb-5">
+            <div className="mb-3">
               <input
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 placeholder="Tiêu đề công việc..."
-                className="w-full rounded-xl border border-[#DCE7F4] bg-white px-4 py-3 text-xl font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 font-sans"
+                className="w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-lg font-normal text-slate-800 placeholder-slate-400 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 font-sans"
               />
             </div>
 
             {/* Notion properties matrix table */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-6 border-b border-[#E8F0F8] text-sm">
-              <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 border-b border-[#E8F0F8] pb-3 text-sm md:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-2 lg:contents">
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-[#00ADFC]" /> Giao cho</span>
                   <div className="min-w-0 flex-1"><HrFormSelect value={editAssigneeUid} onChange={setEditAssigneeUid} label="Giao cho" options={employees.map(emp => ({ value: emp.id, label: emp.name }))} /></div>
@@ -1881,7 +1883,7 @@ export default function KanbanTab({
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2 lg:contents">
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-[#00ADFC]" /> Thuộc dự án</span>
                   <div className="min-w-0 flex-1"><HrFormSelect value={editProjectId} onChange={setEditProjectId} label="Thuộc dự án" options={[{ value: "", label: "Không gán dự án" }, ...projects.map(p => ({ value: p.id, label: p.name }))]} /></div>
@@ -1958,7 +1960,7 @@ export default function KanbanTab({
             </div>
 
             {/* Additional meta fields (Tags & Link note) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 py-4 border-b text-xs">
+            <div className="grid grid-cols-1 gap-3 border-b border-[#E8F0F8] py-3 text-xs md:grid-cols-2">
               <div>
                 <label className="mb-1.5 flex items-center gap-1 text-slate-600 select-none"><Tag className="w-3.5 h-3.5 text-[#00ADFC]" /> Nhãn (cách nhau bằng dấu phẩy)</label>
                 <input
@@ -1966,7 +1968,7 @@ export default function KanbanTab({
                   placeholder="Ví dụ: máy chủ, kết nối, bảo mật"
                   value={editTags}
                   onChange={(e) => setEditTags(e.target.value)}
-                  className="w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15"
+                  className="w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15"
                 />
               </div>
 
@@ -1977,29 +1979,29 @@ export default function KanbanTab({
                   placeholder="Ví dụ: http://notion.so/igen-plan"
                   value={editLinkNote}
                   onChange={(e) => setEditLinkNote(e.target.value)}
-                  className="w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15"
+                  className="w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15"
                 />
               </div>
             </div>
 
-            <div className="py-4 border-b text-xs">
+            <div className="border-b border-[#E8F0F8] py-3 text-xs">
               <label className="mb-2 flex items-center gap-1 text-slate-600 select-none"><Paperclip className="w-3.5 h-3.5 text-[#00ADFC]" /> Tệp, ảnh, video, ghi âm và liên kết</label>
               <AttachmentEditor attachments={editAttachments} onChange={setEditAttachments} />
             </div>
             {/* Description field */}
-            <div className="py-5 flex-1 min-h-[140px] flex flex-col text-xs">
+            <div className="flex flex-col py-3 text-xs">
               <label className="block text-slate-600 mb-1.5 select-none">Mô tả công việc chi tiết</label>
               <textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 placeholder="Nhập ghi chú chi tiết cho nhân viên thực hiện..."
-                className={missingCls("description", "w-full flex-1 p-3 bg-white border border-[#DCE7F4] focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 rounded-xl outline-none resize-none min-h-[120px]")}
+                className={missingCls("description", "w-full p-3 bg-white border border-[#DCE7F4] focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 rounded-xl outline-none resize-y min-h-[72px] h-[76px]")}
               />
             </div>
 
             {/* Task history log */}
             {selectedKanbanTask.id !== "new" && taskHistory.length > 0 && (
-              <div className="border-t pt-4 max-h-[150px] overflow-y-auto text-[10px]">
+              <div className="border-t border-[#E8F0F8] pt-2 max-h-[90px] overflow-y-auto text-[10px]">
                 <span className="block font-medium text-slate-600 mb-2 select-none">Nhật ký thay đổi ({taskHistory.length})</span>
                 <div className="space-y-1.5 font-mono text-slate-500 text-left">
                   {taskHistory.slice().reverse().map((hist, hidx) => (
@@ -2015,7 +2017,7 @@ export default function KanbanTab({
 
             {/* Creator information */}
             {selectedKanbanTask.id !== "new" && (
-              <div className="pt-3 text-[10px] text-gray-400 select-none text-right font-medium">
+              <div className="pt-2 text-[10px] text-gray-400 select-none text-right font-medium">
                 Giao bởi:{" "}
                 <strong>
                   {usersList.find(u => u.uid === selectedKanbanTask.creatorUid)?.displayName ||
@@ -2033,8 +2035,10 @@ export default function KanbanTab({
               </div>
             )}
 
+            </div>
+
             {/* Action buttons */}
-            <div className="pt-5 border-t border-[#E8F0F8] flex justify-between items-center text-sm font-medium shrink-0">
+            <div className="flex shrink-0 items-center justify-between border-t border-[#E8F0F8] bg-white px-5 py-3 text-sm font-normal">
               <div>
                 {selectedKanbanTask.id !== "new" && (isManager || selectedKanbanTask.creatorUid === userProfile?.uid) && (
                   <button
