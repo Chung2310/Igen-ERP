@@ -79,11 +79,12 @@ const parseDurationToHours = (durationStr: string): number => {
 
 type OrgChartSelectOption = { value: string; label: string };
 
-function OrgChartFormSelect({ value, options, onChange, label }: {
+function OrgChartFormSelect({ value, options, onChange, label, disabled = false }: {
   value: string;
   options: OrgChartSelectOption[];
   onChange: (value: string) => void;
   label: string;
+  disabled?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 240 });
@@ -143,6 +144,7 @@ function OrgChartFormSelect({ value, options, onChange, label }: {
         aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        disabled={disabled}
         onClick={toggleMenu}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -150,7 +152,7 @@ function OrgChartFormSelect({ value, options, onChange, label }: {
             if (!isOpen) toggleMenu();
           }
         }}
-        className="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-slate-800 outline-none transition-colors hover:border-[#8edcff] focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/20 cursor-pointer"
+        className="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-slate-800 outline-none transition-colors hover:border-[#8edcff] focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 cursor-pointer"
       >
         <span className="min-w-0 truncate">{options.find(option => option.value === value)?.label || options[0]?.label}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-[#007EB8] transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
@@ -471,7 +473,8 @@ export default function OrgChartTab({
   const [addEmail, setAddEmail] = useState("");
   const [addPassword, setAddPassword] = useState("");
   const [addPhone, setAddPhone] = useState("");
-  const [addDepartment, setAddDepartment] = useState("Phòng Kỹ Thuật");
+  const [addDepartment, setAddDepartment] = useState("");
+  const [isNewAddDepartment, setIsNewAddDepartment] = useState(false);
   const [addParentId, setAddParentId] = useState("");
   const [addRole, setAddRole] = useState<"user" | "manager" | "branch_owner" | "admin">("user");
   const [addJobDescriptionLink, setAddJobDescriptionLink] = useState("");
@@ -488,6 +491,7 @@ export default function OrgChartTab({
   const [editQualification, setEditQualification] = useState("");
   const [editDivision, setEditDivision] = useState("");
   const [editDepartment, setEditDepartment] = useState("");
+  const [isNewEditDepartment, setIsNewEditDepartment] = useState(false);
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editLevel, setEditLevel] = useState<number>(4);
@@ -513,6 +517,7 @@ export default function OrgChartTab({
     setEditQualification(selectedEmp.qualification || "");
     setEditDivision(selectedEmp.division || "Khối Vận Hành");
     setEditDepartment(selectedEmp.department || "");
+    setIsNewEditDepartment(false);
     setEditMonthlySalary(selectedEmp.monthlySalary == null ? "" : String(selectedEmp.monthlySalary));
     setEditEmail(selectedEmp.email || "");
     setEditPhone(selectedEmp.phone && selectedEmp.phone !== "Chưa cập nhật" ? selectedEmp.phone : "");
@@ -571,6 +576,10 @@ export default function OrgChartTab({
 
     if (!editName.trim()) {
       toast.warning("Vui lòng nhập đầy đủ Họ tên!");
+      return;
+    }
+    if (isNewEditDepartment && !editDepartment.trim()) {
+      toast.warning("Vui lòng nhập tên phòng ban mới!");
       return;
     }
 
@@ -799,6 +808,7 @@ export default function OrgChartTab({
       const selectedManager = usersList.find(u => u.uid === addParentId);
       if (selectedManager && selectedManager.department) {
         setAddDepartment(selectedManager.department);
+        setIsNewAddDepartment(false);
       }
     } else if (isAddModalOpen && addRole === "user" && !addParentId) {
       setAddDepartment("");
@@ -808,7 +818,8 @@ export default function OrgChartTab({
   // Reset addDepartment when modal closes
   useEffect(() => {
     if (!isAddModalOpen) {
-      setAddDepartment("Phòng Kỹ Thuật");
+      setAddDepartment("");
+      setIsNewAddDepartment(false);
       setAddJobDescriptionLink("");
       setAddJobDescriptionUploadToken("");
     }
@@ -865,6 +876,10 @@ export default function OrgChartTab({
     e.preventDefault();
     if (!addName.trim() || !addEmail.trim() || !addPassword.trim()) {
       toast.warning("Vui lòng nhập đầy đủ Họ tên, Email và Mật khẩu!");
+      return;
+    }
+    if ((addRole === "user" || addRole === "manager") && !addDepartment.trim()) {
+      toast.warning("Vui lòng chọn phòng ban!");
       return;
     }
     if (addPassword.length < 6) {
@@ -1666,8 +1681,8 @@ export default function OrgChartTab({
       {isDetailModalOpen && selectedEmp && (
         <div className="fixed inset-0 bg-black/55 backdrop-blur-2xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200" id="employee_detail_modal">
           {isEditing ? (
-            <div className="org-chart-edit-popup relative w-full max-w-4xl max-h-[calc(100dvh-2rem)] space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-xl animate-in fade-in zoom-in-95 duration-200 md:p-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="org-chart-edit-popup relative flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-xl animate-in fade-in zoom-in-95 duration-200 md:p-5">
+              <div className="mb-3 flex shrink-0 items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
                   {renderAvatar(selectedEmp.avatar, "w-9 h-9", "text-base")}
@@ -1676,13 +1691,14 @@ export default function OrgChartTab({
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
+                  aria-label="Đóng popup chỉnh sửa nhân sự"
                   className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
                 >
                   <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-x-4 gap-y-3 text-left text-xs sm:grid-cols-2">
+              <div className="grid min-h-0 grid-cols-1 gap-x-4 gap-y-3 overflow-y-auto pr-1 text-left text-xs sm:grid-cols-2">
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Họ tên *</label>
                   <input
@@ -1711,27 +1727,36 @@ export default function OrgChartTab({
                   </div>
                   <div>
                     <label className="block font-bold text-gray-500 mb-1">Phân khối</label>
-                    <select
+                    <OrgChartFormSelect
                       value={editDivision}
-                      onChange={(e) => setEditDivision(e.target.value)}
-                      className="w-full p-2.5 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] bg-white cursor-pointer text-slate-700"
-                    >
-                      {uniqueDivisions.map(div => (
-                        <option key={div} value={div}>{div}</option>
-                      ))}
-                    </select>
+                      onChange={setEditDivision}
+                      label="Phân khối"
+                      options={uniqueDivisions.map(div => ({ value: div, label: div }))}
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2">
                   <div>
                     <label className="block font-bold text-gray-500 mb-1">Phòng ban</label>
-                    <input
-                      type="text"
-                      value={editDepartment}
-                      onChange={(e) => setEditDepartment(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] text-slate-700 bg-white"
+                    <OrgChartFormSelect
+                      value={isNewEditDepartment ? "__new_department__" : editDepartment}
+                      onChange={(department) => {
+                        setIsNewEditDepartment(department === "__new_department__");
+                        setEditDepartment(department === "__new_department__" ? "" : department);
+                      }}
+                      label="Phòng ban"
+                      options={[{ value: "", label: "Chọn phòng ban" }, ...uniqueDepartments.map(dept => ({ value: dept, label: dept })), { value: "__new_department__", label: "+ Thêm phòng ban mới" }]}
                     />
+                    {isNewEditDepartment && (
+                      <input
+                        type="text"
+                        value={editDepartment}
+                        onChange={(e) => setEditDepartment(e.target.value)}
+                        placeholder="Tên phòng ban mới"
+                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-slate-700 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/20"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block font-bold text-gray-500 mb-1">Số điện thoại</label>
@@ -1801,13 +1826,11 @@ export default function OrgChartTab({
 
                 <div className="sm:col-span-2">
                   <label className="block font-bold text-gray-500 mb-1">Quản lý trực tiếp</label>
-                  <select
+                  <OrgChartFormSelect
                     value={editParentId}
-                    onChange={(e) => setEditParentId(e.target.value)}
-                    className="w-full p-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] bg-white cursor-pointer text-slate-700"
-                  >
-                    <option value="">Không phân công</option>
-                    {employees
+                    onChange={setEditParentId}
+                    label="Quản lý trực tiếp"
+                    options={[{ value: "", label: "Không phân công" }, ...employees
                       .filter(emp => {
                         const checkIsDescendant = (pId: string, cId: string): boolean => {
                           const child = employees.find(e => e.id === cId);
@@ -1832,23 +1855,12 @@ export default function OrgChartTab({
                         // Chỉ cho phép chọn quản lý có vai trò cấp cao hơn và không phải là chính mình/cấp dưới
                         return parentLevel < targetLevel && emp.id !== selectedEmp.id && !checkIsDescendant(selectedEmp.id, emp.id);
                       })
-                      .map(emp => (
-                        <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
-                      ))
-                    }
-                  </select>
+                      .map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` }))]}
+                  />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 text-xs">
-                <button
-                  type="button"
-                  disabled={isSaving}
-                  onClick={() => setIsEditing(false)}
-                  className="cursor-pointer rounded-xl bg-rose-500 px-4 py-2 text-white transition-colors hover:bg-rose-600 disabled:opacity-50"
-                >
-                  Hủy bỏ
-                </button>
+              <div className="mt-3 flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-3 text-xs">
                 <button
                   type="button"
                   disabled={isSaving}
@@ -2208,15 +2220,25 @@ export default function OrgChartTab({
                   <label className="block font-bold text-gray-500 mb-1">
                     {addRole === "manager" ? "Phòng ban quản lý *" : "Phòng ban *"}
                   </label>
-                  <input
-                    type="text"
-                    required
+                  <OrgChartFormSelect
                     disabled={addRole === "user" && !!addParentId}
-                    placeholder="Ví dụ: Phòng Kỹ Thuật"
-                    value={addDepartment}
-                    onChange={(e) => setAddDepartment(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] disabled:bg-gray-50 disabled:text-gray-400"
+                    value={isNewAddDepartment ? "__new_department__" : addDepartment}
+                    onChange={(department) => {
+                      setIsNewAddDepartment(department === "__new_department__");
+                      setAddDepartment(department === "__new_department__" ? "" : department);
+                    }}
+                    label="Phòng ban"
+                    options={[{ value: "", label: "Chọn phòng ban" }, ...uniqueDepartments.map(dept => ({ value: dept, label: dept })), { value: "__new_department__", label: "+ Thêm phòng ban mới" }]}
                   />
+                  {isNewAddDepartment && (
+                    <input
+                      type="text"
+                      value={addDepartment}
+                      onChange={(e) => setAddDepartment(e.target.value)}
+                      placeholder="Tên phòng ban mới"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-slate-700 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/20"
+                    />
+                  )}
                   {addRole === "user" && !!addParentId && (
                     <p className="text-[10px] text-[#007EB8] font-mono mt-0.5">
                       Tự động điền theo phòng ban của quản lý trực tiếp.
@@ -2259,14 +2281,6 @@ export default function OrgChartTab({
             </div>
 
             <div className="mt-3 flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-3 text-xs">
-              <button
-                type="button"
-                disabled={isAddingEmployee}
-                onClick={() => setIsAddModalOpen(false)}
-                className="cursor-pointer rounded-xl bg-rose-500 px-4 py-2 text-white transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Hủy bỏ
-              </button>
               <button
                 type="submit"
                 disabled={isAddingEmployee}
