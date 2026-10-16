@@ -1174,60 +1174,67 @@ function NewWorkflowWizard({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-3 sm:p-5"
       onClick={onClose}
     >
       <div
-        className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-3xl shadow-2xl transition-all duration-300 ${step === 2 ? "max-w-6xl" : "max-w-4xl"
+        className={`flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-[22px] shadow-[0_28px_90px_rgba(24,46,85,0.25)] transition-all duration-300 ${step === 2 ? "max-w-[1380px]" : "max-w-4xl"
           } ${isDark
             ? "bg-[#121212] border border-zinc-800 text-zinc-100"
-            : "bg-white border border-gray-200 text-slate-850"
+            : "bg-white border border-[#dce7f4] text-slate-850"
           }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header + Title */}
         <div
-          className={`flex items-center justify-between border-b px-6 py-4.5 transition-colors ${isDark ? "bg-[#181818] border-zinc-800" : "bg-white border-gray-250"
+          className={`flex items-center justify-between border-b px-5 py-4 sm:px-7 transition-colors ${isDark ? "bg-[#181818] border-zinc-800" : "bg-white border-[#e4edf7]"
             }`}
         >
-          <div className="flex items-center gap-2">
-            <WorkflowIcon className="h-5 w-5 text-[#00adfc]" />
-            <h3 className={`text-base font-medium ${isDark ? "text-zinc-150" : "text-slate-800"}`}>
-              {isEditing ? "Sửa quy trình" : "Tạo quy trình mới"}
-            </h3>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isDark ? "bg-sky-950/60" : "bg-[#e8f7ff]"}`}>
+              <WorkflowIcon className="h-5 w-5 text-[#00adfc]" />
+            </span>
+            <div className="min-w-0">
+              <h3 className={`text-lg font-semibold leading-tight ${isDark ? "text-zinc-100" : "text-slate-900"}`}>
+                {isEditing ? "Sửa quy trình" : "Tạo quy trình mới"}
+              </h3>
+              <p className={`mt-0.5 text-xs ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
+                Thiết kế luồng công việc phù hợp với cách vận hành của bạn
+              </p>
+            </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="cursor-pointer rounded-full bg-rose-500 p-2 text-white transition-colors hover:bg-rose-600"
+            aria-label="Đóng popup quy trình"
+            className={`flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors ${isDark ? "border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700" : "border-[#dce7f4] bg-white text-slate-700 shadow-sm hover:bg-[#f3faff]"}`}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Step Indicator row (only on step 1) */}
-        {!isDark && (
-          <div className="flex items-center gap-2 border-b border-gray-150 bg-slate-50/60 px-6 py-3">
+        {/* Các bước thiết lập hiện có */}
+        <div className={`flex flex-wrap items-center gap-2 border-b px-5 py-2.5 sm:px-7 ${isDark ? "border-zinc-800 bg-[#181818]" : "border-[#e4edf7] bg-[#f8fbff]"}`}>
             {[
               { n: 1, label: "Thông tin quy trình" },
               { n: 2, label: "Thiết lập giai đoạn" },
             ].map((s, i) => (
               <React.Fragment key={s.n}>
-                <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-2 rounded-full px-2.5 py-1.5 ${step === s.n ? (isDark ? "bg-sky-950/50" : "bg-[#e8f7ff]") : ""}`}>
                   <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-medium ${step >= (s.n as 1 | 2) ? "bg-[#00adfc] text-white" : "bg-gray-200 text-slate-500"
+                    className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium ${step >= (s.n as 1 | 2) ? "bg-[#00adfc] text-white" : isDark ? "bg-zinc-700 text-zinc-300" : "bg-[#e0e9f4] text-slate-600"
                       }`}
                   >
                     {s.n}
                   </span>
-                  <span className={`text-xs font-medium ${step === s.n ? "text-[#008dcc]" : "text-slate-400"}`}>
+                  <span className={`text-xs font-medium ${step === s.n ? "text-[#008dcc]" : isDark ? "text-zinc-400" : "text-slate-500"}`}>
                     {s.label}
                   </span>
                 </div>
-                {i === 0 && <div className="h-px w-8 bg-gray-300" />}
+                {i === 0 && <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden="true" />}
               </React.Fragment>
             ))}
-          </div>
-        )}
+        </div>
 
 
         {/* Mobile View Toggle Tabs for Step 2 */}
@@ -1325,13 +1332,19 @@ function NewWorkflowWizard({
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className={`flex-1 p-8 overflow-hidden items-center justify-center min-h-[450px] relative border-r transition-colors touch-none ${
+              className={`flex-1 overflow-hidden items-center justify-center min-h-[480px] relative border-r transition-colors touch-none ${
                 isPanning ? "cursor-grabbing" : "cursor-grab"
-              } ${isDark ? "bg-[#141414] border-zinc-800/80" : "bg-slate-50/50 border-gray-200"} ${
+              } ${isDark ? "bg-[#141414] border-zinc-800/80" : "bg-[#f8fbff] border-[#dce7f4]"} ${
                 activeTab === "diagram" ? "flex" : "hidden md:flex"
               }`}
+              style={{
+                backgroundImage: isDark
+                  ? "radial-gradient(#334155 0.8px, transparent 0.8px)"
+                  : "radial-gradient(#d5e4f4 0.8px, transparent 0.8px)",
+                backgroundSize: "20px 20px",
+              }}
             >
-              {/* Decorative top-left selection tool */}
+              {/* Thêm giai đoạn từ vùng sơ đồ */}
               <button
                 type="button"
                 draggable
@@ -1340,13 +1353,13 @@ function NewWorkflowWizard({
                   e.dataTransfer.setData("text/plain", "new-step");
                   e.dataTransfer.effectAllowed = "copy";
                 }}
-                className={`absolute top-4 left-4 p-2.5 border rounded-xl transition-all shadow-sm cursor-grab active:cursor-grabbing z-20 ${isDark
-                  ? "bg-[#1f1f1f] border-zinc-800 text-zinc-500 hover:text-zinc-300"
-                  : "bg-white border-gray-200 text-slate-400 hover:text-slate-600"
+                className={`absolute top-4 left-4 z-20 flex items-center gap-1.5 rounded-xl border border-dashed px-3 py-2 text-xs transition-colors shadow-sm cursor-grab active:cursor-grabbing ${isDark
+                  ? "bg-[#1f1f1f] border-zinc-700 text-sky-400 hover:bg-zinc-800"
+                  : "bg-white border-[#8edcff] text-[#008dcc] hover:bg-[#e8f7ff]"
                   }`}
                 title="Bấm hoặc Kéo thả vào vùng làm việc để tạo giai đoạn mới"
               >
-                <div className={`w-4 h-4 border rounded ${isDark ? "border-zinc-500" : "border-gray-300"}`} />
+                <Plus className="h-4 w-4" /> Thêm giai đoạn
               </button>
 
               {steps.length === 0 ? (
@@ -1359,7 +1372,7 @@ function NewWorkflowWizard({
                 </div>
               ) : (
                 <div
-                  className="flex flex-col gap-y-16 p-20 select-none w-max min-w-max"
+                  className="flex w-max min-w-max select-none flex-col gap-y-12 p-16"
                   style={{
                     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                     transformOrigin: "center center",
@@ -1368,9 +1381,9 @@ function NewWorkflowWizard({
                 >
                   {(() => {
                     const rows: { step: WorkflowStep; index: number }[][] = [];
-                    for (let i = 0; i < steps.length; i += 5) {
+                    for (let i = 0; i < steps.length; i += 3) {
                       rows.push(
-                        steps.slice(i, i + 5).map((step, idx) => ({
+                        steps.slice(i, i + 3).map((step, idx) => ({
                           step,
                           index: i + idx,
                         }))
@@ -1378,7 +1391,7 @@ function NewWorkflowWizard({
                     }
 
                     return rows.map((row, rowIndex) => (
-                      <div key={rowIndex} className="flex items-center gap-x-12 relative w-max min-w-max">
+                      <div key={rowIndex} className="relative flex w-max min-w-max items-center gap-x-3">
                         {row.map(({ step: s, index: idx }, cellIndex) => {
                           const isSelected = selectedId === s.id;
                           const hasNextInRow = cellIndex < row.length - 1;
@@ -1388,29 +1401,20 @@ function NewWorkflowWizard({
                               {/* Node Card */}
                               <div
                                 onClick={() => setSelectedId(s.id)}
-                                className={`canvas-node w-48 rounded-2xl border p-4.5 transition-all duration-300 cursor-pointer shadow-md relative shrink-0 ${
+                                className={`canvas-node relative min-h-28 w-48 shrink-0 cursor-pointer rounded-2xl border p-4 text-left shadow-[0_8px_22px_rgba(35,67,113,0.10)] transition-all duration-200 ${
                                   isSelected
                                     ? isDark
-                                      ? "border-sky-500 bg-sky-950/20 ring-4 ring-sky-500/10 scale-102"
-                                      : "border-sky-500 bg-sky-50/70 ring-4 ring-sky-500/10 scale-102 shadow-lg"
+                                      ? "border-sky-500 bg-sky-950/20 ring-2 ring-sky-500/20"
+                                      : "border-[#00adfc] bg-white ring-2 ring-[#00adfc]/15 shadow-[0_10px_26px_rgba(0,173,252,0.16)]"
                                     : isDark
                                       ? "border-zinc-750 bg-zinc-900/60 hover:bg-zinc-800/80 hover:border-zinc-500"
-                                      : "border-gray-200 bg-white hover:bg-slate-50/50 hover:border-gray-300"
+                                      : "border-[#dce7f4] bg-white hover:border-[#8edcff] hover:shadow-[0_12px_26px_rgba(35,67,113,0.15)]"
                                 }`}
                               >
-                                {/* Step Number Badge */}
-                                <span
-                                  className={`absolute -top-3 left-4 text-[9px] font-medium px-2 py-0.5 rounded-lg border shadow-3xs transition-colors ${
-                                    isDark
-                                      ? "bg-zinc-800 text-zinc-400 border-zinc-700"
-                                      : "bg-white text-slate-550 border-gray-200"
-                                  }`}
-                                >
-                                  Giai đoạn {idx + 1}
-                                </span>
+                                <span className={`text-[10px] ${isDark ? "text-sky-400" : "text-[#008dcc]"}`}>Bước {idx + 1}</span>
 
                                 <h4
-                                  className={`text-xs font-medium tracking-wide leading-tight line-clamp-2 transition-colors mt-1 ${
+                                  className={`mt-1 line-clamp-2 text-sm font-medium leading-snug transition-colors ${
                                     isSelected
                                       ? isDark
                                         ? "text-sky-400"
@@ -1424,22 +1428,17 @@ function NewWorkflowWizard({
                                 </h4>
 
                                 {s.description && (
-                                  <p className="text-[10px] text-slate-400 line-clamp-2 mt-1.5 leading-relaxed font-medium">
+                                  <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-slate-500">
                                     {s.description}
                                   </p>
                                 )}
 
-                                {idx === 0 && (
-                                  <div className="absolute -left-3 -top-3 bg-emerald-600 text-white font-medium text-[7px] tracking-wider px-2 py-0.5 rounded-lg shadow-sm">
-                                    Khởi đầu
-                                  </div>
-                                )}
                               </div>
 
                               {/* Connector Line */}
                               {hasNextInRow && (
                                 <div className="flex items-center justify-center shrink-0">
-                                  <ArrowRight className={`h-5 w-5 animate-pulse ${isDark ? "text-sky-400" : "text-sky-600"}`} />
+                                  <ArrowRight className={`h-5 w-5 ${isDark ? "text-sky-400" : "text-[#00adfc]"}`} />
                                 </div>
                               )}
                             </React.Fragment>
@@ -1453,7 +1452,7 @@ function NewWorkflowWizard({
 
               {/* Zoom Controls */}
               {steps.length > 0 && (
-                <div className="absolute bottom-4 right-4 flex items-center gap-1.5 z-20">
+                <div className={`absolute right-4 top-4 z-20 flex items-center gap-1.5 rounded-xl border p-1 shadow-sm ${isDark ? "border-zinc-700 bg-[#1f1f1f]" : "border-[#dce7f4] bg-white"}`}>
                   <button
                     type="button"
                     onClick={() => handleZoom(0.85)}
@@ -1472,7 +1471,7 @@ function NewWorkflowWizard({
                     }`}
                     title="Đặt lại"
                   >
-                    Mặc định
+                    {Math.round(zoom * 100)}%
                   </button>
                   <button
                     type="button"
@@ -1490,49 +1489,28 @@ function NewWorkflowWizard({
 
             {/* Sidebar list layout (Right Column) */}
             <div
-              className={`w-full md:w-80 flex flex-col border-l transition-colors duration-300 ${
-                isDark ? "bg-[#1a1a1a] border-zinc-800" : "bg-white border-gray-200"
+              className={`w-full md:w-[360px] flex flex-col border-l transition-colors duration-300 ${
+                isDark ? "bg-[#1a1a1a] border-zinc-800" : "bg-white border-[#dce7f4]"
               } ${activeTab === "list" ? "flex" : "hidden md:flex"}`}
             >
               <div
-                className={`px-4 py-3 border-b flex flex-wrap items-center justify-end gap-2 shadow-2xs transition-colors duration-300 ${isDark ? "bg-[#1d1d1d] border-zinc-800/85" : "bg-slate-50 border-gray-200"
+                className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2 transition-colors duration-300 ${isDark ? "bg-[#1d1d1d] border-zinc-800/85" : "bg-white border-[#e4edf7]"
                   }`}
               >
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={addStage}
-                    className="p-1.5 bg-[#00adfc] hover:bg-[#0097df] text-white rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
-                    title="Thêm giai đoạn"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                  <div
-                    className={`flex gap-0.5 border rounded-lg p-0.5 transition-colors ${isDark ? "border-zinc-800 bg-[#141414]" : "border-gray-200 bg-gray-50"
-                      }`}
-                  >
-                    <button
-                      className={`p-1 transition-colors ${isDark ? "text-zinc-650 hover:text-zinc-400" : "text-slate-400 hover:text-slate-655"
-                        }`}
-                      title="Sắp xếp"
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5 rotate-90" />
-                    </button>
-                    <button
-                      className={`p-1 transition-colors ${isDark ? "text-zinc-650 hover:text-zinc-400" : "text-slate-400 hover:text-slate-655"
-                        }`}
-                      title="Bố cục"
-                    >
-                      <ChevronRight className="h-3.5 w-3.5 rotate-90" />
-                    </button>
-                  </div>
-                </div>
+                <h4 className={`text-sm font-semibold ${isDark ? "text-zinc-100" : "text-slate-900"}`}>Danh sách giai đoạn</h4>
+                <button
+                  type="button"
+                  onClick={addStage}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#00adfc] px-3 py-2 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#0097df]"
+                >
+                  <Plus className="h-4 w-4" /> Thêm giai đoạn
+                </button>
               </div>
 
               {/* Sidebar scrollable list */}
-              <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
+              <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-4">
                 {steps.length === 0 ? (
-                  <p className="text-center text-xs text-zinc-650 py-8 font-medium">Danh sách trống</p>
+                  <p className={`rounded-2xl border border-dashed px-4 py-8 text-center text-xs ${isDark ? "border-zinc-700 text-zinc-400" : "border-[#dce7f4] text-slate-500"}`}>Chưa có giai đoạn. Nhấn “Thêm giai đoạn” để bắt đầu.</p>
                 ) : (
                   steps.map((s, i) => (
                     <div
@@ -1541,13 +1519,13 @@ function NewWorkflowWizard({
                       onDragStart={() => setDragId(s.id)}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={() => reorder(s.id)}
-                      className={`flex items-center gap-3 border p-2.5 rounded-xl transition-all cursor-pointer shadow-3xs ${selectedId === s.id
+                      className={`flex items-center gap-2 border p-3 rounded-2xl transition-all cursor-pointer shadow-sm ${selectedId === s.id
                         ? isDark
                           ? "border-sky-500/80 bg-sky-950/10"
-                          : "border-sky-500/80 bg-sky-50/50"
+                          : "border-[#00adfc] bg-[#f2faff]"
                         : isDark
                           ? "bg-[#242424] hover:bg-[#2e2e2e] border-zinc-800"
-                          : "bg-white hover:bg-slate-50/80 border-gray-200"
+                          : "bg-white hover:bg-[#f8fbff] border-[#dce7f4]"
                         }`}
                       onClick={() => setSelectedId(s.id)}
                     >
@@ -1555,25 +1533,13 @@ function NewWorkflowWizard({
                         className={`h-4 w-4 shrink-0 cursor-grab transition-colors ${isDark ? "text-zinc-650 hover:text-zinc-450" : "text-slate-400 hover:text-slate-650"
                           }`}
                       />
-                      <span
-                        className={`font-medium text-xs px-2 py-0.5 rounded-lg shadow-3xs border transition-colors ${isDark
-                          ? "bg-zinc-800 text-zinc-350 border-zinc-700"
-                          : "bg-gray-100 text-slate-500 border-gray-200"
-                          }`}
-                      >
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-medium ${isDark ? "bg-zinc-700 text-zinc-200" : "bg-[#e9f0f8] text-slate-700"}`}>
                         {i + 1}
                       </span>
-                      <span
-                        className={`text-xs font-medium truncate flex-1 transition-colors ${isDark ? "text-zinc-200" : "text-slate-750"
-                          }`}
-                      >
-                        {s.title || "(Chưa đặt tên)"}
-                      </span>
-                      {i === 0 && (
-                        <span className="bg-emerald-955 text-emerald-400 border border-emerald-900/40 text-[9px] px-1.5 py-0.5 rounded-md font-medium shadow-3xs">
-                          Bắt đầu
-                        </span>
-                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-xs font-medium ${isDark ? "text-zinc-200" : "text-slate-900"}`}>{s.title || "(Chưa đặt tên)"}</p>
+                        {s.description && <p className={`mt-0.5 truncate text-[10px] ${isDark ? "text-zinc-400" : "text-slate-500"}`}>{s.description}</p>}
+                      </div>
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
@@ -1625,20 +1591,29 @@ function NewWorkflowWizard({
                   ))
                 )}
               </div>
+              <div className={`border-t p-4 ${isDark ? "border-zinc-800" : "border-[#e4edf7]"}`}>
+                <p className={`mb-2 text-xs font-medium ${isDark ? "text-zinc-200" : "text-slate-800"}`}>Hướng dẫn</p>
+                <div className={`space-y-1.5 rounded-xl px-3 py-2.5 text-[11px] ${isDark ? "bg-zinc-800/70 text-zinc-400" : "bg-[#f1f8ff] text-slate-600"}`}>
+                  <p>• Kéo thả để sắp xếp thứ tự giai đoạn.</p>
+                  <p>• Chọn một giai đoạn để xem trên sơ đồ.</p>
+                  <p>• Dùng biểu tượng bút để sửa thông tin.</p>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {/* Footer controls */}
         <div
-          className={`flex items-center justify-between border-t px-6 py-4.5 transition-colors ${isDark ? "bg-[#181818] border-zinc-800" : "bg-white border-gray-250"
+          className={`flex items-center justify-between border-t px-5 py-3.5 sm:px-7 transition-colors ${isDark ? "bg-[#181818] border-zinc-800" : "bg-white border-[#e4edf7]"
             }`}
         >
           <div>
-            {isDark && (
+            {step === 2 && (
               <button
+                type="button"
                 onClick={() => setStep(1)}
-                className="flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-[#1f1f1f] text-zinc-400 px-4.5 py-2 text-xs font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-all cursor-pointer shadow-3xs"
+                className={`flex cursor-pointer items-center gap-1.5 rounded-xl border px-4 py-2.5 text-xs font-medium transition-colors ${isDark ? "border-zinc-700 bg-[#1f1f1f] text-zinc-300 hover:bg-zinc-800" : "border-[#dce7f4] bg-white text-slate-600 shadow-sm hover:bg-[#f3faff]"}`}
               >
                 <ArrowLeft className="h-4 w-4" /> Quay lại
               </button>
@@ -1646,24 +1621,22 @@ function NewWorkflowWizard({
           </div>
           <div className="flex gap-3">
             {step === 1 ? (
-              <>
-                <button
-                  onClick={goNext}
-                  className="flex items-center gap-1.5 rounded-xl bg-[#00adfc] px-5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#0097df]"
-                >
-                  Tiếp tục <ChevronRight className="h-4 w-4" />
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={goNext}
+                className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#00adfc] px-5 py-2.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#0097df]"
+              >
+                Tiếp tục <ChevronRight className="h-4 w-4" />
+              </button>
             ) : (
-              <>
-                <button
-                  onClick={handleFinish}
-                  disabled={submitting}
-                  className="flex items-center gap-1.5 rounded-xl bg-[#00adfc] px-6 py-2 text-xs font-medium text-white transition-colors hover:bg-[#0097df] disabled:opacity-50"
-                >
-                  {submitting ? "Đang lưu..." : "Lưu"}
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={handleFinish}
+                disabled={submitting}
+                className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#00adfc] px-6 py-2.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#0097df] disabled:opacity-50"
+              >
+                {submitting ? "Đang lưu..." : "Lưu quy trình"}
+              </button>
             )}
           </div>
         </div>
