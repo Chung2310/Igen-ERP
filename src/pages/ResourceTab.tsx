@@ -10,7 +10,6 @@ import {
   ExternalLink, Link, SlidersHorizontal, Calendar, List, LayoutGrid, Mic, Undo2, Redo2
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { cn } from "../modules/student-management/lib/utils";
 import { toast } from "./Toast";
 import { getAccessToken, authService } from "../services/authService";
 import { FileExplorer } from "../components/resource/FileExplorer";
@@ -1841,7 +1840,7 @@ export default function ResourceTab() {
 
   return (
     <div
-      className="flex flex-col h-full overflow-hidden bg-[#f8f9fa]"
+      className="flex h-full flex-col overflow-hidden bg-[#f8fbff]"
       onMouseDown={(e) => {
         // Close fixed dropdown when clicking outside it
         if (menuPosition && activeMenuId) {
@@ -1851,7 +1850,7 @@ export default function ResourceTab() {
       }}
     >
       {/* Horizontal Sub-tab Switcher */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-slate-200 bg-white px-3 pt-2 pb-0 text-xs select-none sm:px-5" id="resource_sub_tabs_bar">
+      <div className="flex shrink-0 items-center gap-1 border-b border-[#dce7f4] bg-white px-3 pt-2 pb-0 text-xs select-none sm:px-5" id="resource_sub_tabs_bar">
         <div className="flex min-w-0 max-w-full flex-1 gap-1 overflow-x-auto select-none scrollbar-none -mb-px">
           {SUB_TABS.map((tab) => {
             const Icon = tab.icon;
@@ -1878,10 +1877,10 @@ export default function ResourceTab() {
                   }
                   if (!active) setSubTab(tab.value);
                 }}
-                className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+                className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors ${
                   active 
-                    ? "bg-cyan-600 text-white font-bold shadow-sm" 
-                    : "text-slate-650 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
+                    ? "bg-[#00adfc] text-white shadow-sm"
+                    : "text-slate-600 hover:bg-[#e8f7ff] hover:text-[#007eb8]"
                 }`}
                 title={tab.label}
               >
@@ -1898,7 +1897,7 @@ export default function ResourceTab() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f8f9fa] overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#f8fbff]">
         {/* Browser Tabs Bar - only render if > 1 tabs or current tab is a google-doc */}
         {(openedTabs.length > 1 || (openedTabs.length === 1 && openedTabs[0].type !== "explorer")) && (
           <div className="h-12 bg-slate-100/90 border-b border-slate-200 flex items-end px-4 gap-1 shrink-0 select-none">
@@ -1967,17 +1966,17 @@ export default function ResourceTab() {
           if (activeTab?.type === "google-doc") return null;
 
           return (
-            <div className="min-h-16 px-3 sm:px-6 py-2 sm:py-0 border-b border-slate-200 bg-white flex flex-wrap sm:grid sm:grid-cols-3 items-center gap-2 shrink-0 select-none text-left">
+            <div className="min-h-16 flex shrink-0 flex-wrap items-center gap-2 border-b border-[#dce7f4] bg-white px-3 py-2 text-left select-none sm:grid sm:grid-cols-3 sm:px-6 sm:py-0">
               {/* Left: Title & Space Selector Dropdown */}
               <div className="flex items-center gap-2 justify-start">
-                <span className="text-base font-extrabold text-slate-800 tracking-tight">Tài nguyên với</span>
+                <span className="text-base font-semibold text-slate-800">Tài nguyên với</span>
                 <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setShowSpaceDropdown(!showSpaceDropdown)}
-                    className="flex items-center gap-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 transition duration-150 text-xs font-bold text-slate-700 cursor-pointer shadow-xs"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#dce7f4] bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-[#8edcff] hover:bg-[#f3faff]"
                   >
                     {selectedSpace === "personal" ? (
-                      <div className="h-5 w-5 rounded-full bg-violet-600 text-white flex items-center justify-center text-[9px] font-black shrink-0">
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#00adfc] text-[9px] font-bold text-white">
                         {getInitials(
                           selectedOwnerId === userProfileId
                             ? (userProfile?.displayName || "Cá nhân")
@@ -1990,7 +1989,7 @@ export default function ResourceTab() {
                       </div>
                     )}
 
-                    <span className="uppercase">
+                    <span>
                       {selectedSpace === "personal"
                         ? (selectedOwnerId === userProfileId
                           ? (userProfile?.displayName || "Cá nhân")
@@ -2012,11 +2011,11 @@ export default function ResourceTab() {
                           setShowSpaceDropdown(false);
                         }}
                         className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${selectedSpace === "personal" && selectedOwnerId === userProfileId
-                            ? "bg-blue-50 text-blue-600"
+                            ? "bg-[#e8f7ff] text-[#007eb8]"
                             : "hover:bg-slate-50 text-slate-700"
                           }`}
                       >
-                        <div className="h-5 w-5 rounded-full bg-violet-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#00adfc] text-[9px] font-bold text-white">
                           {getInitials(userProfile?.displayName || "LAT")}
                         </div>
                         <span className="truncate">{userProfile?.displayName ? `${userProfile.displayName} (Tôi)` : "Cá nhân"}</span>
@@ -2041,7 +2040,7 @@ export default function ResourceTab() {
                                       setShowSpaceDropdown(false);
                                     }}
                                     className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${isSelected
-                                        ? "bg-blue-50 text-blue-600"
+                                        ? "bg-[#e8f7ff] text-[#007eb8]"
                                         : "hover:bg-slate-50 text-slate-700"
                                       }`}
                                   >
@@ -2070,7 +2069,7 @@ export default function ResourceTab() {
                                   setShowSpaceDropdown(false);
                                 }}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs font-bold transition ${isSelected
-                                    ? "bg-blue-50 text-blue-600"
+                                    ? "bg-[#e8f7ff] text-[#007eb8]"
                                     : "hover:bg-slate-50 text-slate-700"
                                   }`}
                               >
@@ -2091,12 +2090,12 @@ export default function ResourceTab() {
               {/* Center: Pill tabs - Kho lưu trữ & Được chia sẻ */}
               <div className="flex items-center justify-center">
                 {subTab === "TÀI LIỆU KHÁC" && (
-                  <div className="flex items-center gap-1.5 bg-slate-100/90 rounded-2xl p-1 border border-slate-200/60 shadow-inner">
+                  <div className="flex items-center gap-1.5 rounded-xl border border-[#dce7f4] bg-[#f3faff] p-1">
                     <button
                       onClick={() => { setCurrentPill("KHO_LUU_TRU"); setViewingTrash(false); }}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${currentPill === "KHO_LUU_TRU"
-                          ? "bg-cyan-600 text-white font-bold shadow-sm"
-                          : "text-slate-600 hover:text-cyan-600 hover:bg-slate-200/60"
+                          ? "bg-[#00adfc] text-white shadow-sm"
+                          : "text-slate-600 hover:bg-[#e8f7ff] hover:text-[#007eb8]"
                         }`}
                     >
                       Kho lưu trữ
@@ -2104,8 +2103,8 @@ export default function ResourceTab() {
                     <button
                       onClick={() => { setCurrentPill("DUOC_CHIA_SE"); setViewingTrash(false); }}
                       className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${currentPill === "DUOC_CHIA_SE"
-                          ? "bg-cyan-600 text-white font-bold shadow-sm"
-                          : "text-slate-600 hover:text-cyan-600 hover:bg-slate-200/60"
+                          ? "bg-[#00adfc] text-white shadow-sm"
+                          : "text-slate-600 hover:bg-[#e8f7ff] hover:text-[#007eb8]"
                         }`}
                     >
                       Được chia sẻ
@@ -2119,7 +2118,7 @@ export default function ResourceTab() {
                 {subTab === "TÀI LIỆU KHÁC" && currentPill === "KHO_LUU_TRU" ? (
                   <button
                     onClick={() => setViewingTrash(!viewingTrash)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-800 rounded-xl text-xs font-bold transition bg-white shadow-xs cursor-pointer"
+                    className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#dce7f4] bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-[#8edcff] hover:bg-[#f3faff] hover:text-[#007eb8]"
                   >
                     {viewingTrash ? (
                       <>
@@ -2162,7 +2161,7 @@ export default function ResourceTab() {
             return (
               <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Unified Toolbar Row matching image 1 */}
-                <div className="min-h-16 px-3 sm:px-6 py-2 sm:py-0 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 shrink-0 bg-white select-none">
+                <div className="min-h-16 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#dce7f4] bg-white px-3 py-2 select-none sm:px-6 sm:py-0">
                   {/* Left side search & count */}
                   <div className="flex flex-col items-start gap-1">
                     <div className="relative w-full sm:w-64">
@@ -2172,10 +2171,10 @@ export default function ResourceTab() {
                         placeholder="Tên file..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full text-xs bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-700 font-bold"
+                        className="w-full rounded-xl border border-[#dce7f4] bg-[#f8fbff] py-2 pr-4 pl-9 text-xs font-medium text-slate-700 outline-none placeholder:text-slate-400 focus:border-[#00adfc] focus:bg-white focus:ring-2 focus:ring-[#00adfc]/15"
                       />
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 pl-1 text-left">
+                    <span className="pl-1 text-left text-[11px] font-medium text-slate-500">
                       {subTab === "TÀI LIỆU KHÁC"
                         ? `${localItemsCount.count}/${localItemsCount.total} tệp`
                         : `${filteredResources.length}/${resources.length} tệp`
@@ -2190,17 +2189,14 @@ export default function ResourceTab() {
                       <button
                         onClick={() => setShowFilters(!showFilters)}
                         className={`p-2 rounded-xl transition active:scale-95 border flex items-center justify-center h-9 w-9 cursor-pointer relative ${showFilters
-                            ? "bg-slate-900 border-slate-900 text-white"
-                            : "bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 border-slate-200"
+                            ? "border-[#00adfc] bg-[#e8f7ff] text-[#007eb8]"
+                            : "border-[#dce7f4] bg-white text-slate-600 hover:border-[#8edcff] hover:bg-[#f3faff] hover:text-[#007eb8]"
                           }`}
                         title="Bộ lọc"
                       >
                         <SlidersHorizontal className="h-4 w-4" />
                         {activeFiltersCount > 0 && (
-                          <span className={cn(
-                            "absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[9px] font-black shadow-sm",
-                            showFilters ? "bg-white text-slate-900" : "bg-cyan-600 text-white"
-                          )}>
+                          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#00adfc] px-1 text-[9px] font-bold text-white">
                             {activeFiltersCount}
                           </span>
                         )}
@@ -2210,7 +2206,7 @@ export default function ResourceTab() {
                     {/* List/grid toggle */}
                     <button
                       onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")}
-                      className="p-2 hover:bg-slate-50 rounded-xl text-slate-500 hover:text-slate-800 transition active:scale-95 border border-slate-200 bg-white flex items-center justify-center h-9 w-9 cursor-pointer"
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-[#dce7f4] bg-white p-2 text-slate-600 transition-colors hover:border-[#8edcff] hover:bg-[#f3faff] hover:text-[#007eb8] active:scale-95"
                       title={viewMode === "grid" ? "Xem dạng danh sách" : "Xem dạng lưới"}
                     >
                       {viewMode === "grid" ? (
@@ -2225,7 +2221,7 @@ export default function ResourceTab() {
                       <div className="relative" ref={addMenuRef}>
                         <button
                           onClick={() => setShowAddMenu(!showAddMenu)}
-                          className="p-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl transition duration-150 active:scale-95 shadow-md shadow-teal-500/10 flex items-center justify-center h-9 w-9 cursor-pointer"
+                          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-[#00adfc] p-2 text-white shadow-sm transition-colors hover:bg-[#0098e0] active:scale-95"
                           title="Thêm mới"
                         >
                           <Plus className="h-4 w-4" />
