@@ -3,7 +3,8 @@ import { toast } from '../../../../../pages/Toast';
 import { useAuth } from '../../../../../context/AuthContext';
 import { useAdminCenters } from '../../../hooks/useAdminCenters';
 import { apiFetch } from '../../../lib/api';
-import { ErpModal, ErpField, ErpInput, ErpSelect, ErpSubmitButton } from '../../../components/Erp/ErpUI';
+import { ErpModal, ErpField, ErpInput } from '../../../components/Erp/ErpUI';
+import { PartnerFormDropdown } from './PartnerFormDropdown';
 import { formatVND } from '../../../lib/utils';
 import { Loader2 } from 'lucide-react';
 import { Partner } from '../../../types';
@@ -13,7 +14,6 @@ import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig 
 import { CustomFieldEditorModal } from '../../../../shared/custom-fields/CustomFieldEditorModal';
 import { canManageCustomFields } from '../../../../shared/custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../../../shared/custom-fields/types';
-import { useEntityLabel } from '../../../hooks/useEntityLabel';
 import { useBranchOptional } from '../../../../../context/BranchContext';
 import { buildPartnerBranchHeaders } from '../partnerBranchScope';
 
@@ -27,13 +27,11 @@ interface AddPartnerModalProps {
 }
 
 export function AddPartnerModal({ isOpen, onClose, onSuccess, partner, defaultCenterId, zIndex }: AddPartnerModalProps) {
-  const entityLabel = useEntityLabel();
   const { userProfile: user } = useAuth();
   const branchContext = useBranchOptional();
   const activeBranchId = branchContext?.activeBranchId;
   const {
     fields: stdFields,
-    activeFields: activeStdFields,
     archivedFields: archivedStdFields,
     updateField: updateStdField,
     archiveField: archiveStdField,
@@ -245,14 +243,15 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner, defaultCe
 
             {user?.role === 'superadmin' && !partner && (
               <ErpField label="Trung tâm quản lý *">
-                <ErpSelect name="centerId" value={formData.centerId} onChange={handleInputChange} required>
-                  <option value="">-- Chọn trung tâm quản lý --</option>
-                  {centers.map(center => (
-                    <option key={center.uid} value={center.uid}>
-                      {center.displayName} ({center.email})
-                    </option>
-                  ))}
-                </ErpSelect>
+                <PartnerFormDropdown
+                  label="Trung tâm quản lý"
+                  value={formData.centerId}
+                  onChange={(centerId) => setFormData(prev => ({ ...prev, centerId }))}
+                  options={[
+                    { value: '', label: 'Chọn trung tâm quản lý' },
+                    ...centers.map(center => ({ value: center.uid, label: `${center.displayName} (${center.email})` })),
+                  ]}
+                />
               </ErpField>
             )}
 
@@ -303,14 +302,15 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner, defaultCe
             )}
 
             <ErpField label="Trạng thái hoạt động">
-              <ErpSelect
-                name="isActive"
+              <PartnerFormDropdown
+                label="Trạng thái hoạt động"
                 value={formData.isActive ? 'true' : 'false'}
-                onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.value === 'true' }))}
-              >
-                <option value="true">Đang hoạt động</option>
-                <option value="false">Ngưng hoạt động</option>
-              </ErpSelect>
+                onChange={(value) => setFormData(prev => ({ ...prev, isActive: value === 'true' }))}
+                options={[
+                  { value: 'true', label: 'Đang hoạt động' },
+                  { value: 'false', label: 'Ngưng hoạt động' },
+                ]}
+              />
             </ErpField>
           </div>
 
@@ -321,23 +321,24 @@ export function AddPartnerModal({ isOpen, onClose, onSuccess, partner, defaultCe
             </div>
 
             <ErpField label="Ngân hàng (VietQR)">
-              <ErpSelect
-                name="bankName"
+              <PartnerFormDropdown
+                label="Ngân hàng (VietQR)"
                 value={formData.bankName}
-                onChange={handleInputChange}
-              >
-                <option value="">-- Chọn ngân hàng --</option>
-                <option value="mbbank">MBBank (MB)</option>
-                <option value="vietcombank">Vietcombank (VCB)</option>
-                <option value="techcombank">Techcombank (TCB)</option>
-                <option value="vietinbank">Vietinbank (CTG)</option>
-                <option value="bidv">BIDV</option>
-                <option value="agribank">Agribank (VBA)</option>
-                <option value="acb">ACB</option>
-                <option value="sacombank">Sacombank (STB)</option>
-                <option value="tpbank">TPBank (TPB)</option>
-                <option value="vpbank">VPBank (VPB)</option>
-              </ErpSelect>
+                onChange={(bankName) => setFormData(prev => ({ ...prev, bankName }))}
+                options={[
+                  { value: '', label: 'Chọn ngân hàng' },
+                  { value: 'mbbank', label: 'MBBank (MB)' },
+                  { value: 'vietcombank', label: 'Vietcombank (VCB)' },
+                  { value: 'techcombank', label: 'Techcombank (TCB)' },
+                  { value: 'vietinbank', label: 'Vietinbank (CTG)' },
+                  { value: 'bidv', label: 'BIDV' },
+                  { value: 'agribank', label: 'Agribank (VBA)' },
+                  { value: 'acb', label: 'ACB' },
+                  { value: 'sacombank', label: 'Sacombank (STB)' },
+                  { value: 'tpbank', label: 'TPBank (TPB)' },
+                  { value: 'vpbank', label: 'VPBank (VPB)' },
+                ]}
+              />
             </ErpField>
 
             <ErpField label="Số tài khoản">
