@@ -1131,6 +1131,7 @@ function NewWorkflowWizard({
   };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
+  const [showStageBranches, setShowStageBranches] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -1408,7 +1409,8 @@ function NewWorkflowWizard({
                 backgroundSize: "20px 20px",
               }}
             >
-              {/* Thêm giai đoạn từ vùng sơ đồ */}
+              {/* Điều khiển sơ đồ */}
+              <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
               <button
                 type="button"
                 draggable
@@ -1417,7 +1419,7 @@ function NewWorkflowWizard({
                   e.dataTransfer.setData("text/plain", "new-step");
                   e.dataTransfer.effectAllowed = "copy";
                 }}
-                className={`absolute top-4 left-4 z-20 flex items-center gap-1.5 rounded-xl border border-dashed px-3 py-2 text-xs transition-colors shadow-sm cursor-grab active:cursor-grabbing ${isDark
+                className={`flex items-center gap-1.5 rounded-xl border border-dashed px-3 py-2 text-xs transition-colors shadow-sm cursor-grab active:cursor-grabbing ${isDark
                   ? "bg-[#1f1f1f] border-zinc-700 text-sky-400 hover:bg-zinc-800"
                   : "bg-white border-[#8edcff] text-[#008dcc] hover:bg-[#e8f7ff]"
                   }`}
@@ -1425,6 +1427,19 @@ function NewWorkflowWizard({
               >
                 <Plus className="h-4 w-4" /> Thêm giai đoạn
               </button>
+              <button
+                type="button"
+                onClick={() => setShowStageBranches((current) => !current)}
+                aria-label={showStageBranches ? "Ẩn chi tiết giai đoạn con" : "Xem chi tiết giai đoạn con"}
+                aria-pressed={showStageBranches}
+                title={showStageBranches ? "Ẩn giai đoạn con" : "Xem giai đoạn con"}
+                className={`flex h-9 w-9 items-center justify-center rounded-xl border shadow-sm transition-colors ${showStageBranches
+                  ? isDark ? "border-sky-500 bg-sky-950 text-sky-300" : "border-[#00adfc] bg-[#e8f7ff] text-[#008dcc]"
+                  : isDark ? "border-zinc-700 bg-[#1f1f1f] text-zinc-300 hover:text-sky-400" : "border-[#dce7f4] bg-white text-slate-500 hover:border-[#8edcff] hover:text-[#008dcc]"}`}
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+              </div>
 
               {steps.length === 0 ? (
                 <div className={`text-center transition-colors ${isDark ? "text-zinc-550" : "text-slate-400"}`}>
@@ -1445,17 +1460,13 @@ function NewWorkflowWizard({
                 >
                   {(() => {
                     const rows: { step: WorkflowStep; index: number }[][] = [];
-                    const expandedIndex = steps.findIndex((step) => step.id === expandedStageId && (step.subTasks?.length || 0) > 0);
                     const addRows = (start: number, end: number) => {
                       for (let i = start; i < end; i += 3) {
                         rows.push(steps.slice(i, Math.min(i + 3, end)).map((step, idx) => ({ step, index: i + idx })));
                       }
                     };
-                    if (expandedIndex >= 0) {
-                      addRows(0, expandedIndex);
-                      const branchEnd = Math.min(expandedIndex + 2, steps.length);
-                      rows.push(steps.slice(expandedIndex, branchEnd).map((step, idx) => ({ step, index: expandedIndex + idx })));
-                      addRows(branchEnd, steps.length);
+                    if (showStageBranches) {
+                      rows.push(steps.map((step, index) => ({ step, index })));
                     } else {
                       addRows(0, steps.length);
                     }
@@ -1464,7 +1475,7 @@ function NewWorkflowWizard({
                       <div key={rowIndex} className="relative flex w-max min-w-max items-center">
                         {row.map(({ step: s, index: idx }, cellIndex) => {
                           const isSelected = selectedId === s.id;
-                          const isExpanded = expandedStageId === s.id;
+                          const isExpanded = showStageBranches;
                           const childStages = s.subTasks || [];
                           const hasNextInRow = cellIndex < row.length - 1;
 
@@ -1513,17 +1524,6 @@ function NewWorkflowWizard({
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <span className={`text-[10px] ${isDark ? "text-sky-400" : "text-[#008dcc]"}`}>Bước {idx + 1}</span>
-                                  <button
-                                    type="button"
-                                    draggable={false}
-                                    onClick={(e) => { e.stopPropagation(); toggleStageDetails(s.id); }}
-                                    className={`rounded-lg p-1 transition-colors ${isExpanded ? "bg-[#e8f7ff] text-[#008dcc]" : isDark ? "text-zinc-400 hover:bg-zinc-800" : "text-slate-400 hover:bg-[#e8f7ff] hover:text-[#008dcc]"}`}
-                                    aria-label={`${isExpanded ? "Ẩn" : "Xem"} giai đoạn con của ${s.title}`}
-                                    aria-expanded={isExpanded}
-                                    title={`${isExpanded ? "Ẩn" : "Xem"} giai đoạn con`}
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </button>
                                 </div>
 
                                 <h4
@@ -1758,7 +1758,7 @@ function NewWorkflowWizard({
                 <p className={`mb-2 text-xs font-medium ${isDark ? "text-zinc-200" : "text-slate-800"}`}>Hướng dẫn</p>
                 <div className={`space-y-1.5 rounded-xl px-3 py-2.5 text-[11px] ${isDark ? "bg-zinc-800/70 text-zinc-400" : "bg-[#f1f8ff] text-slate-600"}`}>
                   <p>• Kéo thả để sắp xếp thứ tự giai đoạn.</p>
-                  <p>• Chọn giai đoạn hoặc biểu tượng mắt để xem giai đoạn con.</p>
+                  <p>• Chọn giai đoạn trong danh sách hoặc dùng biểu tượng mắt cạnh “Thêm giai đoạn” để xem các nhánh con trên sơ đồ.</p>
                   <p>• Dùng biểu tượng bút để sửa thông tin.</p>
                 </div>
               </div>
