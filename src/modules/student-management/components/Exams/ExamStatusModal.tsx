@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, CheckCircle2, Clock, Save, Loader2, Calendar } from 'lucide-react';
+import { X, CheckCircle2, Clock, Save, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { ExamSession, ExamStatus } from '../../types';
 import { cn } from '../../lib/utils';
 import { toast } from '../../../../pages/Toast';
+import { VietnameseDatePicker } from '../Batches/VietnameseDatePicker';
 
 interface ExamStatusModalProps {
   exam: ExamSession | null;
@@ -90,45 +91,45 @@ export function ExamStatusModal({ exam, isOpen, onClose, onSuccess }: ExamStatus
           initial={{ opacity: 0, scale: 0.95, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 30 }}
-          className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+          className="relative w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col"
         >
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-xl font-extrabold text-slate-800">Cập nhật trạng thái</h3>
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 text-slate-400 transition-colors">
-              <X className="w-5 h-5" />
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-base font-medium text-slate-900 before:w-1 before:h-5 before:rounded-full before:bg-brand-primary">Cập nhật trạng thái</h3>
+            <button type="button" onClick={onClose} aria-label="Đóng" className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 transition-colors">
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-8 overflow-y-auto max-h-[80vh]">
-            <div className="space-y-4">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-[0.1em]">Chọn trạng thái đợt thi</label>
-              <div className="grid grid-cols-1 gap-3">
+          <form onSubmit={handleSubmit} className="p-5 space-y-5 overflow-y-auto max-h-[80vh]">
+            <div className="space-y-2">
+              <label className="text-sm text-slate-700">Chọn trạng thái đợt thi</label>
+              <div className="grid grid-cols-1 gap-2">
                 {statuses.map((item) => (
                   <button
                     key={item.value}
                     type="button"
                     onClick={() => setSelectedStatus(item.value)}
                     className={cn(
-                      "flex items-center justify-between p-5 rounded-3xl border-2 transition-all text-left group",
+                      "flex items-center justify-between p-3 rounded-xl border transition-colors text-left group",
                       selectedStatus === item.value 
-                        ? "bg-white border-cyan-600 shadow-xl shadow-cyan-100/50" 
-                        : "bg-white border-slate-50 hover:border-slate-200"
+                        ? "bg-sky-50 border-brand-primary"
+                        : "bg-white border-slate-200 hover:border-sky-200"
                     )}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-active:scale-95", item.color)}>
-                        <item.icon className="w-6 h-6" />
+                    <div className="flex items-center gap-3">
+                      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", item.color)}>
+                        <item.icon className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className={cn("text-base font-extrabold", selectedStatus === item.value ? "text-cyan-600" : "text-slate-700")}>
+                        <p className={cn("text-sm font-medium", selectedStatus === item.value ? "text-brand-primary" : "text-slate-700")}>
                           {item.label}
                         </p>
-                        <p className="text-xs font-bold text-slate-400 mt-1">Thay đổi tiến độ đợt thi</p>
+                        <p className="text-xs text-slate-500">Thay đổi tiến độ đợt thi</p>
                       </div>
                     </div>
                     {selectedStatus === item.value && (
-                      <div className="w-6 h-6 rounded-full bg-cyan-600 flex items-center justify-center animate-in zoom-in duration-300">
-                        <CheckCircle2 className="w-4 h-4 text-white" />
+                      <div className="w-5 h-5 rounded-full bg-brand-primary flex items-center justify-center">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                       </div>
                     )}
                   </button>
@@ -136,31 +137,16 @@ export function ExamStatusModal({ exam, isOpen, onClose, onSuccess }: ExamStatus
               </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-[0.1em]">Ngày thi chính thức (Nếu có)</label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={officialDate.includes('/') ? officialDate.split('/').reverse().join('-') : officialDate}
-                  onChange={(e) => setOfficialDate(e.target.value)}
-                  className="w-full h-14 bg-slate-50 px-5 rounded-2xl border border-slate-100 text-base font-bold text-slate-800 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all appearance-none"
-                />
-                <Calendar className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-              </div>
+            <div className="space-y-2">
+              <label className="text-sm text-slate-700">Ngày thi chính thức (nếu có)</label>
+              <VietnameseDatePicker ariaLabel="Ngày thi chính thức" value={officialDate.includes('/') ? officialDate.split('/').reverse().join('-') : officialDate} onChange={setOfficialDate} selectionOnly variant="filter" />
             </div>
 
-            <div className="flex items-center gap-4 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 h-14 bg-slate-100 text-slate-600 rounded-2xl text-base font-black hover:bg-slate-200 transition-all active:scale-95"
-              >
-                Hủy
-              </button>
+            <div className="flex justify-end pt-2">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-[2] flex items-center justify-center gap-3 h-14 bg-cyan-600 text-white rounded-2xl text-base font-black shadow-xl shadow-cyan-100 hover:bg-cyan-700 transition-all active:scale-95 disabled:opacity-50"
+                className="flex items-center justify-center gap-2 h-10 px-4 bg-brand-primary text-white rounded-xl text-sm font-medium hover:bg-brand-primary/90 transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                 Lưu thay đổi

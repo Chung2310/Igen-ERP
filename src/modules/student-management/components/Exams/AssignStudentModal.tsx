@@ -91,17 +91,17 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
           initial={{ opacity: 0, scale: 0.95, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 30 }}
-          className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          className="relative w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
         >
-          <div className="px-4 py-4 md:px-6 md:py-5 border-b border-slate-100">
+          <div className="px-5 py-3 border-b border-slate-100">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-base md:text-lg font-bold text-slate-800">Thêm {entityLabel.singular} vào đợt thi</h3>
-              <button onClick={onClose} className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400">
-                <X className="w-4 h-4 md:w-5 md:h-5" />
+              <h3 className="flex items-center gap-2 text-base font-medium text-slate-900 before:w-1 before:h-5 before:rounded-full before:bg-brand-primary">Thêm {entityLabel.singular} vào đợt thi</h3>
+              <button type="button" onClick={onClose} aria-label="Đóng" className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs md:text-sm text-slate-400 font-medium">
-              Đợt thi: <span className="text-cyan-600 font-bold">{exam.name}</span>
+            <p className="text-xs text-slate-500">
+              Đợt thi: <span className="text-brand-primary">{exam.name}</span>
               {examSegment ? ` • ${examSegment}` : ''}
             </p>
           </div>
@@ -113,11 +113,11 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
                 placeholder={`Tìm kiếm ${entityLabel.singular} theo tên hoặc hạng...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-11 md:h-12 bg-slate-50 pl-10 pr-4 rounded-xl border border-slate-100 text-xs md:text-sm font-medium outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all"
+                className="w-full h-10 bg-white pl-10 pr-4 rounded-xl border border-sky-100 text-sm outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 transition-colors"
               />
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
             </div>
-            <p className="text-[9px] md:text-[10px] text-rose-500 font-bold mt-2 flex items-center gap-1.5">
+            <p className="text-xs text-rose-600 mt-2 flex items-center gap-1.5">
               <AlertCircle className="w-3 h-3" />
               Lưu ý: {entityLabel.titleCase} hoàn thành học phí mới được thêm vào đợt thi
             </p>
@@ -136,7 +136,7 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
                   disabled={!student.isFullyPaid}
                   className={cn(
                     'w-full flex items-center justify-between p-3 md:p-4 rounded-xl border transition-all text-left group',
-                    selectedStudentIds.includes(student.id) ? 'bg-cyan-50/50 border-cyan-200' : 'bg-white border-slate-100 hover:border-slate-300',
+                    selectedStudentIds.includes(student.id) ? 'bg-sky-50 border-sky-200' : 'bg-white border-slate-100 hover:border-sky-200',
                     !student.isFullyPaid && 'opacity-60 grayscale-[0.5] cursor-not-allowed border-dashed bg-slate-50/50'
                   )}
                 >
@@ -151,19 +151,19 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5 md:gap-2">
-                        <p className="text-xs md:text-sm font-bold text-slate-800">{student.fullName}</p>
+                        <p className="text-xs md:text-sm font-medium text-slate-800">{student.fullName}</p>
                         {!student.isFullyPaid && (
-                          <span className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-50 text-rose-500 rounded text-[9px] font-black uppercase tracking-tighter border border-rose-100">
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-600 rounded-full text-xs border border-rose-100">
                             <AlertCircle className="w-2.5 h-2.5" /> Nợ phí
                           </span>
                         )}
                         {student.isFullyPaid && (
-                          <span className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[9px] font-black uppercase tracking-tighter border border-emerald-100">
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-xs border border-emerald-100">
                             <CreditCard className="w-2.5 h-2.5" /> Đã đóng đủ
                           </span>
                         )}
                       </div>
-                      {student.rank && <p className="text-[10px] md:text-[11px] font-medium text-slate-400 uppercase tracking-wide">{student.rank}</p>}
+                      {student.rank && <p className="text-xs text-slate-500">{student.rank}</p>}
                     </div>
                   </div>
                   <div
@@ -186,18 +186,15 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
 
           <div className="px-4 py-4 md:px-6 md:py-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0">
             <div>
-              <p className="text-xs md:text-sm font-bold text-slate-800 text-center sm:text-left">
-                Đã chọn: <span className="text-cyan-600">{selectedStudentIds.length} {entityLabel.singular}</span>
+              <p className="text-xs md:text-sm text-slate-700 text-center sm:text-left">
+                Đã chọn: <span className="text-brand-primary">{selectedStudentIds.length} {entityLabel.singular}</span>
               </p>
             </div>
             <div className="flex items-center justify-center sm:justify-end gap-2.5">
-              <button onClick={onClose} className="px-4 py-2 text-xs md:text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
-                Hủy
-              </button>
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || selectedStudentIds.length === 0}
-                className="flex items-center gap-1.5 px-6 py-2 md:py-2.5 bg-cyan-600 text-white rounded-xl text-xs md:text-sm font-bold shadow-lg shadow-cyan-100 hover:bg-cyan-700 transition-all disabled:opacity-50 active:scale-95"
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-brand-primary text-white rounded-xl text-sm font-medium hover:bg-brand-primary/90 transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 Xác nhận thêm
