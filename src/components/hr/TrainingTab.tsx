@@ -62,10 +62,10 @@ function displayTrainingIcon(icon: string | undefined, className?: string) {
 }
 
 const courseCardThemes = [
-  { border: "border-violet-300 hover:border-violet-400", icon: "bg-white ring-violet-300", badge: "bg-violet-100 text-violet-800" },
-  { border: "border-teal-300 hover:border-teal-400", icon: "bg-white ring-teal-300", badge: "bg-teal-100 text-teal-800" },
-  { border: "border-amber-300 hover:border-amber-400", icon: "bg-white ring-amber-300", badge: "bg-amber-100 text-amber-900" },
-  { border: "border-rose-300 hover:border-rose-400", icon: "bg-white ring-rose-300", badge: "bg-rose-100 text-rose-800" },
+  { border: "border-violet-300 hover:border-violet-400", header: "bg-violet-100", icon: "bg-white ring-violet-300", badge: "bg-white/80 text-violet-900 ring-violet-300" },
+  { border: "border-teal-300 hover:border-teal-400", header: "bg-teal-100", icon: "bg-white ring-teal-300", badge: "bg-white/80 text-teal-900 ring-teal-300" },
+  { border: "border-amber-300 hover:border-amber-400", header: "bg-amber-100", icon: "bg-white ring-amber-300", badge: "bg-white/80 text-amber-900 ring-amber-300" },
+  { border: "border-rose-300 hover:border-rose-400", header: "bg-rose-100", icon: "bg-white ring-rose-300", badge: "bg-white/80 text-rose-900 ring-rose-300" },
 ] as const;
 
 type TrainingGlyphName = "clock" | "instructor" | "learners" | "document" | "video" | "tip";
@@ -868,20 +868,20 @@ export default function TrainingTab({
                 return (
                   <div key={course.id} className={`group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border bg-white p-3.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_-18px_rgba(32,55,110,0.48)] ${cardTheme.border}`}>
                     <div className="relative space-y-2.5">
-                      <div className="flex items-center gap-2.5">
+                      <div className={`-mx-3.5 -mt-3.5 flex items-center gap-2.5 px-3.5 py-3.5 ${cardTheme.header}`}>
                         <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-sm ring-1 select-none ${cardTheme.icon}`}>{displayTrainingIcon(course.icon)}</span>
                         <div className="min-w-0 flex-1">
                           <div className="flex min-w-0 items-center gap-1.5">
-                            <span className={`max-w-full truncate rounded-full px-2 py-0.5 text-[10px] ${cardTheme.badge}`}>{course.category || "Văn hóa"}</span>
+                            <span className={`max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${cardTheme.badge}`}>{course.category || "Văn hóa"}</span>
                             {course.isRequired && <span className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] text-rose-700">Bắt buộc</span>}
                           </div>
-                          <h4 className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-slate-900" title={course.title}>{course.title}</h4>
+                          <h4 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-slate-950" title={course.title}>{course.title}</h4>
                         </div>
                       </div>
 
-                      {course.description && <p className="truncate text-xs text-slate-600" title={course.description}>{course.description}</p>}
+                      {course.description && <p className="truncate text-xs text-slate-700" title={course.description}>{course.description}</p>}
 
-                      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 rounded-xl border border-white/80 bg-white/75 px-2.5 py-2 text-[11px] text-slate-700 shadow-sm ring-1 ring-slate-100 select-none">
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 rounded-xl border border-slate-100 bg-white px-2.5 py-2 text-[11px] text-slate-800 shadow-sm select-none">
                         <div className="flex min-w-0 items-center gap-1" title={`Thời lượng: ${course.duration}`}><TrainingGlyph name="clock" /><span className="truncate">{course.duration}</span></div>
                         <div className="flex min-w-0 items-center gap-1" title={`Trình bày: ${course.instructor}`}><TrainingGlyph name="instructor" /><span className="truncate">{course.instructor}</span></div>
                         <div className="flex min-w-0 items-center gap-1" title={`Học viên: ${course.enrolledCount || 0}`}><TrainingGlyph name="learners" /><span className="truncate">{course.enrolledCount || 0} học viên</span></div>
