@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { AlertTriangle, Loader2, X } from "lucide-react";
 
 type ConfirmDialogProps = {
+  appearance?: "default" | "erp";
   cancelLabel?: string;
   confirmLabel?: string;
   description: string;
@@ -9,6 +10,7 @@ type ConfirmDialogProps = {
   isSubmitting?: boolean;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
+  showCancel?: boolean;
   title: string;
   tone?: "danger" | "warning";
 };
@@ -25,6 +27,7 @@ const toneStyles = {
 };
 
 export function ConfirmDialog({
+  appearance = "default",
   cancelLabel = "Hủy",
   confirmLabel = "Xác nhận",
   description,
@@ -32,6 +35,7 @@ export function ConfirmDialog({
   isSubmitting = false,
   onClose,
   onConfirm,
+  showCancel = true,
   title,
   tone = "danger",
 }: ConfirmDialogProps) {
@@ -52,6 +56,50 @@ export function ConfirmDialog({
   if (!isOpen) return null;
 
   const styles = toneStyles[tone];
+
+  if (appearance === "erp") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-2xs sm:p-4" role="presentation">
+        <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white text-left shadow-xl" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" aria-hidden="true" />
+              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${styles.accent}`} aria-hidden="true">
+                <AlertTriangle className="h-4 w-4" />
+              </span>
+              <h3 id="confirm-dialog-title" className="text-sm text-slate-900">{title}</h3>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              aria-label="Đóng"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p id="confirm-dialog-description" className="px-4 py-4 text-sm leading-relaxed text-slate-700">{description}</p>
+          <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
+            {showCancel && (
+              <button type="button" onClick={onClose} disabled={isSubmitting} className="rounded-xl bg-rose-500 px-4 py-2 text-sm text-white transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">
+                {cancelLabel}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void onConfirm()}
+              disabled={isSubmitting}
+              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer ${styles.button}`}
+            >
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isSubmitting ? "Đang xử lý..." : confirmLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-xs sm:items-center sm:p-4" role="presentation">
@@ -78,14 +126,14 @@ export function ConfirmDialog({
         </div>
 
         <div className="flex flex-col-reverse justify-end gap-3 border-t border-gray-100 px-4 py-4 sm:flex-row sm:px-6">
-          <button
+          {showCancel && <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
             className="min-h-11 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {cancelLabel}
-          </button>
+          </button>}
           <button
             type="button"
             onClick={() => void onConfirm()}

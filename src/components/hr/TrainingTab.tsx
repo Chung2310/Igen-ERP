@@ -98,7 +98,6 @@ export default function TrainingTab({
     title: string;
     description: string;
     confirmLabel?: string;
-    cancelLabel?: string;
     onConfirm: () => void | Promise<void>;
   } | null>(null);
 
@@ -106,15 +105,13 @@ export default function TrainingTab({
     title: string,
     description: string,
     onConfirm: () => void | Promise<void>,
-    confirmLabel = "Xác nhận",
-    cancelLabel = "Hủy"
+    confirmLabel = "Xác nhận"
   ) => {
     setConfirmState({
       isOpen: true,
       title,
       description,
       confirmLabel,
-      cancelLabel,
       onConfirm: async () => {
         await onConfirm();
         setConfirmState(null);
@@ -703,10 +700,9 @@ export default function TrainingTab({
   const handleDeleteCourse = (courseId: string) => {
     askConfirm(
       "Xóa khóa học này?",
-      "Bạn có chắc chắn muốn xóa khóa học này? Thao tác này không thể hoàn tác.",
+      "Thao tác này không thể hoàn tác.",
       () => deleteCourseConfirmed(courseId),
-      "Xóa khóa học",
-      "Hủy"
+      "Xóa khóa học"
     );
   };
 
@@ -1794,11 +1790,12 @@ export default function TrainingTab({
       {/* Custom confirm dialog */}
       {confirmState && (
         <ConfirmDialog
+          appearance="erp"
           isOpen={confirmState.isOpen}
           title={confirmState.title}
           description={confirmState.description}
           confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
+          showCancel={false}
           onClose={() => setConfirmState(null)}
           onConfirm={confirmState.onConfirm}
         />
