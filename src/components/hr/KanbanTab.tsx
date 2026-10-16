@@ -2136,7 +2136,10 @@ export default function KanbanTab({
 
       <ConfirmDialog
         isOpen={taskToDelete !== null}
+        appearance="erp"
+        showCancel={false}
         title="Xóa công việc"
+        confirmLabel="Xóa công việc"
         description="Bạn có chắc chắn muốn xóa công việc này? Hành động này không thể hoàn tác và tất cả dữ liệu liên quan đến công việc sẽ bị xóa vĩnh viễn."
         onClose={() => setTaskToDelete(null)}
         onConfirm={async () => {
@@ -2156,7 +2159,10 @@ export default function KanbanTab({
 
       <ConfirmDialog
         isOpen={projectToDelete !== null}
+        appearance="erp"
+        showCancel={false}
         title="Xóa dự án"
+        confirmLabel="Xóa dự án"
         description={`Bạn có chắc chắn muốn xóa dự án "${projectToDelete?.name}"? Các công việc thuộc dự án này sẽ được tự động chuyển về nhóm "Chưa phân loại".`}
         onClose={() => setProjectToDelete(null)}
         onConfirm={async () => {
