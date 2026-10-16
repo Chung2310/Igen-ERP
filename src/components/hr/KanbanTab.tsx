@@ -486,25 +486,25 @@ function TaskTable({
   onSelectTask: (task: HRTask) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4] bg-white">
-        <table className="w-full min-w-[900px] border-collapse text-left text-xs sm:min-w-[1200px]">
+    <div className="overflow-x-auto rounded-xl border border-[#DCE7F4] bg-white">
+        <table className={`w-full border-collapse text-left text-[11px] [&_th]:border-r [&_td]:border-r [&_th]:border-[#E5EDF5] [&_td]:border-[#EAF0F6] [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 ${showProjectColumn ? "min-w-[1180px]" : "min-w-[1080px]"}`}>
         <thead>
-          <tr className="select-none border-b border-[#DCE7F4] bg-[#F5FAFE] font-medium text-slate-600 text-xs">
-            <th className="px-4 py-3 w-[200px]">Công việc</th>
-            {showProjectColumn && <th className="px-4 py-3 w-[120px]">Dự án</th>}
-            <th className="px-4 py-3 w-[100px]">Phân loại</th>
-            <th className="px-4 py-3 w-[80px]">Ưu tiên</th>
-            <th className="px-4 py-3 w-[100px]">Trạng thái</th>
-            <th className="px-4 py-3 w-[120px]">Giao cho</th>
-            <th className="px-4 py-3 w-[100px]">Hạn chót</th>
-            <th className="px-4 py-3 w-[120px]">Bắt đầu</th>
-            <th className="px-4 py-3 w-[120px]">Kết thúc</th>
-            <th className="px-4 py-3 w-[70px] text-center">Dự tính</th>
-            <th className="px-4 py-3 w-[70px] text-center">Thực tế</th>
-            <th className="px-4 py-3 w-[130px]">Đánh giá KPI</th>
+          <tr className="select-none border-b border-[#DCE7F4] bg-[#F5FAFE] font-medium text-slate-600">
+            <th className="w-[146px] px-2 py-2.5">Công việc</th>
+            {showProjectColumn && <th className="w-[96px] px-2 py-2.5">Dự án</th>}
+            <th className="w-[86px] px-2 py-2.5">Phân loại</th>
+            <th className="w-[68px] px-2 py-2.5">Ưu tiên</th>
+            <th className="w-[82px] px-2 py-2.5">Trạng thái</th>
+            <th className="w-[92px] px-2 py-2.5">Giao cho</th>
+            <th className="w-[108px] px-2 py-2.5">Hạn chót</th>
+            <th className="w-[108px] px-2 py-2.5">Bắt đầu</th>
+            <th className="w-[108px] px-2 py-2.5">Kết thúc</th>
+            <th className="w-[52px] px-2 py-2.5 text-center">Dự tính</th>
+            <th className="w-[52px] px-2 py-2.5 text-center">Thực tế</th>
+            <th className="w-[96px] px-2 py-2.5">Đánh giá KPI</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
+        <tbody className="divide-y divide-[#EAF0F6] bg-white">
           {tasks.length === 0 ? (
             <tr>
               <td colSpan={showProjectColumn ? 12 : 11} className="text-center py-8 text-gray-450 italic bg-white">
@@ -521,8 +521,8 @@ function TaskTable({
                   className="hover:bg-slate-50/70 cursor-pointer transition-colors bg-white"
                 >
                   {/* Công việc */}
-                  <td className="px-4 py-3 font-semibold text-slate-800">
-                    <div className="flex items-start gap-2 max-w-[190px]">
+                  <td className="px-2 py-2 text-slate-800">
+                    <div className="flex max-w-[146px] items-start gap-1.5">
                       <div className="mt-0.5 shrink-0">
                         {task.status === "Done" || task.status === "done" ? (
                           <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
@@ -531,7 +531,7 @@ function TaskTable({
                         )}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-xs text-slate-850 truncate" title={task.title}>
+                        <div className="truncate font-medium text-[11px] text-slate-850" title={task.title}>
                           {task.title}
                         </div>
                         <div className="text-[10px] text-gray-400 truncate mt-0.5" title={task.description}>
@@ -543,18 +543,18 @@ function TaskTable({
 
                   {/* Dự án (Optional) */}
                   {showProjectColumn && (
-                    <td className="px-4 py-3 text-slate-500 truncate max-w-[110px]" title={projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}>
+                    <td className="max-w-[96px] truncate px-2 py-2 text-slate-500" title={projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}>
                       {projects.find(p => p.id === task.projectId)?.name || "-"}
                     </td>
                   )}
 
                   {/* Phân loại */}
-                  <td className="px-4 py-3 text-[#007EB8] font-normal font-sans whitespace-nowrap">
+                  <td className="px-2 py-2 font-sans text-[#007EB8]">
                     {formatTaskCategory(task.category)}
                   </td>
 
                   {/* Ưu tiên */}
-                  <td className="px-4 py-3 select-none">
+                  <td className="select-none px-2 py-2">
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border whitespace-nowrap ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
                       task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
                       }`}>
@@ -563,7 +563,7 @@ function TaskTable({
                   </td>
 
                   {/* Trạng thái */}
-                  <td className="px-4 py-3 select-none">
+                  <td className="select-none px-2 py-2">
                     <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border whitespace-nowrap ${task.status === "Done" || task.status === "done" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
                       task.status === "Review/Testing" ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
                         task.status === "In Progress" || task.status === "doing" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-slate-100 text-slate-500 border-gray-250"
@@ -575,30 +575,30 @@ function TaskTable({
                   </td>
 
                   {/* Giao cho */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 max-w-[110px]">
+                  <td className="px-2 py-2">
+                    <div className="flex max-w-[92px] items-center gap-1">
                       {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
-                      <span className="font-semibold text-slate-700 truncate" title={task.assignee}>{task.assignee}</span>
+                      <span className="truncate text-slate-700" title={task.assignee}>{task.assignee}</span>
                     </div>
                   </td>
 
                   {/* Hạn chót */}
-                  <td className="px-4 py-3 text-gray-650 font-mono text-[10px]">{formatDatetime(task.dueDate)}</td>
+                  <td className="whitespace-nowrap px-2 py-2 text-[10px] tabular-nums text-gray-650">{formatDatetime(task.dueDate)}</td>
 
                   {/* Bắt đầu */}
-                  <td className="px-4 py-3 text-gray-650 font-mono text-[10px]">{formatDatetime(task.startTime)}</td>
+                  <td className="whitespace-nowrap px-2 py-2 text-[10px] tabular-nums text-gray-650">{formatDatetime(task.startTime)}</td>
 
                   {/* Kết thúc */}
-                  <td className="px-4 py-3 text-gray-650 font-mono text-[10px]">{formatDatetime(task.endTime)}</td>
+                  <td className="whitespace-nowrap px-2 py-2 text-[10px] tabular-nums text-gray-650">{formatDatetime(task.endTime)}</td>
 
                   {/* Dự tính */}
-                  <td className="px-4 py-3 font-semibold text-slate-700 font-mono text-center">{task.estTime ?? 0}h</td>
+                  <td className="px-2 py-2 text-center tabular-nums text-slate-700">{task.estTime ?? 0}h</td>
 
                   {/* Thực tế */}
-                  <td className="px-4 py-3 font-semibold text-slate-700 font-mono text-center">{task.actualTime ?? 0}h</td>
+                  <td className="px-2 py-2 text-center tabular-nums text-slate-700">{task.actualTime ?? 0}h</td>
 
                   {/* Đánh giá KPI */}
-                  <td className="px-4 py-3 select-none">
+                  <td className="select-none px-2 py-2">
                     {!kpi ? (
                       <span className="text-gray-400 italic text-[10px]">-</span>
                     ) : kpi.status === "ontime" ? (
@@ -1537,8 +1537,7 @@ export default function KanbanTab({
 
                         {/* Project Tasks Body */}
                         {isExpanded && (
-                          <div className="p-4 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
-                            <KanbanProjectSummary project={proj} expanded />
+                          <div className="p-3 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
                             <TaskTable
                               tasks={projTasks}
                               showProjectColumn={false}
