@@ -23,6 +23,7 @@ import { getAccessToken, authService } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { HrFormSelect } from "./HrFormSelect";
 
 const emojiIconPattern = /[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u;
 
@@ -818,18 +819,17 @@ export default function TrainingTab({
                 <>
                   <div className="flex items-center gap-1.5">
                     <Eye className="h-4 w-4 text-[#0099da]" />
-                    <select
-                      value={trainingFilter || ""}
-                      onChange={(e) => setTrainingFilter(e.target.value || null)}
-                      className="rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-xs text-slate-800 outline-none cursor-pointer focus:border-[#00ADFC]"
-                    >
-                      <option value="">Giám sát tiến độ học nhân viên</option>
-                      {employees.map(emp => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.role})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="w-full min-w-0 sm:w-[380px]">
+                      <HrFormSelect
+                        value={trainingFilter || ""}
+                        onChange={(value) => setTrainingFilter(value || null)}
+                        label="Giám sát tiến độ học nhân viên"
+                        options={[
+                          { value: "", label: "Giám sát tiến độ học nhân viên" },
+                          ...employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` })),
+                        ]}
+                      />
+                    </div>
                   </div>
 
                   <button
@@ -877,6 +877,28 @@ export default function TrainingTab({
                           </div>
                           <h4 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-slate-950" title={course.title}>{course.title}</h4>
                         </div>
+                        {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter && (
+                          <div className="flex shrink-0 self-start items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditCourse(course)}
+                              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-[#beeaff] bg-white text-[#007eb8] transition-colors hover:bg-[#E8F7FF]"
+                              title="Sửa khóa học"
+                              aria-label={`Sửa khóa học ${course.title}`}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCourse(course.id)}
+                              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-700 transition-colors hover:bg-rose-50"
+                              title="Xóa khóa học"
+                              aria-label={`Xóa khóa học ${course.title}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {course.description && <p className="truncate text-xs text-slate-700" title={course.description}>{course.description}</p>}
@@ -888,48 +910,28 @@ export default function TrainingTab({
                         <div className="flex min-w-0 items-center gap-1" title={`Bài giảng: ${(course.lessons || []).length}`}><TrainingBookIcon className="h-4 w-4 shrink-0" /><span className="truncate">{(course.lessons || []).length} bài</span></div>
                       </div>
 
-                      {/* Course learning progress bar */}
+                    </div>
+
+                    <div className="relative mt-2.5 flex items-center justify-end gap-2 border-t border-slate-200/70 pt-2.5">
                       {myEnrollment && (
-                        <div className="space-y-1 select-none">
-                          <div className="flex justify-between text-[10px]">
-                            <span className="text-slate-700">Tiến độ học</span>
-                            <span className="text-[#007eb8]">{progress}%</span>
-                          </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#DDF7FF]">
+                        <div className="mr-auto flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
+                          <div
+                            role="progressbar"
+                            aria-label={`Tiến độ học khóa ${course.title}`}
+                            aria-valuenow={progress}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            className="h-1.5 w-full max-w-24 overflow-hidden rounded-full bg-[#DDF7FF]"
+                          >
                             <div
-                              className="h-full rounded-full bg-gradient-to-r from-[#00DFFF] to-[#00ADFC] transition-all duration-500"
+                              className="h-full rounded-full bg-[#00ADFC] transition-all duration-500"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
+                          <span className="shrink-0 text-[10px] text-[#007eb8]">{progress}%</span>
                         </div>
                       )}
-                    </div>
-
-                    <div className="relative mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 pt-2.5">
-                      {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter ? (
-                        <div className="flex gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditCourse(course)}
-                            className="p-1.5 bg-[#E8F7FF] hover:bg-[#D8F1FF] border border-[#beeaff] text-[#007eb8] rounded-lg hover:scale-105 transition-all cursor-pointer flex items-center justify-center"
-                            title="Sửa khóa học"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCourse(course.id)}
-                            className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-lg hover:scale-105 transition-all cursor-pointer flex items-center justify-center"
-                            title="Xóa khóa học"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div />
-                      )}
-
-                      <div className="flex gap-2">
+                      <div className="shrink-0">
                         <button
                           type="button"
                           disabled={!!trainingFilter}
@@ -1011,16 +1013,17 @@ export default function TrainingTab({
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <div>
                   <label className="block font-bold text-gray-500 mb-1 font-sans">Danh mục đào tạo</label>
-                  <select
+                  <HrFormSelect
                     value={courseFormCategory}
-                    onChange={(e) => setCourseFormCategory(e.target.value)}
-                    className="w-full p-2 border border-gray-200 bg-white text-slate-850 outline-none rounded-xl cursor-pointer"
-                  >
-                    <option value="Văn hóa">Văn hóa & Quy chế</option>
-                    <option value="Kỹ thuật">Nghiệp vụ kỹ thuật</option>
-                    <option value="Kinh doanh">Kỹ năng bán hàng</option>
-                    <option value="Công nghệ">Công nghệ & Tooling</option>
-                  </select>
+                    onChange={setCourseFormCategory}
+                    label="Danh mục đào tạo"
+                    options={[
+                      { value: "Văn hóa", label: "Văn hóa & Quy chế" },
+                      { value: "Kỹ thuật", label: "Nghiệp vụ kỹ thuật" },
+                      { value: "Kinh doanh", label: "Kỹ năng bán hàng" },
+                      { value: "Công nghệ", label: "Công nghệ & Tooling" },
+                    ]}
+                  />
                 </div>
 
                 <div>
@@ -1108,17 +1111,15 @@ export default function TrainingTab({
                           </div>
                           <div>
                             <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Loại bài giảng</label>
-                            <div className="relative">
-                              <TrainingGlyph name={les.type === "video" ? "video" : "document"} className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
-                              <select
-                                value={les.type}
-                                onChange={(e) => handleLessonFormChange(index, "type", e.target.value)}
-                                className="w-full rounded-lg border border-transparent bg-slate-50 py-1.5 pl-9 pr-3 text-xs outline-none transition-all hover:border-slate-200 focus:border-[#00ADFC] focus:bg-white cursor-pointer"
-                              >
-                                <option value="text">Văn bản / Doc</option>
-                                <option value="video">Video</option>
-                              </select>
-                            </div>
+                            <HrFormSelect
+                              value={les.type}
+                              onChange={(value) => handleLessonFormChange(index, "type", value)}
+                              label="Loại bài giảng"
+                              options={[
+                                { value: "text", label: "Văn bản / Doc" },
+                                { value: "video", label: "Video" },
+                              ]}
+                            />
                           </div>
                         </div>
 
