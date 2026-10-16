@@ -1102,49 +1102,49 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
       />
 
       {viewingCourse && (
-        <ErpModal title={`Chi tiết khóa học: ${viewingCourse.title}`} onClose={() => setViewingCourse(null)}>
+        <ErpModal title={`Chi tiết khóa học: ${viewingCourse.title}`} titleClassName="font-medium" onClose={() => setViewingCourse(null)}>
           <div className="space-y-4 text-slate-700 text-left">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mã khóa học</label>
-                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingCourse.code}</p>
+                <label className="text-xs font-normal text-slate-500">Mã khóa học</label>
+                <p className="mt-0.5 text-sm font-medium text-slate-800">{viewingCourse.code}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Danh mục</label>
-                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingCourse.category}</p>
+                <label className="text-xs font-normal text-slate-500">Danh mục</label>
+                <p className="mt-0.5 text-sm font-normal text-slate-800">{viewingCourse.category}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Số buổi học</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingCourse.duration} buổi</p>
+                <label className="text-xs font-normal text-slate-500">Số buổi học</label>
+                <p className="mt-0.5 text-sm font-normal text-slate-700">{viewingCourse.duration} buổi</p>
               </div>
               {usesCourseFeePolicy && (
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Học phí</label>
-                  <p className="text-sm font-bold text-brand-primary mt-0.5">{viewingCourse.fee}</p>
+                  <label className="text-xs font-normal text-slate-500">Học phí</label>
+                  <p className="mt-0.5 text-sm font-medium text-brand-primary">{viewingCourse.fee}</p>
                 </div>
               )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Số học viên tối đa</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingCourse.maxLearners}</p>
+                <label className="text-xs font-normal text-slate-500">Số học viên tối đa</label>
+                <p className="mt-0.5 text-sm font-normal text-slate-700">{viewingCourse.maxLearners}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</label>
-                <p className="text-sm font-bold text-slate-700 mt-0.5">{viewingCourse.status}</p>
+                <label className="text-xs font-normal text-slate-500">Trạng thái</label>
+                <p className="mt-0.5 text-sm font-medium text-slate-700">{viewingCourse.status}</p>
               </div>
             </div>
 
             {viewingCourse.customFields && Object.keys(viewingCourse.customFields).length > 0 && (
               <div className="border-t border-slate-100 pt-4">
-                <h5 className="text-xs font-bold text-slate-800 mb-3">Trường thông tin thêm</h5>
+                <h5 className="mb-3 text-xs font-medium text-slate-800">Trường thông tin thêm</h5>
                 <div className="grid grid-cols-2 gap-4">
                   {Object.entries(viewingCourse.customFields).map(([key, val]) => (
                     <div key={key}>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{key}</label>
-                      <p className="text-sm font-medium text-slate-700 mt-0.5">{String(val || 'N/A')}</p>
+                      <label className="text-xs font-normal text-slate-500">{key}</label>
+                      <p className="mt-0.5 text-sm font-normal text-slate-700">{String(val || 'N/A')}</p>
                     </div>
                   ))}
                 </div>

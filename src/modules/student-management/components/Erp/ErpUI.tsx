@@ -62,7 +62,7 @@ export interface ErpStatCardProps {
   color?: string;
 }
 
-export const ErpStatCard: React.FC<ErpStatCardProps> = ({ name, value, change, icon: Icon, color }) => {
+export const ErpStatCard: React.FC<ErpStatCardProps> = ({ name, value, change, icon: Icon }) => {
   const { darkMode } = useErpTheme();
   const isPendingWarning = name.toLowerCase().includes("cần trả") || name.toLowerCase().includes("nợ");
 
@@ -142,6 +142,7 @@ export function ErpFilterRail({ children, className }: { children: React.ReactNo
 export function ErpModal({
   isOpen = true,
   title,
+  titleClassName,
   onClose,
   children,
   maxWidth = "max-w-md",
@@ -151,6 +152,7 @@ export function ErpModal({
   isOpen?: boolean;
   onClose: () => void;
   title: string;
+  titleClassName?: string;
   children: React.ReactNode;
   maxWidth?: string;
   zIndex?: string;
@@ -171,7 +173,7 @@ export function ErpModal({
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
-            <h3 className={cn("text-sm sm:text-base font-bold tracking-tight normal-case", darkMode ? "text-white" : "text-slate-900")}>{title}</h3>
+            <h3 className={cn("text-sm sm:text-base font-bold tracking-tight normal-case", darkMode ? "text-white" : "text-slate-900", titleClassName)}>{title}</h3>
           </div>
           <button
             type="button"
