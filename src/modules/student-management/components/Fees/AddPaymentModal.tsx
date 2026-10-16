@@ -7,6 +7,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { toast } from '../../../../pages/Toast';
 import { getVietQRBankCode, toDisplayDate } from '../../lib/utils';
 import { companyPaymentApi } from '../../../../services/companyPaymentService';
+import { VietnameseDatePicker } from '../Batches/VietnameseDatePicker';
 
 const BANK_NAMES: Record<string, string> = {
   mbbank: 'MBBank',
@@ -251,35 +252,35 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
           initial={{ opacity: 0, scale: 0.95, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 30 }}
-          className={`relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${showTransferQr ? 'hidden' : ''}`}
+          className={`relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-2xl ${showTransferQr ? 'hidden' : ''}`}
         >
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-            <h3 className="text-xl font-extrabold text-slate-800">Thanh toán học phí</h3>
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 text-slate-400">
-              <X className="w-5 h-5" />
+          <div className="flex shrink-0 items-center justify-between border-b border-sky-100 px-5 py-4">
+            <h3 className="border-l-4 border-brand-primary pl-3 text-base font-medium text-slate-900">Thanh toán học phí</h3>
+            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" aria-label="Đóng">
+              <X className="h-4 w-4" />
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto no-scrollbar">
-            <div className="p-4 bg-cyan-50 rounded-2xl border border-cyan-100/50 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100">
-                <CreditCard className="w-6 h-6" />
+          <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto p-5 no-scrollbar">
+            <div className="flex items-center gap-3 rounded-xl border border-sky-100 bg-brand-primary/5 p-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-sky-100 bg-white text-brand-primary">
+                <CreditCard className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-black text-slate-900 leading-none">{student.fullName}</p>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1.5 ">
-                  <p className="text-[10px] font-bold text-cyan-500 uppercase tracking-wider">Học phí: {student.fee}đ</p>
+                <p className="text-sm font-medium text-slate-900 leading-none">{student.fullName}</p>
+                <div className="mt-1.5 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                  <p className="text-xs font-normal text-slate-600">Học phí: {student.fee}đ</p>
                   <div className="hidden sm:block w-1 h-1 rounded-full bg-slate-300" />
-                  <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">
+                  <p className="text-xs font-medium text-rose-500">
                     Còn nợ: {new Intl.NumberFormat('vi-VN').format(parseInt(student.fee.replace(/\D/g, '')) - (student.paidAmount || 0))}đ
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Số tiền đóng (VNĐ)*</label>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-normal text-slate-700">Số tiền đóng (VNĐ) *</label>
                 <div className="relative">
                   <input
                     type="text"
@@ -287,27 +288,19 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                     value={amount}
                     onChange={(e) => setAmount(formatInputCurrency(e.target.value))}
                     placeholder="VD: 5.000.000"
-                    className="w-full h-14 bg-slate-50 px-5 rounded-2xl border border-slate-200 text-lg font-black text-cyan-600 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all"
+                    className="h-10 w-full rounded-xl border border-sky-100 bg-white px-3 pr-12 text-sm font-medium text-brand-primary outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                   />
-                  <span className="absolute right-5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">VNĐ</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-normal text-slate-500">VNĐ</span>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Ngày đóng</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    required
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full h-14 bg-slate-50 px-5 rounded-2xl border border-slate-200 text-base font-bold text-slate-800 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all"
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-normal text-slate-700">Ngày đóng</label>
+                <VietnameseDatePicker ariaLabel="Ngày đóng" required value={date} onChange={setDate} selectionOnly variant="filter" />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Phương thức thanh toán</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-normal text-slate-700">Phương thức thanh toán</label>
                 <div className="grid grid-cols-2 gap-2">
                   {([
                     ['Tiền mặt', Banknote],
@@ -317,7 +310,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                       key={value}
                       type="button"
                       onClick={() => setPaymentMethod(value)}
-                      className={`h-12 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all ${paymentMethod === value ? 'border-cyan-600 bg-cyan-50 text-cyan-700 ring-2 ring-cyan-500/10' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-cyan-200'}`}
+                      className={`flex h-9 items-center justify-center gap-2 rounded-xl border text-xs font-normal transition-colors ${paymentMethod === value ? 'border-brand-primary bg-brand-primary/10 text-brand-primary' : 'border-sky-100 bg-white text-slate-600 hover:border-sky-300'}`}
                     >
                       <Icon className="w-4 h-4" />
                       {value}
@@ -326,17 +319,17 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Ghi chú</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-normal text-slate-700">Ghi chú</label>
                 <div className="relative">
                   <textarea
-                    rows={3}
+                    rows={2}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="VD: Đóng đợt 1, chuyển khoản..."
-                    className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all resize-none"
+                    className="w-full resize-none rounded-xl border border-sky-100 bg-white p-3 pr-9 text-sm font-normal text-slate-800 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                   />
-                  <FileText className="absolute right-5 top-5 w-5 h-5 text-slate-400 pointer-events-none" />
+                  <FileText className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-slate-400" />
                 </div>
               </div>
 
@@ -351,12 +344,12 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                 })();
 
                 return (
-                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+                  <div className="space-y-3 rounded-xl border border-sky-100 bg-brand-primary/5 p-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                        <QrCode className="w-3.5 h-3.5 text-cyan-600" /> Quét mã thanh toán (SePay)
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+                        <QrCode className="w-3.5 h-3.5 text-brand-primary" /> Quét mã thanh toán (SePay)
                       </span>
-                      <span className="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-1.5 py-0.5 rounded-md">Tự động điền số tiền</span>
+                      <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-normal text-emerald-700">Tự động điền số tiền</span>
                     </div>
                     <div className="flex gap-4 items-center">
                       <div className="bg-white p-2 border border-slate-100 rounded-xl shrink-0 flex items-center justify-center">
@@ -367,9 +360,9 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
                         />
                       </div>
                       <div className="text-xs space-y-1.5 select-all flex-1 min-w-0">
-                        <p className="font-medium text-slate-500">Ngân hàng: <span className="text-slate-800 font-bold uppercase">{BANK_NAMES[vietqrConfig.bankId] || vietqrConfig.bankId.toUpperCase()}</span></p>
-                        <p className="font-medium text-slate-500">Số tài khoản: <span className="text-slate-800 font-bold">{vietqrConfig.accountNo}</span></p>
-                        <p className="font-medium text-slate-500">Chủ tài khoản: <span className="text-slate-800 font-bold uppercase">{vietqrConfig.accountName}</span></p>
+                        <p className="font-normal text-slate-500">Ngân hàng: <span className="text-slate-800">{BANK_NAMES[vietqrConfig.bankId] || vietqrConfig.bankId.toUpperCase()}</span></p>
+                        <p className="font-normal text-slate-500">Số tài khoản: <span className="text-slate-800">{vietqrConfig.accountNo}</span></p>
+                        <p className="font-normal text-slate-500">Chủ tài khoản: <span className="text-slate-800">{vietqrConfig.accountName}</span></p>
                         <p className="font-medium text-slate-500 flex flex-col gap-0.5">
                           <span>Nội dung chuyển khoản QR:</span>
                           <span className="bg-slate-200/80 text-slate-800 font-mono px-1.5 py-0.5 rounded text-[10px] font-semibold break-all inline-block select-all">
@@ -383,29 +376,23 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
               })()}
             </div>
 
-            <div className="flex items-center gap-4 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 h-14 bg-slate-100 text-slate-600 rounded-2xl text-base font-black hover:bg-slate-200 transition-all"
-              >
-                Hủy
-              </button>
+            <div className="flex items-center justify-end border-t border-sky-100 pt-4">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-[2] flex items-center justify-center gap-3 h-14 bg-cyan-600 text-white rounded-2xl text-base font-black shadow-xl shadow-cyan-100 hover:bg-cyan-700 transition-all disabled:opacity-50"
+                className="flex h-9 items-center justify-center gap-2 rounded-xl bg-brand-primary px-5 text-xs font-medium text-white transition-colors hover:bg-brand-primary/90 disabled:opacity-50"
               >
-                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Xác nhận
               </button>
             </div>
           </form>
         </motion.div>
         {showTransferQr && paymentMethod === 'Chuyển khoản' && (
-          <div className="absolute z-10 w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6 text-center">
-            <QrCode className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
-            <h4 className="text-lg font-black text-slate-800">Quét mã để chuyển khoản</h4>
+          <div className="absolute z-10 w-full max-w-sm rounded-2xl border border-sky-100 bg-white p-5 text-center shadow-2xl">
+            <button type="button" onClick={() => { setShowTransferQr(false); onClose(); }} className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" aria-label="Đóng"><X className="h-4 w-4" /></button>
+            <QrCode className="mx-auto mb-2 h-7 w-7 text-brand-primary" />
+            <h4 className="text-base font-medium text-slate-900">Quét mã để chuyển khoản</h4>
             <p className="text-xs text-slate-500 mt-1">Sau khi SePay nhận tiền, học phí sẽ được ghi nhận tự động.</p>
             {transferTimedOut && <p className="mt-2 text-xs font-semibold text-amber-600">Chưa nhận được giao dịch sau 15 phút. Vui lòng kiểm tra lại nội dung chuyển khoản hoặc liên hệ trung tâm.</p>}
             {!transferTimedOut && transferCheckError && <p className="mt-2 text-xs font-semibold text-amber-600">{transferCheckError}</p>}
@@ -415,7 +402,6 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
               alt="Mã QR chuyển khoản SePay"
             />
             <p className="text-xs text-slate-500">Nội dung: <strong className="font-mono text-slate-800">{note}</strong></p>
-            <button type="button" onClick={() => { setShowTransferQr(false); onClose(); }} className="mt-4 w-full h-12 rounded-xl bg-slate-100 text-slate-700 font-bold">Đóng</button>
           </div>
         )}
       </div>

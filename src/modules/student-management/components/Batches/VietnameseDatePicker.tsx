@@ -31,9 +31,11 @@ interface VietnameseDatePickerProps {
   ariaLabel: string;
   selectionOnly?: boolean;
   variant?: 'default' | 'filter';
+  min?: string;
+  max?: string;
 }
 
-export function VietnameseDatePicker({ value, onChange, required, ariaLabel, selectionOnly = false, variant = 'default' }: VietnameseDatePickerProps) {
+export function VietnameseDatePicker({ value, onChange, required, ariaLabel, selectionOnly = false, variant = 'default', min, max }: VietnameseDatePickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const [displayValue, setDisplayValue] = useState(() => toDisplayDate(value));
@@ -77,6 +79,7 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
 
   const selectDate = (date: Date) => {
     const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    if ((min && iso < min) || (max && iso > max)) return;
     onChange(iso);
     setDisplayValue(toDisplayDate(iso));
     inputRef.current?.setCustomValidity('');
@@ -91,6 +94,7 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
   const offset = (firstDay.getDay() + 6) % 7;
   const dates = Array.from({ length: 42 }, (_, index) => new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), index - offset + 1));
   const today = new Date();
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const selected = toLocalDate(value);
 
   return (
@@ -136,7 +140,7 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
         <CalendarDays className="h-4 w-4" />
       </button>
       {open && createPortal(
-        <div ref={calendarRef} role="dialog" aria-label={`Lịch chọn ${ariaLabel.toLowerCase()}`} className="fixed z-[70] w-72 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 shadow-xl" style={position}>
+        <div ref={calendarRef} role="dialog" aria-label={`Lịch chọn ${ariaLabel.toLowerCase()}`} className="fixed z-[100] w-72 rounded-xl border border-sky-100 bg-white p-3 text-sm text-slate-700 shadow-xl" style={position}>
           <div className="mb-3 flex items-center justify-between">
             <button type="button" onClick={() => changeMonth(-1)} aria-label="Tháng trước" className="rounded-lg p-1.5 hover:bg-sky-50"><ChevronLeft className="h-4 w-4" /></button>
             <span className="font-medium">Tháng {visibleMonth.getMonth() + 1}/{visibleMonth.getFullYear()}</span>
@@ -145,14 +149,16 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
           <div className="grid grid-cols-7 gap-1 text-center">
             {WEEKDAYS.map((day) => <span key={day} className="py-1 text-xs text-slate-500">{day}</span>)}
             {dates.map((date) => {
+              const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+              const isDisabled = Boolean((min && iso < min) || (max && iso > max));
               const isSelected = Boolean(value) && date.getTime() === selected.getTime();
               const isToday = date.toDateString() === today.toDateString();
-              return <button key={date.toISOString()} type="button" onClick={() => selectDate(date)} aria-label={`${date.getDate()} tháng ${date.getMonth() + 1} năm ${date.getFullYear()}`} aria-pressed={isSelected} className={`h-8 rounded-lg text-xs transition-colors ${isSelected ? 'bg-brand-primary text-white' : date.getMonth() === visibleMonth.getMonth() ? 'text-slate-700 hover:bg-sky-50' : 'text-slate-400 hover:bg-sky-50'} ${isToday && !isSelected ? 'ring-1 ring-brand-primary' : ''}`}>{date.getDate()}</button>;
+              return <button key={date.toISOString()} type="button" disabled={isDisabled} onClick={() => selectDate(date)} aria-label={`${date.getDate()} tháng ${date.getMonth() + 1} năm ${date.getFullYear()}`} aria-pressed={isSelected} className={`h-8 rounded-lg text-xs transition-colors disabled:cursor-not-allowed disabled:text-slate-300 ${isSelected ? 'bg-brand-primary text-white' : date.getMonth() === visibleMonth.getMonth() ? 'text-slate-700 hover:bg-sky-50' : 'text-slate-400 hover:bg-sky-50'} ${isToday && !isSelected ? 'ring-1 ring-brand-primary' : ''}`}>{date.getDate()}</button>;
             })}
           </div>
           <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-xs">
             <button type="button" onClick={() => { onChange(''); setDisplayValue(''); inputRef.current?.setCustomValidity(''); setOpen(false); }} className="px-2 py-1 text-slate-500 hover:text-brand-primary">Xóa ngày</button>
-            <button type="button" onClick={() => selectDate(today)} className="px-2 py-1 text-brand-primary hover:underline">Hôm nay</button>
+            <button type="button" disabled={Boolean((min && todayIso < min) || (max && todayIso > max))} onClick={() => selectDate(today)} className="px-2 py-1 text-brand-primary hover:underline disabled:cursor-not-allowed disabled:text-slate-300">Hôm nay</button>
           </div>
         </div>, document.body
       )}
