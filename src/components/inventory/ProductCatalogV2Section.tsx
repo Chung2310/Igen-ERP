@@ -223,8 +223,8 @@ export function ProductCatalogV2Section() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setSetupKind("categories")} className="inline-flex items-center gap-1.5 rounded-xl border border-[#dce7f4] bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:border-[#8edcff] hover:bg-[#f3faff] hover:text-[#007eb8]" title="Khai báo danh mục dùng chung"><Tag className="h-4 w-4" />Danh mục</button>
-          <button type="button" onClick={() => setSetupKind("brands")} className="inline-flex items-center gap-1.5 rounded-xl border border-[#dce7f4] bg-white px-3.5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:border-[#8edcff] hover:bg-[#f3faff] hover:text-[#007eb8]" title="Khai báo thương hiệu dùng chung"><Tag className="h-4 w-4" />Thương hiệu</button>
+          <button type="button" onClick={() => setSetupKind("categories")} className="inline-flex items-center gap-1.5 rounded-xl border border-[#bceaff] bg-[#e8f7ff] px-3.5 py-2.5 text-sm font-semibold text-[#007eb8] transition-colors hover:bg-[#d7f2ff]" title="Khai báo danh mục dùng chung"><Tag className="h-4 w-4" />Danh mục</button>
+          <button type="button" onClick={() => setSetupKind("brands")} className="inline-flex items-center gap-1.5 rounded-xl border border-[#bceaff] bg-[#e8f7ff] px-3.5 py-2.5 text-sm font-semibold text-[#007eb8] transition-colors hover:bg-[#d7f2ff]" title="Khai báo thương hiệu dùng chung"><Tag className="h-4 w-4" />Thương hiệu</button>
           <button type="button" onClick={() => setEditor("create")} className="inline-flex items-center gap-1.5 rounded-xl bg-[#00adfc] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0098e0]"><PackagePlus className="h-4 w-4" />Tạo sản phẩm</button>
         </div>
       </div>

@@ -192,6 +192,96 @@
   --color-brand-bg: var(--color-background);
 }
 
+/* Keep inventory actions on the same iGen palette across its subpages and dialogs. */
+#inventory_tab_wrapper button:is(
+  [class~="bg-blue-500"],
+  [class~="bg-blue-600"],
+  [class~="bg-blue-700"],
+  [class~="bg-cyan-500"],
+  [class~="bg-cyan-600"],
+  [class~="bg-cyan-700"],
+  [class~="bg-indigo-600"],
+  [class~="bg-sky-600"],
+  [class~="bg-teal-500"],
+  [class~="bg-teal-600"],
+  [class~="bg-teal-700"],
+  [class~="bg-emerald-600"],
+  [class~="bg-violet-600"],
+  [class~="bg-slate-800"],
+  [class~="bg-slate-900"],
+  [class~="bg-[#0f172a]"]
+) {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  border-radius: 0.75rem;
+  color: var(--color-on-primary);
+  box-shadow: 0 1px 2px rgb(0 113 173 / 12%);
+}
+
+#inventory_tab_wrapper button:is(
+  [class~="bg-blue-500"],
+  [class~="bg-blue-600"],
+  [class~="bg-blue-700"],
+  [class~="bg-cyan-500"],
+  [class~="bg-cyan-600"],
+  [class~="bg-cyan-700"],
+  [class~="bg-indigo-600"],
+  [class~="bg-sky-600"],
+  [class~="bg-teal-500"],
+  [class~="bg-teal-600"],
+  [class~="bg-teal-700"],
+  [class~="bg-emerald-600"],
+  [class~="bg-violet-600"],
+  [class~="bg-slate-800"],
+  [class~="bg-slate-900"],
+  [class~="bg-[#0f172a]"]
+):hover:not(:disabled) {
+  background-color: #0098e0;
+  border-color: #0098e0;
+}
+
+#inventory_tab_wrapper button:is(
+  [class~="bg-blue-50"],
+  [class~="bg-cyan-50"],
+  [class~="bg-teal-50"],
+  [class~="bg-emerald-50"],
+  [class~="bg-violet-50"],
+  [class~="bg-indigo-50"],
+  [class~="bg-sky-50"]
+) {
+  background-color: var(--color-primary-container);
+  border-color: var(--color-primary-fixed-dim);
+  border-radius: 0.75rem;
+  color: var(--color-on-primary-fixed-variant);
+}
+
+#inventory_tab_wrapper button:is(
+  [class~="bg-blue-50"],
+  [class~="bg-cyan-50"],
+  [class~="bg-teal-50"],
+  [class~="bg-emerald-50"],
+  [class~="bg-violet-50"],
+  [class~="bg-indigo-50"],
+  [class~="bg-sky-50"]
+):hover:not(:disabled) {
+  background-color: #d7f2ff;
+}
+
+#inventory_tab_wrapper button:is(
+  [class~="text-blue-700"],
+  [class~="text-blue-600"],
+  [class~="text-cyan-700"],
+  [class~="text-cyan-600"],
+  [class~="text-teal-700"],
+  [class~="text-teal-600"],
+  [class~="text-emerald-700"],
+  [class~="text-emerald-600"],
+  [class~="text-indigo-700"],
+  [class~="text-sky-700"]
+) {
+  color: var(--color-on-primary-fixed-variant);
+}
+
 /* Force Vietnamese unicode range to use Be Vietnam Pro (designed for Vietnamese) */
 @font-face {
   font-family: "Inter";
