@@ -1398,7 +1398,7 @@ export default function KanbanTab({
           {/* Header section */}
           <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-              <h2 data-testid="kanban-header-title" className="shrink-0 whitespace-nowrap text-lg font-medium font-sans text-slate-800">Công việc</h2>
+              <h2 data-testid="kanban-header-title" className="shrink-0 whitespace-nowrap font-sans text-lg font-normal text-slate-800">Công việc</h2>
 
               {/* Tab buttons */}
               <div className="min-w-0 select-none">
@@ -1415,7 +1415,7 @@ export default function KanbanTab({
                       onClick={() => selectKanbanViewTab(vt)}
                       className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg transition-all cursor-pointer shrink-0 ${
                         kanbanViewTab === vt
-                          ? "bg-white text-[#007EB8] shadow-xs font-medium"
+                          ? "bg-white text-[#007EB8] shadow-xs"
                           : "text-slate-600 hover:text-[#007EB8]"
                       }`}
                     >
@@ -1443,7 +1443,7 @@ export default function KanbanTab({
                   <button
                     type="button"
                     onClick={() => { setEditingProjectId(null); setNewProjectName(""); setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]); setIsNewProjectModalOpen(true); }}
-                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#DCE7F4] px-3 py-2 text-xs font-medium text-[#007EB8] transition-all hover:bg-[#E8F7FF] active:scale-95 cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#DCE7F4] px-3 py-2 text-xs font-normal text-[#007EB8] transition-all hover:bg-[#E8F7FF] active:scale-95 cursor-pointer"
                   >
                     <Target className="h-4 w-4" />
                     Tạo dự án & lĩnh vực
@@ -1476,7 +1476,7 @@ export default function KanbanTab({
                         category: DEFAULT_TASK_CATEGORY
                       });
                     }}
-                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] px-3 py-2 text-xs font-medium text-white shadow-xs transition-all cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] px-3 py-2 text-xs font-normal text-white shadow-xs transition-all cursor-pointer"
                   >
                     <Plus className="h-4 w-4" />
                     Giao việc mới
@@ -1492,7 +1492,7 @@ export default function KanbanTab({
               {projects.length === 0 && tasks.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#DCE7F4] bg-[#F8FCFF] px-4 py-16 text-center text-slate-500 select-none">
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E8F7FF] text-[#00ADFC]"><Briefcase className="h-7 w-7" /></div>
-                  <p className="text-base font-medium text-slate-800">Chưa có dự án và công việc nào</p>
+                  <p className="text-base font-normal text-slate-800">Chưa có dự án và công việc nào</p>
                   {isManager && <p className="text-sm mt-1">Dùng “Tạo dự án & Lĩnh vực” hoặc “Giao việc mới” để bắt đầu.</p>}
                 </div>
               ) : (
@@ -1517,7 +1517,7 @@ export default function KanbanTab({
                               {projTasks.length} việc
                             </span>
                           </div>
-                          <div className="flex items-center gap-4 text-[10px] text-gray-400 font-medium">
+                          <div className="flex items-center gap-4 text-[10px] font-normal text-gray-400">
                             <span>Tạo ngày: {new Date(proj.createdAt).toLocaleDateString("vi-VN")}</span>
                             {isManager && (
                               <><button type="button" onClick={(e) => { e.stopPropagation(); setEditingProjectId(proj.id); setNewProjectName(proj.name); setNewProjectStatus(proj.status || "not_started"); setNewProjectPriority(proj.priority || "medium"); setNewProjectStartAt(proj.startAt ? getLocalDatetimeString(new Date(proj.startAt)) : ""); setNewProjectDueAt(proj.dueAt ? getLocalDatetimeString(new Date(proj.dueAt)) : ""); setNewProjectAttachments(proj.attachments || []); setIsNewProjectModalOpen(true); }} className="p-1.5 rounded-lg text-[#007EB8] hover:bg-[#E8F7FF]" title="Sửa dự án"><FileText className="h-3.5 w-3.5" /></button><button
@@ -1559,7 +1559,7 @@ export default function KanbanTab({
                       <div className="flex items-center gap-2.5 min-w-0">
                         <ChevronRight className={`h-4.5 w-4.5 text-slate-550 transition-transform ${expandedProjects.unassigned ? "rotate-90" : ""}`} />
                         <Tag className="h-4 w-4 text-slate-500 shrink-0" />
-                        <h3 className="font-medium text-slate-700 text-sm">Công việc không thuộc dự án</h3>
+                        <h3 className="text-sm font-normal text-slate-700">Công việc không thuộc dự án</h3>
                         <span className="px-2 py-0.5 bg-white text-[#007EB8] text-xs rounded-full">
                           {visibleTasks.filter(t => !t.projectId).length} việc
                         </span>
@@ -1587,11 +1587,11 @@ export default function KanbanTab({
               {/* Column 1: Not Started */}
               <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
                 <div className="flex justify-between items-center mb-3 select-none">
-                  <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 text-sm font-normal text-slate-700">
                     <Clock className="w-3.5 h-3.5 text-gray-400" />
                     Chưa bắt đầu
                   </span>
-                  <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded-full text-xs font-medium">
+                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-normal text-slate-700">
                     {visibleTasks.filter(t => t.status === "Not Started" || t.status === "todo").length}
                   </span>
                 </div>
@@ -1614,11 +1614,11 @@ export default function KanbanTab({
               {/* Column 2: In Progress */}
               <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
                 <div className="flex justify-between items-center mb-3 select-none">
-                  <span className="text-sm font-medium text-[#007EB8] flex items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 text-sm font-normal text-[#007EB8]">
                     <RefreshCw className="w-3.5 h-3.5 text-[#00ADFC] animate-spin" />
                     Đang thực hiện
                   </span>
-                  <span className="px-2 py-0.5 bg-[#E8F7FF] text-[#007EB8] rounded-full text-xs font-medium">
+                  <span className="rounded-full bg-[#E8F7FF] px-2 py-0.5 text-xs font-normal text-[#007EB8]">
                     {visibleTasks.filter(t => t.status === "In Progress" || t.status === "doing").length}
                   </span>
                 </div>
@@ -1641,11 +1641,11 @@ export default function KanbanTab({
               {/* Column 3: Review / Testing */}
               <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
                 <div className="flex justify-between items-center mb-3 select-none">
-                  <span className="text-sm font-medium text-amber-700 flex items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 text-sm font-normal text-amber-700">
                     <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
                     Đang kiểm thử
                   </span>
-                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-normal text-amber-700">
                     {visibleTasks.filter(t => t.status === "Review/Testing").length}
                   </span>
                 </div>
@@ -1668,11 +1668,11 @@ export default function KanbanTab({
               {/* Column 4: Done */}
               <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
                 <div className="flex justify-between items-center mb-3 select-none">
-                  <span className="text-sm font-medium text-emerald-700 flex items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 text-sm font-normal text-emerald-700">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                     Đã hoàn thành
                   </span>
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-normal text-emerald-700">
                     {visibleTasks.filter(t => t.status === "Done" || t.status === "done").length}
                   </span>
                 </div>
@@ -2210,7 +2210,7 @@ function KanbanCard({
             {formatTaskCategory(task.category)}
           </span>
         </div>
-        <h4 className="font-medium text-sm text-slate-800 leading-snug group-hover:text-[#007EB8] transition-colors line-clamp-2">{task.title}</h4>
+        <h4 className="line-clamp-2 text-sm font-normal leading-snug text-slate-800 transition-colors group-hover:text-[#007EB8]">{task.title}</h4>
       </div>
 
       <div className="space-y-1.5 text-xs text-slate-500">
@@ -2226,9 +2226,9 @@ function KanbanCard({
       <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 text-[10px]">
         <div className="flex items-center gap-1.5">
           {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-6 h-6", "text-xs")}
-          <span className="text-slate-650 font-semibold">{task.assignee}</span>
+          <span className="font-normal text-slate-650">{task.assignee}</span>
         </div>
-        <span className="text-gray-400 font-mono font-medium">Hạn: {formatDatetime(task.dueDate)}</span>
+        <span className="font-mono font-normal text-gray-400">Hạn: {formatDatetime(task.dueDate)}</span>
       </div>
 
       {/* Show KPI Badge on Card if available */}
@@ -2237,13 +2237,13 @@ function KanbanCard({
         if (!kpi) return null;
         return (
           <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px]">
-            <span className="text-gray-400 font-medium">Đánh giá KPI:</span>
+            <span className="font-normal text-gray-400">Đánh giá KPI:</span>
             {kpi.status === "ontime" ? (
-              <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-205 border-emerald-200 rounded font-bold text-[9px] flex items-center gap-0.5">
+              <span className="flex items-center gap-0.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-normal text-emerald-700">
                 ✓ Đúng hạn
               </span>
             ) : (
-              <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-250 rounded font-bold text-[9px] flex items-center gap-0.5">
+              <span className="flex items-center gap-0.5 rounded bg-rose-100 px-1.5 py-0.5 text-[9px] font-normal text-rose-700">
                 ⚠️ Trễ {kpi.diff}h
               </span>
             )}
@@ -2259,7 +2259,7 @@ function KanbanCard({
               e.stopPropagation();
               onDelete();
             }}
-            className="text-rose-650 hover:text-rose-800 text-[10px] font-extrabold font-mono transition-colors cursor-pointer"
+            className="cursor-pointer text-[10px] font-normal text-rose-650 transition-colors hover:text-rose-800"
           >
             Xóa bỏ
           </button>
@@ -2278,7 +2278,7 @@ function KanbanCard({
                 else if (currentStatus === "Done" || currentStatus === "done") prevStatus = "Review/Testing";
                 onMove(prevStatus);
               }}
-              className="px-2 py-0.5 bg-slate-50 hover:bg-slate-100 border border-gray-200 text-slate-650 hover:text-slate-800 rounded-lg text-[9px] font-bold cursor-pointer"
+              className="cursor-pointer rounded-lg border border-gray-200 bg-slate-50 px-2 py-0.5 text-[9px] font-normal text-slate-650 hover:bg-slate-100 hover:text-slate-800"
             >
               ←
             </button>
@@ -2294,7 +2294,7 @@ function KanbanCard({
                 else if (currentStatus === "Review/Testing") nextStatus = "Done";
                 onMove(nextStatus);
               }}
-              className="px-2 py-0.5 bg-[#00ADFC] hover:bg-[#0095d9] text-white rounded-lg text-xs font-medium cursor-pointer"
+              className="cursor-pointer rounded-lg bg-[#00ADFC] px-2 py-0.5 text-xs font-normal text-white hover:bg-[#0095d9]"
             >
               →
             </button>
