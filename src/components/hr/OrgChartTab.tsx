@@ -1300,8 +1300,7 @@ export default function OrgChartTab({
             <button type="button" onClick={() => setViewMode("list")} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer transition-all ${viewMode === "list" ? "bg-white text-[#007EB8] shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"}`}><List className="h-3.5 w-3.5 text-[#00ADFC]" /> Danh sách</button>
           </div>
 
-          <div data-testid="org-chart-zoom-control" className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200/80 bg-white px-2.5 py-1.5 min-[1200px]:w-auto min-[1200px]:border-0 min-[1200px]:bg-transparent min-[1200px]:px-0">
-            <div className="hidden h-6 w-px bg-slate-200 mx-1 min-[1200px]:block" />
+          <div data-testid="org-chart-zoom-control" className="flex w-full items-center justify-center gap-2 px-2.5 py-1.5 min-[1200px]:w-auto min-[1200px]:px-0">
             <span className="text-xs font-medium text-slate-500 normal-case">Thu phóng:</span>
             <input
               type="range"
@@ -1319,7 +1318,6 @@ export default function OrgChartTab({
 
           {isManager && (
             <>
-              <div className="hidden h-6 w-px bg-slate-200 mx-1 min-[1200px]:block" />
               {canManageDepartments && <button
                 type="button"
                 onClick={() => setIsDepartmentManagerOpen(true)}
