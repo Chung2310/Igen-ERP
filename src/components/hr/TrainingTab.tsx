@@ -883,12 +883,12 @@ export default function TrainingTab({
                       {myEnrollment && (
                         <div className="space-y-1 select-none">
                           <div className="flex justify-between text-[10px]">
-                            <span className="text-gray-400">TIẾN ĐỘ HỌC:</span>
-                            <span className={isCompleted ? "text-emerald-600" : "text-[#007eb8]"}>{progress}% {isCompleted ? "(Đã xong)" : ""}</span>
+                            <span className="text-slate-700">Tiến độ học</span>
+                            <span className="text-[#007eb8]">{progress}%</span>
                           </div>
-                          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden border">
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#DDF7FF]">
                             <div
-                              className={`h-full rounded-full transition-all duration-500 ${isCompleted ? "bg-emerald-500" : "bg-[#00ADFC]"}`}
+                              className="h-full rounded-full bg-gradient-to-r from-[#00DFFF] to-[#00ADFC] transition-all duration-500"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
