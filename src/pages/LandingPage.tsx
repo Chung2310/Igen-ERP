@@ -244,7 +244,7 @@ export default function LandingPage() {
       ]
     },
     {
-      title: "BÁN LẺ & ĐIỂM BÁN",
+      title: "BÁN LẺ POS",
       desc: "Bộ giải pháp bán lẻ, quản lý quầy & in hóa đơn",
       items: [
         { name: "Bán lẻ tại quầy", desc: "Bán hàng tại điểm, quét SKU", icon: ShoppingCart, iconColor: "text-emerald-500", iconBg: "bg-emerald-50", link: "#giai-phap" },
