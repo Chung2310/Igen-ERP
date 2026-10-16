@@ -62,10 +62,10 @@ function displayTrainingIcon(icon: string | undefined, className?: string) {
 }
 
 const courseCardThemes = [
-  { border: "border-violet-200 hover:border-violet-400", wash: "from-violet-200 via-violet-50 to-white", glow: "bg-fuchsia-300/70", icon: "bg-white/90 ring-violet-300", badge: "bg-violet-200 text-violet-800", action: "bg-violet-600 hover:bg-violet-700" },
-  { border: "border-teal-200 hover:border-teal-400", wash: "from-teal-200 via-cyan-50 to-white", glow: "bg-cyan-300/70", icon: "bg-white/90 ring-teal-300", badge: "bg-teal-200 text-teal-800", action: "bg-teal-600 hover:bg-teal-700" },
-  { border: "border-amber-200 hover:border-amber-400", wash: "from-amber-200 via-amber-50 to-white", glow: "bg-orange-300/70", icon: "bg-white/90 ring-amber-300", badge: "bg-amber-200 text-amber-900", action: "bg-orange-600 hover:bg-orange-700" },
-  { border: "border-rose-200 hover:border-rose-400", wash: "from-rose-200 via-pink-50 to-white", glow: "bg-pink-300/70", icon: "bg-white/90 ring-rose-300", badge: "bg-rose-200 text-rose-800", action: "bg-pink-600 hover:bg-pink-700" },
+  { border: "border-violet-300 hover:border-violet-400", icon: "bg-white ring-violet-300", badge: "bg-violet-100 text-violet-800" },
+  { border: "border-teal-300 hover:border-teal-400", icon: "bg-white ring-teal-300", badge: "bg-teal-100 text-teal-800" },
+  { border: "border-amber-300 hover:border-amber-400", icon: "bg-white ring-amber-300", badge: "bg-amber-100 text-amber-900" },
+  { border: "border-rose-300 hover:border-rose-400", icon: "bg-white ring-rose-300", badge: "bg-rose-100 text-rose-800" },
 ] as const;
 
 type TrainingGlyphName = "clock" | "instructor" | "learners" | "document" | "video" | "tip";
@@ -867,8 +867,6 @@ export default function TrainingTab({
 
                 return (
                   <div key={course.id} className={`group relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl border bg-white p-3.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_-18px_rgba(32,55,110,0.48)] ${cardTheme.border}`}>
-                    <div className={`pointer-events-none absolute inset-0 bg-gradient-to-b ${cardTheme.wash}`} aria-hidden="true" />
-                    <div className={`pointer-events-none absolute -right-7 -top-10 h-28 w-28 rounded-full blur-xl ${cardTheme.glow}`} aria-hidden="true" />
                     <div className="relative space-y-2.5">
                       <div className="flex items-center gap-2.5">
                         <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl shadow-sm ring-1 select-none ${cardTheme.icon}`}>{displayTrainingIcon(course.icon)}</span>
@@ -936,10 +934,7 @@ export default function TrainingTab({
                           type="button"
                           disabled={!!trainingFilter}
                           onClick={() => handleEnrollAndStart(course)}
-                          className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all shadow-3xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isCompleted
-                              ? "bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 text-emerald-705 text-emerald-700"
-                              : `text-white shadow-sm ${cardTheme.action}`
-                            }`}
+                          className="cursor-pointer rounded-xl bg-[#00ADFC] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#0097dc] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
                         </button>
