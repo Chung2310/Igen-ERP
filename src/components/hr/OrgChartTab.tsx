@@ -23,8 +23,10 @@ import {
   CalendarDays,
   List,
   Network,
-  Crown
+  Crown,
+  ChevronDown
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
 import { authService, getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
@@ -74,6 +76,128 @@ const parseDurationToHours = (durationStr: string): number => {
   }
   return value;
 };
+
+type OrgChartSelectOption = { value: string; label: string };
+
+function OrgChartFormSelect({ value, options, onChange, label }: {
+  value: string;
+  options: OrgChartSelectOption[];
+  onChange: (value: string) => void;
+  label: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 240 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleOutsideClick = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!triggerRef.current?.contains(target) && !menuRef.current?.contains(target)) setIsOpen(false);
+    };
+    const closeMenu = () => setIsOpen(false);
+    const handleScroll = (event: Event) => {
+      if (!menuRef.current?.contains(event.target as Node)) closeMenu();
+    };
+    document.addEventListener("pointerdown", handleOutsideClick);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", handleScroll, true);
+    const focusFrame = requestAnimationFrame(() => {
+      menuRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]')?.focus();
+    });
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsideClick);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", handleScroll, true);
+      cancelAnimationFrame(focusFrame);
+    };
+  }, [isOpen]);
+
+  const toggleMenu = () => {
+    if (isOpen) {
+      setIsOpen(false);
+      return;
+    }
+    const bounds = triggerRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const desiredHeight = Math.min(240, options.length * 36 + 8);
+    const spaceBelow = window.innerHeight - bounds.bottom - 12;
+    const placeAbove = spaceBelow < desiredHeight && bounds.top > spaceBelow;
+    const availableHeight = Math.max(80, placeAbove ? bounds.top - 12 : spaceBelow);
+    const maxHeight = Math.min(desiredHeight, availableHeight);
+    setMenuPosition({
+      top: placeAbove ? bounds.top - maxHeight - 4 : bounds.bottom + 4,
+      left: bounds.left,
+      width: bounds.width,
+      maxHeight,
+    });
+    setIsOpen(true);
+  };
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={toggleMenu}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            if (!isOpen) toggleMenu();
+          }
+        }}
+        className="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-slate-800 outline-none transition-colors hover:border-[#8edcff] focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/20 cursor-pointer"
+      >
+        <span className="min-w-0 truncate">{options.find(option => option.value === value)?.label || options[0]?.label}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-[#007EB8] transition-transform ${isOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+      {isOpen && createPortal(
+        <div
+          ref={menuRef}
+          role="listbox"
+          aria-label={label}
+          className="fixed z-[60] overflow-y-auto rounded-xl border border-[#DCE7F4] bg-white p-1 shadow-xl"
+          style={menuPosition}
+        >
+          {options.map(option => (
+            <button
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
+              onClick={() => {
+                onChange(option.value);
+                setIsOpen(false);
+                triggerRef.current?.focus();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setIsOpen(false);
+                  triggerRef.current?.focus();
+                } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                  event.preventDefault();
+                  const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') || []);
+                  const currentIndex = items.indexOf(event.currentTarget);
+                  const nextIndex = (currentIndex + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+                  items[nextIndex]?.focus();
+                } else if (event.key === "Tab") {
+                  setIsOpen(false);
+                }
+              }}
+              className={`block w-full rounded-lg px-3 py-2 text-left text-xs transition-colors cursor-pointer ${option.value === value ? "bg-[#E8F7FF] text-[#007EB8]" : "text-slate-800 hover:bg-[#F3FAFF]"}`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>, document.body
+      )}
+    </>
+  );
+}
 
 const renderAvatar = (avatar: string, sizeClasses: string = "w-8 h-8", textClass: string = "text-base") => {
   if (isUrl(avatar)) {
@@ -2026,27 +2150,26 @@ export default function OrgChartTab({
 
               <div>
                 <label className="block font-bold text-gray-500 mb-1">Quyền hạn (Role) *</label>
-                <select
+                <OrgChartFormSelect
                   value={addRole}
-                  onChange={(e) => setAddRole(e.target.value as any)}
-                  className="w-full p-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] bg-white cursor-pointer"
-                >
-                  <option value="user">Nhân viên</option>
-                  <option value="manager">Quản lý</option>
-                  <option value="branch_owner">Chủ chi nhánh</option>
-                </select>
+                  onChange={(nextRole) => setAddRole(nextRole as typeof addRole)}
+                  label="Quyền hạn"
+                  options={[
+                    { value: "user", label: "Nhân viên" },
+                    { value: "manager", label: "Quản lý" },
+                    { value: "branch_owner", label: "Chủ chi nhánh" },
+                  ]}
+                />
               </div>
 
               {addRole !== "admin" && (
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Quản lý trực tiếp (Báo cáo cho)</label>
-                  <select
+                  <OrgChartFormSelect
                     value={addParentId}
-                    onChange={(e) => setAddParentId(e.target.value)}
-                    className="w-full p-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] bg-white cursor-pointer"
-                  >
-                    <option value="">Không phân công</option>
-                    {employees.filter(emp => {
+                    onChange={setAddParentId}
+                    label="Quản lý trực tiếp"
+                    options={[{ value: "", label: "Không phân công" }, ...employees.filter(emp => {
                       const rawUser = usersList.find(u => u.uid === emp.id);
                       if (!rawUser) return false;
 
@@ -2075,12 +2198,8 @@ export default function OrgChartTab({
                         return emp.id === userProfile.uid || checkIsDescendant(userProfile.uid, emp.id);
                       }
                       return false;
-                    }).map(emp => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.name} ({emp.role}{emp.department ? ` · ${emp.department}` : ""})
-                      </option>
-                    ))}
-                  </select>
+                    }).map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role}${emp.department ? ` · ${emp.department}` : ""})` }))]}
+                  />
                 </div>
               )}
 
