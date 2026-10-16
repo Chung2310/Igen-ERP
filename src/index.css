@@ -822,6 +822,23 @@ code, kbd, samp, pre {
   animation: landing-rainbow-spin 2.2s linear infinite;
 }
 
+.kanban-card-rainbow:hover {
+  border-color: transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    conic-gradient(
+      from var(--landing-rainbow-angle),
+      #ff57b3,
+      #ff9d43,
+      #ffe66d,
+      #4ed9a2,
+      #00adfc,
+      #7567ff,
+      #ff57b3
+    ) border-box;
+  animation: landing-rainbow-spin 2.2s linear infinite;
+}
+
 .org-chart-detail-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
 .org-chart-edit-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
 .org-chart-add-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
@@ -1151,6 +1168,7 @@ code, kbd, samp, pre {
 
   .landing-rainbow-border:is(:hover, :focus-visible, :active),
   .landing-rainbow-card:is(:hover, :focus-within, :active),
+  .kanban-card-rainbow:hover,
   .landing-solution-enter,
   .landing-tiktok-flow-dot,
   .landing-tiktok-flow-halo,

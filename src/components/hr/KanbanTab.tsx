@@ -54,6 +54,14 @@ interface KanbanTabProps {
 }
 
 type KanbanViewTab = "By project" | "Board" | "All tasks" | "Monthly KPI";
+type BoardStatus = "Not Started" | "In Progress" | "Review/Testing" | "Done";
+
+const boardStatusAliases: Record<BoardStatus, string[]> = {
+  "Not Started": ["Not Started", "todo"],
+  "In Progress": ["In Progress", "doing"],
+  "Review/Testing": ["Review/Testing"],
+  Done: ["Done", "done"],
+};
 
 const isUrl = (str?: string): boolean => {
   if (!str) return false;
@@ -633,6 +641,8 @@ export default function KanbanTab({
   const tasksRef = React.useRef<HRTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [kanbanViewTab, setKanbanViewTab] = useState<KanbanViewTab>("By project");
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [dragOverStatus, setDragOverStatus] = useState<BoardStatus | null>(null);
   const tabRefs = React.useRef<Partial<Record<KanbanViewTab, HTMLButtonElement | null>>>({});
   const [selectedKanbanTask, setSelectedKanbanTask] = useState<HRTask | null>(null);
   // Mở modal với trạng thái "Done" chọn sẵn (khi đổi trạng thái nhanh nhưng thiếu thông tin)
@@ -696,6 +706,8 @@ export default function KanbanTab({
     void fetchProjects();
   };
 
+  // Keep the request callback stable for the existing effect and socket subscriptions.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const fetchTasks = React.useCallback(async () => {
     if (!selectedCompanyCode) return;
     try {
@@ -722,6 +734,7 @@ export default function KanbanTab({
     }
   }, [selectedCompanyCode, activeBranchId]);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const fetchProjects = React.useCallback(async () => {
     if (!selectedCompanyCode) return;
     const requestGeneration = ++projectRequestGeneration.current;
@@ -1380,6 +1393,34 @@ export default function KanbanTab({
     return list;
   }, [tasks, kanbanFilter]);
 
+  const clearCardDrag = () => {
+    setDraggedTaskId(null);
+    setDragOverStatus(null);
+  };
+
+  const startCardDrag = (event: React.DragEvent<HTMLDivElement>, taskId: string) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", taskId);
+    setDraggedTaskId(taskId);
+  };
+
+  const handleBoardDrop = (event: React.DragEvent<HTMLDivElement>, status: BoardStatus) => {
+    event.preventDefault();
+    const taskId = event.dataTransfer.getData("text/plain");
+    clearCardDrag();
+    if (!draggedTaskId || taskId !== draggedTaskId) return;
+    const task = visibleTasks.find((item) => item.id === taskId);
+    if (!task || boardStatusAliases[status].includes(task.status)) return;
+    void moveTaskStatus(taskId, status);
+  };
+
+  const handleBoardDragOver = (event: React.DragEvent<HTMLDivElement>, status: BoardStatus) => {
+    if (!draggedTaskId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (dragOverStatus !== status) setDragOverStatus(status);
+  };
+
   const selectKanbanViewTab = (view: KanbanViewTab) => {
     setKanbanViewTab(view);
     requestAnimationFrame(() => {
@@ -1585,7 +1626,7 @@ export default function KanbanTab({
           {kanbanViewTab === "Board" && (
             <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 xl:grid-cols-4" id="kanban_board_columns">
               {/* Column 1: Not Started */}
-              <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
+              <div onDragOver={(event) => handleBoardDragOver(event, "Not Started")} onDrop={(event) => handleBoardDrop(event, "Not Started")} className={`flex h-full min-h-40 flex-col rounded-2xl border border-[#DCE7F4] bg-[#F8FCFF] p-3 transition-colors ${dragOverStatus === "Not Started" ? "border-[#00ADFC] bg-[#E8F7FF] ring-2 ring-[#00ADFC]/20" : ""}`}>
                 <div className="flex justify-between items-center mb-3 select-none">
                   <span className="flex items-center gap-1.5 text-sm font-normal text-slate-700">
                     <Clock className="w-3.5 h-3.5 text-gray-400" />
@@ -1601,7 +1642,9 @@ export default function KanbanTab({
                     <KanbanCard
                       key={task.id}
                       task={task}
-                      onMove={(newSt) => moveTaskStatus(task.id, newSt)}
+                      onDragStart={(event) => startCardDrag(event, task.id)}
+                      onDragEnd={clearCardDrag}
+                      isDragging={draggedTaskId === task.id}
                       onDelete={() => deleteTask(task.id)}
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
@@ -1612,7 +1655,7 @@ export default function KanbanTab({
               </div>
 
               {/* Column 2: In Progress */}
-              <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
+              <div onDragOver={(event) => handleBoardDragOver(event, "In Progress")} onDrop={(event) => handleBoardDrop(event, "In Progress")} className={`flex h-full min-h-40 flex-col rounded-2xl border border-[#DCE7F4] bg-[#F8FCFF] p-3 transition-colors ${dragOverStatus === "In Progress" ? "border-[#00ADFC] bg-[#E8F7FF] ring-2 ring-[#00ADFC]/20" : ""}`}>
                 <div className="flex justify-between items-center mb-3 select-none">
                   <span className="flex items-center gap-1.5 text-sm font-normal text-[#007EB8]">
                     <RefreshCw className="w-3.5 h-3.5 text-[#00ADFC] animate-spin" />
@@ -1628,7 +1671,9 @@ export default function KanbanTab({
                     <KanbanCard
                       key={task.id}
                       task={task}
-                      onMove={(newSt) => moveTaskStatus(task.id, newSt)}
+                      onDragStart={(event) => startCardDrag(event, task.id)}
+                      onDragEnd={clearCardDrag}
+                      isDragging={draggedTaskId === task.id}
                       onDelete={() => deleteTask(task.id)}
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
@@ -1639,7 +1684,7 @@ export default function KanbanTab({
               </div>
 
               {/* Column 3: Review / Testing */}
-              <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
+              <div onDragOver={(event) => handleBoardDragOver(event, "Review/Testing")} onDrop={(event) => handleBoardDrop(event, "Review/Testing")} className={`flex h-full min-h-40 flex-col rounded-2xl border border-[#DCE7F4] bg-[#F8FCFF] p-3 transition-colors ${dragOverStatus === "Review/Testing" ? "border-[#00ADFC] bg-[#E8F7FF] ring-2 ring-[#00ADFC]/20" : ""}`}>
                 <div className="flex justify-between items-center mb-3 select-none">
                   <span className="flex items-center gap-1.5 text-sm font-normal text-amber-700">
                     <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
@@ -1655,7 +1700,9 @@ export default function KanbanTab({
                     <KanbanCard
                       key={task.id}
                       task={task}
-                      onMove={(newSt) => moveTaskStatus(task.id, newSt)}
+                      onDragStart={(event) => startCardDrag(event, task.id)}
+                      onDragEnd={clearCardDrag}
+                      isDragging={draggedTaskId === task.id}
                       onDelete={() => deleteTask(task.id)}
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
@@ -1666,7 +1713,7 @@ export default function KanbanTab({
               </div>
 
               {/* Column 4: Done */}
-              <div className="bg-[#F8FCFF] p-3 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-40">
+              <div onDragOver={(event) => handleBoardDragOver(event, "Done")} onDrop={(event) => handleBoardDrop(event, "Done")} className={`flex h-full min-h-40 flex-col rounded-2xl border border-[#DCE7F4] bg-[#F8FCFF] p-3 transition-colors ${dragOverStatus === "Done" ? "border-[#00ADFC] bg-[#E8F7FF] ring-2 ring-[#00ADFC]/20" : ""}`}>
                 <div className="flex justify-between items-center mb-3 select-none">
                   <span className="flex items-center gap-1.5 text-sm font-normal text-emerald-700">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
@@ -1682,7 +1729,9 @@ export default function KanbanTab({
                     <KanbanCard
                       key={task.id}
                       task={task}
-                      onMove={(newSt) => moveTaskStatus(task.id, newSt)}
+                      onDragStart={(event) => startCardDrag(event, task.id)}
+                      onDragEnd={clearCardDrag}
+                      isDragging={draggedTaskId === task.id}
                       onDelete={() => deleteTask(task.id)}
                       canDelete={isManager || task.creatorUid === userProfile?.uid}
                       onClick={() => setSelectedKanbanTask(task)}
@@ -2180,7 +2229,9 @@ export default function KanbanTab({
 // Kanban Card sub-component
 function KanbanCard({
   task,
-  onMove,
+  onDragStart,
+  onDragEnd,
+  isDragging,
   onDelete,
   canDelete,
   onClick,
@@ -2188,7 +2239,9 @@ function KanbanCard({
 }: {
   key?: any;
   task: HRTask;
-  onMove: (status: "Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived") => void;
+  onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
   onDelete: () => void;
   canDelete: boolean;
   onClick: () => void;
@@ -2197,10 +2250,21 @@ function KanbanCard({
   return (
     <div
       onClick={onClick}
-      className="p-4 bg-white border border-[#DCE7F4] rounded-2xl shadow-2xs hover:shadow-md hover:border-[#00ADFC] transition-all duration-300 text-left cursor-pointer group space-y-3"
+      draggable
+      title="Kéo thả để đổi trạng thái công việc"
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className={`kanban-card-rainbow group relative space-y-3 rounded-2xl border border-[#DCE7F4] bg-white p-4 text-left shadow-2xs transition-[box-shadow,opacity] duration-200 hover:shadow-md ${isDragging ? "opacity-45" : "cursor-grab active:cursor-grabbing"}`}
     >
+      {canDelete && <button
+        type="button"
+        aria-label={`Xóa công việc ${task.title}`}
+        title="Xóa công việc"
+        onClick={(event) => { event.stopPropagation(); onDelete(); }}
+        className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-rose-50 text-rose-500 transition-colors hover:bg-rose-100 hover:text-rose-700"
+      ><X className="h-3.5 w-3.5" /></button>}
       <div className="space-y-1.5">
-        <div className="flex flex-col items-start gap-1.5 select-none">
+        <div className="flex flex-col items-start gap-1.5 pr-7 select-none">
           <span className={`whitespace-nowrap rounded-lg px-2 py-0.5 text-[11px] ${task.priority === "High" ? "bg-rose-100 text-rose-700" :
             task.priority === "Low" ? "bg-slate-100 text-slate-600" : "bg-amber-100 text-amber-800"
             }`}>
@@ -2251,56 +2315,6 @@ function KanbanCard({
         );
       })()}
 
-      {/* Interactive transition buttons - visible on hover */}
-      <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        {canDelete ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="cursor-pointer text-[10px] font-normal text-rose-650 transition-colors hover:text-rose-800"
-          >
-            Xóa bỏ
-          </button>
-        ) : (
-          <div />
-        )}
-        <div className="flex gap-2">
-          {task.status !== "Not Started" && task.status !== "todo" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const currentStatus = task.status;
-                let prevStatus: "Not Started" | "In Progress" | "Review/Testing" | "Done" = "Not Started";
-                if (currentStatus === "In Progress" || currentStatus === "doing") prevStatus = "Not Started";
-                else if (currentStatus === "Review/Testing") prevStatus = "In Progress";
-                else if (currentStatus === "Done" || currentStatus === "done") prevStatus = "Review/Testing";
-                onMove(prevStatus);
-              }}
-              className="cursor-pointer rounded-lg border border-gray-200 bg-slate-50 px-2 py-0.5 text-[9px] font-normal text-slate-650 hover:bg-slate-100 hover:text-slate-800"
-            >
-              ←
-            </button>
-          )}
-          {task.status !== "Done" && task.status !== "done" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const currentStatus = task.status;
-                let nextStatus: "Not Started" | "In Progress" | "Review/Testing" | "Done" = "Done";
-                if (currentStatus === "Not Started" || currentStatus === "todo") nextStatus = "In Progress";
-                else if (currentStatus === "In Progress" || currentStatus === "doing") nextStatus = "Review/Testing";
-                else if (currentStatus === "Review/Testing") nextStatus = "Done";
-                onMove(nextStatus);
-              }}
-              className="cursor-pointer rounded-lg bg-[#00ADFC] px-2 py-0.5 text-xs font-normal text-white hover:bg-[#0095d9]"
-            >
-              →
-            </button>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
