@@ -110,7 +110,7 @@ export function CustomFieldsSection({
         {activeFields.map((field) => (
           <div key={field.id} className="relative space-y-1">
             {manageable && isEditing ? (
-              <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
+              <div className="flex min-h-4 items-center justify-end gap-1.5 text-[10px] font-medium text-slate-500">
                 <button type="button" disabled={disabled} aria-label={`Chỉnh sửa ${field.label}`} title="Chỉnh sửa" className="hover:text-[#00ADFC] transition-colors" onClick={() => openEdit(field)}>Sửa</button>
                 <span>|</span>
                 <button type="button" disabled={disabled} aria-label={`Lưu trữ ${field.label}`} title="Lưu trữ" className="hover:text-[#00ADFC] transition-colors" onClick={() => void archive(field)}>Lưu trữ</button>

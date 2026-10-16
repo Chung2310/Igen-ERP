@@ -179,7 +179,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
     return (
-      <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
+      <div className="flex min-h-4 items-center justify-end gap-1.5 text-[10px] font-medium text-slate-500">
         <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => openEditStdField(fieldConfig)}>Sửa</button>
         <span>|</span>
         <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => archiveStd(fieldConfig)}>Lưu trữ</button>
@@ -884,39 +884,41 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
       )}
 
       {editingCourse && (
-        <ErpModal title={copy.editModalTitle(editingCourse.code)} onClose={() => setEditingCourse(null)}>
+        <ErpModal title={copy.editModalTitle(editingCourse.code)} onClose={() => setEditingCourse(null)} maxWidth="max-w-3xl">
           <form onSubmit={handleEditCourse} className="space-y-4">
-            {isFieldVisible('code') && (
-              <div className="relative group/std">
-                {renderFieldActions('code')}
-                <ErpField label={getFieldLabel('code', copy.codeLabel)}>
-                  <ErpInput
-                    type="text"
-                    required={isFieldRequired('code', true)}
-                    placeholder={getFieldPlaceholder('code', courseCodePlaceholder)}
-                    value={editForm.code}
-                    onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
-                  />
-                </ErpField>
-              </div>
-            )}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {isFieldVisible('code') && (
+                <div className="relative group/std">
+                  {renderFieldActions('code')}
+                  <ErpField label={getFieldLabel('code', copy.codeLabel)}>
+                    <ErpInput
+                      type="text"
+                      required={isFieldRequired('code', true)}
+                      placeholder={getFieldPlaceholder('code', courseCodePlaceholder)}
+                      value={editForm.code}
+                      onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+                    />
+                  </ErpField>
+                </div>
+              )}
 
-            {isFieldVisible('title') && (
-              <div className="relative group/std">
-                {renderFieldActions('title')}
-                <ErpField label={getFieldLabel('title', copy.titleLabel)}>
-                  <ErpInput
-                    type="text"
-                    required={isFieldRequired('title', true)}
-                    placeholder={getFieldPlaceholder('title', courseTitlePlaceholder)}
-                    value={editForm.title}
-                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                  />
-                </ErpField>
-              </div>
-            )}
+              {isFieldVisible('title') && (
+                <div className="relative group/std">
+                  {renderFieldActions('title')}
+                  <ErpField label={getFieldLabel('title', copy.titleLabel)}>
+                    <ErpInput
+                      type="text"
+                      required={isFieldRequired('title', true)}
+                      placeholder={getFieldPlaceholder('title', courseTitlePlaceholder)}
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    />
+                  </ErpField>
+                </div>
+              )}
+            </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {isFieldVisible('category') && (
                 <div className="relative group/std">
                   {renderFieldActions('category')}
@@ -941,7 +943,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {isFieldVisible('fee') && (
                 <div className="relative group/std">
                   {renderFieldActions('fee')}
