@@ -15,6 +15,7 @@ import { ExcelImportPreviewModal, PreviewStudent, InvalidStudent } from './Excel
 import { CustomFieldDetails } from '../../../shared/custom-fields/CustomFieldDetails';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { authService } from '../../../../services/authService';
+import { RoadmapPicker } from '../ui/RoadmapPicker';
 
 const handleDownloadTemplate = (exam: ExamSession, students: DrivingStudent[]) => {
   try {
@@ -312,12 +313,12 @@ export const ExamCard: React.FC<ExamCardProps> = ({
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow transition-all overflow-hidden"
+      className="bg-white rounded-xl border border-sky-100 shadow-sm hover:shadow transition-all overflow-visible"
     >
       <div className="p-2.5 sm:p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 sm:gap-4">
         <div className="flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <h3 className="text-sm sm:text-base font-extrabold text-slate-900">{exam.name}</h3>
+            <h3 className="text-sm sm:text-base font-medium text-slate-900">{exam.name}</h3>
             <div className="flex flex-wrap items-center gap-1">
             {exam.rank && (
                 <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-700 rounded text-[9px] font-bold border border-cyan-100">
@@ -336,8 +337,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                 <CalendarIcon className="w-3 h-3 text-slate-400" />
               </div>
               <div>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Dự kiến</p>
-                <p className="text-[11px] font-bold text-slate-700 mt-0.5">{exam.tentativeDate}</p>
+                <p className="text-xs text-slate-500 leading-none">Dự kiến</p>
+                <p className="text-xs text-slate-700 mt-0.5">{exam.tentativeDate}</p>
               </div>
             </div>
 
@@ -347,8 +348,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                   <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-[8px] font-bold text-emerald-400 uppercase tracking-wide leading-none">Chính thức</p>
-                  <p className="text-[11px] font-bold text-emerald-600 mt-0.5">{exam.officialDate}</p>
+                  <p className="text-xs text-emerald-600 leading-none">Chính thức</p>
+                  <p className="text-xs text-emerald-700 mt-0.5">{exam.officialDate}</p>
                 </div>
               </div>
             )}
@@ -358,8 +359,8 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                 <Map className="w-3 h-3 text-slate-400" />
               </div>
               <div>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Địa điểm</p>
-                <p className="text-[11px] font-bold text-slate-700 mt-0.5 truncate max-w-[150px] sm:max-w-[250px]">{exam.location}</p>
+                <p className="text-xs text-slate-500 leading-none">Địa điểm</p>
+                <p className="text-xs text-slate-700 mt-0.5 truncate max-w-[150px] sm:max-w-[250px]">{exam.location}</p>
               </div>
             </div>
           </div>
@@ -368,10 +369,10 @@ export const ExamCard: React.FC<ExamCardProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-50">
             <div className="flex items-center gap-1.5 w-full sm:w-auto">
             <div className="flex-1 sm:flex-none px-2 py-1 bg-slate-50 rounded-lg text-center min-w-[50px] sm:min-w-[60px] border border-slate-100/50">
-              <p className="text-sm sm:text-base font-extrabold text-slate-900 leading-none">{assignedStudentCount}</p>
-              <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">{entityLabel.tabLabel}</p>
+              <p className="text-sm sm:text-base font-medium text-slate-900 leading-none">{assignedStudentCount}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{entityLabel.tabLabel}</p>
             </div>
-              <div className="flex-1 sm:flex-none px-2 py-1 bg-cyan-50 rounded-lg text-center min-w-[65px] border border-cyan-100/30"><p className="text-sm sm:text-base font-extrabold text-cyan-700 leading-none">{(exam.results || []).filter((item) => typeof item.score === 'number').length}/{assignedStudentCount}</p><p className="text-[8px] sm:text-[9px] font-bold text-cyan-600 mt-0.5 uppercase tracking-wide">Đã chấm</p></div>
+              <div className="flex-1 sm:flex-none px-2 py-1 bg-sky-50 rounded-lg text-center min-w-[65px] border border-sky-100"><p className="text-sm sm:text-base font-medium text-brand-primary leading-none">{(exam.results || []).filter((item) => typeof item.score === 'number').length}/{assignedStudentCount}</p><p className="text-xs text-slate-500 mt-0.5">Đã chấm</p></div>
           </div>
 
           <div className="flex items-center gap-1 w-full sm:w-auto justify-end no-print">
@@ -427,7 +428,7 @@ export const ExamCard: React.FC<ExamCardProps> = ({
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <h4 className="text-xs font-medium text-slate-600">
                     Danh sách {entityLabel.singular} đăng ký ({assignedStudents.length} {entityLabel.singular})
                   </h4>
                   <p className="text-[9px] text-slate-400 font-medium mt-0.5 max-w-md">
@@ -467,14 +468,14 @@ export const ExamCard: React.FC<ExamCardProps> = ({
               {assignedStudents.length === 0 ? (
                 <p className="text-xs text-slate-450 italic">Đợt thi này chưa xếp {entityLabel.singular} nào.</p>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-slate-100 bg-white shadow-sm">
+                <div className="overflow-x-auto sm:overflow-visible rounded-lg border border-sky-100 bg-white shadow-sm">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50/60 border-b border-slate-100">
-                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider">{entityLabel.tabLabel}</th>
-                        {showStudentRank && <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">Hạng</th>}
-                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider">Trạng thái học</th>
-                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">Kết quả</th>
+                        <th className="px-2.5 py-1.5 text-xs font-medium text-slate-600">{entityLabel.tabLabel}</th>
+                        {showStudentRank && <th className="px-2.5 py-1.5 text-xs font-medium text-slate-600 text-center">Hạng</th>}
+                        <th className="px-2.5 py-1.5 text-xs font-medium text-slate-600">Trạng thái học</th>
+                        <th className="px-2.5 py-1.5 text-xs font-medium text-slate-600 text-center">Kết quả</th>
                         <th className="px-2.5 py-1.5 text-right"></th>
                       </tr>
                     </thead>
@@ -496,14 +497,14 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                             </td>
                             {showStudentRank && (
                               <td className="px-2.5 py-1.5 text-center">
-                                <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-600 rounded text-[9px] font-black uppercase">
+                                <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-600 rounded text-xs font-medium">
                                   {student.rank || 'N/A'}
                                 </span>
                               </td>
                             )}
                             <td className="px-2.5 py-1.5">
                               <span className={cn(
-                                "px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase",
+                                "px-1.5 py-0.2 rounded text-xs font-medium",
                                 (Array.isArray(student.status) ? student.status.includes('Đã đậu') : student.status === 'Đã đậu') ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
                                 (Array.isArray(student.status) ? student.status.includes('Đang thi') : student.status === 'Đang thi') ? "bg-cyan-50 text-cyan-600 border border-cyan-100" :
                                 "bg-slate-50 text-slate-500 border border-slate-100"
@@ -513,23 +514,9 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                             </td>
                             <td className="px-2.5 py-1.5 text-center">
                               {exam.batchId ? <div className="flex flex-col items-center gap-1"><input type="number" min="0" max={exam.maxScore || 100} value={draftScores[student.id] ?? ""} onChange={(event) => setDraftScores((current) => ({ ...current, [student.id]: event.target.value }))} placeholder={`/${exam.maxScore || 100}`} className="h-8 w-20 rounded border border-cyan-200 bg-cyan-50 px-2 text-center text-xs font-bold text-cyan-800" /><span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold", resultText === 'Đậu' ? "bg-emerald-50 text-emerald-700" : resultText === 'Trượt' ? "bg-rose-50 text-rose-700" : "bg-slate-50 text-slate-500")}>{resultText}</span></div> :
-                              <select
-                                value={resultText}
-                                onChange={async (e) => {
-                                  const val = e.target.value as "Đậu" | "Trượt" | "Chưa có";
-                                  onUpdateStudentResult?.(student.id, val);
-                                }}
-                                className={cn(
-                                  "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase outline-none border cursor-pointer transition-all focus:ring-2",
-                                  resultText === 'Đậu' ? "bg-emerald-50 text-emerald-600 border-emerald-100 focus:ring-emerald-500/10" :
-                                  resultText === 'Trượt' ? "bg-rose-50 text-rose-600 border-rose-100 focus:ring-rose-500/10" :
-                                  "bg-slate-50 text-slate-500 border-slate-200 focus:ring-slate-500/10"
-                                )}
-                              >
-                                <option value="Chưa có" className="bg-white text-slate-700 font-bold uppercase">Chưa có</option>
-                                <option value="Đậu" className="bg-white text-emerald-600 font-bold uppercase">Đậu</option>
-                                <option value="Trượt" className="bg-white text-rose-600 font-bold uppercase">Trượt</option>
-                              </select>
+                              <div className="min-w-28">
+                                <RoadmapPicker value={resultText} placeholder="Chưa có" allowClear={false} options={[{ value: 'Chưa có', label: 'Chưa có' }, { value: 'Đậu', label: 'Đậu' }, { value: 'Trượt', label: 'Trượt' }]} onChange={(value) => onUpdateStudentResult?.(student.id, value as 'Đậu' | 'Trượt' | 'Chưa có')} />
+                              </div>
                               }
                             </td>
                             <td className="px-2.5 py-1.5 text-right">

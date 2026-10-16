@@ -18,7 +18,7 @@ export function getTimekeepingStatusDisplay(
     }
     return timekeepingStatus === "Late"
       ? { statusText: "Đã check-in (Muộn)", statusColor: "bg-amber-500", statusBadge: "bg-amber-50 text-amber-700 ring-amber-500/10" }
-      : { statusText: "Đã check-in (Đúng giờ)", statusColor: "bg-emerald-500", statusBadge: "bg-emerald-50 text-emerald-700 ring-emerald-500/10" };
+      : { statusText: "Đã check-in (Đúng giờ)", statusColor: "bg-[#00ADFC]", statusBadge: "bg-sky-50 text-[#00ADFC] ring-sky-500/10" };
   }
 
   if (isNonWorkingDay) {
@@ -239,8 +239,8 @@ export function TimekeepingWidget({
               !hasCheckIn || hasCheckOut
                 ? "bg-slate-200 text-slate-400 shadow-none cursor-not-allowed border border-slate-300/40"
                 : checking === "out"
-                ? "bg-emerald-400 cursor-wait animate-pulse"
-                : "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] shadow-emerald-600/10"
+                ? "bg-sky-400 cursor-wait animate-pulse"
+                : "bg-[#00ADFC] hover:bg-[#0095d9] active:scale-[0.98] shadow-sky-500/10"
             }`}
           >
             {checking === "out" ? (

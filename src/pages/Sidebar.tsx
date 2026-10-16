@@ -8,7 +8,6 @@ import {
   Package,
   Settings,
   Shield,
-  GraduationCap,
   Users,
   BookOpen,
   Lock,
@@ -20,10 +19,12 @@ import {
   Wrench,
   ContactRound,
 } from "lucide-react";
+import { StudentCap3DIcon } from "../components/StudentCap3DIcon";
+import { FilledMenu3DIcon, type FilledMenu3DIconShape, type Menu3DIconPalette } from "../components/FilledMenu3DIcon";
 import {
+  BRAND_FULL_LOGO_PATH,
   BRAND_LOGO_PATH,
   BRAND_NAME,
-  BRAND_TAGLINE,
   PRIVACY_POLICY_URL,
   TERMS_OF_SERVICE_URL,
   USER_DATA_DELETION_URL,
@@ -84,7 +85,7 @@ const baseMenuItems: MenuItem[] = [
   {
     label: "QUẢN LÝ HỌC VIÊN",
     title: "Học viên",
-    icon: GraduationCap,
+    icon: StudentCap3DIcon,
     group: "operations",
   },
   {
@@ -136,6 +137,42 @@ const groupTitles: Record<MenuItem["group"], string> = {
   operations: "Vận hành",
   tools: "Công cụ",
   system: "Hệ thống",
+};
+
+const menuIconPalettes: Partial<Record<TabType, Menu3DIconPalette>> = {
+  "TỔNG QUAN": { light: "#9BA7FC", dark: "#5969CE", edge: "#414EA5" },
+  "NHÂN SỰ": { light: "#FFA993", dark: "#DC6B65", edge: "#AD494A" },
+  "ĐỐI TÁC": { light: "#F8C77E", dark: "#CF8749", edge: "#9D5D32" },
+  "KHO & SẢN PHẨM": { light: "#70D4BA", dark: "#299C8D", edge: "#207367" },
+  "SỬA CHỮA & BẢO HÀNH": { light: "#ADBBDC", dark: "#6C7FAB", edge: "#4A5B82" },
+  "QUẢN LÝ LAO ĐỘNG": { light: "#CDA9E8", dark: "#9164BB", edge: "#68468D" },
+  "QUẢN LÝ KHÁCH HÀNG": { light: "#F1ADC3", dark: "#CF6D94", edge: "#A94B70" },
+  "BÁN LẺ": { light: "#FFC17D", dark: "#E4863D", edge: "#AF602C" },
+  "TÀI CHÍNH": { light: "#87D4A5", dark: "#3D9E6C", edge: "#2D754F" },
+  "MARKETING": { light: "#EFA8D7", dark: "#B65B9F", edge: "#893D78" },
+  "QUẢN LÝ TÀI NGUYÊN": { light: "#A3C9A2", dark: "#639568", edge: "#476E4C" },
+  "TRÒ CHUYỆN": { light: "#B7A5E2", dark: "#8068B3", edge: "#5E4C8A" },
+  "QUẢN TRỊ USER": { light: "#A7B5D2", dark: "#667DAB", edge: "#465C88" },
+  "CÀI ĐẶT": { light: "#B7AAEB", dark: "#7865B9", edge: "#584893" },
+  "HƯỚNG DẪN": { light: "#F1CD89", dark: "#C59449", edge: "#987036" },
+};
+
+const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
+  "TỔNG QUAN": "overview",
+  "NHÂN SỰ": "people",
+  "ĐỐI TÁC": "partners",
+  "KHO & SẢN PHẨM": "warehouse",
+  "SỬA CHỮA & BẢO HÀNH": "repair",
+  "QUẢN LÝ LAO ĐỘNG": "work",
+  "QUẢN LÝ KHÁCH HÀNG": "customer",
+  "BÁN LẺ": "retail",
+  "TÀI CHÍNH": "finance",
+  "MARKETING": "marketing",
+  "QUẢN LÝ TÀI NGUYÊN": "folder",
+  "TRÒ CHUYỆN": "chat",
+  "QUẢN TRỊ USER": "shield",
+  "CÀI ĐẶT": "settings",
+  "HƯỚNG DẪN": "guide",
 };
 
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
@@ -210,22 +247,24 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
         id="sidebar_container"
       >
         {/* Brand Header */}
-        <div className={`flex items-center border-b border-slate-100 ${isCollapsed ? "justify-center px-3 py-4" : "px-5 py-4.5"}`} id="sidebar_brand_header">
-          <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
+        <div className={`flex items-center border-b border-slate-100 ${isCollapsed ? "justify-center px-3 py-3" : "justify-start pl-3.5 pr-2 pt-1.5 pb-2"}`} id="sidebar_brand_header">
+          {isCollapsed ? (
             <img
               src={BRAND_LOGO_PATH}
               alt={BRAND_NAME}
               onClick={() => setActiveTab("TỔNG QUAN")}
               title="Về trang Tổng quan"
-              className="h-10 w-10 shrink-0 rounded-xl border border-sky-100 object-cover shadow-sm cursor-pointer transition-transform hover:scale-105 active:scale-95"
+              className="h-9 w-9 shrink-0 rounded-xl object-contain cursor-pointer transition-transform hover:scale-105 active:scale-95"
             />
-            {!isCollapsed ? (
-              <div className="min-w-0">
-                <h2 className="truncate font-sans text-base font-bold tracking-tight text-sky-700">{BRAND_NAME}</h2>
-                <p className="truncate font-mono text-[10px] uppercase tracking-widest text-slate-400">{BRAND_TAGLINE}</p>
-              </div>
-            ) : null}
-          </div>
+          ) : (
+            <img
+              src={BRAND_FULL_LOGO_PATH}
+              alt={BRAND_NAME}
+              onClick={() => setActiveTab("TỔNG QUAN")}
+              title="Về trang Tổng quan"
+              className="h-[64px] w-auto max-w-[220px] shrink-0 object-contain object-left -translate-y-1 cursor-pointer transition-transform hover:scale-102 active:scale-98"
+            />
+          )}
         </div>
 
         {/* Navigation Menu */}
@@ -245,6 +284,9 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                 {itemsInGroup.map((item) => {
                   const isActive = activeTab === item.label;
                   const Icon = item.icon;
+                  const isStudentIcon = item.label === "QUẢN LÝ HỌC VIÊN";
+                  const iconPalette = menuIconPalettes[item.label];
+                  const iconShape = menuIconShapes[item.label];
 
                   return (
                     <button
@@ -259,7 +301,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                         item.locked
                           ? "cursor-not-allowed text-slate-300 opacity-60"
                           : isActive
-                          ? "bg-sky-50 text-sky-700 font-semibold shadow-xs"
+                          ? "bg-sky-50 text-slate-900 font-semibold shadow-xs"
                           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                       } ${isCollapsed ? "justify-center" : "justify-between"}`}
                       id={`sidebar_menu_${item.label.replace(/\s+/g, "_")}`}
@@ -272,15 +314,13 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-                        <Icon
-                          className={`h-5 w-5 shrink-0 transition-colors ${
-                            item.locked
-                              ? "text-slate-300"
-                              : isActive
-                              ? "text-sky-600"
-                              : "text-slate-400 group-hover:text-slate-600"
-                          }`}
-                        />
+                        {isStudentIcon ? (
+                          <Icon className="h-6 w-6 shrink-0 transition-transform group-hover:scale-105" />
+                        ) : iconPalette && iconShape ? (
+                          <FilledMenu3DIcon shape={iconShape} palette={iconPalette} className="h-6 w-6" />
+                        ) : (
+                          <Icon className={`h-5 w-5 shrink-0 transition-colors ${item.locked ? "text-slate-300" : isActive ? "text-[#00ADFC]" : "text-slate-400 group-hover:text-slate-600"}`} />
+                        )}
                         {!isCollapsed ? (
                           <span className="truncate">{item.title}</span>
                         ) : null}
@@ -289,7 +329,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       {item.locked ? (
                         <Lock className="h-3.5 w-3.5 shrink-0 text-slate-300" />
                       ) : !isCollapsed && isActive ? (
-                        <div className="h-1.5 w-1.5 rounded-full bg-sky-600" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#00ADFC]" />
                       ) : null}
                     </button>
                   );

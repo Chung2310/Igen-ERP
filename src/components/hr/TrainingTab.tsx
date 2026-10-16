@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Award,
   BookOpen,
   CheckCircle2,
   ExternalLink,
@@ -13,7 +12,6 @@ import {
   X,
   RefreshCw,
   Video,
-  Eye,
   AlertCircle,
   Edit2,
   Upload,
@@ -24,6 +22,65 @@ import { getAccessToken, authService } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { HrFormSelect } from "./HrFormSelect";
+
+const emojiIconPattern = /[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u;
+
+function TrainingBookIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path d="m5 22 19-1.8 3 1.6v4.1L8 27.8l-3-1.6V22Z" fill="#7954D9" stroke="#5737AD" strokeWidth=".8" strokeLinejoin="round" />
+      <path d="m8 23.4 19-1.6v3.2L8 26.7v-3.3Z" fill="#FFF9EF" />
+      <path d="m5 22 19-1.8 3 1.6L8 23.4 5 22Z" fill="#A98AF8" />
+      <path d="m6 15.3 19-1.8 3 1.6v4.1L9 21l-3-1.6v-4.1Z" fill="#F58449" stroke="#CB5B2E" strokeWidth=".8" strokeLinejoin="round" />
+      <path d="m9 16.7 19-1.6v3.2L9 20v-3.3Z" fill="#FFF9EF" />
+      <path d="m6 15.3 19-1.8 3 1.6-19 1.6-3-1.4Z" fill="#FFB667" />
+      <path d="m4 8.6 19-1.8 3 1.6v4.1L7 14.3l-3-1.6V8.6Z" fill="#00A9B7" stroke="#087D95" strokeWidth=".8" strokeLinejoin="round" />
+      <path d="m7 10 19-1.6v3.2L7 13.2V10Z" fill="#FFF9EF" />
+      <path d="m4 8.6 19-1.8 3 1.6L7 10 4 8.6Z" fill="#5CE2D1" />
+      <path d="m9.4 11.3 13.5-1.2M11.4 18 24 16.9M10.4 24.7l13.6-1.2" stroke="#CFD4DE" strokeWidth=".65" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TrainingProgressIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <rect x="3" y="4" width="26" height="24" rx="7" fill="#D9F3FF" stroke="#8DDCFF" />
+      <path d="M8 22h16" stroke="#007EB8" strokeWidth="1.5" strokeLinecap="round" />
+      <rect x="9" y="17" width="3" height="5" rx="1" fill="#76CFFF" />
+      <rect x="15" y="13" width="3" height="9" rx="1" fill="#25B6FA" />
+      <rect x="21" y="9" width="3" height="13" rx="1" fill="#007EB8" />
+      <path d="m9.5 12.5 4.2-3 3.4 1.5 5.2-4" stroke="#006AA6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="m19.8 7 2.5-.5-.3 2.5" stroke="#006AA6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function displayTrainingIcon(icon: string | undefined, className?: string) {
+  return icon && icon !== "book" && !emojiIconPattern.test(icon) ? icon : <TrainingBookIcon className={className} />;
+}
+
+const courseCardThemes = [
+  { border: "border-violet-300 hover:border-violet-400", header: "bg-violet-100", icon: "bg-white ring-violet-300", badge: "bg-white/80 text-violet-900 ring-violet-300" },
+  { border: "border-teal-300 hover:border-teal-400", header: "bg-teal-100", icon: "bg-white ring-teal-300", badge: "bg-white/80 text-teal-900 ring-teal-300" },
+  { border: "border-amber-300 hover:border-amber-400", header: "bg-amber-100", icon: "bg-white ring-amber-300", badge: "bg-white/80 text-amber-900 ring-amber-300" },
+  { border: "border-rose-300 hover:border-rose-400", header: "bg-rose-100", icon: "bg-white ring-rose-300", badge: "bg-white/80 text-rose-900 ring-rose-300" },
+] as const;
+
+type TrainingGlyphName = "clock" | "instructor" | "learners" | "document" | "video" | "tip";
+
+function TrainingGlyph({ name, className = "h-4 w-4" }: { name: TrainingGlyphName; className?: string }) {
+  const shapes: Record<TrainingGlyphName, React.ReactNode> = {
+    clock: <><circle cx="12" cy="12" r="8.5" fill="#E8F7FF" /><path d="M12 7v5l3 2" /></>,
+    instructor: <><circle cx="8" cy="8" r="2.5" fill="#85DDFF" /><path d="M3.5 19v-2a4.5 4.5 0 0 1 9 0v2M14 6h6v9h-5M16 11l2-2" /></>,
+    learners: <><circle cx="8" cy="8" r="2.5" fill="#85DDFF" /><circle cx="16.5" cy="8.5" r="2" fill="#B7EAFE" /><path d="M3.5 19v-2a4.5 4.5 0 0 1 9 0v2M13 15a4 4 0 0 1 7.5 2v2h-5" /></>,
+    document: <><path d="M5 3.5h9l5 5V21H5V3.5Z" fill="#E8F7FF" /><path d="M14 3.5v5h5M8 12h8M8 15h8M8 18h5" /></>,
+    video: <><rect x="3.5" y="5" width="17" height="14" rx="3" fill="#E8F7FF" /><path d="m10 9 5 3-5 3V9Z" fill="#00ADFC" stroke="none" /></>,
+    tip: <><path d="M8.5 16.5c-.2-2-3-3.2-3-6.8a6.5 6.5 0 0 1 13 0c0 3.6-2.8 4.8-3 6.8H8.5Z" fill="#E8F7FF" /><path d="M9 19h6M10 21h4" /></>,
+  };
+  return <svg className={`${className} shrink-0`} viewBox="0 0 24 24" fill="none" stroke="#007EB8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[name]}</svg>;
+}
 
 interface TrainingTabProps {
   userProfile: any;
@@ -53,7 +110,6 @@ export default function TrainingTab({
     title: string;
     description: string;
     confirmLabel?: string;
-    cancelLabel?: string;
     onConfirm: () => void | Promise<void>;
   } | null>(null);
 
@@ -61,15 +117,13 @@ export default function TrainingTab({
     title: string,
     description: string,
     onConfirm: () => void | Promise<void>,
-    confirmLabel = "Xác nhận",
-    cancelLabel = "Hủy"
+    confirmLabel = "Xác nhận"
   ) => {
     setConfirmState({
       isOpen: true,
       title,
       description,
       confirmLabel,
-      cancelLabel,
       onConfirm: async () => {
         await onConfirm();
         setConfirmState(null);
@@ -239,7 +293,7 @@ export default function TrainingTab({
         category: courseFormCategory,
         tags: courseFormIsRequired ? ["Bắt buộc"] : [courseFormCategory],
         isRequired: courseFormIsRequired,
-        icon: "📚",
+        icon: "book",
         duration: courseFormDuration.trim() || "Chưa xác định",
         instructor: creatorName,
         companyCode: companyCode,
@@ -494,7 +548,7 @@ export default function TrainingTab({
         } else if (totalQuizzes > 0) {
           setActiveLessonIndex(lessons.length); // Chuyển sang phần thi trắc nghiệm
         } else {
-          toast.success(`🎉 Chúc mừng! Bạn đã hoàn thành khóa học "${activeStudyCourse.title}"!`);
+          toast.success(`Chúc mừng! Bạn đã hoàn thành khóa học "${activeStudyCourse.title}"!`);
           setActiveStudyCourse(null);
           fetchCourses(userProfile.companyCode!);
         }
@@ -577,7 +631,7 @@ export default function TrainingTab({
 
         setQuizSubmitted(true);
         setQuizErrors(errorsCopy);
-        toast.success("🎉 Xuất sắc! Bạn đã trả lời đúng tất cả các câu hỏi trắc nghiệm!");
+        toast.success("Xuất sắc! Bạn đã trả lời đúng tất cả các câu hỏi trắc nghiệm!");
       } catch (err) {
         console.error(err);
         toast.error(getApiErrorMessage(err, "Không thể lưu kết quả thi."));
@@ -593,7 +647,7 @@ export default function TrainingTab({
 
   const handleFinishCourse = () => {
     if (!activeStudyCourse || !userProfile) return;
-    toast.success(`🎉 Chúc mừng! Bạn đã hoàn thành khóa học "${activeStudyCourse.title}"!`);
+    toast.success(`Chúc mừng! Bạn đã hoàn thành khóa học "${activeStudyCourse.title}"!`);
     setActiveStudyCourse(null);
     fetchCourses(userProfile.companyCode!);
   };
@@ -626,7 +680,7 @@ export default function TrainingTab({
         ? { ...e, progress: 100, status: "completed" }
         : e
       ));
-      toast.success(`🎉 Bạn đã hoàn thành khóa học "${activeStudyCourse.title}"!`);
+      toast.success(`Bạn đã hoàn thành khóa học "${activeStudyCourse.title}"!`);
       setActiveStudyCourse(null);
       fetchCourses(userProfile.companyCode!);
     } catch (err) {
@@ -658,10 +712,9 @@ export default function TrainingTab({
   const handleDeleteCourse = (courseId: string) => {
     askConfirm(
       "Xóa khóa học này?",
-      "Bạn có chắc chắn muốn xóa khóa học này? Thao tác này không thể hoàn tác.",
+      "Thao tác này không thể hoàn tác.",
       () => deleteCourseConfirmed(courseId),
-      "Xóa khóa học",
-      "Hủy"
+      "Xóa khóa học"
     );
   };
 
@@ -756,50 +809,23 @@ export default function TrainingTab({
 
   return (
     <>
-      <div className="flex-1 p-6 overflow-y-auto" id="hr_tab_content">
-        <div className="space-y-6" id="elearning_catalog">
-          {/* Monitor Training Progress Banner */}
-          {trainingFilter && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-850 p-5 rounded-2xl mb-6 relative text-left">
-              <h5 className="font-bold text-xs uppercase tracking-wider text-emerald-900 flex items-center gap-1.5 mb-2">
-                <Award className="h-4.5 w-4.5 text-emerald-700 animate-bounce" />
-                Tiến trình Đào tạo của: {employees.find(e => e.id === trainingFilter)?.name || "Nhân sự"}
-              </h5>
-              <p className="text-xs text-emerald-700 mb-4">Các khóa học chuyên môn nhân sự này đã hoàn thành hoặc đang nghiên cứu phục vụ đánh giá thăng cấp và KPI.</p>
-              <div className="mt-4 pt-4 border-t border-emerald-150 flex justify-end items-center text-xs">
-                <button
-                  onClick={() => setTrainingFilter(null)}
-                  className="px-3 py-1 bg-white hover:bg-slate-100 border border-emerald-200 rounded-xl text-emerald-750 font-bold transition-all shadow-xs cursor-pointer text-xs"
-                >
-                  Đóng giám sát
-                </button>
-              </div>
-            </div>
-          )}
-
+      <div className="flex-1 overflow-y-auto p-3 md:p-5" id="hr_tab_content">
+        <div className="space-y-4" id="elearning_catalog">
           {/* Supervisor view controls */}
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs text-left">
-            <div>
-              <h3 className="font-bold text-lg text-slate-800 font-sans">Học Viện & Đào Tạo iGen</h3>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="ml-auto flex w-fit max-w-full flex-wrap items-center justify-end gap-2 rounded-2xl border border-[#E1EAF5] bg-white px-3 py-2 shadow-2xs text-left">
+            <div className="flex flex-wrap items-center gap-2">
               {isSupervisor && (
                 <>
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="h-4 w-4 text-gray-400" />
-                    <select
+                  <div className="w-full min-w-0 text-xs sm:w-[300px]">
+                    <HrFormSelect
                       value={trainingFilter || ""}
-                      onChange={(e) => setTrainingFilter(e.target.value || null)}
-                      className="border border-gray-200 p-1.5 rounded-xl text-xs bg-white outline-none cursor-pointer"
-                    >
-                      <option value="">Giám sát tiến độ học nhân viên</option>
-                      {employees.map(emp => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.role})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(value) => setTrainingFilter(value || null)}
+                      label="Giám sát tiến độ học nhân viên"
+                      options={[
+                        { value: "", label: "Giám sát tiến độ học nhân viên" },
+                        ...employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` })),
+                      ]}
+                    />
                   </div>
 
                   <button
@@ -808,7 +834,7 @@ export default function TrainingTab({
                       handleCloseModal();
                       setIsAddCourseModalOpen(true);
                     }}
-                    className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer font-sans"
+                    className="flex items-center gap-1.5 rounded-xl bg-[#00ADFC] px-4 py-2 text-xs font-medium text-white shadow-xs transition-all hover:bg-[#0097dc] active:scale-95 cursor-pointer font-sans"
                   >
                     <Plus className="h-4 w-4" />
                     Tạo Khóa Học Mới
@@ -819,13 +845,14 @@ export default function TrainingTab({
           </div>
 
           {/* Course Catalog list */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
+          <div className="grid auto-rows-min grid-cols-1 items-start gap-3 text-left sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {courses.length === 0 ? (
-              <div className="col-span-full text-center py-12 text-gray-450 italic select-none">
-                📚 Chưa có khóa học nào được đăng tải trên học viện.
+              <div className="col-span-full rounded-2xl border border-dashed border-[#DCE7F4] bg-white py-12 text-center text-sm text-slate-600 select-none">
+                Chưa có khóa học nào được đăng tải trên học viện.
               </div>
             ) : (
-              courses.map((course) => {
+              courses.map((course, courseIndex) => {
+                const cardTheme = courseCardThemes[courseIndex % courseCardThemes.length];
                 const targetUid = trainingFilter || userProfile?.uid || "";
 
                 const enrollList = trainingFilter ? supervisorEnrollments : enrollments;
@@ -835,81 +862,77 @@ export default function TrainingTab({
                 const isCompleted = myEnrollment ? myEnrollment.status === "completed" : false;
 
                 return (
-                  <div key={course.id} className="bg-white border border-gray-200 rounded-3xl p-6 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between relative group">
-                    {course.isRequired && (
-                      <span className="absolute top-4 right-4 px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 font-mono text-[9px] font-bold rounded-md uppercase select-none">
-                        Bắt buộc
-                      </span>
-                    )}
-
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl bg-slate-50 w-12 h-12 rounded-2xl border flex items-center justify-center select-none shadow-3xs">{course.icon || "📚"}</span>
-                        <div>
-                          <span className="text-[10px] font-bold text-indigo-650 uppercase tracking-wider font-mono bg-indigo-50/70 border border-indigo-100/50 px-2 py-0.5 rounded-md">{course.category || "Văn hóa"}</span>
-                          <h4 className="font-bold text-slate-800 text-sm mt-1 leading-snug line-clamp-1">{course.title}</h4>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed min-h-[54px]">{course.description || "Không có mô tả chi tiết khóa đào tạo."}</p>
-
-                      <div className="grid grid-cols-2 gap-3 text-[10px] text-slate-650 bg-slate-50 p-3 rounded-2xl select-none font-medium border border-gray-150">
-                        <div>⏱️ Thời lượng: <strong className="text-slate-800">{course.duration}</strong></div>
-                        <div>👨‍🏫 Trình bày: <strong className="text-slate-800">{course.instructor}</strong></div>
-                        <div>👥 Học viên: <strong className="text-indigo-650 font-bold">{course.enrolledCount || 0}</strong></div>
-                        <div>📖 Bài giảng: <strong className="text-slate-800">{(course.lessons || []).length} bài</strong></div>
-                      </div>
-
-                      {/* Course learning progress bar */}
-                      {myEnrollment && (
-                        <div className="space-y-1 pt-1 select-none">
-                          <div className="flex justify-between text-[9px] font-bold">
-                            <span className="text-gray-400">TIẾN ĐỘ HỌC:</span>
-                            <span className={isCompleted ? "text-emerald-600" : "text-indigo-600"}>{progress}% {isCompleted ? "(Đã xong)" : ""}</span>
+                  <div key={course.id} className={`group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white p-2.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_-18px_rgba(32,55,110,0.48)] ${cardTheme.border}`}>
+                    <div className="relative space-y-2">
+                      <div className={`-mx-2.5 -mt-2.5 flex items-center gap-2 px-2.5 py-2.5 ${cardTheme.header}`}>
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xl shadow-sm ring-1 select-none ${cardTheme.icon}`}>{displayTrainingIcon(course.icon)}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className={`max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${cardTheme.badge}`}>{course.category || "Văn hóa"}</span>
+                            {course.isRequired && <span className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] text-rose-700">Bắt buộc</span>}
                           </div>
-                          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden border">
+                          <h4 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-slate-950" title={course.title}>{course.title}</h4>
+                        </div>
+                        {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter && (
+                          <div className="flex shrink-0 self-start items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditCourse(course)}
+                              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-[#beeaff] bg-white text-[#007eb8] transition-colors hover:bg-[#E8F7FF]"
+                              title="Sửa khóa học"
+                              aria-label={`Sửa khóa học ${course.title}`}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCourse(course.id)}
+                              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-700 transition-colors hover:bg-rose-50"
+                              title="Xóa khóa học"
+                              aria-label={`Xóa khóa học ${course.title}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {course.description && <p className="truncate text-xs text-slate-700" title={course.description}>{course.description}</p>}
+
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1 rounded-xl border border-slate-100 bg-white px-2 py-1.5 text-[11px] text-slate-800 shadow-sm select-none">
+                        <div className="flex min-w-0 items-center gap-1" title={`Thời lượng: ${course.duration}`}><TrainingGlyph name="clock" /><span className="truncate">{course.duration}</span></div>
+                        <div className="flex min-w-0 items-center gap-1" title={`Trình bày: ${course.instructor}`}><TrainingGlyph name="instructor" /><span className="truncate">{course.instructor}</span></div>
+                        <div className="flex min-w-0 items-center gap-1" title={`Học viên: ${course.enrolledCount || 0}`}><TrainingGlyph name="learners" /><span className="truncate">{course.enrolledCount || 0} học viên</span></div>
+                        <div className="flex min-w-0 items-center gap-1" title={`Bài giảng: ${(course.lessons || []).length}`}><TrainingBookIcon className="h-4 w-4 shrink-0" /><span className="truncate">{(course.lessons || []).length} bài</span></div>
+                      </div>
+
+                    </div>
+
+                    <div className="relative mt-2 flex items-center justify-end gap-2 border-t border-slate-200/70 pt-2">
+                      {myEnrollment && (
+                        <div className="mr-auto flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
+                          <div
+                            role="progressbar"
+                            aria-label={`Tiến độ học khóa ${course.title}`}
+                            aria-valuenow={progress}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            className="h-1.5 w-full max-w-24 overflow-hidden rounded-full bg-[#DDF7FF]"
+                          >
                             <div
-                              className={`h-full rounded-full transition-all duration-500 ${isCompleted ? "bg-emerald-500" : "bg-indigo-600"}`}
+                              className="h-full rounded-full bg-[#00ADFC] transition-all duration-500"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
+                          <span className="shrink-0 text-[10px] text-[#007eb8]">{progress}%</span>
                         </div>
                       )}
-                    </div>
-
-                    <div className="pt-5 mt-5 border-t border-gray-100 flex justify-between items-center gap-3">
-                      {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter ? (
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditCourse(course)}
-                            className="p-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center justify-center"
-                            title="Sửa khóa học"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCourse(course.id)}
-                            className="p-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center justify-center"
-                            title="Xóa khóa học"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div />
-                      )}
-
-                      <div className="flex gap-2">
+                      <div className="shrink-0">
                         <button
                           type="button"
                           disabled={!!trainingFilter}
                           onClick={() => handleEnrollAndStart(course)}
-                          className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-3xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isCompleted
-                              ? "bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 text-emerald-705 text-emerald-700"
-                              : "bg-indigo-650 hover:bg-indigo-700 text-white"
-                            }`}
+                          className="cursor-pointer rounded-xl bg-[#00ADFC] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#0097dc] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
                         </button>
@@ -921,80 +944,103 @@ export default function TrainingTab({
               })
             )}
           </div>
+          {/* Monitor Training Progress Banner */}
+          {trainingFilter && (
+            <div className="flex flex-col gap-2 rounded-xl border border-[#beeaff] bg-[#E8F7FF] px-3 py-2.5 text-left sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <TrainingProgressIcon className="h-8 w-8 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs text-[#007eb8]">Tiến trình đào tạo của: {employees.find(e => e.id === trainingFilter)?.name || "Nhân sự"}</p>
+                  <p className="text-xs text-slate-700">Các khóa học chuyên môn nhân sự này đã hoàn thành hoặc đang nghiên cứu phục vụ đánh giá thăng cấp và KPI.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTrainingFilter(null)}
+                aria-label="Đóng giám sát"
+                title="Đóng giám sát"
+                className="flex h-8 w-8 shrink-0 self-end items-center justify-center rounded-full bg-rose-500 text-white shadow-xs transition-colors hover:bg-rose-600 cursor-pointer sm:self-auto"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* CREATE NEW COURSE MODAL */}
       {isAddCourseModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
-          <form onSubmit={handleCreateCourse} className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-lg p-6 relative text-left space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center pb-3 border-b border-gray-150">
-              <h4 className="font-bold text-slate-800 text-sm font-sans uppercase flex items-center gap-2">
-                <Award className="h-4 w-4 text-indigo-655" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-2xs sm:p-4">
+          <form onSubmit={handleCreateCourse} className="training-course-popup relative flex max-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white p-3 text-left shadow-xl md:p-4">
+            <div className="mb-2 flex shrink-0 items-center justify-between border-b border-slate-100 pb-2">
+              <h4 className="flex items-center gap-2 text-sm text-slate-900 font-sans">
+                <span className="h-4 w-1 rounded-full bg-[#00ADFC]" />
                 {editingCourse ? "Cập Nhật Khóa Học" : "Tạo Khóa Học Mới"}
               </h4>
-              <button type="button" onClick={handleCloseModal} className="text-gray-400 hover:text-slate-800 cursor-pointer">
+              <button type="button" onClick={handleCloseModal} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs">
+            <div className="grid min-h-0 grid-cols-1 gap-3 overflow-y-auto pr-1 text-xs lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <div className="grid min-w-0 content-start gap-2.5">
               <div>
-                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tên khóa học *</label>
+                <label className="block font-bold text-gray-500 mb-1 font-sans">Tên khóa học *</label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: Quy chế bảo mật và ISO 27001"
                   value={courseFormTitle}
                   onChange={(e) => setCourseFormTitle(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-white border border-gray-200 text-slate-850 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl"
+                  className="w-full px-3.5 py-2 bg-white border border-gray-200 text-slate-850 hover:border-gray-300 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/20 rounded-xl"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Mô tả tóm tắt</label>
+                <label className="block font-bold text-gray-500 mb-1 font-sans">Mô tả tóm tắt</label>
                 <textarea
                   placeholder="Mô tả nội dung chính khóa học..."
                   value={courseFormDesc}
                   onChange={(e) => setCourseFormDesc(e.target.value)}
-                  className="w-full p-3 bg-white border border-gray-200 text-slate-850 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl min-h-[60px]"
+                  className="w-full resize-y rounded-xl border border-gray-200 bg-white p-2.5 text-slate-850 outline-none min-h-[56px] hover:border-gray-300 focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/20"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <div>
-                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Danh mục đào tạo</label>
-                  <select
+                  <label className="block font-bold text-gray-500 mb-1 font-sans">Danh mục đào tạo</label>
+                  <HrFormSelect
                     value={courseFormCategory}
-                    onChange={(e) => setCourseFormCategory(e.target.value)}
-                    className="w-full p-2 border border-gray-200 bg-white text-slate-850 outline-none rounded-xl cursor-pointer"
-                  >
-                    <option value="Văn hóa">Văn hóa & Quy chế</option>
-                    <option value="Kỹ thuật">Nghiệp vụ kỹ thuật</option>
-                    <option value="Kinh doanh">Kỹ năng bán hàng</option>
-                    <option value="Công nghệ">Công nghệ & Tooling</option>
-                  </select>
+                    onChange={setCourseFormCategory}
+                    label="Danh mục đào tạo"
+                    options={[
+                      { value: "Văn hóa", label: "Văn hóa & Quy chế" },
+                      { value: "Kỹ thuật", label: "Nghiệp vụ kỹ thuật" },
+                      { value: "Kinh doanh", label: "Kỹ năng bán hàng" },
+                      { value: "Công nghệ", label: "Công nghệ & Tooling" },
+                    ]}
+                  />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Thời lượng học (ước lượng)</label>
+                  <label className="block font-bold text-gray-500 mb-1 font-sans">Thời lượng học</label>
                   <input
                     type="text"
                     placeholder="Ví dụ: 2 giờ 30 phút"
                     value={courseFormDuration}
                     onChange={(e) => setCourseFormDuration(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-gray-200 text-slate-850 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl"
+                    className="w-full px-3.5 py-2 border border-gray-200 text-slate-850 hover:border-gray-300 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/20 rounded-xl"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-4 p-3 bg-slate-50 border border-gray-200 rounded-2xl select-none font-sans font-semibold">
+              <div className="flex flex-wrap gap-x-3 gap-y-2 rounded-xl border border-[#E1EAF5] bg-[#F8FBFF] p-2.5 select-none font-sans">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={courseFormIsRequired}
                     onChange={(e) => setCourseFormIsRequired(e.target.checked)}
-                    className="rounded text-indigo-650 focus:ring-indigo-500 cursor-pointer"
+                    className="rounded text-[#007eb8] focus:ring-[#00ADFC]/20 cursor-pointer"
                   />
                   Khóa học bắt buộc (Tự gán toàn bộ nhân viên)
                 </label>
@@ -1004,47 +1050,50 @@ export default function TrainingTab({
                     type="checkbox"
                     checked={courseFormAutoOnboarding}
                     onChange={(e) => setCourseFormAutoOnboarding(e.target.checked)}
-                    className="rounded text-indigo-650 focus:ring-indigo-500 cursor-pointer"
+                    className="rounded text-[#007eb8] focus:ring-[#00ADFC]/20 cursor-pointer"
                   />
                   Tự động giao khi có nhân sự mới
                 </label>
               </div>
+              </div>
+
+              <div className="min-w-0 space-y-2.5">
 
               {/* Dynamic Lesson Form block */}
-              <div className="space-y-3 pt-3 border-t">
+              <div className="space-y-2">
                 <div className="flex justify-between items-center select-none">
                   <h5 className="font-bold text-xs text-slate-800 uppercase font-sans">Cấu trúc bài giảng ({courseFormLessons.length})</h5>
                   <button
                     type="button"
                     onClick={handleAddLessonForm}
-                    className="px-2.5 py-1.5 border border-dashed border-indigo-350 hover:bg-indigo-50 text-indigo-700 font-bold rounded-xl flex items-center gap-1 active:scale-95 transition-all cursor-pointer font-sans"
+                    className="px-2.5 py-1.5 border border-dashed border-[#9bdfff] hover:bg-[#E8F7FF] text-[#007eb8] font-bold rounded-xl flex items-center gap-1 active:scale-95 transition-all cursor-pointer font-sans"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Thêm bài giảng
                   </button>
                 </div>
 
-                <div className="space-y-3.5 max-h-[320px] overflow-y-auto p-4 rounded-2xl bg-slate-50/60 border border-slate-100 pr-2">
+                <div className="max-h-[min(48dvh,440px)] space-y-2 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-2">
                   {courseFormLessons.length === 0 ? (
                     <p className="text-[11px] text-gray-400 italic text-center py-2 select-none">Khóa học chưa có bài giảng nào. Vui lòng thêm bài giảng bằng nút phía trên.</p>
                   ) : (
                     courseFormLessons.map((les, index) => (
-                      <div key={index} className="bg-white border-l-4 border-l-indigo-500 rounded-xl p-4.5 space-y-3 shadow-2xs relative text-left">
+                      <div key={index} className="relative space-y-2 rounded-xl border border-[#beeaff] bg-white p-3 text-left shadow-2xs">
                         <div className="flex items-center justify-between pr-8 select-none">
-                          <span className="text-[10px] font-bold text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded-md uppercase font-mono">
+                          <span className="text-[10px] font-bold text-[#007eb8] bg-[#E8F7FF] px-2 py-0.5 rounded-md uppercase font-mono">
                             Bài học {index + 1}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleRemoveLessonForm(index)}
-                            className="absolute top-4 right-4 text-slate-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer"
+                            className="absolute top-2 right-2 text-slate-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer"
                             title="Xóa bài học"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-2">
                           <div className="col-span-2">
                             <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Tên bài học *</label>
                             <input
@@ -1053,19 +1102,20 @@ export default function TrainingTab({
                               placeholder="Bài giảng chính..."
                               value={les.title}
                               onChange={(e) => handleLessonFormChange(index, "title", e.target.value)}
-                              className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none transition-all"
+                              className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-[#00ADFC] rounded-lg text-xs outline-none transition-all"
                             />
                           </div>
                           <div>
                             <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Loại bài giảng</label>
-                            <select
+                            <HrFormSelect
                               value={les.type}
-                              onChange={(e) => handleLessonFormChange(index, "type", e.target.value)}
-                              className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none cursor-pointer transition-all"
-                            >
-                              <option value="text">📄 Văn bản / Doc</option>
-                              <option value="video">🎥 Video</option>
-                            </select>
+                              onChange={(value) => handleLessonFormChange(index, "type", value)}
+                              label="Loại bài giảng"
+                              options={[
+                                { value: "text", label: "Văn bản / Doc" },
+                                { value: "video", label: "Video" },
+                              ]}
+                            />
                           </div>
                         </div>
 
@@ -1079,11 +1129,11 @@ export default function TrainingTab({
                                 placeholder="http://youtube.com/watch?v=..."
                                 value={les.url}
                                 onChange={(e) => handleLessonFormChange(index, "url", e.target.value)}
-                                className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none transition-all"
+                                className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-[#00ADFC] rounded-lg text-xs outline-none transition-all"
                               />
                             </div>
                           ) : (
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                               {/* File upload for text/document lesson */}
                               <div>
                                 <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Tài liệu đính kèm (PDF, Word, PPT...)</label>
@@ -1103,7 +1153,7 @@ export default function TrainingTab({
                                     type="button"
                                     disabled={uploadingLessonFileIndex === index}
                                     onClick={() => lessonFileInputsRef.current[index]?.click()}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg text-[10px] font-bold cursor-pointer active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E8F7FF] hover:bg-[#D8F1FF] border border-[#beeaff] text-[#007eb8] rounded-lg text-[10px] font-bold cursor-pointer active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     {uploadingLessonFileIndex === index ? (
                                       <><RefreshCw className="w-3 h-3 animate-spin" /> Đang tải lên...</>
@@ -1142,7 +1192,7 @@ export default function TrainingTab({
                                   placeholder="Nhập giáo trình lý thuyết chi tiết..."
                                   value={les.content}
                                   onChange={(e) => handleLessonFormChange(index, "content", e.target.value)}
-                                  className="w-full p-3 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none min-h-[60px] transition-all resize-y"
+                                  className="w-full min-h-[48px] resize-y rounded-lg border border-transparent bg-slate-50 p-2 text-xs outline-none transition-all hover:border-slate-200 focus:border-[#00ADFC] focus:bg-white"
                                 />
                               </div>
                             </div>
@@ -1155,7 +1205,7 @@ export default function TrainingTab({
               </div>
 
               {/* Dynamic Quiz Form block */}
-              <div className="space-y-3 pt-3 border-t">
+              <div className="space-y-2 border-t border-slate-100 pt-2">
                 <div className="flex justify-between items-center select-none">
                   <h5 className="font-bold text-xs text-slate-800 uppercase font-sans">Bài Sát hạch Trắc nghiệm ({courseFormQuizzes.length})</h5>
                   <button
@@ -1168,16 +1218,16 @@ export default function TrainingTab({
                   </button>
                 </div>
 
-                <div className="space-y-3.5 max-h-[320px] overflow-y-auto p-4 rounded-2xl bg-slate-50/60 border border-slate-100 pr-2">
+                <div className="max-h-[min(28dvh,240px)] space-y-2 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-2">
                   {courseFormQuizzes.length === 0 ? (
                     <p className="text-[11px] text-gray-400 italic text-center py-2 select-none">Khóa học chưa có bộ đề thi sát hạch nào. Không thi sát hạch sau khi học xong.</p>
                   ) : (
                     courseFormQuizzes.map((quiz, qIdx) => (
-                      <div key={qIdx} className="bg-white border-l-4 border-l-emerald-500 rounded-xl p-4.5 space-y-3.5 shadow-2xs relative text-left">
+                      <div key={qIdx} className="relative space-y-2 rounded-xl border border-emerald-200 bg-white p-3 text-left shadow-2xs">
                         <button
                           type="button"
                           onClick={() => handleRemoveQuizForm(qIdx)}
-                          className="absolute top-4 right-4 text-slate-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer"
+                          className="absolute top-2 right-2 text-slate-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer"
                           title="Xóa câu hỏi"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1191,7 +1241,7 @@ export default function TrainingTab({
                             placeholder="Ví dụ: Đâu là định nghĩa đúng về bảo mật thông tin?"
                             value={quiz.question}
                             onChange={(e) => handleQuizQuestionChange(qIdx, e.target.value)}
-                            className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-xs outline-none transition-all font-semibold text-slate-800"
+                            className="w-full px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-[#00ADFC] rounded-lg text-xs outline-none transition-all font-semibold text-slate-800"
                           />
                         </div>
 
@@ -1201,7 +1251,7 @@ export default function TrainingTab({
                             <button
                               type="button"
                               onClick={() => handleAddQuizOption(qIdx)}
-                              className="text-[9px] text-indigo-650 font-bold hover:text-indigo-800 hover:underline cursor-pointer"
+                              className="text-[9px] text-[#007eb8] font-bold hover:text-[#006b9d] hover:underline cursor-pointer"
                             >
                               + Thêm đáp án
                             </button>
@@ -1224,7 +1274,7 @@ export default function TrainingTab({
                                   placeholder={`Đáp án số ${optIdx + 1}`}
                                   value={opt}
                                   onChange={(e) => handleQuizOptionChange(qIdx, optIdx, e.target.value)}
-                                  className="flex-1 px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-[11px] outline-none transition-all"
+                                  className="flex-1 px-3 py-1.5 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-[#00ADFC] rounded-lg text-[11px] outline-none transition-all"
                                 />
                                 {quiz.options.length > 2 && (
                                   <button
@@ -1245,19 +1295,20 @@ export default function TrainingTab({
                   )}
                 </div>
               </div>
+              </div>
             </div>
 
-            <div className="pt-4 border-t flex justify-end gap-3 text-xs font-bold shrink-0">
+            <div className="mt-2 flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-2 text-xs">
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="px-4 py-2 border rounded-xl hover:bg-slate-50 cursor-pointer font-sans"
+                className="cursor-pointer rounded-xl bg-rose-500 px-4 py-2 text-white transition-colors hover:bg-rose-600 font-sans"
               >
                 Hủy bỏ
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 font-sans"
+                className="rounded-xl bg-[#00ADFC] px-5 py-2 text-white transition-all hover:bg-[#0097dc] active:scale-95 cursor-pointer font-sans"
               >
                 {editingCourse ? "Cập nhật khóa học" : "Đăng tải khóa học"}
               </button>
@@ -1269,49 +1320,50 @@ export default function TrainingTab({
       {/* ACTIVE STUDY PLAYER / E-LEARNING STUDY ROOM */}
       {activeStudyCourse && (
         <div className="fixed inset-0 bg-black/55 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-gray-200 rounded-3xl shadow-2xl w-full max-w-4xl h-[90vh] overflow-hidden flex flex-col font-sans">
+          <div className="training-study-popup flex h-[min(90dvh,780px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white font-sans shadow-xl">
             {/* Player header */}
-            <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center border-b border-slate-800 shrink-0">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-4 py-3 text-slate-900 md:px-5">
               <div className="flex items-center gap-3">
-                <span className="text-2xl select-none">{activeStudyCourse.icon || "📚"}</span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#E8F7FF] text-2xl select-none">{displayTrainingIcon(activeStudyCourse.icon)}</span>
                 <div className="text-left">
-                  <span className="text-[9px] font-bold text-indigo-400 font-mono uppercase tracking-wider bg-indigo-950 border border-indigo-900 px-2 py-0.5 rounded-md">
+                  <span className="rounded-md border border-sky-100 bg-[#E8F7FF] px-2 py-0.5 text-[10px] text-[#007eb8]">
                     {activeStudyCourse.category || "Đào tạo"}
                   </span>
-                  <h4 className="font-bold text-sm text-slate-100 truncate max-w-md mt-1 leading-snug">{activeStudyCourse.title}</h4>
+                  <h4 className="mt-1 max-w-md truncate text-sm leading-snug text-slate-900">{activeStudyCourse.title}</h4>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveStudyCourse(null)}
-                className="text-slate-400 hover:text-white cursor-pointer transition-colors"
+                aria-label="Đóng"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {/* Main view study space */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
               {/* Left sidebar: Course syllabus outline */}
-              <div className="w-64 bg-slate-50 border-r border-gray-200 overflow-y-auto p-4 shrink-0 flex flex-col justify-between">
+              <div className="flex max-h-48 w-full shrink-0 flex-col justify-between overflow-y-auto border-b border-[#E1EAF5] bg-[#F8FBFF] p-4 md:max-h-none md:w-56 md:border-b-0 md:border-r">
                 <div className="space-y-4">
                   <div className="text-left select-none">
-                    <span className="block text-[8px] font-extrabold text-gray-400 uppercase tracking-widest font-mono">TIẾN ĐỘ HOÀN THÀNH:</span>
+                    <span className="block text-sm text-slate-800">Tiến độ hoàn thành</span>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="flex-1 bg-gray-250 h-2 rounded-full overflow-hidden border">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#DDF7FF] shadow-[0_0_8px_rgba(0,173,252,0.22)]">
                         <div
-                          className="bg-indigo-650 h-full rounded-full transition-all duration-300"
+                          className="h-full rounded-full bg-gradient-to-r from-[#00DFFF] to-[#00ADFC] transition-all duration-300"
                           style={{ width: `${enrollments.find(e => e.courseId === activeStudyCourse.id)?.progress ?? 0}%` }}
                         />
                       </div>
-                      <span className="text-xs font-extrabold font-mono text-indigo-850">
+                      <span className="text-xs text-[#007eb8]">
                         {enrollments.find(e => e.courseId === activeStudyCourse.id)?.progress ?? 0}%
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-2 border-t pt-3">
-                    <span className="block text-[9px] font-bold text-gray-400 uppercase select-none tracking-wider text-left font-mono">DANH SÁCH BÀI HỌC:</span>
+                    <span className="block text-left text-sm text-slate-800 select-none">Danh sách bài học</span>
                     <div className="space-y-1 text-xs">
                       {/* Course Overview / Introduction */}
                       <button
@@ -1319,10 +1371,10 @@ export default function TrainingTab({
                           setActiveLessonIndex(-1);
                           setQuizSubmitted(false);
                         }}
-                        className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center gap-2 cursor-pointer ${activeLessonIndex === -1 ? "bg-indigo-50 text-indigo-705 text-indigo-700 shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
+                        className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center gap-2 cursor-pointer ${activeLessonIndex === -1 ? "bg-[#E8F7FF] text-[#007eb8] text-[#007eb8] shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
                           }`}
                       >
-                        <BookOpen className="w-4 h-4 text-indigo-500 shrink-0" />
+                        <BookOpen className="w-4 h-4 text-[#00ADFC] shrink-0" />
                         <span>Giới thiệu khóa học</span>
                       </button>
 
@@ -1338,7 +1390,7 @@ export default function TrainingTab({
                               setActiveLessonIndex(index);
                               setQuizSubmitted(false);
                             }}
-                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${isActive ? "bg-indigo-50 text-indigo-705 text-indigo-700 shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
+                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${isActive ? "bg-[#E8F7FF] text-[#007eb8] text-[#007eb8] shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
                               }`}
                           >
                             <div className="flex items-center gap-2 min-w-0">
@@ -1372,7 +1424,7 @@ export default function TrainingTab({
                             }}
                             disabled={!isLessonsDone}
                             className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${activeLessonIndex === (activeStudyCourse.lessons || []).length
-                                ? "bg-indigo-50 text-indigo-750 shadow-3xs border border-indigo-200"
+                                ? "bg-[#E8F7FF] text-[#007eb8] shadow-3xs border border-[#beeaff]"
                                 : "hover:bg-slate-200/50 text-slate-650"
                               }`}
                           >
@@ -1404,13 +1456,13 @@ export default function TrainingTab({
               </div>
 
               {/* Right panel: Active lesson reader viewport */}
-              <div className="flex-1 overflow-y-auto p-8 bg-slate-50 flex flex-col justify-between">
+              <div className="flex min-h-0 flex-1 flex-col justify-between overflow-y-auto bg-[#F8FBFF] p-4 md:p-6">
                 {/* Section 1: Intro Overview display */}
                 {activeLessonIndex === -1 && (
                   <div className="space-y-6 text-left max-w-2xl mx-auto h-full flex flex-col justify-between py-4">
                     <div className="space-y-5">
                       <div className="text-center pb-5 border-b select-none">
-                        <span className="text-5xl block mb-2">{activeStudyCourse.icon || "📚"}</span>
+                        <span className="mb-2 flex justify-center text-5xl">{displayTrainingIcon(activeStudyCourse.icon, "h-12 w-12")}</span>
                         <h2 className="text-xl font-bold text-slate-800 font-sans leading-tight">{activeStudyCourse.title}</h2>
                         <span className="inline-block text-[10px] font-bold text-gray-400 font-mono uppercase mt-1">Đăng tải bởi: {activeStudyCourse.instructor}</span>
                       </div>
@@ -1445,7 +1497,7 @@ export default function TrainingTab({
                             toast.warning("Khóa học chưa có tài liệu giảng dạy!");
                           }
                         }}
-                        className="px-6 py-2.5 bg-indigo-650 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5 font-sans"
+                        className="px-6 py-2.5 bg-[#00ADFC] hover:bg-[#0097dc] active:scale-95 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5 font-sans"
                       >
                         <Play className="h-4 w-4 fill-white" />
                         Bắt đầu bài giảng đầu tiên
@@ -1464,7 +1516,7 @@ export default function TrainingTab({
                     <div className="space-y-6 text-left max-w-2xl mx-auto h-full flex flex-col justify-between py-4 w-full">
                       <div className="space-y-5 flex-1 overflow-y-auto pr-1">
                         <div className="pb-4 border-b">
-                          <span className="text-[10px] font-bold text-gray-450 uppercase tracking-widest font-mono">BÀI GIẢNG {activeLessonIndex + 1} / {activeStudyCourse.lessons?.length}</span>
+                          <span className="text-xs text-slate-600">Bài giảng {activeLessonIndex + 1} / {activeStudyCourse.lessons?.length}</span>
                           <h3 className="text-lg font-bold text-slate-800 mt-1 font-sans leading-snug">{les.title}</h3>
                         </div>
 
@@ -1493,14 +1545,15 @@ export default function TrainingTab({
                                 <div className="text-slate-400 p-8 text-center flex flex-col items-center">
                                   <Video className="w-12 h-12 text-slate-600 mb-3" />
                                   <p className="text-xs font-bold font-sans">Bài giảng Video</p>
-                                  <a href={les.url} target="_blank" rel="noreferrer" className="text-indigo-400 underline text-[10px] mt-2 block break-all font-mono">
+                                  <a href={les.url} target="_blank" rel="noreferrer" className="mt-2 block break-all text-[10px] text-[#007eb8] underline font-mono">
                                     {les.url}
                                   </a>
                                 </div>
                               )}
                             </div>
-                            <div className="p-4 bg-white border border-gray-150 rounded-2xl shadow-3xs text-xs text-slate-500 leading-relaxed font-semibold">
-                              💡 Lớp học video: Nhấp vào nút chạy Video phía trên và hoàn thành theo thời lượng video trước khi nhấp "Hoàn thành bài học" bên dưới.
+                            <div className="flex items-start gap-2 rounded-2xl border border-gray-150 bg-white p-4 text-xs leading-relaxed text-slate-600 shadow-3xs">
+                              <TrainingGlyph name="tip" />
+                              <span>Lớp học video: Nhấp vào nút chạy Video phía trên và hoàn thành theo thời lượng video trước khi nhấp "Hoàn thành bài học" bên dưới.</span>
                             </div>
                           </div>
                         ) : (
@@ -1517,7 +1570,7 @@ export default function TrainingTab({
                                       href={`/api/v1/media/download?url=${encodeURIComponent(les.url)}&filename=${encodeURIComponent(les.fileName || les.title || "tai-lieu-bai-giang")}&token=${encodeURIComponent(localStorage.getItem("accessToken") || "")}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 font-sans"
+                                      className="text-[10px] font-bold text-[#007eb8] hover:text-[#006b9d] hover:underline flex items-center gap-1 font-sans"
                                     >
                                       <ExternalLink className="w-3 h-3" /> Tải về tài liệu
                                     </a>
@@ -1556,7 +1609,7 @@ export default function TrainingTab({
                                             href={url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold transition-all"
+                                            className="px-4 py-2 bg-[#E8F7FF] hover:bg-[#D8F1FF] border border-[#beeaff] text-[#007eb8] rounded-xl text-xs font-bold transition-all"
                                           >
                                             Mở tài liệu trong tab mới
                                           </a>
@@ -1596,7 +1649,7 @@ export default function TrainingTab({
                           onClick={() => handleMarkLessonComplete(les, activeLessonIndex)}
                           className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 flex items-center gap-1.5 font-sans ${isCompleted
                               ? "bg-slate-100 border border-gray-200 text-slate-450 hover:bg-slate-200"
-                              : "bg-indigo-650 hover:bg-indigo-700 text-white"
+                              : "bg-[#00ADFC] hover:bg-[#0097dc] text-white"
                             }`}
                         >
                           <CheckCircle className="h-4 w-4" />
@@ -1636,7 +1689,7 @@ export default function TrainingTab({
                                   }`}
                               >
                                 <h4 className="font-bold text-xs text-slate-800 leading-snug flex gap-2">
-                                  <span className="font-mono text-indigo-650 shrink-0">Q{idx + 1}:</span>
+                                  <span className="font-mono text-[#007eb8] shrink-0">Q{idx + 1}:</span>
                                   {q.question}
                                 </h4>
 
@@ -1648,7 +1701,7 @@ export default function TrainingTab({
                                       <label
                                         key={oIdx}
                                         className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer select-none transition-all ${isSelected
-                                            ? "bg-indigo-50/60 border-indigo-300 ring-2 ring-indigo-500/10 text-indigo-850 font-semibold"
+                                            ? "bg-[#E8F7FF] border-[#9bdfff] ring-2 ring-[#00ADFC]/10 text-[#006b9d] font-semibold"
                                             : "hover:bg-slate-50 border-gray-150 text-slate-650 font-medium"
                                           }`}
                                       >
@@ -1672,7 +1725,7 @@ export default function TrainingTab({
                                               });
                                             }
                                           }}
-                                          className="text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4.5 h-4.5 shrink-0"
+                                          className="text-[#007eb8] focus:ring-[#00ADFC]/20 cursor-pointer w-4.5 h-4.5 shrink-0"
                                         />
                                         <span>{opt}</span>
                                       </label>
@@ -1710,7 +1763,7 @@ export default function TrainingTab({
                             type="button"
                             onClick={handleSubmitQuiz}
                             disabled={isQuizEvaluating}
-                            className="px-6 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 font-sans"
+                            className="px-6 py-2.5 bg-[#00ADFC] hover:bg-[#0097dc] text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 font-sans"
                           >
                             {isQuizEvaluating ? (
                               <>
@@ -1744,11 +1797,12 @@ export default function TrainingTab({
       {/* Custom confirm dialog */}
       {confirmState && (
         <ConfirmDialog
+          appearance="erp"
           isOpen={confirmState.isOpen}
           title={confirmState.title}
           description={confirmState.description}
           confirmLabel={confirmState.confirmLabel}
-          cancelLabel={confirmState.cancelLabel}
+          showCancel={false}
           onClose={() => setConfirmState(null)}
           onConfirm={confirmState.onConfirm}
         />

@@ -1088,7 +1088,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight text-left">BOT Thông báo</h1>
+          <h1 className="text-xl font-medium tracking-tight text-slate-900 text-left">BOT Thông báo</h1>
           <p className="text-slate-400 text-[11px] font-medium mt-0.5 text-left">{operationalCopy.notificationSubtitle}</p>
         </div>
       </div>

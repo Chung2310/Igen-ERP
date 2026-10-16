@@ -201,27 +201,27 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
             {actions.configureCommission && (
               <button
                 onClick={() => setShowLevelModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-750 rounded-lg text-[11px] font-black transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/40"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-all active:scale-95 cursor-pointer shadow-xs border border-slate-200/80"
               >
-                <Landmark className="w-3.5 h-3.5 text-sky-600" />
+                <Landmark className="w-3.5 h-3.5 text-[#00ADFC]" />
                 Cấu hình Level Hoa hồng
               </button>
             )}
             {actions.exportPartners && (
               <button
                 onClick={handleExportExcel}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-750 rounded-lg text-[11px] font-black transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/40"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-all active:scale-95 cursor-pointer shadow-xs border border-slate-200/80"
               >
-                <Download className="w-3.5 h-3.5 text-emerald-600" />
+                <Download className="w-3.5 h-3.5 text-slate-600" />
                 Xuất Excel
               </button>
             )}
             {actions.importPartners && (
               <button
                 onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-750 rounded-lg text-[11px] font-black transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/40"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold transition-all active:scale-95 cursor-pointer shadow-xs border border-slate-200/80"
               >
-                <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                <Upload className="w-3.5 h-3.5 text-slate-600" />
                 Nhập Excel
               </button>
             )}
@@ -298,55 +298,55 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
             {paginatedPartners.map((partner) => (
               <div
                 key={partner._id}
-                className="bg-white border border-slate-150 rounded-2xl p-4 shadow-3xs flex flex-col gap-3.5 text-left"
+                className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-col gap-3.5 text-left"
               >
                 {/* Card Header */}
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex flex-col">
-                    <span className="font-extrabold text-xs text-slate-800 tracking-wide">
+                    <span className="font-semibold text-sm text-slate-900">
                       {partner.name}
                     </span>
-                    <span className="text-[10px] text-slate-400 mt-0.5 font-semibold">
+                    <span className="text-xs text-slate-500 mt-0.5 font-normal">
                       SĐT: {partner.phone || 'Chưa cập nhật'}
                     </span>
                   </div>
                   <span className={cn(
-                    "px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wide shrink-0",
+                    "px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0",
                     partner.isActive
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                      : "bg-slate-100 text-slate-400 border border-slate-200"
+                      ? "bg-sky-50 text-[#007EB8] border border-sky-100"
+                      : "bg-slate-100 text-slate-600 border border-slate-200"
                   )}>
                     {partner.isActive ? 'Đang chạy' : 'Tạm dừng'}
                   </span>
                 </div>
 
                 {/* Level / Commission Rate */}
-                <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200/50 rounded-xl p-2.5">
+                <div className="flex items-center justify-between gap-2 text-xs text-slate-700 bg-slate-50 border border-slate-200/60 rounded-xl p-2.5">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-[9px] uppercase font-extrabold text-slate-400 tracking-wider">Cấp bậc</span>
-                    <span className="text-[10px] text-slate-800 font-extrabold">
+                    <span className="text-[11px] font-medium text-slate-500">Cấp bậc</span>
+                    <span className="text-xs text-slate-900 font-semibold">
                       {partner.levelName}
                     </span>
                   </div>
                   <div className="flex flex-col gap-0.5 text-right">
-                    <span className="text-[9px] uppercase font-extrabold text-slate-400 tracking-wider">Tỷ lệ</span>
-                    <span className="text-[10px] text-cyan-700 font-extrabold">
+                    <span className="text-[11px] font-medium text-slate-500">Tỷ lệ</span>
+                    <span className="text-xs text-[#007EB8] font-semibold">
                       {partner.levelName === 'Mặc định' ? 1 : partner.commissionValue}% {operationalCopy.isWorker ? 'giới thiệu' : operationalCopy.isCustomer ? 'dịch vụ' : 'học phí'}
                     </span>
                   </div>
                 </div>
 
                 {/* Referral stats */}
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3 text-xs font-medium text-slate-650">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3 text-xs text-slate-600">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-[9px] uppercase font-extrabold text-slate-450 tracking-wider">Đã giới thiệu</span>
-                    <span className="text-[10px] text-slate-800 font-extrabold bg-slate-100 px-2 py-0.5 rounded-lg w-fit">
+                    <span className="text-[11px] font-medium text-slate-500">Đã giới thiệu</span>
+                    <span className="text-xs text-slate-900 font-semibold bg-slate-100 px-2 py-0.5 rounded-lg w-fit">
                       {partner.referredStudentsCount} {operationalCopy.partnerReferralUnit}
                     </span>
                   </div>
                   <div className="flex flex-col gap-0.5 text-right">
-                    <span className="text-[9px] uppercase font-extrabold text-slate-455 tracking-wider">{operationalCopy.partnerValueLabel}</span>
-                    <span className="text-[10px] text-slate-750 font-bold font-mono">
+                    <span className="text-[11px] font-medium text-slate-500">{operationalCopy.partnerValueLabel}</span>
+                    <span className="text-xs text-slate-900 font-semibold tabular-nums">
                       {formatVND(String(partner.totalReferredTuition || 0))}
                     </span>
                   </div>
@@ -354,28 +354,28 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
 
                 {/* Payout Details */}
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="flex flex-col gap-0.5 p-1.5 bg-slate-50/70 border border-slate-200/30 rounded-xl">
-                    <span className="text-[8px] uppercase font-extrabold text-slate-400 tracking-wide">Tổng hoa hồng</span>
-                    <span className="text-[10px] text-slate-800 font-extrabold font-mono mt-0.5">
+                  <div className="flex flex-col gap-0.5 p-2 bg-slate-50/70 border border-slate-200/50 rounded-xl">
+                    <span className="text-[11px] font-medium text-slate-500">Tổng hoa hồng</span>
+                    <span className="text-xs text-slate-900 font-semibold tabular-nums mt-0.5">
                       {formatVND(String(partner.totalCommission))}
                     </span>
                   </div>
-                  <div className="flex flex-col gap-0.5 p-1.5 bg-emerald-50/40 border border-emerald-100/30 rounded-xl">
-                    <span className="text-[8px] uppercase font-extrabold text-slate-450 tracking-wide">Đã trả</span>
-                    <span className="text-[10px] text-emerald-600 font-extrabold font-mono mt-0.5">
+                  <div className="flex flex-col gap-0.5 p-2 bg-emerald-50/50 border border-emerald-100/60 rounded-xl">
+                    <span className="text-[11px] font-medium text-slate-500">Đã trả</span>
+                    <span className="text-xs text-emerald-600 font-semibold tabular-nums mt-0.5">
                       {formatVND(String(partner.totalPaid))}
                     </span>
                   </div>
                   <div className={cn(
-                    "flex flex-col gap-0.5 p-1.5 border rounded-xl",
+                    "flex flex-col gap-0.5 p-2 border rounded-xl",
                     partner.unpaidBalance > 0
-                      ? "bg-rose-50/40 border-rose-100/30"
-                      : "bg-slate-50/40 border-slate-250/20"
+                      ? "bg-rose-50/50 border-rose-100/60"
+                      : "bg-slate-50/50 border-slate-200/50"
                   )}>
-                    <span className="text-[8px] uppercase font-extrabold text-slate-450 tracking-wide">Còn nợ</span>
+                    <span className="text-[11px] font-medium text-slate-500">Còn nợ</span>
                     <span className={cn(
-                      "text-[10px] font-extrabold font-mono mt-0.5",
-                      partner.unpaidBalance > 0 ? "text-rose-600" : "text-slate-550"
+                      "text-xs font-semibold tabular-nums mt-0.5",
+                      partner.unpaidBalance > 0 ? "text-rose-600" : "text-slate-600"
                     )}>
                       {formatVND(String(partner.unpaidBalance))}
                     </span>
@@ -386,16 +386,16 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
                 <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-0.5">
                   <button
                     onClick={() => setSelectedPartnerId(partner._id)}
-                    className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-extrabold text-slate-600 bg-slate-50 hover:bg-slate-100 transition-all border border-slate-200/60 shadow-3xs cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all border border-slate-200/80 shadow-xs cursor-pointer"
                   >
-                    <Eye className="w-3.5 h-3.5 text-slate-400" />
+                    <Eye className="w-3.5 h-3.5 text-slate-500" />
                     <span>Chi tiết</span>
                   </button>
 
                   {actions.editPartner && (
                     <button
                       onClick={() => { setEditingPartner(partner); setShowAddModal(true); }}
-                      className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all border border-indigo-100 shadow-3xs cursor-pointer"
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all border border-indigo-100 shadow-xs cursor-pointer"
                     >
                       <Edit className="w-3.5 h-3.5 text-indigo-500" />
                       <span>Sửa</span>
@@ -405,7 +405,7 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
                   {actions.payCommission && partner.unpaidBalance > 0 && (
                     <button
                       onClick={() => setPayingPartner(partner)}
-                      className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all border border-emerald-100 shadow-3xs cursor-pointer"
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all border border-emerald-100 shadow-xs cursor-pointer"
                     >
                       <Landmark className="w-3.5 h-3.5 text-emerald-500" />
                       <span>Trả hoa hồng</span>
@@ -415,7 +415,7 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
                   {actions.deletePartner && (
                     <button
                       onClick={() => setDeletingPartner(partner)}
-                      className="flex items-center justify-center p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-transparent hover:border-rose-100 cursor-pointer"
+                      className="flex items-center justify-center p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all border border-transparent hover:border-rose-100 cursor-pointer"
                       title="Xóa đối tác"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -427,103 +427,103 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs font-semibold">
+            <table className="w-full text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                  <th className="py-2 px-3 text-left">Họ tên & SĐT</th>
-                  <th className="py-2 px-3 text-left">Cấp bậc hoa hồng</th>
-                  <th className="py-2 px-3 text-center">Đã giới thiệu</th>
-                  <th className="py-2 px-3 text-right">Tổng hoa hồng</th>
-                  <th className="py-2 px-3 text-right">Đã thanh toán</th>
-                  <th className="py-2 px-3 text-right">Còn nợ</th>
-                  <th className="py-2 px-3 text-center">Trạng thái</th>
-                  <th className="py-2 px-3 text-center">Hành động</th>
+                <tr className="bg-slate-50/70 border-b border-slate-200/80 text-xs font-semibold text-slate-600">
+                  <th className="py-3 px-3.5 text-left font-semibold text-slate-700">Họ tên & SĐT</th>
+                  <th className="py-3 px-3.5 text-left font-semibold text-slate-700">Cấp bậc hoa hồng</th>
+                  <th className="py-3 px-3.5 text-center font-semibold text-slate-700">Đã giới thiệu</th>
+                  <th className="py-3 px-3.5 text-right font-semibold text-slate-700">Tổng hoa hồng</th>
+                  <th className="py-3 px-3.5 text-right font-semibold text-slate-700">Đã thanh toán</th>
+                  <th className="py-3 px-3.5 text-right font-semibold text-slate-700">Còn nợ</th>
+                  <th className="py-3 px-3.5 text-center font-semibold text-slate-700">Trạng thái</th>
+                  <th className="py-3 px-3.5 text-center font-semibold text-slate-700">Hành động</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paginatedPartners.map((partner) => (
-                  <tr key={partner._id} className="hover:bg-slate-55/30 transition-all text-slate-700">
-                    <td className="py-1.5 px-3">
-                      <div className="text-[11px] font-bold text-slate-900">{partner.name}</div>
-                      <div className="text-[9px] text-slate-400 mt-0.5">{partner.phone}</div>
+                  <tr key={partner._id} className="hover:bg-slate-50/60 transition-colors text-slate-700">
+                    <td className="py-3 px-3.5">
+                      <div className="text-xs font-semibold text-slate-900">{partner.name}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5 font-normal">{partner.phone || 'Chưa cập nhật'}</div>
                     </td>
-                    <td className="py-1.5 px-3">
+                    <td className="py-3 px-3.5">
                       {partner.levelName === 'Mặc định' ? (
                         <>
-                          <div className="text-[9px] font-black text-slate-600 bg-slate-50 border border-slate-200 px-1.5 py-0.2 rounded-full inline-block">Mặc định</div>
-                          <div className="text-[9px] text-slate-400 mt-0.5">Tỷ lệ: <span className="font-bold text-slate-700">1%</span> {operationalCopy.isWorker ? 'giá trị giới thiệu' : operationalCopy.isCustomer ? 'giá trị dịch vụ' : 'học phí'}</div>
+                          <div className="text-[11px] font-semibold text-slate-700 bg-slate-100 border border-slate-200/60 px-2 py-0.5 rounded-full inline-block">Mặc định</div>
+                          <div className="text-[11px] text-slate-500 mt-1 font-normal">Tỷ lệ: <span className="font-semibold text-slate-800">1%</span> {operationalCopy.isWorker ? 'giá trị giới thiệu' : operationalCopy.isCustomer ? 'giá trị dịch vụ' : 'học phí'}</div>
                         </>
                       ) : (
                         <>
-                          <div className="text-[11px] font-bold text-slate-900">{partner.levelName}</div>
-                          <div className="text-[9px] text-slate-400 mt-0.5">Tỷ lệ: <span className="font-bold text-slate-700">{partner.commissionValue}%</span> {operationalCopy.isWorker ? 'giá trị giới thiệu' : operationalCopy.isCustomer ? 'giá trị dịch vụ' : 'học phí'}</div>
+                          <div className="text-xs font-semibold text-slate-900">{partner.levelName}</div>
+                          <div className="text-[11px] text-slate-500 mt-1 font-normal">Tỷ lệ: <span className="font-semibold text-slate-800">{partner.commissionValue}%</span> {operationalCopy.isWorker ? 'giá trị giới thiệu' : operationalCopy.isCustomer ? 'giá trị dịch vụ' : 'học phí'}</div>
                         </>
                       )}
                     </td>
-                    <td className="py-1.5 px-3 text-center font-bold">
-                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-[9px]">
+                    <td className="py-3 px-3.5 text-center">
+                      <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full text-xs font-semibold inline-block">
                         {partner.referredStudentsCount} {operationalCopy.partnerReferralUnit}
                       </span>
-                      <div className="text-[9px] text-slate-400 font-mono mt-0.5">
+                      <div className="text-[11px] text-slate-500 tabular-nums font-normal mt-1">
                         {operationalCopy.partnerValueLabel}: {formatVND(String(partner.totalReferredTuition || 0))}
                       </div>
                     </td>
-                    <td className="py-1.5 px-3 text-right text-[11px] font-black text-slate-800">
+                    <td className="py-3 px-3.5 text-right text-xs font-semibold tabular-nums text-slate-900">
                       {formatVND(String(partner.totalCommission))}
                     </td>
-                    <td className="py-1.5 px-3 text-right text-[11px] font-black text-emerald-600">
+                    <td className="py-3 px-3.5 text-right text-xs font-semibold tabular-nums text-emerald-600">
                       {formatVND(String(partner.totalPaid))}
                     </td>
                     <td className={cn(
-                      "py-1.5 px-3 text-right text-[11px] font-black",
-                      partner.unpaidBalance > 0 ? "text-rose-600" : "text-slate-450"
+                      "py-3 px-3.5 text-right text-xs font-semibold tabular-nums",
+                      partner.unpaidBalance > 0 ? "text-rose-600" : "text-slate-500"
                     )}>
                       {formatVND(String(partner.unpaidBalance))}
                     </td>
-                    <td className="py-1.5 px-3 text-center">
+                    <td className="py-3 px-3.5 text-center">
                       <span className={cn(
-                        "px-2 py-0.5 rounded-full text-[9px] font-bold",
+                        "px-2.5 py-0.5 rounded-full text-xs font-semibold",
                         partner.isActive
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-slate-100 text-slate-400"
+                          ? "bg-sky-50 text-[#007EB8] border border-sky-100"
+                          : "bg-slate-100 text-slate-600 border border-slate-200"
                       )}>
                         {partner.isActive ? 'Đang chạy' : 'Tạm dừng'}
                       </span>
                     </td>
-                    <td className="py-1.5 px-3">
-                      <div className="flex items-center justify-center gap-1">
+                    <td className="py-3 px-3.5">
+                      <div className="flex items-center justify-center gap-1.5">
                         <button
                           onClick={() => setSelectedPartnerId(partner._id)}
-                          className="p-1 rounded-md text-slate-500 hover:text-cyan-600 hover:bg-cyan-50 transition-all cursor-pointer"
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-[#00ADFC] hover:bg-[#E8F7FF] transition-all cursor-pointer"
                           title="Xem chi tiết & Lịch sử giới thiệu"
                         >
-                          <Eye className="w-3 h-3" />
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
                         {actions.editPartner && (
                           <button
                             onClick={() => { setEditingPartner(partner); setShowAddModal(true); }}
-                            className="p-1 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all cursor-pointer"
                             title="Chỉnh sửa thông tin đối tác"
                           >
-                            <Edit className="w-3 h-3" />
+                            <Edit className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {actions.payCommission && partner.unpaidBalance > 0 && (
                           <button
                             onClick={() => setPayingPartner(partner)}
-                            className="p-1 rounded-md text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all cursor-pointer"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all cursor-pointer"
                             title="Chi trả tiền hoa hồng"
                           >
-                            <Landmark className="w-3 h-3" />
+                            <Landmark className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {actions.deletePartner && (
                           <button
                             onClick={() => setDeletingPartner(partner)}
-                            className="p-1 rounded-md text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
                             title="Xóa đối tác"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>

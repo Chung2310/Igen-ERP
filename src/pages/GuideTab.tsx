@@ -329,11 +329,11 @@ export default function GuideTab() {
       hoverBg: "hover:bg-blue-50/30"
     },
     green: {
-      bg: "bg-emerald-50/50",
-      text: "text-emerald-700",
-      border: "border-emerald-100",
-      activeBg: "bg-emerald-50 border-emerald-200 text-emerald-800",
-      hoverBg: "hover:bg-emerald-50/30"
+      bg: "bg-sky-50/50",
+      text: "text-[#00ADFC]",
+      border: "border-sky-100",
+      activeBg: "bg-sky-50 border-sky-200 text-[#00ADFC]",
+      hoverBg: "hover:bg-sky-50/30"
     },
     amber: {
       bg: "bg-amber-50/50",
@@ -506,15 +506,15 @@ export default function GuideTab() {
             {/* Step-by-step instructions */}
             <div className="space-y-4">
               <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
-                <Clock className="h-4 w-4 text-emerald-500 shrink-0" />
+                <Clock className="h-4 w-4 text-[#00ADFC] shrink-0" />
                 Hướng dẫn các thao tác từng bước
               </h3>
               
-              <div className="relative border-l border-emerald-100 ml-3.5 pl-6 space-y-6 py-1">
+              <div className="relative border-l border-sky-100 ml-3.5 pl-6 space-y-6 py-1">
                 {activeSection.steps.map((step, idx) => (
                   <div key={idx} className="relative group">
                     {/* Circle timeline index */}
-                    <div className="absolute -left-[35px] top-0 h-6.5 w-6.5 rounded-full border border-white bg-emerald-50 text-emerald-600 text-[10px] font-bold flex items-center justify-center shadow-xs">
+                    <div className="absolute -left-[35px] top-0 h-6.5 w-6.5 rounded-full border border-white bg-sky-50 text-[#00ADFC] text-[10px] font-bold flex items-center justify-center shadow-xs">
                       {idx + 1}
                     </div>
                     <div>
@@ -558,7 +558,7 @@ export default function GuideTab() {
               </div>
               <button
                 onClick={() => handleQuickRedirect("TRÒ CHUYỆN")}
-                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors cursor-pointer"
+                className="text-xs font-bold text-[#00ADFC] hover:text-[#0095d9] flex items-center gap-1 transition-colors cursor-pointer"
               >
                 Nhắn tin hỗ trợ nội bộ
                 <Send className="h-3 w-3" />

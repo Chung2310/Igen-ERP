@@ -2,16 +2,18 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Download, Search,
-  ChevronDown, CreditCard, Clock, Users as UsersIcon,
+  CreditCard, Clock, Users as UsersIcon,
   Banknote, History, CalendarDays
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, toDisplayDate } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
 import { toast } from '../../../../pages/Toast';
 import { Student } from '../../types';
 import { AddPaymentModal } from '../../components/Fees/AddPaymentModal';
 import { Pagination } from '../../components/ui/Pagination';
 import { apiFetch } from '../../lib/api';
+import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
+import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
 
 type PaymentRecord = { studentId: string; studentName?: string; amount: number; date: string; method: string; paidOn?: string };
 
@@ -186,17 +188,17 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
   }, [searchQuery, debtFilter, startDate, endDate]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>
-          <h1 className="text-lg font-bold text-cyan-700 tracking-tight">Học phí</h1>
-          <p className="mt-1 text-[11px] font-medium text-slate-400">Số liệu theo kỳ: {appliedStartDate || 'Tất cả lịch sử'} đến {appliedEndDate || 'hiện tại'}</p>
+          <h1 className="text-xl font-medium tracking-tight text-slate-900">Học phí</h1>
+          <p className="mt-1 text-xs font-normal text-slate-500">Số liệu theo kỳ: {toDisplayDate(appliedStartDate) || 'Tất cả lịch sử'} đến {toDisplayDate(appliedEndDate) || 'hiện tại'}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleExport}
-            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-lg border border-sky-100 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-sky-50 hover:text-brand-primary transition-colors"
           >
             <Download className="w-3.5 h-3.5" /> Xuất báo cáo
           </button>
@@ -204,13 +206,13 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <FeeStatCard
           label="Tổng học phí"
           value={formatCurrency(stats.totalFee)}
           icon={Banknote}
-          color="text-cyan-600"
-          bgColor="bg-cyan-50"
+          color="text-brand-primary"
+          bgColor="bg-brand-primary/10"
         />
         <FeeStatCard
           label="Đã thu"
@@ -230,88 +232,77 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
           label="HV còn nợ"
           value={stats.studentsWithDebt}
           icon={UsersIcon}
-          color="text-teal-500"
-          bgColor="bg-teal-50"
+          color="text-brand-primary"
+          bgColor="bg-brand-primary/10"
           isText={false}
         />
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 gap-2 rounded-xl border border-cyan-100 bg-cyan-50/40 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
-        <div className="flex items-center gap-2 text-xs font-bold text-cyan-800 sm:col-span-2 lg:col-span-1">
+      <div className="grid grid-cols-1 gap-3 rounded-xl border border-sky-100 bg-brand-primary/5 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-800 sm:col-span-2 lg:col-span-1">
           <CalendarDays className="h-4 w-4" />
           Dữ liệu thu học phí theo thời gian
         </div>
-        <div className="flex flex-wrap items-end gap-1.5 sm:col-span-2 lg:col-span-3">
+        <div className="flex flex-wrap items-center gap-1.5 sm:col-span-2 lg:col-span-2 lg:justify-end">
           {[
             ['Hôm nay', 0], ['1 tuần', 7], ['1 tháng', 30], ['3 tháng', 90],
           ].map(([label, days]) => (
-            <button key={String(days)} type="button" onClick={() => applyQuickRange(Number(days))} disabled={paymentsLoading} className="h-7 rounded-md border border-cyan-200 bg-white px-2 text-[10px] font-bold text-cyan-700 hover:bg-cyan-100 disabled:opacity-50">
+            <button key={String(days)} type="button" onClick={() => applyQuickRange(Number(days))} disabled={paymentsLoading} className="h-8 rounded-lg border border-sky-200 bg-white px-2.5 text-xs font-normal text-brand-primary hover:bg-sky-50 disabled:opacity-50">
               {label}
             </button>
           ))}
         </div>
-        <label className="text-[10px] font-bold text-slate-600">Từ ngày
-          <input type="date" value={startDate} max={endDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1 h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs" />
-        </label>
-        <label className="text-[10px] font-bold text-slate-600">Đến ngày
-          <input type="date" value={endDate} min={startDate} max={toDateInput(new Date())} onChange={(event) => setEndDate(event.target.value)} className="mt-1 h-8 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs" />
-        </label>
+        <div className="space-y-1 text-xs font-normal text-slate-600"><span>Từ ngày</span>
+          <VietnameseDatePicker ariaLabel="Từ ngày" value={startDate} max={endDate || undefined} onChange={setStartDate} selectionOnly variant="filter" />
+        </div>
+        <div className="space-y-1 text-xs font-normal text-slate-600"><span>Đến ngày</span>
+          <VietnameseDatePicker ariaLabel="Đến ngày" value={endDate} min={startDate || undefined} max={toDateInput(new Date())} onChange={setEndDate} selectionOnly variant="filter" />
+        </div>
         <button
           type="button"
           onClick={() => { setAppliedStartDate(startDate); setAppliedEndDate(endDate); }}
           disabled={paymentsLoading || (Boolean(startDate) !== Boolean(endDate))}
-          className="h-8 self-end rounded-lg bg-cyan-700 px-4 text-xs font-bold text-white transition hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-9 self-end rounded-xl bg-brand-primary px-5 text-xs font-medium text-white transition-colors hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {paymentsLoading ? 'Đang lọc...' : 'Lọc'}
         </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
+      <div className="grid grid-cols-1 gap-2 rounded-xl border border-sky-100 bg-white p-3 shadow-sm sm:grid-cols-3">
         <div className="space-y-0.5">
-          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Trạng thái nợ</label>
-          <div className="relative">
-            <select
-              value={debtFilter}
-              onChange={(e) => setDebtFilter(e.target.value)}
-              className="w-full h-7 bg-slate-50 px-2.5 pr-8 rounded-md border border-slate-200 text-[11px] font-bold text-slate-800 outline-none appearance-none focus:border-cyan-600 transition-all"
-            >
-              <option value="Tất cả">Tất cả</option>
-              <option value="Còn nợ">Còn nợ</option>
-              <option value="Đã hoàn thành">Đã hoàn thành</option>
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-          </div>
+          <label className="text-xs font-normal text-slate-600">Trạng thái nợ</label>
+          <RoadmapPicker value={debtFilter} placeholder="Tất cả" allowClear={false} options={[{ value: 'Tất cả', label: 'Tất cả' }, { value: 'Còn nợ', label: 'Còn nợ' }, { value: 'Đã hoàn thành', label: 'Đã hoàn thành' }]} onChange={setDebtFilter} />
         </div>
 
-        <div className="sm:col-span-2 space-y-0.5">
-          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tìm học viên</label>
+        <div className="space-y-0.5 sm:col-span-2">
+          <label className="text-xs font-normal text-slate-600">Tìm học viên</label>
           <div className="relative">
             <input
               type="text"
               placeholder="Tên / SĐT..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-7 bg-slate-50 pl-7 pr-3 rounded-md border border-slate-200 text-[11px] font-medium outline-none focus:border-cyan-600 transition-all"
+              className="h-9 w-full rounded-xl border border-sky-100 bg-white pl-9 pr-3 text-sm font-normal outline-none placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
             />
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           </div>
         </div>
       </div>
 
       {/* Table Section */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-sky-100 bg-white shadow-sm">
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
-              <tr className="bg-slate-50/50">
-                <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Học viên</th>
-                {hasRankData && <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Hạng</th>}
-                <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right whitespace-nowrap">Tổng HP</th>
-                <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right whitespace-nowrap">Đã đóng</th>
-                <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right whitespace-nowrap">Còn nợ</th>
-                <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Tiến độ</th>
-                <th className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Lần cuối</th>
-                <th className="px-3 py-2 text-right border-b border-slate-100"></th>
+              <tr className="bg-brand-primary/10">
+                <th className="border-b border-sky-100 px-3 py-2.5 text-xs font-medium text-slate-700">Học viên</th>
+                {hasRankData && <th className="border-b border-sky-100 px-3 py-2.5 text-center text-xs font-medium text-slate-700">Hạng</th>}
+                <th className="whitespace-nowrap border-b border-sky-100 px-3 py-2.5 text-right text-xs font-medium text-slate-700">Tổng học phí</th>
+                <th className="whitespace-nowrap border-b border-sky-100 px-3 py-2.5 text-right text-xs font-medium text-slate-700">Đã đóng</th>
+                <th className="whitespace-nowrap border-b border-sky-100 px-3 py-2.5 text-right text-xs font-medium text-slate-700">Còn nợ</th>
+                <th className="border-b border-sky-100 px-3 py-2.5 text-xs font-medium text-slate-700">Tiến độ</th>
+                <th className="border-b border-sky-100 px-3 py-2.5 text-center text-xs font-medium text-slate-700">Lần cuối</th>
+                <th className="border-b border-sky-100 px-3 py-2.5 text-right text-xs font-medium text-slate-700">Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -332,22 +323,22 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                 const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
 
                 return (
-                  <tr key={student.id} className="group hover:bg-slate-50/50 transition-colors">
+                  <tr key={student.id} className="group transition-colors hover:bg-sky-50/40">
                     <td className="px-3 py-1.5 border-b border-slate-50">
                       <div className="flex flex-col items-start">
                         <button
                           onClick={() => onSelectStudent?.(student, 'Học phí')}
-                          className="text-left text-xs font-black text-slate-800 hover:text-cyan-600 hover:underline tracking-tight transition-all"
+                          className="text-left text-sm font-medium text-slate-800 transition-colors hover:text-brand-primary hover:underline"
                         >
                           {student.fullName}
                         </button>
-                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">{student.phone}</span>
+                        <span className="mt-0.5 text-xs font-normal text-slate-500">{student.phone}</span>
                       </div>
                     </td>
                     {hasRankData && (
                       <td className="px-3 py-1.5 border-b border-slate-50 text-center">
                         {student.rank && student.rank.trim() !== '' ? (
-                          <span className="px-1.5 py-0.5 bg-cyan-50 border border-cyan-100 text-cyan-600 rounded text-[8px] font-black uppercase tracking-wider">
+                          <span className="rounded border border-sky-100 bg-brand-primary/10 px-1.5 py-0.5 text-xs font-normal text-brand-primary">
                             {student.rank}
                           </span>
                         ) : (
@@ -356,22 +347,22 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                       </td>
                     )}
                     <td className="px-3 py-1.5 border-b border-slate-50 text-right whitespace-nowrap">
-                      <span className="text-xs font-black text-slate-800 tracking-tight whitespace-nowrap">
+                      <span className="whitespace-nowrap text-xs font-normal text-slate-800">
                         {formatCurrency(total, false)}
                       </span>
                     </td>
                     <td className="px-3 py-1.5 border-b border-slate-50 text-right whitespace-nowrap">
                       <span className={cn(
-                        "text-xs font-black tracking-tight whitespace-nowrap",
-                        paid > 0 ? "text-emerald-500" : "text-slate-300"
+                        "whitespace-nowrap text-xs font-medium",
+                        paid > 0 ? "text-brand-primary" : "text-slate-400"
                       )}>
                         {formatCurrency(paid)}
                       </span>
                     </td>
                     <td className="px-3 py-1.5 border-b border-slate-50 text-right whitespace-nowrap">
                       <span className={cn(
-                        "text-xs font-black tracking-tight whitespace-nowrap",
-                        debt > 0 ? "text-rose-500" : "text-slate-300"
+                        "whitespace-nowrap text-xs font-medium",
+                        debt > 0 ? "text-rose-500" : "text-slate-400"
                       )}>
                         {formatCurrency(debt)}
                       </span>
@@ -384,15 +375,15 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                             animate={{ width: `${progress}%` }}
                             className={cn(
                               "h-full rounded-full transition-colors",
-                              progress === 100 ? "bg-emerald-500" : "bg-slate-200"
+                              progress === 100 ? "bg-emerald-500" : "bg-brand-primary"
                             )}
                           />
                         </div>
-                        <span className="text-[9px] font-extrabold text-slate-400 w-7">{progress}%</span>
+                        <span className="w-7 text-xs font-normal text-slate-500">{progress}%</span>
                       </div>
                     </td>
                     <td className="px-3 py-1.5 border-b border-slate-50 text-center">
-                      <span className="text-[10px] font-bold text-slate-400">
+                      <span className="text-xs font-normal text-slate-500">
                         {student.updatedAt ? "Hôm nay" : "-"}
                       </span>
                     </td>
@@ -404,14 +395,14 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                             setIsPaymentModalOpen(true);
                           }}
                           title="Thu học phí"
-                          className="p-1.5 rounded-lg bg-white border border-slate-100 text-slate-300 hover:text-cyan-600 hover:border-cyan-100 transition-all active:scale-95"
+                          className="rounded-lg border border-sky-100 bg-white p-1.5 text-slate-500 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-brand-primary"
                         >
                           <CreditCard className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => onSelectStudent?.(student, 'Học phí')}
                           title="Nhật ký & Sửa học phí"
-                          className="p-1.5 rounded-lg bg-white border border-slate-100 text-slate-300 hover:text-cyan-600 hover:border-cyan-100 transition-all active:scale-95"
+                          className="rounded-lg border border-sky-100 bg-white p-1.5 text-slate-500 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-brand-primary"
                         >
                           <History className="w-3.5 h-3.5" />
                         </button>
@@ -460,15 +451,15 @@ interface FeeStatCardProps {
 
 function FeeStatCard({ label, value, icon: Icon, color, bgColor }: FeeStatCardProps) {
   return (
-    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex items-center gap-2.5">
-      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", bgColor)}>
+    <div className="flex items-center gap-2.5 rounded-xl border border-sky-100 bg-white p-3 shadow-sm">
+      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", bgColor)}>
         <Icon className={cn("w-4.5 h-4.5", color)} />
       </div>
       <div>
-        <p className="text-sm font-black text-slate-900 leading-none tracking-tight whitespace-nowrap">
+        <p className="whitespace-nowrap text-base font-medium leading-none text-slate-900">
           {value}
         </p>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mt-1">{label}</p>
+        <p className="mt-1 text-xs font-normal text-slate-500">{label}</p>
       </div>
     </div>
   );

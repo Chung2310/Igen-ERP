@@ -190,7 +190,7 @@ export default function WalletTab() {
     switch (status) {
       case "success":
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-100">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-[#00ADFC] border border-sky-100">
             <CheckCircle2 className="h-3.5 w-3.5" /> Thành công
           </span>
         );
@@ -273,7 +273,7 @@ export default function WalletTab() {
               <button
                 onClick={handleMockPayConfirm}
                 disabled={submitting}
-                className="w-full flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 py-3.5 text-center text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition-all hover:bg-emerald-700 active:scale-97 disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-1.5 rounded-2xl bg-[#00ADFC] py-3.5 text-center text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition-all hover:bg-[#0095d9] active:scale-97 disabled:opacity-50"
               >
                 {submitting ? (
                   <RefreshCw className="h-4 w-4 animate-spin" />
@@ -387,7 +387,7 @@ export default function WalletTab() {
                 </div>
 
                 {depositAmount.replace(/\D/g, "") && (
-                  <div className="text-[11px] text-emerald-600 font-bold mt-1.5 ml-1">
+                  <div className="text-[11px] text-[#00ADFC] font-bold mt-1.5 ml-1">
                     Quy đổi: ~ {Math.floor(parseFloat(depositAmount.replace(/\D/g, "")) / 100).toLocaleString("vi-VN")} Credit
                   </div>
                 )}
@@ -482,7 +482,7 @@ export default function WalletTab() {
                             </td>
                             <td className="py-3.5 font-semibold">
                               {tx.type === "deposit" ? (
-                                <span className="flex items-center gap-1 text-emerald-600">
+                                <span className="flex items-center gap-1 text-[#00ADFC]">
                                   <ArrowDownLeft className="h-3.5 w-3.5" /> Nạp tiền
                                 </span>
                               ) : (
@@ -494,7 +494,7 @@ export default function WalletTab() {
                             <td className="py-3.5 text-slate-600 font-medium max-w-[220px] truncate" title={tx.description}>
                               {tx.description || "-"}
                             </td>
-                            <td className={`py-3.5 text-right font-bold text-sm ${tx.type === "deposit" ? "text-emerald-600" : "text-slate-850"}`}>
+                            <td className={`py-3.5 text-right font-bold text-sm ${tx.type === "deposit" ? "text-[#00ADFC]" : "text-slate-850"}`}>
                               {tx.type === "deposit" ? "+" : "-"}
                               {formatCredit(tx.amount)}
                             </td>

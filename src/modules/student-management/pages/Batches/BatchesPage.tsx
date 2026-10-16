@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
-  Tag, BookOpen, Clock, Calendar, CalendarRange, MapPin, ClipboardList,
+  Tag, BookOpen, Clock, CalendarRange, MapPin, ClipboardList,
   CalendarCheck, BarChart2, LayoutGrid, Rows3, Eye, ChevronDown, Settings
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -13,7 +13,7 @@ import { getRoadmaps, type LearningRoadmap } from '../../api/learningRoadmap.api
 import { authService } from '../../../../services/authService';
 import { useStudents } from '../../hooks/useStudents';
 import { useResources } from '../../hooks/useResources';
-import { Batch, BatchStatus, BatchProgress, BatchProgressLevel, BatchAgeLabel } from '../../types';
+import { Batch, BatchStatus, BatchProgressLevel, BatchAgeLabel } from '../../types';
 import {
   ErpPageHeader, ErpPrimaryButton, ErpSearchBar, ErpFilterTab, ErpFilterRail,
   ErpModal, ErpField, ErpInput, ErpSelect,
@@ -34,6 +34,7 @@ import { getBatchPageCopy, getBatchStatusLabel } from '../../config/workerRecrui
 import { CustomFieldEditorModal } from '../../../shared/custom-fields/CustomFieldEditorModal';
 import { AssignmentModal } from '../../components/Batches/AssignmentModal';
 import { InstructorCombobox } from '../../components/Batches/InstructorCombobox';
+import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
 import { AttendanceModal } from '../../components/Batches/AttendanceModal';
 import { AttendanceViewModal } from '../../components/Batches/AttendanceViewModal';
 import { ManageLearnersModal } from '../../components/Batches/ManageLearnersModal';
@@ -82,14 +83,6 @@ const statusStyle = (status: BatchStatus) => {
   return "bg-slate-100 text-slate-600 border-slate-200";
 };
 
-const progressStyle = (level: BatchProgressLevel) => {
-  if (level === 'red') return "bg-rose-500/10 text-rose-500 border-rose-500/20";
-  if (level === 'yellow') return "bg-amber-500/10 text-amber-500 border-amber-500/20";
-  if (level === 'green') return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
-  if (level === 'black') return "bg-slate-950 text-white border-slate-950";
-  return "bg-slate-500/10 text-slate-400 border-slate-500/15";
-};
-
 const progressStatusText = (level: BatchProgressLevel) => {
   if (level === 'red') return "Quá hạn";
   if (level === 'yellow') return "Cần chú ý";
@@ -106,25 +99,12 @@ const progressColor = (level: BatchProgressLevel, colors: BatchProgressColors) =
   return '#64748b';
 };
 
-const progressText = (p: BatchProgress) => {
-  const sessionSummary = `Đã điểm danh ${p.doneSessions}/${p.totalSessions} buổi`;
-  if (p.progressLevel === 'red') return `Quá hạn — chưa đóng lớp • ${sessionSummary}`;
-  if (p.progressLevel === 'grey') return sessionSummary;
-  const missing = p.missingAttendanceSessions > 0 ? ` • chưa điểm danh ${p.missingAttendanceSessions} buổi` : '';
-  return `${sessionSummary}${missing} • còn lịch ${p.remainingSessions} buổi`;
-};
-
 /** Nhãn phụ theo tuổi lớp đã hoàn thành, độc lập với màu tiến độ */
 const ageLabelText = (label: BatchAgeLabel) => {
   if (label === 'red') return 'Hoàn thành quá 1 năm';
   if (label === 'yellow') return 'Hoàn thành 6–12 tháng';
   return '';
 };
-
-const ageLabelStyle = (label: BatchAgeLabel) =>
-  label === 'red'
-    ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-    : "bg-amber-500/10 text-amber-500 border-amber-500/20";
 
 interface BatchForm {
   code: string;
@@ -631,10 +611,11 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
   const renderStatusSelect = (b: Batch) => (
     <select
+      aria-label={`Trạng thái ${b.code}`}
       value={b.status}
       onChange={(e) => handleChangeStatus(b, e.target.value as BatchStatus)}
       className={cn(
-        "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border outline-none cursor-pointer",
+        "max-w-full rounded-lg border px-2 py-1.5 text-xs font-medium outline-none cursor-pointer focus:ring-2 focus:ring-brand-primary/15",
         statusStyle(b.status),
         darkMode ? "bg-slate-900" : "bg-white"
       )}
@@ -643,92 +624,85 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
     </select>
   );
 
-  /**
-   * Chip cảnh báo tiến độ + nhãn tuổi lớp. Nhãn tuổi là nhãn phụ, hiển thị
-   * song song chứ không thay thế màu tiến độ.
-   */
-  const renderProgressChips = (b: Batch) => {
+  const renderProgressSummary = (b: Batch, compact = false) => {
     if (!b.progress) return null;
+    const progress = b.progress;
+    const color = progressColor(progress.progressLevel, progressColors);
+    const completion = progress.totalSessions > 0
+      ? Math.min(100, Math.max(0, progress.doneSessions / progress.totalSessions * 100))
+      : 0;
+    const details = [
+      progress.missingAttendanceSessions > 0 ? `Chưa điểm danh ${progress.missingAttendanceSessions} buổi` : null,
+      progress.remainingSessions > 0 ? `Còn ${progress.remainingSessions} buổi` : null,
+      progress.ageLabel ? ageLabelText(progress.ageLabel) : null,
+    ].filter(Boolean);
     return (
-      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        <span style={{ color: progressColor(b.progress.progressLevel, progressColors), borderColor: progressColor(b.progress.progressLevel, progressColors) }} className="inline-flex items-center gap-1 rounded-full border bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wide">
-          <i className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: progressColor(b.progress.progressLevel, progressColors) }} />
-          {progressStatusText(b.progress.progressLevel)}
-        </span>
-        <span style={{ color: progressColor(b.progress.progressLevel, progressColors), borderColor: progressColor(b.progress.progressLevel, progressColors) }} className={cn(
-          "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border",
-          progressStyle(b.progress.progressLevel)
-        )}>
-          {progressText(b.progress)}
-        </span>
-        {b.progress.ageLabel && (
-          <span
-            title="Nhãn rà soát dữ liệu lớp cũ"
-            className={cn(
-              "px-1.5 py-0.5 rounded text-[9px] font-black uppercase border",
-              ageLabelStyle(b.progress.ageLabel)
-            )}
-          >
-            {ageLabelText(b.progress.ageLabel)}
-          </span>
-        )}
+      <div className={cn("space-y-1.5 text-xs", compact ? "min-w-[88px]" : "min-w-[160px]")} title={compact ? [progressStatusText(progress.progressLevel), ...details].join(' · ') : undefined}>
+        <div className="flex items-center justify-between gap-2">
+          {!compact && <span className="inline-flex items-center gap-1.5 font-medium" style={{ color }}>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+            {progressStatusText(progress.progressLevel)}
+          </span>}
+          <span className="whitespace-nowrap tabular-nums text-slate-600">{progress.doneSessions}/{progress.totalSessions} buổi</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label={`Tiến độ điểm danh: ${progressStatusText(progress.progressLevel)}`} aria-valuemin={0} aria-valuemax={progress.totalSessions} aria-valuenow={Math.min(progress.doneSessions, progress.totalSessions)}>
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${completion}%`, backgroundColor: color }} />
+        </div>
+        {!compact && details.length > 0 && <p className="text-[11px] leading-4 text-slate-500">{details.join(' · ')}</p>}
       </div>
     );
   };
 
   const actionButtonClass = (tone: 'neutral' | 'danger' | 'brand' | 'emerald' | 'sky') => cn(
-    "p-1 rounded-lg transition-all border cursor-pointer shadow-sm",
+    "inline-flex h-7 w-7 items-center justify-center rounded-lg border border-transparent transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30",
     tone === 'danger'
-      ? (darkMode ? "bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-450 border-transparent" : "bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-550 border-slate-200/60")
+      ? "text-rose-500 hover:bg-rose-50"
       : tone === 'brand'
-        ? (darkMode ? "bg-slate-800 hover:bg-brand-primary/20 text-slate-450 hover:text-brand-primary border-transparent" : "bg-slate-50 hover:bg-brand-primary/10 text-slate-450 hover:text-brand-primary border-slate-200/60")
+        ? "text-sky-600 hover:bg-sky-50"
         : tone === 'emerald'
-          ? (darkMode ? "bg-slate-800 hover:bg-emerald-900/40 text-slate-450 hover:text-emerald-400 border-transparent" : "bg-slate-50 hover:bg-emerald-50 text-slate-450 hover:text-emerald-600 border-slate-200/60")
+          ? "text-emerald-600 hover:bg-emerald-50"
           : tone === 'sky'
-            ? (darkMode ? "bg-slate-800 hover:bg-sky-900/40 text-slate-450 hover:text-sky-400 border-transparent" : "bg-slate-50 hover:bg-sky-50 text-slate-450 hover:text-sky-600 border-slate-200/60")
-            : (darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-450 hover:text-slate-700 border-slate-200/60")
+            ? "text-sky-600 hover:bg-sky-50"
+            : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
   );
 
-  const renderRowActions = (b: Batch) => {
+  const renderRowActions = (b: Batch, compact = false) => {
     const canOperateAssignedBatch = canManage || (hasTeacherOperation && b.instructorId === user?.uid);
     return (
-    <div className="flex items-center gap-1.5">
+    <div className={cn("flex items-center gap-0.5", compact ? "flex-nowrap" : "flex-wrap")} role="group" aria-label={`Thao tác ${b.code}`}>
       <button onClick={() => setViewingBatch(b)} title={`Xem chi tiết ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
-        <Eye className="w-3 h-3" />
+        <Eye className="h-4 w-4" />
       </button>
       {canManage && <button onClick={() => openEditModal(b)} title={`Chỉnh sửa ${copy.entityNameLower}`} className={actionButtonClass('neutral')}>
-        <Pencil className="w-3 h-3" />
+        <Pencil className="h-4 w-4" />
       </button>}
       {canManage && <button onClick={() => setDeleteConfirm({ isOpen: true, id: b.id, code: b.code })} title={`Xóa ${copy.entityNameLower}`} className={actionButtonClass('danger')}>
-        <Trash2 className="w-3 h-3" />
+        <Trash2 className="h-4 w-4" />
       </button>}
       {canManage && <button onClick={() => setManageLearnersId(b.id)} title={`Quản lý ${entityLabel.singular}`} className={actionButtonClass('brand')}>
-        <Users className="w-3 h-3" />
+        <Users className="h-4 w-4" />
       </button>}
       {canOperateAssignedBatch && <button onClick={() => setAssignmentBatchId(b.id)} title={entityLabel.preset === 'worker' ? 'Giao nhiệm vụ' : 'Giao bài tập'} className={actionButtonClass('brand')}>
-        <ClipboardList className="w-3 h-3" />
+        <ClipboardList className="h-4 w-4" />
       </button>}
       {canOperateAssignedBatch && <button onClick={() => setAttendanceBatchId(b.id)} title="Điểm danh thủ công & QR" className={actionButtonClass('emerald')}>
-        <CalendarCheck className="w-3 h-3" />
+        <CalendarCheck className="h-4 w-4" />
       </button>}
       <button onClick={() => setViewAttendanceBatchId(b.id)} title="Lịch sử & Thống kê điểm danh" className={actionButtonClass('sky')}>
-        <BarChart2 className="w-3 h-3" />
+        <BarChart2 className="h-4 w-4" />
       </button>
     </div>
     );
   };
 
-  const renderLearnerCountButton = (b: Batch) => (
+  const renderLearnerCountButton = (b: Batch, compact = false) => (
     <button
       onClick={() => { setManageLearnersId(b.id); setSelectedStudentId(''); }}
       title={`Quản lý ${entityLabel.singular} trong ${copy.entityNameLower}`}
-      className={cn(
-        "flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black transition-all border cursor-pointer shadow-sm",
-        darkMode ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200/60"
-      )}
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100"
     >
-      <Users className="w-3 h-3 text-brand-primary" />
-      {b.learnerIds.length}{b.maxLearners ? `/${b.maxLearners}` : ''} {entityLabel.singular}
+      <Users className="h-3.5 w-3.5" />
+      {b.learnerIds.length}{b.maxLearners ? `/${b.maxLearners}` : ''}{!compact && ` ${entityLabel.singular}`}
     </button>
   );
 
@@ -744,61 +718,45 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       />
 
       {/* Controls */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
-        {canManage && (
-          <button type="button" onClick={() => setShowProgressColors(true)} className="flex h-9 items-center gap-1.5 self-start rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 hover:bg-slate-50">
-            <Settings className="h-3.5 w-3.5" /> Màu tiến độ
-          </button>
-        )}
-        <ErpFilterRail>
-          <ErpFilterTab active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
-            Tất cả
-          </ErpFilterTab>
-          {BATCH_STATUSES.map((st) => (
-            <ErpFilterTab key={st} active={statusFilter === st} onClick={() => setStatusFilter(st)}>
-              {statusLabel(st)}
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
+          {canManage && (
+            <button type="button" onClick={() => setShowProgressColors(true)} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-600 hover:bg-slate-50">
+              <Settings className="h-3.5 w-3.5" /> Màu tiến độ
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+            <button type="button" onClick={() => changeViewMode('table')} title="Dạng bảng" aria-label="Dạng bảng" aria-pressed={viewMode === 'table'} className={cn("rounded-lg p-1.5 transition-colors", viewMode === 'table' ? "bg-brand-primary text-white" : "text-slate-500 hover:bg-white hover:text-slate-700")}>
+              <Rows3 className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={() => changeViewMode('card')} title="Dạng thẻ" aria-label="Dạng thẻ" aria-pressed={viewMode === 'card'} className={cn("rounded-lg p-1.5 transition-colors", viewMode === 'card' ? "bg-brand-primary text-white" : "text-slate-500 hover:bg-white hover:text-slate-700")}>
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <ErpFilterRail className="max-w-full">
+            <ErpFilterTab active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
+              Tất cả
             </ErpFilterTab>
-          ))}
-        </ErpFilterRail>
-        {/* Lọc nhanh theo cảnh báo tiến độ — dữ liệu do server tính sẵn */}
-        <ErpFilterRail>
-          <ErpFilterTab active={progressFilter === 'all'} onClick={() => setProgressFilter('all')}>
-            Mọi tiến độ
-          </ErpFilterTab>
-          <ErpFilterTab active={progressFilter === 'yellow'} onClick={() => setProgressFilter('yellow')}>
-            Sắp hết buổi
-          </ErpFilterTab>
-          <ErpFilterTab active={progressFilter === 'red'} onClick={() => setProgressFilter('red')}>
-            Quá hạn
-          </ErpFilterTab>
-        </ErpFilterRail>
-        <div className={cn(
-          "flex items-center gap-1 p-1 rounded-xl border self-start",
-          darkMode ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-200/60"
-        )}>
-          <button
-            type="button"
-            onClick={() => changeViewMode('table')}
-            title="Dạng bảng"
-            className={cn(
-              "p-1.5 rounded-lg transition-all cursor-pointer",
-              viewMode === 'table' ? "bg-brand-primary text-white shadow-sm" : "text-slate-450 hover:text-slate-700"
-            )}
-          >
-            <Rows3 className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => changeViewMode('card')}
-            title="Dạng thẻ"
-            className={cn(
-              "p-1.5 rounded-lg transition-all cursor-pointer",
-              viewMode === 'card' ? "bg-brand-primary text-white shadow-sm" : "text-slate-450 hover:text-slate-700"
-            )}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
+            {BATCH_STATUSES.map((st) => (
+              <ErpFilterTab key={st} active={statusFilter === st} onClick={() => setStatusFilter(st)}>
+                {statusLabel(st)}
+              </ErpFilterTab>
+            ))}
+          </ErpFilterRail>
+          <ErpFilterRail className="max-w-full">
+            <ErpFilterTab active={progressFilter === 'all'} onClick={() => setProgressFilter('all')}>
+              Mọi tiến độ
+            </ErpFilterTab>
+            <ErpFilterTab active={progressFilter === 'yellow'} onClick={() => setProgressFilter('yellow')}>
+              Sắp hết buổi
+            </ErpFilterTab>
+            <ErpFilterTab active={progressFilter === 'red'} onClick={() => setProgressFilter('red')}>
+              Quá hạn
+            </ErpFilterTab>
+          </ErpFilterRail>
         </div>
       </div>
 
@@ -815,37 +773,31 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         </ErpCard>
       ) : viewMode === 'card' ? (
         <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {paginatedBatches.map((b) => (
-              <ErpCard key={b.id} className="overflow-hidden border border-slate-200 bg-white p-4 shadow-none transition-colors hover:border-slate-300 flex flex-col gap-3">
+              <ErpCard key={b.id} className="flex min-w-0 flex-col gap-3 border border-slate-200 bg-white p-4 shadow-none transition-colors hover:border-sky-200">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <span aria-label={`Trạng thái tiến độ: ${progressStatusText(b.progress?.progressLevel || 'grey')}`} className="relative mt-1.5 flex h-3 w-3 shrink-0" style={{ color: b.progress ? progressColor(b.progress.progressLevel, progressColors) : '#94a3b8' }}>
-                      {b.progress && ['yellow', 'red'].includes(b.progress.progressLevel) ? <span className="absolute inset-0 animate-ping rounded-full opacity-40" style={{ backgroundColor: 'currentColor' }} /> : null}
-                      <span className="relative h-3 w-3 rounded-full ring-4 ring-slate-100" style={{ backgroundColor: 'currentColor' }} />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{b.code}</p>
-                      <p className="mt-0.5 truncate text-sm font-bold text-slate-800" title={displayTitle(b)}>{displayTitle(b)}</p>
-                      {displaySubtitle(b) && <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">{displaySubtitle(b)}</p>}
-                    </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-sky-700">{b.code}</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-slate-900" title={displayTitle(b)}>{displayTitle(b)}</p>
+                    {displaySubtitle(b) && <p className="mt-0.5 text-xs font-normal text-slate-500">{displaySubtitle(b)}</p>}
                   </div>
                   {renderStatusSelect(b)}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-y border-slate-100 py-2.5 text-xs font-semibold text-slate-600">
-                  <span className="inline-flex items-center gap-1.5"><GraduationCap className="h-3.5 w-3.5 text-slate-400" />{b.instructorName || <i className="font-medium text-slate-400">Chưa gán giáo viên</i>}</span>
-                  <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-slate-400" />{formatDays(b.daysOfWeek)} · {b.startTime}–{b.endTime}</span>
-                  {b.location && <span className="inline-flex min-w-0 items-center gap-1.5"><MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="max-w-28 truncate" title={b.location}>{b.location}</span></span>}
+                <div className="grid gap-1.5 border-y border-slate-100 py-3 text-xs font-normal text-slate-600">
+                  <span className="inline-flex items-center gap-2"><GraduationCap className="h-3.5 w-3.5 shrink-0 text-slate-400" />{b.instructorName || <span className="text-slate-400">Chưa gán giáo viên</span>}</span>
+                  <span className="inline-flex items-center gap-2"><Clock className="h-3.5 w-3.5 shrink-0 text-slate-400" />{formatDays(b.daysOfWeek)} · {b.startTime}–{b.endTime}</span>
+                  {b.location && <span className="inline-flex min-w-0 items-center gap-2"><MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="truncate" title={b.location}>{b.location}</span></span>}
                 </div>
 
                 <div className="space-y-2">
-                  {renderProgressChips(b)}
-                  <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400"><CalendarRange className="h-3.5 w-3.5" />{formatDate(b.startDate)} → {formatDate(b.endDate)}</p>
-                  {b.instructorQualification && <p className="text-[10px] font-semibold text-indigo-600">Trình độ giáo viên: {b.instructorQualification}</p>}
+                  {renderProgressSummary(b)}
+                  <p className="flex items-center gap-2 text-xs font-normal text-slate-500"><CalendarRange className="h-3.5 w-3.5" />{formatDate(b.startDate)} → {formatDate(b.endDate)}</p>
+                  {b.instructorQualification && <p className="text-xs text-slate-500">Trình độ giáo viên: {b.instructorQualification}</p>}
                 </div>
 
-                <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
                   {renderLearnerCountButton(b)}
                   {renderRowActions(b)}
                 </div>
@@ -864,45 +816,43 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       ) : (
         <ErpCard className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <ErpTableHead columns={[copy.codeLabel, copy.courseLabel, copy.instructorLabel, 'Lịch hoạt động', 'Thời gian', 'Tiến độ', copy.capacityLabel, 'Trạng thái', 'Thao tác']} />
+            <table className="w-full min-w-[1100px] border-collapse text-left text-xs [&_thead_tr]:border-brand-primary/15 [&_thead_tr]:bg-brand-primary/10">
+              <ErpTableHead columns={[copy.entityName, copy.instructorLabel, 'Lịch học', 'Thời gian', 'Tiến độ', copy.capacityLabel, 'Trạng thái', 'Thao tác']} />
               <tbody className={cn("divide-y", darkMode ? "divide-slate-800/30" : "divide-slate-100")}>
                 {paginatedBatches.map((b) => (
-                  <tr key={b.id} className={cn("transition-colors hover:bg-slate-50/50", darkMode ? "text-slate-355 hover:bg-slate-800/10" : "text-slate-600")}>
-                    <td className="py-2 px-4 font-black text-sm">{b.code}</td>
-                    <td className="py-2 px-4">
-                      <p className="font-bold">{displayTitle(b)}</p>
-                      {displaySubtitle(b) && (
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{displaySubtitle(b)}</p>
-                      )}
+                  <tr key={b.id} className="text-slate-600 transition-colors hover:bg-sky-50/30">
+                    <td className="max-w-[240px] px-4 py-3">
+                      <p className="text-xs font-medium text-sky-700">{b.code}</p>
+                      <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-5 text-slate-900" title={displayTitle(b)}>{displayTitle(b)}</p>
                     </td>
-                    <td className="py-2 px-4 font-bold">
+                    <td className="px-4 py-3">
                       {b.instructorName ? (
                         <span className="flex items-center gap-1.5">
-                          <GraduationCap className="w-3.5 h-3.5 text-slate-400" /> {b.instructorName}
+                          <GraduationCap className="h-3.5 w-3.5 shrink-0 text-slate-400" /> {b.instructorName}
                         </span>
                       ) : (
-                        <span className="text-slate-400 italic">Chưa gán</span>
+                        <span className="text-slate-400">Chưa gán</span>
                       )}
                     </td>
-                    <td className="py-2 px-4 font-bold">
-                      <p>{formatDays(b.daysOfWeek)}</p>
-                      <p className="text-[9px] text-slate-400">{b.startTime} - {b.endTime}{b.location ? ` • ${b.location}` : ''}</p>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-slate-700">{formatDays(b.daysOfWeek)}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{b.startTime}–{b.endTime}</p>
+                      {b.location && <p className="mt-0.5 max-w-[140px] truncate text-xs text-slate-500" title={b.location}>{b.location}</p>}
                     </td>
-                    <td className="py-2 px-4 font-bold whitespace-nowrap">
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                       {formatDate(b.startDate)} → {formatDate(b.endDate)}
                     </td>
-                    <td className="py-2 px-4">
-                      {renderProgressChips(b)}
+                    <td className="min-w-[110px] px-4 py-3">
+                      {renderProgressSummary(b, true)}
                     </td>
-                    <td className="py-2 px-4">
-                      {renderLearnerCountButton(b)}
+                    <td className="px-4 py-3">
+                      {renderLearnerCountButton(b, true)}
                     </td>
-                    <td className="py-2 px-4">
+                    <td className="px-4 py-3">
                       {renderStatusSelect(b)}
                     </td>
-                    <td className="py-2 px-4">
-                      {renderRowActions(b)}
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {renderRowActions(b, true)}
                     </td>
                   </tr>
                 ))}
@@ -948,18 +898,18 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       )}
 
       {showFormModal && (
-        <ErpModal title={editingId ? copy.editTitle : copy.createTitle} onClose={() => setShowFormModal(false)} maxWidth="max-w-lg">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <ErpModal title={editingId ? copy.editTitle : copy.createTitle} titleClassName="font-medium" onClose={() => setShowFormModal(false)} maxWidth="max-w-2xl">
+          <form onSubmit={handleSubmit} className="space-y-6 [&_.erp-field-label]:font-normal [&_.erp-field-label]:text-slate-600 [&_h3]:font-medium">
             {/* Section 1: Thông tin lớp học */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <div className="h-4 w-1 rounded-full bg-brand-primary" />
+                <h4 className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
                   <School className="w-4 h-4 text-brand-primary" />
                   Thông tin {copy.entityNameLower}
                 </h4>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {isFieldVisible('code') && (
                   <div className="relative group/std">
                     {renderFieldActions('code')}
@@ -986,12 +936,12 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   </div>
                 )}
                 {entityLabel.preset !== 'worker' && (
-                  <div className="col-span-2 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-bold text-slate-700">Cách áp dụng khóa học</p>
+                  <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:col-span-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs font-normal text-slate-600">Cách áp dụng khóa học</p>
                       <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
-                        <button type="button" onClick={() => setForm((current) => ({ ...current, learningMode: 'standalone', roadmapId: '', roadmapStepId: '' }))} className={`rounded-md px-3 py-1.5 text-xs font-bold ${form.learningMode === 'standalone' ? 'bg-slate-800 text-white' : 'text-slate-600'}`}>Lớp độc lập</button>
-                        <button type="button" onClick={() => setForm((current) => ({ ...current, learningMode: 'roadmap', courseId: '', roadmapId: '', roadmapStepId: '' }))} className={`rounded-md px-3 py-1.5 text-xs font-bold ${form.learningMode === 'roadmap' ? 'bg-cyan-700 text-white' : 'text-slate-600'}`}>Theo lộ trình</button>
+                        <button type="button" onClick={() => setForm((current) => ({ ...current, learningMode: 'standalone', roadmapId: '', roadmapStepId: '' }))} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${form.learningMode === 'standalone' ? 'bg-brand-primary text-white' : 'text-slate-600 hover:bg-slate-50'}`}>Lớp độc lập</button>
+                        <button type="button" onClick={() => setForm((current) => ({ ...current, learningMode: 'roadmap', courseId: '', roadmapId: '', roadmapStepId: '' }))} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${form.learningMode === 'roadmap' ? 'bg-brand-primary text-white' : 'text-slate-600 hover:bg-slate-50'}`}>Theo lộ trình</button>
                       </div>
                     </div>
                     {form.learningMode === 'roadmap' && (
@@ -1060,7 +1010,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                       </div>
                     </div>
                   </ErpField>
-                  <p className="mt-1 text-[10px] text-slate-400">
+                  <p className="mt-1 text-xs text-slate-500">
                     Để trống sẽ lấy theo {entityLabel.preset === 'worker' ? 'danh mục gốc' : 'sĩ số tối đa của khóa học'}.
                   </p>
                 </div>
@@ -1088,25 +1038,25 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
               <div className="space-y-4 pt-2 relative group/std">
                 {renderFieldActions('schedule')}
                 <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                  <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <div className="h-4 w-1 rounded-full bg-brand-primary" />
+                  <h4 className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
                     <Clock className="w-4 h-4 text-brand-primary" />
                     {getFieldLabel('schedule', entityLabel.preset === 'worker' ? 'Lịch hoạt động & Khung giờ' : 'Lịch học & Khung giờ')}
                   </h4>
                 </div>
 
                 <ErpField label={entityLabel.preset === 'worker' ? 'Ngày hoạt động trong tuần' : 'Ngày học trong tuần'}>
-                  <div className="grid grid-cols-7 gap-1 mt-1">
+                  <div className="mt-1 grid grid-cols-4 gap-1.5 sm:grid-cols-7">
                     {DAY_OPTIONS.map((d) => (
                       <button
                         key={d.value}
                         type="button"
                         onClick={() => toggleDay(d.value)}
                         className={cn(
-                          "py-1.5 rounded-lg text-[10px] font-black transition-all border cursor-pointer text-center",
+                          "rounded-lg border py-2 text-xs font-medium text-center transition-colors cursor-pointer",
                           form.daysOfWeek.includes(d.value)
-                            ? "bg-brand-primary text-white border-brand-primary shadow-sm shadow-brand-primary/15 scale-[1.02]"
-                            : "bg-slate-50 text-slate-550 border-slate-200 hover:bg-slate-100 hover:border-slate-300 active:scale-95"
+                            ? "border-brand-primary bg-brand-primary text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50"
                         )}
                       >
                         {d.label}
@@ -1115,7 +1065,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   </div>
                 </ErpField>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <ErpField label="Giờ bắt đầu">
                     <TimeInput24
                       required={isFieldRequired('schedule', true)}
@@ -1139,30 +1089,24 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             {/* Section 3: Thời gian & Địa điểm */}
             <div className="space-y-4 pt-2">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <div className="h-4 w-1 rounded-full bg-brand-primary" />
+                <h4 className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
                   <CalendarRange className="w-4 h-4 text-brand-primary" />
                   Thời gian & Địa điểm
                 </h4>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {isFieldVisible('startDate') && (
                   <div className="relative group/std">
                     {renderFieldActions('startDate')}
                     <ErpField label={getFieldLabel('startDate', entityLabel.preset === 'worker' ? 'Ngày bắt đầu' : 'Ngày khai giảng')}>
-                      <div className="relative">
-                        <ErpInput
-                          type="date"
-                          required={isFieldRequired('startDate', true)}
-                          value={form.startDate}
-                          onChange={(e) => setForm((current) => withEstimatedEndDate({ ...current, startDate: e.target.value }))}
-                          className="pl-10"
-                        />
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                          <Calendar className="w-4 h-4" />
-                        </div>
-                      </div>
+                      <VietnameseDatePicker
+                        ariaLabel={entityLabel.preset === 'worker' ? 'Ngày bắt đầu' : 'Ngày khai giảng'}
+                        required={isFieldRequired('startDate', true)}
+                        value={form.startDate}
+                        onChange={(value) => setForm((current) => withEstimatedEndDate({ ...current, startDate: value }))}
+                      />
                     </ErpField>
                   </div>
                 )}
@@ -1170,18 +1114,12 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   <div className="relative group/std">
                     {renderFieldActions('endDate')}
                     <ErpField label={getFieldLabel('endDate', entityLabel.preset === 'worker' ? 'Ngày kết thúc' : 'Ngày bế giảng dự kiến')}>
-                      <div className="relative">
-                        <ErpInput
-                          type="date"
-                          required={isFieldRequired('endDate', true)}
-                          value={form.endDate}
-                          onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                          className="pl-10"
-                        />
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                          <Calendar className="w-4 h-4" />
-                        </div>
-                      </div>
+                      <VietnameseDatePicker
+                        ariaLabel={entityLabel.preset === 'worker' ? 'Ngày kết thúc' : 'Ngày bế giảng dự kiến'}
+                        required={isFieldRequired('endDate', true)}
+                        value={form.endDate}
+                        onChange={(value) => setForm({ ...form, endDate: value })}
+                      />
                     </ErpField>
                   </div>
                 )}
@@ -1228,7 +1166,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                         )}
                       >
                         <MapPin className="w-4 h-4 shrink-0" />
-                        <span className="truncate text-xs font-semibold">
+                        <span className="truncate text-xs font-normal">
                           {(form.geoLat !== '' && form.geoLng !== '')
                             ? `Đã lưu tọa độ GPS`
                             : `Chưa thiết lập tọa độ`}
@@ -1249,7 +1187,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                           type="button"
                           onClick={useCurrentLocation}
                           disabled={locating}
-                          className="h-7 px-2.5 rounded-md text-[10px] font-black uppercase tracking-wide bg-slate-800 text-white hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                          className="flex h-7 items-center gap-1 rounded-md bg-brand-primary px-2.5 text-xs font-medium text-white transition-colors hover:bg-sky-600 disabled:opacity-50"
                         >
                           {locating ? 'Đang lấy...' : 'Lấy vị trí'}
                         </button>
@@ -1266,7 +1204,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                           onChange={(e) => setForm({ ...form, geoRadius: e.target.value === '' ? '' : Number(e.target.value) })}
                           className="pl-2 pr-8"
                         />
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-normal text-slate-400">
                           m
                         </div>
                       </div>
@@ -1274,7 +1212,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                   </div>
                 </ErpField>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-xs text-slate-500">
                     Để trống thì {copy.entityNameLower} không giới hạn nơi chấm công.
                   </p>
                 </div>
@@ -1294,7 +1232,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
             {manageable && archivedStdFields.length ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
+                <h4 className="text-sm font-medium text-slate-700">Trường mặc định đã lưu trữ</h4>
                 <ul className="mt-2 divide-y divide-slate-100">
                   {archivedStdFields.map((field) => (
                     <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
@@ -1302,7 +1240,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                       <button
                         type="button"
                         disabled={isSubmitting}
-                        className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        className="font-medium text-cyan-600 transition-colors hover:text-cyan-700 disabled:opacity-50"
                         aria-label={`Khôi phục ${field.label}`}
                         onClick={() => restoreStdField(field.key)}
                       >
@@ -1318,7 +1256,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-2 bg-gradient-to-r from-brand-primary to-sky-600 hover:from-brand-primary/95 hover:to-sky-700 text-white rounded-lg text-xs font-black uppercase tracking-wider shadow-md shadow-brand-primary/10 hover:shadow-brand-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-brand-primary py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSubmitting ? (
                 <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
@@ -1394,53 +1332,53 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       })()}
 
       {viewingBatch && (
-        <ErpModal title={`Chi tiết lớp học: ${viewingBatch.code}`} onClose={() => setViewingBatch(null)}>
-          <div className="space-y-4 text-slate-700 text-left">
-            <div className="grid grid-cols-2 gap-4">
+        <ErpModal title={`Chi tiết lớp học: ${viewingBatch.code}`} titleClassName="font-medium" maxWidth="max-w-xl" onClose={() => setViewingBatch(null)}>
+          <div className="space-y-5 text-left text-slate-700">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mã lớp</label>
-                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingBatch.code}</p>
+                <p className="text-xs font-normal text-slate-500">Mã lớp</p>
+                <p className="mt-1 text-sm font-medium text-slate-800">{viewingBatch.code}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Khóa học</label>
-                <p className="text-sm font-bold text-slate-800 mt-0.5">
+                <p className="text-xs font-normal text-slate-500">Khóa học</p>
+                <p className="mt-1 text-sm font-medium text-slate-800">
                   {courses.find(c => c.id === viewingBatch.courseId)?.title || viewingBatch.courseTitle || 'N/A'}
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Giáo viên / Phụ trách</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.instructorName || "Chưa gán"}</p>
-                {viewingBatch.instructorQualification && <p className="text-xs text-slate-400 mt-0.5">Trình độ: {viewingBatch.instructorQualification}</p>}
+                <p className="text-xs font-normal text-slate-500">Giáo viên / Phụ trách</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">{viewingBatch.instructorName || "Chưa gán"}</p>
+                {viewingBatch.instructorQualification && <p className="mt-0.5 text-xs text-slate-500">Trình độ: {viewingBatch.instructorQualification}</p>}
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</label>
-                <p className="text-sm font-bold text-slate-700 mt-0.5">{statusLabel(viewingBatch.status)}</p>
+                <p className="text-xs font-normal text-slate-500">Trạng thái</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">{statusLabel(viewingBatch.status)}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời gian học</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                <p className="text-xs font-normal text-slate-500">Thời gian học</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">
                   {formatDays(viewingBatch.daysOfWeek)} • {viewingBatch.startTime} - {viewingBatch.endTime}
                 </p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thời hạn lớp học</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                <p className="text-xs font-normal text-slate-500">Thời hạn lớp học</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">
                   {formatDate(viewingBatch.startDate)} → {formatDate(viewingBatch.endDate)}
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Địa điểm</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingBatch.location || 'Chưa cập nhật'}</p>
+                <p className="text-xs font-normal text-slate-500">Địa điểm</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">{viewingBatch.location || 'Chưa cập nhật'}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sức chứa</label>
-                <p className="text-sm font-medium text-slate-700 mt-0.5">
+                <p className="text-xs font-normal text-slate-500">Sức chứa</p>
+                <p className="mt-1 text-sm font-normal text-slate-700">
                   {viewingBatch.learnerIds.length} / {viewingBatch.maxLearners || 'Không giới hạn'} {entityLabel.singular}
                 </p>
               </div>
@@ -1448,12 +1386,12 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
             {viewingBatch.customFields && Object.keys(viewingBatch.customFields).length > 0 && (
               <div className="border-t border-slate-100 pt-4">
-                <h5 className="text-xs font-bold text-slate-800 mb-3">Trường thông tin thêm</h5>
-                <div className="grid grid-cols-2 gap-4">
+                <h5 className="mb-3 text-sm font-medium text-slate-800">Trường thông tin thêm</h5>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {Object.entries(viewingBatch.customFields).map(([key, val]) => (
                     <div key={key}>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{key}</label>
-                      <p className="text-sm font-medium text-slate-700 mt-0.5">{String(val || 'N/A')}</p>
+                      <p className="break-words text-xs font-normal text-slate-500">{key}</p>
+                      <p className="mt-1 break-words text-sm font-normal text-slate-700">{String(val || 'N/A')}</p>
                     </div>
                   ))}
                 </div>

@@ -4,7 +4,7 @@ import {
   Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
   Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
   Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
-  FolderOpen, MessageSquare, Shield, LineChart, Menu, FolderTree, GitBranch, Calendar, Clock, User,
+  FolderOpen, MessageSquare, Shield, LineChart, Menu, FolderTree, Calendar, Clock, User,
   LogIn, LogOut as LogOutIcon, Handshake, BriefcaseBusiness, ChevronDown, Landmark, ContactRound
 } from "lucide-react";
 import { TabType } from "../types";
@@ -17,6 +17,7 @@ import { notificationService, WebNotification } from "../services/notificationSe
 import { socketService } from "../services/socketService";
 import AttendanceCameraModal from "../components/attendance/AttendanceCameraModal";
 import { ATTENDANCE_FACE_CHECK_ENABLED } from "../config/attendanceFaceCheck";
+import BranchSwitcher from "../components/BranchSwitcher";
 
 interface HeaderProps {
   currentTab: TabType;
@@ -41,7 +42,7 @@ const searchIndex = [
 
 export default function Header({ currentTab, onSearchSelect, onMenuClick }: HeaderProps) {
   const { userProfile, logout } = useAuth();
-  const { branches, activeBranchId, setActiveBranchId, activeBranch } = useBranch();
+  const { branches, activeBranchId, setActiveBranchId } = useBranch();
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -399,18 +400,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
         <div className="ml-1 flex shrink-0 items-center gap-1 sm:ml-6 sm:gap-3" id="header_controls">
 
           {userProfile?.role === "admin" && branches.length > 0 && (
-            <div className="flex min-w-0 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-emerald-800 shadow-sm" title={`Chi nhánh đang xem: ${activeBranch?.name || ""}`}>
-              <GitBranch className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
-              <span className="hidden whitespace-nowrap text-[11px] font-bold sm:inline">Chi nhánh</span>
-              <select
-                aria-label="Chi nhánh đang chọn"
-                value={activeBranchId}
-                onChange={(e) => setActiveBranchId(e.target.value)}
-                className="max-w-[150px] min-w-0 cursor-pointer truncate bg-transparent text-[11px] font-bold text-emerald-900 outline-none sm:max-w-[190px]"
-              >
-                {branches.map((branch) => <option key={branch._id} value={branch._id}>{branch.name} ({branch.code})</option>)}
-              </select>
-            </div>
+            <BranchSwitcher branches={branches} activeBranchId={activeBranchId} onChange={setActiveBranchId} />
           )}
 
 
@@ -430,16 +420,16 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                 onClick={() => handleTimekeepingAction("out")}
                 disabled={timekeepingChecking !== null}
                 className={`hidden sm:flex items-center gap-1.5 rounded-full border px-2.5 sm:px-4 py-2 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs ${timekeepingChecking === "out"
-                    ? "bg-emerald-100 border-emerald-200 text-emerald-500 animate-pulse cursor-wait"
-                    : "bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100/70 hover:border-emerald-200 shadow-emerald-500/5"
+                    ? "bg-sky-100 border-sky-200 text-[#00ADFC] animate-pulse cursor-wait"
+                    : "bg-sky-50 border-sky-100 text-sky-700 hover:bg-sky-100/70 hover:border-sky-200 shadow-sky-500/5"
                   }`}
                 title="Check-Out chấm công"
                 id="header_checkout_btn"
               >
                 {timekeepingChecking === "out" ? (
-                  <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-[#00ADFC] border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <LogOutIcon className="h-3.5 w-3.5 shrink-0" />
+                  <LogOutIcon className="h-3.5 w-3.5 shrink-0 text-[#00ADFC]" />
                 )}
                 <span className="hidden sm:inline">{timekeepingChecking === "out" ? "Đang xử lý..." : "Check-Out"}</span>
               </button>
@@ -841,7 +831,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       disabled={timekeepingChecking !== null}
                       className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80 sm:hidden disabled:opacity-50"
                     >
-                      {hasCheckIn ? <LogOutIcon className="h-4 w-4 text-emerald-600" /> : <LogIn className="h-4 w-4 text-indigo-600" />}
+                      {hasCheckIn ? <LogOutIcon className="h-4 w-4 text-[#00ADFC]" /> : <LogIn className="h-4 w-4 text-[#00ADFC]" />}
                       <span>{timekeepingChecking ? "Đang xử lý..." : hasCheckIn ? "Check-Out" : "Check-In"}</span>
                     </button>
                   )}
@@ -884,7 +874,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               </button>
 
               <div className="mb-4">
-                <div className="mb-2 inline-flex rounded-2xl bg-sky-50 p-2 text-sky-600">
+                <div className="mb-2 inline-flex rounded-2xl bg-sky-50 p-2 text-[#00ADFC]">
                   <Send className="h-4 w-4" />
                 </div>
                 <h3 className="text-base font-bold text-gray-900">Liên kết Telegram</h3>
@@ -894,7 +884,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-semibold text-gray-600">Trạng thái</span>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${telegramLink?.linked ? "bg-emerald-100 text-emerald-700" : "border border-gray-200 bg-white text-gray-500"}`}>
+                  <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${telegramLink?.linked ? "bg-sky-100 text-[#00ADFC]" : "border border-gray-200 bg-white text-gray-500"}`}>
                     {telegramLink?.linked ? "Đã liên kết" : "Chưa liên kết"}
                   </span>
                 </div>

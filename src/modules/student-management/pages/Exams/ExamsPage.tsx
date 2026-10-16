@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Plus, Download, Printer,
-  ChevronDown, Trash2,
   ClipboardList, CheckCircle2, Clock, Users as UsersIcon,
   X
 } from 'lucide-react';
@@ -21,6 +20,8 @@ import { toast } from '../../../../pages/Toast';
 import { getApiErrorMessage } from '../../../../utils/errorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { ErpModal } from '../../components/Erp/ErpUI';
+import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
+import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
 import { getBatchProgression, getWaitlist, placeWaitlist, saveProgression, type BatchProgression } from '../../api/learningRoadmap.api';
 
 export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter?: string; canManage?: boolean }) {
@@ -273,24 +274,24 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-cyan-700 tracking-tight">Lịch thi</h1>
+          <h1 className="text-xl font-medium tracking-tight text-slate-900">Lịch thi</h1>
         </div>
         <div className="flex items-center gap-1.5">
           <button
             onClick={handleExport}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-sky-100 rounded-xl text-xs font-medium text-slate-700 hover:bg-sky-50 transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" /> Xuất
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-sky-100 rounded-xl text-xs font-medium text-slate-700 hover:bg-sky-50 transition-colors cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" /> In
           </button>
           {canManage && <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-[11px] font-black uppercase tracking-wider shadow-md shadow-cyan-100 hover:bg-cyan-700 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 bg-brand-primary text-white rounded-xl text-xs font-medium hover:bg-brand-primary/90 transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" /> Tạo đợt thi
           </button>}
@@ -299,86 +300,79 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 no-print">
-        <StatCard label="Tổng đợt thi" value={stats.totalExams} icon={ClipboardList} color="text-cyan-600" bgColor="bg-cyan-50" />
+        <StatCard label="Tổng đợt thi" value={stats.totalExams} icon={ClipboardList} color="text-cyan-600" bgColor="bg-sky-50" />
         <StatCard label="Sắp diễn ra" value={stats.upcoming} icon={Clock} color="text-orange-500" bgColor="bg-orange-50" />
         <StatCard label="Đã xác nhận" value={stats.confirmed} icon={CheckCircle2} color="text-emerald-500" bgColor="bg-emerald-50" />
         <StatCard label="Đã hoàn thành" value={stats.completed} icon={CheckCircle2} color="text-sky-500" bgColor="bg-sky-50" />
         <StatCard label="HV chưa có lịch" value={stats.unassignedStudents} icon={UsersIcon} color="text-purple-500" bgColor="bg-purple-50" />
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 sm:gap-4 border-b border-slate-200 mt-1 overflow-x-auto no-scrollbar no-print">
-        <button
-          onClick={() => setActiveTab('exams')}
-          className={cn(
-            "flex items-center gap-1 px-1.5 py-2 text-xs font-bold transition-all relative whitespace-nowrap cursor-pointer",
-            activeTab === 'exams' ? "text-cyan-600" : "text-slate-400 hover:text-slate-600"
-          )}
-        >
-          <ClipboardList className="w-3.5 h-3.5" /> Đợt thi
-          {activeTab === 'exams' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-600" />}
-        </button>
-        <button
-          onClick={() => setActiveTab('students')}
-          className={cn(
-            "flex items-center gap-1 px-1.5 py-2 text-xs font-bold transition-all relative whitespace-nowrap cursor-pointer",
-            activeTab === 'students' ? "text-cyan-600" : "text-slate-400 hover:text-slate-600"
-          )}
-        >
-          <UsersIcon className="w-3.5 h-3.5" /> HV chưa có lịch
-          {activeTab === 'students' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-600" />}
-        </button>
+      {/* Tabs and filters */}
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-2 xl:flex-row xl:items-end xl:justify-between no-print">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setActiveTab('exams')}
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors relative whitespace-nowrap cursor-pointer",
+              activeTab === 'exams' ? "text-brand-primary" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <ClipboardList className="w-3.5 h-3.5" /> Đợt thi
+            {activeTab === 'exams' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
+          </button>
+          <button
+            onClick={() => setActiveTab('students')}
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors relative whitespace-nowrap cursor-pointer",
+              activeTab === 'students' ? "text-brand-primary" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            <UsersIcon className="w-3.5 h-3.5" /> HV chưa có lịch
+            {activeTab === 'students' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
+          </button>
+        </div>
+
+        {activeTab === 'exams' && (
+          <div className="flex flex-wrap items-end gap-2 xl:justify-end">
+            <div className="w-[160px] sm:w-[175px]">
+              <FilterItem label="Từ ngày">
+                <VietnameseDatePicker ariaLabel="Từ ngày" value={fromDate} max={toDate || undefined} onChange={setFromDate} selectionOnly variant="filter" />
+              </FilterItem>
+            </div>
+            <div className="w-[160px] sm:w-[175px]">
+              <FilterItem label="Đến ngày">
+                <VietnameseDatePicker ariaLabel="Đến ngày" value={toDate} min={fromDate || undefined} onChange={setToDate} selectionOnly variant="filter" />
+              </FilterItem>
+            </div>
+            {hasRankData && <div className="w-[160px] sm:w-[175px]"><FilterSelect label="Hạng bằng" value={rankFilter} onChange={setRankFilter} options={rankOptions} /></div>}
+            <div className="w-[160px] sm:w-[175px]">
+              <FilterSelect label="Trạng thái" value={statusFilter} onChange={setStatusFilter} options={['Tất cả', 'Sắp diễn ra', 'Đã xác nhận', 'Đã hoàn thành']} />
+            </div>
+            <button
+              onClick={() => {
+                setRankFilter('Tất cả hạng');
+                setStatusFilter('Tất cả');
+                setSearchQuery('');
+                setFromDate('');
+                setToDate('');
+              }}
+              className="flex h-9 items-center gap-1 px-1 text-xs font-medium text-slate-500 transition-colors hover:text-brand-primary"
+            >
+              <X className="w-3 h-3" /> Xóa lọc
+            </button>
+          </div>
+        )}
       </div>
 
       {activeTab === 'exams' ? (
         <>
-          {/* Filters */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 bg-white p-1.5 rounded-xl border border-slate-100 shadow-sm no-print">
-            <FilterItem label="Từ ngày">
-              <input
-                type="date"
-                value={fromDate}
-                placeholder="Từ ngày..."
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-full bg-transparent outline-none text-[11px] font-bold relative"
-              />
-            </FilterItem>
-            <FilterItem label="Đến ngày">
-              <input
-                type="date"
-                value={toDate}
-                placeholder="Đến ngày..."
-                onChange={(e) => setToDate(e.target.value)}
-                className="w-full bg-transparent outline-none text-[11px] font-bold relative"
-              />
-            </FilterItem>
-            {hasRankData && (
-              <FilterSelect label="Hạng bằng" value={rankFilter} onChange={setRankFilter} options={rankOptions} />
-            )}
-
-            <FilterSelect label="Trạng thái" value={statusFilter} onChange={setStatusFilter} options={['Tất cả', 'Sắp diễn ra', 'Đã xác nhận', 'Đã hoàn thành']} />
-            <div className="flex items-end pb-1 col-span-2 sm:col-span-1">
-              <button
-                onClick={() => {
-                  setRankFilter('Tất cả hạng');
-                  setStatusFilter('Tất cả');
-                  setSearchQuery('');
-                  setFromDate('');
-                  setToDate('');
-                }}
-                className="text-[11px] font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors h-7"
-              >
-                <X className="w-3 h-3" /> Xóa lọc
-              </button>
-            </div>
-          </div>
 
           {/* Exam List */}
           <div className="space-y-3">
             {examsLoading ? (
               <div className="py-20 text-center text-slate-400 text-sm italic">Đang nạp dữ liệu đợt thi...</div>
             ) : paginatedExams.length === 0 ? (
-              <div className="py-20 bg-white rounded-3xl border border-slate-100 text-center text-slate-400 text-sm italic">Không tìm thấy đợt thi nào.</div>
+              <div className="py-14 bg-white rounded-2xl border border-sky-100 text-center text-slate-500 text-sm">Không tìm thấy đợt thi nào.</div>
             ) : paginatedExams.map((exam) => (
               <ExamCard
                 key={exam.id}
@@ -447,11 +441,11 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
             totalItems={filteredExams.length}
             pageSize={pageSize}
             itemName="đợt thi"
-            className="mt-4 shadow-sm bg-white rounded-3xl border border-slate-100"
+            className="mt-4 bg-white rounded-2xl border border-sky-100"
           />
         </>
       ) : (
-        <div className="py-20 bg-white rounded-3xl border border-slate-100 text-center text-slate-400 text-sm italic">Danh sách học viên chưa có lịch thi.</div>
+        <div className="py-14 bg-white rounded-2xl border border-sky-100 text-center text-slate-500 text-sm">Danh sách học viên chưa có lịch thi.</div>
       )}
 
       {/* Add Exam Modal */}
@@ -486,29 +480,25 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="relative bg-white rounded-3xl shadow-2xl border border-slate-100 p-8 max-w-sm w-full text-center"
+            className="relative bg-white rounded-2xl shadow-xl border border-sky-100 p-5 max-w-sm w-full"
           >
-            <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Trash2 className="w-8 h-8 text-rose-500" />
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <h3 className="flex items-center gap-2 text-base font-medium text-slate-900 before:w-1 before:h-5 before:rounded-full before:bg-brand-primary">Xóa đợt thi</h3>
+              <button type="button" onClick={() => setDeleteModalExam(null)} aria-label="Đóng" className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <h3 className="text-xl font-extrabold text-slate-900 mb-2">Xác nhận xóa</h3>
-            <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">
-              Bạn có chắc chắn muốn xóa đợt thi <span className="font-bold text-slate-800">"{deleteModalExam.name}"</span>?
+            <p className="text-slate-600 text-sm my-5 leading-relaxed">
+              Bạn có chắc chắn muốn xóa đợt thi <span className="text-slate-900">"{deleteModalExam.name}"</span>?
               Dữ liệu của học viên trong đợt thi này sẽ bị xóa khỏi lịch.
             </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteModalExam(null)}
-                className="flex-1 px-6 py-3 bg-slate-50 text-slate-400 font-bold rounded-2xl hover:bg-slate-100 transition-all border border-slate-100"
-              >
-                Hủy bỏ
-              </button>
+            <div className="flex justify-end">
               <button
                 onClick={handleDeleteExam}
                 disabled={isDeleting}
-                className="flex-1 px-6 py-3 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="px-4 py-2 bg-rose-600 text-white text-sm font-medium rounded-xl hover:bg-rose-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {isDeleting ? 'Đang xóa...' : 'Đúng, xóa nó'}
+                {isDeleting ? 'Đang xóa...' : 'Xác nhận xóa'}
               </button>
             </div>
           </motion.div>
@@ -519,46 +509,46 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
           <div className="space-y-4 text-slate-700 text-left">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tên đợt thi</label>
-                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingExam.name}</p>
+                <label className="text-xs text-slate-500">Tên đợt thi</label>
+                <p className="text-sm font-medium text-slate-800 mt-0.5">{viewingExam.name}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hạng bằng</label>
-                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingExam.rank || 'N/A'}</p>
+                <label className="text-xs text-slate-500">Hạng bằng</label>
+                <p className="text-sm font-medium text-slate-800 mt-0.5">{viewingExam.rank || 'N/A'}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</label>
-                <p className="text-sm font-bold text-slate-850 mt-0.5">{viewingExam.status}</p>
+                <label className="text-xs text-slate-500">Trạng thái</label>
+                <p className="text-sm font-medium text-slate-800 mt-0.5">{viewingExam.status}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Địa điểm</label>
+                <label className="text-xs text-slate-500">Địa điểm</label>
                 <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingExam.location || 'Chưa cập nhật'}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ngày thi dự kiến</label>
+                <label className="text-xs text-slate-500">Ngày thi dự kiến</label>
                 <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingExam.tentativeDate}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ngày thi chính thức</label>
+                <label className="text-xs text-slate-500">Ngày thi chính thức</label>
                 <p className="text-sm font-medium text-slate-700 mt-0.5">{viewingExam.officialDate || 'Chưa xác nhận'}</p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng số học viên</label>
-                <p className="text-sm font-bold text-slate-800 mt-0.5">{viewingExam.studentCount}</p>
+                <label className="text-xs text-slate-500">Tổng số học viên</label>
+                <p className="text-sm font-medium text-slate-800 mt-0.5">{viewingExam.studentCount}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-emerald-600">Đậu</label>
-                <p className="text-sm font-bold text-emerald-600 mt-0.5">{viewingExam.passCount}</p>
+                <label className="text-xs text-slate-500 text-emerald-600">Đậu</label>
+                <p className="text-sm font-medium text-emerald-600 mt-0.5">{viewingExam.passCount}</p>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-rose-600">Trượt</label>
-                <p className="text-sm font-bold text-rose-600 mt-0.5">{viewingExam.failCount}</p>
+                <label className="text-xs text-slate-500 text-rose-600">Trượt</label>
+                <p className="text-sm font-medium text-rose-600 mt-0.5">{viewingExam.failCount}</p>
               </div>
             </div>
 
@@ -568,7 +558,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
                 <div className="grid grid-cols-2 gap-4">
                   {Object.entries(viewingExam.customFields).map(([key, val]) => (
                     <div key={key}>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{key}</label>
+                      <label className="text-xs text-slate-500">{key}</label>
                       <p className="text-sm font-medium text-slate-700 mt-0.5">{String(val || 'N/A')}</p>
                     </div>
                   ))}
@@ -654,15 +644,15 @@ function ExamProgressionModal({ exam, students, batches, classrooms, onClose }: 
   const scoredCount = (exam.results || []).filter((result) => typeof result.score === "number" || result.outcome === "Đậu" || result.outcome === "Trượt").length;
   return <ErpModal title="Chuyển lộ trình tiếp theo" onClose={onClose} maxWidth="max-w-3xl">
     <p className="text-sm text-slate-500">Lớp nguồn vẫn giữ nguyên trạng thái hoạt động. Chỉ các học viên được chọn mới được xếp vào lớp của khóa học kế tiếp.</p>
-    <div className="grid grid-cols-3 gap-3"><div className="rounded-xl bg-slate-50 p-3 text-center"><p className="text-xl font-black text-slate-800">{scoredCount}</p><p className="text-xs font-bold text-slate-500">Đã có điểm</p></div><div className="rounded-xl bg-emerald-50 p-3 text-center"><p className="text-xl font-black text-emerald-700">{passedIds.length}</p><p className="text-xs font-bold text-emerald-700">Học viên đậu</p></div><div className="rounded-xl bg-rose-50 p-3 text-center"><p className="text-xl font-black text-rose-700">{failedIds.length}</p><p className="text-xs font-bold text-rose-700">Học viên trượt</p></div></div>
+    <div className="grid grid-cols-3 gap-3"><div className="rounded-xl bg-slate-50 p-3 text-center"><p className="text-lg font-medium text-slate-800">{scoredCount}</p><p className="text-xs text-slate-500">Đã có điểm</p></div><div className="rounded-xl bg-emerald-50 p-3 text-center"><p className="text-lg font-medium text-emerald-700">{passedIds.length}</p><p className="text-xs font-bold text-emerald-700">Học viên đậu</p></div><div className="rounded-xl bg-rose-50 p-3 text-center"><p className="text-lg font-medium text-rose-700">{failedIds.length}</p><p className="text-xs font-bold text-rose-700">Học viên trượt</p></div></div>
     {loading ? <p className="py-6 text-center text-sm text-slate-500">Đang kiểm tra lộ trình...</p> : !progression?.targetStep ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Lớp này chưa được gắn lộ trình hoặc đang ở chặng cuối nên chưa có khóa học tiếp theo.</p> : <>
-      <div className="rounded-lg border border-cyan-100 bg-cyan-50 p-3 text-sm text-cyan-800">Chặng kế tiếp: <b>{progression.targetStep.order}</b>. Chọn lớp mở cho khóa học này và các học viên đậu cần chuyển.</div>
-      <select value={targetBatchId} onChange={(event) => setTargetBatchId(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"><option value="">Chọn lớp khóa học tiếp theo</option>{targetBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.code} · {batch.courseTitle} ({batch.learnerIds.length}/{batch.maxLearners || "∞"})</option>)}</select>
-      <button type="button" onClick={() => setShowQuickCreate((current) => !current)} className="w-fit text-xs font-bold text-cyan-700 hover:underline">{showQuickCreate ? "Ẩn tạo nhanh" : "+ Tạo lớp chặng tiếp theo"}</button>
-      {showQuickCreate ? <section className="overflow-hidden rounded-xl border border-cyan-200 bg-white shadow-sm"><div className="flex flex-col gap-2 border-b border-cyan-100 bg-cyan-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-bold text-slate-800">Tạo lớp cho chặng {progression.targetStep.order}</p><p className="mt-0.5 text-xs text-slate-600">Lớp được gắn tự động vào đúng lộ trình và khóa học kế tiếp.</p></div><span className="w-fit rounded-full bg-cyan-100 px-2.5 py-1 text-xs font-bold text-cyan-800">Sắp khai giảng</span></div><div className="space-y-4 p-4"><div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-700">Mã lớp <span className="text-rose-500">*</span></span><input value={quickClass.code} onChange={(event) => setQuickClass((current) => ({ ...current, code: event.target.value }))} placeholder="VD: LH-HSK2-08" className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100" /></label><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-700">Phòng học <span className="font-medium text-slate-400">(tùy chọn)</span></span><select value={quickClass.location} onChange={(event) => setQuickClass((current) => ({ ...current, location: event.target.value }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"><option value="">Chưa xếp phòng</option>{classrooms.map((room) => <option key={room.id} value={room.name}>{room.name}{room.identifier ? ` · ${room.identifier}` : ""}</option>)}</select></label></div><div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-700">Ngày khai giảng <span className="text-rose-500">*</span></span><input type="date" value={quickClass.startDate} onChange={(event) => setQuickClass((current) => ({ ...current, startDate: event.target.value }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100" /></label><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-700">Ngày bế giảng <span className="text-rose-500">*</span></span><input type="date" value={quickClass.endDate} onChange={(event) => setQuickClass((current) => ({ ...current, endDate: event.target.value }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100" /></label></div><div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-700">Giờ bắt đầu <span className="text-rose-500">*</span></span><input type="time" value={quickClass.startTime} onChange={(event) => setQuickClass((current) => ({ ...current, startTime: event.target.value }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100" /></label><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-700">Giờ kết thúc <span className="text-rose-500">*</span></span><input type="time" value={quickClass.endTime} onChange={(event) => setQuickClass((current) => ({ ...current, endTime: event.target.value }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100" /></label></div><div className="border-t border-slate-100 pt-3"><p className="text-xs font-bold text-slate-700">Lịch học <span className="text-rose-500">*</span></p><p className="mt-0.5 text-xs text-slate-500">Chọn những ngày có buổi học trong tuần.</p><div className="mt-2 flex flex-wrap gap-2">{["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((label, day) => <button type="button" key={label} aria-pressed={quickClass.daysOfWeek.includes(day)} onClick={() => setQuickClass((current) => ({ ...current, daysOfWeek: current.daysOfWeek.includes(day) ? current.daysOfWeek.filter((item) => item !== day) : [...current.daysOfWeek, day] }))} className={`h-9 min-w-10 rounded-lg border px-2 text-xs font-bold transition ${quickClass.daysOfWeek.includes(day) ? "border-cyan-700 bg-cyan-700 text-white shadow-sm" : "border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:text-cyan-700"}`}>{label}</button>)}</div></div><div className="flex items-center justify-between border-t border-slate-100 pt-3"><p className="text-xs text-slate-500"><span className="text-rose-500">*</span> Trường bắt buộc</p><button type="button" disabled={creatingClass} onClick={() => void createTargetClass()} className="h-10 rounded-lg bg-cyan-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-50">{creatingClass ? "Đang tạo lớp..." : "Tạo lớp và chọn"}</button></div></div></section> : null}
+      <div className="rounded-lg border border-cyan-100 bg-sky-50 p-3 text-sm text-cyan-800">Chặng kế tiếp: <b>{progression.targetStep.order}</b>. Chọn lớp mở cho khóa học này và các học viên đậu cần chuyển.</div>
+      <RoadmapPicker value={targetBatchId} onChange={setTargetBatchId} placeholder="Ch?n l?p kh?a h?c ti?p theo" options={targetBatches.map((batch) => ({ value: batch.id, label: batch.code + " ? " + batch.courseTitle + " (" + batch.learnerIds.length + "/" + (batch.maxLearners || "?") + ")" }))} />
+      <button type="button" onClick={() => setShowQuickCreate((current) => !current)} className="w-fit text-xs font-medium text-brand-primary hover:underline">{showQuickCreate ? "Ẩn tạo nhanh" : "+ Tạo lớp chặng tiếp theo"}</button>
+      {showQuickCreate ? <section className="overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm"><div className="flex flex-col gap-2 border-b border-cyan-100 bg-sky-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-medium text-slate-800">Tạo lớp cho chặng {progression.targetStep.order}</p><p className="mt-0.5 text-xs text-slate-600">Lớp được gắn tự động vào đúng lộ trình và khóa học kế tiếp.</p></div><span className="w-fit rounded-full bg-cyan-100 px-2.5 py-1 text-xs font-bold text-cyan-800">Sắp khai giảng</span></div><div className="space-y-4 p-4"><div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="mb-1.5 block text-xs text-slate-700">Mã lớp <span className="text-rose-500">*</span></span><input value={quickClass.code} onChange={(event) => setQuickClass((current) => ({ ...current, code: event.target.value }))} placeholder="VD: LH-HSK2-08" className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100" /></label><label className="block"><span className="mb-1.5 block text-xs text-slate-700">Phòng học <span className="font-medium text-slate-400">(tùy chọn)</span></span><RoadmapPicker value={quickClass.location} onChange={(value) => setQuickClass((current) => ({ ...current, location: value }))} placeholder="Ch?a x?p ph?ng" options={classrooms.map((room) => ({ value: room.name, label: room.name + (room.identifier ? " ? " + room.identifier : "") }))} /></label></div><div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="mb-1.5 block text-xs text-slate-700">Ngày khai giảng <span className="text-rose-500">*</span></span><VietnameseDatePicker ariaLabel="Ng?y khai gi?ng" value={quickClass.startDate} max={quickClass.endDate || undefined} onChange={(value) => setQuickClass((current) => ({ ...current, startDate: value }))} selectionOnly variant="filter" /></label><label className="block"><span className="mb-1.5 block text-xs text-slate-700">Ngày bế giảng <span className="text-rose-500">*</span></span><VietnameseDatePicker ariaLabel="Ng?y b? gi?ng" value={quickClass.endDate} min={quickClass.startDate || undefined} onChange={(value) => setQuickClass((current) => ({ ...current, endDate: value }))} selectionOnly variant="filter" /></label></div><div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="mb-1.5 block text-xs text-slate-700">Giờ bắt đầu <span className="text-rose-500">*</span></span><input type="time" value={quickClass.startTime} onChange={(event) => setQuickClass((current) => ({ ...current, startTime: event.target.value }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100" /></label><label className="block"><span className="mb-1.5 block text-xs text-slate-700">Giờ kết thúc <span className="text-rose-500">*</span></span><input type="time" value={quickClass.endTime} onChange={(event) => setQuickClass((current) => ({ ...current, endTime: event.target.value }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100" /></label></div><div className="border-t border-slate-100 pt-3"><p className="text-xs text-slate-700">Lịch học <span className="text-rose-500">*</span></p><p className="mt-0.5 text-xs text-slate-500">Chọn những ngày có buổi học trong tuần.</p><div className="mt-2 flex flex-wrap gap-2">{["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((label, day) => <button type="button" key={label} aria-pressed={quickClass.daysOfWeek.includes(day)} onClick={() => setQuickClass((current) => ({ ...current, daysOfWeek: current.daysOfWeek.includes(day) ? current.daysOfWeek.filter((item) => item !== day) : [...current.daysOfWeek, day] }))} className={`h-9 min-w-10 rounded-lg border px-2 text-xs font-bold transition ${quickClass.daysOfWeek.includes(day) ? "border-cyan-700 bg-brand-primary text-white shadow-sm" : "border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:text-cyan-700"}`}>{label}</button>)}</div></div><div className="flex items-center justify-between border-t border-slate-100 pt-3"><p className="text-xs text-slate-500"><span className="text-rose-500">*</span> Trường bắt buộc</p><button type="button" disabled={creatingClass} onClick={() => void createTargetClass()} className="h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white shadow-sm transition hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-50">{creatingClass ? "Đang tạo lớp..." : "Tạo lớp và chọn"}</button></div></div></section> : null}
       {!targetBatches.length ? <p className="text-xs text-amber-700">Chưa có lớp “Sắp khai giảng” cho khóa học kế tiếp.</p> : null}
       <div className="max-h-60 overflow-y-auto rounded-lg border border-slate-200"><label className="flex items-center gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2 text-sm font-bold"><input type="checkbox" checked={passedStudents.length > 0 && selectedIds.length === passedStudents.length} onChange={(event) => setSelectedIds(event.target.checked ? passedStudents.map((student) => student.id) : [])} />Chọn tất cả học viên đậu ({passedStudents.length})</label>{passedStudents.map((student) => <label key={student.id} className="flex items-center gap-3 border-b border-slate-100 px-3 py-2 text-sm last:border-0"><input type="checkbox" checked={selectedIds.includes(student.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, student.id] : current.filter((id) => id !== student.id))} /><span className="flex-1 font-medium">{student.fullName}</span><span className="text-xs text-slate-400">{student.phone}</span><span className="text-xs font-bold text-emerald-600">Đậu</span></label>)}</div>
-      <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-600">Hủy</button><button type="button" disabled={saving || !targetBatchId || !selectedIds.length} onClick={() => void promote()} className="h-10 rounded-lg bg-cyan-700 px-4 text-sm font-bold text-white disabled:opacity-50">{saving ? "Đang chuyển..." : `Chuyển ${selectedIds.length} học viên`}</button></div>
+      <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="h-10 rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-600">Hủy</button><button type="button" disabled={saving || !targetBatchId || !selectedIds.length} onClick={() => void promote()} className="h-10 rounded-lg bg-brand-primary px-4 text-sm font-bold text-white disabled:opacity-50">{saving ? "Đang chuyển..." : `Chuyển ${selectedIds.length} học viên`}</button></div>
     </>}
   </ErpModal>;
 }
@@ -677,13 +667,13 @@ interface StatCardProps {
 
 function StatCard({ label, value, icon: Icon, color, bgColor }: StatCardProps) {
   return (
-    <div className="bg-white p-1.5 px-2.5 rounded-lg border border-slate-100 shadow-sm flex items-center gap-2.5">
-      <div className={cn("w-7 h-7 rounded-md flex items-center justify-center shrink-0", bgColor)}>
+    <div className="bg-white p-2.5 px-3 rounded-xl border border-sky-100 shadow-sm flex items-center gap-2.5">
+      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", bgColor)}>
         <Icon className={cn("w-3.5 h-3.5", color)} />
       </div>
       <div>
-        <p className="text-sm font-bold text-slate-900 leading-none">{value}</p>
-        <p className="text-[9px] font-semibold text-slate-550 uppercase tracking-wider mt-0.5">{label}</p>
+        <p className="text-base font-medium text-slate-900 leading-none">{value}</p>
+        <p className="text-xs font-normal text-slate-600 mt-0.5">{label}</p>
       </div>
     </div>
   );
@@ -697,8 +687,8 @@ interface FilterItemProps {
 function FilterItem({ label, children }: FilterItemProps) {
   return (
     <div className="space-y-0.5">
-      <label className="text-[9px] font-bold text-slate-550 uppercase tracking-wider">{label}</label>
-      <div className="bg-slate-50 px-2 py-1 rounded-md border border-slate-100 h-7 flex items-center relative">
+      <label className="text-xs font-normal text-slate-700">{label}</label>
+      <div className="relative">
         {children}
       </div>
     </div>
@@ -715,17 +705,8 @@ interface FilterSelectProps {
 function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
   return (
     <div className="space-y-0.5">
-      <label className="text-[9px] font-bold text-slate-550 uppercase tracking-wider">{label}</label>
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full h-7 bg-slate-50 px-2 pr-7 rounded-md border border-slate-100 text-[11px] font-bold text-slate-800 outline-none appearance-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/5 transition-all"
-        >
-          {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
-        </select>
-        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-      </div>
+      <label className="text-xs font-normal text-slate-700">{label}</label>
+      <RoadmapPicker value={value} placeholder={options[0]} allowClear={false} options={options.map((opt) => ({ value: opt, label: opt }))} onChange={onChange} />
     </div>
   );
 }

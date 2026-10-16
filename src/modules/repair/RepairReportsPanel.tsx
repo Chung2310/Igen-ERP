@@ -37,8 +37,8 @@ export default function RepairReportsPanel() {
 
   return <div className="space-y-4">
     <div>
-      <h1 className="text-2xl font-bold">Báo cáo sửa chữa & bảo hành</h1>
-      <p className="text-sm text-slate-500">Doanh thu phân loại theo chi nhánh và hiệu suất kỹ thuật viên, tính trên phiếu đã sửa xong trong kỳ.</p>
+      <h1 className="text-xl font-bold">Báo cáo sửa chữa</h1>
+      <p className="mt-1 text-sm text-slate-500">Doanh thu và hiệu suất kỹ thuật viên trong kỳ.</p>
     </div>
 
     <form onSubmit={(event) => { event.preventDefault(); void load(); }} className="flex flex-wrap items-end gap-2">
