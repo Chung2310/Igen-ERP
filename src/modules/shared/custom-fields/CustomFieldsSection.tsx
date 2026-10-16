@@ -91,7 +91,7 @@ export function CustomFieldsSection({
               type="button"
               disabled={disabled}
               onClick={toggleEditing}
-              className={`rounded-xl border font-semibold transition-all disabled:opacity-50 normal-case ${
+              className={`rounded-xl border font-medium transition-all disabled:opacity-50 normal-case ${
                 compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
               } ${
                 isEditing
@@ -99,7 +99,7 @@ export function CustomFieldsSection({
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
-              {isEditing ? "Xong" : "Chỉnh sửa trường"}
+              {isEditing ? "Ẩn công cụ" : "Chỉnh sửa trường"}
             </button>
             <button
               type="button"
