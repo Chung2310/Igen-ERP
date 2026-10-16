@@ -235,7 +235,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const [editForm, setEditForm] = useState<NewCourseFormState>(DEFAULT_NEW_COURSE);
   const [viewingCourse, setViewingCourse] = useState<Course | null>(null);
 
-  const pageSize = 8;
+  const pageSize = viewMode === 'grid' ? 12 : 8;
 
   useEffect(() => {
     if (categories.length > 0 && !newCourse.category) {
@@ -546,41 +546,41 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
         </ErpCard>
       ) : viewMode === 'grid' ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {paginatedCourses.map((course) => (
               <div
                 key={course.id}
                 className={cn(
-                  'min-w-0 p-4 rounded-[22px] border flex flex-col justify-between transition-all duration-300 group',
+                  'group flex min-w-0 flex-col justify-between rounded-2xl border p-3 transition-all duration-300',
                   darkMode
                     ? 'bg-slate-900/60 border-slate-800/80 backdrop-blur-md hover:border-brand-primary/20'
                     : 'bg-white border-[#DFECF5] hover:border-[#80D6FF] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#B8E8FF]/30 shadow-sm shadow-[#DCECF5]/50'
                 )}
               >
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <span className={cn('min-w-0 break-all text-xs font-semibold tracking-wide', darkMode ? 'text-slate-500' : 'text-[#1687BE]')}>{course.code}</span>
                     <span className={cn(
-                      'max-w-[45%] shrink-0 truncate px-2 py-1 rounded-lg border text-[10px] font-medium',
+                      'max-w-[45%] shrink-0 truncate rounded-lg border px-1.5 py-0.5 text-[10px] font-medium',
                       getCategoryColor(course.category)
                     )}>
                       {course.category}
                     </span>
                   </div>
 
-                  <h4 className={cn('text-base font-semibold leading-snug line-clamp-2 transition-colors', darkMode ? 'text-slate-100 group-hover:text-white' : 'text-slate-800 group-hover:text-[#008FCF]')}>{course.title}</h4>
+                  <h4 className={cn('line-clamp-2 text-sm font-semibold leading-snug transition-colors', darkMode ? 'text-slate-100 group-hover:text-white' : 'text-slate-800 group-hover:text-[#008FCF]')}>{course.title}</h4>
 
-                  <div className={cn('grid grid-cols-2 gap-y-2 gap-x-2 pt-3 text-xs font-normal border-t', darkMode ? 'text-slate-400 border-slate-800/30' : 'text-slate-600 border-[#E8F0F6]')}>
-                    <div className="flex items-center gap-1.5"><CourseIcon name="duration" className="h-4 w-4 shrink-0" /> {course.duration} buổi</div>
+                  <div className={cn('grid grid-cols-2 gap-x-1.5 gap-y-1.5 border-t pt-2 text-[11px] font-normal', darkMode ? 'text-slate-400 border-slate-800/30' : 'text-slate-600 border-[#E8F0F6]')}>
+                    <div className="flex items-center gap-1"><CourseIcon name="duration" className="h-3.5 w-3.5 shrink-0" /> {course.duration} buổi</div>
                     {usesCourseFeePolicy && (
-                      <div className="flex items-center gap-1.5"><CourseIcon name="fee" className="h-4 w-4 shrink-0" /> {course.fee}</div>
+                      <div className="flex items-center gap-1"><CourseIcon name="fee" className="h-3.5 w-3.5 shrink-0" /> {course.fee}</div>
                     )}
-                    <div className="flex items-center gap-1.5"><CourseIcon name="learners" className="h-4 w-4 shrink-0" /> {copy.capacitySummary(course.maxLearners)}</div>
-                    <div className="flex items-center gap-1.5"><CourseIcon name="batches" className="h-4 w-4 shrink-0" /> {course.activeBatches} {copy.activeBatchUnit}</div>
+                    <div className="flex items-center gap-1"><CourseIcon name="learners" className="h-3.5 w-3.5 shrink-0" /> {copy.capacitySummary(course.maxLearners)}</div>
+                    <div className="flex items-center gap-1"><CourseIcon name="batches" className="h-3.5 w-3.5 shrink-0" /> {course.activeBatches} {copy.activeBatchUnit}</div>
                   </div>
                 </div>
 
-                <div className={cn('flex flex-wrap items-center justify-between gap-1.5 pt-3 mt-3 border-t', darkMode ? 'border-slate-800/30' : 'border-[#E8F0F6]')}>
+                <div className={cn('mt-2.5 flex flex-wrap items-center justify-between gap-1 border-t pt-2.5', darkMode ? 'border-slate-800/30' : 'border-[#E8F0F6]')}>
                   <span className={cn(
                     'shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium border',
                     course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
