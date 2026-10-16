@@ -12,7 +12,6 @@ import {
   X,
   RefreshCw,
   Video,
-  Eye,
   AlertCircle,
   Edit2,
   Upload,
@@ -817,19 +816,16 @@ export default function TrainingTab({
             <div className="flex flex-wrap items-center gap-2">
               {isSupervisor && (
                 <>
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="h-4 w-4 text-[#0099da]" />
-                    <div className="w-full min-w-0 text-xs sm:w-[300px]">
-                      <HrFormSelect
-                        value={trainingFilter || ""}
-                        onChange={(value) => setTrainingFilter(value || null)}
-                        label="Giám sát tiến độ học nhân viên"
-                        options={[
-                          { value: "", label: "Giám sát tiến độ học nhân viên" },
-                          ...employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` })),
-                        ]}
-                      />
-                    </div>
+                  <div className="w-full min-w-0 text-xs sm:w-[300px]">
+                    <HrFormSelect
+                      value={trainingFilter || ""}
+                      onChange={(value) => setTrainingFilter(value || null)}
+                      label="Giám sát tiến độ học nhân viên"
+                      options={[
+                        { value: "", label: "Giám sát tiến độ học nhân viên" },
+                        ...employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` })),
+                      ]}
+                    />
                   </div>
 
                   <button
