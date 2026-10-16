@@ -49,10 +49,11 @@ let idCounter = 0;
 const genId = (prefix: string) =>
   `${prefix}_${Date.now().toString(36)}_${(idCounter++).toString(36)}`;
 
-function WorkflowStageBranch({ childStages, stageNumber, isDark }: {
+function WorkflowStageBranch({ childStages, stageNumber, isDark, showOutgoing = true }: {
   childStages: WorkflowSubTask[];
   stageNumber: number;
   isDark: boolean;
+  showOutgoing?: boolean;
 }) {
   const cardHeight = 44;
   const gap = 8;
@@ -80,13 +81,15 @@ function WorkflowStageBranch({ childStages, stageNumber, isDark }: {
           </div>
         ))}
       </div>
-      <svg width="62" height={height} viewBox={`0 0 62 ${height}`} fill="none" aria-hidden="true" className="shrink-0 overflow-visible">
-        <g stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          {childCenters.map((y, index) => <path key={childStages[index].id} d={`M0 ${y} C28 ${y} 28 ${middle} 48 ${middle}`} />)}
-          <path d={`M48 ${middle} H62`} />
-          <path d={`m56 ${middle - 4} 6 4 -6 4`} />
-        </g>
-      </svg>
+      {showOutgoing && <svg width="62" height={height} viewBox={`0 0 62 ${height}`} fill="none" aria-hidden="true" className="shrink-0 overflow-visible">
+        {childCenters.map((y, index) => {
+          const targetY = middle + (index - (childStages.length - 1) / 2) * Math.min(18, 72 / Math.max(1, childStages.length - 1));
+          return <g key={childStages[index].id} stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d={`M0 ${y} C28 ${y} 30 ${targetY} 62 ${targetY}`} />
+            <path d={`m56 ${targetY - 4} 6 4 -6 4`} />
+          </g>;
+        })}
+      </svg>}
     </div>
   );
 }
@@ -945,7 +948,7 @@ export function WorkflowReader({
     for (let index = start; index < end; index++) {
       width += 192;
       if (index < end - 1) width += branchWidth(workflow.steps[index]) || 46;
-      else if (end < workflow.steps.length) width += branchWidth(workflow.steps[index]);
+      else if (end < workflow.steps.length && branchWidth(workflow.steps[index])) width += 218;
       else if (branchWidth(workflow.steps[index])) width += 280 + 192;
     }
     return width;
@@ -1034,8 +1037,13 @@ export function WorkflowReader({
                   const nextRow = flowRows[rowIndex + 1];
                   const connectorHeight = row.height / 2 + 64 + (nextRow ? (nextRow.height - 112) / 2 : 0);
                   const nextCenter = nextRow ? nextRow.offset - row.offset + 96 : 96;
-                  const connectorLeft = Math.min(0, nextCenter);
-                  const connectorWidth = Math.max(row.width, nextCenter) - connectorLeft;
+                  const lastStep = workflow.steps[row.end - 1];
+                  const wrappingBranches = hasNextRow && showStageBranches ? lastStep.subTasks || [] : [];
+                  const branchHeight = Math.max(112, wrappingBranches.length * 44 + Math.max(0, wrappingBranches.length - 1) * 8);
+                  const branchTop = (row.height - branchHeight) / 2;
+                  const branchStackHeight = wrappingBranches.length * 44 + Math.max(0, wrappingBranches.length - 1) * 8;
+                  const connectorLeft = Math.min(0, nextCenter - 40);
+                  const connectorWidth = Math.max(row.width, nextCenter + 40) - connectorLeft;
                   return <div key={row.start} className="relative" style={{ width: row.width, minHeight: row.height, marginBottom: hasNextRow ? 64 : 0, marginLeft: row.offset }}>
                   <ol className="relative z-10 flex items-center" style={{ minHeight: row.height }}>
                   {workflow.steps.slice(row.start, row.end).map((step, offset) => {
@@ -1055,7 +1063,7 @@ export function WorkflowReader({
                         </li>
                         {showStageBranches && childStages.length > 0 ? (
                           <>
-                            <li className="list-none"><WorkflowStageBranch childStages={childStages} stageNumber={index + 1} isDark={false} /></li>
+                            <li className="list-none"><WorkflowStageBranch childStages={childStages} stageNumber={index + 1} isDark={false} showOutgoing={hasNextInRow || !hasNext} /></li>
                             {!hasNext && <li className="flex h-28 w-48 shrink-0 items-center justify-center rounded-2xl border border-[#dce7f4] bg-white text-sm text-slate-700 shadow-sm">Kết thúc</li>}
                           </>
                         ) : hasNextInRow ? (
@@ -1065,7 +1073,17 @@ export function WorkflowReader({
                     );
                   })}
                 </ol>
-                {hasNextRow && <svg className="pointer-events-none absolute top-1/2 overflow-visible" style={{ left: connectorLeft }} width={connectorWidth} height={connectorHeight} viewBox={`${connectorLeft} 0 ${connectorWidth} ${connectorHeight}`} fill="none" aria-hidden="true"><path d={`M${row.width} 0 V${connectorHeight - 22} H${nextCenter} V${connectorHeight}`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d={`m${nextCenter - 5} ${connectorHeight - 5} 5 5 5 -5`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                {hasNextRow && <svg className={`pointer-events-none absolute overflow-visible ${wrappingBranches.length ? "top-0" : "top-1/2"}`} style={{ left: connectorLeft }} width={connectorWidth} height={wrappingBranches.length ? row.height + 64 + (nextRow.height - 112) / 2 : connectorHeight} viewBox={`${connectorLeft} 0 ${connectorWidth} ${wrappingBranches.length ? row.height + 64 + (nextRow.height - 112) / 2 : connectorHeight}`} fill="none" aria-hidden="true">
+                  {wrappingBranches.length ? wrappingBranches.map((child, index) => {
+                    const childY = branchTop + (branchHeight - branchStackHeight) / 2 + index * 52 + 22;
+                    const targetX = nextCenter + (index - (wrappingBranches.length - 1) / 2) * Math.min(16, 80 / Math.max(1, wrappingBranches.length - 1));
+                    const targetY = row.height + 64 + (nextRow.height - 112) / 2;
+                    return <g key={child.id} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={`M${row.width} ${childY} C${row.width + 24} ${childY} ${targetX} ${targetY - 32} ${targetX} ${targetY}`} />
+                      <path d={`m${targetX - 5} ${targetY - 5} 5 5 5 -5`} />
+                    </g>;
+                  }) : <><path d={`M${row.width} 0 V${connectorHeight - 22} H${nextCenter} V${connectorHeight}`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d={`m${nextCenter - 5} ${connectorHeight - 5} 5 5 5 -5`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></>}
+                </svg>}
                   </div>;
                 })}
                 </div>
