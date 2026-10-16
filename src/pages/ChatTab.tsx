@@ -1778,18 +1778,18 @@ export default function ChatTab() {
 
   return (
     <div
-      className="flex h-full w-full overflow-hidden rounded-none border-0 bg-white/70 shadow-none backdrop-blur-xl md:rounded-3xl md:border-2 md:border-slate-300 md:shadow-2xl md:shadow-slate-200"
+      className="flex h-full w-full overflow-hidden rounded-none border-0 bg-white shadow-none md:rounded-2xl md:border md:border-[#dce7f4] md:shadow-sm"
       id="chat_tab_root"
     >
 
       {/* LEFT SIDEBAR: Conversations & Search */}
-      <div className={`flex w-80 shrink-0 flex-col border-r-2 border-slate-300 bg-slate-100/80 transition-all duration-300 ${activeRoom ? "hidden md:flex" : "w-full flex"}`} id="chat_sidebar">
+      <div className={`flex w-80 shrink-0 flex-col border-r border-[#dce7f4] bg-[#f8fbff] transition-all duration-300 ${activeRoom ? "hidden md:flex" : "w-full flex"}`} id="chat_sidebar">
 
         {/* 1. SIDEBAR HEADER BLOCK */}
-        <div className="p-4 border-b-2 border-slate-300 bg-white backdrop-blur-md shrink-0">
+        <div className="shrink-0 border-b border-[#dce7f4] bg-white p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 shadow-2xs border border-indigo-200">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#bceaff] bg-[#e8f7ff] text-[#008acb]">
                 <MessageSquare className="h-5 w-5" />
               </div>
               <div>
@@ -1808,7 +1808,7 @@ export default function ChatTab() {
                   toast.info(next ? "Đã tắt âm báo tin nhắn" : "Đã bật âm báo tin nhắn");
                 }}
                 className={`flex h-8 w-8 items-center justify-center rounded-xl border transition active:scale-95 ${
-                  soundMuted ? "bg-slate-100 text-slate-400 border-slate-300" : "bg-indigo-50 text-indigo-600 border-indigo-300 hover:bg-indigo-100"
+                  soundMuted ? "bg-slate-100 text-slate-400 border-slate-300" : "border-[#bceaff] bg-[#e8f7ff] text-[#008acb] hover:bg-[#d7f2ff]"
                 }`}
                 title={soundMuted ? "Bật âm báo tin nhắn" : "Tắt âm báo tin nhắn"}
               >
@@ -1818,7 +1818,7 @@ export default function ChatTab() {
               {/* Create group button */}
               <button
                 onClick={() => setShowCreateGroupModal(true)}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white transition hover:bg-indigo-700 active:scale-95 shadow-sm shadow-indigo-200"
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#00adfc] text-white transition hover:bg-[#0098e0] active:scale-95"
                 title="Tạo nhóm chat mới"
               >
                 <Plus className="h-4 w-4" />
@@ -1833,7 +1833,7 @@ export default function ChatTab() {
               placeholder="Tìm kiếm cuộc trò chuyện, nhân sự..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-9 pr-8 text-xs outline-none transition-all duration-200 focus:border-indigo-600 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 placeholder-slate-400 font-medium"
+              className="w-full rounded-xl border border-[#dce7f4] bg-[#f8fbff] py-2 pl-9 pr-8 text-xs font-medium outline-none transition-colors placeholder:text-slate-400 focus:border-[#00adfc] focus:bg-white focus:ring-2 focus:ring-[#00adfc]/15"
             />
             <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
             {searchQuery && (
@@ -1983,8 +1983,8 @@ export default function ChatTab() {
                       key={room._id}
                       onClick={() => setActiveRoom(room)}
                       className={`group relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 border ${isSelected
-                        ? "bg-white border-2 border-indigo-600 shadow-sm border-l-4 border-l-indigo-600"
-                        : "bg-white border border-slate-300 hover:border-indigo-400 hover:shadow-2xs text-slate-700"
+                        ? "border-[#00adfc] bg-[#e8f7ff] text-slate-900 shadow-sm"
+                        : "border-[#dce7f4] bg-white text-slate-700 hover:border-[#8edcff] hover:bg-[#f3faff]"
                         }`}
                     >
                       {/* Avatar */}
@@ -1992,11 +1992,11 @@ export default function ChatTab() {
                         {roomAvatar && roomAvatar !== "cloud-avatar" && roomAvatar !== "ai-avatar" ? (
                           <img src={roomAvatar} alt={roomName} className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
+                          <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-[#e8f7ff]">
                             {roomAvatar === "cloud-avatar" ? (
-                              <Cloud className="h-5 w-5 text-indigo-600" />
+                              <Cloud className="h-5 w-5 text-[#008acb]" />
                             ) : roomAvatar === "ai-avatar" ? (
-                              <Bot className="h-5 w-5 text-indigo-600" />
+                              <Bot className="h-5 w-5 text-[#008acb]" />
                             ) : room.isGroup ? (
                               <Users className="h-5 w-5 text-slate-500" />
                             ) : (
@@ -2037,7 +2037,7 @@ export default function ChatTab() {
 
                       {/* Unread count badge */}
                       {hasUnread && (
-                        <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-extrabold text-white shadow-xs">
+                        <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-[#00adfc] px-1.5 text-[10px] font-extrabold text-white">
                           {unreadCount > 99 ? "99+" : unreadCount}
                         </span>
                       )}
@@ -2052,11 +2052,11 @@ export default function ChatTab() {
 
 
       {/* RIGHT CHAT AREA (MIDDLE WORKSPACE) */}
-      <div className={`flex flex-1 flex-col bg-slate-100/90 relative transition-all duration-300 ${activeRoom ? "flex" : "hidden md:flex"}`} id="chat_box_area">
+      <div className={`relative flex flex-1 flex-col bg-[#f3faff] transition-all duration-300 ${activeRoom ? "flex" : "hidden md:flex"}`} id="chat_box_area">
         {activeRoom ? (
           <>
             {/* CHAT HEADER BLOCK */}
-            <div className="flex h-16 shrink-0 items-center justify-between border-b-2 border-slate-300 bg-white px-3 shadow-2xs backdrop-blur-md sm:h-[72px] sm:px-4 md:px-6">
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#dce7f4] bg-white px-3 sm:h-[72px] sm:px-4 md:px-6">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 {/* Back button on mobile */}
                 <button
@@ -2072,11 +2072,11 @@ export default function ChatTab() {
                   {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" && getRoomAvatar(activeRoom) !== "ai-avatar" ? (
                     <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-indigo-50">
+                    <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-[#e8f7ff]">
                       {getRoomAvatar(activeRoom) === "cloud-avatar" ? (
-                        <Cloud className="h-5 w-5 text-indigo-600" />
+                        <Cloud className="h-5 w-5 text-[#008acb]" />
                       ) : getRoomAvatar(activeRoom) === "ai-avatar" ? (
-                        <Bot className="h-5 w-5 text-indigo-600" />
+                        <Bot className="h-5 w-5 text-[#008acb]" />
                       ) : activeRoom.isGroup ? (
                         <Users className="h-5 w-5 text-slate-500" />
                       ) : (
@@ -2121,7 +2121,7 @@ export default function ChatTab() {
                       setSearchMessageResults([]);
                     }
                   }}
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition active:scale-95 ${showSearchPanel ? "bg-indigo-50 border-indigo-300 text-indigo-600 font-bold" : "border-slate-300 text-slate-600 hover:bg-slate-100"}`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition active:scale-95 ${showSearchPanel ? "border-[#8edcff] bg-[#e8f7ff] text-[#008acb]" : "border-[#dce7f4] text-slate-600 hover:bg-[#e8f7ff]"}`}
                   title="Tìm kiếm tin nhắn, file, link"
                 >
                   <Search className="h-4.5 w-4.5" />
@@ -2135,7 +2135,7 @@ export default function ChatTab() {
                       setShowSearchPanel(false);
                     }
                   }}
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition active:scale-95 ${showRoomDetails ? "bg-indigo-50 border-indigo-300 text-indigo-600 font-bold" : "border-slate-300 text-slate-600 hover:bg-slate-100"}`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl border transition active:scale-95 ${showRoomDetails ? "border-[#8edcff] bg-[#e8f7ff] text-[#008acb]" : "border-[#dce7f4] text-slate-600 hover:bg-[#e8f7ff]"}`}
                   title="Thông tin cuộc trò chuyện"
                 >
                   <Info className="h-5 w-5" />
@@ -2282,7 +2282,7 @@ export default function ChatTab() {
                          <div key={msg._id} className={`flex flex-col ${index === 0 ? "" : isPrevSameSender ? "mt-1" : "mt-3.5"}`}>
                            {showDateHeader && (
                              <div className="flex justify-center my-3">
-                               <span className="rounded-full bg-slate-200/60 px-3 py-1 text-[10px] font-semibold text-slate-500 shadow-xs">
+                               <span className="rounded-full border border-[#dce7f4] bg-white px-3 py-1 text-[10px] font-semibold text-slate-500">
                                  {new Date(msg.createdAt).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                </span>
                              </div>
@@ -2294,8 +2294,8 @@ export default function ChatTab() {
                                showAvatar ? (
                                  <div className="h-8 w-8 rounded-lg bg-slate-200 overflow-hidden border border-gray-100 mt-1 shrink-0 flex items-center justify-center">
                                    {activeRoom.isChatbot ? (
-                                     <div className="flex h-full w-full items-center justify-center bg-indigo-50">
-                                       <Bot className="h-4 w-4 text-indigo-600" />
+                                     <div className="flex h-full w-full items-center justify-center bg-[#e8f7ff]">
+                                       <Bot className="h-4 w-4 text-[#008acb]" />
                                      </div>
                                    ) : msg.senderPhoto ? (
                                      <img src={msg.senderPhoto} alt={msg.senderName} className="h-full w-full object-cover" />
@@ -2442,12 +2442,12 @@ export default function ChatTab() {
                               {/* Bubble */}
                               <div
                                 className={`rounded-2xl px-4 py-2.5 text-sm shadow-sm transition-all duration-300 ${isMe
-                                  ? "bg-gradient-to-br from-indigo-650 via-indigo-600 to-violet-600 text-white rounded-tr-none shadow-md shadow-indigo-100/40"
+                                  ? "bg-[#00adfc] text-white rounded-tr-none shadow-sm"
                                   : getMsgSenderRole(msg) === "admin"
-                                    ? "bg-amber-50/90 text-amber-950 rounded-tl-none border border-amber-300 shadow-xs backdrop-blur-xs hover:shadow-md hover:bg-amber-100/50"
+                                    ? "bg-white text-slate-800 rounded-tl-none border border-[#dce7f4] shadow-sm"
                                     : getMsgSenderRole(msg) === "deputy"
-                                      ? "bg-indigo-50/90 text-indigo-950 rounded-tl-none border border-indigo-300 shadow-xs backdrop-blur-xs hover:shadow-md hover:bg-indigo-100/50"
-                                      : "bg-slate-200 text-slate-800 rounded-tl-none border border-slate-300/50 shadow-xs backdrop-blur-xs hover:shadow-md hover:bg-slate-200/80"
+                                      ? "bg-white text-slate-800 rounded-tl-none border border-[#bceaff] shadow-sm"
+                                      : "bg-white text-slate-800 rounded-tl-none border border-[#dce7f4] shadow-sm"
                                   }`}
                               >
                                 {/* Quoted / Replied message */}
@@ -2458,8 +2458,8 @@ export default function ChatTab() {
                                       jumpToMessage(repliedId);
                                     }}
                                     className={`mb-2 px-2.5 py-1.5 rounded-lg border-l-4 text-xs cursor-pointer transition max-w-full truncate ${isMe
-                                        ? "bg-indigo-700/40 border-indigo-300 text-indigo-100 hover:bg-indigo-700/65"
-                                        : "bg-white/70 border-indigo-500 text-slate-700 hover:bg-white/95"
+                                        ? "border-white/50 bg-white/15 text-white hover:bg-white/25"
+                                        : "border-[#00adfc] bg-[#e8f7ff] text-slate-700 hover:bg-[#d7f2ff]"
                                       }`}
                                   >
                                     <p className="font-semibold truncate">
@@ -2549,7 +2549,7 @@ export default function ChatTab() {
                                             setPreviewAttachment(file);
                                           }}
                                           className={`flex items-center gap-2 rounded-xl p-2.5 transition border text-left w-full cursor-pointer ${isMe
-                                            ? "bg-indigo-700/50 border-indigo-500/30 text-indigo-50 hover:bg-indigo-700/80"
+                                            ? "border-white/50 bg-white/15 text-white hover:bg-white/25"
                                             : "bg-slate-50 border-gray-100 text-slate-700 hover:bg-slate-100"
                                             }`}
                                         >
@@ -2660,11 +2660,11 @@ export default function ChatTab() {
                     className="absolute bottom-4 right-4 md:right-6 z-10 flex items-center gap-1.5 rounded-full bg-white/95 border border-slate-200 pl-2 pr-3 py-2 shadow-lg backdrop-blur-sm hover:bg-white transition active:scale-95"
                     title="Cuộn xuống tin mới nhất"
                   >
-                    <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white">
+                      <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-[#00adfc] text-white">
                       <ChevronDown className="h-4 w-4" />
                     </span>
                     {newMsgCount > 0 && (
-                      <span className="text-xs font-bold text-indigo-700">
+                      <span className="text-xs font-bold text-[#007eb8]">
                         {newMsgCount > 99 ? "99+" : newMsgCount} tin nhắn mới
                       </span>
                     )}
@@ -3047,7 +3047,7 @@ export default function ChatTab() {
                               {msg.senderPhoto ? (
                                 <img src={msg.senderPhoto} alt={msg.senderName} className="h-full w-full object-cover" />
                               ) : (
-                                <div className="h-full w-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-xs">
+                                <div className="flex h-full w-full items-center justify-center bg-[#00adfc] text-xs font-bold text-white">
                                   {initial}
                                 </div>
                               )}
@@ -3125,7 +3125,7 @@ export default function ChatTab() {
             </div>
 
             {/* CHAT INPUT AREA */}
-            <div className="border-t-2 border-slate-300 bg-white p-3 md:p-4 shadow-md backdrop-blur-md">
+            <div className="border-t border-[#dce7f4] bg-white p-3 md:p-4">
               {canUserMessage ? (
                 <>
                   {/* Replying message banner */}
@@ -3190,11 +3190,11 @@ export default function ChatTab() {
                   )}
 
                   {replyingMessage && (
-                    <div className="flex items-center justify-between bg-indigo-50/70 border border-indigo-100/50 rounded-xl px-4 py-2 mb-3 text-xs">
+                    <div className="mb-3 flex items-center justify-between rounded-xl border border-[#bceaff] bg-[#e8f7ff] px-4 py-2 text-xs">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <CornerUpLeft className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                        <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-[#008acb]" />
                         <div className="min-w-0 flex-1 mr-2">
-                          <p className="font-semibold text-indigo-850">
+                          <p className="font-semibold text-[#007eb8]">
                             Đang trả lời {replyingMessage.senderName}
                           </p>
                           <p className="text-slate-500 truncate mt-0.5">
@@ -3216,13 +3216,13 @@ export default function ChatTab() {
                   {attachments.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
                       {attachments.map((file, idx) => (
-                        <div key={idx} className="flex items-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 p-2 text-xs text-indigo-700">
+                        <div key={idx} className="flex items-center gap-2 rounded-xl border border-[#bceaff] bg-[#e8f7ff] p-2 text-xs text-[#007eb8]">
                           <FileIcon className="h-3.5 w-3.5" />
                           <span className="max-w-[120px] truncate font-medium">{file.name}</span>
                           <button
                             type="button"
                             onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                            className="text-indigo-400 hover:text-indigo-600"
+                            className="text-[#008acb] hover:text-[#007eb8]"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
@@ -3241,7 +3241,7 @@ export default function ChatTab() {
                             key={idx}
                             type="button"
                             onClick={() => setActiveEmojiCategoryTab(idx)}
-                            className={`text-lg p-1.5 rounded-lg transition-all duration-150 ${activeEmojiCategoryTab === idx ? "bg-indigo-50 border-b-2 border-indigo-500 scale-110" : "hover:bg-slate-100"}`}
+                            className={`rounded-lg p-1.5 text-lg transition-colors ${activeEmojiCategoryTab === idx ? "border-b-2 border-[#00adfc] bg-[#e8f7ff]" : "hover:bg-slate-100"}`}
                             title={cat.title}
                           >
                             {cat.icon}
@@ -3276,7 +3276,7 @@ export default function ChatTab() {
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingFile}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-indigo-655 hover:bg-indigo-50 border border-slate-150/40 transition active:scale-95 disabled:opacity-50"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#dce7f4] bg-white text-slate-600 transition hover:border-[#8edcff] hover:bg-[#e8f7ff] hover:text-[#008acb] active:scale-95 disabled:opacity-50"
                       title="Đính kèm tài liệu, ảnh, video"
                     >
                       {uploadingFile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
@@ -3286,7 +3286,7 @@ export default function ChatTab() {
                     {!isRecording && <button
                       type="button"
                       onClick={() => setShowStickerPicker((p) => !p)}
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition active:scale-95 disabled:opacity-50 ${showStickerPicker ? "bg-amber-50 text-amber-500 border-amber-200" : "bg-slate-50 text-slate-450 hover:text-amber-500 hover:bg-amber-50 border-slate-150/40"}`}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition active:scale-95 disabled:opacity-50 ${showStickerPicker ? "border-[#8edcff] bg-[#e8f7ff] text-[#008acb]" : "border-[#dce7f4] bg-white text-slate-600 hover:border-[#8edcff] hover:bg-[#e8f7ff] hover:text-[#008acb]"}`}
                       title="Chọn emoji"
                     >
                       <Smile className="h-5 w-5" />
@@ -3297,7 +3297,7 @@ export default function ChatTab() {
                       type="button"
                       onClick={startVideoRecording}
                       disabled={uploadingVideo}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-rose-500 hover:bg-rose-50 border border-slate-150/40 transition active:scale-95 disabled:opacity-50"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#dce7f4] bg-white text-slate-600 transition hover:border-[#8edcff] hover:bg-[#e8f7ff] hover:text-[#008acb] active:scale-95 disabled:opacity-50"
                       title="Ghi hình gửi tin nhắn video"
                     >
                       {uploadingVideo ? <Loader2 className="h-5 w-5 animate-spin" /> : <Video className="h-5 w-5" />}
@@ -3352,7 +3352,7 @@ export default function ChatTab() {
                             }
                           }
                         }}
-                        className="max-h-[140px] min-w-0 flex-1 resize-none rounded-2xl border border-slate-200/80 bg-slate-55/60 px-3 py-3 text-sm leading-relaxed outline-none transition-all duration-300 placeholder-slate-450 focus:border-indigo-500/80 focus:bg-white focus:ring-4 focus:ring-indigo-500/5 focus:shadow-[0_0_15px_-3px_rgba(99,102,241,0.15)] sm:px-5"
+                        className="max-h-[140px] min-w-0 flex-1 resize-none rounded-xl border border-[#dce7f4] bg-white px-3 py-3 text-sm leading-relaxed outline-none transition-colors placeholder:text-slate-400 focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/15 sm:px-5"
                       />
                     )}
 
@@ -3370,7 +3370,7 @@ export default function ChatTab() {
                     ) : messageInput.trim() || attachments.length > 0 ? (
                       <button
                         type="submit"
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white transition-all duration-300 hover:shadow-lg hover:shadow-indigo-200/60 hover:scale-105 active:scale-95 shadow-md shadow-indigo-100"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#00adfc] text-white transition hover:bg-[#0098e0] active:scale-95"
                       >
                         <Send className="h-4 w-4" />
                       </button>
@@ -3378,7 +3378,7 @@ export default function ChatTab() {
                       <button
                         type="button"
                         onClick={startRecording}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-slate-450 hover:text-rose-500 hover:bg-rose-50 border border-slate-150/40 transition active:scale-95"
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#dce7f4] bg-white text-slate-600 transition hover:border-[#8edcff] hover:bg-[#e8f7ff] hover:text-[#008acb] active:scale-95"
                         title="Ghi âm tin nhắn thoại"
                       >
                         <Mic className="h-5 w-5" />
@@ -3398,11 +3398,10 @@ export default function ChatTab() {
           </>
         ) : (
           /* UNSELECTED STATE DISPLAY */
-          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-indigo-50/15 via-slate-50/40 to-violet-50/10 relative">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.06),transparent_60%)] pointer-events-none" />
-            <div className="relative z-10 flex flex-col items-center max-w-sm p-8 rounded-3xl bg-white/70 border border-slate-100/90 shadow-xl backdrop-blur-md transition-all duration-500 hover:shadow-2xl hover:scale-[1.01] group">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white mb-6 shadow-lg shadow-indigo-100 transition-all duration-300 group-hover:scale-110">
-                <MessageSquare className="h-8 w-8 animate-pulse" />
+          <div className="relative flex flex-1 flex-col items-center justify-center bg-[#f3faff] p-8 text-center">
+            <div className="relative z-10 flex max-w-sm flex-col items-center rounded-2xl border border-[#dce7f4] bg-white p-8 shadow-sm">
+              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#00adfc] text-white">
+                <MessageSquare className="h-8 w-8" />
               </div>
               <h3 className="text-lg font-extrabold text-slate-800 tracking-tight">Chào mừng đến với Trò chuyện!</h3>
               <p className="text-xs text-slate-500 mt-2.5 leading-relaxed">
