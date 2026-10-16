@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import {
   Search, Download, Printer, Plus,
   Eye, Trash2, Pencil,
-  X, Calendar as CalendarIcon,
+  X,
   Users, Car, Upload, Languages, Lightbulb, BookOpen, UserX, QrCode
 } from 'lucide-react';
 import { cn, formatVND, formatDisplayDate } from '../../lib/utils';
@@ -20,6 +20,7 @@ import { ImportStudentModal } from '../../components/Student/ImportStudentModal'
 import { RegisterQRModal } from '../../components/Student/RegisterQRModal';
 import { Pagination } from '../../components/ui/Pagination';
 import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
+import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { useBranch } from '../../../../context/BranchContext';
 import { useAuth } from '../../../../context/AuthContext';
@@ -602,31 +603,11 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
         </div>
         <div className="space-y-0.5">
           <label className="text-xs font-normal text-slate-600">Từ ngày</label>
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="dd/MM/yyyy"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-9 w-full rounded-xl border border-sky-100 bg-white pl-3 pr-8 text-sm font-normal outline-none placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
-            />
-            <CalendarIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          </div>
+          <VietnameseDatePicker ariaLabel="Từ ngày" value={startDate} onChange={setStartDate} selectionOnly variant="filter" />
         </div>
         <div className="space-y-0.5">
           <label className="text-xs font-normal text-slate-600">Đến ngày</label>
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="dd/MM/yyyy"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="h-9 w-full rounded-xl border border-sky-100 bg-white pl-3 pr-8 text-sm font-normal outline-none placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
-            />
-            <CalendarIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          </div>
+          <VietnameseDatePicker ariaLabel="Đến ngày" value={endDate} onChange={setEndDate} selectionOnly variant="filter" />
         </div>
 
         <div className="space-y-0.5">

@@ -29,9 +29,11 @@ interface VietnameseDatePickerProps {
   onChange: (value: string) => void;
   required?: boolean;
   ariaLabel: string;
+  selectionOnly?: boolean;
+  variant?: 'default' | 'filter';
 }
 
-export function VietnameseDatePicker({ value, onChange, required, ariaLabel }: VietnameseDatePickerProps) {
+export function VietnameseDatePicker({ value, onChange, required, ariaLabel, selectionOnly = false, variant = 'default' }: VietnameseDatePickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const [displayValue, setDisplayValue] = useState(() => toDisplayDate(value));
@@ -93,11 +95,12 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel }: V
 
   return (
     <div className="relative">
-      <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      {variant !== 'filter' && <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />}
       <input
         ref={inputRef}
         type="text"
-        inputMode="numeric"
+        inputMode={selectionOnly ? undefined : 'numeric'}
+        readOnly={selectionOnly}
         autoComplete="off"
         required={required}
         aria-label={ariaLabel}
@@ -125,7 +128,9 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel }: V
           setVisibleMonth(toLocalDate(value));
           setOpen(true);
         }}
-        className={`${erpInputClass(false)} cursor-pointer pl-9 pr-10`}
+        className={variant === 'filter'
+          ? 'h-9 w-full cursor-pointer rounded-xl border border-sky-100 bg-white pl-3 pr-10 text-sm font-normal text-slate-800 outline-none placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10'
+          : `${erpInputClass(false)} cursor-pointer pl-9 pr-10`}
       />
       <button type="button" onClick={() => { setVisibleMonth(toLocalDate(value)); setOpen((current) => !current); }} aria-label={`Chọn ${ariaLabel.toLowerCase()}`} aria-expanded={open} className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-slate-500 hover:text-brand-primary">
         <CalendarDays className="h-4 w-4" />
