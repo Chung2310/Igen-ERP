@@ -1075,6 +1075,7 @@ function NewWorkflowWizard({
   };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
   const isEditing = Boolean(initialData);
@@ -1400,8 +1401,36 @@ function NewWorkflowWizard({
                             <React.Fragment key={s.id}>
                               {/* Node Card */}
                               <div
+                                draggable
                                 onClick={() => setSelectedId(s.id)}
-                                className={`canvas-node relative min-h-28 w-48 shrink-0 cursor-pointer rounded-2xl border p-4 text-left shadow-[0_8px_22px_rgba(35,67,113,0.10)] transition-all duration-200 ${
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData("text/plain", `workflow-step:${s.id}`);
+                                  e.dataTransfer.effectAllowed = "move";
+                                  setDragId(s.id);
+                                  setSelectedId(s.id);
+                                }}
+                                onDragOver={(e) => {
+                                  if (!dragId || dragId === s.id) return;
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  e.dataTransfer.dropEffect = "move";
+                                  setDropTargetId(s.id);
+                                }}
+                                onDragLeave={(e) => {
+                                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropTargetId(null);
+                                }}
+                                onDrop={(e) => {
+                                  if (!dragId) return;
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  reorder(s.id);
+                                  setDropTargetId(null);
+                                }}
+                                onDragEnd={() => {
+                                  setDragId(null);
+                                  setDropTargetId(null);
+                                }}
+                                className={`canvas-node relative min-h-28 w-48 shrink-0 cursor-grab rounded-2xl border p-4 text-left shadow-[0_8px_22px_rgba(35,67,113,0.10)] transition-all duration-200 active:cursor-grabbing ${dragId === s.id ? "opacity-50" : ""} ${dropTargetId === s.id ? "ring-2 ring-[#00adfc] ring-offset-2" : ""} ${
                                   isSelected
                                     ? isDark
                                       ? "border-sky-500 bg-sky-950/20 ring-2 ring-sky-500/20"
@@ -1516,9 +1545,14 @@ function NewWorkflowWizard({
                     <div
                       key={s.id}
                       draggable
-                      onDragStart={() => setDragId(s.id)}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/plain", `workflow-step:${s.id}`);
+                        e.dataTransfer.effectAllowed = "move";
+                        setDragId(s.id);
+                      }}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={() => reorder(s.id)}
+                      onDragEnd={() => setDragId(null)}
                       className={`flex items-center gap-2 border p-3 rounded-2xl transition-all cursor-pointer shadow-sm ${selectedId === s.id
                         ? isDark
                           ? "border-sky-500/80 bg-sky-950/10"
