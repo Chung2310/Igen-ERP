@@ -960,10 +960,8 @@ export function WorkflowReader({
     const previousRow = flowRows[flowRows.length - 1];
     let desiredOffset = 0;
     if (previousRow) {
-      desiredOffset = previousRow.offset;
-      for (let index = previousRow.start; index < previousRow.end - 1; index++) {
-        desiredOffset += 192 + (branchWidth(workflow.steps[index]) || 46);
-      }
+      // Center the next main stage below the previous row's outgoing arrow.
+      desiredOffset = previousRow.offset + previousRow.width - 96;
     }
     let end = start + 1;
     while (end < workflow.steps.length && rowWidth(start, end + 1) <= availableWidth - desiredOffset) end++;
