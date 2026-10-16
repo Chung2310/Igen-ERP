@@ -17,7 +17,7 @@ import {
   GripVertical,
   ArrowDown,
   ArrowRight,
-  Check,
+  ChevronDown,
   Clock,
   CheckCircle2,
   ExternalLink,
@@ -386,6 +386,7 @@ export default function WorkflowTab({
   // =================== VIEW: DANH SÁCH ===================
   if (view === "detail") {
     return (
+      <>
       <WorkflowReader
         workflow={{
           id: activeId,
@@ -401,6 +402,19 @@ export default function WorkflowTab({
         onSave={handleSave}
         onDelete={handleDeleteWorkflow}
       />
+      {confirmState && (
+        <ConfirmDialog
+          appearance="erp"
+          showCancel={false}
+          isOpen={confirmState.isOpen}
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          onClose={() => setConfirmState(null)}
+          onConfirm={confirmState.onConfirm}
+        />
+      )}
+      </>
     );
   }
 
@@ -973,7 +987,7 @@ function WorkflowStepDetailModal({
         {step.description && <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-700">{step.description}</p>}
         {step.note && <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"><strong>Lưu ý:</strong> {step.note}</div>}
         {step.deliverable && <div className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-800"><strong>Kết quả cần đạt:</strong> {step.deliverable}</div>}
-        {!!step.subTasks?.length && <div className="mt-5"><h3 className="text-xs font-medium tracking-wide text-slate-500">Công việc cần làm</h3><ul className="mt-2 space-y-2">{step.subTasks.map((task) => <li key={task.id} className="flex items-center gap-2 text-sm text-slate-700"><CheckCircle2 className="h-4 w-4 text-emerald-500" />{task.title}</li>)}</ul></div>}
+        {!!step.subTasks?.length && <div className="mt-5"><h3 className="text-xs font-medium tracking-wide text-slate-500">Giai đoạn con</h3><ul className="mt-2 space-y-2">{step.subTasks.map((task) => <li key={task.id} className="flex items-center gap-2 text-sm text-slate-700"><span className="h-2 w-2 shrink-0 rounded-full bg-[#00adfc]" />{task.title}</li>)}</ul></div>}
         {!!step.attachments?.length && <div className="mt-5"><h3 className="text-xs font-medium tracking-wide text-slate-500">Tệp đính kèm</h3><div className="mt-2 flex flex-wrap gap-2">{step.attachments.map((attachment) => <button key={attachment.id} type="button" onClick={() => onPreview(attachment)} className="flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-sky-600 hover:bg-sky-50"><ExternalLink className="h-3.5 w-3.5" />Xem preview: {attachment.name}</button>)}</div></div>}
       </div>
     </div>
@@ -1074,6 +1088,7 @@ function NewWorkflowWizard({
     setZoom((prev) => Math.min(Math.max(prev * factor, 0.5), 2));
   };
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedStageId, setExpandedStageId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -1118,6 +1133,12 @@ function NewWorkflowWizard({
   const deleteStep = (id: string) => {
     setSteps((prev) => prev.filter((s) => s.id !== id));
     if (selectedId === id) setSelectedId(null);
+    if (expandedStageId === id) setExpandedStageId(null);
+  };
+
+  const toggleStageDetails = (id: string) => {
+    setSelectedId(id);
+    setExpandedStageId((current) => current === id ? null : id);
   };
 
   const reorder = (targetId: string) => {
@@ -1392,14 +1413,17 @@ function NewWorkflowWizard({
                     }
 
                     return rows.map((row, rowIndex) => (
-                      <div key={rowIndex} className="relative flex w-max min-w-max items-center gap-x-3">
+                      <div key={rowIndex} className="relative flex w-max min-w-max items-start gap-x-3">
                         {row.map(({ step: s, index: idx }, cellIndex) => {
                           const isSelected = selectedId === s.id;
+                          const isExpanded = expandedStageId === s.id;
+                          const childStages = s.subTasks || [];
                           const hasNextInRow = cellIndex < row.length - 1;
 
                           return (
                             <React.Fragment key={s.id}>
                               {/* Node Card */}
+                              <div className="flex w-48 shrink-0 flex-col gap-2">
                               <div
                                 draggable
                                 onClick={() => setSelectedId(s.id)}
@@ -1430,7 +1454,7 @@ function NewWorkflowWizard({
                                   setDragId(null);
                                   setDropTargetId(null);
                                 }}
-                                className={`canvas-node relative min-h-28 w-48 shrink-0 cursor-grab rounded-2xl border p-4 text-left shadow-[0_8px_22px_rgba(35,67,113,0.10)] transition-all duration-200 active:cursor-grabbing ${dragId === s.id ? "opacity-50" : ""} ${dropTargetId === s.id ? "ring-2 ring-[#00adfc] ring-offset-2" : ""} ${
+                                className={`canvas-node relative min-h-28 w-full cursor-grab rounded-2xl border p-4 text-left shadow-[0_8px_22px_rgba(35,67,113,0.10)] transition-all duration-200 active:cursor-grabbing ${dragId === s.id ? "opacity-50" : ""} ${dropTargetId === s.id ? "ring-2 ring-[#00adfc] ring-offset-2" : ""} ${
                                   isSelected
                                     ? isDark
                                       ? "border-sky-500 bg-sky-950/20 ring-2 ring-sky-500/20"
@@ -1440,7 +1464,20 @@ function NewWorkflowWizard({
                                       : "border-[#dce7f4] bg-white hover:border-[#8edcff] hover:shadow-[0_12px_26px_rgba(35,67,113,0.15)]"
                                 }`}
                               >
-                                <span className={`text-[10px] ${isDark ? "text-sky-400" : "text-[#008dcc]"}`}>Bước {idx + 1}</span>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className={`text-[10px] ${isDark ? "text-sky-400" : "text-[#008dcc]"}`}>Bước {idx + 1}</span>
+                                  <button
+                                    type="button"
+                                    draggable={false}
+                                    onClick={(e) => { e.stopPropagation(); toggleStageDetails(s.id); }}
+                                    className={`rounded-lg p-1 transition-colors ${isExpanded ? "bg-[#e8f7ff] text-[#008dcc]" : isDark ? "text-zinc-400 hover:bg-zinc-800" : "text-slate-400 hover:bg-[#e8f7ff] hover:text-[#008dcc]"}`}
+                                    aria-label={`${isExpanded ? "Ẩn" : "Xem"} giai đoạn con của ${s.title}`}
+                                    aria-expanded={isExpanded}
+                                    title={`${isExpanded ? "Ẩn" : "Xem"} giai đoạn con`}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </button>
+                                </div>
 
                                 <h4
                                   className={`mt-1 line-clamp-2 text-sm font-medium leading-snug transition-colors ${
@@ -1461,12 +1498,23 @@ function NewWorkflowWizard({
                                     {s.description}
                                   </p>
                                 )}
-
+                                {childStages.length > 0 && !isExpanded && <p className={`mt-2 text-[10px] ${isDark ? "text-zinc-400" : "text-slate-500"}`}>{childStages.length} giai đoạn con</p>}
+                              </div>
+                              {isExpanded && (
+                                <div className={`canvas-node space-y-1.5 rounded-xl border p-2 ${isDark ? "border-zinc-700 bg-zinc-900/70" : "border-[#dce7f4] bg-white/90"}`}>
+                                  {childStages.length ? childStages.map((child, childIndex) => (
+                                    <div key={child.id} className={`flex items-start gap-2 rounded-lg px-2 py-1.5 text-xs ${isDark ? "bg-zinc-800 text-zinc-200" : "bg-[#f3faff] text-slate-700"}`}>
+                                      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#00adfc]" />
+                                      <span className="break-words">{idx + 1}.{childIndex + 1} {child.title}</span>
+                                    </div>
+                                  )) : <p className={`px-1 py-1 text-[11px] ${isDark ? "text-zinc-400" : "text-slate-500"}`}>Chưa có giai đoạn con.</p>}
+                                </div>
+                              )}
                               </div>
 
                               {/* Connector Line */}
                               {hasNextInRow && (
-                                <div className="flex items-center justify-center shrink-0">
+                                <div className="mt-12 flex shrink-0 items-center justify-center">
                                   <ArrowRight className={`h-5 w-5 ${isDark ? "text-sky-400" : "text-[#00adfc]"}`} />
                                 </div>
                               )}
@@ -1542,8 +1590,8 @@ function NewWorkflowWizard({
                   <p className={`rounded-2xl border border-dashed px-4 py-8 text-center text-xs ${isDark ? "border-zinc-700 text-zinc-400" : "border-[#dce7f4] text-slate-500"}`}>Chưa có giai đoạn. Nhấn “Thêm giai đoạn” để bắt đầu.</p>
                 ) : (
                   steps.map((s, i) => (
+                    <React.Fragment key={s.id}>
                     <div
-                      key={s.id}
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData("text/plain", `workflow-step:${s.id}`);
@@ -1561,7 +1609,16 @@ function NewWorkflowWizard({
                           ? "bg-[#242424] hover:bg-[#2e2e2e] border-zinc-800"
                           : "bg-white hover:bg-[#f8fbff] border-[#dce7f4]"
                         }`}
-                      onClick={() => setSelectedId(s.id)}
+                      onClick={() => toggleStageDetails(s.id)}
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={expandedStageId === s.id}
+                      onKeyDown={(e) => {
+                        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          toggleStageDetails(s.id);
+                        }
+                      }}
                     >
                       <GripVertical
                         className={`h-4 w-4 shrink-0 cursor-grab transition-colors ${isDark ? "text-zinc-650 hover:text-zinc-450" : "text-slate-400 hover:text-slate-650"
@@ -1575,6 +1632,16 @@ function NewWorkflowWizard({
                         {s.description && <p className={`mt-0.5 truncate text-[10px] ${isDark ? "text-zinc-400" : "text-slate-500"}`}>{s.description}</p>}
                       </div>
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => toggleStageDetails(s.id)}
+                          className={`rounded-md p-1 transition-colors ${expandedStageId === s.id ? "text-[#008dcc]" : isDark ? "text-zinc-400 hover:text-sky-400" : "text-slate-400 hover:text-[#008dcc]"}`}
+                          aria-label={`${expandedStageId === s.id ? "Ẩn" : "Xem"} giai đoạn con của ${s.title}`}
+                          aria-expanded={expandedStageId === s.id}
+                          title={`${expandedStageId === s.id ? "Ẩn" : "Xem"} giai đoạn con`}
+                        >
+                          <ChevronDown className={`h-4 w-4 transition-transform ${expandedStageId === s.id ? "rotate-180" : ""}`} />
+                        </button>
                         <button
                           type="button"
                           onClick={() => moveStep(s.id, -1)}
@@ -1622,6 +1689,25 @@ function NewWorkflowWizard({
                         </button>
                       </div>
                     </div>
+                    {expandedStageId === s.id && (
+                      <div className={`ml-5 space-y-2 border-l-2 pb-1 pl-4 ${isDark ? "border-sky-800" : "border-[#bceaff]"}`}>
+                        <p className={`text-[11px] ${isDark ? "text-zinc-400" : "text-slate-500"}`}>Giai đoạn con ({s.subTasks?.length || 0})</p>
+                        {(s.subTasks || []).map((child, childIndex) => (
+                          <div key={child.id} className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-xs ${isDark ? "border-zinc-700 bg-zinc-800/70 text-zinc-200" : "border-[#dce7f4] bg-[#f8fbff] text-slate-700"}`}>
+                            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#00adfc]" />
+                            <span className="break-words">{i + 1}.{childIndex + 1} {child.title}</span>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setEditingStep(s)}
+                          className="flex items-center gap-1 text-xs text-[#008dcc] hover:text-[#0074aa]"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Thêm giai đoạn con
+                        </button>
+                      </div>
+                    )}
+                    </React.Fragment>
                   ))
                 )}
               </div>
@@ -1629,7 +1715,7 @@ function NewWorkflowWizard({
                 <p className={`mb-2 text-xs font-medium ${isDark ? "text-zinc-200" : "text-slate-800"}`}>Hướng dẫn</p>
                 <div className={`space-y-1.5 rounded-xl px-3 py-2.5 text-[11px] ${isDark ? "bg-zinc-800/70 text-zinc-400" : "bg-[#f1f8ff] text-slate-600"}`}>
                   <p>• Kéo thả để sắp xếp thứ tự giai đoạn.</p>
-                  <p>• Chọn một giai đoạn để xem trên sơ đồ.</p>
+                  <p>• Chọn giai đoạn hoặc biểu tượng mắt để xem giai đoạn con.</p>
                   <p>• Dùng biểu tượng bút để sửa thông tin.</p>
                 </div>
               </div>
@@ -1686,6 +1772,7 @@ function NewWorkflowWizard({
           onClose={() => setEditingStep(null)}
           onSave={(updatedStep) => {
             setSteps((prev) => prev.map((s) => (s.id === updatedStep.id ? updatedStep : s)));
+            if (updatedStep.subTasks?.length) setExpandedStageId(updatedStep.id);
             setEditingStep(null);
           }}
         />
@@ -1733,11 +1820,12 @@ function WizardStepEditorModal({
   };
 
   const handleSave = () => {
+    const pendingChild = newSubTask.trim();
     onSave({
       ...step,
       title: title.trim() || step.title,
       description,
-      subTasks,
+      subTasks: pendingChild ? [...subTasks, { id: genId("substep"), title: pendingChild }] : subTasks,
       attachments,
     });
   };
@@ -1828,7 +1916,7 @@ function WizardStepEditorModal({
             <div className="mb-2 flex items-center justify-between">
               <span className={`text-xs ${isDark ? "text-zinc-300" : "text-slate-700"
                 }`}>
-                Công việc con ({subTasks.length})
+                Giai đoạn con ({subTasks.length})
               </span>
             </div>
             <div className="space-y-1.5">
@@ -1838,7 +1926,7 @@ function WizardStepEditorModal({
                   className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-normal transition-colors ${isDark ? "bg-zinc-800/60 border-zinc-700 text-zinc-200" : "bg-[#f8fbff] border-[#dce7f4] text-slate-700"
                     }`}
                 >
-                  <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-[#00adfc]" />
                   <span className="flex-1">{t.title}</span>
                   <button type="button" onClick={() => removeSubTask(t.id)} className={`hover:text-red-400 ${isDark ? "text-zinc-500" : "text-slate-400"
                     }`}>
@@ -1850,21 +1938,20 @@ function WizardStepEditorModal({
                 <input
                   value={newSubTask}
                   onChange={(e) => setNewSubTask(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") addSubTask(); }}
-                  placeholder="Thêm công việc con..."
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubTask(); } }}
+                  placeholder="Nhập tên giai đoạn con..."
                   className={`min-w-0 flex-1 bg-transparent text-xs font-normal outline-none transition-colors ${isDark ? "text-zinc-300 placeholder-zinc-500" : "text-slate-700 placeholder-slate-400"
                     }`}
                 />
-                {newSubTask && (
-                  <button
-                    onClick={addSubTask}
-                    type="button"
-                    className="rounded-lg p-1 text-sky-500 hover:bg-sky-500/10 hover:text-sky-600"
-                    title="Thêm công việc con"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                )}
+                <button
+                  onClick={addSubTask}
+                  type="button"
+                  disabled={!newSubTask.trim()}
+                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-[#008dcc] hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Thêm giai đoạn con"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Thêm
+                </button>
               </div>
             </div>
           </div>
