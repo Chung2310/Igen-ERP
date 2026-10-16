@@ -931,10 +931,10 @@ export function WorkflowReader({
                   <li
                     key={step.id}
                     onClick={() => setSelectedStep(step)}
-                    className="relative h-full cursor-pointer rounded-2xl border border-[#dce7f4] bg-white p-5 shadow-sm transition-all hover:border-[#70d5ff] hover:shadow-md"
+                    className="relative flex h-full min-h-24 cursor-pointer items-center rounded-2xl border border-[#dce7f4] bg-white p-5 shadow-sm transition-all hover:border-[#70d5ff] hover:shadow-md"
                   >
                     {index < workflow.steps.length - 1 && <ArrowRight className="pointer-events-none absolute -bottom-3 left-1/2 z-10 h-5 w-5 -translate-x-1/2 rotate-90 rounded-full bg-white text-[#00adfc] sm:-right-3 sm:bottom-auto sm:left-auto sm:top-1/2 sm:translate-x-0 sm:-translate-y-1/2 sm:rotate-0" aria-hidden="true" />}
-                    <div className="flex items-start gap-4">
+                    <div className="flex w-full items-center gap-4">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#00adfc] text-sm font-medium text-white">{index + 1}</span>
                       <div className="min-w-0 flex-1">
                         <h2 className="break-words text-base font-medium leading-snug text-slate-800">{step.title || `Bước ${index + 1}`}</h2>
