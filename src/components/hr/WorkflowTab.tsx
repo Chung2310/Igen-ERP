@@ -925,6 +925,43 @@ export function WorkflowReader({
   const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<TaskAttachment | null>(null);
   const [showStageBranches, setShowStageBranches] = useState(false);
+  const flowRef = React.useRef<HTMLDivElement>(null);
+  const [flowWidth, setFlowWidth] = useState(0);
+
+  useEffect(() => {
+    const element = flowRef.current;
+    if (!element) return;
+    const updateWidth = () => setFlowWidth(element.clientWidth);
+    updateWidth();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [workflow.steps.length]);
+
+  const branchWidth = (step: WorkflowStep) => showStageBranches && step.subTasks?.length ? 280 : 0;
+  const rowWidth = (start: number, end: number) => {
+    let width = 0;
+    for (let index = start; index < end; index++) {
+      width += 192;
+      if (index < end - 1) width += branchWidth(workflow.steps[index]) || 46;
+      else if (end < workflow.steps.length) width += branchWidth(workflow.steps[index]);
+      else if (branchWidth(workflow.steps[index])) width += 280 + 192;
+    }
+    return width;
+  };
+  const rowHeight = (start: number, end: number) => Math.max(112, ...workflow.steps.slice(start, end).map((step) => {
+    const count = showStageBranches ? step.subTasks?.length || 0 : 0;
+    return count ? count * 44 + (count - 1) * 8 : 112;
+  }));
+  const flowRows: { start: number; end: number; width: number; height: number }[] = [];
+  const availableWidth = Math.max(640, (flowWidth || 948) - 48);
+  for (let start = 0; start < workflow.steps.length;) {
+    let end = start + 1;
+    while (end < workflow.steps.length && rowWidth(start, end + 1) <= availableWidth) end++;
+    flowRows.push({ start, end, width: rowWidth(start, end), height: rowHeight(start, end) });
+    start = end;
+  }
 
   return (
     <>
@@ -983,16 +1020,24 @@ export function WorkflowReader({
                 Chưa có bước nào trong quy trình.
               </div>
             ) : (
-              <div className="mt-5 overflow-x-auto rounded-2xl border border-[#dce7f4] bg-[#f8fbff] p-6" style={{ backgroundImage: "radial-gradient(#d5e4f4 0.8px, transparent 0.8px)", backgroundSize: "20px 20px" }}>
-                <ol className="flex w-max min-w-full items-center justify-center py-8">
-                  {workflow.steps.map((step, index) => {
+              <div ref={flowRef} className="mt-5 overflow-x-auto rounded-2xl border border-[#dce7f4] bg-[#f8fbff] p-6" style={{ backgroundImage: "radial-gradient(#d5e4f4 0.8px, transparent 0.8px)", backgroundSize: "20px 20px" }}>
+                <div className="flex flex-col items-start py-8">
+                {flowRows.map((row, rowIndex) => {
+                  const hasNextRow = rowIndex < flowRows.length - 1;
+                  const nextRow = flowRows[rowIndex + 1];
+                  const connectorHeight = row.height / 2 + 64 + (nextRow ? (nextRow.height - 112) / 2 : 0);
+                  return <div key={row.start} className="relative" style={{ width: row.width, minHeight: row.height, marginBottom: hasNextRow ? 64 : 0 }}>
+                  <ol className="relative z-10 flex items-center" style={{ minHeight: row.height }}>
+                  {workflow.steps.slice(row.start, row.end).map((step, offset) => {
+                    const index = row.start + offset;
                     const childStages = step.subTasks || [];
                     const hasNext = index < workflow.steps.length - 1;
+                    const hasNextInRow = index < row.end - 1;
                     return (
                       <React.Fragment key={step.id}>
                         <li
                           onClick={() => setSelectedStep(step)}
-                          className="flex min-h-28 w-48 shrink-0 cursor-pointer flex-col justify-center rounded-2xl border border-[#dce7f4] bg-white p-4 shadow-sm transition-all hover:border-[#70d5ff] hover:shadow-md"
+                          className="flex h-28 w-48 shrink-0 cursor-pointer flex-col justify-center rounded-2xl border border-[#dce7f4] bg-white p-4 shadow-sm transition-all hover:border-[#70d5ff] hover:shadow-md"
                         >
                           <span className="text-[10px] text-[#008dcc]">Bước {index + 1}</span>
                           <h2 className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-slate-800">{step.title || `Bước ${index + 1}`}</h2>
@@ -1001,15 +1046,19 @@ export function WorkflowReader({
                         {showStageBranches && childStages.length > 0 ? (
                           <>
                             <li className="list-none"><WorkflowStageBranch childStages={childStages} stageNumber={index + 1} isDark={false} /></li>
-                            {!hasNext && <li className="flex min-h-28 w-48 shrink-0 items-center justify-center rounded-2xl border border-[#dce7f4] bg-white text-sm text-slate-700 shadow-sm">Kết thúc</li>}
+                            {!hasNext && <li className="flex h-28 w-48 shrink-0 items-center justify-center rounded-2xl border border-[#dce7f4] bg-white text-sm text-slate-700 shadow-sm">Kết thúc</li>}
                           </>
-                        ) : hasNext ? (
+                        ) : hasNextInRow ? (
                           <li className="list-none" aria-hidden="true"><svg width="46" height="112" viewBox="0 0 46 112" fill="none" aria-hidden="true" className="shrink-0"><path d="M0 56h46m-6-5 6 5-6 5" stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></li>
                         ) : null}
                       </React.Fragment>
                     );
                   })}
                 </ol>
+                {hasNextRow && <svg className="pointer-events-none absolute left-0 top-1/2 overflow-visible" width={row.width + 24} height={connectorHeight} viewBox={`0 0 ${row.width + 24} ${connectorHeight}`} fill="none" aria-hidden="true"><path d={`M${row.width} 0 H${row.width + 24} V${connectorHeight - 22} H96 V${connectorHeight}`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d={`m91 ${connectorHeight - 5} 5 5 5 -5`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                  </div>;
+                })}
+                </div>
               </div>
             )}
           </div>
