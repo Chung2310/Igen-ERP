@@ -743,10 +743,12 @@ export default function UserAdminTab() {
                 <span className="text-sm text-slate-500">Đang tải danh sách tài khoản...</span>
               </div>
             ) : visibleUsers.length === 0 ? (
-              <div className="flex min-h-44 flex-col items-center justify-center rounded-2xl bg-slate-50 px-6 py-8 text-center">
-                <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600"><UsersRound className="h-5 w-5" /></span>
-                <p className="text-sm font-medium text-slate-700">Không tìm thấy tài khoản</p>
-                <p className="mt-1 text-xs text-slate-500">{searchQuery || filterStartDate || filterEndDate ? "Thử thay đổi từ khóa hoặc khoảng ngày." : "Danh sách sẽ hiển thị khi có tài khoản."}</p>
+              <div className="flex h-full min-h-[280px] items-center justify-center">
+                <div className="flex w-full max-w-md flex-col items-center rounded-2xl bg-white px-6 py-8 text-center shadow-sm">
+                  <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600"><UsersRound className="h-5 w-5" /></span>
+                  <p className="text-sm font-medium text-slate-700">Không tìm thấy tài khoản</p>
+                  <p className="mt-1 text-xs text-slate-500">{searchQuery || filterStartDate || filterEndDate ? "Thử thay đổi từ khóa hoặc khoảng ngày." : "Danh sách sẽ hiển thị khi có tài khoản."}</p>
+                </div>
               </div>
             ) : (
               <UserListTable

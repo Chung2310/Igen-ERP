@@ -1,4 +1,5 @@
 ﻿import { Search, X } from "lucide-react";
+import { AdminDatePicker } from "./AdminDatePicker";
 
 interface Props {
   searchQuery: string;
@@ -43,14 +44,8 @@ export function UserFiltersBar({
           )}
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-end">
-          <label className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
-            Từ ngày
-            <input type="date" value={filterStartDate} onChange={(event) => onFilterStartDateChange(event.target.value)} className="min-h-10 min-w-0 rounded-xl bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-cyan-200" />
-          </label>
-          <label className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">
-            Đến ngày
-            <input type="date" value={filterEndDate} onChange={(event) => onFilterEndDateChange(event.target.value)} className="min-h-10 min-w-0 rounded-xl bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-cyan-200" />
-          </label>
+          <AdminDatePicker label="Từ ngày" value={filterStartDate} onChange={onFilterStartDateChange} max={filterEndDate || undefined} />
+          <AdminDatePicker label="Đến ngày" value={filterEndDate} onChange={onFilterEndDateChange} min={filterStartDate || undefined} />
         </div>
       </div>
       <div className="flex items-center justify-between gap-3 pb-1 text-xs text-slate-500 lg:justify-end">
