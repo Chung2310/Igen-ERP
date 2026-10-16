@@ -1708,70 +1708,68 @@ function WizardStepEditorModal({
     });
   };
 
-  const inp = `w-full px-3 py-2 rounded-xl text-xs focus:outline-none focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 font-medium transition-all ${isDark
-    ? "bg-[#242424] border border-zinc-750 text-zinc-200"
-    : "bg-white border border-gray-200 text-slate-800"
+  const inp = `w-full rounded-xl border px-3 py-2.5 text-sm font-normal outline-none transition-colors focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/10 ${isDark
+    ? "bg-[#242424] border-zinc-700 text-zinc-200"
+    : "bg-white border-[#dce7f4] text-slate-800"
     }`;
 
-  const row = `flex items-start gap-3 py-2.5 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"
+  const row = `space-y-1.5 py-2.5 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-[#e4edf7]"
     }`;
 
-  const rowLabel = `w-28 shrink-0 text-[11px] font-medium pt-0.5 ${isDark ? "text-zinc-500" : "text-slate-450"
+  const rowLabel = `block text-xs font-normal ${isDark ? "text-zinc-300" : "text-slate-700"
     }`;
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center bg-black/55 backdrop-blur-xs p-4"
+      className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-3 sm:p-4"
       onClick={onClose}
     >
       <div
-        className={`w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors ${isDark
-          ? "bg-[#1c1c1c] text-zinc-150 border-zinc-800"
-          : "bg-white text-slate-850 border-gray-200"
+        className={`flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-[22px] border shadow-[0_24px_70px_rgba(24,46,85,0.25)] transition-colors ${isDark
+          ? "bg-[#1c1c1c] text-zinc-100 border-zinc-800"
+          : "bg-white text-slate-800 border-[#dce7f4]"
           }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
-          className={`flex items-center justify-between px-5 py-3.5 border-b flex-shrink-0 transition-colors ${isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-slate-50 border-gray-200"
+          className={`flex shrink-0 items-center justify-between gap-3 border-b px-5 py-4 transition-colors ${isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-white border-[#e4edf7]"
             }`}
         >
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-medium ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
-              Giai đoạn
-            </span>
-            <span className="text-sm font-medium text-[#008dcc]">{title || "(Chưa đặt tên)"}</span>
-            {isFirstStep && (
-              <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] font-medium">
-                Bắt đầu
-              </span>
-            )}
+          <div className="flex min-w-0 items-center gap-3">
+            <span className={`h-7 w-1 shrink-0 rounded-full ${isDark ? "bg-sky-500" : "bg-[#00adfc]"}`} aria-hidden="true" />
+            <div className="min-w-0">
+              <h3 className={`text-base font-medium ${isDark ? "text-zinc-100" : "text-slate-900"}`}>Chỉnh sửa giai đoạn</h3>
+              <p className={`mt-0.5 truncate text-xs ${isDark ? "text-zinc-400" : "text-slate-500"}`}>Giai đoạn {stepIndex + 1}: {title || "Chưa đặt tên"}</p>
+            </div>
+            {isFirstStep && <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">Bắt đầu</span>}
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="cursor-pointer rounded-full bg-rose-500 p-2 text-white transition-colors hover:bg-rose-600"
+            aria-label="Đóng chỉnh sửa giai đoạn"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Body — scrollable */}
-        <div className="flex-1 overflow-y-auto px-5 pt-3 pb-2 space-y-0.5">
+        <div className="flex-1 space-y-0.5 overflow-y-auto px-5 py-3">
 
           {/* Tên */}
           <div className={row}>
-            <span className={rowLabel}>Tên *</span>
+            <label className={rowLabel}>Tên giai đoạn *</label>
             <div className="flex flex-1 items-center gap-2">
               <input
                 value={stepIndex + 1}
                 disabled
-                className={`w-10 text-center rounded-xl text-xs font-medium border transition-all ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
-                  } py-1.5`}
+                className={`w-10 self-stretch rounded-xl border text-center text-xs ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-400" : "bg-[#f3f7fc] border-[#dce7f4] text-slate-600"}`}
               />
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className={`${inp} flex-1`}
+                className={`${inp} min-w-0 flex-1`}
                 placeholder="Tên giai đoạn..."
               />
             </div>
@@ -1779,24 +1777,22 @@ function WizardStepEditorModal({
 
           {/* Mô tả */}
           <div className={row}>
-            <span className={rowLabel}>Mô tả</span>
-            <div className="flex-1 relative">
+            <label className={rowLabel}>Mô tả</label>
+            <div>
               <input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Mô tả giai đoạn..."
-                className={`${inp} pr-8`}
+                className={inp}
               />
-              <Pencil className={`absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 ${isDark ? "text-zinc-600" : "text-slate-350"
-                }`} />
             </div>
           </div>
 
           {/* Công việc con */}
-          <div className={`py-2.5 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"
+          <div className={`border-b py-3 transition-colors ${isDark ? "border-zinc-800/60" : "border-[#e4edf7]"
             }`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className={`text-[11px] font-medium tracking-wide ${isDark ? "text-cyan-400" : "text-cyan-600"
+            <div className="mb-2 flex items-center justify-between">
+              <span className={`text-xs ${isDark ? "text-zinc-300" : "text-slate-700"
                 }`}>
                 Công việc con ({subTasks.length})
               </span>
@@ -1805,30 +1801,31 @@ function WizardStepEditorModal({
               {subTasks.map((t) => (
                 <div
                   key={t.id}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-colors ${isDark ? "bg-zinc-800/60 border-zinc-700 text-zinc-200" : "bg-slate-50 border-gray-100 text-slate-700"
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-normal transition-colors ${isDark ? "bg-zinc-800/60 border-zinc-700 text-zinc-200" : "bg-[#f8fbff] border-[#dce7f4] text-slate-700"
                     }`}
                 >
                   <Check className="h-3 w-3 text-emerald-500 shrink-0" />
-                  <span className="flex-1 tracking-wide">{t.title}</span>
-                  <button onClick={() => removeSubTask(t.id)} className={`hover:text-red-400 ${isDark ? "text-zinc-600" : "text-slate-350"
+                  <span className="flex-1">{t.title}</span>
+                  <button type="button" onClick={() => removeSubTask(t.id)} className={`hover:text-red-400 ${isDark ? "text-zinc-500" : "text-slate-400"
                     }`}>
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))}
-              <div className="flex items-center gap-2 mt-1">
+              <div className={`mt-1 flex items-center gap-2 rounded-xl border px-3 py-2 ${isDark ? "border-zinc-700 bg-zinc-800/40" : "border-[#dce7f4] bg-white"}`}>
                 <input
                   value={newSubTask}
                   onChange={(e) => setNewSubTask(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") addSubTask(); }}
                   placeholder="Thêm công việc con..."
-                  className={`flex-1 text-xs font-medium outline-none bg-transparent transition-colors ${isDark ? "text-zinc-300 placeholder-zinc-700" : "text-slate-700 placeholder-slate-350"
+                  className={`min-w-0 flex-1 bg-transparent text-xs font-normal outline-none transition-colors ${isDark ? "text-zinc-300 placeholder-zinc-500" : "text-slate-700 placeholder-slate-400"
                     }`}
                 />
                 {newSubTask && (
                   <button
                     onClick={addSubTask}
-                    className="rounded-lg p-1 text-sky-500 hover:text-sky-400 hover:bg-sky-500/10"
+                    type="button"
+                    className="rounded-lg p-1 text-sky-500 hover:bg-sky-500/10 hover:text-sky-600"
                     title="Thêm công việc con"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -1839,31 +1836,33 @@ function WizardStepEditorModal({
           </div>
 
           {/* File đính kèm */}
-          <div className={`py-3 border-b transition-colors ${isDark ? "border-zinc-800/60" : "border-gray-100"}`}>
-            <span className={`text-[11px] font-medium tracking-wide mb-2 block ${isDark ? "text-cyan-400" : "text-cyan-600"}`}>
+          <div className={`border-b py-3 transition-colors ${isDark ? "border-zinc-800/60" : "border-[#e4edf7]"}`}>
+            <span className={`mb-2 block text-xs ${isDark ? "text-zinc-300" : "text-slate-700"}`}>
               Tệp, ảnh, video, ghi âm và liên kết
             </span>
-            <AttachmentEditor attachments={attachments} onChange={setAttachments} />
+            <div className="[&_a]:font-normal [&_button]:font-normal">
+              <AttachmentEditor attachments={attachments} onChange={setAttachments} />
+            </div>
           </div>
 
           {/* Giai đoạn tiếp theo */}
           {nextStep && (
-            <div className={`py-2.5`}>
-              <span className={`text-[11px] font-medium tracking-wide mb-2 block ${isDark ? "text-cyan-400" : "text-cyan-600"
+            <div className="py-2.5">
+              <span className={`mb-2 block text-xs ${isDark ? "text-zinc-300" : "text-slate-700"
                 }`}>
                 Giai đoạn tiếp theo
               </span>
               <div
-                className={`flex items-center gap-3 px-4 py-3 rounded-2xl border-2 border-dashed transition-colors ${isDark ? "border-zinc-700 bg-zinc-800/30" : "border-gray-200 bg-slate-50/50"
+                className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${isDark ? "border-zinc-700 bg-zinc-800/30" : "border-[#dce7f4] bg-[#f8fbff]"
                   }`}
               >
-                <ArrowRight className={`h-4 w-4 shrink-0 ${isDark ? "text-zinc-600" : "text-slate-300"
+                <ArrowRight className={`h-4 w-4 shrink-0 ${isDark ? "text-sky-400" : "text-[#00adfc]"
                   }`} />
                 <div
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium tracking-wide ${isDark ? "bg-zinc-800 border-zinc-700 text-zinc-200" : "bg-white border-gray-200 text-slate-700"
+                  className={`flex items-center gap-2 text-xs font-normal ${isDark ? "text-zinc-200" : "text-slate-700"
                     }`}
                 >
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border mr-1 ${isDark ? "bg-zinc-700 border-zinc-600 text-zinc-400" : "bg-gray-100 border-gray-200 text-slate-500"
+                  <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${isDark ? "bg-zinc-700 text-zinc-300" : "bg-[#e9f0f8] text-slate-600"
                     }`}>
                     {steps.indexOf(nextStep) + 1}
                   </span>
@@ -1876,12 +1875,13 @@ function WizardStepEditorModal({
 
         {/* Footer */}
         <div
-          className={`flex justify-end gap-2.5 px-5 py-3.5 border-t flex-shrink-0 transition-colors ${isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-slate-50 border-gray-200"
+          className={`flex shrink-0 justify-end gap-2.5 border-t px-5 py-3.5 transition-colors ${isDark ? "bg-[#1a1a1a] border-zinc-800/80" : "bg-white border-[#e4edf7]"
             }`}
         >
           <button
+            type="button"
             onClick={handleSave}
-            className="cursor-pointer rounded-xl bg-[#00adfc] px-5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#0097df]"
+            className="cursor-pointer rounded-xl bg-[#00adfc] px-5 py-2.5 text-xs font-normal text-white shadow-sm transition-colors hover:bg-[#0097df]"
           >
             Ghi nhận
           </button>
