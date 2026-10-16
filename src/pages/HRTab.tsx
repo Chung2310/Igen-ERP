@@ -250,6 +250,7 @@ export default function HRTab() {
             employees={employees}
             fetchUsers={fetchUsers}
             isManager={canManageOrgChart}
+            canManageDepartments={userProfile?.role === "superadmin" || hasPermission("access:manage")}
             companies={companies}
             courses={courses}
             fetchCourses={fetchCourses}

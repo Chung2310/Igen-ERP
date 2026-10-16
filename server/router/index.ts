@@ -27,6 +27,7 @@ import { faceManagementRouter } from "./face-management.router";
 import { payrollRouter } from "./payroll.router";
 import { leaveRouter } from "./leave.router";
 import { hrContractRouter } from "./hr-contract.router";
+import { hrDepartmentRouter } from "./hr-department.router";
 import { companyEmailRouter } from "./company-email.router";
 import { companyPaymentRouter } from "./company-payment.router";
 import { recruitmentRouter } from "./recruitment.router";
@@ -90,6 +91,7 @@ apiRouter.use("/timekeeping", requireAuth as any, requireModule("hr"), timekeepi
 apiRouter.use("/payroll", payrollRouter);
 apiRouter.use("/leave", leaveRouter);
 apiRouter.use("/hr-contracts", hrContractRouter);
+apiRouter.use("/hr/departments", hrDepartmentRouter);
 apiRouter.use("/company-email", companyEmailRouter);
 apiRouter.use("/company-payment", companyPaymentRouter);
 apiRouter.use("/recruitment", recruitmentRouter);

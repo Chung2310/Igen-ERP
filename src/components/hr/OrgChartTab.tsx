@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Users,
   Search,
-  Filter,
   Plus,
   Building2,
   Trash2,
@@ -26,6 +25,8 @@ import {
   Crown
 } from "lucide-react";
 import { HrFormSelect } from "./HrFormSelect";
+import { HrDepartmentManager } from "./HrDepartmentManager";
+import { hrDepartmentService, type HrDepartment } from "../../services/hrDepartmentService";
 import { EmployeeNode, UserProfile, TrainingCourse } from "../../types";
 import { authService, getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
@@ -41,6 +42,7 @@ interface OrgChartTabProps {
   employees: EmployeeNode[];
   fetchUsers: () => Promise<void>;
   isManager: boolean;
+  canManageDepartments: boolean;
   companies: any[];
   courses: TrainingCourse[];
   fetchCourses: (compCode: string) => Promise<void>;
@@ -174,6 +176,7 @@ export default function OrgChartTab({
   employees,
   fetchUsers,
   isManager,
+  canManageDepartments,
   companies,
   courses,
   fetchCourses,
@@ -184,6 +187,25 @@ export default function OrgChartTab({
   const [zoomLevel, setZoomLevel] = useState<number>(0.65);
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const [isSafari, setIsSafari] = useState<boolean>(false);
+  const [departments, setDepartments] = useState<HrDepartment[]>([]);
+  const [isDepartmentManagerOpen, setIsDepartmentManagerOpen] = useState(false);
+  const departmentCompanyCode = selectedCompanyCode || userProfile?.companyCode || "";
+
+  const refreshDepartments = async () => {
+    if (!departmentCompanyCode) return;
+    setDepartments(await hrDepartmentService.list(departmentCompanyCode));
+  };
+
+  useEffect(() => {
+    let active = true;
+    setDepartments([]);
+    if (departmentCompanyCode) {
+      hrDepartmentService.list(departmentCompanyCode)
+        .then(data => { if (active) setDepartments(data); })
+        .catch(error => { if (active) toast.error(getApiErrorMessage(error, "Không thể tải phòng ban.")); });
+    }
+    return () => { active = false; };
+  }, [departmentCompanyCode]);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
     title: string;
@@ -496,6 +518,7 @@ export default function OrgChartTab({
       toast.success("Cập nhật thông tin nhân sự thành công!");
       setIsEditing(false);
       await fetchUsers();
+      await refreshDepartments();
 
       // Cập nhật selectedEmp cục bộ
       const updatedNode = {
@@ -850,6 +873,7 @@ export default function OrgChartTab({
       setAddMonthlySalary("");
 
       await fetchUsers();
+      await refreshDepartments();
       if (compCode) {
         await fetchCourses(compCode);
       }
@@ -1035,9 +1059,9 @@ export default function OrgChartTab({
     ])
   ).sort();
 
-  // Danh sách phòng ban động lấy từ dữ liệu nhân sự hiện có của công ty (không fix cứng)
+  // Danh mục lưu độc lập, kèm dữ liệu hồ sơ cũ trong lúc tải lần đầu.
   const uniqueDepartments = Array.from(
-    new Set(employees.map(e => e.department).filter(Boolean))
+    new Set([...departments.map(department => department.name), ...usersList.map(user => user.department)].filter(Boolean))
   ).sort();
 
   // Filtering matching logic
@@ -1237,6 +1261,16 @@ export default function OrgChartTab({
 
   return (
     <>
+      {isDepartmentManagerOpen && <HrDepartmentManager
+        companyCode={departmentCompanyCode}
+        departments={departments}
+        onClose={() => setIsDepartmentManagerOpen(false)}
+        onChanged={async (refreshUsers = false) => {
+          await refreshDepartments();
+          if (refreshUsers) await fetchUsers();
+          setFilterDepartment("Tất cả");
+        }}
+      />}
       {/* Division filter and search bar for Org Chart tab */}
       <div data-testid="org-chart-toolbar" className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white p-3 md:px-5 md:py-3.5 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
         <div data-testid="org-chart-filters" className="grid w-full flex-1 grid-cols-1 items-stretch gap-2.5 min-[640px]:grid-cols-2 min-[1200px]:max-w-md">
@@ -1250,18 +1284,13 @@ export default function OrgChartTab({
               className="w-full pl-9 pr-4 py-2 border border-slate-200/80 bg-white rounded-xl text-xs focus:ring-2 focus:ring-[#00ADFC]/15 focus:border-[#00ADFC] outline-none text-slate-800 placeholder:text-slate-400 transition-all"
             />
           </div>
-          <div data-testid="org-chart-department-filter" className="flex w-full items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-slate-700 transition-all focus-within:border-[#00ADFC] focus-within:ring-2 focus-within:ring-[#00ADFC]/15">
-            <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-            <select
+          <div data-testid="org-chart-department-filter" className="w-full text-xs">
+            <HrFormSelect
               value={filterDepartment}
-              onChange={(e) => setFilterDepartment(e.target.value)}
-              className="bg-transparent text-xs outline-none cursor-pointer font-medium w-full text-slate-800"
-            >
-              <option value="Tất cả">Tất cả phòng ban</option>
-              {uniqueDepartments.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
+              onChange={setFilterDepartment}
+              label="Lọc phòng ban"
+              options={[{ value: "Tất cả", label: "Tất cả phòng ban" }, ...uniqueDepartments.map(dept => ({ value: dept, label: dept }))]}
+            />
           </div>
         </div>
 
@@ -1291,6 +1320,11 @@ export default function OrgChartTab({
           {isManager && (
             <>
               <div className="hidden h-6 w-px bg-slate-200 mx-1 min-[1200px]:block" />
+              {canManageDepartments && <button
+                type="button"
+                onClick={() => setIsDepartmentManagerOpen(true)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#00ADFC]/30 bg-[#00ADFC]/5 px-3 py-2 text-xs font-normal text-[#007EB8] transition-colors hover:bg-[#00ADFC]/10 min-[1200px]:w-auto"
+              ><Building2 className="h-4 w-4" /> Quản lý phòng ban</button>}
               <button
                 data-testid="org-chart-add-button"
                 type="button"
@@ -1298,7 +1332,7 @@ export default function OrgChartTab({
                 className="col-span-full flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all active:scale-95 cursor-pointer normal-case min-[768px]:col-span-1 min-[1200px]:w-auto"
               >
                 <Plus className="h-4 w-4 stroke-[2.5]" />
-                <span>Thêm nhân sự hoặc phòng ban</span>
+                <span>Thêm nhân sự</span>
               </button>
             </>
           )}
