@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, Check, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import { ConfirmDialog } from "../common/ConfirmDialog";
 import { toast } from "../../pages/Toast";
 import { hrDepartmentService, type HrDepartment } from "../../services/hrDepartmentService";
 
@@ -20,6 +19,15 @@ export function HrDepartmentManager({ companyCode, departments, onClose, onChang
   const [pendingDelete, setPendingDelete] = useState<HrDepartment | null>(null);
   const normalizeSearch = (value: string) => value.trim().toLocaleLowerCase("vi").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
   const filteredDepartments = departments.filter(department => normalizeSearch(department.name).includes(normalizeSearch(search)));
+
+  useEffect(() => {
+    if (!pendingDelete || busy) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPendingDelete(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [pendingDelete, busy]);
 
   const add = async () => {
     const name = newName.trim();
@@ -123,7 +131,24 @@ export function HrDepartmentManager({ companyCode, departments, onClose, onChang
           {busy && <div className="flex items-center justify-center gap-2 border-t border-slate-100 py-2 text-xs text-slate-500"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang cập nhật...</div>}
         </div>
       </div>
-      <ConfirmDialog appearance="erp" isOpen={!!pendingDelete} isSubmitting={busy} title="Xóa phòng ban" description={`Bạn muốn xóa phòng ban “${pendingDelete?.name || ""}”?`} confirmLabel="Xóa phòng ban" onClose={() => setPendingDelete(null)} onConfirm={remove} />
+      {pendingDelete && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 p-4" role="presentation">
+        <div role="dialog" aria-modal="true" aria-labelledby="delete-department-title" aria-describedby="delete-department-description" className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="h-5 w-1 shrink-0 rounded-full bg-[#00ADFC]" aria-hidden="true" />
+              <h2 id="delete-department-title" className="text-base font-medium text-slate-900">Xóa phòng ban</h2>
+            </div>
+            <button type="button" aria-label="Đóng" onClick={() => setPendingDelete(null)} disabled={busy} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 disabled:opacity-50"><X className="h-4 w-4" /></button>
+          </div>
+          <p id="delete-department-description" className="px-5 py-5 text-sm font-normal leading-relaxed text-slate-700">Bạn muốn xóa phòng ban “{pendingDelete.name}”?</p>
+          <div className="flex justify-end border-t border-slate-100 px-5 py-3">
+            <button type="button" onClick={() => void remove()} disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-600 disabled:opacity-50">
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              Xóa phòng ban
+            </button>
+          </div>
+        </div>
+      </div>}
     </>
   );
 }
