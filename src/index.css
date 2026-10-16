@@ -734,6 +734,7 @@ code, kbd, samp, pre {
 
 .org-chart-detail-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
 .org-chart-edit-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
+.org-chart-add-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
 .training-course-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong),
 .training-study-popup :is(.font-bold, .font-extrabold, .font-semibold, .font-medium, strong) {
   font-weight: 400;
@@ -741,6 +742,7 @@ code, kbd, samp, pre {
 
 .org-chart-detail-popup .uppercase,
 .org-chart-edit-popup .uppercase,
+.org-chart-add-popup .uppercase,
 .training-course-popup .uppercase,
 .training-study-popup .uppercase {
   text-transform: none;
@@ -748,6 +750,7 @@ code, kbd, samp, pre {
 }
 
 .org-chart-edit-popup label,
+.org-chart-add-popup label,
 .training-course-popup label {
   color: #334155;
   font-size: 12px;

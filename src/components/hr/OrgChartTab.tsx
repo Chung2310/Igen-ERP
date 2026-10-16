@@ -1721,7 +1721,7 @@ export default function OrgChartTab({
                   type="button"
                   disabled={isSaving}
                   onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 border rounded-xl hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                  className="cursor-pointer rounded-xl bg-rose-500 px-4 py-2 text-white transition-colors hover:bg-rose-600 disabled:opacity-50"
                 >
                   Hủy bỏ
                 </button>
@@ -1944,23 +1944,25 @@ export default function OrgChartTab({
       {/* ADD EMPLOYEE MODAL */}
       {isAddModalOpen && (
 
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
-          <form onSubmit={handleAddEmployee} className="bg-white border rounded-2xl shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 relative text-left space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-2xs sm:p-4">
+          <form onSubmit={handleAddEmployee} className="org-chart-add-popup relative flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-xl md:p-5">
+            <div className="mb-3 flex shrink-0 items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
-                <h4 className="font-bold text-slate-900 text-sm font-sans">Thêm nhân sự mới</h4>
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#007EB8]"><UserPlus className="h-4 w-4" /></span>
+                <h4 className="text-sm text-slate-900 font-sans">Thêm nhân sự mới</h4>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
+                aria-label="Đóng popup thêm nhân sự"
                 className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
               >
                 <X className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
 
-            <div className="space-y-3.5 text-xs">
+            <div className="grid min-h-0 grid-cols-1 gap-x-4 gap-y-3 overflow-y-auto pr-1 text-xs sm:grid-cols-2">
               <div>
                 <label className="block font-bold text-gray-500 mb-1">Họ tên *</label>
                 <input
@@ -1984,31 +1986,30 @@ export default function OrgChartTab({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={addMonthlySalary} onChange={(e) => setAddMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" /></div>
-                </div>
-                <div>
-                  <label className="block font-bold text-gray-500 mb-1">Email *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="b.lt@igen.vn"
-                    value={addEmail}
-                    onChange={(e) => setAddEmail(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-gray-500 mb-1">Số điện thoại</label>
-                  <input
-                    type="text"
-                    placeholder="090XXXXXXXX"
-                    value={addPhone}
-                    onChange={(e) => setAddPhone(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]"
-                  />
-                </div>
+              <div>
+                <label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label>
+                <input type="number" min="0" step="1000" value={addMonthlySalary} onChange={(e) => setAddMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" />
+              </div>
+              <div>
+                <label className="block font-bold text-gray-500 mb-1">Email *</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="b.lt@igen.vn"
+                  value={addEmail}
+                  onChange={(e) => setAddEmail(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-gray-500 mb-1">Số điện thoại</label>
+                <input
+                  type="text"
+                  placeholder="090XXXXXXXX"
+                  value={addPhone}
+                  onChange={(e) => setAddPhone(e.target.value)}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]"
+                />
               </div>
 
               <div>
@@ -2030,9 +2031,9 @@ export default function OrgChartTab({
                   onChange={(e) => setAddRole(e.target.value as any)}
                   className="w-full p-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] bg-white cursor-pointer"
                 >
-                  <option value="user">USER (Nhân viên)</option>
-                  <option value="manager">MANAGER (Quản lý)</option>
-                  <option value="branch_owner">BRANCH OWNER (Chủ chi nhánh)</option>
+                  <option value="user">Nhân viên</option>
+                  <option value="manager">Quản lý</option>
+                  <option value="branch_owner">Chủ chi nhánh</option>
                 </select>
               </div>
 
@@ -2138,12 +2139,12 @@ export default function OrgChartTab({
               </div>
             </div>
 
-            <div className="pt-4 border-t flex justify-end gap-3 text-xs font-bold">
+            <div className="mt-3 flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-3 text-xs">
               <button
                 type="button"
                 disabled={isAddingEmployee}
                 onClick={() => setIsAddModalOpen(false)}
-                className="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="cursor-pointer rounded-xl bg-rose-500 px-4 py-2 text-white transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Hủy bỏ
               </button>
