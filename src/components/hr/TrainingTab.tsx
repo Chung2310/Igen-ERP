@@ -967,8 +967,8 @@ export default function TrainingTab({
       {/* CREATE NEW COURSE MODAL */}
       {isAddCourseModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-2xs sm:p-4">
-          <form onSubmit={handleCreateCourse} className="training-course-popup relative flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-xl md:p-5">
-            <div className="mb-3 flex shrink-0 items-center justify-between border-b border-slate-100 pb-3">
+          <form onSubmit={handleCreateCourse} className="training-course-popup relative flex max-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white p-3 text-left shadow-xl md:p-4">
+            <div className="mb-2 flex shrink-0 items-center justify-between border-b border-slate-100 pb-2">
               <h4 className="flex items-center gap-2 text-sm text-slate-900 font-sans">
                 <span className="h-4 w-1 rounded-full bg-[#00ADFC]" />
                 {editingCourse ? "Cập Nhật Khóa Học" : "Tạo Khóa Học Mới"}
@@ -978,9 +978,10 @@ export default function TrainingTab({
               </button>
             </div>
 
-            <div className="grid min-h-0 grid-cols-1 gap-3 overflow-y-auto pr-1 text-xs md:grid-cols-2">
+            <div className="grid min-h-0 grid-cols-1 gap-3 overflow-y-auto pr-1 text-xs lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <div className="grid min-w-0 content-start gap-2.5">
               <div>
-                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tên khóa học *</label>
+                <label className="block font-bold text-gray-500 mb-1 font-sans">Tên khóa học *</label>
                 <input
                   type="text"
                   required
@@ -992,18 +993,18 @@ export default function TrainingTab({
               </div>
 
               <div>
-                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Mô tả tóm tắt</label>
+                <label className="block font-bold text-gray-500 mb-1 font-sans">Mô tả tóm tắt</label>
                 <textarea
                   placeholder="Mô tả nội dung chính khóa học..."
                   value={courseFormDesc}
                   onChange={(e) => setCourseFormDesc(e.target.value)}
-                  className="w-full p-3 bg-white border border-gray-200 text-slate-850 hover:border-gray-300 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/20 rounded-xl min-h-[60px]"
+                  className="w-full resize-y rounded-xl border border-gray-200 bg-white p-2.5 text-slate-850 outline-none min-h-[56px] hover:border-gray-300 focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/20"
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:col-span-2">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <div>
-                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Danh mục đào tạo</label>
+                  <label className="block font-bold text-gray-500 mb-1 font-sans">Danh mục đào tạo</label>
                   <select
                     value={courseFormCategory}
                     onChange={(e) => setCourseFormCategory(e.target.value)}
@@ -1017,7 +1018,7 @@ export default function TrainingTab({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-gray-500 mb-1.5 font-sans">Thời lượng học</label>
+                  <label className="block font-bold text-gray-500 mb-1 font-sans">Thời lượng học</label>
                   <input
                     type="text"
                     placeholder="Ví dụ: 2 giờ 30 phút"
@@ -1028,7 +1029,7 @@ export default function TrainingTab({
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-3 rounded-xl border border-[#E1EAF5] bg-[#F8FBFF] p-3 select-none font-sans md:col-span-2">
+              <div className="flex flex-wrap gap-x-3 gap-y-2 rounded-xl border border-[#E1EAF5] bg-[#F8FBFF] p-2.5 select-none font-sans">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1049,9 +1050,12 @@ export default function TrainingTab({
                   Tự động giao khi có nhân sự mới
                 </label>
               </div>
+              </div>
+
+              <div className="min-w-0 space-y-2.5">
 
               {/* Dynamic Lesson Form block */}
-              <div className="space-y-3 border-t border-slate-100 pt-3 md:col-span-2">
+              <div className="space-y-2">
                 <div className="flex justify-between items-center select-none">
                   <h5 className="font-bold text-xs text-slate-800 uppercase font-sans">Cấu trúc bài giảng ({courseFormLessons.length})</h5>
                   <button
@@ -1064,12 +1068,12 @@ export default function TrainingTab({
                   </button>
                 </div>
 
-                <div className="space-y-3.5 max-h-[320px] overflow-y-auto p-4 rounded-2xl bg-slate-50/60 border border-slate-100 pr-2">
+                <div className="max-h-[min(48dvh,440px)] space-y-2 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-2">
                   {courseFormLessons.length === 0 ? (
                     <p className="text-[11px] text-gray-400 italic text-center py-2 select-none">Khóa học chưa có bài giảng nào. Vui lòng thêm bài giảng bằng nút phía trên.</p>
                   ) : (
                     courseFormLessons.map((les, index) => (
-                      <div key={index} className="bg-white border-l-4 border-l-[#00ADFC] rounded-xl p-4.5 space-y-3 shadow-2xs relative text-left">
+                      <div key={index} className="relative space-y-2 rounded-xl border border-[#beeaff] bg-white p-3 text-left shadow-2xs">
                         <div className="flex items-center justify-between pr-8 select-none">
                           <span className="text-[10px] font-bold text-[#007eb8] bg-[#E8F7FF] px-2 py-0.5 rounded-md uppercase font-mono">
                             Bài học {index + 1}
@@ -1077,14 +1081,14 @@ export default function TrainingTab({
                           <button
                             type="button"
                             onClick={() => handleRemoveLessonForm(index)}
-                            className="absolute top-4 right-4 text-slate-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer"
+                            className="absolute top-2 right-2 text-slate-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer"
                             title="Xóa bài học"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-2">
                           <div className="col-span-2">
                             <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Tên bài học *</label>
                             <input
@@ -1126,7 +1130,7 @@ export default function TrainingTab({
                               />
                             </div>
                           ) : (
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                               {/* File upload for text/document lesson */}
                               <div>
                                 <label className="block text-[9px] font-bold text-slate-450 uppercase mb-1 select-none">Tài liệu đính kèm (PDF, Word, PPT...)</label>
@@ -1185,7 +1189,7 @@ export default function TrainingTab({
                                   placeholder="Nhập giáo trình lý thuyết chi tiết..."
                                   value={les.content}
                                   onChange={(e) => handleLessonFormChange(index, "content", e.target.value)}
-                                  className="w-full p-3 bg-slate-50 border border-transparent hover:border-slate-200 focus:bg-white focus:border-[#00ADFC] rounded-lg text-xs outline-none min-h-[60px] transition-all resize-y"
+                                  className="w-full min-h-[48px] resize-y rounded-lg border border-transparent bg-slate-50 p-2 text-xs outline-none transition-all hover:border-slate-200 focus:border-[#00ADFC] focus:bg-white"
                                 />
                               </div>
                             </div>
@@ -1198,7 +1202,7 @@ export default function TrainingTab({
               </div>
 
               {/* Dynamic Quiz Form block */}
-              <div className="space-y-3 border-t border-slate-100 pt-3 md:col-span-2">
+              <div className="space-y-2 border-t border-slate-100 pt-2">
                 <div className="flex justify-between items-center select-none">
                   <h5 className="font-bold text-xs text-slate-800 uppercase font-sans">Bài Sát hạch Trắc nghiệm ({courseFormQuizzes.length})</h5>
                   <button
@@ -1211,16 +1215,16 @@ export default function TrainingTab({
                   </button>
                 </div>
 
-                <div className="space-y-3.5 max-h-[320px] overflow-y-auto p-4 rounded-2xl bg-slate-50/60 border border-slate-100 pr-2">
+                <div className="max-h-[min(28dvh,240px)] space-y-2 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/60 p-2">
                   {courseFormQuizzes.length === 0 ? (
                     <p className="text-[11px] text-gray-400 italic text-center py-2 select-none">Khóa học chưa có bộ đề thi sát hạch nào. Không thi sát hạch sau khi học xong.</p>
                   ) : (
                     courseFormQuizzes.map((quiz, qIdx) => (
-                      <div key={qIdx} className="bg-white border-l-4 border-l-emerald-500 rounded-xl p-4.5 space-y-3.5 shadow-2xs relative text-left">
+                      <div key={qIdx} className="relative space-y-2 rounded-xl border border-emerald-200 bg-white p-3 text-left shadow-2xs">
                         <button
                           type="button"
                           onClick={() => handleRemoveQuizForm(qIdx)}
-                          className="absolute top-4 right-4 text-slate-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer"
+                          className="absolute top-2 right-2 text-slate-400 hover:text-rose-600 transition-colors p-1 hover:bg-slate-50 rounded-lg cursor-pointer"
                           title="Xóa câu hỏi"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1288,9 +1292,10 @@ export default function TrainingTab({
                   )}
                 </div>
               </div>
+              </div>
             </div>
 
-            <div className="mt-3 flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-3 text-xs">
+            <div className="mt-2 flex shrink-0 justify-end gap-2 border-t border-slate-100 pt-2 text-xs">
               <button
                 type="button"
                 onClick={handleCloseModal}
