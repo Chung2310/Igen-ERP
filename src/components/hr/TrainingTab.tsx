@@ -863,35 +863,32 @@ export default function TrainingTab({
                 const isCompleted = myEnrollment ? myEnrollment.status === "completed" : false;
 
                 return (
-                  <div key={course.id} className="group relative flex min-w-0 flex-col justify-between rounded-2xl border border-[#DCE7F4] bg-white p-4 shadow-2xs transition-all hover:border-[#8edcff] hover:shadow-md">
-                    {course.isRequired && (
-                      <span className="absolute top-4 right-4 px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 font-mono text-[9px] font-bold rounded-md uppercase select-none">
-                        Bắt buộc
-                      </span>
-                    )}
-
-                    <div className={`space-y-3 ${course.isRequired ? "pt-5" : ""}`}>
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-100 bg-[#E8F7FF] text-2xl select-none">{displayTrainingIcon(course.icon)}</span>
-                        <div className="min-w-0">
-                          <span className="rounded-md border border-sky-100 bg-[#E8F7FF] px-2 py-0.5 text-[10px] text-[#007eb8]">{course.category || "Văn hóa"}</span>
-                          <h4 className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-slate-900">{course.title}</h4>
+                  <div key={course.id} className="group flex min-w-0 flex-col justify-between rounded-2xl border border-[#DCE7F4] bg-white p-3 shadow-2xs transition-all hover:border-[#8edcff] hover:shadow-md">
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-100 bg-[#E8F7FF] text-xl select-none">{displayTrainingIcon(course.icon)}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="max-w-full truncate rounded-md border border-sky-100 bg-[#E8F7FF] px-1.5 py-0.5 text-[10px] text-[#007eb8]">{course.category || "Văn hóa"}</span>
+                            {course.isRequired && <span className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] text-rose-700">Bắt buộc</span>}
+                          </div>
+                          <h4 className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-slate-900" title={course.title}>{course.title}</h4>
                         </div>
                       </div>
 
-                      <p className="line-clamp-2 min-h-8 text-xs leading-relaxed text-slate-600">{course.description || "Không có mô tả chi tiết khóa đào tạo."}</p>
+                      {course.description && <p className="truncate text-xs text-slate-600" title={course.description}>{course.description}</p>}
 
-                      <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#E1EAF5] bg-[#F8FBFF] p-2.5 text-[10px] text-slate-700 select-none">
-                        <div className="flex min-w-0 items-center gap-1"><TrainingGlyph name="clock" /><span>Thời lượng: <strong className="text-slate-800">{course.duration}</strong></span></div>
-                        <div className="flex min-w-0 items-center gap-1"><TrainingGlyph name="instructor" /><span>Trình bày: <strong className="text-slate-800">{course.instructor}</strong></span></div>
-                        <div className="flex min-w-0 items-center gap-1"><TrainingGlyph name="learners" /><span>Học viên: <strong className="text-[#007eb8] font-bold">{course.enrolledCount || 0}</strong></span></div>
-                        <div className="flex min-w-0 items-center gap-1"><TrainingBookIcon className="h-4 w-4 shrink-0" /><span>Bài giảng: <strong className="text-slate-800">{(course.lessons || []).length} bài</strong></span></div>
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 rounded-lg border border-[#E1EAF5] bg-[#F8FBFF] px-2 py-1.5 text-[11px] text-slate-700 select-none">
+                        <div className="flex min-w-0 items-center gap-1" title={`Thời lượng: ${course.duration}`}><TrainingGlyph name="clock" /><span className="truncate">{course.duration}</span></div>
+                        <div className="flex min-w-0 items-center gap-1" title={`Trình bày: ${course.instructor}`}><TrainingGlyph name="instructor" /><span className="truncate">{course.instructor}</span></div>
+                        <div className="flex min-w-0 items-center gap-1" title={`Học viên: ${course.enrolledCount || 0}`}><TrainingGlyph name="learners" /><span className="truncate">{course.enrolledCount || 0} học viên</span></div>
+                        <div className="flex min-w-0 items-center gap-1" title={`Bài giảng: ${(course.lessons || []).length}`}><TrainingBookIcon className="h-4 w-4 shrink-0" /><span className="truncate">{(course.lessons || []).length} bài</span></div>
                       </div>
 
                       {/* Course learning progress bar */}
                       {myEnrollment && (
-                        <div className="space-y-1 pt-1 select-none">
-                          <div className="flex justify-between text-[9px] font-bold">
+                        <div className="space-y-1 select-none">
+                          <div className="flex justify-between text-[10px]">
                             <span className="text-gray-400">TIẾN ĐỘ HỌC:</span>
                             <span className={isCompleted ? "text-emerald-600" : "text-[#007eb8]"}>{progress}% {isCompleted ? "(Đã xong)" : ""}</span>
                           </div>
@@ -905,13 +902,13 @@ export default function TrainingTab({
                       )}
                     </div>
 
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#E1EAF5] pt-3">
+                    <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[#E1EAF5] pt-2.5">
                       {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter ? (
-                        <div className="flex gap-2">
+                        <div className="flex gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleOpenEditCourse(course)}
-                            className="p-2 bg-[#E8F7FF] hover:bg-[#D8F1FF] border border-[#beeaff] text-[#007eb8] rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center justify-center"
+                            className="p-1.5 bg-[#E8F7FF] hover:bg-[#D8F1FF] border border-[#beeaff] text-[#007eb8] rounded-lg hover:scale-105 transition-all cursor-pointer flex items-center justify-center"
                             title="Sửa khóa học"
                           >
                             <Edit2 className="h-4 w-4" />
@@ -919,7 +916,7 @@ export default function TrainingTab({
                           <button
                             type="button"
                             onClick={() => handleDeleteCourse(course.id)}
-                            className="p-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl hover:scale-105 transition-all cursor-pointer flex items-center justify-center"
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-lg hover:scale-105 transition-all cursor-pointer flex items-center justify-center"
                             title="Xóa khóa học"
                           >
                             <Trash2 className="h-4 w-4" />
