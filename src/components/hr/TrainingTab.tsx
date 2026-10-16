@@ -1299,7 +1299,7 @@ export default function TrainingTab({
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="px-4 py-2 border rounded-xl hover:bg-slate-50 cursor-pointer font-sans"
+                className="cursor-pointer rounded-xl bg-rose-500 px-4 py-2 text-white transition-colors hover:bg-rose-600 font-sans"
               >
                 Hủy bỏ
               </button>
