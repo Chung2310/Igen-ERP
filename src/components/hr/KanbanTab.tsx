@@ -11,7 +11,6 @@ import {
   Clock,
   ExternalLink,
   ChevronRight,
-  Filter,
   Users,
   Activity,
   Trash2,
@@ -39,6 +38,7 @@ import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { DateTimeInput24 } from "../common/TimeInput24";
+import { HrFormSelect } from "./HrFormSelect";
 import { KanbanProjectSummary } from "./KanbanProjectSummary";
 import { mergeSavedProject, updateProjectProgressFromTasks, shouldApplyProjectResponse } from "./kanbanProjectState";
 import { calculateEstimatedHours } from "./kanbanTaskTime";
@@ -485,10 +485,10 @@ function TaskTable({
   onSelectTask: (task: HRTask) => void;
 }) {
   return (
-    <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow-2xs bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4] bg-white">
         <table className="w-full min-w-[900px] border-collapse text-left text-xs sm:min-w-[1200px]">
         <thead>
-          <tr className="bg-slate-50 border-b border-gray-200 select-none font-bold text-gray-500 font-sans text-[10px] uppercase tracking-wider">
+          <tr className="select-none border-b border-[#DCE7F4] bg-[#F5FAFE] font-medium text-slate-600 text-xs">
             <th className="px-4 py-3 w-[200px]">Công việc</th>
             {showProjectColumn && <th className="px-4 py-3 w-[120px]">Dự án</th>}
             <th className="px-4 py-3 w-[100px]">Phân loại</th>
@@ -548,13 +548,13 @@ function TaskTable({
                   )}
 
                   {/* Phân loại */}
-                  <td className="px-4 py-3 text-indigo-750 font-medium font-sans whitespace-nowrap">
+                  <td className="px-4 py-3 text-[#007EB8] font-normal font-sans whitespace-nowrap">
                     {formatTaskCategory(task.category)}
                   </td>
 
                   {/* Ưu tiên */}
                   <td className="px-4 py-3 select-none">
-                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider font-mono whitespace-nowrap ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border whitespace-nowrap ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
                       task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-700 border-amber-200"
                       }`}>
                       {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
@@ -1393,17 +1393,17 @@ export default function KanbanTab({
   return (
     <>
       <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="hr_tab_content">
-        <div className="space-y-5 rounded-2xl border border-gray-200 bg-white p-4 text-left text-slate-800 shadow-xs sm:space-y-6 sm:rounded-3xl sm:p-8" id="job_delegation_kanban">
+        <div className="space-y-5 rounded-2xl bg-white p-4 text-left text-slate-800 sm:space-y-6 sm:p-6" id="job_delegation_kanban">
           {/* Header section */}
-          <div className="flex flex-col gap-4 border-b border-gray-200 pb-4 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
+          <div className="flex flex-col gap-4 rounded-2xl border border-[#DCE7F4] bg-white p-4 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
             <div className="flex min-w-0 flex-col gap-3 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:gap-4">
-              <h2 data-testid="kanban-header-title" className="text-2xl font-bold font-sans text-slate-800">Công việc</h2>
+              <h2 data-testid="kanban-header-title" className="text-xl font-semibold font-sans text-slate-800">Công việc</h2>
 
               {/* Tab buttons */}
               <div className="w-full min-w-0 select-none min-[1200px]:w-auto">
                 <div
                   data-testid="kanban-view-tabs"
-                  className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-gray-100 p-1 text-xs font-semibold scrollbar-none min-[1200px]:w-auto"
+                  className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-xl border border-[#DCE7F4] bg-[#F5FAFE] p-1 text-sm font-normal scrollbar-none min-[1200px]:w-auto"
                 >
                   {(["By project", "Board", "All tasks", "Monthly KPI"] as const).map((vt) => (
                     <button
@@ -1414,8 +1414,8 @@ export default function KanbanTab({
                       onClick={() => selectKanbanViewTab(vt)}
                       className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer shrink-0 ${
                         kanbanViewTab === vt
-                          ? "bg-white text-slate-850 shadow-xs font-bold"
-                          : "text-gray-500 hover:text-slate-700 font-semibold"
+                          ? "bg-white text-[#007EB8] shadow-xs font-medium"
+                          : "text-slate-600 hover:text-[#007EB8]"
                       }`}
                     >
                       {vt === "By project" ? "Theo dự án" :
@@ -1428,20 +1428,13 @@ export default function KanbanTab({
 
             {/* Filter and Add Task controls */}
             <div data-testid="kanban-header-controls" className="flex w-full flex-col gap-3 min-[1200px]:w-auto min-[1200px]:flex-row min-[1200px]:flex-wrap min-[1200px]:items-center">
-              <div data-testid="kanban-person-filter" className="flex w-full items-center gap-1.5 min-[1200px]:w-auto">
-                <Filter className="h-4 w-4 text-gray-400" />
-                <select
+              <div data-testid="kanban-person-filter" className="w-full text-sm min-[1200px]:w-44">
+                <HrFormSelect
                   value={kanbanFilter || ""}
-                  onChange={(e) => setKanbanFilter(e.target.value || null)}
-                  className="w-full min-w-0 cursor-pointer rounded-xl border border-gray-200 bg-white p-2 text-xs outline-none min-[1200px]:w-auto min-[1200px]:p-1.5"
-                >
-                  <option value="">Lọc nhân sự</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.name}>
-                      {emp.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setKanbanFilter(value || null)}
+                  label="Lọc nhân sự"
+                  options={[{ value: "", label: "Lọc nhân sự" }, ...employees.map(emp => ({ value: emp.name, label: emp.name }))]}
+                />
               </div>
 
               {isManager && (
@@ -1449,10 +1442,10 @@ export default function KanbanTab({
                   <button
                     type="button"
                     onClick={() => { setEditingProjectId(null); setNewProjectName(""); setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]); setIsNewProjectModalOpen(true); }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-all hover:bg-slate-50 active:scale-95 cursor-pointer min-[1200px]:w-auto"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#DCE7F4] px-4 py-2 text-sm font-medium text-[#007EB8] transition-all hover:bg-[#E8F7FF] active:scale-95 cursor-pointer min-[1200px]:w-auto"
                   >
                     <Target className="h-4 w-4" />
-                    Tạo dự án & Lĩnh vực
+                    Tạo dự án & lĩnh vực
                   </button>
 
                   <button
@@ -1482,7 +1475,7 @@ export default function KanbanTab({
                         category: DEFAULT_TASK_CATEGORY
                       });
                     }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all cursor-pointer min-[1200px]:w-auto"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] px-4 py-2 text-sm font-medium text-white shadow-xs transition-all cursor-pointer min-[1200px]:w-auto"
                   >
                     <Plus className="h-4 w-4" />
                     Giao việc mới
@@ -1496,10 +1489,10 @@ export default function KanbanTab({
           {kanbanViewTab === "By project" && (
             <div className="space-y-4">
               {projects.length === 0 && tasks.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 select-none">
-                  <Briefcase className="h-12 w-12 mx-auto text-gray-200 mb-3" />
-                  <p className="font-bold text-sm">Chưa có dự án và công việc nào</p>
-                  {isManager && <p className="text-xs mt-1">Hãy nhấp nút "Tạo Dự Án" hoặc "Giao Việc Mới" phía trên</p>}
+                <div className="rounded-2xl border border-dashed border-[#DCE7F4] bg-[#F8FCFF] px-4 py-16 text-center text-slate-500 select-none">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E8F7FF] text-[#00ADFC]"><Briefcase className="h-7 w-7" /></div>
+                  <p className="text-base font-medium text-slate-800">Chưa có dự án và công việc nào</p>
+                  {isManager && <p className="text-sm mt-1">Dùng “Tạo dự án & Lĩnh vực” hoặc “Giao việc mới” để bắt đầu.</p>}
                 </div>
               ) : (
                 <>
@@ -1509,24 +1502,24 @@ export default function KanbanTab({
                     const isExpanded = !!expandedProjects[proj.id];
 
                     return (
-                      <div key={proj.id} className="border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
+                      <div key={proj.id} className="border border-[#DCE7F4] rounded-2xl overflow-hidden shadow-2xs">
                         {/* Project Header toggle bar */}
                         <div
                           onClick={() => setExpandedProjects(p => ({ ...p, [proj.id]: !isExpanded }))}
-                          className="bg-slate-50 px-5 py-3.5 flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/80 transition-colors"
+                          className="bg-[#F5FAFE] px-5 py-3.5 flex items-center justify-between cursor-pointer select-none hover:bg-[#E8F7FF] transition-colors"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <ChevronRight className={`h-4.5 w-4.5 text-slate-550 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                            <Target className="h-4 w-4 text-indigo-600 shrink-0" />
-                            <div className="min-w-0 flex-1"><h3 className="font-bold text-slate-800 text-sm truncate">{proj.name}</h3><KanbanProjectSummary project={proj} /></div>
-                            <span className="px-2 py-0.5 bg-indigo-50 border border-indigo-150 text-indigo-700 font-mono text-[9px] font-bold rounded-full">
+                            <Target className="h-4 w-4 text-[#00ADFC] shrink-0" />
+                            <div className="min-w-0 flex-1"><h3 className="font-medium text-slate-800 text-sm truncate">{proj.name}</h3><KanbanProjectSummary project={proj} /></div>
+                            <span className="px-2 py-0.5 bg-[#E8F7FF] border border-[#B8E8FF] text-[#007EB8] text-xs rounded-full">
                               {projTasks.length} việc
                             </span>
                           </div>
                           <div className="flex items-center gap-4 text-[10px] text-gray-400 font-medium">
                             <span>Tạo ngày: {new Date(proj.createdAt).toLocaleDateString("vi-VN")}</span>
                             {isManager && (
-                              <><button type="button" onClick={(e) => { e.stopPropagation(); setEditingProjectId(proj.id); setNewProjectName(proj.name); setNewProjectStatus(proj.status || "not_started"); setNewProjectPriority(proj.priority || "medium"); setNewProjectStartAt(proj.startAt ? getLocalDatetimeString(new Date(proj.startAt)) : ""); setNewProjectDueAt(proj.dueAt ? getLocalDatetimeString(new Date(proj.dueAt)) : ""); setNewProjectAttachments(proj.attachments || []); setIsNewProjectModalOpen(true); }} className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title="Sửa dự án"><FileText className="h-3.5 w-3.5" /></button><button
+                              <><button type="button" onClick={(e) => { e.stopPropagation(); setEditingProjectId(proj.id); setNewProjectName(proj.name); setNewProjectStatus(proj.status || "not_started"); setNewProjectPriority(proj.priority || "medium"); setNewProjectStartAt(proj.startAt ? getLocalDatetimeString(new Date(proj.startAt)) : ""); setNewProjectDueAt(proj.dueAt ? getLocalDatetimeString(new Date(proj.dueAt)) : ""); setNewProjectAttachments(proj.attachments || []); setIsNewProjectModalOpen(true); }} className="p-1.5 rounded-lg text-[#007EB8] hover:bg-[#E8F7FF]" title="Sửa dự án"><FileText className="h-3.5 w-3.5" /></button><button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1558,16 +1551,16 @@ export default function KanbanTab({
                   })}
 
                   {/* Unassigned Projects block */}
-                  <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
+                  <div className="border border-[#DCE7F4] rounded-2xl overflow-hidden shadow-2xs">
                     <div
                       onClick={() => setExpandedProjects(p => ({ ...p, unassigned: !expandedProjects.unassigned }))}
-                      className="bg-slate-50 px-5 py-3.5 flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/80 transition-colors"
+                      className="bg-[#F5FAFE] px-5 py-3.5 flex items-center justify-between cursor-pointer select-none hover:bg-[#E8F7FF] transition-colors"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <ChevronRight className={`h-4.5 w-4.5 text-slate-550 transition-transform ${expandedProjects.unassigned ? "rotate-90" : ""}`} />
                         <Tag className="h-4 w-4 text-slate-500 shrink-0" />
-                        <h3 className="font-bold text-slate-600 text-sm">Công việc không thuộc dự án</h3>
-                        <span className="px-2 py-0.5 bg-slate-150 text-slate-600 font-mono text-[9px] font-bold rounded-full">
+                        <h3 className="font-medium text-slate-700 text-sm">Công việc không thuộc dự án</h3>
+                        <span className="px-2 py-0.5 bg-white text-[#007EB8] text-xs rounded-full">
                           {visibleTasks.filter(t => !t.projectId).length} việc
                         </span>
                       </div>
@@ -1592,9 +1585,9 @@ export default function KanbanTab({
           {kanbanViewTab === "Board" && (
             <div className="grid min-h-[400px] grid-cols-1 items-start gap-3 md:grid-cols-4 md:gap-5" id="kanban_board_columns">
               {/* Column 1: Not Started */}
-              <div className="bg-slate-50 p-4 border border-gray-200 rounded-2xl flex flex-col h-full min-h-[450px]">
+              <div className="bg-[#F8FCFF] p-4 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-[450px]">
                 <div className="flex justify-between items-center mb-4 select-none">
-                  <span className="text-xs font-bold text-slate-500 font-mono uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-gray-400" />
                     Chưa bắt đầu
                   </span>
@@ -1618,9 +1611,9 @@ export default function KanbanTab({
               </div>
 
               {/* Column 2: In Progress */}
-              <div className="bg-slate-50 p-4 border border-gray-200 rounded-2xl flex flex-col h-full min-h-[450px]">
+              <div className="bg-[#F8FCFF] p-4 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-[450px]">
                 <div className="flex justify-between items-center mb-4 select-none">
-                  <span className="text-xs font-bold text-[#007EB8] font-mono uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-sm font-medium text-[#007EB8] flex items-center gap-1.5">
                     <RefreshCw className="w-3.5 h-3.5 text-[#00ADFC] animate-spin" />
                     Đang thực hiện
                   </span>
@@ -1644,9 +1637,9 @@ export default function KanbanTab({
               </div>
 
               {/* Column 3: Review / Testing */}
-              <div className="bg-slate-50 p-4 border border-gray-200 rounded-2xl flex flex-col h-full min-h-[450px]">
+              <div className="bg-[#F8FCFF] p-4 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-[450px]">
                 <div className="flex justify-between items-center mb-4 select-none">
-                  <span className="text-xs font-bold text-amber-705 text-amber-700 font-mono uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-sm font-medium text-amber-700 flex items-center gap-1.5">
                     <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
                     Đang kiểm thử
                   </span>
@@ -1670,9 +1663,9 @@ export default function KanbanTab({
               </div>
 
               {/* Column 4: Done */}
-              <div className="bg-slate-50 p-4 border border-gray-200 rounded-2xl flex flex-col h-full min-h-[450px]">
+              <div className="bg-[#F8FCFF] p-4 border border-[#DCE7F4] rounded-2xl flex flex-col h-full min-h-[450px]">
                 <div className="flex justify-between items-center mb-4 select-none">
-                  <span className="text-xs font-bold text-emerald-700 font-mono uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-sm font-medium text-emerald-700 flex items-center gap-1.5">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                     Đã hoàn thành
                   </span>
@@ -1721,58 +1714,58 @@ export default function KanbanTab({
           onClick={() => setQuickDone(null)}
         >
           <div
-            className="bg-white border border-gray-200 text-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 text-left font-sans max-h-[90dvh] overflow-y-auto overscroll-contain"
+            className="bg-white border border-[#DCE7F4] text-slate-800 rounded-2xl shadow-2xl w-full max-w-sm p-6 text-left font-sans max-h-[90dvh] overflow-y-auto overscroll-contain"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-2 mb-1">
-              <h3 className="text-sm font-bold text-slate-800">Hoàn thành công việc</h3>
+              <h3 className="text-lg font-medium text-slate-800">Hoàn thành công việc</h3>
               <button
                 onClick={() => setQuickDone(null)}
-                className="p-1 rounded-lg hover:bg-gray-100 text-slate-400"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <p className="text-[11px] text-slate-400 mb-4 line-clamp-1">{quickDone.task.title}</p>
-            <p className="text-[11px] font-semibold text-slate-500 mb-3">
+            <p className="text-sm text-slate-500 mb-3">
               Chỉ còn thiếu {quickDone.missing.length} thông tin để hoàn thành:
             </p>
             <div className="space-y-3 text-xs">
               {quickDone.missing.some((m) => m.key === "description") && (
                 <div>
-                  <label className="block text-gray-400 font-bold mb-1">Mô tả công việc</label>
+                  <label className="block text-slate-600 mb-1">Mô tả công việc</label>
                   <textarea
                     value={qdFields.description}
                     onChange={(e) => setQdFields((f) => ({ ...f, description: e.target.value }))}
                     placeholder="Kết quả / nội dung đã thực hiện..."
-                    className="w-full p-2 bg-slate-50 border border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none resize-none min-h-[64px]"
+                    className="w-full p-2.5 bg-white border border-[#DCE7F4] focus:border-[#00ADFC] rounded-xl outline-none resize-none min-h-[64px]"
                     autoFocus
                   />
                 </div>
               )}
               {quickDone.missing.some((m) => m.key === "dueDate") && (
                 <div>
-                  <label className="block text-gray-400 font-bold mb-1">Hạn chót</label>
+                  <label className="block text-slate-600 mb-1">Hạn chót</label>
                   <DateTimeInput24
                     value={qdFields.dueDate}
                     onChange={(v) => setQdFields((f) => ({ ...f, dueDate: v }))}
-                    className="w-full p-2 bg-slate-50 border border-gray-200 focus-within:bg-white focus-within:border-indigo-500 rounded-lg"
+                    className="w-full"
                   />
                 </div>
               )}
               {quickDone.missing.some((m) => m.key === "startTime") && (
                 <div>
-                  <label className="block text-gray-400 font-bold mb-1">Ngày giờ bắt đầu</label>
+                  <label className="block text-slate-600 mb-1">Ngày giờ bắt đầu</label>
                   <DateTimeInput24
                     value={qdFields.startTime}
                     onChange={(v) => setQdFields((f) => ({ ...f, startTime: v }))}
-                    className="w-full p-2 bg-slate-50 border border-gray-200 focus-within:bg-white focus-within:border-indigo-500 rounded-lg"
+                    className="w-full"
                   />
                 </div>
               )}
               {quickDone.missing.some((m) => m.key === "estTime") && (
                 <div>
-                  <label className="block text-gray-400 font-bold mb-1">Số giờ phải làm (h)</label>
+                  <label className="block text-slate-600 mb-1">Số giờ phải làm (h)</label>
                   <input
                     type="number"
                     min={0.5}
@@ -1785,12 +1778,12 @@ export default function KanbanTab({
                       }))
                     }
                     placeholder="VD: 4"
-                    className="w-full p-2 bg-slate-50 border border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none"
+                    className="w-full p-2.5 bg-white border border-[#DCE7F4] focus:border-[#00ADFC] rounded-xl outline-none"
                   />
                 </div>
               )}
             </div>
-            <div className="mt-5 flex items-center justify-between gap-2 text-xs font-bold">
+            <div className="mt-5 flex items-center justify-between gap-2 text-sm font-medium">
               <button
                 onClick={() => {
                   const t = quickDone.task;
@@ -1798,13 +1791,13 @@ export default function KanbanTab({
                   setPresetDoneOnOpen(true);
                   setSelectedKanbanTask(t);
                 }}
-                className="text-slate-400 hover:text-indigo-600 font-semibold"
+                className="text-[#007EB8] hover:text-[#00ADFC]"
               >
                 Mở chi tiết đầy đủ…
               </button>
               <button
                 onClick={submitQuickDone}
-                className="px-4 py-2 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 transition-all active:scale-95 flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl text-white bg-[#00ADFC] hover:bg-[#0095d9] transition-all active:scale-95 flex items-center gap-1.5"
               >
                 <CheckCircle className="w-4 h-4" /> Hoàn thành
               </button>
@@ -1816,20 +1809,20 @@ export default function KanbanTab({
       {/* NOTION TASK DETAIL MODAL */}
       {selectedKanbanTask && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-gray-200 text-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-8 relative text-left flex flex-col max-h-[90vh] overflow-y-auto font-sans">
+          <div className="bg-white border border-[#DCE7F4] text-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl p-6 relative text-left flex flex-col max-h-[90vh] overflow-y-auto font-sans">
             {/* Top Breadcrumb and Close */}
-            <div className="flex justify-between items-center mb-6 text-[11px] text-gray-450 font-semibold uppercase tracking-wider select-none">
+            <div className="flex justify-between items-center mb-5 border-b border-[#E8F0F8] pb-4 text-sm text-slate-500 select-none">
               <div className="flex items-center gap-1">
                 <span className="text-gray-500">Nhân sự</span>
                 <ChevronRight className="h-3 w-3 text-gray-450" />
                 <span className="text-gray-500">Bảng giao việc</span>
                 <ChevronRight className="h-3 w-3 text-gray-450" />
-                <span className="text-indigo-650">{editCategory || DEFAULT_TASK_CATEGORY}</span>
+                <span className="text-[#007EB8]">{editCategory || DEFAULT_TASK_CATEGORY}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedKanbanTask(null)}
-                className="text-gray-400 hover:text-slate-800 cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 cursor-pointer"
               >
                 <X className="h-4.5 w-4.5" />
               </button>
@@ -1842,62 +1835,37 @@ export default function KanbanTab({
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 placeholder="Tiêu đề công việc..."
-                className="w-full text-2xl font-bold text-slate-850 placeholder-gray-300 bg-transparent border-0 border-b border-transparent focus:border-gray-200 outline-none pb-1 font-sans focus:ring-0"
+                className="w-full rounded-xl border border-[#DCE7F4] bg-white px-4 py-3 text-xl font-medium text-slate-800 placeholder-slate-400 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 font-sans"
               />
             </div>
 
             {/* Notion properties matrix table */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6 border-b border-gray-150 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-6 border-b border-[#E8F0F8] text-sm">
               <div className="space-y-3">
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Giao cho</span>
-                  <select
-                    value={editAssigneeUid}
-                    onChange={(e) => setEditAssigneeUid(e.target.value)}
-                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none cursor-pointer font-semibold"
-                  >
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.name}</option>
-                    ))}
-                  </select>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-[#00ADFC]" /> Giao cho</span>
+                  <div className="min-w-0 flex-1"><HrFormSelect value={editAssigneeUid} onChange={setEditAssigneeUid} label="Giao cho" options={employees.map(emp => ({ value: emp.id, label: emp.name }))} /></div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Trạng thái</span>
-                  <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as any)}
-                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none cursor-pointer font-semibold"
-                  >
-                    <option value="Not Started">Chưa bắt đầu</option>
-                    <option value="In Progress">Đang thực hiện</option>
-                    <option value="Review/Testing">Đang kiểm thử</option>
-                    <option value="Done">Đã hoàn thành</option>
-                  </select>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-[#00ADFC]" /> Trạng thái</span>
+                  <div className="min-w-0 flex-1"><HrFormSelect value={editStatus} onChange={(value) => setEditStatus(value as typeof editStatus)} label="Trạng thái" options={[{ value: "Not Started", label: "Chưa bắt đầu" }, { value: "In Progress", label: "Đang thực hiện" }, { value: "Review/Testing", label: "Đang kiểm thử" }, { value: "Done", label: "Đã hoàn thành" }]} /></div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> Độ ưu tiên</span>
-                  <select
-                    value={editPriority}
-                    onChange={(e) => setEditPriority(e.target.value as any)}
-                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none cursor-pointer font-semibold"
-                  >
-                    <option value="High">Cao</option>
-                    <option value="Medium">Trung bình</option>
-                    <option value="Low">Thấp</option>
-                  </select>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5 text-[#00ADFC]" /> Độ ưu tiên</span>
+                  <div className="min-w-0 flex-1"><HrFormSelect value={editPriority} onChange={(value) => setEditPriority(value as typeof editPriority)} label="Độ ưu tiên" options={[{ value: "High", label: "Cao" }, { value: "Medium", label: "Trung bình" }, { value: "Low", label: "Thấp" }]} /></div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" /> Phân loại</span>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 text-[#00ADFC]" /> Phân loại</span>
                   <input
                     type="text"
                     list="task-category-options"
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value)}
                     placeholder="Ví dụ: Hướng dẫn nhân viên mới, Tiếp thị, Kỹ thuật..."
-                    className="flex-1 p-1 px-2 bg-slate-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-indigo-500 rounded-lg outline-none font-semibold text-xs transition-all"
+                    className="min-w-0 flex-1 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-sm outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 transition-all"
                   />
                   <datalist id="task-category-options">
                     <option value={DEFAULT_TASK_CATEGORY} />
@@ -1910,68 +1878,59 @@ export default function KanbanTab({
 
               <div className="space-y-3">
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Target className="w-3.5 h-3.5" /> Thuộc dự án</span>
-                  <select
-                    value={editProjectId}
-                    onChange={(e) => setEditProjectId(e.target.value)}
-                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none cursor-pointer font-semibold"
-                  >
-                    <option value="">Không gán dự án</option>
-                    {projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-[#00ADFC]" /> Thuộc dự án</span>
+                  <div className="min-w-0 flex-1"><HrFormSelect value={editProjectId} onChange={setEditProjectId} label="Thuộc dự án" options={[{ value: "", label: "Không gán dự án" }, ...projects.map(p => ({ value: p.id, label: p.name }))]} /></div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Hạn chót</span>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-[#00ADFC]" /> Hạn chót</span>
                   <DateTimeInput24
                     value={editDueDate}
                     onChange={setEditDueDate}
-                    className={missingCls("dueDate", "flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg text-[10px] font-semibold")}
+                    className={missingCls("dueDate", "min-w-0 flex-1")}
                   />
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Bắt đầu</span>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-[#00ADFC]" /> Bắt đầu</span>
                   <DateTimeInput24
                     value={editStartTime}
                     onChange={setEditStartTime}
-                    className={missingCls("startTime", "flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg text-[10px] font-semibold")}
+                    className={missingCls("startTime", "min-w-0 flex-1")}
                   />
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Kết thúc</span>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-[#00ADFC]" /> Kết thúc</span>
                   <DateTimeInput24
                     value={editEndTime}
                     onChange={setEditEndTime}
-                    className="flex-1 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg text-[10px] font-semibold"
+                    className="min-w-0 flex-1"
                   />
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Số giờ (h)</span>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-[#00ADFC]" /> Số giờ (h)</span>
                   <div className="flex-1 flex gap-2">
                     <input
                       type="number"
                       placeholder="Số giờ phải làm"
                       value={editEstTime}
                       onChange={(e) => setEditEstTime(e.target.value === "" ? "" : Number(e.target.value))}
-                      className={missingCls("estTime", "w-1/2 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px]")}
+                      className={missingCls("estTime", "w-1/2 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-sm outline-none focus:border-[#00ADFC]")}
                     />
                     <input
                       type="number"
                       placeholder="Thực tế"
                       value={editActualTime}
                       onChange={(e) => setEditActualTime(e.target.value === "" ? "" : Number(e.target.value))}
-                      className="w-1/2 p-1 bg-slate-50 border border-transparent hover:border-gray-200 rounded-lg outline-none text-[10px]"
+                      className="w-1/2 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-sm outline-none focus:border-[#00ADFC]"
                     />
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-gray-400 font-semibold select-none flex items-center gap-1.5"><Activity className="w-3.5 h-3.5" /> Đánh giá KPI</span>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-[#00ADFC]" /> Đánh giá KPI</span>
                   <div className="flex-1">
                     {(() => {
                       const kpi = getDynamicKPI();
@@ -1996,47 +1955,47 @@ export default function KanbanTab({
             {/* Additional meta fields (Tags & Link note) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 py-4 border-b text-xs">
               <div>
-                <label className="block text-gray-400 font-bold mb-1 flex items-center gap-1 select-none"><Tag className="w-3.5 h-3.5" /> Nhãn (Tags, cách nhau bằng dấu phẩy)</label>
+                <label className="mb-1.5 flex items-center gap-1 text-slate-600 select-none"><Tag className="w-3.5 h-3.5 text-[#00ADFC]" /> Nhãn (cách nhau bằng dấu phẩy)</label>
                 <input
                   type="text"
                   placeholder="Ví dụ: máy chủ, kết nối, bảo mật"
                   value={editTags}
                   onChange={(e) => setEditTags(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-transparent hover:border-gray-250 focus:bg-white focus:border-indigo-500 rounded-lg outline-none"
+                  className="w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15"
                 />
               </div>
 
               <div>
-                <label className="block text-gray-400 font-bold mb-1 flex items-center gap-1 select-none"><ExternalLink className="w-3.5 h-3.5" /> Link ghi chú / Tài liệu đính kèm</label>
+                <label className="mb-1.5 flex items-center gap-1 text-slate-600 select-none"><ExternalLink className="w-3.5 h-3.5 text-[#00ADFC]" /> Link ghi chú / Tài liệu đính kèm</label>
                 <input
                   type="text"
                   placeholder="Ví dụ: http://notion.so/igen-plan"
                   value={editLinkNote}
                   onChange={(e) => setEditLinkNote(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-transparent hover:border-gray-250 focus:bg-white focus:border-indigo-500 rounded-lg outline-none"
+                  className="w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15"
                 />
               </div>
             </div>
 
             <div className="py-4 border-b text-xs">
-              <label className="block text-gray-400 font-bold mb-2 flex items-center gap-1 select-none"><Paperclip className="w-3.5 h-3.5" /> Tệp, ảnh, video, ghi âm và liên kết</label>
+              <label className="mb-2 flex items-center gap-1 text-slate-600 select-none"><Paperclip className="w-3.5 h-3.5 text-[#00ADFC]" /> Tệp, ảnh, video, ghi âm và liên kết</label>
               <AttachmentEditor attachments={editAttachments} onChange={setEditAttachments} />
             </div>
             {/* Description field */}
             <div className="py-5 flex-1 min-h-[140px] flex flex-col text-xs">
-              <label className="block text-gray-400 font-bold mb-1.5 select-none">Mô tả công việc chi tiết</label>
+              <label className="block text-slate-600 mb-1.5 select-none">Mô tả công việc chi tiết</label>
               <textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
                 placeholder="Nhập ghi chú chi tiết cho nhân viên thực hiện..."
-                className={missingCls("description", "w-full flex-1 p-3 bg-slate-50 border border-transparent hover:border-gray-200 focus:bg-white focus:border-indigo-500 rounded-xl outline-none resize-none min-h-[120px]")}
+                className={missingCls("description", "w-full flex-1 p-3 bg-white border border-[#DCE7F4] focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 rounded-xl outline-none resize-none min-h-[120px]")}
               />
             </div>
 
             {/* Task history log */}
             {selectedKanbanTask.id !== "new" && taskHistory.length > 0 && (
               <div className="border-t pt-4 max-h-[150px] overflow-y-auto text-[10px]">
-                <span className="block font-bold text-gray-400 mb-2 uppercase select-none tracking-wider">Nhật ký thay đổi ({taskHistory.length})</span>
+                <span className="block font-medium text-slate-600 mb-2 select-none">Nhật ký thay đổi ({taskHistory.length})</span>
                 <div className="space-y-1.5 font-mono text-slate-500 text-left">
                   {taskHistory.slice().reverse().map((hist, hidx) => (
                     <div key={hidx} className="flex gap-2">
@@ -2070,7 +2029,7 @@ export default function KanbanTab({
             )}
 
             {/* Action buttons */}
-            <div className="pt-6 border-t flex justify-between items-center text-xs font-bold shrink-0">
+            <div className="pt-5 border-t border-[#E8F0F8] flex justify-between items-center text-sm font-medium shrink-0">
               <div>
                 {selectedKanbanTask.id !== "new" && (isManager || selectedKanbanTask.creatorUid === userProfile?.uid) && (
                   <button
@@ -2089,14 +2048,14 @@ export default function KanbanTab({
                 <button
                   type="button"
                   onClick={() => setSelectedKanbanTask(null)}
-                  className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
+                  className="px-4 py-2 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl bg-white cursor-pointer transition-all active:scale-95 font-sans"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="button"
                   onClick={(e) => handleSaveTask(e)}
-                  className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl shadow-xs cursor-pointer transition-all active:scale-95 font-sans"
+                  className="px-5 py-2 bg-[#00ADFC] hover:bg-[#0095d9] text-white rounded-xl shadow-xs cursor-pointer transition-all active:scale-95 font-sans"
                 >
                   {selectedKanbanTask.id === "new" ? "Tạo công việc" : "Lưu thay đổi"}
                 </button>
@@ -2109,55 +2068,55 @@ export default function KanbanTab({
       {/* NEW PROJECT MODAL */}
       {isNewProjectModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
-          <form onSubmit={handleCreateProject} className="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-md p-6 relative text-left space-y-4 max-h-[90dvh] overflow-y-auto overscroll-contain">
-            <div className="flex justify-between items-center pb-3 border-b border-gray-150">
-              <h4 className="font-bold text-slate-800 text-sm font-sans uppercase flex items-center gap-2">
-                <Target className="h-4 w-4 text-indigo-655" />
+          <form onSubmit={handleCreateProject} className="bg-white border border-[#DCE7F4] rounded-2xl shadow-xl w-full max-w-xl p-6 relative text-left space-y-5 max-h-[90dvh] overflow-y-auto overscroll-contain">
+            <div className="flex justify-between items-center pb-4 border-b border-[#E8F0F8]">
+              <h4 className="font-medium text-slate-800 text-lg font-sans flex items-center gap-2">
+                <Target className="h-5 w-5 text-[#00ADFC]" />
                 {editingProjectId ? "Cập nhật dự án" : "Tạo dự án mới"}
               </h4>
               <button
                 type="button"
                 onClick={() => setIsNewProjectModalOpen(false)}
-                className="text-gray-400 hover:text-slate-800 cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
+            <div className="space-y-4 text-sm">
               <div>
-                <label className="block font-bold text-gray-500 mb-1.5 font-sans">Tên dự án *</label>
+                <label className="block font-normal text-slate-600 mb-1.5 font-sans">Tên dự án *</label>
                 <input
                   type="text"
                   required
                   placeholder="Ví dụ: Thiết kế Landing Page"
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 text-slate-800 placeholder-gray-300 hover:border-gray-300 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 rounded-xl font-sans"
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#DCE7F4] text-slate-800 placeholder-slate-400 outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 rounded-xl font-sans"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="font-bold text-gray-500">Trạng thái<select value={newProjectStatus} onChange={(e) => setNewProjectStatus(e.target.value as Project["status"])} className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 font-normal text-slate-800"><option value="not_started">Chưa bắt đầu</option><option value="in_progress">Đang thực hiện</option><option value="paused">Tạm dừng</option><option value="cancelled">Đã hủy</option></select></label>
-                <label className="font-bold text-gray-500">Độ ưu tiên<select value={newProjectPriority} onChange={(e) => setNewProjectPriority(e.target.value as Project["priority"])} className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 font-normal text-slate-800"><option value="low">Thấp</option><option value="medium">Trung bình</option><option value="high">Cao</option><option value="urgent">Khẩn cấp</option></select></label>
+                <div><label className="mb-1.5 block text-slate-600">Trạng thái</label><HrFormSelect value={newProjectStatus} onChange={(value) => setNewProjectStatus(value as Project["status"])} label="Trạng thái dự án" options={[{ value: "not_started", label: "Chưa bắt đầu" }, { value: "in_progress", label: "Đang thực hiện" }, { value: "paused", label: "Tạm dừng" }, { value: "cancelled", label: "Đã hủy" }]} /></div>
+                <div><label className="mb-1.5 block text-slate-600">Độ ưu tiên</label><HrFormSelect value={newProjectPriority} onChange={(value) => setNewProjectPriority(value as Project["priority"])} label="Độ ưu tiên dự án" options={[{ value: "low", label: "Thấp" }, { value: "medium", label: "Trung bình" }, { value: "high", label: "Cao" }, { value: "urgent", label: "Khẩn cấp" }]} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="font-bold text-gray-500">Thời gian bắt đầu<input type="datetime-local" value={newProjectStartAt} onChange={(e) => setNewProjectStartAt(e.target.value)} className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 font-normal text-slate-800" /></label>
-                <label className="font-bold text-gray-500">Hạn cuối<input type="datetime-local" value={newProjectDueAt} onChange={(e) => setNewProjectDueAt(e.target.value)} className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 font-normal text-slate-800" /></label>
+                <div><label className="mb-1.5 block text-slate-600">Thời gian bắt đầu</label><DateTimeInput24 value={newProjectStartAt} onChange={setNewProjectStartAt} className="w-full" /></div>
+                <div><label className="mb-1.5 block text-slate-600">Hạn cuối</label><DateTimeInput24 value={newProjectDueAt} onChange={setNewProjectDueAt} className="w-full" /></div>
               </div>
-              <div><label className="block font-bold text-gray-500 mb-1.5">Tài liệu</label><AttachmentEditor attachments={newProjectAttachments} onChange={setNewProjectAttachments} /></div>
+              <div><label className="block text-slate-600 mb-1.5">Tài liệu</label><AttachmentEditor attachments={newProjectAttachments} onChange={setNewProjectAttachments} /></div>
             </div>
 
-            <div className="pt-4 border-t border-gray-150 flex justify-end gap-3 text-xs font-bold">
+            <div className="pt-4 border-t border-[#E8F0F8] flex justify-end gap-3 text-sm font-medium">
               <button
                 type="button"
                 onClick={() => setIsNewProjectModalOpen(false)}
-                className="px-4 py-2 border border-gray-200 text-slate-500 hover:text-slate-800 rounded-xl bg-white hover:bg-slate-50 cursor-pointer transition-all active:scale-95 font-sans"
+                className="px-4 py-2 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl bg-white cursor-pointer transition-all active:scale-95 font-sans"
               >
                 Hủy bỏ
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl cursor-pointer transition-all active:scale-95 font-sans"
+                className="px-5 py-2 bg-[#00ADFC] hover:bg-[#0095d9] text-white rounded-xl cursor-pointer transition-all active:scale-95 font-sans"
               >
                 Lưu dự án
               </button>
@@ -2224,27 +2183,27 @@ function KanbanCard({
   return (
     <div
       onClick={onClick}
-      className="p-4 bg-white border border-gray-200 rounded-2xl shadow-2xs hover:shadow-md hover:border-indigo-300 transition-all duration-300 text-left cursor-pointer group space-y-3"
+      className="p-4 bg-white border border-[#DCE7F4] rounded-2xl shadow-2xs hover:shadow-md hover:border-[#00ADFC] transition-all duration-300 text-left cursor-pointer group space-y-3"
     >
       <div className="space-y-1.5">
         <div className="flex justify-between items-start gap-2 select-none">
-          <span className={`px-2 py-0.5 rounded-md text-[8px] font-bold border uppercase tracking-wider font-mono ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
+          <span className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border ${task.priority === "High" ? "bg-rose-50 text-rose-700 border-rose-200" :
             task.priority === "Low" ? "bg-slate-100 text-slate-500 border-gray-250" : "bg-amber-50 text-amber-705 text-amber-700 border-amber-205 border-amber-200"
             }`}>
             {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
           </span>
-          <span className="text-[9px] font-bold text-indigo-750 font-mono uppercase tracking-wider bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">
+          <span className="text-[11px] font-normal text-[#007EB8] bg-[#E8F7FF] border border-[#B8E8FF] px-2 py-0.5 rounded-lg">
             {formatTaskCategory(task.category)}
           </span>
         </div>
-        <h4 className="font-bold text-xs text-slate-800 leading-tight group-hover:text-indigo-650 transition-colors line-clamp-2">{task.title}</h4>
+        <h4 className="font-medium text-sm text-slate-800 leading-snug group-hover:text-[#007EB8] transition-colors line-clamp-2">{task.title}</h4>
       </div>
 
-      <div className="space-y-1.5 text-[9px] text-slate-500">
+      <div className="space-y-1.5 text-xs text-slate-500">
         <p className="line-clamp-2 leading-relaxed">{task.description || "Không có mô tả chi tiết."}</p>
         {task.projectId && (
-          <div className="flex items-center gap-1 text-[9px] text-slate-650 font-semibold select-none">
-            <Target className="w-3 h-3 text-indigo-500 shrink-0" />
+          <div className="flex items-center gap-1 text-xs text-slate-600 select-none">
+            <Target className="w-3 h-3 text-[#00ADFC] shrink-0" />
             <span className="truncate">{projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}</span>
           </div>
         )}
@@ -2321,7 +2280,7 @@ function KanbanCard({
                 else if (currentStatus === "Review/Testing") nextStatus = "Done";
                 onMove(nextStatus);
               }}
-              className="px-2 py-0.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-lg text-[9px] font-bold cursor-pointer"
+              className="px-2 py-0.5 bg-[#00ADFC] hover:bg-[#0095d9] text-white rounded-lg text-xs font-medium cursor-pointer"
             >
               →
             </button>
