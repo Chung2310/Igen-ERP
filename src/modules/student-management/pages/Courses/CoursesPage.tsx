@@ -1018,13 +1018,14 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
       )}
 
       {showCategoryModal && (
-        <ErpModal title={copy.categoryManagerTitle} onClose={() => setShowCategoryModal(false)}>
-          <div className="space-y-6">
-            <form onSubmit={handleAddCategory} className="flex gap-2">
-              <div className="flex-1">
+        <ErpModal title={copy.categoryManagerTitle} titleClassName="font-medium" maxWidth="max-w-xl" onClose={() => setShowCategoryModal(false)}>
+          <div className="space-y-4">
+            <form onSubmit={handleAddCategory} className="flex flex-col gap-2 sm:flex-row">
+              <div className="min-w-0 flex-1">
                 <ErpInput
                   type="text"
                   required
+                  aria-label={copy.categoryInputPlaceholder}
                   placeholder={copy.categoryInputPlaceholder}
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
@@ -1033,38 +1034,37 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
               <button
                 type="submit"
                 disabled={isCategorySubmitting}
-                className="px-4 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold transition-all hover:bg-brand-primary/95 disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer"
+                className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-brand-primary px-4 text-sm font-medium text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Plus className="w-4 h-4" /> Thêm
+                <Plus className="h-4 w-4" /> Thêm
               </button>
             </form>
 
-            <div className="space-y-2">
-              <h5 className={cn('text-xs font-black uppercase tracking-wider', darkMode ? 'text-slate-400' : 'text-slate-500')}>{copy.categoryListTitle}</h5>
+            <div className="space-y-3 border-t border-slate-100 pt-4">
+              <h5 className="text-sm font-medium text-slate-700">{copy.categoryListTitle}</h5>
               {categoriesLoading ? (
-                <p className="text-xs text-slate-400">Đang tải...</p>
+                <p className="text-sm text-slate-500">Đang tải...</p>
               ) : categories.length === 0 ? (
-                <p className="text-xs text-slate-400">{copy.emptyCategory}</p>
+                <div className="flex items-center gap-2 rounded-xl border border-dashed border-sky-100 bg-sky-50/50 px-3 py-4 text-sm text-slate-500">
+                  <Tag className="h-4 w-4 shrink-0 text-brand-primary" />
+                  {copy.emptyCategory}
+                </div>
               ) : (
-                <div className={cn('border rounded-2xl p-2 max-h-60 overflow-y-auto divide-y', darkMode ? 'border-slate-800 divide-slate-800/40' : 'border-slate-100 divide-slate-100/60')}>
+                <div className="max-h-60 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-sky-100 bg-white px-2">
                   {categories.map((cat) => (
-                    <div key={cat.id} className="flex items-center justify-between py-2.5 px-3">
-                      <div className="flex items-center gap-2">
-                        <Tag className="w-3.5 h-3.5 text-slate-400" />
-                        <span className={cn('text-xs font-bold', darkMode ? 'text-slate-200' : 'text-slate-700')}>{cat.name}</span>
+                    <div key={cat.id} className="flex items-center justify-between gap-3 px-2 py-2.5">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Tag className="h-4 w-4 shrink-0 text-brand-primary" />
+                        <span className="truncate text-sm font-normal text-slate-700" title={cat.name}>{cat.name}</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setDeleteConfirm({ isOpen: true, id: cat.id, name: cat.name })}
                         title={copy.deleteCategoryTitle}
-                        className={cn(
-                          'p-1.5 rounded-lg transition-all border cursor-pointer',
-                          darkMode
-                            ? 'bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 border-transparent'
-                            : 'bg-slate-50 hover:bg-rose-55 text-slate-450 hover:text-rose-600 border-slate-200/60'
-                        )}
+                        aria-label={`${copy.deleteCategoryTitle}: ${cat.name}`}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   ))}
