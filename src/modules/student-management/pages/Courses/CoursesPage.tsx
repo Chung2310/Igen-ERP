@@ -42,6 +42,7 @@ import type { CustomFieldValues } from '../../../shared/custom-fields/types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../hooks/useStandardFields';
 import { CustomFieldEditorModal } from '../../../shared/custom-fields/CustomFieldEditorModal';
 import { ConfirmDialog } from '../../../../components/common/ConfirmDialog';
+import { NoticeDialog } from '../../../../components/common/NoticeDialog';
 import { canManageCustomFields } from '../../../shared/custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../../shared/custom-fields/types';
 import { Pagination } from '../../components/ui/Pagination';
@@ -146,6 +147,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const [stdEditorOpen, setStdEditorOpen] = useState(false);
   const [editingStdField, setEditingStdField] = useState<FieldDefinition | null>(null);
   const [pendingStdFieldAction, setPendingStdFieldAction] = useState<{ action: 'archive' | 'delete'; field: StandardFieldConfig } | null>(null);
+  const [validationNotice, setValidationNotice] = useState<string | null>(null);
 
   const openEditStdField = (field: StandardFieldConfig) => {
     setEditingStdField(getAdaptedFieldDefinition(field, "courses"));
@@ -270,8 +272,17 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
     });
   };
 
+  const showInvalidInput = (form: HTMLFormElement) => {
+    const invalid = form.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(':invalid');
+    if (!invalid) return false;
+    const label = invalid.getAttribute('aria-label') || invalid.closest('.space-y-1')?.querySelector('div')?.textContent?.trim() || 'trường này';
+    setValidationNotice(invalid.validity.valueMissing ? `Vui lòng nhập ${label}.` : `Vui lòng kiểm tra ${label}.`);
+    return true;
+  };
+
   const handleAddCourse = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (showInvalidInput(e.currentTarget)) return;
     const missingFields: string[] = [];
     stdFields.forEach((f) => {
       if (f.isVisible && !f.isArchived && f.isRequired) {
@@ -285,14 +296,14 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
     });
 
     if (missingFields.length > 0) {
-      toast.error(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`);
+      setValidationNotice(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}.`);
       return;
     }
 
     if (usesCourseFeePolicy && isFieldVisible('fee')) {
       const numericFee = newCourse.fee.replace(/\D/g, '');
       if (newCourse.fee && (!numericFee || Number.isNaN(Number(numericFee)))) {
-        toast.error(copy.feeValidationError);
+        setValidationNotice(copy.feeValidationError);
         return;
       }
     }
@@ -321,7 +332,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
       toast.success(copy.createdMessage(payload.code));
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : copy.createError;
-      toast.error(msg);
+      setValidationNotice(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -330,6 +341,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const handleEditCourse = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingCourse) return;
+    if (showInvalidInput(e.currentTarget)) return;
 
     const missingFields: string[] = [];
     stdFields.forEach((f) => {
@@ -344,14 +356,14 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
     });
 
     if (missingFields.length > 0) {
-      toast.error(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}`);
+      setValidationNotice(`Vui lòng điền đầy đủ các trường bắt buộc: ${missingFields.join(', ')}.`);
       return;
     }
 
     if (usesCourseFeePolicy && isFieldVisible('fee')) {
       const numericFee = editForm.fee.replace(/\D/g, '');
       if (editForm.fee && (!numericFee || Number.isNaN(Number(numericFee)))) {
-        toast.error(copy.feeValidationError);
+        setValidationNotice(copy.feeValidationError);
         return;
       }
     }
@@ -379,7 +391,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
       toast.success(copy.updatedMessage(payload.code));
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : copy.updateError;
-      toast.error(msg);
+      setValidationNotice(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -732,7 +744,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
 
       {showAddModal && (
         <ErpModal title={copy.createModalTitle} onClose={() => setShowAddModal(false)}>
-          <form onSubmit={handleAddCourse} className="space-y-4">
+          <form noValidate onSubmit={handleAddCourse} className="space-y-4">
             {isFieldVisible('code') && (
               <div className="relative group/std">
                 <ErpField label={getFieldLabel('code', copy.codeLabel)} actions={renderFieldActions('code')}>
@@ -870,7 +882,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
 
       {editingCourse && (
         <ErpModal title={copy.editModalTitle(editingCourse.code)} onClose={() => setEditingCourse(null)} maxWidth="max-w-3xl">
-          <form onSubmit={handleEditCourse} className="space-y-4">
+          <form noValidate onSubmit={handleEditCourse} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {isFieldVisible('code') && (
                 <div className="relative group/std">
@@ -1094,6 +1106,8 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
         onClose={() => setPendingStdFieldAction(null)}
         onConfirm={confirmStdFieldAction}
       />
+
+      <NoticeDialog message={validationNotice} onClose={() => setValidationNotice(null)} />
 
       {viewingCourse && (
         <ErpModal title={`Chi tiết khóa học: ${viewingCourse.title}`} titleClassName="font-medium" onClose={() => setViewingCourse(null)}>

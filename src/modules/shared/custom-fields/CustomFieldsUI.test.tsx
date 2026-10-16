@@ -165,11 +165,14 @@ describe("CustomFieldEditorModal", () => {
     render(<CustomFieldEditorModal open moduleKey="students" onClose={vi.fn()} onSubmit={onSubmit} />);
     fireEvent.click(screen.getByRole("button", { name: /^lưu$/i }));
     expect(await screen.findByText(/nhập nhãn/i)).toBeTruthy();
+    expect(screen.getByRole("alertdialog").querySelectorAll("button")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: /đóng thông báo/i }));
     fireEvent.change(screen.getByLabelText(/nhãn trường/i), { target: { value: "Tài liệu" } });
     fireEvent.change(screen.getByLabelText(/loại trường/i), { target: { value: "file" } });
     fireEvent.change(screen.getByLabelText(/kích thước tối đa/i), { target: { value: "101" } });
     fireEvent.click(screen.getByRole("button", { name: /^lưu$/i }));
     expect(await screen.findByText(/1.*100/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /đóng thông báo/i }));
     fireEvent.change(screen.getByLabelText(/kích thước tối đa/i), { target: { value: "10" } });
     fireEvent.click(screen.getByRole("button", { name: /^lưu$/i }));
     expect(await screen.findByText("Trùng tên")).toBeTruthy();

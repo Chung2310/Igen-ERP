@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { X } from "lucide-react";
+import { NoticeDialog } from "../../../components/common/NoticeDialog";
 import { DYNAMIC_FIELD_TYPES, createMaxSizeMb, type CreateFieldInput, type DynamicFieldType, type FieldDefinition } from "./types";
 
 export type CustomFieldEditorModalProps = {
@@ -144,7 +145,6 @@ export function CustomFieldEditorModal({ open, moduleKey, initialField, onClose,
       <div ref={dialogRef} onKeyDown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="custom-field-editor-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl" data-module-key={moduleKey}>
         <div className="flex items-center justify-between gap-4"><h2 id="custom-field-editor-title" className="text-sm font-medium text-slate-900 normal-case">{initialField ? "Chỉnh sửa trường" : "Thêm trường"}</h2><button type="button" aria-label="Đóng" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white shadow-xs transition-all hover:bg-rose-600 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2" onClick={onClose}><X className="h-4 w-4" aria-hidden="true" /></button></div>
         <div className="mt-5 space-y-4">
-          {errors.length ? <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{errors.map((error) => <p key={error}>{error}</p>)}</div> : null}
           <label className="block text-xs font-normal text-slate-700 normal-case">Nhãn trường<input ref={labelInputRef} className={inputClass} value={form.label} onChange={(event) => set("label", event.target.value)} /></label>
           <label className="block text-xs font-normal text-slate-700 normal-case">Loại trường<select className={inputClass} value={form.type} disabled={isStandard} onChange={(event) => { const type = event.target.value as DynamicFieldType; setForm((current) => ({ ...current, type, defaultValue: defaultForType(type), maxFiles: "1" })); }}>{DYNAMIC_FIELD_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select></label>
           <div className="grid gap-4 sm:grid-cols-2"><label className="block text-xs font-normal text-slate-700 normal-case">Gợi ý<input className={inputClass} value={form.placeholder} onChange={(event) => set("placeholder", event.target.value)} /></label>
@@ -174,6 +174,7 @@ export function CustomFieldEditorModal({ open, moduleKey, initialField, onClose,
           </div>
         </div>
       </div>
+      <NoticeDialog message={errors.length ? errors.join("\n") : null} onClose={() => setErrors([])} />
     </div>
   );
 }
