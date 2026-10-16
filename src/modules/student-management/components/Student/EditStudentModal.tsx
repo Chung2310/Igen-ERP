@@ -256,20 +256,21 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col"
+            className="relative w-full max-w-3xl bg-white rounded-2xl border border-sky-100 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
-              <h2 className="text-base font-bold text-slate-800">{entityLabel.editTitle}</h2>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-sky-100 flex-shrink-0">
+              <h2 className="border-l-4 border-brand-primary pl-3 text-base font-medium text-slate-900">{entityLabel.editTitle}</h2>
               <button
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="p-1.5 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50"
+                aria-label="Đóng"
               >
-                <X className="w-4 h-4 text-slate-400" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form className="p-6 overflow-y-auto space-y-4" onSubmit={handleSubmit}>
+            <form className="p-5 overflow-y-auto space-y-4" onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                 {isFieldVisible('fullName') && (
                   <div className="relative group/std space-y-1">
@@ -517,19 +518,11 @@ export function EditStudentModal({ student, isOpen, onClose, onSuccess, students
                 </div>
               ) : null}
 
-              <div className="flex items-center justify-end gap-4 pt-4 mt-2 border-t border-slate-50 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={isSubmitting}
-                  className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
-                >
-                  Hủy
-                </button>
+              <div className="flex items-center justify-end pt-4 mt-2 border-t border-sky-100 flex-shrink-0">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-100 transition-all disabled:opacity-70"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-xl text-xs font-medium transition-colors disabled:opacity-70"
                 >
                   {isSubmitting ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />

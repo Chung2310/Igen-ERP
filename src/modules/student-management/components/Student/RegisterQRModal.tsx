@@ -63,42 +63,43 @@ export function RegisterQRModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="flex items-center gap-1.5 text-sm font-bold text-cyan-700">
+      <div className="w-full max-w-sm rounded-2xl border border-sky-100 bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
+        <div className="flex items-start justify-between gap-3 border-b border-sky-100 pb-4">
+          <div className="border-l-4 border-brand-primary pl-3">
+            <h2 className="flex items-center gap-1.5 text-sm font-medium text-slate-900">
               <QrCode className="h-4 w-4" /> QR đăng ký học viên
             </h2>
-            <p className="mt-0.5 text-[11px] font-medium text-slate-400">
+            <p className="mt-1 text-xs font-normal text-slate-500">
               Học viên quét mã để tự điền hồ sơ, bản ghi về thẳng danh sách của bạn.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600"
+            aria-label="Đóng"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-4 flex items-center justify-center rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+        <div className="mt-4 flex items-center justify-center rounded-xl border border-sky-100 bg-brand-primary/5 p-4">
           {qrDataUrl ? (
             <img src={qrDataUrl} alt="QR đăng ký học viên" className="h-56 w-56" />
           ) : (
             <div className="flex h-56 w-56 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-cyan-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
             </div>
           )}
         </div>
 
-        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <div className="mt-3 rounded-xl border border-sky-100 bg-slate-50 px-3 py-2">
           <p className="break-all text-[10px] font-medium leading-relaxed text-slate-500">{registerUrl}</p>
         </div>
 
         <div className="mt-3 flex items-center gap-2">
           <button
             onClick={handleCopy}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-primary px-3 py-2 text-[11px] font-bold text-white shadow-md shadow-cyan-100 transition-all hover:bg-brand-primary/95"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-primary px-3 py-2 text-xs font-medium text-white hover:bg-brand-primary/90"
           >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? "Đã sao chép" : "Sao chép link"}
@@ -106,7 +107,7 @@ export function RegisterQRModal({
           <button
             onClick={handleDownload}
             disabled={!qrDataUrl}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-xl border border-sky-100 bg-white px-3 py-2 text-xs font-normal text-slate-700 hover:bg-brand-primary/5 disabled:opacity-50"
           >
             Tải QR
           </button>
