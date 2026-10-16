@@ -2,8 +2,12 @@ import React, { useEffect, useState } from 'react';
 import {
   BookOpen,
   BriefcaseBusiness,
+  Eye,
   LayoutGrid,
   List,
+  Pause,
+  Pencil,
+  Play,
   Plus,
   Tag,
   Trash2,
@@ -595,8 +599,8 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                       )}
                     >
                       {course.status === ACTIVE_COURSE_STATUS
-                        ? <><CourseIcon name="pause" className="h-3.5 w-3.5 shrink-0" /> Tạm dừng</>
-                        : <><CourseIcon name="play" className="h-3.5 w-3.5 shrink-0" /> Kích hoạt</>}
+                        ? <><Pause className="h-3.5 w-3.5 shrink-0" /> Tạm dừng</>
+                        : <><Play className="h-3.5 w-3.5 shrink-0" /> Kích hoạt</>}
                     </button>
                     <button
                       onClick={() => setViewingCourse(course)}
@@ -608,7 +612,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                           : 'bg-violet-50 hover:bg-violet-100 text-violet-700 border-violet-200'
                       )}
                     >
-                      <CourseIcon name="view" className="h-3.5 w-3.5" />
+                      <Eye className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => setEditingCourse(course)}
@@ -620,7 +624,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                           : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200'
                       )}
                     >
-                      <CourseIcon name="edit" className="h-3.5 w-3.5" />
+                      <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => handleDelete(course)}
@@ -632,7 +636,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                           : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
                       )}
                     >
-                      <CourseIcon name="delete" className="h-3.5 w-3.5" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
@@ -685,7 +689,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                             darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent' : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
                           )}
                         >
-                          {course.status === ACTIVE_COURSE_STATUS ? <CourseIcon name="pause" className="h-4 w-4" /> : <CourseIcon name="play" className="h-4 w-4" />}
+                          {course.status === ACTIVE_COURSE_STATUS ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                         </button>
                         <button
                           onClick={() => setViewingCourse(course)}
@@ -695,7 +699,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                           )}
                           title="Xem chi tiết"
                         >
-                          <CourseIcon name="view" className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setEditingCourse(course)}
@@ -705,7 +709,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                           )}
                           title={copy.editTitle}
                         >
-                          <CourseIcon name="edit" className="h-4 w-4" />
+                          <Pencil className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(course)}
@@ -715,7 +719,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                           )}
                           title={copy.deleteTitle}
                         >
-                          <CourseIcon name="delete" className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
