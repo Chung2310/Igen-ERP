@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import * as XLSX from "xlsx";
 import {
   AlertTriangle,
@@ -21,6 +22,7 @@ import { WorkerContractHistory } from "../components/WorkerContractHistory";
 import { alertText, resolveAlertLevel, toDisplayDate } from "../utils/contractDate";
 import { workerContractStatusLabel } from "../types";
 import { StyledSelect } from "../../../components/common/StyledSelect";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import type {
   WorkerContractAlertLevel,
   WorkerLaborContract,
@@ -128,6 +130,8 @@ export default function WorkerContractsPage({
     return workers.filter((worker) => !blockedWorkerIds.has(worker._id));
   }, [contracts, modal?.mode, workers]);
   const [historyOf, setHistoryOf] = React.useState<string | null>(null);
+  const [contractToDelete, setContractToDelete] = React.useState<WorkerLaborContract | null>(null);
+  const [deletingContract, setDeletingContract] = React.useState(false);
 
   const workerName = React.useCallback(
     (workerId: string) => workers.find((worker) => worker._id === workerId)?.fullName || "—",
@@ -178,11 +182,15 @@ export default function WorkerContractsPage({
   };
 
   const handleDelete = async (contract: WorkerLaborContract) => {
+    setDeletingContract(true);
     try {
       await deleteContract(contract._id);
       toast.success("Đã xóa hợp đồng.");
     } catch (reason) {
       toast.error(reason instanceof Error ? reason.message : "Không thể xóa hợp đồng.");
+    } finally {
+      setDeletingContract(false);
+      setContractToDelete(null);
     }
   };
 
@@ -401,7 +409,7 @@ export default function WorkerContractsPage({
                               type="button"
                               title="Xóa"
                               aria-label={`Xóa hợp đồng ${contract.code}`}
-                              onClick={() => void handleDelete(contract)}
+                              onClick={() => setContractToDelete(contract)}
                               className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -523,6 +531,21 @@ export default function WorkerContractsPage({
         onClose={() => setModal(null)}
         onSubmit={submitModal}
       />
+      {contractToDelete && createPortal(
+        <ConfirmDialog
+          appearance="erp"
+          isOpen
+          isSubmitting={deletingContract}
+          title="Xóa hợp đồng lao động"
+          description={`Bạn có chắc muốn xóa hợp đồng “${contractToDelete.code}” của ${workerName(contractToDelete.workerId)}?`}
+          cancelLabel="Hủy"
+          confirmLabel="Xóa hợp đồng"
+          tone="danger"
+          onClose={() => setContractToDelete(null)}
+          onConfirm={() => handleDelete(contractToDelete)}
+        />,
+        document.body,
+      )}
     </div>
   );
 }

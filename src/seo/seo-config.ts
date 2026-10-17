@@ -90,7 +90,7 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
   "TỔNG QUAN": {
     title: "Tổng quan nhân sự - iGen ERP",
     description:
-      "Tổng quan nhân sự, chấm công, công việc và đào tạo nội bộ trên iGen ERP.",
+      "Theo dõi các chỉ số nhân sự của doanh nghiệp trên iGen ERP.",
     keywords:
       "tổng quan nhân sự, HRM, chấm công, giao việc, đào tạo nội bộ, iGen ERP",
     path: "/tong-quan",

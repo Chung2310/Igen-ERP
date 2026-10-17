@@ -91,6 +91,14 @@
   font-weight: 600;
 }
 
+.labor-partner-workspace :is(.font-semibold, .font-bold):not(:is(h1, h2, h3, h4)) {
+  font-weight: 500;
+}
+
+.labor-partner-workspace .font-black {
+  font-weight: 600;
+}
+
 .labor-partner-workspace label {
   color: #4e647d;
   font-size: 13px;
@@ -171,7 +179,7 @@
   background: #f0f7fc;
   color: #536a83;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.025em;
   padding: 11px 14px;
   white-space: nowrap;

@@ -7,7 +7,7 @@ const MONTHS = [
   "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12",
 ];
 
-export function MonthPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+export function MonthPicker({ value, onChange, ariaLabel = "Chọn tháng lương" }: { value: string; onChange: (value: string) => void; ariaLabel?: string }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -66,7 +66,7 @@ export function MonthPicker({ value, onChange }: { value: string; onChange: (val
     <button
       ref={triggerRef}
       type="button"
-      aria-label="Chọn tháng lương"
+      aria-label={ariaLabel}
       aria-haspopup="dialog"
       aria-expanded={open}
       onClick={() => { setYear(Number(value.slice(0, 4))); setOpen((current) => !current); }}
@@ -76,7 +76,7 @@ export function MonthPicker({ value, onChange }: { value: string; onChange: (val
       <CalendarDays className="h-4 w-4 shrink-0 text-[#007EB8]" aria-hidden="true" />
     </button>
     {open && createPortal(
-      <div ref={popoverRef} role="dialog" aria-label="Lịch chọn tháng lương" className="fixed z-[200] rounded-2xl border border-[#DCE7F4] bg-white p-3 text-slate-700 shadow-[0_18px_50px_rgba(13,48,78,0.18)]" style={position}>
+      <div ref={popoverRef} role="dialog" aria-label={`Lịch ${ariaLabel.toLowerCase()}`} className="fixed z-[200] rounded-2xl border border-[#DCE7F4] bg-white p-3 text-slate-700 shadow-[0_18px_50px_rgba(13,48,78,0.18)]" style={position}>
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm">Năm {year}</span>
           <div className="flex items-center gap-1">

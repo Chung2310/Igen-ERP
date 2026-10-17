@@ -31,7 +31,7 @@ function resolveRange(
       if (!startDate || !endDate) return null;
       const start = new Date(`${startDate}T00:00:00`);
       const end = new Date(`${endDate}T23:59:59`);
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+      if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return null;
       return { start, end, filter };
     }
     case "day":

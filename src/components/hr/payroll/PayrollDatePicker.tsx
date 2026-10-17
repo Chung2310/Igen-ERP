@@ -6,6 +6,7 @@ type Props = {
   value: string;
   onChange: (value: string) => void;
   label: string;
+  clearable?: boolean;
 };
 
 const parseDate = (value: string) => {
@@ -18,7 +19,7 @@ const parseDate = (value: string) => {
 const toValue = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const formatDate = (date: Date) => date.toLocaleDateString("vi-VN");
 
-export function PayrollDatePicker({ value, onChange, label }: Props) {
+export function PayrollDatePicker({ value, onChange, label, clearable = true }: Props) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -101,7 +102,7 @@ export function PayrollDatePicker({ value, onChange, label }: Props) {
       <CalendarDays className="h-4 w-4 text-[#008BC9]" aria-hidden="true" />
     </button>
     {open && createPortal(
-      <div ref={calendarRef} role="dialog" aria-label={`Chọn ${label.toLowerCase()}`} className="fixed z-[70] max-h-[calc(100dvh-24px)] overflow-y-auto rounded-2xl bg-white p-3 text-slate-700 shadow-[0_18px_50px_rgba(13,48,78,0.22)]" style={position}>
+      <div ref={calendarRef} role="dialog" aria-label={`Chọn ${label.toLowerCase()}`} className="fixed z-[200] max-h-[calc(100dvh-24px)] overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white p-3 text-slate-700 shadow-[0_18px_50px_rgba(13,48,78,0.22)]" style={position}>
         <div className="mb-2 flex items-center justify-between rounded-xl bg-[#F0F9FF] px-2 py-1">
           <span className="text-sm font-medium capitalize text-[#096A9E]">{month.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</span>
           <div className="flex items-center gap-1">
@@ -119,7 +120,7 @@ export function PayrollDatePicker({ value, onChange, label }: Props) {
           })}
         </div>
         <div className="mt-2 flex justify-between text-xs">
-          <button type="button" onClick={() => { onChange(""); setOpen(false); triggerRef.current?.focus(); }} className="rounded-lg px-2 py-1.5 text-slate-500 hover:bg-slate-50">Xóa ngày</button>
+          {clearable && <button type="button" onClick={() => { onChange(""); setOpen(false); triggerRef.current?.focus(); }} className="rounded-lg px-2 py-1.5 text-slate-500 hover:bg-slate-50">Xóa ngày</button>}
           <button type="button" onClick={() => choose(today)} className="rounded-lg bg-[#E4F6FF] px-2 py-1.5 text-[#007EB8] hover:bg-[#D4EFFD]">Hôm nay</button>
         </div>
       </div>,

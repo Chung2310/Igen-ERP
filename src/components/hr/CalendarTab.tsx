@@ -101,7 +101,10 @@ export default function CalendarTab({
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   // Sub-tab Navigation
-  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "requests">("schedule");
+  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "requests">(() => {
+    const section = new URLSearchParams(window.location.search).get("section");
+    return section === "attendance" || section === "requests" ? section : "schedule";
+  });
 
   // Đơn nghỉ đã duyệt được dùng để tính công trong tab Lịch sử chấm công.
   const [applications, setApplications] = useState<any[]>([]);

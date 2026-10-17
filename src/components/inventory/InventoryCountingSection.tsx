@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { inventoryCountService, type InventoryCount } from "../../services/inventoryCountService";
 import { toast } from "../../pages/Toast";
 import { BarcodeInput } from "./BarcodeInput";
+import { StyledSelect } from "../common/StyledSelect";
 const BarcodeScannerDialog = React.lazy(() => import("./InventoryBarcodeScannerDialog"));
 
 /** Kiểm kê mở dưới dạng popup để không chiếm chỗ giữa trang kho. */
@@ -53,7 +54,7 @@ export function InventoryCountingModal({ warehouseId, warehouseName, onClose, on
       <div className="space-y-3 overflow-y-auto px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" disabled={!warehouseId} onClick={() => void create()} className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Tạo phiếu</button>
-          {counts.length > 0 && <select aria-label="Phiếu kiểm kê" value={count?._id || ""} onChange={(event) => { const selected = counts.find((item) => item._id === event.target.value); setCount(selected || null); }} className="min-w-56 flex-1 rounded-md border px-3 py-2 text-sm"><option value="">Chọn phiếu đã tạo</option>{counts.map((item) => <option key={item._id} value={item._id}>{item.countCode} · {item.status}</option>)}</select>}
+          {counts.length > 0 && <div className="min-w-56 flex-1"><StyledSelect ariaLabel="Phiếu kiểm kê" value={count?._id || ""} onChange={(value) => { const selected = counts.find((item) => item._id === value); setCount(selected || null); }} options={[{ value: "", label: "Chọn phiếu đã tạo" }, ...counts.map((item) => ({ value: item._id, label: `${item.countCode} · ${item.status}` }))]} /></div>}
         </div>
         {!count && <p className="rounded-md border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">Tạo phiếu mới hoặc chọn một phiếu đã có để bắt đầu đếm.</p>}
         {count && <><p className="text-sm">Phiếu <strong>{count.countCode}</strong> · {count.status} · Chênh lệch: <strong className={discrepancy === 0 ? "text-emerald-600" : "text-rose-600"}>{discrepancy > 0 ? "+" : ""}{discrepancy}</strong></p><div className="grid grid-cols-3 gap-2 text-center text-xs"><div className="rounded bg-emerald-50 p-2 text-emerald-700"><strong className="block text-lg">{matched}</strong>Khớp</div><div className="rounded bg-rose-50 p-2 text-rose-700"><strong className="block text-lg">{shortages}</strong>Thiếu</div><div className="rounded bg-amber-50 p-2 text-amber-700"><strong className="block text-lg">{surpluses}</strong>Thừa</div></div>
