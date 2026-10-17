@@ -19,7 +19,6 @@ import {
   AlertCircle,
   Tag,
   User,
-  Target,
   RefreshCw,
   Paperclip,
   Mic,
@@ -63,6 +62,16 @@ const boardStatusAliases: Record<BoardStatus, string[]> = {
   Done: ["Done", "done"],
 };
 
+function TargetArrowIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={`shrink-0 text-[#E5484D] ${className}`}>
+      <circle cx="10.5" cy="13.5" r="7.5" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="10.5" cy="13.5" r="4.2" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M10.5 13.5 20.5 3.5m-4 0h4v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const isUrl = (str?: string): boolean => {
   if (!str) return false;
   return str.startsWith("http://") || str.startsWith("https://") || str.startsWith("data:image/") || str.startsWith("/");
@@ -75,6 +84,7 @@ const getLocalDatetimeString = (date = new Date()) => {
 };
 
 const DEFAULT_TASK_CATEGORY = "Hướng dẫn nhân viên mới";
+const TASK_CATEGORY_PRESETS = [DEFAULT_TASK_CATEGORY, "Đào tạo", "Tuyển dụng", "Văn hóa"];
 
 function formatTaskCategory(category?: string): string {
   return !category || category === "Onboarding" ? DEFAULT_TASK_CATEGORY : category;
@@ -533,7 +543,7 @@ function TaskTable({
                     <div className="flex max-w-[146px] items-start gap-1.5">
                       <div className="mt-0.5 shrink-0">
                         {task.status === "Done" || task.status === "done" ? (
-                          <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                          <CheckCircle className="h-3.5 w-3.5 text-[#16A34A]" />
                         ) : (
                           <Clock className="h-3.5 w-3.5 text-slate-400" />
                         )}
@@ -563,8 +573,8 @@ function TaskTable({
 
                   {/* Ưu tiên */}
                   <td className="select-none px-2 py-2">
-                    <span className={`rounded-md px-2 py-0.5 text-[10px] whitespace-nowrap ${task.priority === "High" ? "bg-rose-100 text-rose-700" :
-                      task.priority === "Low" ? "bg-slate-100 text-slate-600" : "bg-amber-100 text-amber-800"
+                    <span className={`rounded-md px-2 py-0.5 text-[10px] whitespace-nowrap ${task.priority === "High" ? "bg-[#FEE2E2] text-[#DC2626]" :
+                      task.priority === "Low" ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#FEF3C7] text-[#B45309]"
                       }`}>
                       {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
                     </span>
@@ -572,7 +582,7 @@ function TaskTable({
 
                   {/* Trạng thái */}
                   <td className="select-none px-2 py-2">
-                    <span className={`rounded-full px-2 py-1 text-[10px] whitespace-nowrap ${task.status === "Done" || task.status === "done" ? "bg-emerald-100 text-emerald-800" :
+                    <span className={`rounded-full px-2 py-1 text-[10px] whitespace-nowrap ${task.status === "Done" || task.status === "done" ? "bg-[#DCFCE7] text-[#15803D]" :
                       task.status === "Review/Testing" ? "bg-violet-100 text-violet-800" :
                         task.status === "In Progress" || task.status === "doing" ? "bg-sky-100 text-sky-800" : "bg-slate-100 text-slate-700"
                       }`}>
@@ -610,7 +620,7 @@ function TaskTable({
                     {!kpi ? (
                       <span className="text-gray-400 italic text-[10px]">-</span>
                     ) : kpi.status === "ontime" ? (
-                      <span className="inline-flex items-center gap-0.5 rounded bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800" title={kpi.text}>
+                      <span className="inline-flex items-center gap-0.5 rounded bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#15803D]" title={kpi.text}>
                         ✓ Đúng hạn
                       </span>
                     ) : (
@@ -693,6 +703,54 @@ export default function KanbanTab({
   const [editAttachments, setEditAttachments] = useState<TaskAttachment[]>([]);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [editCategory, setEditCategory] = useState<string>(DEFAULT_TASK_CATEGORY);
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+
+  const categoryStorageKey = `hr-task-categories:${selectedCompanyCode}`;
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(categoryStorageKey) || "[]");
+      setCustomCategories(Array.isArray(saved) ? saved.filter((item): item is string => typeof item === "string") : []);
+    } catch {
+      setCustomCategories([]);
+    }
+  }, [categoryStorageKey]);
+
+  const categoryOptions = React.useMemo(() => {
+    const categories = new Map<string, string>();
+    for (const category of [...TASK_CATEGORY_PRESETS, ...customCategories, ...tasks.map(task => formatTaskCategory(task.category))]) {
+      const label = category.trim();
+      const key = label.toLocaleLowerCase("vi-VN");
+      if (label && !categories.has(key)) categories.set(key, label);
+    }
+    return [...categories.values()].map(label => ({ value: label, label }));
+  }, [customCategories, tasks]);
+
+  const handleAddCategory = (event: React.FormEvent) => {
+    event.preventDefault();
+    const label = newCategoryName.replace(/\s+/g, " ").trim();
+    if (!label) return;
+    const existing = categoryOptions.find(option => option.value.toLocaleLowerCase("vi-VN") === label.toLocaleLowerCase("vi-VN"));
+    if (existing) {
+      setEditCategory(existing.value);
+      setIsCategoryModalOpen(false);
+      setNewCategoryName("");
+      toast.info("Nhãn này đã có trong danh sách.");
+      return;
+    }
+    const nextCategories = [...customCategories, label];
+    setCustomCategories(nextCategories);
+    try {
+      localStorage.setItem(categoryStorageKey, JSON.stringify(nextCategories));
+      toast.success("Đã thêm nhãn phân loại.");
+    } catch {
+      toast.warning("Không thể lưu nhãn trên trình duyệt này.");
+    }
+    setEditCategory(label);
+    setNewCategoryName("");
+    setIsCategoryModalOpen(false);
+  };
 
   const [kanbanFilter, setKanbanFilter] = useState<string | null>(null);
 
@@ -1483,10 +1541,18 @@ export default function KanbanTab({
                 <div data-testid="kanban-manager-actions" className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#DCE7F4] px-3 py-2 text-xs font-normal text-[#007EB8] transition-colors hover:bg-[#E8F7FF] cursor-pointer"
+                  >
+                    <Tag className="h-4 w-4" />
+                    Tạo nhãn
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => { setEditingProjectId(null); setNewProjectName(""); setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]); setIsNewProjectModalOpen(true); }}
                     className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#DCE7F4] px-3 py-2 text-xs font-normal text-[#007EB8] transition-all hover:bg-[#E8F7FF] active:scale-95 cursor-pointer"
                   >
-                    <Target className="h-4 w-4" />
+                    <TargetArrowIcon className="h-4 w-4" />
                     Tạo dự án & lĩnh vực
                   </button>
 
@@ -1552,7 +1618,7 @@ export default function KanbanTab({
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <ChevronRight className={`h-4.5 w-4.5 text-slate-550 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                            <Target className="h-4 w-4 text-[#00ADFC] shrink-0" />
+                            <TargetArrowIcon className="h-4 w-4" />
                             <div className="min-w-0 flex-1"><h3 className="truncate text-sm text-slate-800">{proj.name}</h3><KanbanProjectSummary project={proj} /></div>
                             <span className="rounded-full bg-[#E8F7FF] px-2 py-0.5 text-xs text-[#007EB8]">
                               {projTasks.length} việc
@@ -1715,11 +1781,11 @@ export default function KanbanTab({
               {/* Column 4: Done */}
               <div onDragOver={(event) => handleBoardDragOver(event, "Done")} onDrop={(event) => handleBoardDrop(event, "Done")} className={`flex h-full min-h-40 flex-col rounded-2xl border border-[#DCE7F4] bg-[#F8FCFF] p-3 transition-colors ${dragOverStatus === "Done" ? "border-[#00ADFC] bg-[#E8F7FF] ring-2 ring-[#00ADFC]/20" : ""}`}>
                 <div className="flex justify-between items-center mb-3 select-none">
-                  <span className="flex items-center gap-1.5 text-sm font-normal text-emerald-700">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="flex items-center gap-1.5 text-sm font-normal text-[#15803D]">
+                    <CheckCircle className="w-3.5 h-3.5 text-[#16A34A]" />
                     Đã hoàn thành
                   </span>
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-normal text-emerald-700">
+                  <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-xs font-normal text-[#15803D]">
                     {visibleTasks.filter(t => t.status === "Done" || t.status === "done").length}
                   </span>
                 </div>
@@ -1911,26 +1977,20 @@ export default function KanbanTab({
 
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 text-[#00ADFC]" /> Phân loại</span>
-                  <input
-                    type="text"
-                    list="task-category-options"
-                    value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value)}
-                    placeholder="Ví dụ: Hướng dẫn nhân viên mới, Tiếp thị, Kỹ thuật..."
-                    className="min-w-0 flex-1 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-sm outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 transition-all"
-                  />
-                  <datalist id="task-category-options">
-                    <option value={DEFAULT_TASK_CATEGORY} />
-                    <option value="Đào tạo" />
-                    <option value="Tuyển dụng" />
-                    <option value="Văn hóa" />
-                  </datalist>
+                  <div className="min-w-0 flex-1"><HrFormSelect value={editCategory} onChange={setEditCategory} label="Phân loại" options={categoryOptions} /></div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    aria-label="Tạo nhãn phân loại"
+                    title="Tạo nhãn phân loại"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#DCE7F4] text-[#007EB8] transition-colors hover:bg-[#E8F7FF] cursor-pointer"
+                  ><Plus className="h-4 w-4" /></button>
                 </div>
               </div>
 
               <div className="space-y-2 lg:contents">
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-[#00ADFC]" /> Thuộc dự án</span>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><TargetArrowIcon className="w-3.5 h-3.5 !text-[#00ADFC]" /> Thuộc dự án</span>
                   <div className="min-w-0 flex-1"><HrFormSelect value={editProjectId} onChange={setEditProjectId} label="Thuộc dự án" options={[{ value: "", label: "Không gán dự án" }, ...projects.map(p => ({ value: p.id, label: p.name }))]} /></div>
                 </div>
 
@@ -1988,8 +2048,8 @@ export default function KanbanTab({
                       const kpi = getDynamicKPI();
                       if (!kpi) return <span className="text-gray-450 italic text-[10px]">Chưa đủ dữ liệu tính KPI</span>;
                       return kpi.status === "ontime" ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-250 font-normal rounded-lg text-[10px]">
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-2.5 py-1 text-[10px] font-normal text-[#15803D]">
+                          <CheckCircle className="w-3.5 h-3.5 text-[#16A34A]" />
                           {kpi.text}
                         </span>
                       ) : (
@@ -2119,13 +2179,36 @@ export default function KanbanTab({
         </div>
       )}
 
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 backdrop-blur-2xs">
+          <form onSubmit={handleAddCategory} role="dialog" aria-modal="true" aria-labelledby="task-category-dialog-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white text-slate-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E8F0F8] px-5 py-4">
+              <h3 id="task-category-dialog-title" className="flex items-center gap-2 text-base font-normal"><Tag className="h-4 w-4 text-[#00ADFC]" /> Tạo nhãn phân loại</h3>
+              <button type="button" onClick={() => { setIsCategoryModalOpen(false); setNewCategoryName(""); }} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 cursor-pointer"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <label htmlFor="new-task-category" className="block text-sm">Tên nhãn</label>
+              <input id="new-task-category" type="text" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} maxLength={50} required autoFocus placeholder="Ví dụ: Chăm sóc khách hàng" className="w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-sm outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15" />
+              <div className="text-xs text-slate-500">Nhãn đã có</div>
+              <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+                {categoryOptions.map(option => <span key={option.value} className="max-w-full truncate rounded-lg bg-[#E8F7FF] px-2 py-1 text-xs text-[#007EB8]" title={option.label}>{option.label}</span>)}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-[#E8F0F8] px-5 py-3">
+              <button type="button" onClick={() => { setIsCategoryModalOpen(false); setNewCategoryName(""); }} className="rounded-xl border border-[#DCE7F4] px-3 py-2 text-sm hover:bg-[#F3FAFF] cursor-pointer">Hủy</button>
+              <button type="submit" className="rounded-xl bg-[#00ADFC] px-4 py-2 text-sm text-white hover:bg-[#0095d9] cursor-pointer">Thêm nhãn</button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* NEW PROJECT MODAL */}
       {isNewProjectModalOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
           <form onSubmit={handleCreateProject} className="bg-white border border-[#DCE7F4] rounded-2xl shadow-xl w-full max-w-xl p-6 relative text-left space-y-5 max-h-[90dvh] overflow-y-auto overscroll-contain">
             <div className="flex justify-between items-center pb-4 border-b border-[#E8F0F8]">
               <h4 className="font-normal text-slate-800 text-lg font-sans flex items-center gap-2">
-                <Target className="h-5 w-5 text-[#00ADFC]" />
+                <TargetArrowIcon className="h-5 w-5" />
                 {editingProjectId ? "Cập nhật dự án" : "Tạo dự án mới"}
               </h4>
               <button
@@ -2262,8 +2345,8 @@ function KanbanCard({
       ><X className="h-3.5 w-3.5" /></button>}
       <div className="space-y-1.5">
         <div className="flex flex-col items-start gap-1.5 pr-7 select-none">
-          <span className={`whitespace-nowrap rounded-lg px-2 py-0.5 text-[11px] ${task.priority === "High" ? "bg-rose-100 text-rose-700" :
-            task.priority === "Low" ? "bg-slate-100 text-slate-600" : "bg-amber-100 text-amber-800"
+          <span className={`whitespace-nowrap rounded-lg px-2 py-0.5 text-[11px] ${task.priority === "High" ? "bg-[#FEE2E2] text-[#DC2626]" :
+            task.priority === "Low" ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#FEF3C7] text-[#B45309]"
             }`}>
             {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
           </span>
@@ -2278,7 +2361,7 @@ function KanbanCard({
         <p className="line-clamp-2 leading-relaxed">{task.description || "Không có mô tả chi tiết."}</p>
         {task.projectId && (
           <div className="flex items-center gap-1 text-xs text-slate-600 select-none">
-            <Target className="w-3 h-3 text-[#00ADFC] shrink-0" />
+            <TargetArrowIcon className="w-3 h-3" />
             <span className="truncate">{projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}</span>
           </div>
         )}
@@ -2300,7 +2383,7 @@ function KanbanCard({
           <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px]">
             <span className="font-normal text-gray-400">Đánh giá KPI:</span>
             {kpi.status === "ontime" ? (
-              <span className="flex items-center gap-0.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-normal text-emerald-700">
+              <span className="flex items-center gap-0.5 rounded bg-[#DCFCE7] px-1.5 py-0.5 text-[9px] font-normal text-[#15803D]">
                 ✓ Đúng hạn
               </span>
             ) : (

@@ -1,7 +1,7 @@
 import type { Project } from "../../types/hr";
 
 const statusLabels = { not_started: "Chưa bắt đầu", in_progress: "Đang thực hiện", paused: "Tạm dừng", completed: "Hoàn thành", cancelled: "Đã hủy" };
-const statusColors = { not_started: "bg-slate-100 text-slate-700", in_progress: "bg-sky-100 text-sky-800", paused: "bg-amber-100 text-amber-800", completed: "bg-emerald-100 text-emerald-800", cancelled: "bg-rose-100 text-rose-800" };
+const statusColors = { not_started: "bg-slate-100 text-slate-700", in_progress: "bg-sky-100 text-sky-800", paused: "bg-amber-100 text-amber-800", completed: "bg-[#DCFCE7] text-[#15803D]", cancelled: "bg-rose-100 text-rose-800" };
 const priorityLabels = { low: "Thấp", medium: "Trung bình", high: "Cao", urgent: "Khẩn cấp" };
 const date = (value?: string | null) => value ? new Date(value).toLocaleString("vi-VN", { hour12: false }) : "Chưa thiết lập";
 
@@ -12,13 +12,14 @@ export function KanbanProjectSummary({ project, expanded = false }: { project: P
     {project.attachments?.length ? <div className="mt-1 flex flex-wrap gap-2">{project.attachments.map((item) => <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="text-[#007EB8] hover:underline">{item.name}</a>)}</div> : <div className="text-slate-400">Chưa có tài liệu</div>}
   </div>;
   const progress = project.progress || { completed: 0, total: 0, percent: 0 };
+  const isComplete = project.status === "completed" || progress.percent >= 100;
   return <div className="min-w-0 flex-1 text-xs">
     <div className="flex flex-wrap items-center gap-2 mt-1">
       <span className={`rounded-full px-2 py-0.5 ${statusColors[project.status || "not_started"]}`}>{statusLabels[project.status || "not_started"]}</span>
-      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{priorityLabels[project.priority || "medium"]}</span>
+      <span className={`rounded-full px-2 py-0.5 ${project.priority === "high" || project.priority === "urgent" ? "bg-[#FEE2E2] text-[#DC2626]" : project.priority === "low" ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#FEF3C7] text-[#B45309]"}`}>{priorityLabels[project.priority || "medium"]}</span>
       <span className="text-slate-600">{progress.completed}/{progress.total} · {progress.percent}%</span>
     </div>
-    <div role="progressbar" aria-valuenow={progress.percent} aria-valuemin={0} aria-valuemax={100} className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E8F7FF]"><div className="h-full bg-[#00ADFC]" style={{ width: `${progress.percent}%` }} /></div>
+    <div role="progressbar" aria-valuenow={progress.percent} aria-valuemin={0} aria-valuemax={100} className={`mt-2 h-1.5 overflow-hidden rounded-full ${isComplete ? "bg-[#DCFCE7]" : "bg-[#E8F7FF]"}`}><div className={`h-full ${isComplete ? "bg-[#22C55E]" : "bg-[#00ADFC]"}`} style={{ width: `${progress.percent}%` }} /></div>
     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-500"><span>Bắt đầu: {date(project.startAt)}</span><span>Hạn cuối: {date(project.dueAt)}</span></div>
   </div>;
 }

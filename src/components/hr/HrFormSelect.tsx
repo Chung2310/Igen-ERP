@@ -120,7 +120,7 @@ export function HrFormSelect({ value, options, onChange, label, disabled = false
               {option.label}
             </button>
           ))}
-        </div>, document.body
+        </div>, document.fullscreenElement || document.body
       )}
     </>
   );

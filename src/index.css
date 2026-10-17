@@ -13,6 +13,20 @@
   margin: 0;
 }
 
+input[type="number"],
+.no-number-spinner {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button,
+.no-number-spinner::-webkit-inner-spin-button,
+.no-number-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .roadmap-number-input:focus {
   border-color: #00adfc;
   outline: none;

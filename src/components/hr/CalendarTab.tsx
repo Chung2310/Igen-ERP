@@ -1,9 +1,11 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
+  Maximize2,
+  Minimize2,
   Users,
   Clock,
   Info,
@@ -20,6 +22,7 @@ import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { companyWorkCalendarService, WorkCalendarDay } from "../../services/companyWorkCalendarService";
 import { HrFormSelect } from "./HrFormSelect";
+import { DateInput24 } from "../common/TimeInput24";
 import AttendanceUtilityMenu from "./AttendanceUtilityMenu";
 import AttendanceDailyOverview from "./AttendanceDailyOverview";
 import { buildAttendanceDailyOverview } from "../../utils/attendanceDailyOverview";
@@ -143,6 +146,32 @@ export default function CalendarTab({
   const [editAttendanceReason, setEditAttendanceReason] = useState("");
   const [isAttendanceSaving, setIsAttendanceSaving] = useState(false);
   const [attendanceSectionMode, setAttendanceSectionMode] = useState<"overview" | "detail">("overview");
+  const attendancePanelRef = useRef<HTMLDivElement>(null);
+  const attendanceTableScrollRef = useRef<HTMLDivElement>(null);
+  const [isAttendanceFullscreen, setIsAttendanceFullscreen] = useState(false);
+  const [fullscreenWidth, setFullscreenWidth] = useState(() => typeof window === "undefined" ? 0 : window.innerWidth);
+  useEffect(() => {
+    const syncFullscreen = () => setIsAttendanceFullscreen(document.fullscreenElement === attendancePanelRef.current);
+    const syncWidth = () => setFullscreenWidth(window.innerWidth);
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    window.addEventListener("resize", syncWidth);
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreen);
+      window.removeEventListener("resize", syncWidth);
+    };
+  }, []);
+  const scrollAttendanceTable = (direction: -1 | 1) => {
+    const container = attendanceTableScrollRef.current;
+    if (container) container.scrollBy({ left: direction * Math.max(280, container.clientWidth * 0.7), behavior: "smooth" });
+  };
+  const toggleAttendanceFullscreen = async () => {
+    try {
+      if (document.fullscreenElement === attendancePanelRef.current) await document.exitFullscreen();
+      else await attendancePanelRef.current?.requestFullscreen();
+    } catch {
+      toast.error("Không thể mở toàn màn hình trên trình duyệt này.");
+    }
+  };
   const [attendanceOverviewDate, setAttendanceOverviewDate] = useState(() => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -775,20 +804,20 @@ export default function CalendarTab({
       "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
 
     return (
-      <div className="flex min-h-0 flex-1 flex-col animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3 shrink-0">
-          <div className="flex rounded-xl bg-slate-100 p-1">
+      <div ref={attendancePanelRef} className={`flex min-h-0 flex-1 flex-col animate-fade-in overflow-hidden border border-[#dce7f4] bg-white ${isAttendanceFullscreen ? "h-screen w-screen rounded-none border-0" : "rounded-2xl"}`}>
+        <div className="flex items-center justify-between border-b border-[#e5eef8] bg-white px-5 py-3 shrink-0">
+          <div className="flex rounded-xl bg-[#f2f6fb] p-1">
             <button
               type="button"
               onClick={() => setAttendanceSectionMode("overview")}
-              className={`rounded-lg px-4 py-2 text-xs font-extrabold transition-all cursor-pointer ${attendanceSectionMode === "overview" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+              className={`rounded-lg px-4 py-2 text-sm font-normal transition-colors cursor-pointer ${attendanceSectionMode === "overview" ? "bg-white text-[#008dcc] shadow-sm" : "text-slate-600 hover:text-[#008dcc]"}`}
             >
               Tổng quan
             </button>
             <button
               type="button"
               onClick={() => setAttendanceSectionMode("detail")}
-              className={`rounded-lg px-4 py-2 text-xs font-extrabold transition-all cursor-pointer ${attendanceSectionMode === "detail" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+              className={`rounded-lg px-4 py-2 text-sm font-normal transition-colors cursor-pointer ${attendanceSectionMode === "detail" ? "bg-white text-[#008dcc] shadow-sm" : "text-slate-600 hover:text-[#008dcc]"}`}
             >
               Chi tiết
             </button>
@@ -806,43 +835,31 @@ export default function CalendarTab({
         {/* ===== HEADER CONTROLS + BẢNG CHẤM CÔNG ===== */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header Controls */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white gap-3 shrink-0 flex-wrap">
+          <div className="flex items-center justify-between gap-3 border-b border-[#e5eef8] bg-white px-5 py-3 shrink-0 flex-wrap">
             {/* Tiêu đề + chọn tháng */}
-            <div className="flex items-center gap-3">
-              <h1 className="text-base font-black text-slate-800 tracking-tight">Bảng chấm công</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-base font-normal text-slate-800">Bảng chấm công</h1>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={goToPrevMonth}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e8f7ff] text-[#007eb8] transition-colors hover:bg-[#d7f1ff] cursor-pointer"
                   title="Tháng trước"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <div className="flex items-center gap-1.5">
-                  <select
-                    value={selectedMonth}
-                    onChange={e => { setSelectedMonth(Number(e.target.value)); setLogsPage(1); }}
-                    className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-cyan-50 border border-cyan-200 rounded-lg cursor-pointer outline-none focus:ring-2 focus:ring-cyan-300"
-                  >
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <option key={i + 1} value={i + 1}>{monthNames[i]}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={selectedYear}
-                    onChange={e => { setSelectedYear(Number(e.target.value)); setLogsPage(1); }}
-                    className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-cyan-50 border border-cyan-200 rounded-lg cursor-pointer outline-none focus:ring-2 focus:ring-cyan-300"
-                  >
-                    {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
-                      <option key={y} value={y}>Năm {y}</option>
-                    ))}
-                  </select>
+                  <div className="w-28 text-xs font-normal">
+                    <HrFormSelect value={String(selectedMonth)} onChange={value => { setSelectedMonth(Number(value)); setLogsPage(1); }} label="Chọn tháng" options={monthNames.map((label, index) => ({ value: String(index + 1), label }))} />
+                  </div>
+                  <div className="w-28 text-xs font-normal">
+                    <HrFormSelect value={String(selectedYear)} onChange={value => { setSelectedYear(Number(value)); setLogsPage(1); }} label="Chọn năm" options={Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => ({ value: String(year), label: `Năm ${year}` }))} />
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={goToNextMonth}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e8f7ff] text-[#007eb8] transition-colors hover:bg-[#d7f1ff] cursor-pointer"
                   title="Tháng sau"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -855,19 +872,33 @@ export default function CalendarTab({
                 placeholder="Tìm nhân viên..."
                 value={empSearchQuery}
                 onChange={e => { setEmpSearchQuery(e.target.value); setLogsPage(1); }}
-                className="w-44 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400/30 focus:border-cyan-400 placeholder:text-slate-400 font-medium"
+                className="w-44 rounded-xl border border-[#dce7f4] bg-white px-3 py-2 text-xs font-normal outline-none placeholder:text-slate-400 focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/10"
               />
             </div>
 
+            {attendanceSectionMode === "detail" && (!isMobile || mobileAttendanceViewMode === "table") && (
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => scrollAttendanceTable(-1)} aria-label="Cuộn bảng sang trái" title="Cuộn bảng sang trái" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e8f7ff] text-[#007eb8] transition-colors hover:bg-[#d7f1ff]">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => scrollAttendanceTable(1)} aria-label="Cuộn bảng sang phải" title="Cuộn bảng sang phải" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e8f7ff] text-[#007eb8] transition-colors hover:bg-[#d7f1ff]">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => void toggleAttendanceFullscreen()} aria-label={isAttendanceFullscreen ? "Thu nhỏ bảng chấm công" : "Mở toàn màn hình bảng chấm công"} title={isAttendanceFullscreen ? "Thu nhỏ bảng" : "Xem toàn màn hình"} className="ml-1 flex h-9 w-9 items-center justify-center rounded-lg border border-[#bceaff] bg-white text-[#007eb8] transition-colors hover:bg-[#e8f7ff]">
+                  {isAttendanceFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </button>
+              </div>
+            )}
+
             {isMobile && (
-              <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs bg-white items-center">
+              <div className="flex overflow-hidden rounded-xl bg-[#f2f6fb] p-1 items-center">
                 <button
                   type="button"
                   onClick={() => setMobileAttendanceViewMode("table")}
-                  className={`px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`rounded-lg px-3 py-1.5 text-xs font-normal transition-colors cursor-pointer ${
                     mobileAttendanceViewMode === "table"
-                      ? "bg-cyan-600 text-white"
-                      : "text-slate-550 hover:bg-slate-50"
+                      ? "bg-white text-[#008dcc] shadow-sm"
+                      : "text-slate-600 hover:text-[#008dcc]"
                   }`}
                 >
                   Bảng
@@ -875,10 +906,10 @@ export default function CalendarTab({
                 <button
                   type="button"
                   onClick={() => setMobileAttendanceViewMode("list")}
-                  className={`px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`rounded-lg px-3 py-1.5 text-xs font-normal transition-colors cursor-pointer ${
                     mobileAttendanceViewMode === "list"
-                      ? "bg-cyan-600 text-white"
-                      : "text-slate-550 hover:bg-slate-50"
+                      ? "bg-white text-[#008dcc] shadow-sm"
+                      : "text-slate-600 hover:text-[#008dcc]"
                   }`}
                 >
                   Danh sách
@@ -888,7 +919,7 @@ export default function CalendarTab({
           </div>
 
           {/* Bảng Grid Chấm Công */}
-          <div className="min-h-0 flex-1 overflow-auto visible-scrollbar">
+          <div ref={attendanceTableScrollRef} className="min-h-0 flex-1 overflow-auto visible-scrollbar">
             {isLogsLoading ? (
               <div className="flex items-center justify-center h-full text-slate-400 gap-2">
                 <div className="w-5 h-5 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
@@ -910,7 +941,7 @@ export default function CalendarTab({
                     return (
                       <div
                         key={emp.uid}
-                        className="bg-white border border-slate-150 rounded-2xl p-4 shadow-3xs flex flex-col gap-3 transition-all"
+                        className="bg-white border border-[#dce7f4] rounded-2xl p-4 flex flex-col gap-3 transition-colors"
                       >
                         {/* Employee Row Header */}
                         <div
@@ -921,18 +952,18 @@ export default function CalendarTab({
                             {u.photoURL ? (
                               <img src={u.photoURL} alt={u.displayName} className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200 shrink-0" />
                             ) : (
-                              <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-black text-xs shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-[#e8f7ff] text-[#007eb8] flex items-center justify-center font-normal text-xs shrink-0">
                                 {u.displayName.slice(0, 2).toUpperCase()}
                               </div>
                             )}
                             <div className="flex flex-col">
-                              <span className="font-extrabold text-xs text-slate-800 tracking-wide">{u.displayName}</span>
-                              <span className="text-[10px] text-slate-550 font-medium truncate max-w-[150px]">{u.email}</span>
+                              <span className="font-normal text-xs text-slate-800">{u.displayName}</span>
+                              <span className="text-[10px] text-slate-500 font-normal truncate max-w-[150px]">{u.email}</span>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5 rounded-lg">
+                            <span className="text-[10px] font-normal text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg">
                               {totalCoeff} công
                             </span>
                             <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
@@ -1018,24 +1049,24 @@ export default function CalendarTab({
                 )}
               </div>
             ) : (
-              <table className="text-xs border-collapse table-fixed" style={{ minWidth: `${448 + daysInMonth * 50}px` }}>
+              <table className="table-fixed border-collapse text-xs" style={{ minWidth: `${448 + daysInMonth * 50}px`, zoom: isAttendanceFullscreen ? Math.min(1, (fullscreenWidth - 16) / (448 + daysInMonth * 50)) : 1 }}>
                 {/* === THEAD === */}
                 <thead className="sticky top-0 z-40">
-                  <tr className="bg-slate-100 border-b border-slate-300">
+                  <tr className="border-b border-[#dce7f4] bg-[#e8f7ff]">
                     {/* Cột STT */}
-                    <th className="sticky left-0 z-50 bg-slate-100 border-b border-r border-slate-300 px-2 py-2 text-center font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[36px] w-[36px]">
+                    <th className="sticky left-0 z-50 bg-[#e8f7ff] border-b border-r border-[#dce7f4] px-2 py-2 text-center font-normal text-[10px] text-[#007eb8] whitespace-nowrap min-w-[36px] w-[36px]">
                       #
                     </th>
                     {/* Cột Họ và Tên */}
-                    <th className="sticky left-[36px] z-50 bg-slate-100 border-b border-r border-slate-300 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[176px] w-[176px]">
+                    <th className="sticky left-[36px] z-50 bg-[#e8f7ff] border-b border-r border-[#dce7f4] px-3 py-2 text-left font-normal text-[10px] text-[#007eb8] whitespace-nowrap min-w-[176px] w-[176px]">
                       Họ và Tên
                     </th>
                     {/* Cột Email */}
-                    <th className="sticky left-[212px] z-50 bg-slate-100 border-b border-r-2 border-slate-400 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[180px] w-[180px]">
+                    <th className="sticky left-[212px] z-50 bg-[#e8f7ff] border-b border-r border-[#c9e5f5] px-3 py-2 text-left font-normal text-[10px] text-[#007eb8] whitespace-nowrap min-w-[180px] w-[180px]">
                       Mã đăng nhập
                     </th>
                     {/* Cột Số công */}
-                    <th className="sticky left-[392px] z-50 bg-emerald-700 border-b border-r-2 border-slate-400 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                    <th className="sticky left-[392px] z-50 bg-[#d8f2ff] border-b border-r border-[#bceaff] px-2 py-2 text-center font-normal text-[10px] text-[#007eb8] whitespace-nowrap min-w-[56px] w-[56px]">
                       Số<br/>công
                     </th>
                     {/* Các cột ngày */}
@@ -1050,16 +1081,16 @@ export default function CalendarTab({
                       return (
                         <th
                           key={day}
-                          className={`border-b border-r border-slate-300 px-1 py-1.5 text-center font-bold whitespace-nowrap min-w-[50px] w-[50px] ${
+                          className={`border-b border-r border-[#dce7f4] px-1 py-1.5 text-center font-normal whitespace-nowrap min-w-[50px] w-[50px] ${
                             isToday
-                              ? "bg-cyan-600 text-white"
+                              ? "bg-[#c8eeff] text-[#007eb8]"
                               : isWeekend
-                                ? "bg-slate-200 text-slate-500"
-                                : "bg-slate-100 text-slate-600"
+                                ? "bg-[#f3f7fb] text-slate-500"
+                                : "bg-[#e8f7ff] text-[#007eb8]"
                           }`}
                         >
-                          <div className="text-[9px] font-bold">{dayLabels[dow]}</div>
-                          <div className={`text-sm font-black leading-tight ${isToday ? "text-white" : isWeekend ? "text-slate-500" : "text-slate-800"}`}>
+                          <div className="text-[9px] font-normal">{dayLabels[dow]}</div>
+                          <div className={`text-sm font-normal leading-tight ${isToday ? "text-[#007eb8]" : isWeekend ? "text-slate-500" : "text-slate-800"}`}>
                             {day}
                           </div>
                         </th>
@@ -1081,33 +1112,33 @@ export default function CalendarTab({
                       const u = getUserDetail(emp.uid);
                       const { totalHours, totalCoeff } = calcMonthTotals(emp);
                       const globalIdx = (logsPage - 1) * gridPageSize + empIdx + 1;
-                      const rowBg = empIdx % 2 === 0 ? "bg-white" : "bg-slate-50";
+                      const rowBg = empIdx % 2 === 0 ? "bg-white" : "bg-[#f8fbff]";
                       return (
-                        <tr key={emp.uid} className={`border-b border-slate-200 hover:bg-cyan-50/50 transition-colors ${rowBg}`}>
+                        <tr key={emp.uid} className={`border-b border-[#e5eef8] hover:bg-[#f0faff] transition-colors ${rowBg}`}>
                           {/* STT */}
-                          <td className={`sticky left-0 z-30 border-r border-slate-200 px-2 py-2.5 text-center text-[10px] font-bold text-slate-400 whitespace-nowrap min-w-[36px] w-[36px] ${rowBg}`}>
+                          <td className={`sticky left-0 z-30 border-r border-[#e5eef8] px-2 py-2.5 text-center text-[10px] font-normal text-slate-500 whitespace-nowrap min-w-[36px] w-[36px] ${rowBg}`}>
                             {globalIdx}
                           </td>
                           {/* Họ và Tên */}
-                          <td className={`sticky left-[36px] z-30 border-r border-slate-200 px-3 py-2.5 whitespace-nowrap min-w-[176px] w-[176px] ${rowBg}`}>
+                          <td className={`sticky left-[36px] z-30 border-r border-[#e5eef8] px-3 py-2.5 whitespace-nowrap min-w-[176px] w-[176px] ${rowBg}`}>
                             <div className="flex items-center gap-2">
                               {u.photoURL ? (
                                 <img src={u.photoURL} alt={u.displayName} className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200 shrink-0" />
                               ) : (
-                                <div className="w-6 h-6 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-black text-[9px] shrink-0">
+                                <div className="w-6 h-6 rounded-full bg-[#e8f7ff] text-[#007eb8] flex items-center justify-center font-normal text-[9px] shrink-0">
                                   {u.displayName.slice(0, 2).toUpperCase()}
                                 </div>
                               )}
-                              <span className="font-bold text-cyan-700 truncate max-w-[120px] text-xs" title={u.displayName}>{u.displayName}</span>
+                              <span className="font-normal text-[#007eb8] truncate max-w-[120px] text-xs" title={u.displayName}>{u.displayName}</span>
                             </div>
                           </td>
                           {/* Email */}
-                          <td className={`sticky left-[212px] z-30 border-r-2 border-slate-400 px-3 py-2.5 whitespace-nowrap min-w-[180px] w-[180px] ${rowBg}`}>
-                            <span className="text-[10px] text-slate-500 font-medium truncate block max-w-[150px]" title={u.email}>{u.email}</span>
+                          <td className={`sticky left-[212px] z-30 border-r border-[#c9e5f5] px-3 py-2.5 whitespace-nowrap min-w-[180px] w-[180px] ${rowBg}`}>
+                            <span className="text-[10px] text-slate-500 font-normal truncate block max-w-[150px]" title={u.email}>{u.email}</span>
                           </td>
                           {/* Tổng công */}
-                          <td className="sticky left-[392px] z-30 border-r-2 border-slate-400 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
-                            <span className="text-xs font-black text-emerald-700">{totalCoeff}</span>
+                          <td className="sticky left-[392px] z-30 border-r border-[#bceaff] px-2 py-2.5 text-center bg-[#f0faff] whitespace-nowrap min-w-[56px] w-[56px]">
+                            <span className="text-xs font-normal text-[#008dcc]">{totalCoeff}</span>
                           </td>
                           {dayColumns.map(day => {
                             const cell = getDayCellData(emp, day);
@@ -1118,15 +1149,15 @@ export default function CalendarTab({
 
                             if (isWeekend) {
                               return (
-                                <td key={day} className="border-r border-slate-200 px-1 py-2.5 text-center bg-slate-100 whitespace-nowrap w-12">
-                                  <span className="text-slate-300 text-[10px] font-bold">—</span>
+                                <td key={day} className="border-r border-[#e5eef8] px-1 py-2.5 text-center bg-[#f3f7fb] whitespace-nowrap w-12">
+                                  <span className="text-slate-400 text-[10px] font-normal">—</span>
                                 </td>
                               );
                             }
 
                             if (cell.isFuture) {
                               return (
-                                <td key={day} className={`border-r border-slate-200 px-1 py-2.5 text-center whitespace-nowrap w-12 ${isToday ? "bg-cyan-50" : ""}`}>
+                                <td key={day} className={`border-r border-[#e5eef8] px-1 py-2.5 text-center whitespace-nowrap w-12 ${isToday ? "bg-[#f0faff]" : ""}`}>
                                   <span className="text-slate-200 text-[10px]">·</span>
                                 </td>
                               );
@@ -1140,13 +1171,13 @@ export default function CalendarTab({
                               <td
                                 key={day}
                                 onClick={() => canEditAttendance && dbLog && openAttendanceEditor(dbLog)}
-                                className={`border-r border-slate-200 px-0.5 py-1.5 text-center whitespace-nowrap w-12 group ${canEditAttendance && dbLog ? "cursor-pointer hover:bg-cyan-100" : "cursor-default"} ${isToday ? "bg-cyan-50" : ""}`}
+                                className={`border-r border-[#e5eef8] px-0.5 py-1.5 text-center whitespace-nowrap w-12 group ${canEditAttendance && dbLog ? "cursor-pointer hover:bg-[#e8f7ff]" : "cursor-default"} ${isToday ? "bg-[#f0faff]" : ""}`}
                                 title={`${u.displayName} – ${dateStr}\nTrạng thái: ${getStatusShort(cell.status)}\nCheck-in: ${cell.checkIn || "--:--"} | Check-out: ${cell.checkOut || "--:--"}\nHệ số công: ${coeff}`}
                               >
                                 {isScheduleMode ? (
                                   cell.checkIn || cell.checkOut || (cell.status && cell.status !== "Absent") ? (
                                     <div className="flex flex-col items-start px-0.5 text-left max-w-full overflow-hidden">
-                                      <div className="flex items-center gap-1 text-[8.5px] font-extrabold leading-none truncate max-w-full text-slate-800">
+                                      <div className="flex items-center gap-1 text-[8.5px] font-normal leading-none truncate max-w-full text-slate-800">
                                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                           cell.status === "Present" || cell.status === "Half-Day" || cell.status?.startsWith("Approved")
                                             ? "bg-emerald-500"
@@ -1173,22 +1204,22 @@ export default function CalendarTab({
                                         </span>
                                       </div>
                                       {(cell.checkIn || cell.checkOut) && (
-                                        <div className="text-[8px] font-semibold text-slate-500 pl-2.5 leading-tight mt-0.5 font-mono">
+                                        <div className="text-[8px] font-normal text-slate-500 pl-2.5 leading-tight mt-0.5 font-mono">
                                           {cell.checkIn || "--:--"} - {cell.checkOut || "--:--"}
                                         </div>
                                       )}
-                                      {dbLog?.manuallyAdjusted && <div className="pl-2.5 text-[7px] font-bold text-violet-600">Đã điều chỉnh</div>}
+                                      {dbLog?.manuallyAdjusted && <div className="pl-2.5 text-[7px] font-normal text-[#008dcc]">Đã điều chỉnh</div>}
                                     </div>
                                   ) : null
                                 ) : cellDisplayMode === "coeff" ? (
                                   <>
                                     {/* Hệ số công */}
-                                    <div className={`text-sm font-black leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-slate-800" : "text-rose-500"}`}>
+                                    <div className={`text-sm font-normal leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-emerald-700" : "text-amber-600"}`}>
                                       {coeff === 1 ? "1" : coeff === 0 ? "0" : coeff.toFixed(2)}
                                     </div>
                                     {/* Nhãn trạng thái */}
                                     {cell.status && (
-                                      <div className={`text-[8px] font-bold mt-0.5 leading-none ${isAbsent ? "text-rose-400" : isFullDay ? "text-slate-400" : "text-amber-500"}`}>
+                                      <div className={`text-[8px] font-normal mt-0.5 leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-emerald-700" : "text-amber-600"}`}>
                                         {getStatusShort(cell.status)}
                                       </div>
                                     )}
@@ -1196,17 +1227,17 @@ export default function CalendarTab({
                                 ) : (
                                   <>
                                     {/* Số giờ */}
-                                    <div className={`text-xs font-black leading-none ${isAbsent ? "text-rose-500" : "text-cyan-700"}`}>
+                                    <div className={`text-xs font-normal leading-none ${isAbsent ? "text-rose-500" : "text-[#008dcc]"}`}>
                                       {cell.hours && cell.hours > 0 ? `${cell.hours}h` : isFullDay ? "8h" : "0h"}
                                     </div>
                                     {cell.status && (
-                                      <div className={`text-[8px] font-bold mt-0.5 leading-none ${isAbsent ? "text-rose-400" : "text-slate-400"}`}>
+                                      <div className={`text-[8px] font-normal mt-0.5 leading-none ${isAbsent ? "text-rose-500" : "text-slate-500"}`}>
                                         {getStatusShort(cell.status)}
                                       </div>
                                     )}
                                   </>
                                 )}
-                                {dbLog?.manuallyAdjusted && !isScheduleMode && <div className="mt-0.5 text-[7px] font-bold text-violet-600">Đã sửa</div>}
+                                {dbLog?.manuallyAdjusted && !isScheduleMode && <div className="mt-0.5 text-[7px] font-normal text-[#008dcc]">Đã sửa</div>}
                               </td>
                             );
                           })}
@@ -1221,7 +1252,7 @@ export default function CalendarTab({
 
           {/* Footer Pagination */}
           {!isLogsLoading && sidebarEmployees.length > 0 && (
-            <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 bg-white shrink-0">
+            <div className="flex items-center justify-between border-t border-[#e5eef8] px-5 py-3 bg-white shrink-0">
               <span className="text-xs text-slate-500">
                 Hiển thị {Math.min((logsPage - 1) * gridPageSize + 1, sidebarEmployees.length)}–{Math.min(logsPage * gridPageSize, sidebarEmployees.length)} / {sidebarEmployees.length} nhân viên
               </span>
@@ -1229,17 +1260,17 @@ export default function CalendarTab({
                 <button
                   disabled={logsPage <= 1}
                   onClick={() => setLogsPage(logsPage - 1)}
-                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl border border-[#dce7f4] text-xs font-normal text-[#007eb8] bg-white hover:bg-[#f0faff] disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Trước
                 </button>
-                <span className="text-xs font-bold text-slate-800 px-2">
+                <span className="text-xs font-normal text-slate-700 px-2">
                   Trang {logsPage} / {totalGridPages}
                 </span>
                 <button
                   disabled={logsPage >= totalGridPages}
                   onClick={() => setLogsPage(logsPage + 1)}
-                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl border border-[#dce7f4] text-xs font-normal text-[#007eb8] bg-white hover:bg-[#f0faff] disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Sau
                 </button>
@@ -1473,10 +1504,10 @@ export default function CalendarTab({
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <CalendarIcon className="h-4 w-4 shrink-0 text-[#00ADFC]" />
                 <h2 className="whitespace-nowrap text-base font-normal text-slate-800">Lịch làm việc</h2>
-                <div className="flex items-center overflow-hidden rounded-lg border border-[#DCE7F4] bg-white">
-                  <button onClick={handlePrevMonth} className="p-1.5 text-[#007EB8] hover:bg-[#E8F7FF]" title="Tháng trước"><ChevronLeft className="h-4 w-4" /></button>
-                  <input type="date" value={formatLocalDate(currentDate)} onChange={(e) => { if (e.target.value) setCurrentDate(new Date(e.target.value + "T00:00:00")); }} className="min-w-0 border-x border-[#DCE7F4] bg-white px-2 py-1 text-xs font-normal text-slate-700 outline-none" title="Chọn ngày" />
-                  <button onClick={handleNextMonth} className="p-1.5 text-[#007EB8] hover:bg-[#E8F7FF]" title="Tháng sau"><ChevronRight className="h-4 w-4" /></button>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={handlePrevMonth} className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#007EB8] transition-colors hover:bg-[#D7F1FF]" title="Tháng trước" aria-label="Tháng trước"><ChevronLeft className="h-4 w-4" /></button>
+                  <DateInput24 value={formatLocalDate(currentDate)} onChange={(date) => { if (date) setCurrentDate(new Date(`${date}T00:00:00`)); }} ariaLabel="Chọn ngày xem lịch" required className="!min-h-9 !w-36 !rounded-lg !px-1.5" />
+                  <button type="button" onClick={handleNextMonth} className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#007EB8] transition-colors hover:bg-[#D7F1FF]" title="Tháng sau" aria-label="Tháng sau"><ChevronRight className="h-4 w-4" /></button>
                 </div>
               </div>
               <div className="ml-auto flex max-w-full flex-wrap items-center gap-1.5">

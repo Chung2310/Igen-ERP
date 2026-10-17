@@ -19,7 +19,7 @@ interface TimeInput24Props {
   className?: string;
   required?: boolean;
   disabled?: boolean;
-  variant?: "default" | "flat";
+  variant?: "default" | "flat" | "compact";
 }
 
 export function TimeInput24({
@@ -110,6 +110,7 @@ export function TimeInput24({
   };
 
   const isFlat = variant === "flat";
+  const isCompact = variant === "compact";
 
   return (
     <div ref={containerRef} className={`relative inline-block text-xs text-slate-800 ${className}`}>
@@ -122,7 +123,9 @@ export function TimeInput24({
         className={
           isFlat
             ? "w-full flex items-center justify-between text-left cursor-pointer bg-transparent border-0 outline-none focus:outline-none font-normal font-sans py-1 px-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            : `w-full flex items-center justify-between text-left cursor-pointer bg-white border border-slate-200 hover:border-sky-200 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15 rounded-xl font-normal font-sans px-3.5 py-2.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed`
+            : isCompact
+              ? "flex h-9 w-full items-center justify-between rounded-xl border border-[#DCE7F4] bg-white px-2.5 text-left font-normal text-sm transition-colors hover:border-[#B8DFF3] focus:border-[#70D5FF] focus:outline-none focus:ring-2 focus:ring-[#00ADFC]/15 disabled:cursor-not-allowed disabled:opacity-50"
+              : "w-full flex items-center justify-between text-left cursor-pointer bg-white border border-slate-200 hover:border-sky-200 focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15 rounded-xl font-normal font-sans px-3.5 py-2.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         }
       >
         <span>{current || "--:--"}</span>
@@ -350,8 +353,8 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel }: Pi
               return <button key={dateValue} type="button" aria-label={`Chọn ngày ${new Intl.DateTimeFormat("vi-VN").format(date)}`} aria-pressed={isSelected} onClick={() => chooseDate(date)} className={`h-8 rounded-lg text-xs transition-colors ${isSelected ? "bg-[#00ADFC] text-white" : date.getMonth() === month.getMonth() ? "text-slate-700 hover:bg-[#E8F7FF]" : "text-slate-400 hover:bg-[#F5FAFE]"} ${dateValue === toDateValue(new Date()) && !isSelected ? "ring-1 ring-[#00ADFC]/50" : ""}`}>{date.getDate()}</button>;
             })}
           </div>
-          <div className="mt-2 flex items-center justify-between border-t border-[#E8F0F8] pt-2 text-xs">
-            <button type="button" onClick={() => { onChange(""); setOpen(false); }} className="rounded-lg px-2 py-1 text-slate-500 hover:bg-[#F5FAFE]">Xóa ngày</button>
+          <div className={`mt-2 flex items-center border-t border-[#E8F0F8] pt-2 text-xs ${required ? "justify-end" : "justify-between"}`}>
+            {!required && <button type="button" onClick={() => { onChange(""); setOpen(false); }} className="rounded-lg px-2 py-1 text-slate-500 hover:bg-[#F5FAFE]">Xóa ngày</button>}
             <button type="button" onClick={() => chooseDate(new Date())} className="rounded-lg bg-[#E8F7FF] px-2 py-1 text-[#007EB8] hover:bg-[#D7F1FF]">Hôm nay</button>
           </div>
         </div>, document.body,

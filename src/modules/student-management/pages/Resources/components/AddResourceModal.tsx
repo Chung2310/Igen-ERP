@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Loader2, RotateCcw, Save } from 'lucide-react';
 import { apiFetch } from '../../../lib/api';
 import { toast } from '../../../../../pages/Toast';
-import { ErpModal, ErpField, ErpInput, ErpSelect } from '../../../components/Erp/ErpUI';
+import { ErpModal, ErpField, ErpInput } from '../../../components/Erp/ErpUI';
+import { StyledSelect } from '../../../../../components/common/StyledSelect';
 import { CustomFieldsSection } from '../../../../shared/custom-fields/CustomFieldsSection';
 import { FieldActionButtons } from '../../../../shared/custom-fields/FieldActionButtons';
 import type { CustomFieldValues } from '../../../../shared/custom-fields/types';
@@ -207,18 +208,16 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
           {!forceType && isFieldVisible('type') && (
             <div>
               <ErpField label={getFieldLabel('type', 'Phân loại')} actions={renderFieldActions('type')}>
-                <ErpSelect
-                  required={isFieldRequired('type', true)}
+                <StyledSelect
                   value={selectedType}
-                  onChange={(e) => setNewResource({ ...newResource, type: e.target.value })}
-                >
-                  <option value="" disabled>-- Chọn phân loại --</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </ErpSelect>
+                  ariaLabel={getFieldLabel('type', 'Phân loại')}
+                  placeholder="-- Chọn phân loại --"
+                  options={[
+                    { value: '', label: '-- Chọn phân loại --', disabled: true },
+                    ...categories.map((cat) => ({ value: cat.name, label: cat.name })),
+                  ]}
+                  onChange={(value) => setNewResource({ ...newResource, type: value })}
+                />
               </ErpField>
             </div>
           )}

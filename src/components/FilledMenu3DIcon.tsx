@@ -7,7 +7,7 @@ export interface Menu3DIconPalette {
 }
 
 export type FilledMenu3DIconShape =
-  | "overview" | "people" | "partners" | "warehouse" | "repair"
+  | "overview" | "people" | "partners" | "warehouse" | "repair" | "student"
   | "work" | "customer" | "retail" | "finance" | "marketing"
   | "folder" | "chat" | "shield" | "settings" | "guide";
 
@@ -39,6 +39,11 @@ const shapes: Record<FilledMenu3DIconShape, ShapeLayers> = {
     body: "M20.8 2.7a5.7 5.7 0 0 0-6.9 7.4l-9.7 9.7a2.3 2.3 0 0 0 3.3 3.2l9.7-9.7a5.7 5.7 0 0 0 6.8-7l-3.6 3.6-3.1-.8-.8-3.1 4.3-3.3Z",
     light: "M20.8 2.7a5.7 5.7 0 0 0-6.9 7.4l-8.5 8.5 2 2 9.8-9.8a5.7 5.7 0 0 0 6.8-4.5l-3.6 3.6-3.1-.8-.8-3.1 4.3-3.3Z",
     shade: "M5.4 18.6a2.3 2.3 0 0 0-.8 3.6 2.3 2.3 0 0 0 3.6-.8l-2.8-2.8Z",
+  },
+  student: {
+    body: "M12 2.5 23 8.2 12 14 1 8.2 12 2.5ZM5.5 12.1 12 15.5l6.5-3.4v4.6c0 2.5-2.9 4.1-6.5 4.1s-6.5-1.6-6.5-4.1v-4.6ZM21 9.5h1.2v8H21v-8Z",
+    light: "M12 3.6 20.7 8.2 12 12.8 3.3 8.2 12 3.6Z",
+    shade: "M5.5 15.9c1.4 1.3 3.7 2 6.5 2s5.1-.7 6.5-2v1c0 2.3-2.9 3.9-6.5 3.9s-6.5-1.6-6.5-3.9v-1Z",
   },
   work: {
     body: "M8 2.5h8A2.5 2.5 0 0 1 18.5 5v2h2A2.5 2.5 0 0 1 23 9.5v10a2.5 2.5 0 0 1-2.5 2.5h-17A2.5 2.5 0 0 1 1 19.5v-10A2.5 2.5 0 0 1 3.5 7h2V5A2.5 2.5 0 0 1 8 2.5Zm0 3V7h8V5.5H8Z",
@@ -100,7 +105,7 @@ export function FilledMenu3DIcon({ shape, palette, className }: { shape: FilledM
           <stop offset="1" stopColor={palette.edge} />
         </linearGradient>
         <filter id={`${id}-shadow`} x="-25%" y="-25%" width="150%" height="160%">
-          <feDropShadow dx="0" dy="1" stdDeviation="0.6" floodColor={palette.edge} floodOpacity="0.4" />
+          <feDropShadow dx="0" dy="0.7" stdDeviation="0.45" floodColor={palette.edge} floodOpacity="0.22" />
         </filter>
       </defs>
       <g filter={`url(#${id}-shadow)`}>

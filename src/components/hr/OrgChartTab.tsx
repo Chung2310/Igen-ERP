@@ -1411,7 +1411,6 @@ export default function OrgChartTab({
                                 {renderAvatar(employee.avatar, "w-8 h-8", "text-xs")}
                                 <div>
                                   <div className="font-bold text-slate-800">{employee.name || missingValue}</div>
-                                  <div className="text-[10px] text-slate-400">{employee.id}</div>
                                 </div>
                               </div>
                             </td>
@@ -1677,7 +1676,7 @@ export default function OrgChartTab({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" />
+                  <label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label><input type="number" min="0" step="1000" value={editMonthlySalary} onChange={(e) => setEditMonthlySalary(e.target.value)} className="no-number-spinner w-full px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" />
                 </div>
                 <div>
                   <label className="block font-bold text-gray-500 mb-1">Email liên lạc (Cố định)</label>
@@ -2031,7 +2030,7 @@ export default function OrgChartTab({
 
               <div>
                 <label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label>
-                <input type="number" min="0" step="1000" value={addMonthlySalary} onChange={(e) => setAddMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" />
+                <input type="number" min="0" step="1000" value={addMonthlySalary} onChange={(e) => setAddMonthlySalary(e.target.value)} className="no-number-spinner w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" />
               </div>
               <div>
                 <label className="block font-bold text-gray-500 mb-1">Email *</label>

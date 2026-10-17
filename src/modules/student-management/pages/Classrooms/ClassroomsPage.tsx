@@ -15,6 +15,7 @@ import { AddResourceModal } from '../Resources/components/AddResourceModal';
 import { ResourceTable } from '../Resources/components/ResourceTable';
 import { PartnerFormDropdown } from '../Partners/components/PartnerFormDropdown';
 import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
+import { TimeInput24 } from '../../../../components/common/TimeInput24';
 
 const DAY_LABELS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 const DAY_COLORS = [
@@ -636,21 +637,19 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
             <div className="xl:col-span-2">
               <label className="mb-1.5 block text-xs font-medium text-slate-600">Khung giờ</label>
               <div className="flex items-center gap-1">
-                <input
-                  type="time"
+                <TimeInput24
+                  variant="compact"
                   value={filterStartTime}
-                  onChange={(e) => setFilterStartTime(e.target.value)}
-                  className="h-9 min-w-0 w-1/2 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 cursor-pointer"
-                  title="Giờ bắt đầu"
+                  onChange={setFilterStartTime}
+                  className="min-w-0 w-1/2"
                   aria-label="Giờ bắt đầu"
                 />
                 <span className="text-slate-400 text-xs">–</span>
-                <input
-                  type="time"
+                <TimeInput24
+                  variant="compact"
                   value={filterEndTime}
-                  onChange={(e) => setFilterEndTime(e.target.value)}
-                  className="h-9 min-w-0 w-1/2 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-700 outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 cursor-pointer"
-                  title="Giờ kết thúc"
+                  onChange={setFilterEndTime}
+                  className="min-w-0 w-1/2"
                   aria-label="Giờ kết thúc"
                 />
               </div>
