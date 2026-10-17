@@ -31,12 +31,14 @@ const project = {
   status: "planned" as const,
 };
 
+const pageOf = (items: (typeof project)[]) => ({ data: items, total: items.length, page: 1, limit: 10 });
+
 afterEach(() => vi.clearAllMocks());
 
 describe("useWorkerProjects", () => {
   it("propagates company and branch scope through every operation", async () => {
     const scope = { companyCode: "ACME", branchId: "branch-1" };
-    api.workerProjectsApi.getList.mockResolvedValue([project]);
+    api.workerProjectsApi.getList.mockResolvedValue(pageOf([project]));
     api.workerProjectsApi.create.mockResolvedValue(project);
     api.workerProjectsApi.update.mockResolvedValue(project);
     api.workerProjectsApi.delete.mockResolvedValue({ message: "ok" });
@@ -45,7 +47,7 @@ describe("useWorkerProjects", () => {
 
     const { result } = renderHook(() => useWorkerProjects(scope));
     await waitFor(() =>
-      expect(api.workerProjectsApi.getList).toHaveBeenCalledWith(scope),
+      expect(api.workerProjectsApi.getList).toHaveBeenCalledWith(scope, expect.objectContaining({ page: 1, limit: 10 })),
     );
     await result.current.createProject(project);
     await result.current.updateProject(project._id, { name: "Updated" });
@@ -78,7 +80,7 @@ describe("useWorkerProjects", () => {
   it("hides the previous company projects immediately when scope changes", async () => {
     api.workerProjectsApi.getList.mockImplementation(
       async (scope: { companyCode: string }) => {
-        if (scope.companyCode === "COMPANY-A") return [project];
+        if (scope.companyCode === "COMPANY-A") return pageOf([project]);
         return new Promise(() => {});
       },
     );
@@ -95,15 +97,15 @@ describe("useWorkerProjects", () => {
 
   it("ignores a stale project response after the company changes", async () => {
     const companyBProject = { ...project, _id: "project-b", code: "B" };
-    let resolveCompanyA!: (projects: (typeof project)[]) => void;
-    const companyARequest = new Promise<(typeof project)[]>((resolve) => {
+    let resolveCompanyA!: (response: ReturnType<typeof pageOf>) => void;
+    const companyARequest = new Promise<ReturnType<typeof pageOf>>((resolve) => {
       resolveCompanyA = resolve;
     });
     api.workerProjectsApi.getList.mockImplementation(
       (scope: { companyCode: string }) =>
         scope.companyCode === "COMPANY-A"
           ? companyARequest
-          : Promise.resolve([companyBProject]),
+          : Promise.resolve(pageOf([companyBProject])),
     );
     const { result, rerender } = renderHook(
       ({ scope }) => useWorkerProjects(scope),
@@ -112,7 +114,7 @@ describe("useWorkerProjects", () => {
     await waitFor(() =>
       expect(api.workerProjectsApi.getList).toHaveBeenCalledWith({
         companyCode: "COMPANY-A",
-      }),
+      }, expect.objectContaining({ page: 1, limit: 10 })),
     );
 
     rerender({ scope: { companyCode: "COMPANY-B" } });
@@ -120,7 +122,7 @@ describe("useWorkerProjects", () => {
       expect(result.current.projects).toEqual([companyBProject]),
     );
 
-    await act(async () => resolveCompanyA([project]));
+    await act(async () => resolveCompanyA(pageOf([project])));
 
     expect(result.current.projects).toEqual([companyBProject]);
     expect(result.current.loading).toBe(false);
@@ -130,14 +132,14 @@ describe("useWorkerProjects", () => {
   it("ignores a stale project error after the company changes", async () => {
     const companyBProject = { ...project, _id: "project-b", code: "B" };
     let rejectCompanyA!: (reason: Error) => void;
-    const companyARequest = new Promise<(typeof project)[]>((_, reject) => {
+    const companyARequest = new Promise<ReturnType<typeof pageOf>>((_, reject) => {
       rejectCompanyA = reject;
     });
     api.workerProjectsApi.getList.mockImplementation(
       (scope: { companyCode: string }) =>
         scope.companyCode === "COMPANY-A"
           ? companyARequest
-          : Promise.resolve([companyBProject]),
+          : Promise.resolve(pageOf([companyBProject])),
     );
     const { result, rerender } = renderHook(
       ({ scope }) => useWorkerProjects(scope),
@@ -146,7 +148,7 @@ describe("useWorkerProjects", () => {
     await waitFor(() =>
       expect(api.workerProjectsApi.getList).toHaveBeenCalledWith({
         companyCode: "COMPANY-A",
-      }),
+      }, expect.objectContaining({ page: 1, limit: 10 })),
     );
 
     rerender({ scope: { companyCode: "COMPANY-B" } });

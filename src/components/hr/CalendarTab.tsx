@@ -1445,7 +1445,7 @@ export default function CalendarTab({
         <div className="flex gap-2 bg-slate-100/85 p-1 rounded-xl w-fit">
           <button
             onClick={() => setCurrentSubTab("schedule")}
-            className={`px-5 py-2 rounded-lg text-xs font-normal   transition-all duration-200 cursor-pointer ${currentSubTab === "schedule"
+            className={`calendar-subtab-button px-5 py-2 rounded-lg text-xs font-normal transition-all duration-200 cursor-pointer ${currentSubTab === "schedule"
                 ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
                 : "text-gray-500 hover:text-gray-800"
               }`}
@@ -1454,7 +1454,7 @@ export default function CalendarTab({
           </button>
           <button
             onClick={() => setCurrentSubTab("attendance")}
-            className={`px-5 py-2 rounded-lg text-xs font-normal   transition-all duration-200 cursor-pointer ${currentSubTab === "attendance"
+            className={`calendar-subtab-button px-5 py-2 rounded-lg text-xs font-normal transition-all duration-200 cursor-pointer ${currentSubTab === "attendance"
                 ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
                 : "text-gray-500 hover:text-gray-800"
               }`}
@@ -1463,7 +1463,7 @@ export default function CalendarTab({
           </button>
           <button
             onClick={() => setCurrentSubTab("requests")}
-            className={`px-5 py-2 rounded-lg text-xs font-normal   transition-all duration-200 cursor-pointer ${currentSubTab === "requests"
+            className={`calendar-subtab-button px-5 py-2 rounded-lg text-xs font-normal transition-all duration-200 cursor-pointer ${currentSubTab === "requests"
                 ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
                 : "text-gray-500 hover:text-gray-800"
               }`}

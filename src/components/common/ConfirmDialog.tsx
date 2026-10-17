@@ -59,30 +59,29 @@ export function ConfirmDialog({
 
   if (appearance === "erp") {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-3 backdrop-blur-2xs sm:p-4" role="presentation">
-        <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white text-left shadow-xl" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" aria-hidden="true" />
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${styles.accent}`} aria-hidden="true">
-                <AlertTriangle className="h-4 w-4" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]" role="presentation">
+        <div className="w-full max-w-[480px] overflow-hidden rounded-2xl bg-white text-left shadow-[0_20px_60px_rgba(13,48,78,0.2)]" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description">
+          <div className="flex items-center justify-between gap-3 bg-[#F7FBFF] px-5 py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${styles.accent}`} aria-hidden="true">
+                <AlertTriangle className="h-5 w-5" />
               </span>
-              <h3 id="confirm-dialog-title" className="text-sm text-slate-900">{title}</h3>
+              <h3 id="confirm-dialog-title" className="text-base font-medium text-[#15396C]">{title}</h3>
             </div>
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#E8F4FF] text-[#087BDF] transition-colors hover:bg-[#D9EDFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Đóng"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
-          <p id="confirm-dialog-description" className="px-4 py-4 text-sm leading-relaxed text-slate-700">{description}</p>
-          <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
+          <p id="confirm-dialog-description" className="px-5 py-6 text-sm leading-6 text-[#536B8F]">{description}</p>
+          <div className="flex justify-end gap-2 border-t border-[#E7F0F8] bg-[#FAFCFE] px-5 py-4">
             {showCancel && (
-              <button type="button" onClick={onClose} disabled={isSubmitting} className="rounded-xl bg-rose-500 px-4 py-2 text-sm text-white transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer">
+              <button type="button" onClick={onClose} disabled={isSubmitting} className="inline-flex h-10 min-w-20 cursor-pointer items-center justify-center rounded-xl bg-[#E8F4FF] px-4 text-sm font-medium text-[#087BDF] transition-colors hover:bg-[#D9EDFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30 disabled:cursor-not-allowed disabled:opacity-50">
                 {cancelLabel}
               </button>
             )}
@@ -90,7 +89,7 @@ export function ConfirmDialog({
               type="button"
               onClick={() => void onConfirm()}
               disabled={isSubmitting}
-              className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer ${styles.button}`}
+              className={`inline-flex h-10 min-w-24 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${styles.button}`}
             >
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {isSubmitting ? "Đang xử lý..." : confirmLabel}

@@ -1,6 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Space+Grotesk:wght@300..700&display=swap');
 @import "tailwindcss";
 
+/* Calendar sub-tabs: mouse clicks stay clean, keyboard focus uses brand blue. */
+#calendar_tab_wrapper .calendar-subtab-button:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+#calendar_tab_wrapper .calendar-subtab-button:focus-visible {
+  outline: 2px solid #00adfc;
+  outline-offset: 2px;
+}
+
 .roadmap-number-input {
   appearance: textfield;
   -moz-appearance: textfield;

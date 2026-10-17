@@ -106,7 +106,10 @@ describe("WorkerContractsPage", () => {
     ], { setAlertOnly });
 
     expect(screen.getByText("HD-99")).toBeTruthy();
-    fireEvent.click(await screen.findByRole("button", { name: "Chỉ xem hợp đồng cảnh báo" }));
+    const alertFilter = await screen.findByRole("button", { name: "Chỉ xem hợp đồng cảnh báo" });
+    expect(alertFilter.textContent).toContain("1 sắp hết hạn");
+    expect(alertFilter.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(alertFilter);
 
     expect(setAlertOnly).toHaveBeenCalledOnce();
   });

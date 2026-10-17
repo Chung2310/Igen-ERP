@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Archive, Pencil, Plus } from "lucide-react";
+import { Archive, Pencil, Plus, Search } from "lucide-react";
 import { recruitmentApi } from "../../../services/recruitmentService";
 import { toast } from "../../../pages/Toast";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
@@ -12,6 +12,8 @@ import {
   labelClass,
   primaryButton,
   RecruitmentDialog,
+  RecruitmentErrorDialog,
+  RecruitmentFileInput,
   secondaryButton,
   ViewState,
 } from "./RecruitmentForms";
@@ -21,6 +23,8 @@ import {
 } from "./recruitmentFile";
 import { jobStatusLabels } from "./recruitmentLabels";
 import { ConfirmDialog } from "../../common/ConfirmDialog";
+import { DateInput24 } from "../../common/TimeInput24";
+import { StyledSelect } from "../../common/StyledSelect";
 
 const emptyJob = {
   code: "",
@@ -38,6 +42,26 @@ const emptyJob = {
   status: "draft" as const,
 };
 const statusLabel: Record<RecruitmentJobStatus, string> = jobStatusLabels;
+const statusTone: Record<RecruitmentJobStatus, string> = {
+  draft: "!bg-[#EAF0F7] !text-[#536B8F]",
+  open: "!bg-[#DCF7E8] !text-[#078252]",
+  paused: "!bg-[#FFF0D8] !text-[#A66300]",
+  closed: "!bg-[#E8F4FF] !text-[#087BDF]",
+};
+
+function missingOpenRequirements(job: RecruitmentJob): string[] {
+  const missing: string[] = [];
+  if (!job.title?.trim()) missing.push("Tên vị trí");
+  if (!job.description?.trim()) missing.push("Mô tả công việc");
+  if (!job.requirements?.trim()) missing.push("Yêu cầu ứng viên");
+  if (!Number.isFinite(Number(job.headcount)) || Number(job.headcount) <= 0) missing.push("Số lượng tuyển phải lớn hơn 0");
+  if (!job.workplaceType?.trim()) missing.push("Hình thức nơi làm việc");
+  if (!job.location?.trim()) missing.push("Địa điểm làm việc");
+  const deadline = job.applicationDeadline ? new Date(job.applicationDeadline) : null;
+  if (!deadline || Number.isNaN(deadline.getTime())) missing.push("Hạn nộp hồ sơ");
+  else if (deadline <= new Date()) missing.push("Hạn nộp cần là ngày sau hôm nay");
+  return missing;
+}
 
 export default function RecruitmentJobsView({ canManage }: { canManage: boolean }) {
   const [jobs, setJobs] = useState<RecruitmentJob[]>([]);
@@ -49,6 +73,7 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
   const [changingStatusJobId, setChangingStatusJobId] = useState<string | null>(null);
   const [pendingDeleteJob, setPendingDeleteJob] = useState<RecruitmentJob | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState<{ title: string; message: string; details?: string[] } | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -74,12 +99,13 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
       await load();
       toast.success(`Đã chuyển tin ${job.code} sang ${statusLabel[next]}.`);
     } catch (e: any) {
+      const details = e.status !== 409 && next === "open" ? missingOpenRequirements(job) : [];
       const message =
         e.status === 409
           ? "Không thể cập nhật trạng thái vì tin tuyển dụng đã được thay đổi ở nơi khác. Danh sách đã được tải lại."
-          : getApiErrorMessage(e, "Không thể cập nhật trạng thái tin tuyển dụng. Vui lòng thử lại.");
+          : details.length ? "Tin tuyển dụng chưa đủ điều kiện để mở. Vui lòng bổ sung:" : getApiErrorMessage(e, "Không thể cập nhật trạng thái tin tuyển dụng. Vui lòng thử lại.");
       await load();
-      toast.error(message);
+      setActionError({ title: next === "open" ? "Không thể mở tin tuyển dụng" : "Không thể đổi trạng thái", message, details });
     } finally {
       setChangingStatusJobId(null);
     }
@@ -102,32 +128,25 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
         setPendingDeleteJob(null);
         await load();
       }
-      toast.error(message);
+      setActionError({ title: "Không thể xóa tin tuyển dụng", message });
     } finally {
       setDeleting(false);
     }
   };
   return (
-    <div className="p-4 sm:p-5">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Tìm mã, vị trí, phòng ban"
-          className={`${fieldClass} max-w-sm`}
-        />
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className={`${fieldClass} w-40`}
-        >
-          <option value="">Mọi trạng thái</option>
-          {Object.entries(statusLabel).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+    <div className="space-y-4 p-4 sm:p-5">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+        <div className="relative w-full min-w-0 sm:w-80">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#91A6BF]" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm mã, vị trí, phòng ban"
+            aria-label="Tìm tin tuyển dụng"
+            className={`${fieldClass} pl-9`}
+          />
+        </div>
+        <StyledSelect ariaLabel="Lọc trạng thái tin tuyển dụng" value={status} onChange={setStatus} className="sm:!w-48" options={[{ value: "", label: "Mọi trạng thái" }, ...Object.entries(statusLabel).map(([value, label]) => ({ value, label }))]} />
         {canManage && (
           <button
             className={`${primaryButton} ml-auto`}
@@ -148,9 +167,9 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
         }
       />
       {!loading && jobs.length > 0 && (
-        <div className="overflow-x-auto border-y border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl bg-white shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
           <table className="w-full min-w-[820px] text-left text-sm">
-            <thead className="bg-slate-100 text-xs uppercase text-slate-500">
+            <thead className="bg-[#EAF6FE] text-xs font-medium text-[#087BDF]">
               <tr>
                 <th className="px-4 py-3">Vị trí</th>
                 <th className="px-4 py-3">Phòng ban</th>
@@ -160,19 +179,19 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
                 {canManage && <th className="px-4 py-3 text-right">Thao tác</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[#EDF3F9] text-[#15396C]">
               {jobs.map((job) => (
-                <tr key={job._id} className="hover:bg-slate-50">
+                <tr key={job._id} className="hover:bg-[#F8FCFF]">
                   <td className="px-4 py-3">
                     {canManage ? (
                       <button
-                        className="font-semibold text-cyan-800 hover:underline"
+                        className="font-medium text-[#087BDF] hover:underline"
                         onClick={() => setEditing(job)}
                       >
                         {job.title || "Chưa đặt tên"}
                       </button>
                     ) : (
-                      <div className="font-semibold text-slate-900">{job.title || "Chưa đặt tên"}</div>
+                      <div className="font-medium text-[#15396C]">{job.title || "Chưa đặt tên"}</div>
                     )}
                     <div className="text-xs text-slate-500">{job.code}</div>
                   </td>
@@ -187,19 +206,9 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
                   </td>
                   <td className="px-4 py-3">
                     {canManage ? (
-                      <select
-                        aria-label={`Trạng thái ${job.code}`}
-                        className={`${fieldClass} min-w-32 py-2`}
-                        value={job.status}
-                        disabled={changingStatusJobId === job._id}
-                        onChange={(event) => void changeStatus(job, event.target.value as RecruitmentJobStatus)}
-                      >
-                        {Object.entries(statusLabel).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
+                      <StyledSelect ariaLabel={`Trạng thái ${job.code}`} className={`min-w-32 ${statusTone[job.status]}`} value={job.status} disabled={changingStatusJobId === job._id} onChange={(value) => void changeStatus(job, value as RecruitmentJobStatus)} options={Object.entries(statusLabel).map(([value, label]) => ({ value, label }))} />
                     ) : (
-                      statusLabel[job.status]
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusTone[job.status]}`}>{statusLabel[job.status]}</span>
                     )}
                   </td>
                   {canManage && (
@@ -235,6 +244,7 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
         />
       )}
       <ConfirmDialog
+        appearance="erp"
         isOpen={pendingDeleteJob !== null}
         title="Xóa tin tuyển dụng?"
         description={pendingDeleteJob ? `Bạn có chắc muốn xóa tin ${pendingDeleteJob.code} - ${pendingDeleteJob.title || "Chưa đặt tên"}?` : ""}
@@ -247,6 +257,7 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
         }}
         onConfirm={confirmDelete}
       />
+      {actionError && <RecruitmentErrorDialog title={actionError.title} message={actionError.message} details={actionError.details} onClose={() => setActionError(null)} />}
     </div>
   );
 }
@@ -274,6 +285,7 @@ function JobDialog({
   const [uploading, setUploading] = useState(false);
   const [temporaryPublicId, setTemporaryPublicId] = useState("");
   const [saved, setSaved] = useState(false);
+  const [submitError, setSubmitError] = useState<{ message: string; details: string[] } | null>(null);
   const set = (key: string, value: any) =>
     setForm((old: any) => ({ ...old, [key]: value }));
   const submit = async (e: React.FormEvent) => {
@@ -304,7 +316,8 @@ function JobDialog({
       setSaved(true);
       await onSaved();
     } catch (err: any) {
-      setError(getApiErrorMessage(err, "Không thể cập nhật vị trí tuyển dụng."));
+      const details = form.status === "open" ? missingOpenRequirements(form as RecruitmentJob) : [];
+      setSubmitError({ message: details.length ? "Tin tuyển dụng chưa đủ điều kiện để mở. Vui lòng bổ sung:" : getApiErrorMessage(err, "Không thể lưu tin tuyển dụng."), details });
     } finally {
       setSaving(false);
     }
@@ -365,18 +378,10 @@ function JobDialog({
             onChange={(e) => set("headcount", e.target.value)}
           />
         </label>
-        <label className={labelClass}>
+        <div className={labelClass}>
           Hình thức nơi làm việc
-          <select
-            className={fieldClass}
-            value={form.workplaceType}
-            onChange={(e) => set("workplaceType", e.target.value)}
-          >
-            <option value="onsite">Tại văn phòng</option>
-            <option value="hybrid">Kết hợp</option>
-            <option value="remote">Từ xa</option>
-          </select>
-        </label>
+          <StyledSelect ariaLabel="Hình thức nơi làm việc" value={form.workplaceType} onChange={(value) => set("workplaceType", value)} options={[{ value: "onsite", label: "Tại văn phòng" }, { value: "hybrid", label: "Kết hợp" }, { value: "remote", label: "Từ xa" }]} />
+        </div>
         <label className={labelClass}>
           Địa điểm
           <input
@@ -385,15 +390,14 @@ function JobDialog({
             onChange={(e) => set("location", e.target.value)}
           />
         </label>
-        <label className={labelClass}>
+        <div className={labelClass}>
           Hạn ứng tuyển
-          <input
-            type="date"
-            className={fieldClass}
+          <DateInput24
+            ariaLabel="Hạn ứng tuyển"
             value={form.applicationDeadline}
-            onChange={(e) => set("applicationDeadline", e.target.value)}
+            onChange={(value) => set("applicationDeadline", value)}
           />
-        </label>
+        </div>
         <label className={`${labelClass} sm:col-span-2`}>
           Mô tả
           <textarea
@@ -421,21 +425,12 @@ function JobDialog({
             onChange={(e) => set("benefits", e.target.value)}
           />
         </label>
-        <label className={`${labelClass} sm:col-span-2`}>
-          File JD
-          <input
-            aria-label="File JD"
-            type="file"
-            accept={RECRUITMENT_FILE_ACCEPT}
-            className={fieldClass}
-            onChange={(e) => chooseFile(e.target.files?.[0])}
-          />
-          <span className="font-normal text-slate-500">
-            {uploading ? "Đang tải lên..." : file?.name || "Chưa có tệp"}
-          </span>
-        </label>
+        <div className={`${labelClass} sm:col-span-2`}>
+          Tệp mô tả công việc
+          <RecruitmentFileInput ariaLabel="File JD" accept={RECRUITMENT_FILE_ACCEPT} fileName={file?.name} uploading={uploading} onChange={(next) => void chooseFile(next)} />
+        </div>
         <label className={`${labelClass} sm:col-span-2`}>Link JD<input aria-label="Link JD" type="url" className={fieldClass} value={form.jdFileUrl || ""} onChange={(e) => setForm((old: any) => ({ ...old, jdFileUrl: e.target.value, jdFilePublicId: "" }))} /></label>
-        <div className="flex justify-end gap-2 sm:col-span-2">
+        <div className="flex justify-end gap-2 border-t border-[#E7F0F8] pt-4 sm:col-span-2">
           <button type="button" className={secondaryButton} onClick={close}>
             Hủy
           </button>
@@ -444,6 +439,7 @@ function JobDialog({
           </button>
         </div>
       </form>
+      {submitError && <RecruitmentErrorDialog title="Không thể lưu tin tuyển dụng" message={submitError.message} details={submitError.details} onClose={() => setSubmitError(null)} />}
     </RecruitmentDialog>
   );
 }

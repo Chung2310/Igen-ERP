@@ -2,19 +2,59 @@ import React from "react";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import type { Worker } from "../types";
 import { workerDashboardApi } from "../api/workerDashboard.api";
+import "./worker-dashboard.css";
 import {
   Users,
   Briefcase,
-  Activity,
   BarChart3,
   PieChart,
   ClipboardList,
   UserCheck,
-  TrendingUp,
-  UserX,
   AlertTriangle,
-  FileCheck2
+  ArrowUpRight,
 } from "lucide-react";
+
+type ChartSegment = { label: string; value: number; color: string };
+
+function StatusChart({ title, segments }: { title: string; segments: ChartSegment[] }) {
+  const total = segments.reduce((sum, segment) => sum + Math.max(0, segment.value), 0);
+  let start = 0;
+  const slices = segments.map((segment) => {
+    const end = start + (total ? (Math.max(0, segment.value) / total) * 100 : 0);
+    const slice = `${segment.color} ${start}% ${end}%`;
+    start = end;
+    return slice;
+  });
+
+  return (
+    <div className="min-w-0 flex-1">
+      <h4 className="mb-4 text-sm font-medium text-slate-800">{title}</h4>
+      <div className="flex flex-wrap items-center gap-5">
+        <div
+          role="img"
+          aria-label={`${title}: ${segments.map(({ label, value }) => `${label} ${value}`).join(", ")}`}
+          className="worker-chart-donut relative grid h-32 w-32 shrink-0 place-items-center rounded-full"
+          style={{ background: total ? `conic-gradient(${slices.join(", ")})` : "#e2e8f0" }}
+        >
+          <div className="grid h-[92px] w-[92px] place-items-center rounded-full bg-white text-center">
+            <div>
+              <span className="block text-2xl font-medium text-slate-900">{total}</span>
+              <span className="text-xs text-slate-500">Tổng số</span>
+            </div>
+          </div>
+        </div>
+        <div className="min-w-[120px] flex-1 space-y-2.5">
+          {segments.map(({ label, value, color }) => (
+            <div key={label} className="flex items-center justify-between gap-3 text-xs text-slate-600">
+              <span className="flex min-w-0 items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />{label}</span>
+              <span className="font-medium tabular-nums text-slate-800">{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function WorkerDashboardPage({
   formattedDate,
@@ -67,318 +107,212 @@ export function WorkerDashboardPage({
     };
   }, [selectedCenter]);
 
-  const monthlyRegistrations = Array.isArray(stats.monthlyRegistrations) ? stats.monthlyRegistrations : [];
-  const maxRegCount = Math.max(...monthlyRegistrations, 1);
+  const monthlyRegistrations = Array.from({ length: 12 }, (_, index) => {
+    const value = Array.isArray(stats.monthlyRegistrations) ? Number(stats.monthlyRegistrations[index]) : 0;
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
+  });
+  const chartStep = Math.max(1, Math.ceil(Math.max(...monthlyRegistrations) / 4));
+  const chartMax = chartStep * 4;
+  const annualRegistrations = monthlyRegistrations.reduce((sum, count) => sum + count, 0);
+  const hasContractAlerts = stats.contractAlerts.expiredCount > 0 || stats.contractAlerts.expiringCount > 0;
+  const contractAlertCount = stats.contractAlerts.expiredCount + stats.contractAlerts.expiringCount;
   const currentYear = new Date().getFullYear();
   const months = Array.from({ length: 12 }, (_, i) => `T${i + 1}`);
 
   return (
-    <div className="flex flex-col gap-6 text-left w-full max-w-7xl mx-auto p-1">
+    <div className="worker-dashboard flex w-full flex-col gap-5 bg-[#F8FBFF] px-1 py-1 text-left sm:px-2">
       {/* Header section */}
-      <section className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-        <div>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-            Tổng quan Lao động
-          </h1>
-          <p className="mt-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Cập nhật ngày hôm nay: {formattedDate}
-          </p>
+      <section className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+        <div className="border-l-[3px] border-[#00ADFC] pl-3">
+          <h1 className="text-xl font-medium tracking-tight text-slate-900">Tổng quan lao động</h1>
+          <p className="mt-1 text-xs font-normal text-slate-500">Hôm nay: {formattedDate}</p>
         </div>
-        {select && (
+        {(onNavigate || select) && (
           <button
             type="button"
-            onClick={() => select({ _id: "", fullName: "", status: "active" })}
-            className="px-4 py-2 bg-indigo-550 hover:bg-indigo-600 active:scale-95 text-white font-bold rounded-xl text-xs shadow-3xs transition-all cursor-pointer flex items-center gap-1.5"
+            onClick={() => onNavigate ? onNavigate("lao-dong") : select?.({ _id: "", fullName: "", status: "active" })}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#00ADFC] px-3.5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#0097dc]"
           >
-            <Users className="w-3.5 h-3.5" />
+            <Users className="h-4 w-4" />
             Quản lý hồ sơ lao động
           </button>
         )}
       </section>
 
       {error && (
-        <div role="alert" className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
           {error}
         </div>
       )}
 
-      {(stats.contractAlerts.expiredCount > 0 || stats.contractAlerts.expiringCount > 0) && (
-        <div
-          role="alert"
-          className={`flex flex-wrap items-center gap-2 rounded-xl border p-4 text-xs font-semibold ${
-            stats.contractAlerts.expiredCount > 0
-              ? "border-rose-200 bg-rose-50 text-rose-700"
-              : "border-amber-200 bg-amber-50 text-amber-800"
-          }`}
-        >
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>
-            {stats.contractAlerts.expiredCount > 0 &&
-              `${stats.contractAlerts.expiredCount} hợp đồng lao động đã hết hạn. `}
-            {stats.contractAlerts.expiringCount > 0 &&
-              `${stats.contractAlerts.expiringCount} hợp đồng sẽ hết hạn trong ${stats.contractAlerts.alertDays} ngày tới.`}
-          </span>
-          {onNavigate && (
-            <button
-              type="button"
-              onClick={() => onNavigate("hop-dong")}
-              className="rounded-lg border border-current bg-white/70 px-2.5 py-1 text-[11px] font-bold"
-            >
-              Xem hợp đồng
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* KPI Cards Section */}
-      <section className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-3xs flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="p-3.5 bg-cyan-50 text-cyan-600 rounded-xl">
-            <Users className="w-6 h-6" />
+      <section className={`grid grid-cols-1 gap-3 ${hasContractAlerts ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-3"}`} aria-label="Số liệu tổng quan lao động">
+        <div className="flex items-center gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-4">
+          <div className="rounded-xl bg-[#E8F7FF] p-3 text-[#00ADFC]">
+            <Users className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Tổng lao động</p>
-            <p className="mt-1 text-2xl font-black text-slate-850">
+            <p className="text-xs text-slate-500">Tổng lao động</p>
+            <p className="mt-0.5 text-2xl font-medium tabular-nums text-slate-900">
               {loading ? <span className="animate-pulse">...</span> : stats.totalWorkers}
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-3xs flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-xl">
-            <UserCheck className="w-6 h-6" />
+        <div className="flex items-center gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-4">
+          <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
+            <UserCheck className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Đang hoạt động</p>
-            <p className="mt-1 text-2xl font-black text-slate-850">
+            <p className="text-xs text-slate-500">Đang hoạt động</p>
+            <p className="mt-0.5 text-2xl font-medium tabular-nums text-slate-900">
               {loading ? <span className="animate-pulse">...</span> : stats.activeWorkers}
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-3xs flex items-center gap-4 transition-all hover:shadow-xs">
-          <div className="p-3.5 bg-violet-50 text-violet-600 rounded-xl">
-            <Briefcase className="w-6 h-6" />
+        <div className="flex items-center gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-4">
+          <div className="rounded-xl bg-violet-50 p-3 text-violet-600">
+            <Briefcase className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Dự án tiếp nhận</p>
-            <p className="mt-1 text-2xl font-black text-slate-850">
+            <p className="text-xs text-slate-500">Dự án tiếp nhận</p>
+            <p className="mt-0.5 text-2xl font-medium tabular-nums text-slate-900">
               {loading ? <span className="animate-pulse">...</span> : stats.projects}
             </p>
           </div>
         </div>
+        {hasContractAlerts && (
+          <div
+            role="alert"
+            className={`flex min-w-0 items-center gap-3 rounded-2xl border bg-white p-4 ${stats.contractAlerts.expiredCount > 0 ? "border-rose-200" : "border-amber-200"}`}
+          >
+            <div className={`shrink-0 rounded-xl p-3 ${stats.contractAlerts.expiredCount > 0 ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-600"}`}>
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-slate-500">Hợp đồng cần chú ý</p>
+              <p className="mt-0.5 text-2xl font-medium tabular-nums text-slate-900">{contractAlertCount}</p>
+              <p className="text-xs text-slate-500">
+                {stats.contractAlerts.expiredCount > 0 && stats.contractAlerts.expiringCount > 0
+                  ? `${stats.contractAlerts.expiredCount} đã hết hạn · ${stats.contractAlerts.expiringCount} sắp hết hạn trong ${stats.contractAlerts.alertDays} ngày`
+                  : stats.contractAlerts.expiredCount > 0
+                    ? "Đã hết hạn"
+                    : `Sắp hết hạn trong ${stats.contractAlerts.alertDays} ngày`}
+              </p>
+            </div>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate("hop-dong")}
+                aria-label="Xem hợp đồng cần chú ý"
+                title="Xem hợp đồng"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#DCE7F4] text-slate-600 transition-colors hover:border-[#00ADFC] hover:bg-[#E8F7FF] hover:text-[#007EB8]"
+              >
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
-      {/* Main Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: Monthly Registration Chart */}
-        <div className="lg:col-span-7 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-3xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                <BarChart3 className="w-5 h-5" />
-              </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <section className="rounded-2xl border border-[#DCE7F4] bg-white p-4 sm:p-5 xl:col-span-7" aria-labelledby="worker-registration-title">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E7EFF7] pb-4">
+            <div className="flex items-start gap-3">
+              <span className="rounded-xl bg-[#E8F7FF] p-2 text-[#00ADFC]"><BarChart3 className="h-5 w-5" /></span>
               <div>
-                <h3 className="text-sm font-black text-slate-800 tracking-tight">
-                  Tình hình Đăng ký Lao động
-                </h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Số lượng lao động mới đăng ký theo từng tháng của năm {currentYear}
-                </p>
+                <h2 id="worker-registration-title" className="text-base font-medium text-slate-900">Lao động đăng ký theo tháng</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Số lao động mới đăng ký trong năm {currentYear}</p>
               </div>
             </div>
-            <span className="text-xs font-black text-indigo-650 bg-indigo-50 px-2.5 py-1 rounded-lg">
-              Năm {currentYear}
-            </span>
+            <span className="rounded-lg bg-[#E8F7FF] px-2.5 py-1 text-xs text-[#007EB8]">{annualRegistrations} đăng ký</span>
           </div>
-
-          <div className="pt-6 pb-2">
-            <div className="h-56 flex items-end justify-between gap-2 px-2 border-b border-slate-200 pb-2 relative">
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
-                <div className="border-b border-slate-400 w-full" />
-                <div className="border-b border-slate-400 w-full" />
-                <div className="border-b border-slate-400 w-full" />
-              </div>
-
-              {monthlyRegistrations.map((count, idx) => {
-                const heightPercent = Math.max(6, Math.round((count / maxRegCount) * 100));
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative z-10">
-                    <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 absolute -top-8 bg-slate-900 text-white text-[10px] font-extrabold px-2 py-1 rounded-lg shadow-lg pointer-events-none whitespace-nowrap z-20">
-                      Tháng {idx + 1}: <strong>{count}</strong> lao động
+          <div className="mt-5 flex h-60 gap-2 sm:gap-3" role="img" aria-label={`Số lao động đăng ký từng tháng năm ${currentYear}: ${monthlyRegistrations.map((count, index) => `tháng ${index + 1} ${count}`).join(", ")}`}>
+            <div className="flex w-7 shrink-0 flex-col justify-between pb-6 text-right text-[11px] tabular-nums text-slate-400">
+              {[4, 3, 2, 1, 0].map((step) => <span key={step}>{step * chartStep}</span>)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="relative h-[216px] border-b border-[#DCE7F4]">
+                <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                  {[0, 1, 2, 3].map((step) => <span key={step} className="border-t border-dashed border-[#E7EFF7]" />)}
+                </div>
+                <div className="relative z-10 flex h-full items-end gap-1.5 sm:gap-2.5">
+                  {monthlyRegistrations.map((count, index) => (
+                    <div key={`${index}-${count}`} className="group relative flex h-full min-w-0 flex-1 items-end justify-center" title={`Tháng ${index + 1}: ${count} lao động`}>
+                      {count > 0 && <div className="worker-chart-column relative w-full max-w-9 rounded-t-md bg-[#00ADFC] transition-colors group-hover:bg-[#008DCE]" style={{ height: `${(count / chartMax) * 100}%`, animationDelay: `${index * 45}ms` }}><span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[11px] tabular-nums text-slate-600">{count}</span></div>}
                     </div>
-                    <span className="text-[9px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors">
-                      {count > 0 ? count : ""}
-                    </span>
-                    <div className="w-full max-w-[28px] bg-slate-50 rounded-t-lg overflow-hidden flex items-end h-full">
-                      <div
-                        className={`w-full rounded-t-lg transition-all duration-500 group-hover:brightness-110 ${
-                          count > 0
-                            ? "bg-gradient-to-t from-indigo-650 to-cyan-500 shadow-md"
-                            : "bg-slate-200/50"
-                        }`}
-                        style={{ height: `${heightPercent}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex justify-between gap-2 px-2 pt-2">
-              {months.map((m, idx) => (
-                <div key={idx} className="flex-1 text-center text-[10px] font-bold text-slate-400">
-                  {m}
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Status Breakdowns */}
-        <div className="lg:col-span-5 flex flex-col gap-6">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-3xs space-y-5 flex-1">
-            <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-              <div className="p-2 bg-teal-50 text-teal-600 rounded-xl">
-                <PieChart className="w-5 h-5" />
+                {!loading && annualRegistrations === 0 && <p className="absolute inset-0 grid place-items-center text-center text-sm text-slate-500">Chưa có lượt đăng ký trong năm {currentYear}</p>}
               </div>
-              <div>
-                <h3 className="text-sm font-black text-slate-800 tracking-tight">
-                  Trạng thái Lao động & Dự án
-                </h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  Tỷ lệ phân bổ hiện tại trong hệ thống
-                </p>
-              </div>
-            </div>
-
-            {/* Workers status breakdown */}
-            <div className="space-y-2">
-              <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Phân bổ lao động</h4>
-              <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                {stats.totalWorkers > 0 ? (
-                  <>
-                    <div
-                      className="bg-emerald-500 h-full"
-                      style={{ width: `${(stats.workersByStatus.active / stats.totalWorkers) * 100}%` }}
-                      title={`Hoạt động: ${stats.workersByStatus.active}`}
-                    />
-                    <div
-                      className="bg-amber-500 h-full"
-                      style={{ width: `${(stats.workersByStatus.placed / stats.totalWorkers) * 100}%` }}
-                      title={`Đã xuất khẩu/giao việc: ${stats.workersByStatus.placed}`}
-                    />
-                    <div
-                      className="bg-slate-300 h-full"
-                      style={{ width: `${(stats.workersByStatus.inactive / stats.totalWorkers) * 100}%` }}
-                      title={`Không hoạt động: ${stats.workersByStatus.inactive}`}
-                    />
-                  </>
-                ) : (
-                  <div className="w-full bg-slate-200 h-full" />
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-2 pt-1 text-[10px] font-bold">
-                <div className="flex items-center gap-1.5 text-emerald-600">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 block" />
-                  <span>Hoạt động: {stats.workersByStatus.active}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-amber-600">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 block" />
-                  <span>Giao việc: {stats.workersByStatus.placed}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-500">
-                  <span className="w-2 h-2 rounded-full bg-slate-350 block" />
-                  <span>Nghỉ: {stats.workersByStatus.inactive}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Projects status breakdown */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
-              <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Trạng thái Dự án</h4>
-              <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex">
-                {stats.projects > 0 ? (
-                  <>
-                    <div
-                      className="bg-indigo-500 h-full"
-                      style={{ width: `${(stats.projectsByStatus.active / stats.projects) * 100}%` }}
-                      title={`Đang chạy: ${stats.projectsByStatus.active}`}
-                    />
-                    <div
-                      className="bg-amber-455 h-full"
-                      style={{ width: `${(stats.projectsByStatus.planned / stats.projects) * 100}%` }}
-                      title={`Lên kế hoạch: ${stats.projectsByStatus.planned}`}
-                    />
-                    <div
-                      className="bg-sky-500 h-full"
-                      style={{ width: `${(stats.projectsByStatus.completed / stats.projects) * 100}%` }}
-                      title={`Hoàn thành: ${stats.projectsByStatus.completed}`}
-                    />
-                  </>
-                ) : (
-                  <div className="w-full bg-slate-200 h-full" />
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-2 pt-1 text-[10px] font-bold">
-                <div className="flex items-center gap-1.5 text-indigo-600">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 block" />
-                  <span>Đang chạy: {stats.projectsByStatus.active}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-amber-550">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 block" />
-                  <span>Kế hoạch: {stats.projectsByStatus.planned}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-sky-650">
-                  <span className="w-2 h-2 rounded-full bg-sky-500 block" />
-                  <span>Hoàn thành: {stats.projectsByStatus.completed}</span>
-                </div>
+              <div className="flex h-6 items-end gap-1.5 sm:gap-2.5">
+                {months.map((month) => <span key={month} className="min-w-0 flex-1 text-center text-[10px] text-slate-500 sm:text-xs">{month}</span>)}
               </div>
             </div>
           </div>
-        </div>
+        </section>
+
+        <section className="rounded-2xl border border-[#DCE7F4] bg-white p-4 sm:p-5 xl:col-span-5" aria-labelledby="worker-status-title">
+          <div className="flex items-start gap-3 border-b border-[#E7EFF7] pb-4">
+            <span className="rounded-xl bg-[#E8F7FF] p-2 text-[#00ADFC]"><PieChart className="h-5 w-5" /></span>
+            <div>
+              <h2 id="worker-status-title" className="text-base font-medium text-slate-900">Cơ cấu lao động và dự án</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Phân bổ theo trạng thái hiện tại</p>
+            </div>
+          </div>
+          <div className="mt-5 space-y-5 divide-y divide-[#E7EFF7]">
+            <StatusChart key={`workers-${stats.workersByStatus.active}-${stats.workersByStatus.placed}-${stats.workersByStatus.inactive}`} title="Lao động" segments={[
+              { label: "Hoạt động", value: stats.workersByStatus.active, color: "#00ADFC" },
+              { label: "Giao việc", value: stats.workersByStatus.placed, color: "#F59E0B" },
+              { label: "Nghỉ", value: stats.workersByStatus.inactive, color: "#CBD5E1" },
+            ]} />
+            <div className="pt-5"><StatusChart key={`projects-${stats.projectsByStatus.active}-${stats.projectsByStatus.planned}-${stats.projectsByStatus.completed}`} title="Dự án" segments={[
+              { label: "Đang triển khai", value: stats.projectsByStatus.active, color: "#00ADFC" },
+              { label: "Sắp triển khai", value: stats.projectsByStatus.planned, color: "#93C5FD" },
+              { label: "Hoàn thành", value: stats.projectsByStatus.completed, color: "#38BDF8" },
+            ]} /></div>
+          </div>
+        </section>
       </div>
 
-      {/* Section: Project Quotas and Allocation */}
-      <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-3xs space-y-4">
-        <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-          <div className="p-2 bg-violet-50 text-violet-600 rounded-xl">
-            <ClipboardList className="w-5 h-5" />
+      <section className="space-y-4 rounded-2xl border border-[#DCE7F4] bg-white p-4 sm:p-5">
+        <div className="flex items-center gap-3 border-b border-[#E7EFF7] pb-4">
+          <div className="rounded-xl bg-violet-50 p-2 text-violet-600">
+            <ClipboardList className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-sm font-black text-slate-800 tracking-tight">
-              Phân bổ Nhân sự theo Dự án
-            </h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-              Tỷ lệ lao động tham gia so với chỉ tiêu (Quota) tuyển dụng của các dự án nổi bật
+            <h2 className="text-base font-medium text-slate-900">Lao động theo dự án</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Số lao động tham gia so với chỉ tiêu của các dự án nổi bật
             </p>
           </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-6 text-xs text-slate-400 font-bold uppercase animate-pulse">
+          <div className="py-6 text-center text-sm text-slate-500 animate-pulse">
             Đang tải dữ liệu phân bổ...
           </div>
         ) : stats.topProjects.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+          <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
             {stats.topProjects.map((p, idx) => {
               const percent = Math.min(100, p.quota > 0 ? Math.round((p.allocated / p.quota) * 100) : 0);
               return (
-                <div key={idx} className="p-4 border border-slate-100 rounded-xl bg-slate-50/50 space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-extrabold text-slate-700 truncate max-w-[200px]" title={p.name}>
+                <div key={idx} className="space-y-2 border-b border-[#E7EFF7] py-3">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="truncate font-medium text-slate-800" title={p.name}>
                       {p.name}
                     </span>
-                    <span className="font-bold text-slate-500">
-                      <strong>{p.allocated}</strong> / {p.quota} Chỉ tiêu ({percent}%)
+                    <span className="shrink-0 text-xs tabular-nums text-slate-500">
+                      {p.allocated} / {p.quota} chỉ tiêu · {percent}%
                     </span>
                   </div>
-                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${
+                      className={`worker-chart-progress h-full rounded-full ${
                         percent >= 100
                           ? "bg-emerald-500"
                           : percent >= 75
-                          ? "bg-indigo-500"
+                          ? "bg-[#00ADFC]"
                           : percent >= 40
                           ? "bg-amber-400"
                           : "bg-rose-500"
@@ -391,7 +325,7 @@ export function WorkerDashboardPage({
             })}
           </div>
         ) : (
-          <div className="text-center py-6 text-xs text-slate-400 font-bold">
+          <div className="py-6 text-center text-sm text-slate-500">
             Chưa có dự án nào được gán chỉ tiêu lao động.
           </div>
         )}

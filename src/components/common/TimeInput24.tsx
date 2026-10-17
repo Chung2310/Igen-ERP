@@ -20,6 +20,7 @@ interface TimeInput24Props {
   required?: boolean;
   disabled?: boolean;
   variant?: "default" | "flat" | "compact";
+  ariaLabel?: string;
 }
 
 export function TimeInput24({
@@ -29,6 +30,7 @@ export function TimeInput24({
   required,
   disabled,
   variant = "default",
+  ariaLabel,
 }: TimeInput24Props) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,10 +90,10 @@ export function TimeInput24({
         const activeHour = hourRef.current?.querySelector("[data-active='true']");
         const activeMin = minuteRef.current?.querySelector("[data-active='true']");
         if (activeHour) {
-          activeHour.scrollIntoView({ block: "center", behavior: "auto" });
+          activeHour.scrollIntoView?.({ block: "center", behavior: "auto" });
         }
         if (activeMin) {
-          activeMin.scrollIntoView({ block: "center", behavior: "auto" });
+          activeMin.scrollIntoView?.({ block: "center", behavior: "auto" });
         }
       }, 60);
       return () => clearTimeout(timer);
@@ -117,6 +119,7 @@ export function TimeInput24({
       <button
         ref={triggerRef}
         type="button"
+        aria-label={ariaLabel}
         disabled={disabled}
         aria-required={required}
         onClick={() => setIsOpen(!isOpen)}
@@ -152,6 +155,7 @@ export function TimeInput24({
                   <button
                     key={h}
                     type="button"
+                    aria-label={`Giờ ${h}`}
                     data-active={isSelected}
                     onClick={() => handleHourSelect(h)}
                     className={`w-full py-1.5 text-center text-xs font-normal rounded-lg transition-colors cursor-pointer ${
@@ -181,6 +185,7 @@ export function TimeInput24({
                   <button
                     key={m}
                     type="button"
+                    aria-label={`Phút ${m}`}
                     data-active={isSelected}
                     onClick={() => handleMinuteSelect(m)}
                     className={`w-full py-1.5 text-center text-xs font-normal rounded-lg transition-colors cursor-pointer ${
@@ -208,6 +213,7 @@ interface DateTimeInput24Props {
   className?: string;
   required?: boolean;
   disabled?: boolean;
+  ariaLabel?: string;
 }
 
 interface DateInput24Props extends Omit<DateTimeInput24Props, "className"> {
@@ -225,7 +231,7 @@ export function DateInput24({ value, onChange, className = "", required, disable
 }
 
 /** Ngày + giờ 24h, thay cho <input type="datetime-local"> native. */
-export function DateTimeInput24({ value, onChange, className = "", required, disabled }: DateTimeInput24Props) {
+export function DateTimeInput24({ value, onChange, className = "", required, disabled, ariaLabel = "Chọn ngày giờ" }: DateTimeInput24Props) {
   const [datePart = "", rawTime = ""] = value ? value.split("T") : ["", ""];
   const timePart = rawTime.slice(0, 5);
 
@@ -236,15 +242,16 @@ export function DateTimeInput24({ value, onChange, className = "", required, dis
 
   return (
     <div
-      className={`flex items-center gap-1.5 bg-white border border-slate-200 hover:border-sky-200 focus-within:border-brand-primary focus-within:ring-2 focus-within:ring-brand-primary/15 rounded-xl px-3.5 py-2 transition-all ${className}`}
+      className={`flex min-h-10 items-center gap-1.5 rounded-xl border border-[#DCE7F4] bg-white px-2.5 transition-colors hover:border-[#B8DFF3] focus-within:border-[#70D5FF] focus-within:ring-2 focus-within:ring-[#00ADFC]/15 ${className}`}
     >
-        <BrandedDateInput value={datePart} onChange={(date) => emit(date, timePart)} required={required} disabled={disabled} ariaLabel="Chọn ngày" />
+        <BrandedDateInput value={datePart} onChange={(date) => emit(date, timePart)} required={required} disabled={disabled} ariaLabel={`${ariaLabel} - ngày`} />
       <div className="w-px bg-gray-200 self-stretch my-0.5 shrink-0" />
       <TimeInput24
         value={timePart}
         onChange={(t) => emit(datePart || new Date().toISOString().slice(0, 10), t)}
         disabled={disabled}
         variant="flat"
+        ariaLabel={`${ariaLabel} - giờ`}
         className="shrink-0 w-24"
       />
     </div>

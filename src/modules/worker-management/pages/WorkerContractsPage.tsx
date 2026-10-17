@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "../../../pages/Toast";
 import { useWorkerLaborContracts } from "../hooks/useWorkerLaborContracts";
@@ -19,6 +20,7 @@ import { WorkerContractFormModal, type ContractFormMode } from "../components/Wo
 import { WorkerContractHistory } from "../components/WorkerContractHistory";
 import { alertText, resolveAlertLevel, toDisplayDate } from "../utils/contractDate";
 import { workerContractStatusLabel } from "../types";
+import { StyledSelect } from "../../../components/common/StyledSelect";
 import type {
   WorkerContractAlertLevel,
   WorkerLaborContract,
@@ -218,7 +220,26 @@ export default function WorkerContractsPage({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto bg-slate-50 p-3 sm:p-5">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto bg-[#F8FBFF]">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="border-l-[3px] border-[#00ADFC] pl-3 text-xl font-medium text-slate-900">Hợp đồng lao động</h1>
+        {(expiringCount > 0 || expiredCount > 0) && (
+          <button
+            type="button"
+            aria-label={alertOnly ? "Xem tất cả hợp đồng" : "Chỉ xem hợp đồng cảnh báo"}
+            aria-pressed={alertOnly}
+            title={alertOnly ? "Xem tất cả hợp đồng" : "Chỉ xem hợp đồng cảnh báo"}
+            onClick={() => setAlertOnly((value) => !value)}
+            className={`inline-flex min-h-9 items-center gap-2 rounded-xl border px-3 py-1.5 text-sm transition-colors ${expiredCount > 0 ? "border-rose-200 text-rose-700 hover:bg-rose-50" : "border-amber-200 text-amber-800 hover:bg-amber-50"} ${alertOnly ? (expiredCount > 0 ? "bg-rose-50" : "bg-amber-50") : "bg-white"}`}
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {expiredCount > 0 && <span>{expiredCount} đã hết hạn</span>}
+            {expiredCount > 0 && expiringCount > 0 && <span className="opacity-40">·</span>}
+            {expiringCount > 0 && <span>{expiringCount} sắp hết hạn <span className="opacity-70">trong 30 ngày</span></span>}
+            {alertOnly && <X className="ml-1 h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+          </button>
+        )}
+      </div>
       {error && (
         <div
           role="alert"
@@ -228,27 +249,7 @@ export default function WorkerContractsPage({
         </div>
       )}
 
-      {(expiringCount > 0 || expiredCount > 0) && (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800"
-        >
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>
-            {expiredCount > 0 && `${expiredCount} hợp đồng đã hết hạn. `}
-            {expiringCount > 0 && `${expiringCount} hợp đồng sẽ hết hạn trong 30 ngày tới.`}
-          </span>
-          <button
-            type="button"
-            onClick={() => setAlertOnly((value) => !value)}
-            className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-bold text-amber-800"
-          >
-            {alertOnly ? "Xem tất cả" : "Chỉ xem hợp đồng cảnh báo"}
-          </button>
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#DCE7F4] bg-white p-3">
         <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           <input
@@ -256,35 +257,11 @@ export default function WorkerContractsPage({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Tìm theo mã, khách hàng, người lao động"
-            className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs"
+            className="h-10 w-full rounded-xl border border-[#DCE7F4] py-2 pl-9 pr-3 text-sm"
           />
         </div>
-        <select
-          aria-label="Lọc theo trạng thái"
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-xs"
-        >
-          <option value="all">Tất cả trạng thái</option>
-          {Object.entries(workerContractStatusLabel).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Lọc theo khách hàng"
-          value={client}
-          onChange={(event) => setClient(event.target.value)}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-xs"
-        >
-          <option value="all">Tất cả khách hàng</option>
-          {clients.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+        <div className="min-w-40 flex-1 sm:flex-none sm:w-44"><StyledSelect ariaLabel="Lọc theo trạng thái" value={status} onChange={setStatus} options={[{ value: "all", label: "Tất cả trạng thái" }, ...Object.entries(workerContractStatusLabel).map(([value, label]) => ({ value, label }))]} /></div>
+        <div className="min-w-40 flex-1 sm:flex-none sm:w-44"><StyledSelect ariaLabel="Lọc theo khách hàng" value={client} onChange={setClient} options={[{ value: "all", label: "Tất cả khách hàng" }, ...clients.map((name) => ({ value: name, label: name }))]} /></div>
         <button
           type="button"
           onClick={handleExport}
@@ -305,17 +282,17 @@ export default function WorkerContractsPage({
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[900px] text-left text-xs">
-          <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+      <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4] bg-white">
+        <table className="w-full min-w-[980px] text-left text-[13px]">
+          <thead className="bg-[#E8F7FF] text-[13px] text-slate-600">
             <tr>
-              <th className="px-3 py-2 font-bold">Mã hợp đồng</th>
-              <th className="px-3 py-2 font-bold">Người lao động</th>
-              <th className="px-3 py-2 font-bold">Khách hàng / đơn vị sử dụng</th>
-              <th className="px-3 py-2 font-bold">Thời hạn</th>
-              <th className="px-3 py-2 text-center font-bold">Trạng thái</th>
-              <th className="px-3 py-2 text-center font-bold">Cảnh báo</th>
-              <th className="px-3 py-2 text-right font-bold">Thao tác</th>
+              <th className="px-3 py-2.5 font-medium">Mã hợp đồng</th>
+              <th className="px-3 py-2.5 font-medium">Người lao động</th>
+              <th className="px-3 py-2.5 font-medium">Khách hàng / đơn vị sử dụng</th>
+              <th className="px-3 py-2.5 font-medium">Thời hạn</th>
+              <th className="px-3 py-2.5 text-center font-medium">Trạng thái</th>
+              <th className="px-3 py-2.5 text-center font-medium">Cảnh báo</th>
+              <th className="px-3 py-2.5 text-right font-medium">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -343,39 +320,39 @@ export default function WorkerContractsPage({
                         : undefined
                   }
                 >
-                  <td className="px-3 py-2 font-bold text-slate-900">
+                  <td className="px-3 py-2.5 font-medium text-slate-900">
                     <span className="flex items-center gap-1.5">
                       {contract.code}
                       {contract.lockedAt && (
                         <Lock className="h-3 w-3 text-slate-400" aria-label="Kỳ đã khóa" />
                       )}
                     </span>
-                    <span className="text-[10px] font-medium text-slate-400">
+                    <span className="text-xs font-normal text-slate-500">
                       Kỳ {contract.sequence}
                     </span>
                   </td>
-                  <td className="px-3 py-2 font-medium text-slate-600">
+                  <td className="px-3 py-2.5 text-slate-700">
                     {workerName(contract.workerId)}
                   </td>
-                  <td className="px-3 py-2 font-medium text-slate-600">{contract.clientName}</td>
-                  <td className="px-3 py-2 font-medium text-slate-500">
+                  <td className="px-3 py-2.5 text-slate-700">{contract.clientName}</td>
+                  <td className="px-3 py-2.5 text-slate-600">
                     {toDisplayDate(contract.startDate)} → {toDisplayDate(contract.endDate)}
                   </td>
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-3 py-2.5 text-center">
                     <span
-                      className={`rounded border px-1.5 py-0.5 text-[9px] font-bold ${
+                      className={`rounded border px-2 py-0.5 text-xs ${
                         statusBadgeClass[contract.status]
                       }`}
                     >
                       {workerContractStatusLabel[contract.status]}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-3 py-2.5 text-center">
                     {contract.alertLevel === "ok" ? (
-                      <span className="text-[10px] text-slate-300">—</span>
+                      <span className="text-xs text-slate-400">—</span>
                     ) : (
                       <span
-                        className={`rounded border px-1.5 py-0.5 text-[9px] font-bold ${
+                        className={`rounded border px-2 py-0.5 text-xs ${
                           alertBadgeClass[contract.alertLevel]
                         }`}
                       >
@@ -385,7 +362,7 @@ export default function WorkerContractsPage({
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     <div className="flex items-center justify-end gap-1">
                       <button
                         type="button"

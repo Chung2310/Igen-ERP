@@ -88,11 +88,11 @@ export const DELETION_SEO: SeoMeta = {
 
 export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, SeoMeta> = {
   "TỔNG QUAN": {
-    title: "Tổng quan doanh nghiệp - Dashboard điều hành thông minh",
+    title: "Tổng quan nhân sự - iGen ERP",
     description:
-      "Báo cáo tổng quan hiệu suất kinh doanh, doanh thu bán hàng, tiến độ công việc và phân tích vận hành doanh nghiệp tự động với AI trên iGen ERP.",
+      "Tổng quan nhân sự, chấm công, công việc và đào tạo nội bộ trên iGen ERP.",
     keywords:
-      "dashboard doanh nghiệp, tổng quan ERP, báo cáo điều hành, dashboard AI, iGen ERP, doanh thu erp",
+      "tổng quan nhân sự, HRM, chấm công, giao việc, đào tạo nội bộ, iGen ERP",
     path: "/tong-quan",
     priority: "0.9",
     changeFrequency: "daily",

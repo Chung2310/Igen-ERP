@@ -58,10 +58,9 @@ export function MonthPicker({ value, onChange }: { value: string; onChange: (val
     };
   }, [open]);
 
-  const selectedDate = new Date(`${value}-01T00:00:00`);
-  const displayValue = Number.isNaN(selectedDate.getTime())
-    ? value
-    : selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const displayValue = /^\d{4}-(0[1-9]|1[0-2])$/.test(value)
+    ? `${MONTHS[selectedMonth - 1]}/${value.slice(0, 4)}`
+    : value;
 
   return <div>
     <button

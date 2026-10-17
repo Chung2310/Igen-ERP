@@ -15,7 +15,7 @@ export function PayrollReviewQueue({ adjustments, onApprove, onReject }: {
   onApprove: (adjustment: Adjustment) => void;
   onReject: (adjustment: Adjustment) => void;
 }) {
-  if (!adjustments.length) return <p className="rounded-xl bg-[#F1FAFE] p-4 text-sm font-normal text-slate-600">Chưa có khoản chờ duyệt.</p>;
+  if (!adjustments.length) return <p className="rounded-xl bg-[#FFF0DF] px-3 py-2 text-sm font-normal text-[#A65E16]">Chưa có khoản nào.</p>;
 
   // Sort: pending first
   const sorted = [...adjustments].sort((a, b) => {

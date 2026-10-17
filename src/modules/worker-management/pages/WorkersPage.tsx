@@ -1,7 +1,5 @@
 import React from "react";
 import {
-  Calendar as CalendarIcon,
-  ChevronDown,
   Download,
   Eye,
   Pencil,
@@ -34,6 +32,8 @@ import type {
 import type { CommissionPolicy, LaborPartner } from "../partners/types";
 import { formatWorkerDate } from "../utils/date";
 import { Pagination } from "../../student-management/components/ui/Pagination";
+import { StyledSelect } from "../../../components/common/StyledSelect";
+import { DateInput24 } from "../../../components/common/TimeInput24";
 
 type Props = {
   selectedCenter?: string;
@@ -64,9 +64,9 @@ const statusLabel: Record<WorkerStatus, string> = {
 };
 
 const statusClass: Record<WorkerStatus, string> = {
-  active: "border-sky-200 bg-sky-100 text-sky-700",
-  placed: "border-emerald-200 bg-emerald-100 text-emerald-700",
-  inactive: "border-slate-300 bg-slate-200 text-slate-600",
+  active: "border-sky-200 bg-sky-50 text-sky-700",
+  placed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  inactive: "border-slate-200 bg-slate-50 text-slate-600",
 };
 
 function parseDate(value?: string) {
@@ -396,10 +396,10 @@ export default function WorkersPage({
     <div className="space-y-4">
       <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
         <div>
-          <h1 className="text-lg font-bold tracking-tight text-cyan-700">
+          <h1 className="border-l-[3px] border-[#00ADFC] pl-3 text-xl font-medium tracking-tight text-slate-900">
             Lao động
           </h1>
-          <p className="mt-0.5 text-[11px] font-medium text-slate-400">
+          <p className="mt-1 pl-3 text-xs text-slate-500">
             {loading ? "..." : `${filtered.length} / ${workers.length}`} Lao động
           </p>
         </div>
@@ -408,7 +408,7 @@ export default function WorkersPage({
             <button
               type="button"
               onClick={() => setBulkDeleteOpen(true)}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-rose-600 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm transition-all hover:bg-rose-700 whitespace-nowrap"
+              className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg bg-rose-600 px-3 text-xs font-medium text-white transition-colors hover:bg-rose-700"
             >
               <Trash2 className="h-3.5 w-3.5" /> Xóa hàng loạt ({selectedWorkerIds.length})
             </button>
@@ -416,14 +416,14 @@ export default function WorkersPage({
           <button
             type="button"
             onClick={handleExport}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 whitespace-nowrap"
+            className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 transition-colors hover:border-[#00ADFC] hover:bg-[#F5FAFE]"
           >
             <Download className="h-3.5 w-3.5" /> Xuất
           </button>
           <button
             type="button"
             onClick={handlePrint}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 whitespace-nowrap"
+            className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 transition-colors hover:border-[#00ADFC] hover:bg-[#F5FAFE]"
           >
             <Printer className="h-3.5 w-3.5" /> In
           </button>
@@ -431,7 +431,7 @@ export default function WorkersPage({
             <button
               type="button"
               onClick={() => setQrOpen(true)}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 whitespace-nowrap"
+              className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 transition-colors hover:border-[#00ADFC] hover:bg-[#F5FAFE]"
             >
               <QrCode className="h-3.5 w-3.5" /> QR đăng ký
             </button>
@@ -440,7 +440,7 @@ export default function WorkersPage({
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm transition-all hover:bg-slate-50 whitespace-nowrap"
+              className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 transition-colors hover:border-[#00ADFC] hover:bg-[#F5FAFE]"
             >
               <Upload className="h-3.5 w-3.5" /> Nhập Excel
             </button>
@@ -449,7 +449,7 @@ export default function WorkersPage({
             <button
               type="button"
               onClick={() => setAddOpen(true)}
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-brand-primary px-3.5 py-1.5 text-[11px] font-bold text-white shadow-md shadow-cyan-100 transition-all hover:bg-brand-primary/95 whitespace-nowrap"
+              className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg bg-brand-primary px-3 text-xs font-medium text-white transition-colors hover:bg-brand-primary/95"
             >
               <Plus className="h-3.5 w-3.5" /> Thêm
             </button>
@@ -469,10 +469,10 @@ export default function WorkersPage({
               key={tab.value}
               type="button"
               onClick={() => setStatus(tab.value)}
-              className={`flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-bold transition-all ${
+              className={`flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                 selected
-                  ? "border-slate-900 bg-slate-900 text-white shadow-md"
-                  : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                  ? "border-[#00ADFC] bg-[#00ADFC] text-white"
+                  : "border-[#DCE7F4] bg-white text-slate-600 hover:border-[#00ADFC]"
               }`}
             >
               {tab.label}
@@ -490,7 +490,7 @@ export default function WorkersPage({
         })}
       </div>
 
-      <div className="filters-bar grid grid-cols-1 gap-2 rounded-xl border border-slate-100 bg-white p-2 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
+      <div className="filters-bar grid grid-cols-1 gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-3 sm:grid-cols-2 lg:grid-cols-6">
         <FilterSelect
           label="Dự án"
           value={project}
@@ -528,8 +528,8 @@ export default function WorkersPage({
             { value: "registration-oldest", label: "Ngày tiếp nhận cũ nhất" },
           ]}
         />
-        <div className="col-span-2 space-y-0.5 lg:col-span-1 lg:col-start-6">
-          <label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="space-y-1.5 sm:col-span-2 lg:col-span-1 lg:col-start-6">
+          <label className="text-xs text-slate-600">
             Tìm kiếm
           </label>
           <div className="relative">
@@ -538,7 +538,7 @@ export default function WorkersPage({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Tên / SĐT / CCCD..."
-              className="h-7 w-full rounded-md border border-slate-200 bg-slate-50 py-0 pl-7 pr-7 text-[11px] focus:border-cyan-600 focus:outline-none"
+              className="h-10 w-full rounded-xl border border-[#DCE7F4] bg-white py-0 pl-8 pr-7 text-sm focus:border-[#00ADFC] focus:outline-none"
             />
             <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
             {search && (
@@ -555,11 +555,11 @@ export default function WorkersPage({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white">
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[720px] text-left sm:min-w-[850px]">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50">
+              <tr className="border-b border-[#DCE7F4] bg-[#E8F7FF]">
                 {canManage && (
                   <TableHead centered>
                     <input
@@ -588,7 +588,7 @@ export default function WorkersPage({
                 <TableHead right>Thao tác</TableHead>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[#CBDCEC]">
               {loading ? (
                 <StateRow colSpan={canManage ? 7 : 6}>Đang nạp dữ liệu...</StateRow>
               ) : error ? (
@@ -675,9 +675,9 @@ export default function WorkersPage({
         />
       )}
       {bulkDeleteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
-            <h2 className="text-base font-bold text-slate-900">Xóa hàng loạt lao động?</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]">
+          <div role="dialog" aria-modal="true" aria-label="Xóa hàng loạt lao động" className="w-full max-w-sm rounded-2xl border border-[#DCE7F4] bg-white p-5 shadow-[0_24px_70px_rgba(11,65,99,0.18)]">
+            <h2 className="border-l-[3px] border-[#00ADFC] pl-3 text-lg font-medium text-slate-900">Xóa hàng loạt lao động?</h2>
             <p className="mt-2 text-xs leading-5 text-slate-500">
               Bạn đang chọn <strong className="text-rose-600">{selectedWorkerIds.length}</strong> lao động. Hồ sơ sẽ được chuyển vào trạng thái đã xóa.
             </p>
@@ -686,7 +686,7 @@ export default function WorkersPage({
                 type="button"
                 onClick={() => setBulkDeleteOpen(false)}
                 disabled={bulkDeleting}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-xl border border-[#DCE7F4] px-4 py-2 text-sm text-slate-600 hover:bg-[#F5FAFE] disabled:opacity-50"
               >
                 Hủy
               </button>
@@ -694,7 +694,7 @@ export default function WorkersPage({
                 type="button"
                 onClick={() => void removeSelected()}
                 disabled={bulkDeleting}
-                className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
               >
                 {bulkDeleting ? "Đang xóa..." : `Xóa ${selectedWorkerIds.length} lao động`}
               </button>
@@ -718,28 +718,9 @@ function FilterSelect({
   options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <div className="space-y-0.5">
-      <label
-        htmlFor={`worker-filter-${label}`}
-        className="text-[9px] font-bold uppercase tracking-wider text-slate-400"
-      >
-        {label}
-      </label>
-      <div className="relative">
-        <select
-          id={`worker-filter-${label}`}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-7 w-full appearance-none truncate rounded-md border border-slate-200 bg-slate-50 px-2.5 pr-7 text-[11px] focus:border-cyan-600 focus:outline-none"
-        >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-      </div>
+    <div className="space-y-1.5">
+      <span className="text-xs text-slate-600">{label}</span>
+      <StyledSelect value={value} onChange={onChange} options={options} ariaLabel={label} />
     </div>
   );
 }
@@ -754,23 +735,9 @@ function DateFilter({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="space-y-0.5">
-      <label
-        htmlFor={`worker-filter-${label}`}
-        className="text-[9px] font-bold uppercase tracking-wider text-slate-400"
-      >
-        {label}
-      </label>
-      <div className="relative">
-        <input
-          id={`worker-filter-${label}`}
-          type="date"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-7 w-full rounded-md border border-slate-200 bg-slate-50 pl-2.5 pr-7 text-[11px] font-medium focus:border-cyan-600 focus:outline-none"
-        />
-        <CalendarIcon className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-      </div>
+    <div className="space-y-1.5">
+      <span className="text-xs text-slate-600">{label}</span>
+      <DateInput24 value={value} onChange={onChange} ariaLabel={label} />
     </div>
   );
 }
@@ -786,7 +753,7 @@ function TableHead({
 }) {
   return (
     <th
-      className={`px-3 py-2 text-[9px] font-bold uppercase tracking-widest text-slate-400 ${
+      className={`px-3 py-3 text-xs font-medium text-slate-600 ${
         centered ? "text-center" : right ? "text-right" : ""
       }`}
     >
@@ -844,9 +811,9 @@ function WorkerRow({
   onDelete: (worker: Worker) => Promise<void>;
 }) {
   return (
-    <tr className="group transition-colors hover:bg-slate-50/50">
+    <tr className="group transition-colors hover:bg-[#F5FAFE]">
       {canManage && (
-        <td className="px-3 py-1.5 text-center">
+        <td className="px-3 py-3 text-center">
           <input
             type="checkbox"
             aria-label={`Chọn ${worker.fullName}`}
@@ -856,40 +823,40 @@ function WorkerRow({
           />
         </td>
       )}
-      <td className="px-3 py-1.5">
+      <td className="px-3 py-3">
         <div className="flex flex-col">
-          <span className="capitalize text-xs font-bold text-slate-800">
+          <span className="capitalize text-sm font-medium text-slate-800">
             {worker.fullName}
           </span>
-          <div className="flex flex-wrap items-center gap-x-2 text-[10px] font-medium text-slate-400">
+          <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
             <span>{worker.phone || "Chưa có số điện thoại"}</span>
             {worker.idCard && <span>CCCD: {worker.idCard}</span>}
           </div>
         </div>
       </td>
-      <td className="px-3 py-1.5 text-center text-[11px] font-medium text-slate-500">
+      <td className="px-3 py-3 text-center text-xs text-slate-600">
         {formatWorkerDate(worker.registrationDate)}
       </td>
-      <td className="px-3 py-1.5 text-[11px] font-medium text-slate-500">
+      <td className="px-3 py-3 text-xs text-slate-600">
         {worker.address || <span className="text-slate-300">Chưa cập nhật</span>}
       </td>
-      <td className="px-3 py-1.5 text-center text-[11px] font-medium text-slate-500">
+      <td className="px-3 py-3 text-center text-xs text-slate-600">
         {workerLaborTypeLabel[worker.laborType || "official"]}
       </td>
-      <td className="px-3 py-1.5 text-center">
+      <td className="px-3 py-3 text-center">
         <span
-          className={`rounded border px-1.5 py-0.5 text-[9px] font-bold ${statusClass[worker.status]}`}
+          className={`rounded-lg border px-2 py-1 text-xs ${statusClass[worker.status]}`}
         >
           {statusLabel[worker.status]}
         </span>
       </td>
-      <td className="px-3 py-1.5">
+      <td className="px-3 py-3">
         <div className="flex items-center justify-end gap-1">
           <button
             type="button"
             onClick={() => onEdit(worker)}
             title="Sửa thông tin"
-            className="cursor-pointer rounded-lg p-1 text-slate-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+            className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg border border-[#DCE7F4] text-[#007EB8] transition-colors hover:border-[#00ADFC] hover:bg-[#E8F7FF]"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -897,7 +864,7 @@ function WorkerRow({
             type="button"
             onClick={() => onOpen(worker)}
             title="Xem chi tiết"
-            className="cursor-pointer rounded-lg p-1 text-slate-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600"
+            className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg border border-[#DCE7F4] text-[#007EB8] transition-colors hover:border-[#00ADFC] hover:bg-[#E8F7FF]"
           >
             <Eye className="h-3.5 w-3.5" />
           </button>
@@ -908,31 +875,31 @@ function WorkerRow({
                 onClick={() => onToggleDelete(worker._id)}
                 disabled={deleting === worker._id}
                 title="Xóa"
-                className={`cursor-pointer rounded-lg p-1 transition-colors disabled:opacity-50 ${
+                className={`grid h-8 w-8 cursor-pointer place-items-center rounded-lg border border-[#DCE7F4] transition-colors disabled:opacity-50 ${
                   confirmDelete === worker._id
                     ? "bg-rose-600 text-white"
-                    : "text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                    : "text-rose-500 hover:border-rose-200 hover:bg-rose-50"
                 }`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
               {confirmDelete === worker._id && (
-                <div className="absolute bottom-full right-0 z-20 mb-2 min-w-[140px] rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
-                  <p className="text-center text-[10px] font-bold text-slate-800">
+                <div className="absolute bottom-full right-0 z-20 mb-2 min-w-[160px] rounded-xl border border-[#DCE7F4] bg-white p-3 shadow-[0_12px_32px_rgba(11,65,99,0.16)]">
+                  <p className="text-center text-xs text-slate-800">
                     Xóa Lao động này?
                   </p>
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"
                       onClick={onCancelDelete}
-                      className="flex-1 rounded-lg py-1 text-[10px] font-bold text-slate-400 hover:bg-slate-100"
+                      className="flex-1 rounded-lg border border-[#DCE7F4] py-1.5 text-xs text-slate-600 hover:bg-[#F5FAFE]"
                     >
                       Hủy
                     </button>
                     <button
                       type="button"
                       onClick={() => void onDelete(worker)}
-                      className="flex-1 rounded-lg bg-rose-600 py-1 text-[10px] font-bold text-white hover:bg-rose-700"
+                      className="flex-1 rounded-lg bg-rose-600 py-1.5 text-xs font-medium text-white hover:bg-rose-700"
                     >
                       Xóa
                     </button>
@@ -973,25 +940,25 @@ function RegistrationQrModal({
   }, [registerUrl]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]">
+      <div role="dialog" aria-modal="true" aria-label="QR đăng ký lao động" className="max-h-[90dvh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-2xl border border-[#DCE7F4] bg-white p-5 shadow-[0_24px_70px_rgba(11,65,99,0.18)]">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="flex items-center gap-1.5 text-sm font-bold text-cyan-700">
+            <h2 className="flex items-center gap-1.5 border-l-[3px] border-[#00ADFC] pl-3 text-lg font-medium text-slate-900">
               <QrCode className="h-4 w-4" /> QR đăng ký Lao động
             </h2>
             <p className="mt-0.5 text-[11px] text-slate-400">
               Chia sẻ liên kết đăng ký hồ sơ Lao động.
             </p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Đóng QR">
-            <X className="h-4 w-4 text-slate-400" />
+          <button type="button" onClick={onClose} aria-label="Đóng QR" className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
+            <X className="h-4 w-4" />
           </button>
         </div>
         <p className="mt-4 break-all rounded-xl bg-slate-50 p-3 text-[10px] text-slate-500">
           {registerUrl}
         </p>
-        <div className="mt-4 flex items-center justify-center rounded-xl border border-slate-100 bg-slate-50 p-4">
+        <div className="mt-4 flex items-center justify-center rounded-xl border border-[#DCE7F4] bg-[#F5FAFE] p-4">
           {qrDataUrl ? (
             <img src={qrDataUrl} alt="QR đăng ký lao động" className="h-56 w-56" />
           ) : (
