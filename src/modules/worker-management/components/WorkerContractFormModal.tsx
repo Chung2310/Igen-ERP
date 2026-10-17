@@ -4,6 +4,7 @@ import { toast } from "../../../pages/Toast";
 import { toDisplayDate, toIsoDate } from "../utils/contractDate";
 import { workerContractStatusLabel } from "../types";
 import { WorkerSearchSelect } from "./WorkerSearchSelect";
+import { DateInput24 } from "../../../components/common/TimeInput24";
 import type {
   Worker,
   WorkerLaborContract,
@@ -155,28 +156,28 @@ export function WorkerContractFormModal({
         : "Thêm hợp đồng";
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-5">
       <button
         aria-label="Đóng"
         type="button"
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+        className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
       />
-      <div className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-base font-bold text-slate-900">{title}</h2>
-          <button type="button" onClick={onClose} className="rounded-full p-2 hover:bg-slate-100">
-            <X className="h-4 w-4 text-slate-400" />
+      <div role="dialog" aria-modal="true" aria-label={title} className="worker-contract-form-dialog relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,65,99,0.18)]">
+        <div className="flex shrink-0 items-center justify-between border-b border-[#E7EFF7] px-5 py-4 sm:px-6">
+          <h2 className="border-l-[3px] border-[#00ADFC] pl-3 text-xl font-medium text-slate-900">{title}</h2>
+          <button type="button" aria-label="Đóng" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         {mode === "renew" && contract && (
-          <div className="mx-6 mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-            <p className="flex items-center gap-1.5 font-bold text-slate-700">
+          <div className="mx-6 mt-4 rounded-xl border border-[#DCE7F4] bg-[#F5FAFE] px-4 py-3 text-sm text-slate-600">
+            <p className="flex items-center gap-1.5 font-medium text-slate-700">
               <Lock className="h-3.5 w-3.5" />
               Kỳ hiện tại sẽ được khóa, giữ nguyên ngày và điều khoản
             </p>
-            <p className="mt-1 font-medium">
+            <p className="mt-1">
               {contract.code} · {contract.clientName} · {toDisplayDate(contract.startDate)} →{" "}
               {toDisplayDate(contract.endDate)}
             </p>
@@ -184,14 +185,14 @@ export function WorkerContractFormModal({
         )}
 
         {locked && (
-          <div className="mx-6 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
+          <div className="mx-6 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             Kỳ hợp đồng này đã kết thúc. Chỉ sửa được ghi chú và chấm dứt hợp đồng — muốn đổi
             thời hạn hãy tạo kỳ gia hạn mới.
           </div>
         )}
 
-        <form onSubmit={submit} className="grid gap-4 overflow-y-auto p-6 sm:grid-cols-2">
-          <div className="space-y-1 sm:col-span-2">
+        <form onSubmit={submit} className="grid gap-4 overflow-y-auto p-5 sm:grid-cols-2 sm:p-6">
+          <div className="space-y-1.5 sm:col-span-2">
             <label htmlFor="workerId" className={labelClass}>
               Người lao động
             </label>
@@ -217,22 +218,8 @@ export function WorkerContractFormModal({
             onChange={update}
             disabled={submitting || locked}
           />
-          <Field
-            label="Ngày bắt đầu"
-            name="startDate"
-            type="date"
-            value={form.startDate}
-            onChange={update}
-            disabled={submitting || locked}
-          />
-          <Field
-            label="Ngày kết thúc"
-            name="endDate"
-            type="date"
-            value={form.endDate}
-            onChange={update}
-            disabled={submitting || locked}
-          />
+          <DateField label="Ngày bắt đầu" value={form.startDate} onChange={(startDate) => setForm((current) => ({ ...current, startDate }))} disabled={submitting || locked} />
+          <DateField label="Ngày kết thúc" value={form.endDate} onChange={(endDate) => setForm((current) => ({ ...current, endDate }))} disabled={submitting || locked} />
 
           <div className="hidden">
             <label htmlFor="status" className={labelClass}>
@@ -254,7 +241,7 @@ export function WorkerContractFormModal({
             </select>
           </div>
 
-          <div className="space-y-1 sm:col-span-2">
+          <div className="space-y-1.5 sm:col-span-2">
             <label htmlFor="note" className={labelClass}>
               Ghi chú
             </label>
@@ -273,7 +260,7 @@ export function WorkerContractFormModal({
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-1.5 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl bg-[#00ADFC] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#0097dc] disabled:opacity-50"
             >
               <Save className="h-3.5 w-3.5" />
               {submitting ? "Đang lưu..." : mode === "renew" ? "Tạo kỳ gia hạn" : "Lưu hợp đồng"}
@@ -285,16 +272,25 @@ export function WorkerContractFormModal({
   );
 }
 
-const labelClass = "text-[10px] font-bold uppercase tracking-wider text-slate-800";
+const labelClass = "text-sm text-slate-700";
 const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:bg-slate-50 disabled:opacity-60";
+  "w-full rounded-xl border border-[#DCE7F4] bg-white px-4 py-2.5 text-base transition-colors focus:border-[#00ADFC] focus:outline-none focus:ring-2 focus:ring-[#00ADFC]/15 disabled:bg-slate-50 disabled:opacity-60";
+
+function DateField({ label, value, onChange, disabled }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <span className={labelClass}>{label}</span>
+      <DateInput24 ariaLabel={label} value={value} onChange={onChange} disabled={disabled} className="[&_button]:text-base" />
+    </div>
+  );
+}
 
 function Field({
   label,
   ...props
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <label htmlFor={props.name} className={labelClass}>
         {label}
       </label>

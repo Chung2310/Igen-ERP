@@ -786,6 +786,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                   <ErpField label={getFieldLabel('duration', copy.durationLabel)} actions={renderFieldActions('duration')}>
                     <ErpInput
                       type="number"
+                      className="no-number-spinner"
                       min="1"
                       required={isFieldRequired('duration', true)}
                       placeholder={getFieldPlaceholder('duration', courseDurationPlaceholder)}
@@ -818,6 +819,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                   <ErpField label={getFieldLabel('maxLearners', copy.capacityLabel)} actions={renderFieldActions('maxLearners')}>
                     <ErpInput
                       type="number"
+                      className="no-number-spinner"
                       min={0}
                       required={isFieldRequired('maxLearners', false)}
                       value={newCourse.maxLearners}
@@ -955,6 +957,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                   <ErpField label={getFieldLabel('maxLearners', copy.capacityLabel)} actions={renderFieldActions('maxLearners')}>
                     <ErpInput
                       type="number"
+                      className="no-number-spinner"
                       min={0}
                       required={isFieldRequired('maxLearners', false)}
                       value={editForm.maxLearners}

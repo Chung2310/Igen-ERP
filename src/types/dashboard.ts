@@ -73,6 +73,16 @@ export interface DashboardSummary {
       total: number;
     };
   };
+  personnelNow?: {
+    expiringContractCount: number;
+    expiringContracts: Array<{ id: string; employeeName: string; endDate: string }>;
+    pendingTaskCount: number;
+    pendingTasks: Array<{ id: string; title: string; assignee: string; dueDate: string; status: string }>;
+    inProgressTaskCount: number;
+    inProgressTasks: Array<{ id: string; title: string; assignee: string; dueDate: string }>;
+    pendingApprovalCount: number;
+    pendingApprovals: Array<{ id: string; employeeName: string; type: string }>;
+  };
 }
 
 /** Kết quả GET /api/v1/dashboard/action-items — việc cần xử lý hôm nay */

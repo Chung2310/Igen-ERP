@@ -7,6 +7,15 @@ import { recruitmentApi } from "../../../services/recruitmentService";
 import { toast } from "../../../pages/Toast";
 import RecruitmentTab from "./RecruitmentTab";
 
+vi.mock("../../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: { companyCode: "ACME" } }) }));
+vi.mock("../../../context/BranchContext", () => ({ useBranch: () => ({ activeBranchId: "branch-a" }) }));
+vi.mock("../../../services/authService", () => ({ authService: { getUsersByCompany: vi.fn().mockResolvedValue([]) } }));
+
+async function chooseOption(label: string, option: string) {
+  await userEvent.click(screen.getAllByRole("button", { name: label }).find((button) => button.getAttribute("aria-haspopup") === "listbox")!);
+  await userEvent.click(screen.getByRole("option", { name: option }));
+}
+
 vi.mock("../../../services/recruitmentService", () => ({ recruitmentApi: {
   listJobs: vi.fn(), getPipeline: vi.fn(), listApplicants: vi.fn(), listInterviews: vi.fn(),
   createJob: vi.fn(), updateJob: vi.fn(), changeJobStatus: vi.fn(), deleteJob: vi.fn(), createApplicant: vi.fn(), updateApplicant: vi.fn(),
@@ -44,7 +53,6 @@ describe("RecruitmentTab", () => {
     render(<RecruitmentTab />);
     expect(await screen.findByText("Developer")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Ứng viên" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Quy trình" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Phỏng vấn" })).toBeTruthy();
   });
 
@@ -54,7 +62,7 @@ describe("RecruitmentTab", () => {
     expect(await screen.findByText("Developer")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Tạo tin" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Sửa tin tuyển dụng DEV" })).toBeNull();
-    expect(screen.queryByRole("combobox", { name: "Trạng thái DEV" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Trạng thái DEV" })).toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: "Ứng viên" }));
     expect(await screen.findByText("Chưa có ứng viên trong chi nhánh này.")).toBeTruthy();
@@ -87,6 +95,7 @@ describe("RecruitmentTab", () => {
   it("uploads a JD immediately and fills its public link before creating", async () => {
     render(<RecruitmentTab canManage />); await screen.findByText("Developer");
     await userEvent.click(screen.getByRole("button", { name: "Tạo tin" }));
+    expect(within(screen.getByRole("dialog")).getByText("Chọn tệp")).toBeTruthy();
     await userEvent.type(screen.getByLabelText("Mã tin"), "QA");
     await userEvent.type(screen.getByLabelText("Tên vị trí"), "QA Engineer");
     await userEvent.upload(screen.getByLabelText("File JD"), new File(["pdf"], "qa-jd.pdf", { type: "application/pdf" }));
@@ -100,7 +109,8 @@ describe("RecruitmentTab", () => {
     render(<RecruitmentTab canManage />); await screen.findByText("Developer");
     await userEvent.click(screen.getByRole("button", { name: "Ứng viên" }));
     await userEvent.click(await screen.findByRole("button", { name: "Thêm ứng viên" }));
-    await userEvent.selectOptions(screen.getByLabelText("Tin tuyển dụng"), "job");
+    expect(within(screen.getByRole("dialog")).getByText("Chọn tệp")).toBeTruthy();
+    await chooseOption("Tin tuyển dụng", "DEV - Developer");
     await userEvent.type(screen.getByLabelText("Họ tên"), "Nguyễn An");
     await userEvent.upload(screen.getByLabelText("CV"), new File(["docx"], "nguyen-an.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }));
     await waitFor(() => expect((screen.getByLabelText("Link CV") as HTMLInputElement).value).toBe("https://cloud.test/nguyen-an.docx"));
@@ -113,26 +123,42 @@ describe("RecruitmentTab", () => {
     render(<RecruitmentTab canManage />);
     await screen.findByText("Developer");
 
-    const statusSelect = screen.getByRole("combobox", { name: "Trạng thái DEV" }) as HTMLSelectElement;
-    expect(statusSelect.value).toBe("open");
+    const statusSelect = screen.getByRole("button", { name: "Trạng thái DEV" });
+    expect(statusSelect.textContent).toContain("Đang tuyển");
     expect(screen.queryByTitle("Mở tuyển")).toBeNull();
     expect(screen.queryByTitle("Tạm dừng")).toBeNull();
 
-    await userEvent.selectOptions(statusSelect, "paused");
+    await chooseOption("Trạng thái DEV", "Tạm dừng");
     await waitFor(() => expect(recruitmentApi.changeJobStatus).toHaveBeenCalledWith("job", 0, "paused"));
     expect(toast.success).toHaveBeenCalledWith("Đã chuyển tin DEV sang Tạm dừng.");
 
     await userEvent.click(screen.getByRole("button", { name: "Sửa tin tuyển dụng DEV" }));
     expect(within(screen.getByRole("dialog")).queryByLabelText("Trạng thái")).toBeNull();
   });
-  it("shows the API reason in a Toast when changing job status fails", async () => {
+  it("shows the API reason in a popup when changing job status fails", async () => {
     vi.mocked(recruitmentApi.changeJobStatus).mockRejectedValue(new Error("Tin tuyển dụng chưa đủ thông tin để mở tuyển."));
     render(<RecruitmentTab canManage />);
     await screen.findByText("Developer");
 
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: /DEV/ }), "draft");
+    await chooseOption("Trạng thái DEV", "Nháp");
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Tin tuyển dụng chưa đủ thông tin để mở tuyển."));
+    const dialog = await screen.findByRole("alertdialog", { name: "Không thể đổi trạng thái" });
+    expect(within(dialog).getByText("Tin tuyển dụng chưa đủ thông tin để mở tuyển.")).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Đã hiểu" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+  it("lists missing information when opening an incomplete job fails", async () => {
+    vi.mocked(recruitmentApi.listJobs).mockResolvedValue([{ ...job, status: "draft", applicationDeadline: new Date(Date.now() - 86_400_000).toISOString() }]);
+    vi.mocked(recruitmentApi.changeJobStatus).mockRejectedValue(new Error("Không thể xử lý yêu cầu tuyển dụng."));
+    render(<RecruitmentTab canManage />);
+    await screen.findByText("Developer");
+
+    await chooseOption("Trạng thái DEV", "Đang tuyển");
+
+    const dialog = await screen.findByRole("alertdialog", { name: "Không thể mở tin tuyển dụng" });
+    expect(within(dialog).getByText("Mô tả công việc")).toBeTruthy();
+    expect(within(dialog).getByText("Yêu cầu ứng viên")).toBeTruthy();
+    expect(within(dialog).getByText("Hạn nộp cần là ngày sau hôm nay")).toBeTruthy();
   });
   it("requires the confirmation popup before deleting a job and reports success by Toast", async () => {
     render(<RecruitmentTab canManage />);
@@ -153,7 +179,7 @@ describe("RecruitmentTab", () => {
     await waitFor(() => expect(recruitmentApi.deleteJob).toHaveBeenCalledWith("job", 0));
     expect(toast.success).toHaveBeenCalledWith("Đã xóa tin tuyển dụng DEV.");
   });
-  it("shows the API reason in a Toast when deleting a job fails", async () => {
+  it("shows the API reason in a popup when deleting a job fails", async () => {
     vi.mocked(recruitmentApi.deleteJob).mockRejectedValue(new Error("Không thể xóa vì tin đang có ứng viên."));
     render(<RecruitmentTab canManage />);
     await screen.findByText("Developer");
@@ -161,7 +187,8 @@ describe("RecruitmentTab", () => {
     await userEvent.click(screen.getByRole("button", { name: "Xóa tin tuyển dụng DEV" }));
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Xóa tin" }));
 
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Không thể xóa vì tin đang có ứng viên."));
+    const dialog = await screen.findByRole("alertdialog", { name: "Không thể xóa tin tuyển dụng" });
+    expect(within(dialog).getByText("Không thể xóa vì tin đang có ứng viên.")).toBeTruthy();
     expect(screen.getByText("Developer")).toBeTruthy();
   });
   it("edits an existing job with its version", async () => {
@@ -171,6 +198,20 @@ describe("RecruitmentTab", () => {
     await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
     await waitFor(() => expect(recruitmentApi.updateJob).toHaveBeenCalledWith("job", expect.objectContaining({ title: "Senior Developer", version: 0 })));
     expect(vi.mocked(recruitmentApi.updateJob).mock.calls[0][1]).not.toEqual(expect.objectContaining({ _id: expect.anything(), companyCode: expect.anything(), branchId: expect.anything(), createdBy: expect.anything(), updatedBy: expect.anything(), isDeleted: expect.anything(), createdAt: expect.anything(), updatedAt: expect.anything() }));
+  });
+
+  it("shows missing publication fields in a popup when saving an open job fails", async () => {
+    vi.mocked(recruitmentApi.updateJob).mockRejectedValue(new Error("Không thể xử lý yêu cầu tuyển dụng."));
+    render(<RecruitmentTab canManage />);
+    await screen.findByText("Developer");
+    await userEvent.click(screen.getByRole("button", { name: "Sửa tin tuyển dụng DEV" }));
+    await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+
+    const dialog = await screen.findByRole("alertdialog", { name: "Không thể lưu tin tuyển dụng" });
+    expect(within(dialog).getByText("Mô tả công việc")).toBeTruthy();
+    expect(within(dialog).getByText("Yêu cầu ứng viên")).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Đã hiểu" }));
+    expect(screen.getByRole("dialog", { name: "Cập nhật tin tuyển dụng" })).toBeTruthy();
   });
 
   it("edits an applicant and displays its Vietnamese outcome", async () => {

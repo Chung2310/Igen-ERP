@@ -107,7 +107,8 @@ export default function HRTab() {
           data = userProfile ? [userProfile] : [];
         }
       } else {
-        data = await authService.getUsersByCompany(selectedCompanyCode);
+        const branchId = selectedCompanyCode === userProfile?.companyCode ? activeBranchId || undefined : undefined;
+        data = await authService.getUsersByCompany(selectedCompanyCode, branchId);
       }
       setUsersList(data);
     } catch (error) {

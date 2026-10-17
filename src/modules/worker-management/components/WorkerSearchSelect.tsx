@@ -10,7 +10,7 @@ type Props = {
 };
 
 const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-10 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:bg-slate-50 disabled:opacity-60";
+  "w-full rounded-xl border border-[#DCE7F4] bg-white px-4 py-2.5 pr-10 text-base transition-colors focus:border-[#00ADFC] focus:outline-none focus:ring-2 focus:ring-[#00ADFC]/15 disabled:bg-slate-50 disabled:opacity-60";
 
 const workerLabel = (worker?: Worker) =>
   worker ? `${worker.fullName}${worker.phone ? ` · ${worker.phone}` : ""}` : "";
@@ -89,7 +89,7 @@ export function WorkerSearchSelect({ workers, value, disabled = false, onChange 
         <div
           id="worker-search-listbox"
           role="listbox"
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg"
+          className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-[#DCE7F4] bg-white p-1 shadow-[0_12px_32px_rgba(11,65,99,0.16)]"
         >
           {matches.length ? matches.map((worker) => (
             <button
@@ -97,7 +97,7 @@ export function WorkerSearchSelect({ workers, value, disabled = false, onChange 
               role="option"
               aria-selected="false"
               type="button"
-              className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-cyan-50 focus:bg-cyan-50 focus:outline-none"
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[#E8F7FF] focus:bg-[#E8F7FF] focus:outline-none"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => selectWorker(worker)}
             >

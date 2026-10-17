@@ -13,6 +13,7 @@ import {
   labelClass,
   primaryButton,
   RecruitmentDialog,
+  RecruitmentFileInput,
   secondaryButton,
   ViewState,
 } from "./RecruitmentForms";
@@ -21,6 +22,8 @@ import {
   validateRecruitmentFile,
 } from "./recruitmentFile";
 import { applicantOutcomeLabels } from "./recruitmentLabels";
+import { DateInput24 } from "../../common/TimeInput24";
+import { StyledSelect } from "../../common/StyledSelect";
 
 export default function RecruitmentApplicantsView({ canManage }: { canManage: boolean }) {
   const [applicants, setApplicants] = useState<RecruitmentApplicant[]>([]);
@@ -71,19 +74,19 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
     }
   };
   return (
-    <div className="p-4 sm:p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <div className="inline-flex rounded-md border border-slate-300 bg-white p-0.5">
+    <div className="space-y-4 p-4 sm:p-5">
+      <div className="flex items-center gap-2 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+        <div className="inline-flex rounded-xl bg-[#F0F5FA] p-1">
           <button
             title="Danh sách"
-            className={`grid h-8 w-8 place-items-center rounded ${mode === "list" ? "bg-slate-900 text-white" : "text-slate-500"}`}
+            className={`grid h-8 w-8 place-items-center rounded-lg transition-colors ${mode === "list" ? "bg-white text-[#087BDF] shadow-sm" : "text-[#7C90AB] hover:text-[#087BDF]"}`}
             onClick={() => setMode("list")}
           >
             <List className="h-4 w-4" />
           </button>
           <button
             title="Kanban"
-            className={`grid h-8 w-8 place-items-center rounded ${mode === "kanban" ? "bg-slate-900 text-white" : "text-slate-500"}`}
+            className={`grid h-8 w-8 place-items-center rounded-lg transition-colors ${mode === "kanban" ? "bg-white text-[#087BDF] shadow-sm" : "text-[#7C90AB] hover:text-[#087BDF]"}`}
             onClick={() => setMode("kanban")}
           >
             <Columns3 className="h-4 w-4" />
@@ -109,9 +112,9 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
         }
       />
       {!loading && applicants.length > 0 && mode === "list" && (
-        <div className="overflow-x-auto border-y border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl bg-white shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
           <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="bg-slate-100 text-xs uppercase text-slate-500">
+            <thead className="bg-[#EAF6FE] text-xs font-medium text-[#087BDF]">
               <tr>
                 <th className="px-4 py-3">Ứng viên</th>
                 <th className="px-4 py-3">Vị trí</th>
@@ -121,12 +124,12 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
                 {canManage && <th className="px-4 py-3 text-right">Thao tác</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[#EDF3F9] text-[#15396C]">
               {applicants.map((a) => (
-                <tr key={a._id} className="hover:bg-slate-50">
+                <tr key={a._id} className="hover:bg-[#F8FCFF]">
                   <td className="px-4 py-3">
                     <button
-                      className="font-semibold text-cyan-800 hover:underline"
+                      className="font-medium text-[#087BDF] hover:underline"
                       onClick={() => setSelected(a)}
                     >
                       {a.fullName}
@@ -141,24 +144,12 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
                   <td className="px-4 py-3">{a.source || "-"}</td>
                   <td className="px-4 py-3">
                     {canManage ? (
-                      <select
-                        className={`${fieldClass} w-44`}
-                        value={a.stageId}
-                        onChange={(e) => move(a, e.target.value)}
-                      >
-                        {pipeline?.stages
-                          .filter((s) => s.isActive)
-                          .map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name}
-                            </option>
-                          ))}
-                      </select>
+                      <StyledSelect ariaLabel={`Giai đoạn ${a.fullName}`} className="w-44" value={a.stageId} onChange={(value) => void move(a, value)} options={pipeline?.stages.filter((s) => s.isActive).map((s) => ({ value: s.id, label: s.name })) || []} />
                     ) : (
                       pipeline?.stages.find((stage) => stage.id === a.stageId)?.name || "-"
                     )}
                   </td>
-                  <td className="px-4 py-3">{applicantOutcomeLabels[a.outcome]}</td>
+                  <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${a.outcome === "hired" ? "bg-[#DCF7E8] text-[#078252]" : a.outcome === "rejected" ? "bg-[#FFE8EC] text-[#C83D58]" : a.outcome === "withdrawn" ? "bg-[#EAF0F7] text-[#536B8F]" : "bg-[#E8F4FF] text-[#087BDF]"}`}>{applicantOutcomeLabels[a.outcome]}</span></td>
                   {canManage && <td className="px-4 py-3 text-right"><button type="button" className={secondaryButton} title={`Sửa ứng viên ${a.fullName}`} aria-label={`Sửa ứng viên ${a.fullName}`} onClick={() => setEditingApplicant(a)}><Pencil className="h-4 w-4" /></button></td>}
                 </tr>
               ))}
@@ -173,12 +164,11 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
             .map((stage) => (
               <section
                 key={stage.id}
-                className="min-h-[360px] border-t-4 bg-slate-100"
-                style={{ borderColor: stage.color }}
+                className="min-h-[360px] rounded-2xl bg-[#F0F7FC] p-2"
               >
-                <h3 className="flex h-11 items-center justify-between px-3 text-sm font-bold">
-                  {stage.name}
-                  <span className="text-xs text-slate-500">
+                <h3 className="flex h-10 items-center justify-between px-2 text-sm font-medium text-[#15396C]">
+                  <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.color }} />{stage.name}</span>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#087BDF]">
                     {applicants.filter((a) => a.stageId === stage.id).length}
                   </span>
                 </h3>
@@ -189,9 +179,9 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
                       <button
                         key={a._id}
                         onClick={() => setSelected(a)}
-                        className="rounded-md border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-cyan-400"
+                        className="rounded-xl bg-white p-3 text-left shadow-[0_2px_10px_rgba(33,84,123,0.07)] transition-colors hover:bg-[#F9FCFF]"
                       >
-                        <div className="font-semibold text-slate-900">
+                        <div className="font-medium text-[#15396C]">
                           {a.fullName}
                         </div>
                         <div className="mt-1 text-xs text-slate-500">
@@ -262,6 +252,7 @@ function ApplicantForm({
   );
   const submit = async (e: React.FormEvent, confirmDuplicate = false) => {
     e.preventDefault();
+    if (!form.jobId) { setError("Vui lòng chọn tin tuyển dụng."); return; }
     setSaving(true);
     setError("");
     try {
@@ -312,36 +303,21 @@ function ApplicantForm({
     <RecruitmentDialog title={applicant ? "Sửa ứng viên" : "Thêm ứng viên"} onClose={close}>
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
         {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
-        <label className={`${labelClass} sm:col-span-2`}>
+        <div className={`${labelClass} sm:col-span-2`}>
           Tin tuyển dụng
-          <select
-            required
-            className={fieldClass}
-            value={form.jobId}
-            onChange={(e) => setForm({ ...form, jobId: e.target.value })}
-          >
-            <option value="">Chọn vị trí</option>
-            {jobs.map((j) => (
-              <option key={j._id} value={j._id}>
-                {j.code} - {j.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        {fields.map(([key, label]) => (
+          <StyledSelect ariaLabel="Tin tuyển dụng" placeholder="Chọn vị trí" value={form.jobId} onChange={(value) => setForm({ ...form, jobId: value })} options={jobs.map((j) => ({ value: j._id, label: `${j.code} - ${j.title}` }))} />
+        </div>
+        {fields.map(([key, label]) => key === "birthDate" || key === "availableDate" ? (
+          <div key={key} className={labelClass}>
+            {label}
+            <DateInput24 ariaLabel={label} value={form[key]} onChange={(value) => setForm({ ...form, [key]: value })} />
+          </div>
+        ) : (
           <label key={key} className={labelClass}>
             {label}
             <input
               required={key === "fullName"}
-              type={
-                key.includes("Date") || key === "birthDate"
-                  ? "date"
-                  : key === "expectedSalary"
-                    ? "number"
-                    : key === "email"
-                      ? "email"
-                      : "text"
-              }
+              type={key === "expectedSalary" ? "number" : key === "email" ? "email" : "text"}
               className={fieldClass}
               value={form[key]}
               onChange={(e) => setForm({ ...form, [key]: e.target.value })}
@@ -371,21 +347,12 @@ function ApplicantForm({
             />
           </label>
         ))}
-        <label className={`${labelClass} sm:col-span-2`}>
+        <div className={`${labelClass} sm:col-span-2`}>
           CV
-          <input
-            aria-label="CV"
-            type="file"
-            accept={RECRUITMENT_FILE_ACCEPT}
-            className={fieldClass}
-            onChange={(e) => void chooseFile(e.target.files?.[0])}
-          />
-          <span className="font-normal text-slate-500">
-            {uploading ? "Đang tải lên..." : file?.name || "Chưa có tệp"}
-          </span>
-        </label>
+          <RecruitmentFileInput ariaLabel="CV" accept={RECRUITMENT_FILE_ACCEPT} fileName={file?.name} uploading={uploading} onChange={(next) => void chooseFile(next)} />
+        </div>
         <label className={`${labelClass} sm:col-span-2`}>Link CV<input aria-label="Link CV" type="url" className={fieldClass} value={form.cvUrl || ""} onChange={(e) => setForm({ ...form, cvUrl: e.target.value, cvPublicId: "" })} /></label>
-        <div className="flex justify-end gap-2 sm:col-span-2">
+        <div className="flex justify-end gap-2 border-t border-[#E7F0F8] pt-4 sm:col-span-2">
           <button type="button" className={secondaryButton} onClick={close}>
             Hủy
           </button>

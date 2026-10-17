@@ -112,33 +112,33 @@ export default function GoogleDriveTab() {
   const isConnected = userProfileAny?.googleDriveIntegration?.isConnected;
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-xs">
-      <div className="flex items-start gap-2 border-b border-gray-100 pb-4 text-left">
-        <HardDrive className="mt-0.5 h-5 w-5 text-indigo-650" />
+    <div className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+      <div className="flex items-start gap-2 border-b border-slate-100 pb-4 text-left">
+        <HardDrive className="mt-0.5 h-4 w-4 text-brand-primary" />
         <div>
-          <h3 className="text-base font-bold text-gray-800">Google Drive</h3>
-          <p className="mt-1 text-xs text-gray-500">
+          <h3 className="text-base font-medium text-slate-800">Google Drive</h3>
+          <p className="mt-1 text-sm font-normal text-slate-500">
             Liên kết tài khoản Google Drive cá nhân để upload và đồng bộ trực tiếp ảnh/video từ ERP.
           </p>
         </div>
       </div>
 
-      <div className="mt-5 space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-left">
+      <div className="mt-4 space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-4 text-left">
         {isConnected ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-emerald-700">
+            <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
               <CheckCircle className="h-4 w-4" />
               Đã kết nối Google Drive
             </div>
-            <div className="rounded-xl border border-indigo-100 bg-white/80 p-2.5 text-xs font-medium text-slate-700">
-              <p className="text-[10px] font-bold uppercase text-gray-400">Email đã liên kết</p>
-              <p className="mt-0.5 truncate font-mono text-[11px]">
+            <div className="rounded-xl border border-sky-100 bg-white p-3 text-sm font-normal text-slate-700">
+              <p className="text-xs font-medium text-slate-500">Email đã liên kết</p>
+              <p className="mt-1 truncate font-mono text-xs">
                 {userProfileAny?.googleDriveIntegration?.driveEmail}
               </p>
             </div>
             <button
               onClick={() => setShowDisconnectConfirm(true)}
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 py-2.5 text-xs font-bold text-red-700 transition hover:bg-red-100/60 cursor-pointer"
+              className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white text-sm font-medium text-rose-600 transition hover:bg-rose-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Ngắt kết nối Google Drive
@@ -146,13 +146,13 @@ export default function GoogleDriveTab() {
           </div>
         ) : (
           <>
-            <p className="text-[11px] leading-relaxed text-indigo-900">
+            <p className="text-sm leading-5 text-slate-600">
               Chưa có tài khoản Google Drive nào được liên kết cho tài khoản hiện tại.
             </p>
             <button
               onClick={handleGoogleDriveOAuth}
               disabled={connectingGoogleDrive}
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-650 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700 cursor-pointer disabled:opacity-60"
+              className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-medium text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <HardDrive className="h-3.5 w-3.5" />
               {connectingGoogleDrive ? "Đang mở popup..." : "Kết nối Google Drive"}

@@ -45,14 +45,14 @@ export function ManageLearnersModal({
     const suspended = enrollment.status === "Bảo lưu";
     const retaking = enrollment.status === "Học lại";
     return (
-      <div className="space-y-0.5">
+      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
         {enrollment.allowedSessions > 0 && (
-          <p className={cn("text-[10px] font-bold", exhausted ? "text-rose-500" : "text-slate-400")}>
+          <p className={cn("text-xs font-normal", exhausted ? "text-rose-600" : "text-slate-500")}>
             {enrollment.attendedSessions}/{enrollment.allowedSessions} buổi
             {exhausted ? " — đã hết buổi" : ""}
           </p>
         )}
-        <p className={cn("text-[10px] font-bold", suspended ? "text-amber-600" : "text-emerald-600")}>
+        <p className={cn("text-xs font-normal", suspended ? "text-amber-600" : "text-emerald-600")}>
           {suspended ? "Đang bảo lưu" : retaking ? "Đã chuyển sang học lại" : "Đang học"}
           {suspended && enrollment.expectedReturnAt ? ` • dự kiến ${enrollment.expectedReturnAt.split("-").reverse().join("/")}` : ""}
         </p>
@@ -177,21 +177,23 @@ const handleToggleSuspension = async (studentId: string) => {
     <ErpModal
       title={`${entityLabel.tabLabel} ${copy.entityNameLower} ${batch.code}`}
       onClose={onClose}
-      maxWidth="max-w-2xl"
+      maxWidth="max-w-5xl"
+      titleClassName="font-semibold"
     >
-      <div className="space-y-6">
-        <p className={cn("text-xs font-bold", darkMode ? "text-slate-400" : "text-slate-500")}>
+      <div className="space-y-3">
+        <p className={cn("text-sm font-normal", darkMode ? "text-slate-400" : "text-slate-500")}>
           {batch.courseTitle} • {copy.capacityLabel}: {batch.learnerIds.length}
           {batch.maxLearners ? `/${batch.maxLearners}` : ''} {entityLabel.singular}
         </p>
 
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         {/* Add learners */}
-        <div className="space-y-3 text-left">
+        <div className="min-w-0 space-y-2.5 rounded-xl border border-slate-200 p-3 text-left">
           <div className="flex items-center justify-between gap-3">
-            <h5 className="text-xs font-black uppercase tracking-wider text-slate-500">
+            <h5 className="text-sm font-medium text-slate-800">
               Chọn {entityLabel.singular} để thêm
             </h5>
-            <span className="text-[11px] font-bold text-brand-primary">
+            <span className="shrink-0 text-xs font-medium text-brand-primary">
               Đã chọn {selectedStudentIds.length}
               {Number.isFinite(remainingSlots) ? `/${remainingSlots} chỗ trống` : ''}
             </span>
@@ -203,7 +205,7 @@ const handleToggleSuspension = async (studentId: string) => {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Tìm theo tên hoặc số điện thoại..."
-              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-xs font-semibold text-slate-800 outline-none transition-all focus:border-brand-primary focus:bg-white"
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-normal text-slate-800 outline-none transition-colors focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
             />
           </div>
 
@@ -219,7 +221,7 @@ const handleToggleSuspension = async (studentId: string) => {
                 type="button"
                 onClick={toggleAllFiltered}
                 disabled={isAdding || remainingSlots === 0}
-                className="flex h-10 w-full items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 text-left text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-9 w-full items-center gap-2.5 border-b border-slate-200 bg-sky-50/50 px-3 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span className={cn(
                   "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
@@ -229,7 +231,7 @@ const handleToggleSuspension = async (studentId: string) => {
                 </span>
                 Chọn tất cả kết quả ({filteredStudents.length})
               </button>
-              <div className="max-h-60 divide-y divide-slate-100 overflow-y-auto">
+              <div className="max-h-[46vh] divide-y divide-slate-100 overflow-y-auto">
                 {filteredStudents.map((student) => {
                   const isSelected = selectedStudentIds.includes(student.id);
                   const isDisabled = isAdding || (!isSelected && selectedStudentIds.length >= remainingSlots);
@@ -237,7 +239,7 @@ const handleToggleSuspension = async (studentId: string) => {
                     <label
                       key={student.id}
                       className={cn(
-                        "flex min-h-12 items-center gap-3 px-4 py-2.5 transition-colors",
+                        "flex min-h-10 items-center gap-2.5 px-3 py-1.5 transition-colors",
                         isSelected ? "bg-sky-50" : "bg-white hover:bg-slate-50",
                         isDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
                       )}
@@ -250,8 +252,8 @@ const handleToggleSuspension = async (studentId: string) => {
                         className="h-4 w-4 shrink-0 accent-brand-primary"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-xs font-bold text-slate-700">{student.fullName}</span>
-                        <span className="block truncate text-[10px] text-slate-400">
+                        <span className="block truncate text-sm font-medium text-slate-800">{student.fullName}</span>
+                        <span className="block truncate text-xs text-slate-500">
                           {student.phone}
                         </span>
                       </span>
@@ -267,7 +269,7 @@ const handleToggleSuspension = async (studentId: string) => {
               type="button"
               onClick={handleAddLearners}
               disabled={selectedStudentIds.length === 0 || isAdding}
-              className="flex h-10 items-center gap-2 rounded-xl bg-brand-primary px-5 text-xs font-bold text-white transition-all hover:bg-brand-primary/95 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-9 items-center gap-2 rounded-lg bg-brand-primary px-4 text-sm font-medium text-white transition-colors hover:bg-brand-primary/95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
               {isAdding ? `Đang thêm ${selectedStudentIds.length} ${entityLabel.singular}...` : `Xác nhận thêm (${selectedStudentIds.length})`}
@@ -276,22 +278,22 @@ const handleToggleSuspension = async (studentId: string) => {
         </div>
 
         {/* Enrolled learners */}
-        <div className="space-y-2 text-left">
-          <h5 className={cn("text-xs font-black uppercase tracking-wider", darkMode ? "text-slate-400" : "text-slate-500")}>
+        <div className="min-w-0 space-y-2 rounded-xl border border-slate-200 p-3 text-left">
+          <h5 className={cn("text-sm font-medium", darkMode ? "text-slate-400" : "text-slate-800")}>
             Danh sách {entityLabel.singular} trong {copy.entityNameLower}
           </h5>
           {enrolledStudents.length === 0 ? (
             <p className="text-xs text-slate-400">{copy.entityName} chưa có {entityLabel.singular} nào.</p>
           ) : (
-            <div className={cn("border rounded-2xl p-2 max-h-72 overflow-y-auto divide-y", darkMode ? "border-slate-800 divide-slate-800/40" : "border-slate-100 divide-slate-100/60")}>
+            <div className={cn("max-h-[58vh] divide-y overflow-y-auto rounded-lg border", darkMode ? "border-slate-800 divide-slate-800/40" : "border-slate-200 divide-slate-100")}>
               {enrolledStudents.map((s) => (
-                <div key={s.id} className="grid grid-cols-[minmax(0,1fr)_minmax(9rem,1fr)_2.5rem] items-center gap-3 px-3 py-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,1fr)_2.5rem]">
-                  <div>
-                    <p className={cn("text-xs font-bold", darkMode ? "text-slate-200" : "text-slate-700")}>{s.fullName}</p>
-                    <p className="text-[10px] text-slate-400">{s.phone}</p>
+                <div key={s.id} className="flex items-center gap-2 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className={cn("truncate text-sm font-medium", darkMode ? "text-slate-200" : "text-slate-800")}>{s.fullName}</p>
+                    <p className="truncate text-xs text-slate-500">{s.phone}</p>
                     {renderSessionCounter(s.id)}
                   </div>
-                  <div className="flex min-w-0 justify-start">
+                  <div className="flex shrink-0 items-center gap-1">
                   {byStudent.get(s.id) && (
                     <>
                     <button
@@ -300,7 +302,7 @@ const handleToggleSuspension = async (studentId: string) => {
                       disabled={updatingEnrollmentId !== null || removingStudentId !== null || isAdding}
                       title={byStudent.get(s.id)?.status === "Bảo lưu" ? "Tiếp tục học" : "Bảo lưu"}
                       className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-lg border transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+                        "flex h-8 w-8 items-center justify-center rounded-lg border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
                         byStudent.get(s.id)?.status === "Bảo lưu"
                           ? "bg-amber-50 text-amber-600 border-amber-200"
                           : "bg-slate-50 text-slate-450 border-slate-200/60 hover:bg-amber-50 hover:text-amber-600"
@@ -312,15 +314,13 @@ const handleToggleSuspension = async (studentId: string) => {
                     </button>
                     </>
                   )}
-                  </div>
-                  <div className="flex justify-end">
                   <button
                     type="button"
                     onClick={() => handleRemoveLearner(s.id)}
                     disabled={removingStudentId !== null || isAdding}
                     title={`Bỏ khỏi ${copy.entityNameLower}`}
                     className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-lg border transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+                      "flex h-8 w-8 items-center justify-center rounded-lg border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
                       darkMode
                         ? "bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 border-transparent"
                         : "bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-600 border-slate-200/60"
@@ -335,6 +335,7 @@ const handleToggleSuspension = async (studentId: string) => {
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
     </ErpModal>

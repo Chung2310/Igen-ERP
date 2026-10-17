@@ -151,7 +151,8 @@ describe("ImportWorkerModal", () => {
     upload(sheet([HEADERS, ["Nguyễn Văn A", "0912 345 678", "", "", "", "", ""], ["", "0987654321", "", "", "", "", ""]]));
     await waitFor(() => expect(screen.getByRole("table")).toBeTruthy());
 
-    fireEvent.change(screen.getByLabelText("Gán vào dự án"), { target: { value: "project-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Gán vào dự án" }));
+    fireEvent.click(screen.getByRole("option", { name: "Dự án Bắc Ninh" }));
     fireEvent.click(screen.getByRole("button", { name: /Nhập 1 lao động/ }));
 
     await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));

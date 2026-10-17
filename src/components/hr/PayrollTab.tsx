@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, FileSpreadsheet, Inbox, Lock, Play, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Coins, FileSpreadsheet, Inbox, Lock, Play, Plus, RefreshCw, Search, Trash2, UserRound, UserRoundMinus, UsersRound, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "../../pages/Toast";
 import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
 import { PAYROLL_FORMULA_LIBRARY_ENABLED } from "../../config/payrollFeatureFlags";
+import { MonthPicker } from "../common/MonthPicker";
+import { StyledSelect } from "../common/StyledSelect";
 import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
 import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
@@ -29,9 +31,9 @@ const formatVnd = (value: number) => new Intl.NumberFormat("vi-VN", { style: "cu
 
 function EmptyState({ icon: Icon, title, hint }: { icon: typeof Inbox; title: string; hint?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 p-10 text-center">
-      <Icon size={28} className="text-slate-300" />
-      <p className="text-sm font-medium text-slate-500">{title}</p>
+    <div className="flex flex-col items-center justify-center gap-1.5 px-5 py-8 text-center">
+      <Icon size={28} className="text-[#A1B5D1]" />
+      <p className="text-sm font-medium text-[#172B4D]">{title}</p>
       {hint && <p className="text-xs text-slate-400 max-w-sm">{hint}</p>}
     </div>
   );
@@ -43,7 +45,7 @@ function SortHeader({ label, sortKey, activeKey, dir, onSort, align = "left" }: 
   return (
     <th
       onClick={() => onSort(sortKey)}
-      className="border-l border-slate-200 p-3 text-center font-semibold text-slate-500 cursor-pointer select-none whitespace-nowrap"
+      className="border-l border-slate-200 p-3 text-center font-normal text-slate-500 cursor-pointer select-none whitespace-nowrap"
     >
       <span className={`inline-flex items-center justify-center gap-1 ${align === "right" ? "flex-row-reverse" : ""}`}>
         {label}
@@ -56,25 +58,25 @@ function SortHeader({ label, sortKey, activeKey, dir, onSort, align = "left" }: 
 function ConfirmModal({ open, title, description, confirmLabel = "Xác nhận", onConfirm, onCancel, loading }: { open: boolean; title: string; description: string; confirmLabel?: string; onConfirm: () => void; onCancel: () => void; loading?: boolean }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={onCancel}>
-      <div className="w-full max-w-sm max-h-[90dvh] overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 backdrop-blur-sm p-4" onClick={onCancel}>
+      <div className="w-full max-w-sm max-h-[90dvh] overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-[0_20px_60px_rgba(13,48,78,0.2)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3 p-4 sm:p-5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100">
             <AlertTriangle size={20} className="text-rose-600" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+            <h3 className="text-sm font-normal text-slate-900">{title}</h3>
             <p className="mt-1 text-sm text-slate-500">{description}</p>
           </div>
-          <button onClick={onCancel} className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer">
+          <button onClick={onCancel} className="shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer">
             <X size={16} />
           </button>
         </div>
-        <div className="flex justify-end gap-2 rounded-b-2xl border-t border-slate-100 bg-slate-50 px-4 py-3 sm:px-5">
-          <button onClick={onCancel} disabled={loading} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 cursor-pointer hover:bg-slate-50 disabled:opacity-50">
+        <div className="flex justify-end gap-2 rounded-b-2xl border-t border-[#E8F0F8] bg-[#F8FBFE] px-4 py-3 sm:px-5">
+          <button onClick={onCancel} disabled={loading} className="rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-sm font-normal text-slate-700 transition-colors hover:bg-[#F8FBFE] disabled:opacity-50 cursor-pointer">
             Hủy
           </button>
-          <button onClick={onConfirm} disabled={loading} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white cursor-pointer hover:bg-rose-700 disabled:opacity-50">
+          <button onClick={onConfirm} disabled={loading} className="inline-flex items-center gap-1.5 rounded-xl bg-rose-500 px-3 py-2 text-sm font-normal text-white transition-colors hover:bg-rose-600 cursor-pointer disabled:opacity-50">
             {loading && <RefreshCw size={14} className="animate-spin" />}
             {confirmLabel}
           </button>
@@ -85,11 +87,18 @@ function ConfirmModal({ open, title, description, confirmLabel = "Xác nhận", 
 }
 
 const STEPS = [
-  { key: "draft", label: "Nháp" },
+  { key: "draft", label: "Chuẩn bị" },
   { key: "review", label: "Kiểm tra" },
   { key: "closed", label: "Chốt" },
-  { key: "paid", label: "Đã thanh toán" },
+  { key: "paid", label: "Đã trả lương" },
 ] as const;
+
+const payrollStatusColors: Record<(typeof STEPS)[number]["key"], string> = {
+  draft: "bg-[#E5F3FF] text-[#087BDF]",
+  review: "bg-[#FFF0D8] text-[#A66300]",
+  closed: "bg-[#DFF5F1] text-[#087F72]",
+  paid: "bg-[#DCF7E8] text-[#078252]",
+};
 
 const PAYROLL_RUN_STATUSES = new Set(["draft", "review", "closed", "paid"]);
 
@@ -391,7 +400,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       : draft?.clearFields.includes(field)
         ? systemValue
         : effectiveValue;
-    return <td key={field} className={`min-w-[145px] p-2 align-top ${isDirty ? "bg-amber-50" : hasPersisted ? "bg-cyan-50/70" : ""}`}>
+    return <td key={field} className={`min-w-[145px] p-2 align-top ${isDirty ? "bg-amber-50" : hasPersisted ? "bg-[#F1FAFE]" : ""}`}>
       <input
         aria-label={`${field}-${employeeId}`}
         type="number"
@@ -400,12 +409,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         disabled={inputSaving}
         value={value}
         onChange={(event) => setInputDrafts(current => setLineOverrideDraftValue(current, employeeId, field, event.target.value === "" ? 0 : Number(event.target.value)))}
-        className={`w-full rounded-md border px-2 py-1 text-right text-xs outline-none ${isDirty ? "border-amber-400 bg-amber-50" : hasPersisted ? "border-cyan-400 bg-cyan-50" : "border-slate-200"}`}
+        className={`no-number-spinner w-full rounded-lg border px-2 py-1.5 text-right text-xs outline-none transition-colors focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15 ${isDirty ? "border-amber-400 bg-amber-50" : hasPersisted ? "border-[#8BDCF9] bg-[#F1FAFE]" : "border-slate-200 bg-white"}`}
       />
       <div className="mt-1 flex items-center justify-between gap-1 text-[9px]">
-        <span className={isDirty ? "font-bold text-amber-700" : hasPersisted ? "font-semibold text-cyan-700" : "text-slate-400"}>{isDirty ? "Chưa lưu" : `Hệ thống: ${formatVnd(Number(systemValue))}`}</span>
+        <span className={isDirty ? "font-normal text-amber-700" : hasPersisted ? "font-normal text-[#007EB8]" : "text-slate-400"}>{isDirty ? "Chưa lưu" : `Hệ thống: ${formatVnd(Number(systemValue))}`}</span>
         {field === "adjustedBase" && <button aria-label={`Chi tiết adjustedBase-${employeeId}`} type="button" onClick={() => void openFormulaRow(row)} className="text-slate-500 underline cursor-pointer">Chi tiết</button>}
-        {hasPersisted && !draft?.clearFields.includes(field) && <button aria-label={`Khôi phục ${field}-${employeeId}`} type="button" onClick={() => setInputDrafts(current => restoreLineOverrideDraftField(current, employeeId, field))} className="text-cyan-700 underline cursor-pointer">Khôi phục</button>}
+        {hasPersisted && !draft?.clearFields.includes(field) && <button aria-label={`Khôi phục ${field}-${employeeId}`} type="button" onClick={() => setInputDrafts(current => restoreLineOverrideDraftField(current, employeeId, field))} className="text-[#007EB8] underline cursor-pointer">Khôi phục</button>}
       </div>
     </td>;
   };
@@ -448,65 +457,69 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const effectiveDataAvailable = !effectiveError;
   const canSeeTable = (canManage || !!run) && effectiveDataAvailable;
 
-  return <section className="flex-1 overflow-auto p-5 space-y-4 bg-slate-50">
+  return <section className="flex-1 space-y-2.5 overflow-auto bg-gradient-to-br from-[#F7FAFF] via-[#F2F8FF] to-[#F7FBFD] p-4 md:p-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 className="text-lg font-bold text-slate-800">Bảng lương</h2>
-        <p className="text-xs text-slate-500">Kỳ lương và kết quả công đã khóa</p>
+        <h2 className="text-xl font-semibold text-[#142547]">Bảng lương</h2>
       </div>
-      <div className="flex items-center gap-2">
-        <input type="month" value={period} onChange={e => setPeriod(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
-      </div>
+      <MonthPicker value={period} onChange={setPeriod} />
     </div>
 
-    {run?._id && effectiveDataAvailable && <div className="rounded-xl border border-slate-200 bg-white p-4"><div className="mb-3 text-sm font-bold text-slate-800">Phiếu lương và xuất báo cáo</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {run?._id && effectiveDataAvailable && <div className="rounded-2xl border border-[#DCE7F4] bg-white p-4"><div className="mb-3 text-sm font-normal text-slate-700">Phiếu lương</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {PAYROLL_FORMULA_LIBRARY_ENABLED && canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollCustomVariableManager />}
     {canManage && (
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-3 flex justify-between items-center">
-          <div className="text-sm font-bold text-slate-800">Điều chỉnh chờ duyệt</div>
-          <button
-            onClick={() => {
-              const empId = run?.lines?.[0]?.employeeId || results?.[0]?.employeeId || "";
-              setAdjEmployeeId(empId);
-              setAdjKind("bonus");
-              setAdjAmount("");
-              setAdjReason("");
-              setIsAdjOpen(true);
-            }}
-            className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 cursor-pointer"
-          >
-            + Tạo điều chỉnh
-          </button>
+      <div className="rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+        <div className="flex items-start gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFE9D5] text-[#F27417]" aria-hidden="true"><UserRound size={18} /></span>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-medium text-[#D75C0A]">Chờ duyệt</div>
+              <button
+                onClick={() => {
+                  const empId = run?.lines?.[0]?.employeeId || results?.[0]?.employeeId || "";
+                  setAdjEmployeeId(empId);
+                  setAdjKind("bonus");
+                  setAdjAmount("");
+                  setAdjReason("");
+                  setIsAdjOpen(true);
+                }}
+                className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg bg-[#087BDF] px-3 text-xs font-medium text-white transition-colors hover:bg-[#006CC6]"
+              >
+                <Plus size={14} /> Điều chỉnh
+              </button>
+            </div>
+            <PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} />
+          </div>
         </div>
-        <PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} />
       </div>
     )}
     {/* Quy trình xử lý kỳ lương */}
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className="px-2 py-1 sm:px-4">
       <ol className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
         {STEPS.map((step, index) => {
-          const done = index <= currentStepIndex;
+          const done = index < currentStepIndex;
+          const current = index === Math.max(currentStepIndex, 0);
+          const paid = run?.status === "paid" && step.key === "paid";
           const isLast = index === STEPS.length - 1;
           const connectorDone = index < currentStepIndex;
           return (
             <li key={step.key} className="flex sm:flex-1 sm:flex-col sm:items-center">
               {/* Cột chỉ báo: dọc trên mobile, ngang từ sm trở lên */}
               <div className="flex flex-col items-center sm:w-full sm:flex-row">
-                <div className={`hidden sm:block sm:h-0.5 sm:flex-1 ${index === 0 ? "sm:bg-transparent" : index <= currentStepIndex ? "sm:bg-emerald-400" : "sm:bg-slate-200"}`} />
-                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
-                  done ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300 text-slate-400"
+                <div className={`hidden sm:block sm:h-px sm:flex-1 ${index === 0 ? "sm:bg-transparent" : index <= currentStepIndex ? "sm:bg-[#67BBED]" : "sm:bg-[#BEDBF5]"}`} />
+                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium shadow-sm ${
+                  paid ? "bg-[#0BA878] text-white" : current ? "bg-[#087BDF] text-white" : done ? "bg-[#DDF5EE] text-[#008C75]" : "bg-white text-[#172B4D]"
                 }`}>
-                  {done ? <CheckCircle2 size={16} /> : index + 1}
+                  {done || paid ? <CheckCircle2 size={16} /> : index + 1}
                 </div>
                 {!isLast && (
-                  <div className={`w-0.5 flex-1 min-h-[1.25rem] sm:h-0.5 sm:w-auto sm:min-h-0 sm:flex-1 ${connectorDone ? "bg-emerald-400" : "bg-slate-200"}`} />
+                  <div className={`w-px flex-1 min-h-[1.25rem] sm:h-px sm:w-auto sm:min-h-0 sm:flex-1 ${connectorDone ? "bg-[#67BBED]" : "bg-[#BEDBF5]"}`} />
                 )}
-                {isLast && <div className="hidden sm:block sm:h-0.5 sm:flex-1 sm:bg-transparent" />}
+                {isLast && <div className="hidden sm:block sm:h-px sm:flex-1 sm:bg-transparent" />}
               </div>
-              <span className={`pb-4 pl-3 text-xs font-medium sm:pb-0 sm:pl-0 sm:pt-1.5 sm:text-center sm:text-[11px] ${done ? "text-emerald-700" : "text-slate-400"}`}>
+              <span className={`pb-4 pl-3 text-xs font-medium sm:pb-0 sm:pl-0 sm:pt-1.5 sm:text-center sm:text-[11px] ${paid || done ? "text-[#008C75]" : current ? "text-[#087BDF]" : "text-[#536B8F]"}`}>
                 {step.label}
               </span>
             </li>
@@ -517,7 +530,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
 
     {effectiveError && (
       <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-        <p className="font-bold">Không thể xác thực số liệu bảng lương</p>
+        <p className="font-normal">Không thể xác thực số liệu bảng lương</p>
         <p className="mt-1">Trạng thái kỳ lương vẫn được cập nhật, nhưng số liệu đang được ẩn để tránh hiển thị dữ liệu không đáng tin cậy. Vui lòng liên hệ quản trị viên.</p>
         <p className="mt-1 text-xs font-mono">{effectiveError.code || "PAYROLL_EFFECTIVE_UNAVAILABLE"}</p>
       </div>
@@ -525,22 +538,22 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
 
     {/* Thẻ tổng quan */}
     {canSeeTable && (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500 font-medium">{run ? "Tổng thực nhận" : "Tổng lương cơ bản"}</p>
-          <p className="mt-1 text-lg font-bold text-slate-900">{formatVnd(run ? totalNet : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0))}</p>
+      <div className={`grid grid-cols-2 gap-3 ${run ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+        {run && <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D8F5E7] text-[#009965]" aria-hidden="true"><Coins size={18} /></span>
+          <div><p className="text-xs text-[#536B8F]">Tổng thực nhận</p><p className="mt-0.5 text-lg font-medium text-[#142547]">{formatVnd(totalNet)}</p></div>
+        </div>}
+        <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D9EEFF] text-[#087BDF]" aria-hidden="true"><UsersRound size={18} /></span>
+          <div><p className="text-xs text-[#536B8F]">Số nhân viên</p><p className="mt-0.5 text-lg font-medium text-[#142547]">{headcount}</p></div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500 font-medium">Số nhân viên</p>
-          <p className="mt-1 text-lg font-bold text-slate-900">{headcount}</p>
+        <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFDFEA] text-[#F02E67]" aria-hidden="true"><UserRoundMinus size={18} /></span>
+          <div><p className="text-xs text-[#536B8F]">Người thiếu công</p><p className="mt-0.5 text-lg font-medium text-[#ED2B66]">{shortageCount}</p></div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500 font-medium">Người thiếu công</p>
-          <p className="mt-1 text-lg font-bold text-rose-600">{shortageCount}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500 font-medium">Tổng lương cơ bản</p>
-          <p className="mt-1 text-lg font-bold text-slate-900">{formatVnd(run ? totalBase : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0))}</p>
+        <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D8F5E7] text-[#009965]" aria-hidden="true"><Coins size={18} /></span>
+          <div><p className="text-xs text-[#536B8F]">Tổng lương cơ bản</p><p className="mt-0.5 text-lg font-medium text-[#142547]">{formatVnd(run ? totalBase : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0))}</p></div>
         </div>
       </div>
     )}
@@ -553,37 +566,37 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               {processingAction.visible && <div><button
                 onClick={() => void processPeriod()}
                 disabled={processingAction.disabled}
-                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#00A4E8] px-3 py-2 text-sm text-white cursor-pointer hover:bg-[#008FCB] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {processingPayroll ? <RefreshCw size={15} className="animate-spin" /> : <Play size={15} />}
                 {processingAction.label}
               </button>{processingAction.reason && <p className="mt-1 text-xs text-amber-700">{processingAction.reason}</p>}</div>}
               {run && (
-                <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.reviewRun(String(run._id), Number(run.version)) : payrollService.review(period), "Đã chuyển sang kiểm tra", clearLocalOverrideState)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700">
+                <button onClick={() => void action(() => run?.activeRevisionId ? payrollService.reviewRun(String(run._id), Number(run.version)) : payrollService.review(period), "Đã chuyển sang kiểm tra", clearLocalOverrideState)} className="inline-flex items-center gap-2 rounded-lg bg-[#00A995] px-3 py-2 text-sm text-white cursor-pointer hover:bg-[#008F7F]">
                   <CheckCircle2 size={15} /> Kiểm tra
                 </button>
               )}
             </>
           )}
           {run?.status === "review" && (
-            <button disabled={!effectiveDataAvailable} title={!effectiveDataAvailable ? "Không thể chốt kỳ khi số liệu chưa được xác thực" : undefined} onClick={() => void action(() => run?.activeRevisionId ? payrollService.closeRun(String(run._id), Number(run.version)) : payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+            <button disabled={!effectiveDataAvailable} title={!effectiveDataAvailable ? "Không thể chốt kỳ khi số liệu chưa được xác thực" : undefined} onClick={() => void action(() => run?.activeRevisionId ? payrollService.closeRun(String(run._id), Number(run.version)) : payrollService.close(period), "Đã chốt kỳ lương", clearLocalOverrideState)} className="rounded-lg bg-[#00A4E8] px-3 py-2 text-sm text-white cursor-pointer hover:bg-[#008FCB] disabled:cursor-not-allowed disabled:opacity-50">
               Chốt kỳ
             </button>
           )}
           {canMarkPayrollPaid(canManage, run?.status) && (
-            <button onClick={() => setMarkPaidConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm text-white cursor-pointer hover:bg-emerald-700 font-semibold">
+            <button onClick={() => setMarkPaidConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#00A995] px-3 py-2 text-sm text-white cursor-pointer hover:bg-[#008F7F] font-normal">
               <CheckCircle2 size={15} /> Đánh dấu đã thanh toán
             </button>
           )}
         </div>
         <div className="flex gap-2">
           {run && (
-            <button onClick={() => setResetConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 cursor-pointer hover:bg-rose-100 font-semibold">
+            <button onClick={() => setResetConfirmOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 cursor-pointer hover:bg-rose-100 font-normal">
               <Trash2 size={15} /> Xóa kỳ lương
             </button>
           )}
           {(run?.status === "review" || run?.status === "closed") && (
-            <button onClick={() => setReopenOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 cursor-pointer hover:bg-amber-100 font-semibold">
+            <button onClick={() => setReopenOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 cursor-pointer hover:bg-amber-100 font-normal">
               <RefreshCw size={15} /> Mở lại kỳ
             </button>
           )}
@@ -591,9 +604,9 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>
     )}
 
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl bg-white p-4 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
       <div className="mb-3 flex flex-wrap justify-between gap-3 text-sm items-center">
-        <span className="text-slate-500 font-medium">Trạng thái kỳ lương:</span>
+        <span className="text-[#172B4D] font-medium">Trạng thái kỳ lương:</span>
         <div className="flex items-center gap-3">
           {canSeeTable && (
             <div className="relative">
@@ -602,44 +615,41 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Tìm theo tên hoặc mã..."
-                className="rounded-lg border border-slate-300 bg-white pl-8 pr-3 py-1.5 text-xs w-52"
+                className="rounded-lg rounded-xl border border-[#DCE7F4] bg-white pl-8 pr-3 py-1.5 text-xs text-slate-700 outline-none focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15 w-52"
               />
             </div>
           )}
-          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-            run?.status === "paid" || run?.status === "closed" ? "bg-emerald-100 text-emerald-800 border border-emerald-200" :
-            run?.status === "review" ? "bg-cyan-100 text-cyan-800 border border-cyan-200" : "bg-slate-100 text-slate-700 border border-slate-200"
-          }`}>
-            {run?.status === "paid" ? "Đã thanh toán" : run?.status === "closed" ? "Đã chốt" : run?.status === "review" ? "Kiểm tra" : "Nháp"}
+          <span className={`rounded-full px-3 py-1 text-xs font-medium ${payrollStatusColors[(run?.status as (typeof STEPS)[number]["key"]) || "draft"] || payrollStatusColors.draft}`}>
+            {run?.status === "paid" ? "Đã trả lương" : run?.status === "closed" ? "Đã chốt kỳ" : run?.status === "review" ? "Kiểm tra" : "Chuẩn bị"}
           </span>
         </div>
       </div>
 
       {run && Object.keys(inputDrafts).length > 0 && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-          <span className="text-xs font-semibold text-amber-800">
+          <span className="text-xs font-normal text-amber-800">
             {`${Object.keys(inputDrafts).length} nhân viên có thay đổi chưa lưu`}
           </span>
-          {inlineEditable && Object.keys(inputDrafts).length > 0 && <button type="button" onClick={() => setInputSaveOpen(true)} className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-cyan-700 cursor-pointer">Lưu thay đổi</button>}
+          {inlineEditable && Object.keys(inputDrafts).length > 0 && <button type="button" onClick={() => setInputSaveOpen(true)} className="rounded-lg bg-[#00A4E8] px-3 py-1.5 text-xs font-normal text-white hover:bg-[#008FCB] cursor-pointer">Lưu thay đổi</button>}
         </div>
       )}
 
-      {effectiveDataAvailable && <div className="overflow-auto border border-slate-100 rounded-xl max-h-[60vh]">
+      {effectiveDataAvailable && <div className="overflow-auto rounded-xl border border-[#E5ECF5] max-h-[60vh]">
         <table className="w-full text-left text-sm border-collapse">
           {run ? (
             <>
-              <thead className="sticky top-0 z-10 bg-slate-50">
+              <thead className="sticky top-0 z-10 bg-[#F7FAFE]">
                 <tr className="hidden">
-                  <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-center font-bold">Thông tin nhân viên</th>
-                  <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className={`border-l-2 p-2 text-center font-bold ${inlineEditable ? "border-cyan-200 bg-cyan-50 text-cyan-800" : "border-slate-200 bg-slate-100 text-slate-800"}`}>{inlineEditable ? "Các khoản có thể chỉnh sửa" : "Kết quả bảng lương"}</th>
-                  <th className="border-l-2 border-rose-200 bg-rose-50 p-2 text-center font-bold text-rose-800">Khoản khấu trừ</th>
-                  <th className="border-l-2 border-slate-300 bg-slate-100 p-2 text-center font-bold text-slate-800">Thực nhận</th>
+                  <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r border-[#DCE7F4] bg-slate-50 p-3 text-center font-normal">Thông tin nhân viên</th>
+                  <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className={`border-l p-2 text-center font-normal ${inlineEditable ? "border-[#B8E8FF] bg-[#F1FAFE] text-[#007EB8]" : "border-slate-200 bg-slate-100 text-slate-800"}`}>{inlineEditable ? "Các khoản có thể chỉnh sửa" : "Kết quả bảng lương"}</th>
+                  <th className="border-l border-rose-100 bg-rose-50 p-2 text-center font-normal text-rose-800">Khoản khấu trừ</th>
+                  <th className="border-l border-[#DCE7F4] bg-slate-100 p-2 text-center font-normal text-slate-800">Thực nhận</th>
                 </tr>
                 <tr className="border-b text-xs text-slate-500">
-                  <th className="sticky left-0 z-20 min-w-[180px] border-r-2 border-slate-300 bg-slate-50 p-3 text-center font-bold">Thông tin nhân viên</th>
+                  <th className="sticky left-0 z-20 min-w-[180px] border-r border-[#DCE7F4] bg-slate-50 p-3 text-center font-normal">Thông tin nhân viên</th>
                   {PAYROLL_RESULT_FIELDS.map(field => <SortHeader key={field.key} label={field.label} sortKey={field.key} activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />)}
-                  {customVariables.map((variable: any) => <th key={variable.code} className="min-w-[145px] border-l border-slate-200 p-3 text-center font-semibold text-slate-500">{variable.name}</th>)}
-                  <th className="border-l border-slate-200 p-3 text-right font-semibold text-slate-500">Hoa hồng</th>
+                  {customVariables.map((variable: any) => <th key={variable.code} className="min-w-[145px] border-l border-slate-200 p-3 text-center font-normal text-slate-500">{variable.name}</th>)}
+                  <th className="border-l border-slate-200 p-3 text-right font-normal text-slate-500">Hoa hồng</th>
                   <SortHeader label="Tổng khấu trừ" sortKey="deductionTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Thực nhận" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                 </tr>
@@ -649,14 +659,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <tr><td colSpan={14 + customVariables.length}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                    <td className="sticky left-0 z-10 border-r-2 border-slate-200 bg-white p-3 text-center font-medium text-slate-700">
+                    <td className="sticky left-0 z-10 border-r border-[#DCE7F4] bg-white p-3 text-center font-normal text-slate-700">
                       <div>{line.employeeName || "Chưa có tên"}</div>
                       {inputErrors[String(line.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(line.employeeId)]}</div>}
                     </td>
                     {PAYROLL_RESULT_FIELDS.map(field => inlineEditable
                       ? renderResultCell(line, field.key, Number(line.systemValues[field.key]), Number(line[field.key]))
                         : <td key={field.key} className="border-l border-slate-100 p-3 text-right text-slate-600">{field.key === "adjustedBase"
-                        ? <button aria-label={`Chi tiết adjustedBase-${line.employeeId}`} onClick={() => void openFormulaRow(line)} className="font-semibold text-cyan-700 underline decoration-dotted cursor-pointer">{formatVnd(Number(line[field.key]))}</button>
+                        ? <button aria-label={`Chi tiết adjustedBase-${line.employeeId}`} onClick={() => void openFormulaRow(line)} className="font-normal text-[#007EB8] underline decoration-dotted cursor-pointer">{formatVnd(Number(line[field.key]))}</button>
                         : formatVnd(Number(line[field.key]))}</td>)}
                     {customVariables.map((variable: any) => {
                       const field = `custom.${variable.code}` as const;
@@ -667,14 +677,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                         : <td key={field} className="border-l border-slate-100 p-3 text-right text-slate-600">{effectiveValue.toLocaleString()}</td>;
                     })}
                     <td className="border-l border-slate-100 p-3 text-right text-slate-600">{formatVnd(Number(line.commission))}</td>
-                    <td className="p-3 text-right font-semibold text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{formatVnd(Number(line.deductionTotal))}</span></td>
-                    <td className="p-3 text-right font-bold text-slate-900"><span aria-label={`net-${line.employeeId}`}>{formatVnd(Number(line.net))}</span></td>
+                    <td className="p-3 text-right font-normal text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{formatVnd(Number(line.deductionTotal))}</span></td>
+                    <td className="p-3 text-right font-normal text-slate-900"><span aria-label={`net-${line.employeeId}`}>{formatVnd(Number(line.net))}</span></td>
                   </tr>
                 ))}
               </tbody>
               {filteredSortedRunRows.length > 0 && (
                 <tfoot>
-                  <tr className="border-t bg-slate-50 font-bold text-slate-700">
+                  <tr className="border-t bg-slate-50 font-normal text-slate-700">
                     <td className="p-3">Tổng cộng ({filteredSortedRunRows.length})</td>
                     {PAYROLL_RESULT_FIELDS.map(field => <td key={field.key} className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row[field.key]), 0))}</td>)}
                     {customVariables.map((variable: any) => <td key={variable.code} className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.customValues?.[variable.code] ?? row.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0), 0))}</td>)}
@@ -691,12 +701,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
             </tbody>
           ) : (
             <>
-              <thead className="sticky top-0 z-10 bg-slate-50">
+              <thead className="sticky top-0 z-10 bg-[#F7FAFE]">
                 <tr className="border-b text-xs text-slate-500">
                   <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
-                  <th className="p-3 text-center font-semibold text-slate-500">Trạng thái công</th>
+                  <th className="p-3 text-center font-normal text-slate-500">Trạng thái công</th>
                 </tr>
               </thead>
               <tbody>
@@ -707,11 +717,11 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 ) : (
                   filteredSortedDraftRows.map((row: any) => (
                     <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
-                      <td className="sticky left-0 z-10 border-r-2 border-slate-200 bg-white p-3 font-medium text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div>{inputErrors[String(row.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(row.employeeId)]}</div>}</td>
+                      <td className="sticky left-0 z-10 border-r border-[#DCE7F4] bg-white p-3 font-normal text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div>{inputErrors[String(row.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(row.employeeId)]}</div>}</td>
                     <td className="p-3 text-right text-slate-600">{formatVnd(Number(row.monthlySalary))}</td>
-                      <td className="p-3 text-center font-semibold text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
+                      <td className="p-3 text-center font-normal text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
                       <td className="p-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-normal  ${
                           row.status === "locked" ? "bg-slate-100 text-slate-700 border border-slate-200" : "bg-yellow-50 text-yellow-700 border border-yellow-100"
                         }`}>
                           {row.status === "locked" ? "Đã khóa" : "Bản nháp"}
@@ -727,19 +737,19 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       </div>}
     </div>
     {inputSaveOpen && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => !inputSaving && setInputSaveOpen(false)}>
-        <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl" onClick={event => event.stopPropagation()}>
-          <div className="border-b border-slate-100 p-5">
-            <h3 className="font-bold text-slate-900">Lưu thay đổi dữ liệu lương</h3>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]" onClick={() => !inputSaving && setInputSaveOpen(false)}>
+        <div className="w-full max-w-md rounded-2xl bg-white shadow-[0_20px_60px_rgba(13,48,78,0.2)]" onClick={event => event.stopPropagation()}>
+          <div className="border-b border-[#E8F0F8] bg-[#F8FBFE] p-5">
+            <h3 className="font-medium text-[#143963]">Lưu thay đổi dữ liệu lương</h3>
             <p className="mt-1 text-xs text-slate-500">Thay đổi sẽ được lưu cho kỳ {period} và chưa tự động tính lại bảng lương.</p>
           </div>
           <div className="p-5">
-            <label className="mb-1 block text-xs font-semibold text-slate-700">Lý do đối soát <span className="text-rose-600">*</span></label>
-            <textarea autoFocus value={inputReason} onChange={event => setInputReason(event.target.value)} placeholder="Ví dụ: Đối soát theo xác nhận của quản lý" rows={3} className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-500" />
+            <label className="mb-1 block text-xs font-normal text-slate-700">Lý do đối soát <span className="text-rose-600">*</span></label>
+            <textarea autoFocus value={inputReason} onChange={event => setInputReason(event.target.value)} placeholder="Ví dụ: Đối soát theo xác nhận của quản lý" rows={3} className="w-full resize-none rounded-xl border border-[#DCE7F4] px-3 py-2 text-sm outline-none transition-colors focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15" />
           </div>
-          <div className="flex justify-end gap-2 rounded-b-2xl border-t border-slate-100 bg-slate-50 px-5 py-3">
-            <button disabled={inputSaving} onClick={() => setInputSaveOpen(false)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 disabled:opacity-50 cursor-pointer">Hủy</button>
-            <button disabled={inputSaving || !inputReason.trim()} onClick={() => void saveLineOverrides()} className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 cursor-pointer">
+          <div className="flex justify-end gap-2 rounded-b-2xl border-t border-[#E8F0F8] bg-[#F8FBFE] px-5 py-3">
+            <button disabled={inputSaving} onClick={() => setInputSaveOpen(false)} className="rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-[#F8FBFE] disabled:opacity-50 cursor-pointer">Hủy</button>
+            <button disabled={inputSaving || !inputReason.trim()} onClick={() => void saveLineOverrides()} className="inline-flex items-center gap-2 rounded-lg bg-[#00A4E8] px-3 py-2 text-sm font-normal text-white disabled:opacity-50 cursor-pointer">
               {inputSaving && <RefreshCw size={14} className="animate-spin" />} Lưu thay đổi
             </button>
           </div>
@@ -788,7 +798,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
         setMarkingPaid(true);
         await action(
           () => payrollService.markPaid(String(run._id), { expectedVersion: Number(run.version) }),
-          "Đã chuyển kỳ lương sang Đã thanh toán",
+          "Đã trả lương",
           clearLocalOverrideState,
         );
         setMarkingPaid(false);
@@ -796,10 +806,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       }}
     />
     {formulaRow && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setFormulaRow(null)}>
-        <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between gap-3"><div className="min-w-0"><h3 className="font-bold text-slate-900">Chi tiết công thức lương</h3><p className="truncate text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button onClick={() => setFormulaRow(null)} className="shrink-0 cursor-pointer"><X size={17} /></button></div>
-          {(() => { const detail = buildPayrollDetails(formulaRow.attendance, formulaRow.calculation, formulaRow.vietnam); const money = (value: number) => value.toLocaleString() + " đ"; return <div className="mt-4 space-y-4 text-sm">{formulaLoading && <p className="text-xs text-cyan-700">Đang tải snapshot bảng lương mới nhất...</p>}
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]" onClick={() => setFormulaRow(null)}>
+        <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-[0_20px_60px_rgba(13,48,78,0.2)] [&_b]:font-medium sm:p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between gap-3"><div className="min-w-0"><h3 className="font-normal text-slate-900">Chi tiết công thức lương</h3><p className="truncate text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button aria-label="Đóng" onClick={() => setFormulaRow(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer"><X size={17} /></button></div>
+          {(() => { const detail = buildPayrollDetails(formulaRow.attendance, formulaRow.calculation, formulaRow.vietnam); const money = (value: number) => value.toLocaleString() + " đ"; return <div className="mt-4 space-y-4 text-sm">{formulaLoading && <p className="text-xs text-[#007EB8]">Đang tải snapshot bảng lương mới nhất...</p>}
             <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 sm:p-4">
               <div><span className="text-xs text-slate-500">Lương cơ bản</span><b className="block">{money(detail.monthlySalary)}</b></div>
               <div><span className="text-xs text-slate-500">Đơn giá giờ</span><b className="block">{money(Math.round(detail.hourlyRate))}</b></div>
@@ -808,13 +818,13 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
               <div><span className="text-xs text-slate-500">Thiếu công</span><b className="block text-rose-600">{detail.shortageDays.toFixed(2)} ngày ({detail.shortageMinutes.toLocaleString()} phút)</b></div>
               <div><span className="text-xs text-slate-500">Phép hưởng lương</span><b className="block">{money(detail.paidLeaveValue)}</b></div>
             </div>
-            <div className="rounded-xl border border-slate-200 p-4 space-y-2"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Thu nhập và điều chỉnh</p>
+            <div className="rounded-xl border border-slate-200 p-4 space-y-2"><p className="text-xs font-normal  text-slate-500">Thu nhập và điều chỉnh</p>
               {[['Lương theo công', detail.adjustedBase], ['Tăng ca', detail.overtimeValue], ['Phụ cấp', detail.allowances], ['Thưởng', detail.bonuses], ['Điều chỉnh', detail.adjustments]].map(([label, value]) => <div key={String(label)} className="flex justify-between"><span>{label}</span><b>{money(Number(value))}</b></div>)}
-              <div className="flex justify-between border-t pt-2 font-bold"><span>Tổng thu nhập</span><b>{money(detail.gross)}</b></div>
+              <div className="flex justify-between border-t pt-2 font-normal"><span>Tổng thu nhập</span><b>{money(detail.gross)}</b></div>
             </div>
-            <div className="rounded-xl border border-slate-200 p-4 space-y-2"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Chi tiết các khoản khấu trừ</p>
+            <div className="rounded-xl border border-slate-200 p-4 space-y-2"><p className="text-xs font-normal  text-slate-500">Chi tiết các khoản khấu trừ</p>
               {[['BHXH', detail.deductionBreakdown.socialInsurance], ['BHYT', detail.deductionBreakdown.healthInsurance], ['BHTN', detail.deductionBreakdown.unemploymentInsurance], ['Thuế TNCN', detail.deductionBreakdown.personalIncomeTax], ['Khấu trừ khác', detail.deductionBreakdown.otherDeductions], ['Tạm ứng', detail.deductionBreakdown.advances]].map(([label, value]) => <div key={String(label)} className="flex justify-between"><span>{label}</span><b className="text-rose-600">-{money(Number(value))}</b></div>)}
-              <div className="flex justify-between border-t pt-2"><span>Tổng khấu trừ</span><b className="text-rose-600">-{money(detail.deductionBreakdown.total || detail.deductions || 0)}</b></div><div className="flex justify-between border-t pt-2 text-base font-bold"><span>Thực nhận</span><b className="text-cyan-700">{money(detail.net)}</b></div></div>
+              <div className="flex justify-between border-t pt-2"><span>Tổng khấu trừ</span><b className="text-rose-600">-{money(detail.deductionBreakdown.total || detail.deductions || 0)}</b></div><div className="flex justify-between border-t pt-2 text-base font-normal"><span>Thực nhận</span><b className="text-[#007EB8]">{money(detail.net)}</b></div></div>
           </div>; })()}
         </div>
       </div>
@@ -822,66 +832,50 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
 
     {/* Modal Tạo Điều Chỉnh */}
     {isAdjOpen && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setIsAdjOpen(false)}>
-        <form onSubmit={handleCreateAdjustment} className="flex w-full max-w-md max-h-[90dvh] flex-col rounded-2xl bg-white p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between items-center gap-3 border-b pb-2">
-            <h3 className="font-bold text-slate-900">Tạo đề xuất điều chỉnh lương</h3>
-            <button type="button" onClick={() => setIsAdjOpen(false)} className="shrink-0 cursor-pointer text-slate-500"><X size={17} /></button>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]" onClick={() => setIsAdjOpen(false)}>
+        <form onSubmit={handleCreateAdjustment} className="flex w-full max-w-md max-h-[90dvh] flex-col rounded-2xl bg-white p-4 shadow-[0_20px_60px_rgba(13,48,78,0.2)] sm:p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between items-center gap-3 border-b border-[#E8F0F8] pb-3">
+            <h3 className="text-base font-medium text-[#143963]">Thêm khoản lương</h3>
+            <button type="button" aria-label="Đóng" onClick={() => setIsAdjOpen(false)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer"><X size={17} /></button>
           </div>
-          <div className="-mx-1 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 py-4 text-sm">
+          <div className="-mx-1 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 py-3 text-sm">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nhân viên</label>
-              <select
-                value={adjEmployeeId}
-                onChange={(e) => setAdjEmployeeId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
-              >
-                {(run?.lines || results).map((r: any) => (
-                  <option key={r.employeeId} value={r.employeeId}>
-                    {r.employeeName || r.employeeId}
-                  </option>
-                ))}
-              </select>
+              <label className="mb-1 block text-sm text-slate-600">Nhân viên</label>
+              <StyledSelect ariaLabel="Nhân viên" value={adjEmployeeId} onChange={setAdjEmployeeId} options={(run?.lines || results).map((r: any) => ({ value: String(r.employeeId), label: r.employeeName || String(r.employeeId) }))} />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Loại điều chỉnh</label>
-              <select
-                value={adjKind}
-                onChange={(e) => setAdjKind(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
-              >
-                <option value="bonus">Thưởng / Cộng thêm</option>
-                <option value="deduction">Khấu trừ / Phạt</option>
-              </select>
+              <label className="mb-1 block text-sm text-slate-600">Loại điều chỉnh</label>
+              <StyledSelect ariaLabel="Loại điều chỉnh" value={adjKind} onChange={setAdjKind} options={[{ value: "bonus", label: "Thưởng / Cộng thêm" }, { value: "deduction", label: "Khấu trừ / Phạt" }]} />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Số tiền (đ)</label>
+              <label className="mb-1 block text-sm text-slate-600">Số tiền (đ)</label>
               <input
                 type="number"
+                inputMode="decimal"
                 min="0"
                 required
                 value={adjAmount}
                 onChange={(e) => setAdjAmount(e.target.value)}
                 placeholder="Ví dụ: 500000"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="no-number-spinner h-10 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Lý do điều chỉnh</label>
+              <label className="mb-1 block text-sm text-slate-600">Lý do điều chỉnh</label>
               <textarea
                 required
                 rows={3}
                 value={adjReason}
                 onChange={(e) => setAdjReason(e.target.value)}
                 placeholder="Nhập lý do tăng thưởng hoặc phạt..."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                className="w-full rounded-xl border border-[#DCE7F4] px-3 py-2 text-sm text-slate-700 outline-none transition-colors focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15"
               />
             </div>
           </div>
-          <div className="flex flex-col-reverse gap-2 pt-3 border-t sm:flex-row sm:justify-end">
-            <button type="button" onClick={() => setIsAdjOpen(false)} className="px-4 py-2 border rounded-lg text-sm hover:bg-slate-50 cursor-pointer">Hủy</button>
-            <button type="submit" disabled={adjSaving} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-sm cursor-pointer">
-              {adjSaving ? "Đang lưu..." : "Lưu đề xuất"}
+          <div className="flex flex-col-reverse gap-2 border-t border-[#E8F0F8] pt-3 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => setIsAdjOpen(false)} className="rounded-xl border border-[#DCE7F4] px-4 py-2 text-sm text-slate-700 transition-colors hover:bg-[#F8FBFE] cursor-pointer">Hủy</button>
+            <button type="submit" disabled={adjSaving} className="px-4 py-2 bg-[#00A4E8] hover:bg-[#008FCB] disabled:opacity-40 text-white rounded-lg text-sm cursor-pointer">
+              {adjSaving ? "Đang lưu..." : "Lưu"}
             </button>
           </div>
         </form>

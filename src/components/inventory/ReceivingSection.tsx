@@ -1,4 +1,5 @@
 import React, { Fragment, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Check,
   ChevronLeft,
@@ -24,6 +25,8 @@ import {
   type CatalogProductDetail,
 } from "../../services/productCatalogService";
 import { toast } from "../../pages/Toast";
+import { StyledSelect } from "../common/StyledSelect";
+import "./inventory-ui.css";
 
 type DraftLine = GoodsReceiptItem & { key: string; displayName: string };
 
@@ -313,10 +316,7 @@ function SupplierManagementModal({
             {editingSupplier && (
               <label className="block text-xs text-slate-600">
                 Trạng thái
-                <select value={form.status} onChange={(event) => updateForm("status", event.target.value)} disabled={isReadOnly} className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500">
-                  <option value="active">Đang dùng</option>
-                  <option value="inactive">Ngừng dùng</option>
-                </select>
+                <span className="mt-1 block"><StyledSelect ariaLabel="Trạng thái nhà cung cấp" value={form.status} onChange={(value) => updateForm("status", value)} disabled={isReadOnly} options={[{ value: "active", label: "Đang dùng" }, { value: "inactive", label: "Ngừng dùng" }]} /></span>
               </label>
             )}
             <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
@@ -471,17 +471,48 @@ function SearchableSelect({ options, value, onChange, onQueryChange, placeholder
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapperRef = React.useRef<HTMLDivElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 240 });
 
   const selected = options.find((o) => o.value === value);
   const inputValue = isOpen ? query : selected?.label || "";
 
   useEffect(() => {
     if (!isOpen) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (!wrapperRef.current?.contains(e.target as Node)) setIsOpen(false);
+    const onPointerDown = (e: PointerEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node) && !menuRef.current?.contains(e.target as Node)) setIsOpen(false);
     };
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [isOpen]);
+
+  React.useLayoutEffect(() => {
+    if (!isOpen) return;
+    const updatePosition = () => {
+      const bounds = inputRef.current?.getBoundingClientRect();
+      if (!bounds) return;
+      const spaceBelow = window.innerHeight - bounds.bottom - 12;
+      const spaceAbove = bounds.top - 12;
+      const above = spaceBelow < 200 && spaceAbove > spaceBelow;
+      const maxHeight = Math.min(240, Math.max(80, above ? spaceAbove : spaceBelow));
+      setPosition({
+        top: above ? bounds.top - maxHeight - 6 : bounds.bottom + 6,
+        left: Math.max(12, Math.min(bounds.left, window.innerWidth - bounds.width - 12)),
+        width: Math.min(bounds.width, window.innerWidth - 24),
+        maxHeight,
+      });
+    };
+    updatePosition();
+    const onScroll = (event: Event) => {
+      if (!menuRef.current?.contains(event.target as Node)) setIsOpen(false);
+    };
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", onScroll, true);
+    };
   }, [isOpen]);
 
   const matches = useMemo(() => {
@@ -493,7 +524,11 @@ function SearchableSelect({ options, value, onChange, onQueryChange, placeholder
   return (
     <div ref={wrapperRef} className="relative w-full">
       <input
+        ref={inputRef}
         type="text"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         disabled={disabled}
         placeholder={placeholder}
         value={inputValue}
@@ -506,25 +541,28 @@ function SearchableSelect({ options, value, onChange, onQueryChange, placeholder
             if (matches.length > 0) { onChange(matches[0].value); setIsOpen(false); }
           }
         }}
-        className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 disabled:bg-slate-50 disabled:text-slate-500"
+        className="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15 disabled:bg-slate-50 disabled:text-slate-500"
       />
-      {isOpen && !disabled && (
-        <div className="absolute z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+      {isOpen && !disabled && createPortal(
+        <div ref={menuRef} role="listbox" aria-label={placeholder} style={position} className="fixed z-[200] overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white p-1.5 shadow-[0_16px_40px_rgba(11,65,99,0.2)]">
           {matches.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-slate-500">Không tìm thấy kết quả.</div>
+            <div className="px-3 py-2 text-sm text-slate-500">Không tìm thấy kết quả.</div>
           ) : (
             matches.map((o) => (
               <button
                 key={o.value}
                 type="button"
+                role="option"
+                aria-selected={o.value === value}
                 onClick={() => { onChange(o.value); setIsOpen(false); }}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 focus:bg-slate-50 outline-none truncate"
+                className={`flex w-full items-center justify-between gap-2 truncate rounded-xl px-3 py-2.5 text-left text-sm outline-none focus-visible:outline-2 focus-visible:outline-[#00ADFC] ${o.value === value ? "bg-[#E8F7FF] text-[#007EB8]" : "text-slate-700 hover:bg-[#F1F9FD]"}`}
               >
-                {o.label}
+                <span className="truncate">{o.label}</span>
+                {o.value === value && <Check className="h-4 w-4 shrink-0 text-[#00ADFC]" />}
               </button>
             ))
           )}
-        </div>
+        </div>, document.body
       )}
     </div>
   );
@@ -730,17 +768,14 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
 
   return (
     <Modal title={initialReceipt ? `Sửa phiếu nhập ${initialReceipt.receiptCode}` : "Tạo phiếu nhập mới"} onClose={onClose} wide>
-      <div className="bg-slate-50/50 -m-5 p-5">
-        <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="-m-4 bg-[#F8FBFF] p-4">
+        <div className="space-y-4 rounded-xl border border-[#DCE7F4] bg-white p-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Nhà cung cấp</label>
-            <select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600">
-              <option value="">Chọn nhà cung cấp</option>
-              {suppliers.map((item) => <option key={item._id} value={item._id}>{item.name} ({item.code})</option>)}
-            </select>
+            <StyledSelect ariaLabel="Nhà cung cấp" value={supplierId} onChange={setSupplierId} options={[{ value: "", label: "Chọn nhà cung cấp" }, ...suppliers.map((item) => ({ value: item._id, label: `${item.name} (${item.code})` }))]} className="h-11" />
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+          <div className="rounded-xl border border-[#DCE7F4] bg-[#F8FBFF] p-4">
             <h4 className="text-sm font-semibold text-slate-900 mb-4">Thêm sản phẩm vào phiếu</h4>
             <div className="grid gap-4 sm:grid-cols-12 items-end">
               <div className="sm:col-span-5">
@@ -765,14 +800,14 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
               </div>
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-xs font-medium text-slate-700">Số lượng</label>
-                <input type="number" min={quantityStep} step={quantityStep} value={quantity} onChange={(event) => setQuantity(event.target.value)} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 bg-white" />
+                <input type="number" min={quantityStep} step={quantityStep} value={quantity} onChange={(event) => setQuantity(event.target.value)} className="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15" />
               </div>
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-xs font-medium text-slate-700">Giá nhập</label>
-                <input type="number" min="0" step="1" value={unitCost} onChange={(event) => setUnitCost(event.target.value)} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 bg-white" />
+                <input type="number" min="0" step="1" value={unitCost} onChange={(event) => setUnitCost(event.target.value)} className="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15" />
               </div>
               <div className="sm:col-span-1">
-                <button type="button" onClick={addLine} className="inline-flex h-[38px] w-full items-center justify-center rounded-md bg-cyan-700 text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:ring-offset-1" title="Thêm dòng"><PackagePlus className="h-5 w-5" /></button>
+                <button type="button" onClick={addLine} className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#00ADFC] text-white hover:bg-[#0098DD] focus:outline-none focus:ring-2 focus:ring-[#00ADFC]/20" title="Thêm dòng"><PackagePlus className="h-5 w-5" /></button>
               </div>
             </div>
           </div>
@@ -796,7 +831,7 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {lines.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => unitTracked(line.trackingMode) ? (
+                  {lines.length === 0 ? <tr><td colSpan={8} className="px-4 py-5 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => unitTracked(line.trackingMode) ? (
                     <Fragment key={line.key}>
                       <tr className="bg-slate-50/60">
                         <td className="px-4 py-3">
@@ -865,7 +900,7 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Ghi chú phiếu nhập</label>
-            <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Nhập ghi chú hoặc thông tin tham chiếu..." className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" />
+            <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Nhập ghi chú hoặc thông tin tham chiếu..." className="w-full resize-y rounded-xl border border-[#DCE7F4] px-3 py-2.5 text-sm outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15" />
           </div>
 
           <div className="flex items-center justify-between border-t border-slate-200 pt-5 mt-2">
@@ -877,7 +912,7 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
               <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                 Hủy bỏ
               </button>
-              <button type="button" disabled={saving || lines.length === 0} onClick={() => void saveReceipt()} className="rounded-md bg-cyan-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800 transition-colors disabled:opacity-50">
+              <button type="button" disabled={saving || lines.length === 0} onClick={() => void saveReceipt()} className="rounded-xl bg-[#00ADFC] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#0098DD] transition-colors disabled:opacity-50">
                 {saving ? "Đang xử lý..." : "Nhập kho"}
               </button>
             </div>
@@ -890,15 +925,15 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
 
 function Modal({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 p-4">
-      <div role="dialog" aria-modal="true" className={`max-h-[92vh] w-full overflow-y-auto rounded-xl bg-white shadow-xl ${wide ? "max-w-5xl" : "max-w-xl"}`}>
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
-          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-          <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100" title="Đóng">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]">
+      <div role="dialog" aria-modal="true" aria-label={title} className={`inventory-popup max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,65,99,0.18)] ${wide ? "max-w-6xl" : "max-w-xl"}`}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#E7EFF7] bg-white px-5 py-4">
+          <h3 className="border-l-[3px] border-[#00ADFC] pl-3 text-lg font-medium text-slate-900">{title}</h3>
+          <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" title="Đóng" aria-label="Đóng">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-4">{children}</div>
       </div>
     </div>
   );

@@ -94,7 +94,7 @@ export default function AuthPage() {
           <div className="relative mt-7 lg:mt-9">
             <h1 className="text-center font-semibold uppercase leading-[1.2] tracking-[0.01em]" style={{ textShadow: "0 2px 0 rgba(0,48,135,0.75), 0 5px 12px rgba(0,31,97,0.45)" }}>
               <span className="block text-[20px] sm:text-[21px] lg:whitespace-nowrap">Điều hành doanh nghiệp</span>
-              <span className="block text-[22px] sm:text-[25px] lg:whitespace-nowrap">trong một hệ thống</span>
+              <span className="block text-[20px] sm:text-[21px] lg:whitespace-nowrap">trong một hệ thống</span>
             </h1>
 
           </div>

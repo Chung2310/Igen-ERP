@@ -9,9 +9,11 @@ interface PartnerFormDropdownProps {
   value: string;
   options: PartnerDropdownOption[];
   onChange: (value: string) => void;
+  triggerClassName?: string;
+  disabled?: boolean;
 }
 
-export function PartnerFormDropdown({ label, value, options, onChange }: PartnerFormDropdownProps) {
+export function PartnerFormDropdown({ label, value, options, onChange, triggerClassName, disabled = false }: PartnerFormDropdownProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 280 });
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -20,6 +22,7 @@ export function PartnerFormDropdown({ label, value, options, onChange }: Partner
   const selectedLabel = options.find((option) => option.value === value)?.label ?? options[0]?.label ?? '';
 
   const openMenu = () => {
+    if (disabled) return;
     const bounds = triggerRef.current?.getBoundingClientRect();
     if (!bounds) return;
     const desiredHeight = Math.min(280, options.length * 44 + 12);
@@ -89,6 +92,7 @@ export function PartnerFormDropdown({ label, value, options, onChange }: Partner
         aria-label={label}
         aria-haspopup="listbox"
         aria-expanded={open}
+        disabled={disabled}
         onClick={() => open ? setOpen(false) : openMenu()}
         onKeyDown={(event) => {
           if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
@@ -96,7 +100,7 @@ export function PartnerFormDropdown({ label, value, options, onChange }: Partner
             openMenu();
           }
         }}
-        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl bg-slate-50 px-3.5 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-[#eef9ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00adfc]"
+        className={`${triggerClassName ?? "flex min-h-11 w-full items-center justify-between gap-2 rounded-xl bg-slate-50 px-3.5 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-[#eef9ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00adfc]"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
       >
         <span className={`min-w-0 truncate ${value ? '' : 'text-slate-500'}`}>{selectedLabel}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-[#008ecf] transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
@@ -107,7 +111,7 @@ export function PartnerFormDropdown({ label, value, options, onChange }: Partner
           role="listbox"
           aria-label={label}
           onKeyDown={handleKeyDown}
-          className="fixed z-[100] overflow-y-auto rounded-2xl bg-white p-1.5 shadow-[0_16px_40px_rgba(11,65,99,0.2)]"
+          className="fixed z-[100] overflow-y-auto rounded-2xl border border-sky-100 bg-white p-1.5 shadow-[0_16px_40px_rgba(11,65,99,0.2)]"
           style={position}
         >
           {options.map((option, index) => {

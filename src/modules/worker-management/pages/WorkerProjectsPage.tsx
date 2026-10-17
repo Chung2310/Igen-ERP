@@ -19,13 +19,14 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "../../../pages/Toast";
+import { StyledSelect } from "../../../components/common/StyledSelect";
+import { DateInput24, TimeInput24 } from "../../../components/common/TimeInput24";
 import { useWorkerProjects } from "../hooks/useWorkerProjects";
 import { useWorkers } from "../hooks/useWorkers";
 import { WorkerTimekeepingPanel } from "../components/WorkerTimekeepingPanel";
 import { WorkerQrAttendance } from "../components/WorkerQrAttendance";
 import { WorkerTimekeepingHistory } from "../components/WorkerTimekeepingHistory";
 import { workerAttendanceApi } from "../api/workerAttendance.api";
-import { toIsoDate } from "../utils/contractDate";
 import type {
   Worker,
   WorkerAttendanceLog,
@@ -95,12 +96,6 @@ const EMPTY_FORM: FormState = {
   status: "planned",
   note: "",
   workerIds: [],
-};
-
-const statusClass: Record<ProjectStatus, string> = {
-  planned: "border-sky-200 bg-sky-50 text-sky-700",
-  active: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  completed: "border-slate-200 bg-slate-100 text-slate-600",
 };
 
 function toForm(project: WorkerProject): FormState {
@@ -411,31 +406,26 @@ export function WorkerProjectsPage({
     ) : null;
 
   const statusSelect = (project: WorkerProject) => (
-    <select
-      aria-label={`Trạng thái ${project.code}`}
-      value={project.status}
-      disabled={!canManage}
-      onChange={(event) =>
-        void changeStatus(project, event.target.value as ProjectStatus)
-      }
-      className={`rounded-md border px-2 py-1 text-[10px] font-black uppercase outline-none ${statusClass[project.status]}`}
-    >
-      {STATUS_OPTIONS.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+    <div className="w-36 shrink-0">
+      <StyledSelect
+        ariaLabel={`Trạng thái ${project.code}`}
+        value={project.status}
+        disabled={!canManage}
+        onChange={(value) => void changeStatus(project, value as ProjectStatus)}
+        options={STATUS_OPTIONS}
+        className="h-8 px-2.5 text-xs"
+      />
+    </div>
   );
 
   return (
     <div className="space-y-4 text-left">
       {/* Row 1: Title + count */}
       <div>
-        <h1 className="text-lg font-bold tracking-tight text-cyan-700">
+        <h1 className="border-l-[3px] border-[#00ADFC] pl-3 text-xl font-medium tracking-tight text-slate-900">
           Dự án tuyển dụng
         </h1>
-        <p className="mt-0.5 text-[11px] font-medium text-slate-400">
+        <p className="mt-1 pl-3 text-xs text-slate-500">
           {loading ? "..." : `${total}`} dự án
         </p>
       </div>
@@ -452,7 +442,7 @@ export function WorkerProjectsPage({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Tìm theo mã, tên, địa điểm..."
-            className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none focus:border-cyan-500"
+            className="h-10 w-full rounded-xl border border-[#DCE7F4] bg-white pl-9 pr-3 text-sm outline-none focus:border-[#00ADFC]"
           />
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
         </div>
@@ -473,7 +463,7 @@ export function WorkerProjectsPage({
               </FilterButton>
             ))}
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+          <div className="flex items-center gap-1 rounded-xl border border-[#DCE7F4] bg-white p-1">
             <button
               type="button"
               title="Dạng bảng"
@@ -495,7 +485,7 @@ export function WorkerProjectsPage({
             <button
               type="button"
               onClick={openCreate}
-              className="flex items-center gap-1.5 rounded-lg bg-brand-primary px-3.5 py-1.5 text-[11px] font-bold text-white shadow-md shadow-cyan-100 transition hover:opacity-90"
+              className="flex h-9 items-center gap-1.5 rounded-lg bg-[#00ADFC] px-3 text-xs font-medium text-white transition-colors hover:bg-[#0097dc]"
             >
               <Plus className="h-3.5 w-3.5" /> Thêm dự án
             </button>
@@ -514,7 +504,7 @@ export function WorkerProjectsPage({
           {filtered.map((project) => (
             <article
               key={project._id}
-              className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-white p-4 shadow-sm"
+              className="flex flex-col gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-4"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -536,46 +526,46 @@ export function WorkerProjectsPage({
           ))}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] text-left text-xs">
+            <table className="w-full min-w-[1000px] text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                  <th className="px-4 py-2">Mã dự án</th>
-                  <th className="px-4 py-2">Tên dự án</th>
-                  <th className="px-4 py-2">Lịch hoạt động</th>
-                  <th className="px-4 py-2">Thời gian</th>
-                  <th className="px-4 py-2">Chỉ tiêu</th>
-                  <th className="px-4 py-2">Trạng thái</th>
-                  <th className="px-4 py-2">Thao tác</th>
+                <tr className="border-b border-[#DCE7F4] bg-[#E8F7FF] text-xs font-medium text-slate-600">
+                  <th className="px-4 py-3">Mã dự án</th>
+                  <th className="px-4 py-3">Tên dự án</th>
+                  <th className="px-4 py-3">Lịch hoạt động</th>
+                  <th className="px-4 py-3">Thời gian</th>
+                  <th className="px-4 py-3">Chỉ tiêu</th>
+                  <th className="px-4 py-3">Trạng thái</th>
+                  <th className="px-4 py-3">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((project) => (
-                  <tr key={project._id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-2 font-black text-slate-800">
+                  <tr key={project._id} className="hover:bg-[#F5FAFE]">
+                    <td className="px-4 py-3 font-medium text-slate-800">
                       {project.code}
                     </td>
-                    <td className="px-4 py-2">
-                      <p className="font-bold text-slate-700">{project.name}</p>
-                      <p className="text-[10px] text-slate-400">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-slate-700">{project.name}</p>
+                      <p className="text-xs text-slate-500">
                         {project.location || "Chưa cập nhật địa điểm"}
                       </p>
                     </td>
-                    <td className="px-4 py-2 font-medium text-slate-600">
+                    <td className="px-4 py-3 text-slate-600">
                       {formatDays(project.daysOfWeek)}
-                      <span className="block text-[10px] text-slate-400">
+                      <span className="block text-xs text-slate-500">
                         {project.startTime} - {project.endTime}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-2 font-medium text-slate-600">
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                       {formatDate(project.startDate)} → {formatDate(project.endDate)}
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-3">
                       <MemberCount project={project} />
                     </td>
-                    <td className="px-4 py-2">{statusSelect(project)}</td>
-                    <td className="px-4 py-2">{actions(project)}</td>
+                    <td className="px-4 py-3">{statusSelect(project)}</td>
+                    <td className="px-4 py-3">{actions(project)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -669,8 +659,8 @@ export function WorkerProjectsPage({
           title={editing ? "Chỉnh sửa dự án" : "Thêm dự án"}
           onClose={() => setFormOpen(false)}
         >
-          <form onSubmit={submit} className="grid gap-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <form onSubmit={submit} className="grid gap-3">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               <Field label="Mã dự án">
                 <input
                   value={form.code}
@@ -704,73 +694,64 @@ export function WorkerProjectsPage({
                 />
               </Field>
               <Field label="Trạng thái">
-                <select
+                <StyledSelect
+                  ariaLabel="Trạng thái dự án"
                   value={form.status}
-                  onChange={(event) =>
-                    setForm((value) => ({
-                      ...value,
-                      status: event.target.value as ProjectStatus,
+                  onChange={(status) =>
+                    setForm((current) => ({
+                      ...current,
+                      status: status as ProjectStatus,
                     }))
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
-                >
-                  {STATUS_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  options={STATUS_OPTIONS}
+                />
               </Field>
               <Field label="Ngày bắt đầu">
-                <input
-                  type="date"
+                <DateInput24
+                  ariaLabel="Ngày bắt đầu"
                   value={form.startDate}
-                  onChange={(event) =>
+                  onChange={(date) =>
                     setForm((value) => ({
                       ...value,
-                      startDate: event.target.value,
+                      startDate: date,
                     }))
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Ngày kết thúc">
-                <input
-                  type="date"
+                <DateInput24
+                  ariaLabel="Ngày kết thúc"
                   value={form.endDate}
-                  onChange={(event) =>
+                  onChange={(date) =>
                     setForm((value) => ({
                       ...value,
-                      endDate: event.target.value,
+                      endDate: date,
                     }))
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
                 />
               </Field>
               <Field label="Giờ bắt đầu">
-                <input
-                  type="time"
+                <TimeInput24
                   value={form.startTime}
-                  onChange={(event) =>
+                  onChange={(time) =>
                     setForm((value) => ({
                       ...value,
-                      startTime: event.target.value,
+                      startTime: time,
                     }))
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
+                  className="w-full"
                 />
               </Field>
               <Field label="Giờ kết thúc">
-                <input
-                  type="time"
+                <TimeInput24
                   value={form.endTime}
-                  onChange={(event) =>
+                  onChange={(time) =>
                     setForm((value) => ({
                       ...value,
-                      endTime: event.target.value,
+                      endTime: time,
                     }))
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
+                  className="w-full"
                 />
               </Field>
             </div>
@@ -787,7 +768,7 @@ export function WorkerProjectsPage({
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none"
               />
             </Field>
-            <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+            <div className="rounded-xl border border-[#DCE7F4] bg-[#F5FAFE] p-3">
               <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-800">
                 Giới hạn điểm danh bằng GPS (tùy chọn)
               </span>
@@ -829,7 +810,7 @@ export function WorkerProjectsPage({
                       type="button"
                       onClick={useCurrentLocation}
                       disabled={locating}
-                      className="flex h-7 items-center gap-1 rounded-md bg-slate-800 px-2.5 text-[10px] font-black uppercase tracking-wide text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+                      className="flex h-8 items-center gap-1 rounded-lg bg-[#00ADFC] px-3 text-xs font-medium text-white transition-colors hover:bg-[#0097dc] disabled:opacity-50"
                     >
                       {locating ? "Đang lấy..." : "Lấy vị trí"}
                     </button>
@@ -860,51 +841,53 @@ export function WorkerProjectsPage({
                 )}
               </div>
             </div>
-            <fieldset className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-              <legend className="mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                Ngày hoạt động
-              </legend>
-              <div className="flex flex-wrap gap-1.5">
-                {DAY_OPTIONS.map((day) => {
-                  const selected = form.daysOfWeek.includes(day.value);
-                  return (
-                    <button
-                      key={day.value}
-                      type="button"
-                      onClick={() =>
-                        setForm((value) => ({
-                          ...value,
-                          daysOfWeek: selected
-                            ? value.daysOfWeek.filter(
-                                (item) => item !== day.value,
-                              )
-                            : [...value.daysOfWeek, day.value],
-                        }))
-                      }
-                      className={`rounded-lg border px-2.5 py-1 text-[10px] font-bold ${selected ? "border-cyan-600 bg-cyan-600 text-white" : "border-slate-200 text-slate-500"}`}
-                    >
-                      {day.label}
-                    </button>
-                  );
-                })}
+            <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
+              <fieldset className="rounded-xl border border-[#DCE7F4] bg-white p-3">
+                <legend className="mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  Ngày hoạt động
+                </legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {DAY_OPTIONS.map((day) => {
+                    const selected = form.daysOfWeek.includes(day.value);
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() =>
+                          setForm((value) => ({
+                            ...value,
+                            daysOfWeek: selected
+                              ? value.daysOfWeek.filter(
+                                  (item) => item !== day.value,
+                                )
+                              : [...value.daysOfWeek, day.value],
+                          }))
+                        }
+                        className={`rounded-lg border px-2.5 py-1 text-[10px] font-bold ${selected ? "border-cyan-600 bg-cyan-600 text-white" : "border-slate-200 text-slate-500"}`}
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+              <div className="grid gap-1.5">
+                <label htmlFor="worker-project-note" className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
+                  Ghi chú
+                </label>
+                <textarea
+                  id="worker-project-note"
+                  value={form.note}
+                  onChange={(event) =>
+                    setForm((value) => ({ ...value, note: event.target.value }))
+                  }
+                  rows={2}
+                  placeholder="Nhập ghi chú cho dự án (không bắt buộc)"
+                  className="block min-h-16 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
+                />
               </div>
-            </fieldset>
-            <div className="grid gap-1.5">
-              <label htmlFor="worker-project-note" className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
-                Ghi chú
-              </label>
-              <textarea
-                id="worker-project-note"
-                value={form.note}
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, note: event.target.value }))
-                }
-                rows={2}
-                placeholder="Nhập ghi chú cho dự án (không bắt buộc)"
-                className="block min-h-16 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
-              />
             </div>
-            <div className="sticky bottom-0 flex justify-end gap-3 border-t border-slate-100 bg-white/95 pt-4 backdrop-blur">
+            <div className="sticky bottom-0 flex justify-end gap-3 border-t border-slate-100 bg-white/95 pt-3 backdrop-blur">
               <button
                 type="button"
                 onClick={() => setFormOpen(false)}
@@ -915,7 +898,7 @@ export function WorkerProjectsPage({
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-xl bg-cyan-600 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 hover:bg-cyan-700 disabled:opacity-50"
+                className="rounded-xl bg-[#00ADFC] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#0097dc] disabled:opacity-50"
               >
                 {editing ? "Cập nhật dự án" : "Tạo dự án"}
               </button>
@@ -927,20 +910,20 @@ export function WorkerProjectsPage({
       {deleteTarget && (
         <Modal title="Xóa dự án" onClose={() => setDeleteTarget(null)}>
           <p className="text-sm text-slate-600">
-            Xóa dự án <strong>{deleteTarget.code}</strong>?
+            Xóa dự án <span className="font-medium text-slate-900">{deleteTarget.code}</span>?
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setDeleteTarget(null)}
-              className="rounded-lg px-3 py-2 text-xs font-bold text-slate-500"
+              className="rounded-xl border border-[#DCE7F4] px-4 py-2 text-sm text-slate-600 hover:bg-[#F5FAFE]"
             >
               Hủy
             </button>
             <button
               type="button"
               onClick={() => void confirmDelete()}
-              className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white"
+              className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
             >
               Xóa
             </button>
@@ -968,27 +951,28 @@ export function WorkerProjectsPage({
         <Modal
           title={`Quản lý lao động · ${memberTarget.code}`}
           onClose={() => setMemberTargetId(null)}
+          size="wide"
         >
-          <div className="rounded-xl border border-cyan-100 bg-cyan-50/40 p-3">
+          <div className="border-b border-[#E7EFF7] pb-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-black text-slate-700">Thêm nhiều lao động</p>
-                <p className="mt-0.5 text-[11px] text-slate-500">Chọn một hoặc nhiều người rồi thêm cùng lúc.</p>
+                <p className="text-base font-medium text-slate-800">Thêm lao động</p>
+                <p className="mt-0.5 text-sm text-slate-500">Chọn một hoặc nhiều người rồi thêm cùng lúc.</p>
               </div>
-              <span className="text-xs font-bold text-cyan-700">Đã chọn {selectedWorkerIds.length}</span>
+              <span className="text-sm text-[#007EB8]">Đã chọn {selectedWorkerIds.length}</span>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <input
                 value={memberSearch}
                 onChange={(event) => setMemberSearch(event.target.value)}
                 placeholder="Tìm tên, mã hoặc số điện thoại..."
-                className="h-9 min-w-[220px] flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-cyan-600"
+                className="h-10 min-w-[220px] flex-1 rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm outline-none focus:border-[#00ADFC]"
               />
               <button
                 type="button"
                 onClick={() => setSelectedWorkerIds((current) => [...new Set([...current, ...filteredAvailableWorkers.map((worker) => worker._id)])])}
                 disabled={!filteredAvailableWorkers.length}
-                className="h-9 rounded-lg border border-cyan-200 px-3 text-xs font-bold text-cyan-700 disabled:opacity-50"
+                className="h-10 rounded-xl border border-[#DCE7F4] px-3 text-sm text-[#007EB8] hover:bg-[#E8F7FF] disabled:opacity-50"
               >
                 Chọn tất cả
               </button>
@@ -996,7 +980,7 @@ export function WorkerProjectsPage({
                 type="button"
                 onClick={() => setSelectedWorkerIds([])}
                 disabled={!selectedWorkerIds.length}
-                className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-600 disabled:opacity-50"
+                className="h-10 rounded-xl border border-[#DCE7F4] px-3 text-sm text-slate-600 hover:bg-[#F5FAFE] disabled:opacity-50"
               >
                 Bỏ chọn
               </button>
@@ -1004,23 +988,23 @@ export function WorkerProjectsPage({
                 type="button"
                 disabled={!selectedWorkerIds.length || memberBusy}
                 onClick={() => void addMembers()}
-                className="inline-flex h-9 items-center gap-1 rounded-lg bg-cyan-600 px-3 text-xs font-bold text-white disabled:opacity-50"
+                className="inline-flex h-10 items-center gap-1 rounded-xl bg-[#00ADFC] px-3 text-sm font-medium text-white hover:bg-[#0097dc] disabled:opacity-50"
               >
                 <UserPlus className="h-3.5 w-3.5" /> {memberBusy ? "Đang thêm..." : "Thêm đã chọn"}
               </button>
             </div>
-            <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+            <div className="mt-3 max-h-56 overflow-y-auto rounded-xl border border-[#DCE7F4] bg-white">
               {filteredAvailableWorkers.length ? filteredAvailableWorkers.map((worker) => {
                 const checked = selectedWorkerIds.includes(worker._id);
-                return <label key={worker._id} className="flex cursor-pointer items-center gap-2 border-b border-slate-100 px-3 py-2 last:border-0 hover:bg-slate-50">
+                return <label key={worker._id} className="flex cursor-pointer items-center gap-2 border-b border-[#E7EFF7] px-3 py-2.5 last:border-0 hover:bg-[#F5FAFE]">
                   <input type="checkbox" checked={checked} onChange={() => setSelectedWorkerIds((current) => checked ? current.filter((id) => id !== worker._id) : [...current, worker._id])} />
-                  <span className="text-xs font-bold text-slate-700">{worker.fullName}</span>
-                  <span className="text-[11px] text-slate-400">{worker.partnerCode || worker.phone || ""}</span>
+                  <span className="text-sm font-medium text-slate-700">{worker.fullName}</span>
+                  <span className="text-xs text-slate-500">{worker.partnerCode || worker.phone || ""}</span>
                 </label>;
-              }) : <p className="px-3 py-4 text-center text-xs text-slate-400">Không còn lao động phù hợp để thêm.</p>}
+              }) : <p className="px-3 py-4 text-center text-sm text-slate-500">Không còn lao động phù hợp để thêm.</p>}
             </div>
           </div>
-          <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100">
+          <div className="mt-4 divide-y divide-[#E7EFF7]">
             {memberTarget.workerIds.length ? (
               memberTarget.workerIds.map((memberId) => {
                 const worker = workers.find((item) => item._id === memberId);
@@ -1028,16 +1012,16 @@ export function WorkerProjectsPage({
                 return (
                   <div
                     key={memberId}
-                    className="flex items-center justify-between px-3 py-2"
+                    className="flex items-center justify-between px-3 py-2.5"
                   >
-                    <span className="text-xs font-bold text-slate-700">
+                    <span className="text-sm text-slate-700">
                       {label}
                     </span>
                     <button
                       type="button"
                       title={`Gỡ ${label} khỏi dự án`}
                       onClick={() => void removeMember(memberId)}
-                      className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                      className="grid h-8 w-8 place-items-center rounded-lg text-rose-500 hover:bg-rose-50 hover:text-rose-600"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -1045,7 +1029,7 @@ export function WorkerProjectsPage({
                 );
               })
             ) : (
-              <p className="px-3 py-5 text-center text-xs text-slate-400">
+              <p className="px-3 py-5 text-center text-sm text-slate-500">
                 Chưa có lao động trong dự án.
               </p>
             )}
@@ -1189,12 +1173,12 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
   };
 
   return <div className="space-y-3">
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Từ ngày</label><input type="text" inputMode="numeric" placeholder="DD/MM/YYYY" value={formatDate(from)} onChange={(e) => setFrom(toIsoDate(e.target.value))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
-      <div className="space-y-1"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Đến ngày</label><input type="text" inputMode="numeric" placeholder="DD/MM/YYYY" value={formatDate(to)} onChange={(e) => setTo(toIsoDate(e.target.value))} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-cyan-600 focus:outline-none" /></div>
-      <button type="button" onClick={() => { setFrom(todayIso()); setTo(todayIso()); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">Hôm nay</button>
-      <button type="button" onClick={() => { setFrom(isoDaysAgo(29)); setTo(todayIso()); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">30 ngày</button>
-      <button type="button" onClick={exportExcel} disabled={loading || (selectedDate ? dayRows.length === 0 : logs.length === 0)} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">Xuất Excel</button>
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex min-w-[210px] flex-1 items-center gap-2"><span className="shrink-0 text-sm text-slate-600">Từ ngày</span><DateInput24 value={from} onChange={setFrom} ariaLabel="Từ ngày" /></div>
+      <div className="flex min-w-[210px] flex-1 items-center gap-2"><span className="shrink-0 text-sm text-slate-600">Đến ngày</span><DateInput24 value={to} onChange={setTo} ariaLabel="Đến ngày" /></div>
+      <button type="button" onClick={() => { setFrom(todayIso()); setTo(todayIso()); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Hôm nay</button>
+      <button type="button" onClick={() => { setFrom(isoDaysAgo(29)); setTo(todayIso()); }} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">30 ngày</button>
+      <button type="button" onClick={exportExcel} disabled={loading || (selectedDate ? dayRows.length === 0 : logs.length === 0)} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">Xuất Excel</button>
     </div>
 
     {loading ? <p className="text-sm text-slate-400">Đang tải...</p>
@@ -1202,20 +1186,20 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
       : days.length === 0 ? <p className="text-sm text-slate-400">Chưa có dữ liệu trong khoảng ngày đã chọn.</p>
       : selectedDate === null ? (
         <div className="overflow-x-auto rounded-xl border border-slate-200">
-          <table className="w-full min-w-[640px] text-left text-xs">
-            <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr>
+          <table className="w-full min-w-[640px] text-left text-[13px]">
+            <thead className="bg-slate-50 text-xs text-slate-600"><tr>
               <th className="px-3 py-2">Ngày</th><th className="px-3 py-2">Lượt chấm</th><th className="px-3 py-2">Đủ công</th><th className="px-3 py-2">Đi muộn</th><th className="px-3 py-2">Về sớm</th><th className="px-3 py-2">Thiếu giờ ra</th><th className="px-3 py-2">Tổng giờ</th><th className="px-3 py-2" />
             </tr></thead>
             <tbody className="divide-y divide-slate-100">
               {days.map((day) => <tr key={day.date} role="button" tabIndex={0} aria-label={`Chấm công ngày ${formatDate(day.date)}`} onClick={() => setSelectedDate(day.date)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedDate(day.date); } }} className="cursor-pointer hover:bg-cyan-50/60 focus:bg-cyan-50/60 focus:outline-none">
-                <td className="px-3 py-2 font-bold text-slate-800">{formatDate(day.date)}</td>
-                <td className="px-3 py-2 font-semibold">{day.total}/{workers.length}</td>
-                <td className="px-3 py-2 font-semibold text-emerald-600">{day.present}</td>
-                <td className={`px-3 py-2 font-semibold ${day.late ? "text-amber-600" : "text-slate-400"}`}>{day.late}</td>
-                <td className={`px-3 py-2 font-semibold ${day.leftEarly ? "text-amber-600" : "text-slate-400"}`}>{day.leftEarly}</td>
-                <td className={`px-3 py-2 font-semibold ${day.missing ? "text-rose-600" : "text-slate-400"}`}>{day.missing}</td>
-                <td className="px-3 py-2 font-semibold">{formatWorkedMinutes(day.minutes)}</td>
-                <td className="px-3 py-2 text-right font-bold text-cyan-700">Xem →</td>
+                <td className="px-3 py-2 font-medium text-slate-800">{formatDate(day.date)}</td>
+                <td className="px-3 py-2">{day.total}/{workers.length}</td>
+                <td className="px-3 py-2 text-emerald-600">{day.present}</td>
+                <td className={`px-3 py-2 ${day.late ? "text-amber-600" : "text-slate-400"}`}>{day.late}</td>
+                <td className={`px-3 py-2 ${day.leftEarly ? "text-amber-600" : "text-slate-400"}`}>{day.leftEarly}</td>
+                <td className={`px-3 py-2 ${day.missing ? "text-rose-600" : "text-slate-400"}`}>{day.missing}</td>
+                <td className="px-3 py-2">{formatWorkedMinutes(day.minutes)}</td>
+                <td className="px-3 py-2 text-right text-cyan-700">Xem →</td>
               </tr>)}
             </tbody>
           </table>
@@ -1223,18 +1207,18 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
       ) : (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => setSelectedDate(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50">← Danh sách ngày</button>
-            <h3 className="text-sm font-bold text-slate-800">Ngày {formatDate(selectedDate)}</h3>
-            <span className="text-xs text-slate-500">{dayRows.length}/{workers.length} lao động đã chấm</span>
+            <button type="button" onClick={() => setSelectedDate(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">← Danh sách ngày</button>
+            <h3 className="text-sm font-medium text-slate-800">Ngày {formatDate(selectedDate)}</h3>
+            <span className="text-sm text-slate-500">{dayRows.length}/{workers.length} lao động đã chấm</span>
           </div>
           <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <table className="w-full min-w-[900px] text-left text-xs">
-              <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr>
+            <table className="w-full min-w-[900px] text-left text-[13px]">
+              <thead className="bg-slate-50 text-xs text-slate-600"><tr>
                 <th className="px-3 py-2">Lao động</th><th className="px-3 py-2">Số điện thoại</th><th className="px-3 py-2">Giờ vào</th><th className="px-3 py-2">Giờ ra</th><th className="px-3 py-2">Tổng giờ</th><th className="px-3 py-2">Trạng thái</th><th className="px-3 py-2">GPS vào</th><th className="px-3 py-2">GPS ra</th>
               </tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {dayRows.map(({ log, worker }) => <tr key={log._id} className="hover:bg-slate-50">
-                  <td className="px-3 py-2 font-semibold text-slate-800">{worker?.fullName || "Không xác định"}</td>
+                  <td className="px-3 py-2 font-medium text-slate-800">{worker?.fullName || "Không xác định"}</td>
                   <td className="px-3 py-2">{worker?.phone || "—"}</td>
                   <td className="px-3 py-2">{formatAttendanceTime(log.checkIn?.time)}</td>
                   <td className="px-3 py-2">{formatAttendanceTime(log.checkOut?.time)}</td>
@@ -1267,7 +1251,7 @@ function ActionButton({
       type="button"
       title={title}
       onClick={onClick}
-      className={`rounded-lg border border-slate-200 bg-slate-50 p-1 shadow-sm transition-colors ${tone === "danger" ? "text-slate-400 hover:bg-rose-50 hover:text-rose-600" : "text-slate-400 hover:bg-cyan-50 hover:text-cyan-600"}`}
+      className={`grid h-8 w-8 place-items-center rounded-lg border border-[#DCE7F4] bg-white transition-colors ${tone === "danger" ? "text-rose-500 hover:border-rose-200 hover:bg-rose-50" : "text-[#007EB8] hover:border-[#00ADFC] hover:bg-[#E8F7FF]"}`}
     >
       {children}
     </button>
@@ -1287,7 +1271,7 @@ function FilterButton({
     <button
       type="button"
       onClick={onClick}
-      className={`whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-[10px] font-bold ${active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-500"}`}
+      className={`whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-medium ${active ? "border-[#00ADFC] bg-[#00ADFC] text-white" : "border-[#DCE7F4] bg-white text-slate-600 hover:border-[#00ADFC]"}`}
     >
       {children}
     </button>
@@ -1314,14 +1298,17 @@ function Modal({
   title,
   onClose,
   children,
+  size = "default",
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  size?: "default" | "wide";
 }) {
+  const titleId = React.useId();
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
         <motion.button
           aria-label="Đóng"
           type="button"
@@ -1329,24 +1316,27 @@ function Modal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+          className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
         />
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 30 }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          initial={{ opacity: 0, scale: 0.98, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 30 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          exit={{ opacity: 0, scale: 0.98, y: 12 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className={`relative flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,65,99,0.18)] ${size === "wide" ? "max-w-4xl" : "max-w-3xl"}`}
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-4">
-            <h2 className="text-base font-bold text-slate-800">{title}</h2>
+          <div className="flex shrink-0 items-center justify-between border-b border-[#E7EFF7] px-5 py-4 sm:px-6">
+            <h2 id={titleId} className="border-l-[3px] border-[#00ADFC] pl-3 text-lg font-medium text-slate-900">{title}</h2>
             <button
               type="button"
               aria-label="Đóng"
               onClick={onClose}
-              className="rounded-full p-1.5 transition-colors hover:bg-slate-100"
+              className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
             >
-              <X className="h-4 w-4 text-slate-400" />
+              <X className="h-4 w-4" />
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">{children}</div>
@@ -1364,13 +1354,14 @@ function Field({
   children: React.ReactElement<{ id?: string }>;
 }) {
   const id = `worker-project-${label.toLowerCase().replace(/\s+/g, "-")}`;
+  const nativeField = typeof children.type === "string";
   return (
-    <label htmlFor={id} className="block space-y-1">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-800">
+    <div className="space-y-1.5">
+      <label htmlFor={nativeField ? id : undefined} className="block text-xs text-slate-600">
         {label}
-      </span>
-      {React.cloneElement(children, { id })}
-    </label>
+      </label>
+      {nativeField ? React.cloneElement(children, { id }) : children}
+    </div>
   );
 }
 

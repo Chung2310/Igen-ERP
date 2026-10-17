@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const contractHooks = vi.hoisted(() => ({ useWorkerLaborContracts: vi.fn() }));
@@ -65,6 +65,22 @@ afterEach(() => {
 });
 
 describe("WorkerContractsPage", () => {
+  it("requires confirmation before deleting a contract", async () => {
+    const deleteContract = vi.fn().mockResolvedValue(undefined);
+    renderPage([{ ...baseContract, alertLevel: "ok" }], { deleteContract });
+
+    fireEvent.click(screen.getByRole("button", { name: "Xóa hợp đồng HD-01" }));
+    expect(deleteContract).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Xóa hợp đồng lao động" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hủy" }));
+    expect(deleteContract).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Xóa hợp đồng HD-01" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xóa hợp đồng" }));
+    await waitFor(() => expect(deleteContract).toHaveBeenCalledExactlyOnceWith("c1"));
+  });
+
   it("marks an expired contract in red and an expiring one in amber", () => {
     renderPage([
       { ...baseContract, alertLevel: "expired" },
@@ -106,7 +122,10 @@ describe("WorkerContractsPage", () => {
     ], { setAlertOnly });
 
     expect(screen.getByText("HD-99")).toBeTruthy();
-    fireEvent.click(await screen.findByRole("button", { name: "Chỉ xem hợp đồng cảnh báo" }));
+    const alertFilter = await screen.findByRole("button", { name: "Chỉ xem hợp đồng cảnh báo" });
+    expect(alertFilter.textContent).toContain("1 sắp hết hạn");
+    expect(alertFilter.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(alertFilter);
 
     expect(setAlertOnly).toHaveBeenCalledOnce();
   });

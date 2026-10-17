@@ -16,6 +16,7 @@ import { getEffectivePermissions } from "../middleware/auth";
 import { profileResourceService } from "../service/profile-resource.service";
 import { employeeDocumentResourceService } from "../service/employee-document-resource.service";
 import { resourceIndexingService } from "../service/resource-indexing.service";
+import { buildBranchRosterFilter } from "../utils/branch-roster-filter";
 
 /** Redirect URI cho OAuth Google Drive (khớp Google Cloud Console). */
 function buildDriveRedirectUri(req: Request): string {
@@ -59,10 +60,14 @@ async function resolveProfilePermissions(
   return Array.from(effective);
 }
 
-export function buildUserRosterFilter(companyCode?: string, branchId?: string): Record<string, unknown> {
+export function buildUserRosterFilter(
+  companyCode?: string,
+  branchId?: string,
+  includeUnassignedBranchUsers = false,
+): Record<string, unknown> {
   return {
     ...(companyCode ? { companyCode } : {}),
-    ...(companyCode && branchId ? { branchId } : {}),
+    ...(companyCode ? buildBranchRosterFilter(branchId, includeUnassignedBranchUsers) : {}),
   };
 }
 export const authController = {
@@ -495,13 +500,13 @@ export const authController = {
       }
 
       const requestedBranchId = typeof req.query.branchId === "string" ? req.query.branchId : "";
-      const filter = buildUserRosterFilter(companyCode, requestedBranchId);
+      let includeUnassignedBranchUsers = false;
       if (requestedBranchId && companyCode) {
-        const { BranchModel } = await import("../model/branch.model");
-        const branch = await BranchModel.findOne({ _id: requestedBranchId, companyCode }).select("_id").lean();
+        const branch = await BranchModel.findOne({ _id: requestedBranchId, companyCode }).select("_id code").lean();
         if (!branch) return res.status(403).json({ status: "error", message: "Chi nhánh không thuộc công ty." });
-        filter.branchId = requestedBranchId;
+        includeUnassignedBranchUsers = String(branch.code || "").toUpperCase() === "MAIN";
       }
+      const filter = buildUserRosterFilter(companyCode, requestedBranchId, includeUnassignedBranchUsers);
       const users = await authService.getUsers(filter);
 
       return res.status(200).json({

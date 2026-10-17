@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import KanbanMonthlyKpiView from "./KanbanMonthlyKpiView";
 
@@ -33,5 +33,19 @@ describe("KanbanMonthlyKpiView", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({ message: "Không tải được KPI tháng." }) }));
     render(<KanbanMonthlyKpiView initialPeriod="2026-08" />);
     await vi.waitFor(() => expect(toastMocks.error).toHaveBeenCalledWith("Không tải được KPI tháng."));
+  });
+
+  it("selects a month from the styled calendar and reloads that period", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {
+      periodKey: "2026-08", periodStatus: "provisional", closedAt: null, rows: [],
+    } }) }));
+    render(<KanbanMonthlyKpiView initialPeriod="2026-08" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Chọn tháng KPI" }));
+    expect(screen.getByRole("dialog", { name: "Lịch chọn tháng KPI" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Chọn Tháng 7 năm 2026" }));
+
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining("period=2026-07"), expect.anything()));
+    expect(screen.getByRole("button", { name: "Chọn tháng KPI" }).textContent).toContain("Tháng 7 2026");
   });
 });

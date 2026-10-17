@@ -368,7 +368,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
         <>
 
           {/* Exam List */}
-          <div className="space-y-3">
+          <div className="divide-y divide-slate-200">
             {examsLoading ? (
               <div className="py-20 text-center text-slate-400 text-sm italic">Đang nạp dữ liệu đợt thi...</div>
             ) : paginatedExams.length === 0 ? (

@@ -14,6 +14,7 @@ import {
   FileText,
   Workflow as WorkflowIcon,
   Layers,
+  Tag,
   GripVertical,
   ArrowDown,
   ArrowRight,
@@ -35,6 +36,7 @@ import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { AttachmentEditor } from "./KanbanTab";
+import { HrFormSelect } from "./HrFormSelect";
 
 interface WorkflowTabProps {
   userProfile: UserProfile | null;
@@ -112,6 +114,53 @@ export default function WorkflowTab({
   const [view, setView] = useState<"list" | "detail">("list");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardData, setWizardData] = useState<Workflow | null>(null);
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [wizardNewCategory, setWizardNewCategory] = useState("");
+
+  const categoryStorageKey = `hr-workflow-categories:${selectedCompanyCode}`;
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(categoryStorageKey) || "[]");
+      setCustomCategories(Array.isArray(saved) ? saved.filter((item): item is string => typeof item === "string") : []);
+    } catch {
+      setCustomCategories([]);
+    }
+  }, [categoryStorageKey]);
+
+  const categoryOptions = useMemo(() => {
+    const categories = new Map<string, string>();
+    for (const category of [...customCategories, ...workflows.map(workflow => workflow.category || "")]) {
+      const label = category.trim();
+      const key = label.toLocaleLowerCase("vi-VN");
+      if (label && !categories.has(key)) categories.set(key, label);
+    }
+    return [{ value: "", label: "Chọn phân loại" }, ...[...categories.values()].map(label => ({ value: label, label }))];
+  }, [customCategories, workflows]);
+
+  const handleAddCategory = (event: React.FormEvent) => {
+    event.preventDefault();
+    const label = newCategoryName.replace(/\s+/g, " ").trim();
+    if (!label) return;
+    const existing = categoryOptions.find(option => option.value.toLocaleLowerCase("vi-VN") === label.toLocaleLowerCase("vi-VN"));
+    if (existing) {
+      if (wizardOpen) setWizardNewCategory(existing.value);
+      toast.info("Nhãn này đã có trong danh sách.");
+    } else {
+      const nextCategories = [...customCategories, label];
+      setCustomCategories(nextCategories);
+      try {
+        localStorage.setItem(categoryStorageKey, JSON.stringify(nextCategories));
+        toast.success("Đã thêm nhãn phân loại.");
+      } catch {
+        toast.warning("Không thể lưu nhãn trên trình duyệt này.");
+      }
+      if (wizardOpen) setWizardNewCategory(label);
+    }
+    setNewCategoryName("");
+    setCategoryDialogOpen(false);
+  };
 
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
@@ -482,6 +531,14 @@ export default function WorkflowTab({
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
+              type="button"
+              onClick={() => setCategoryDialogOpen(true)}
+              disabled={!canEdit}
+              className="flex items-center gap-1.5 rounded-xl border border-[#bceaff] bg-[#f0faff] px-3.5 py-2 text-sm font-normal text-[#008dcc] transition-colors hover:bg-[#e3f6ff] disabled:opacity-40"
+            >
+              <Tag className="h-4 w-4" /> Tạo nhãn
+            </button>
+            <button
               onClick={fetchWorkflows}
               className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-[#f1f8fd] hover:text-[#009fdf]"
               title="Tải lại"
@@ -491,6 +548,7 @@ export default function WorkflowTab({
             <button
               onClick={() => {
                 setWizardData(null);
+                setWizardNewCategory("");
                 setWizardOpen(true);
               }}
               disabled={!canEdit}
@@ -504,12 +562,38 @@ export default function WorkflowTab({
         {wizardOpen && (
           <NewWorkflowWizard
             initialData={wizardData ? (wizardData as any) : undefined}
+            categoryOptions={categoryOptions}
+            newlyCreatedCategory={wizardNewCategory}
+            onOpenCategoryDialog={() => setCategoryDialogOpen(true)}
             onClose={() => {
               setWizardOpen(false);
               setWizardData(null);
+              setWizardNewCategory("");
             }}
             onSubmit={handleWizardSubmit}
           />
+        )}
+
+        {categoryDialogOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4" role="presentation" onClick={() => setCategoryDialogOpen(false)}>
+            <form onSubmit={handleAddCategory} role="dialog" aria-modal="true" aria-labelledby="workflow-category-title" className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-[#e5eef8] px-5 py-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="rounded-xl bg-[#e8f7ff] p-2 text-[#009fdf]"><Tag className="h-4 w-4" /></span>
+                  <h2 id="workflow-category-title" className="text-base font-normal text-slate-800">Tạo nhãn phân loại</h2>
+                </div>
+                <button type="button" onClick={() => setCategoryDialogOpen(false)} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600"><X className="h-4 w-4" /></button>
+              </div>
+              <div className="px-5 py-5">
+                <label htmlFor="workflow-category-name" className="mb-1.5 block text-sm font-normal text-slate-700">Tên nhãn</label>
+                <input id="workflow-category-name" autoFocus required maxLength={50} value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="VD: Nhân sự, Vận hành" className="w-full rounded-xl border border-[#dce7f4] px-3.5 py-2.5 text-sm outline-none focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/10" />
+              </div>
+              <div className="flex justify-end gap-2 border-t border-[#e5eef8] px-5 py-4">
+                <button type="button" onClick={() => setCategoryDialogOpen(false)} className="rounded-xl border border-[#dce7f4] px-4 py-2 text-sm font-normal text-slate-700 hover:bg-slate-50">Hủy</button>
+                <button type="submit" disabled={!newCategoryName.trim()} className="rounded-xl bg-[#00adfc] px-4 py-2 text-sm font-normal text-white hover:bg-[#0097df] disabled:opacity-40">Thêm nhãn</button>
+              </div>
+            </form>
+          </div>
         )}
 
         <div className="flex-1 overflow-y-auto p-5">
@@ -559,6 +643,7 @@ export default function WorkflowTab({
                             onClick={(e) => {
                               e.stopPropagation();
                               setWizardData(wf);
+                              setWizardNewCategory("");
                               setWizardOpen(true);
                             }}
                             className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-[#e8f7ff] hover:text-[#009fdf]"
@@ -1154,6 +1239,9 @@ function WorkflowAttachmentPreview({ attachment, onClose }: { attachment: TaskAt
 function PreviewFallback({ downloadUrl }: { downloadUrl: string }) { return <div className="text-center text-sm text-slate-600"><p>Không thể xem trước trực tiếp loại tệp này.</p><a href={downloadUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-lg bg-[#00adfc] px-3 py-2 font-medium text-white">Mở tệp</a></div>; }
 function NewWorkflowWizard({
   initialData,
+  categoryOptions,
+  newlyCreatedCategory,
+  onOpenCategoryDialog,
   onClose,
   onSubmit,
 }: {
@@ -1163,6 +1251,9 @@ function NewWorkflowWizard({
     description: string;
     steps: WorkflowStep[];
   };
+  categoryOptions: { value: string; label: string }[];
+  newlyCreatedCategory: string;
+  onOpenCategoryDialog: () => void;
   onClose: () => void;
   onSubmit: (data: {
     name: string;
@@ -1174,6 +1265,9 @@ function NewWorkflowWizard({
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState(initialData?.name || "Quy trình mới");
   const [category, setCategory] = useState(initialData?.category || "");
+  useEffect(() => {
+    if (newlyCreatedCategory) setCategory(newlyCreatedCategory);
+  }, [newlyCreatedCategory]);
   const [description, setDescription] = useState(initialData?.description || "");
   const [steps, setSteps] = useState<WorkflowStep[]>(initialData?.steps || []);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -1457,12 +1551,12 @@ function NewWorkflowWizard({
               <label className="flex items-center gap-1.5 text-sm font-normal text-slate-700">
                 <Layers className="h-4 w-4" /> Nhóm / phân loại
               </label>
-              <input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="VD: Nhân sự, Vận hành…"
-                className="mt-1.5 w-full rounded-xl border border-[#dce7f4] px-4 py-2.5 text-sm font-normal outline-none transition-all focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/10"
-              />
+              <div className="mt-1.5 flex items-center gap-2 text-sm font-normal">
+                <HrFormSelect value={category} onChange={setCategory} label="Nhóm / phân loại" options={categoryOptions} />
+                <button type="button" onClick={onOpenCategoryDialog} aria-label="Tạo nhãn phân loại" title="Tạo nhãn" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#bceaff] bg-[#f0faff] text-[#008dcc] hover:bg-[#e3f6ff]">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             <div>
               <label className="flex items-center gap-1.5 text-sm font-normal text-slate-700">

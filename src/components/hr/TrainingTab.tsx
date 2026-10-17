@@ -811,36 +811,44 @@ export default function TrainingTab({
     <>
       <div className="flex-1 overflow-y-auto p-3 md:p-5" id="hr_tab_content">
         <div className="space-y-4" id="elearning_catalog">
-          {/* Supervisor view controls */}
-          <div className="ml-auto flex w-fit max-w-full flex-wrap items-center justify-end gap-2 rounded-2xl border border-[#E1EAF5] bg-white px-3 py-2 shadow-2xs text-left">
-            <div className="flex flex-wrap items-center gap-2">
-              {isSupervisor && (
-                <>
-                  <div className="w-full min-w-0 text-xs sm:w-[300px]">
-                    <HrFormSelect
-                      value={trainingFilter || ""}
-                      onChange={(value) => setTrainingFilter(value || null)}
-                      label="Giám sát tiến độ học nhân viên"
-                      options={[
-                        { value: "", label: "Giám sát tiến độ học nhân viên" },
-                        ...employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` })),
-                      ]}
-                    />
-                  </div>
+          {/* Training section title and supervisor controls */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-normal text-slate-800">Đào tạo nhân sự</h2>
+              <span className="rounded-full bg-[#E8F7FF] px-2.5 py-1 text-xs font-normal text-[#007EB8]">
+                {courses.length} khóa học
+              </span>
+            </div>
+            <div className="ml-auto flex w-fit max-w-full flex-wrap items-center justify-end gap-2 rounded-2xl border border-[#E1EAF5] bg-white px-3 py-2 shadow-2xs text-left">
+              <div className="flex flex-wrap items-center gap-2">
+                {isSupervisor && (
+                  <>
+                    <div className="w-full min-w-0 text-xs sm:w-[300px]">
+                      <HrFormSelect
+                        value={trainingFilter || ""}
+                        onChange={(value) => setTrainingFilter(value || null)}
+                        label="Giám sát tiến độ học nhân viên"
+                        options={[
+                          { value: "", label: "Giám sát tiến độ học nhân viên" },
+                          ...employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` })),
+                        ]}
+                      />
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleCloseModal();
-                      setIsAddCourseModalOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 rounded-xl bg-[#00ADFC] px-4 py-2 text-xs font-medium text-white shadow-xs transition-all hover:bg-[#0097dc] active:scale-95 cursor-pointer font-sans"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Tạo Khóa Học Mới
-                  </button>
-                </>
-              )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCloseModal();
+                        setIsAddCourseModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl bg-[#00ADFC] px-4 py-2 text-xs font-medium text-white shadow-xs transition-all hover:bg-[#0097dc] active:scale-95 cursor-pointer font-sans"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Tạo Khóa Học Mới
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 

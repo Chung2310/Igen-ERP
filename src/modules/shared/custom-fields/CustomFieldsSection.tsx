@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Pencil, Plus, RotateCcw, X } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import { canManageCustomFields } from "./permissions";
@@ -19,6 +20,7 @@ export type CustomFieldsSectionProps = {
   isEditingFields?: boolean;
   onToggleEditingFields?(val: boolean): void;
   compact?: boolean;
+  iconActions?: boolean;
   className?: string;
 };
 
@@ -33,6 +35,7 @@ export function CustomFieldsSection({
   isEditingFields,
   onToggleEditingFields,
   compact = false,
+  iconActions = false,
   className = "",
 }: CustomFieldsSectionProps) {
   const { userProfile } = useAuth();
@@ -84,32 +87,36 @@ export function CustomFieldsSection({
   return (
     <section className={compact ? `pt-2.5 border-t border-slate-100 space-y-2.5 ${className}` : `pt-4 border-t border-slate-100 space-y-4 ${className}`} aria-label="Trường tùy chỉnh" data-mode={mode}>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-xs font-bold text-slate-900 normal-case">Thông tin bổ sung</h3>
+        <h3 className={iconActions ? "text-sm font-normal text-slate-700 normal-case" : "text-xs font-bold text-slate-900 normal-case"}>Thông tin bổ sung</h3>
         {manageable ? (
           <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={disabled}
               onClick={toggleEditing}
+              aria-label={iconActions ? (isEditing ? "Ẩn công cụ chỉnh sửa trường" : "Chỉnh sửa trường") : undefined}
+              title={iconActions ? (isEditing ? "Ẩn công cụ chỉnh sửa trường" : "Chỉnh sửa trường") : undefined}
               className={`rounded-xl border font-medium transition-all disabled:opacity-50 normal-case ${
-                compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
+                iconActions ? "inline-flex h-8 w-8 items-center justify-center" : compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
               } ${
                 isEditing
                   ? "border-[#00ADFC] bg-sky-50 text-[#007EB8]"
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
-              {isEditing ? "Ẩn công cụ" : "Chỉnh sửa trường"}
+              {iconActions ? isEditing ? <X className="h-4 w-4" aria-hidden="true" /> : <Pencil className="h-4 w-4" aria-hidden="true" /> : isEditing ? "Ẩn công cụ" : "Chỉnh sửa trường"}
             </button>
             <button
               type="button"
               disabled={disabled}
               onClick={openCreate}
+              aria-label={iconActions ? "Thêm trường" : undefined}
+              title={iconActions ? "Thêm trường" : undefined}
               className={`rounded-xl border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#00ADFC]/20 transition-all disabled:opacity-50 normal-case ${
-                compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
+                iconActions ? "inline-flex h-8 w-8 items-center justify-center" : compact ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
               }`}
             >
-              + Thêm trường
+              {iconActions ? <Plus className="h-4 w-4" aria-hidden="true" /> : "+ Thêm trường"}
             </button>
           </div>
         ) : null}
@@ -133,11 +140,12 @@ export function CustomFieldsSection({
                 <button
                   type="button"
                   disabled={disabled}
-                  className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors"
+                  className={iconActions ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-brand-primary transition-colors hover:bg-sky-100 disabled:opacity-50" : "font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors"}
                   aria-label={`Khôi phục ${field.label}`}
+                  title={iconActions ? `Khôi phục ${field.label}` : undefined}
                   onClick={() => void restoreField(field.id)}
                 >
-                  Khôi phục
+                  {iconActions ? <RotateCcw className="h-4 w-4" aria-hidden="true" /> : "Khôi phục"}
                 </button>
               </li>
             ))}

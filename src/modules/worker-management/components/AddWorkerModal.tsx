@@ -3,6 +3,8 @@ import { ChevronDown } from "lucide-react";
 import { toast } from "../../../pages/Toast";
 import { useAuth } from "../../../context/AuthContext";
 import { EntityAddModal } from "../../shared/components/EntityAddModal";
+import { StyledSelect } from "../../../components/common/StyledSelect";
+import { DateInput24 } from "../../../components/common/TimeInput24";
 import { CustomFieldsSection } from "../../shared/custom-fields/CustomFieldsSection";
 import type { CustomFieldValues } from "../../shared/custom-fields/types";
 import { canManageWorkerArea } from "../workerPermissionPolicy";
@@ -236,7 +238,7 @@ export function AddWorkerModal({
       error={error}
       submitting={submitting}
     >
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {visible("fullName") && (
           <Field
             label={label("fullName")}
@@ -279,76 +281,40 @@ export function AddWorkerModal({
           />
         )}
         {visible("birthday") && (
-          <Field
-            label={label("birthday")}
-            name="birthday"
-            type="date"
-            value={toInputDate(form.birthday)}
-            onChange={(e) => setForm((curr) => ({ ...curr, birthday: fromInputDate(e.target.value) }))}
-            disabled={submitting}
-          />
+          <DateField label={label("birthday")} value={toInputDate(form.birthday)} onChange={(value) => setForm((curr) => ({ ...curr, birthday: fromInputDate(value) }))} disabled={submitting} />
         )}
         {visible("registrationDate") && (
-          <Field
-            label={label("registrationDate")}
-            name="registrationDate"
-            type="date"
-            value={toInputDate(form.registrationDate)}
-            onChange={(e) => setForm((curr) => ({ ...curr, registrationDate: fromInputDate(e.target.value) }))}
-            disabled={submitting}
-          />
+          <DateField label={label("registrationDate")} value={toInputDate(form.registrationDate)} onChange={(value) => setForm((curr) => ({ ...curr, registrationDate: fromInputDate(value) }))} disabled={submitting} />
         )}
         {visible("status") && (
-          <div className="space-y-1">
-            <label
-              htmlFor="status"
-              className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
-            >
-              {label("status")}
-            </label>
-            <select
-              id="status"
-              name="status"
+          <div className="space-y-1.5">
+            <span className="block text-xs text-slate-600">{label("status")}</span>
+            <StyledSelect
+              ariaLabel={label("status")}
               value={form.status}
-              onChange={update}
+              onChange={(status) => setForm((current) => ({ ...current, status: status as WorkerInput["status"] }))}
               disabled={submitting}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
-            >
-              <option value="active">Đang tuyển</option>
-              <option value="placed">Đã trúng tuyển</option>
-              <option value="inactive">Ngừng xử lý</option>
-            </select>
+              options={[{ value: "active", label: "Đang tuyển" }, { value: "placed", label: "Đã trúng tuyển" }, { value: "inactive", label: "Ngừng xử lý" }]}
+            />
           </div>
         )}
         {visible("laborType") && (
-          <div className="space-y-1">
-            <label
-              htmlFor="laborType"
-              className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
-            >
-              {label("laborType")}
-            </label>
-            <select
-              id="laborType"
-              name="laborType"
+          <div className="space-y-1.5">
+            <span className="block text-xs text-slate-600">{label("laborType")}</span>
+            <StyledSelect
+              ariaLabel={label("laborType")}
               value={form.laborType || "official"}
-              onChange={update}
+              onChange={(laborType) => setForm((current) => ({ ...current, laborType: laborType as WorkerInput["laborType"] }))}
               disabled={submitting}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
-            >
-              {Object.entries(workerLaborTypeLabel).map(([value, text]) => (
-                <option key={value} value={value}>
-                  {text}
-                </option>
-              ))}
-            </select>
+              options={Object.entries(workerLaborTypeLabel).map(([value, text]) => ({ value, label: text }))}
+            />
           </div>
         )}
         {partners && (
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label
               htmlFor="referralPartnerId"
-              className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
+              className="text-xs text-slate-600"
             >
               Đối tác giới thiệu
             </label>
@@ -381,14 +347,7 @@ export function AddWorkerModal({
           />
         )}
         {form.laborType === "foreign" && visible("workPermitExpiry") && (
-          <Field
-            label={label("workPermitExpiry")}
-            name="workPermitExpiry"
-            type="date"
-            value={toInputDate(form.workPermitExpiry)}
-            onChange={(e) => setForm((curr) => ({ ...curr, workPermitExpiry: fromInputDate(e.target.value) }))}
-            disabled={submitting}
-          />
+          <DateField label={label("workPermitExpiry")} value={toInputDate(form.workPermitExpiry)} onChange={(value) => setForm((curr) => ({ ...curr, workPermitExpiry: fromInputDate(value) }))} disabled={submitting} />
         )}
         {visible("address") && (
           <Field
@@ -401,37 +360,24 @@ export function AddWorkerModal({
           />
         )}
         {projects.length > 0 && (
-          <div className="space-y-1">
-            <label
-              htmlFor="projectId"
-              className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
-            >
-              Dự án
-            </label>
-            <select
-              id="projectId"
-              name="projectId"
+          <div className="space-y-1.5">
+            <span className="block text-xs text-slate-600">Dự án</span>
+            <StyledSelect
+              ariaLabel="Dự án"
               value={form.projectId || ""}
-              onChange={update}
+              onChange={(projectId) => setForm((current) => ({ ...current, projectId }))}
               disabled={submitting}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
-            >
-              <option value="">Chưa gán dự án</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+              options={[{ value: "", label: "Chưa gán dự án" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]}
+            />
           </div>
         )}
       </div>
 
       {visible("note") && (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <label
             htmlFor="note"
-            className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
+            className="text-xs text-slate-600"
           >
             {label("note")}
           </label>
@@ -443,7 +389,7 @@ export function AddWorkerModal({
             rows={3}
             disabled={submitting}
             placeholder="Nhập ghi chú (nếu có)"
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
+            className="w-full rounded-xl border border-[#DCE7F4] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 disabled:opacity-50"
           />
         </div>
       )}
@@ -561,7 +507,7 @@ export function PartnerSearchSelect({
             pick(matches[0]._id);
           }
         }}
-        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 pr-10 text-sm transition-all placeholder:text-slate-300 focus:border-cyan-600 focus:outline-none disabled:opacity-50"
+        className="w-full rounded-xl border border-[#DCE7F4] bg-white px-4 py-2.5 pr-10 text-sm outline-none transition-colors placeholder:text-slate-400 focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 disabled:opacity-50"
       />
       <ChevronDown
         aria-hidden="true"
@@ -571,14 +517,14 @@ export function PartnerSearchSelect({
         <div
           id="referral-partner-options"
           role="listbox"
-          className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+          className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-[#DCE7F4] bg-white py-1 shadow-[0_12px_32px_rgba(11,65,99,0.16)]"
         >
           <button
             type="button"
             role="option"
             aria-selected={!value}
             onClick={() => pick("")}
-            className="w-full px-3 py-2 text-left text-sm font-medium text-slate-600 hover:bg-slate-50"
+            className="w-full px-3 py-2 text-left text-sm text-slate-600 hover:bg-[#E8F7FF]"
           >
             Không chọn đối tác
           </button>
@@ -589,7 +535,7 @@ export function PartnerSearchSelect({
               role="option"
               aria-selected={partner._id === value}
               onClick={() => pick(partner._id)}
-              className="w-full px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-cyan-50"
+              className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-[#E8F7FF]"
             >
               {partner.code} · {partner.name}
             </button>
@@ -606,16 +552,25 @@ export function PartnerSearchSelect({
   );
 }
 
+function DateField({ label, value, onChange, disabled }: { label: string; value: string; onChange: (value: string) => void; disabled?: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-xs text-slate-600">{label}</span>
+      <DateInput24 value={value} onChange={onChange} disabled={disabled} ariaLabel={label} />
+    </div>
+  );
+}
+
 function Field({
   label,
   ...props
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   const placeholder = props.placeholder || `Nhập ${label.replace(/\s*\*$/, "").toLowerCase()}`;
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <label
         htmlFor={props.name}
-        className="text-[10px] font-bold uppercase tracking-wider text-slate-800"
+        className="text-xs text-slate-600"
       >
         {label}
       </label>
@@ -623,7 +578,7 @@ function Field({
         id={props.name}
         {...props}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition-all focus:border-cyan-600 focus:outline-none disabled:opacity-50"
+        className="w-full rounded-xl border border-[#DCE7F4] bg-white px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 disabled:opacity-50"
       />
     </div>
   );

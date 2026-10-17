@@ -2,7 +2,6 @@ import React, { Suspense, lazy, useRef } from "react";
 import {
   Bell,
   BriefcaseBusiness,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   FileSignature,
@@ -18,6 +17,8 @@ import {
 } from "./workerRuntime";
 import { workerApiFetch } from "./api/client";
 import { WorkerDetailModal } from "./components/WorkerDetailModal";
+import { StyledSelect } from "../../components/common/StyledSelect";
+import "./worker-ui.css";
 import { useWorkers } from "./hooks/useWorkers";
 import WorkersPage from "./pages/WorkersPage";
 import type {
@@ -280,6 +281,7 @@ export default function WorkerWorkspace() {
         onSelectStudent={openDashboardWorker}
         onNavigate={(view) => {
           if (view === "hop-dong") setActiveTab("HỢP ĐỒNG");
+          if (view === "lao-dong") setActiveTab("LAO ĐỘNG");
         }}
         selectedCenter={center}
       />
@@ -309,14 +311,14 @@ export default function WorkerWorkspace() {
     );
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
+    <div className="worker-workspace flex h-full min-h-0 flex-col bg-white">
       <div
-        className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white px-3 pb-0 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5"
+        className="flex shrink-0 flex-col items-stretch gap-3 border-b border-slate-200/80 bg-white px-3 pb-0 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5"
         id="worker_sub_tabs_bar"
       >
         <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" aria-label="Cuộn tab lao động sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-          <div ref={subTabsRef} className="flex min-w-0 flex-1 select-none gap-1 overflow-x-auto">
+          <button type="button" aria-label="Cuộn tab lao động sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-[#00ADFC] sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
+          <div ref={subTabsRef} className="scrollbar-none -mb-px flex min-w-0 max-w-full flex-1 select-none gap-1 overflow-x-auto">
             {tabs.map((tab) => {
               const active = activeTab === tab.value;
               const Icon = tab.icon;
@@ -324,11 +326,12 @@ export default function WorkerWorkspace() {
                 <button
                   key={tab.value}
                   type="button"
+                  aria-current={active ? "page" : undefined}
                   onClick={() => setActiveTab(tab.value)}
-                  className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+                  className={`worker-section-tab flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold normal-case transition-all duration-200 ${
                     active
-                      ? "bg-cyan-600 text-white shadow-sm"
-                      : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-600"
+                      ? "worker-section-tab-active bg-[#00ADFC] text-white shadow-xs active:bg-[#0095d9]"
+                      : "text-slate-600 hover:bg-[#E8F7FF] hover:text-[#007EB8]"
                   }`}
                 >
                   <Icon
@@ -341,32 +344,24 @@ export default function WorkerWorkspace() {
               );
             })}
           </div>
-          <button type="button" aria-label="Cuộn tab lao động sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
+          <button type="button" aria-label="Cuộn tab lao động sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-[#00ADFC] sm:hidden"><ChevronRight className="h-4 w-4" /></button>
         </div>
         {userProfile?.role === "superadmin" && (
           <div className="flex shrink-0 items-center gap-2 pb-2 pr-2 sm:pb-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Cơ sở:
-            </span>
-            <div className="relative min-w-0 flex-1 sm:min-w-[200px] sm:flex-none">
-              <select
+            <span className="text-xs text-slate-500">Cơ sở</span>
+            <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
+              <StyledSelect
                 value={center}
-                onChange={(event) => setCenter(event.target.value)}
-                className="h-8 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-8 text-xs font-bold text-slate-700 outline-none"
-              >
-                <option value="all">Tất cả cơ sở</option>
-                {centers.map((item) => (
-                  <option key={item.uid} value={item.uid}>
-                    {item.displayName}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                onChange={setCenter}
+                ariaLabel="Chọn cơ sở lao động"
+                options={[{ value: "all", label: "Tất cả cơ sở" }, ...centers.map((item) => ({ value: item.uid, label: item.displayName }))]}
+                className="h-9"
+              />
             </div>
           </div>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FBFF] p-3 sm:p-6">
         <Suspense fallback={<Loader />}>{page}</Suspense>
       </div>
       <WorkerDetailModal

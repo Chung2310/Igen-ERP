@@ -18,8 +18,8 @@ import {
   Megaphone,
   Wrench,
   ContactRound,
+  GraduationCap,
 } from "lucide-react";
-import { StudentCap3DIcon } from "../components/StudentCap3DIcon";
 import { FilledMenu3DIcon, type FilledMenu3DIconShape, type Menu3DIconPalette } from "../components/FilledMenu3DIcon";
 import {
   BRAND_FULL_LOGO_PATH,
@@ -85,7 +85,7 @@ const baseMenuItems: MenuItem[] = [
   {
     label: "QUẢN LÝ HỌC VIÊN",
     title: "Học viên",
-    icon: StudentCap3DIcon,
+    icon: GraduationCap,
     group: "operations",
   },
   {
@@ -139,22 +139,16 @@ const groupTitles: Record<MenuItem["group"], string> = {
   system: "Hệ thống",
 };
 
-const menuIconPalettes: Partial<Record<TabType, Menu3DIconPalette>> = {
-  "TỔNG QUAN": { light: "#9BA7FC", dark: "#5969CE", edge: "#414EA5" },
-  "NHÂN SỰ": { light: "#FFA993", dark: "#DC6B65", edge: "#AD494A" },
-  "ĐỐI TÁC": { light: "#F8C77E", dark: "#CF8749", edge: "#9D5D32" },
-  "KHO & SẢN PHẨM": { light: "#70D4BA", dark: "#299C8D", edge: "#207367" },
-  "SỬA CHỮA & BẢO HÀNH": { light: "#ADBBDC", dark: "#6C7FAB", edge: "#4A5B82" },
-  "QUẢN LÝ LAO ĐỘNG": { light: "#CDA9E8", dark: "#9164BB", edge: "#68468D" },
-  "QUẢN LÝ KHÁCH HÀNG": { light: "#F1ADC3", dark: "#CF6D94", edge: "#A94B70" },
-  "BÁN LẺ": { light: "#FFC17D", dark: "#E4863D", edge: "#AF602C" },
-  "TÀI CHÍNH": { light: "#87D4A5", dark: "#3D9E6C", edge: "#2D754F" },
-  "MARKETING": { light: "#EFA8D7", dark: "#B65B9F", edge: "#893D78" },
-  "QUẢN LÝ TÀI NGUYÊN": { light: "#A3C9A2", dark: "#639568", edge: "#476E4C" },
-  "TRÒ CHUYỆN": { light: "#B7A5E2", dark: "#8068B3", edge: "#5E4C8A" },
-  "QUẢN TRỊ USER": { light: "#A7B5D2", dark: "#667DAB", edge: "#465C88" },
-  "CÀI ĐẶT": { light: "#B7AAEB", dark: "#7865B9", edge: "#584893" },
-  "HƯỚNG DẪN": { light: "#F1CD89", dark: "#C59449", edge: "#987036" },
+const brandIconPalette: Menu3DIconPalette = {
+  light: "#86DCFF",
+  dark: "#16ACE7",
+  edge: "#087EB8",
+};
+
+const softBrandIconPalette: Menu3DIconPalette = {
+  light: "#AFE7FA",
+  dark: "#56B9DD",
+  edge: "#2587AD",
 };
 
 const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
@@ -163,6 +157,7 @@ const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
   "ĐỐI TÁC": "partners",
   "KHO & SẢN PHẨM": "warehouse",
   "SỬA CHỮA & BẢO HÀNH": "repair",
+  "QUẢN LÝ HỌC VIÊN": "student",
   "QUẢN LÝ LAO ĐỘNG": "work",
   "QUẢN LÝ KHÁCH HÀNG": "customer",
   "BÁN LẺ": "retail",
@@ -284,9 +279,10 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                 {itemsInGroup.map((item) => {
                   const isActive = activeTab === item.label;
                   const Icon = item.icon;
-                  const isStudentIcon = item.label === "QUẢN LÝ HỌC VIÊN";
-                  const iconPalette = menuIconPalettes[item.label];
                   const iconShape = menuIconShapes[item.label];
+                  const iconPalette = isActive || groupKey === "main" || groupKey === "operations"
+                    ? brandIconPalette
+                    : softBrandIconPalette;
 
                   return (
                     <button
@@ -314,9 +310,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-                        {isStudentIcon ? (
-                          <Icon className="h-6 w-6 shrink-0 transition-transform group-hover:scale-105" />
-                        ) : iconPalette && iconShape ? (
+                        {iconShape ? (
                           <FilledMenu3DIcon shape={iconShape} palette={iconPalette} className="h-6 w-6" />
                         ) : (
                           <Icon className={`h-5 w-5 shrink-0 transition-colors ${item.locked ? "text-slate-300" : isActive ? "text-[#00ADFC]" : "text-slate-400 group-hover:text-slate-600"}`} />
