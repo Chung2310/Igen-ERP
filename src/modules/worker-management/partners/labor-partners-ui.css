@@ -1,0 +1,245 @@
+.labor-partner-workspace {
+  --partner-accent: #00a6e8;
+  --partner-accent-dark: #008ec9;
+  --partner-border: #d8e5f2;
+  color: #172b45;
+}
+
+.labor-partner-workspace > header {
+  align-items: center;
+  border: 1px solid var(--partner-border);
+  border-radius: 16px;
+  background: #fff;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgb(31 65 103 / 5%);
+}
+
+.labor-partner-workspace > header h1 {
+  border-left: 3px solid var(--partner-accent);
+  padding-left: 14px;
+  color: #142b45;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+.labor-partner-workspace > header p:not(:first-child) {
+  color: #60738b;
+}
+
+.labor-partner-workspace__tabs {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd9e8 transparent;
+}
+
+.labor-partner-workspace__tabs > button {
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.labor-partner-workspace__tabs > button[aria-current="page"] {
+  background-color: var(--partner-accent) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 5px rgb(0 166 232 / 20%);
+}
+
+.labor-partner-workspace__tabs > button:not([aria-current="page"]):hover {
+  background: #eff8fd;
+  color: #007caf;
+}
+
+.labor-partner-workspace section.rounded-2xl.border,
+.labor-partner-workspace div.rounded-2xl.border {
+  border-color: var(--partner-border) !important;
+  border-radius: 17px;
+  box-shadow: 0 1px 3px rgb(31 65 103 / 5%);
+}
+
+.labor-partner-workspace aside.rounded-2xl.border {
+  border-color: var(--partner-border) !important;
+  border-radius: 17px;
+}
+
+.labor-partner-workspace aside.relative.rounded-2xl.border {
+  box-shadow: 0 1px 3px rgb(31 65 103 / 5%);
+}
+
+.labor-partner-workspace [data-partner-overview-open="true"]::before,
+.labor-partner-workspace [data-settlement-detail-open="true"]::before {
+  position: fixed;
+  z-index: 49;
+  inset: 0;
+  background: rgb(22 38 58 / 42%);
+  backdrop-filter: blur(4px);
+  content: "";
+}
+
+.labor-partner-workspace [data-partner-overview-open="true"] > aside,
+.labor-partner-workspace [data-settlement-detail-open="true"] > aside {
+  z-index: 50;
+  border-color: var(--partner-border);
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgb(15 35 60 / 22%) !important;
+}
+
+.labor-partner-workspace h2,
+.labor-partner-workspace h3,
+.labor-partner-workspace h4 {
+  color: #18324f;
+  font-weight: 600;
+}
+
+.labor-partner-workspace label {
+  color: #4e647d;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.labor-partner-workspace input:not([type="checkbox"]):not([type="radio"]):not(.bg-transparent),
+.labor-partner-workspace select,
+.labor-partner-workspace textarea {
+  min-height: 40px;
+  border: 1px solid #d5e1ee;
+  border-radius: 10px;
+  background-color: #fff;
+  color: #1c3048;
+  font-size: 14px;
+  outline: none !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.labor-partner-workspace input:not([type="checkbox"]):not([type="radio"]):not(.bg-transparent):focus,
+.labor-partner-workspace select:focus,
+.labor-partner-workspace textarea:focus {
+  border-color: #45bdec !important;
+  box-shadow: 0 0 0 3px rgb(0 166 232 / 14%) !important;
+  outline: none !important;
+}
+
+.labor-partner-workspace select {
+  appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23758ba3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+
+.labor-partner-workspace select option {
+  background: #fff;
+  color: #1c3048;
+  font-size: 14px;
+}
+
+.labor-partner-workspace input[type="date"],
+.labor-partner-workspace input[type="month"] {
+  color-scheme: light;
+}
+
+.labor-partner-workspace input[type="date"]::-webkit-calendar-picker-indicator,
+.labor-partner-workspace input[type="month"]::-webkit-calendar-picker-indicator {
+  opacity: 0.72;
+  cursor: pointer;
+}
+
+.labor-partner-workspace input[type="checkbox"] {
+  accent-color: var(--partner-accent);
+}
+
+.labor-partner-workspace label:has(> input.bg-transparent) {
+  border-color: #d5e1ee;
+  background: #fff;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.labor-partner-workspace label:has(> input.bg-transparent:focus) {
+  border-color: #45bdec;
+  box-shadow: 0 0 0 3px rgb(0 166 232 / 12%);
+}
+
+.labor-partner-workspace table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+
+.labor-partner-workspace thead th {
+  border-bottom: 1px solid #d6e2ef;
+  background: #f0f7fc;
+  color: #536a83;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  padding: 11px 14px;
+  white-space: nowrap;
+}
+
+.labor-partner-workspace tbody td {
+  border-bottom: 1px solid #e3ebf4;
+  padding: 12px 14px;
+}
+
+.labor-partner-workspace tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.labor-partner-workspace tbody tr:hover {
+  background-color: #f7fbfe;
+}
+
+.labor-partner-workspace button {
+  font-weight: 500;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.labor-partner-workspace button.bg-cyan-600,
+.labor-partner-workspace button[class*="bg-violet-600"] {
+  background-color: var(--partner-accent);
+}
+
+.labor-partner-workspace button.bg-cyan-600:hover,
+.labor-partner-workspace button[class*="bg-violet-600"]:hover {
+  background-color: var(--partner-accent-dark);
+}
+
+.labor-partner-workspace [role="dialog"] {
+  background-color: rgb(22 38 58 / 42%);
+  backdrop-filter: blur(4px);
+  padding: 20px;
+}
+
+.labor-partner-workspace [role="dialog"] > form,
+.labor-partner-workspace [role="dialog"] > div:first-child {
+  border: 1px solid var(--partner-border);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(15 35 60 / 22%);
+}
+
+.labor-partner-workspace [role="dialog"] h3 {
+  font-size: 18px;
+}
+
+@media (max-width: 640px) {
+  .labor-partner-workspace > header {
+    align-items: stretch;
+    padding: 14px;
+  }
+
+  .labor-partner-workspace > header h1 {
+    font-size: 21px;
+  }
+
+  .labor-partner-workspace__tabs > button {
+    min-height: 38px;
+    padding-inline: 11px;
+    font-size: 13px;
+  }
+
+  .labor-partner-workspace [role="dialog"] {
+    padding: 12px;
+  }
+}
