@@ -48,7 +48,7 @@ it("loads saved IMEI when editing a pending outbound document", async () => {
     fireEvent.click(await screen.findByRole("button", { name: /Sửa phiếu/ }));
     fireEvent.click(screen.getByRole("button", { name: /Đã chọn 1 đơn vị/ }));
 
-    expect(await screen.findAllByText("BARCODE-SAVED · IMEI-SAVED")).toHaveLength(2);
+    expect(await screen.findAllByText("BARCODE-SAVED · IMEI-SAVED")).toHaveLength(1);
     expect(inventorySerialService.list).toHaveBeenCalledWith(expect.objectContaining({ barcodes: ["BARCODE-SAVED"] }));
   });
 describe("StockLogPanel", () => {

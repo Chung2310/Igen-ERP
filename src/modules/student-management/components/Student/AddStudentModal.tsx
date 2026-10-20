@@ -321,22 +321,23 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 30 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col"
+            className="relative w-full max-w-3xl bg-white rounded-2xl border border-sky-100 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
-              <h2 className="text-base font-bold text-slate-800">{entityLabel.addTitle}</h2>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-sky-100 flex-shrink-0">
+              <h2 className="border-l-4 border-brand-primary pl-3 text-base font-medium text-slate-900">{entityLabel.addTitle}</h2>
               <button
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="p-1.5 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50"
+                aria-label="Đóng"
               >
-                <X className="w-4 h-4 text-slate-400" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form className="p-6 overflow-y-auto space-y-4" onSubmit={handleSubmit}>
+            <form className="p-5 overflow-y-auto space-y-4" onSubmit={handleSubmit}>
               {errorMsg && (
-                <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm font-bold text-rose-600">
+                <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm font-normal text-rose-600">
                   {errorMsg}
                 </div>
               )}
@@ -611,19 +612,11 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 </div>
               ) : null}
 
-              <div className="flex items-center justify-end gap-4 pt-4 mt-2 border-t border-slate-50 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={isSubmitting}
-                  className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
-                >
-                  Hủy
-                </button>
+              <div className="flex items-center justify-end pt-4 mt-2 border-t border-sky-100 flex-shrink-0">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-xl text-xs font-medium transition-colors disabled:opacity-50"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   {isSubmitting ? 'Đang lưu...' : 'Lưu hồ sơ'}

@@ -151,7 +151,8 @@ describe("AddWorkerModal", () => {
     fill("Số điện thoại *", "0988888888");
     fill("Email", "b@example.com");
     fill("Cỡ áo", "L");
-    fireEvent.change(screen.getByLabelText("Dự án"), { target: { value: "project-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Dự án" }));
+    fireEvent.click(screen.getByRole("option", { name: "Dự án Bắc Ninh" }));
     save();
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));

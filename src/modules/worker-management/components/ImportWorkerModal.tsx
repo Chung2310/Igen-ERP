@@ -1,4 +1,5 @@
 import React from "react";
+import { StyledSelect } from "../../../components/common/StyledSelect";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -304,34 +305,34 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={() => !uploading && onClose()}
-          className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+          className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
         />
         <motion.div
           role="dialog"
           aria-modal="true"
           aria-label="Nhập danh sách lao động"
-          initial={{ opacity: 0, scale: 0.95, y: 30 }}
+          initial={{ opacity: 0, scale: 0.98, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 30 }}
-          className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+          exit={{ opacity: 0, scale: 0.98, y: 12 }}
+          className="relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,65,99,0.18)]"
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-8 py-5">
+          <div className="flex shrink-0 items-center justify-between border-b border-[#E7EFF7] px-5 py-4 sm:px-6">
             <div>
-              <h2 className="text-xl font-bold text-slate-800">Nhập danh sách lao động</h2>
-              <p className="mt-0.5 text-xs font-medium text-slate-400">Hỗ trợ định dạng Excel (.xlsx, .xls, .csv)</p>
+              <h2 className="border-l-[3px] border-[#00ADFC] pl-3 text-lg font-medium text-slate-900">Nhập danh sách lao động</h2>
+              <p className="mt-1 pl-3 text-xs text-slate-500">Hỗ trợ định dạng Excel (.xlsx, .xls, .csv)</p>
             </div>
-            <button type="button" aria-label="Đóng" onClick={onClose} disabled={uploading} className="rounded-full p-2 hover:bg-slate-100 disabled:opacity-50">
-              <X className="h-5 w-5 text-slate-400" />
+            <button type="button" aria-label="Đóng" onClick={onClose} disabled={uploading} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50">
+              <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="min-h-[300px] flex-1 overflow-y-auto p-8">
+          <div className="min-h-[300px] flex-1 overflow-y-auto p-5 sm:p-6">
             {error && (
               <div role="alert" className="mb-6 flex items-start gap-3 rounded-2xl border border-rose-100 bg-rose-50 p-4">
                 <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
@@ -461,22 +462,19 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
                 </div>
 
                 {projects.length > 0 && (
-                  <div className="flex flex-col gap-2 rounded-2xl border border-slate-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:gap-4">
-                    <label htmlFor="import-project" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <div className="flex flex-col gap-2 rounded-xl border border-[#DCE7F4] bg-white px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
+                    <span className="text-xs text-slate-600">
                       Gán vào dự án
-                    </label>
-                    <select
-                      id="import-project"
+                    </span>
+                    <div className="min-w-0 flex-1">
+                    <StyledSelect
+                      ariaLabel="Gán vào dự án"
                       value={projectId}
-                      onChange={(event) => setProjectId(event.target.value)}
+                      onChange={setProjectId}
                       disabled={uploading}
-                      className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-cyan-600 focus:outline-none disabled:opacity-50"
-                    >
-                      <option value="">Không gán dự án</option>
-                      {projects.map((project) => (
-                        <option key={project.id} value={project.id}>{project.name}</option>
-                      ))}
-                    </select>
+                      options={[{ value: "", label: "Không gán dự án" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]}
+                    />
+                    </div>
                   </div>
                 )}
 
@@ -536,8 +534,8 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
             )}
           </div>
 
-          <div className="flex shrink-0 items-center justify-end gap-4 border-t border-slate-100 px-8 py-5">
-            <button type="button" onClick={onClose} disabled={uploading} className="text-xs font-bold text-slate-400 hover:text-slate-600 disabled:opacity-50">
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[#E7EFF7] px-5 py-4 sm:px-6">
+            <button type="button" onClick={onClose} disabled={uploading} className="rounded-xl border border-[#DCE7F4] px-4 py-2 text-sm text-slate-600 hover:bg-[#F5FAFE] disabled:opacity-50">
               {result ? "Đóng" : "Hủy"}
             </button>
             {!result && rows.length > 0 && (
@@ -545,7 +543,7 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
                 type="button"
                 onClick={runImport}
                 disabled={uploading}
-                className="flex items-center gap-2 rounded-xl bg-cyan-600 px-6 py-3 text-xs font-bold text-white shadow-lg transition-all hover:bg-cyan-700 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-[#00ADFC] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0097dc] disabled:opacity-50"
               >
                 {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-current" />}
                 {uploading

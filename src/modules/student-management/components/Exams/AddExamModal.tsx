@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Save, ChevronDown, Loader2 } from 'lucide-react';
+import { X, Save, ChevronDown, Loader2, Pencil, Archive, Trash2, RotateCcw } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { ExamSession } from '../../types';
 import { toast } from '../../../../pages/Toast';
@@ -14,6 +14,7 @@ import type { CreateFieldInput, FieldDefinition } from '../../../shared/custom-f
 import { useCourses } from '../../hooks/useCourses';
 import { useBatches } from '../../hooks/useBatches';
 import { cn } from '../../lib/utils';
+import { VietnameseDatePicker } from '../Batches/VietnameseDatePicker';
 
 interface AddExamModalProps {
   isOpen: boolean;
@@ -119,12 +120,10 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
     return (
-      <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
-        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => openEditStdField(fieldConfig)}>Sửa</button>
-        <span>|</span>
-        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => archiveStd(fieldConfig)}>Lưu trữ</button>
-        <span>|</span>
-        <button type="button" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => deleteStd(fieldConfig)}>Xóa</button>
+      <div className="absolute right-0 top-0 z-10 flex items-center gap-1" role="group" aria-label={`Công cụ trường ${fieldConfig.label}`}>
+        <button type="button" title={`Sửa ${fieldConfig.label}`} aria-label={`Sửa ${fieldConfig.label}`} className="flex h-7 w-7 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600 transition-colors hover:bg-sky-100" onClick={() => openEditStdField(fieldConfig)}><Pencil className="h-3.5 w-3.5" /></button>
+        <button type="button" title={`Lưu trữ ${fieldConfig.label}`} aria-label={`Lưu trữ ${fieldConfig.label}`} className="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-100 bg-amber-50 text-amber-700 transition-colors hover:bg-amber-100" onClick={() => archiveStd(fieldConfig)}><Archive className="h-3.5 w-3.5" /></button>
+        <button type="button" title={`Xóa ${fieldConfig.label}`} aria-label={`Xóa ${fieldConfig.label}`} className="flex h-7 w-7 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100" onClick={() => deleteStd(fieldConfig)}><Trash2 className="h-3.5 w-3.5" /></button>
       </div>
     );
   };
@@ -172,15 +171,6 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
     [batches, formData.batchId]
   );
   const earliestExamDate = React.useMemo(() => getEarliestExamDate(selectedBatch), [selectedBatch]);
-
-  const dateInputRef = React.useRef<HTMLInputElement>(null);
-  const [localTentativeDate, setLocalTentativeDate] = useState('');
-
-  useEffect(() => {
-    if (document.activeElement !== dateInputRef.current) {
-      setLocalTentativeDate(formData.tentativeDate);
-    }
-  }, [formData.tentativeDate]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -364,18 +354,19 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 30 }}
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col"
+          className="relative w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden max-h-[92vh] flex flex-col"
         >
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 flex-shrink-0">
-            <h2 className="text-base font-bold text-slate-800">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 flex-shrink-0">
+            <h2 className="flex items-center gap-2 text-base font-medium text-slate-900 before:w-1 before:h-5 before:rounded-full before:bg-brand-primary">
               {initialData ? 'Chỉnh sửa đợt thi' : 'Tạo đợt thi mới'}
             </h2>
             <button
               onClick={onClose}
               disabled={isSubmitting}
-              className="p-1.5 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50"
+              aria-label="Đóng"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 transition-colors disabled:opacity-50"
             >
-              <X className="w-4 h-4 text-slate-400" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
@@ -384,7 +375,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
               {isFieldVisible('name') && (
                 <div className="space-y-1 relative group/std">
                   {renderFieldActions('name')}
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                  <label className="text-sm text-slate-700">
                     {getFieldLabel('name', 'Tên đợt thi')}{' '}
                     {isFieldRequired('name', true) && <span className="text-rose-500">*</span>}
                   </label>
@@ -402,7 +393,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Lớp học <span className="text-rose-500">*</span></label>
+                  <label className="text-sm text-slate-700">Lớp học <span className="text-rose-500">*</span></label>
                   <div ref={batchDropdownRef} className="relative">
                     <button
                       type="button"
@@ -410,7 +401,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                       onClick={() => setIsOpenBatches(!isOpenBatches)}
                       className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all text-slate-800 text-left select-none cursor-pointer disabled:bg-slate-50 disabled:cursor-not-allowed"
                     >
-                      <span className={formData.batchId ? "text-slate-850 font-bold truncate pr-2" : "text-slate-350 font-medium"}>
+                      <span className={formData.batchId ? "text-slate-800 truncate pr-2" : "text-slate-400"}>
                         {formData.batchId
                           ? `${batches.find((b) => b.id === formData.batchId)?.code} - ${batches.find((b) => b.id === formData.batchId)?.courseTitle}`
                           : "-- Chọn lớp học --"}
@@ -426,7 +417,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                             setFormData(prev => ({ ...prev, batchId: '' }));
                             setIsOpenBatches(false);
                           }}
-                          className={`px-4 py-2 text-xs font-semibold cursor-pointer transition-colors hover:bg-slate-50 ${!formData.batchId ? "text-cyan-600 bg-cyan-50/50 font-bold" : "text-slate-500"}`}
+                          className={`px-4 py-2 text-sm cursor-pointer transition-colors hover:bg-sky-50 ${!formData.batchId ? "text-brand-primary bg-sky-50" : "text-slate-500"}`}
                         >
                           -- Chọn lớp học --
                         </div>
@@ -442,15 +433,15 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                                 }
                               }}
                               className={cn(
-                                "px-4 py-2 text-xs font-medium transition-colors flex items-center justify-between",
+                                "px-4 py-2 text-sm transition-colors flex items-center justify-between",
                                 eligible
                                   ? "cursor-pointer hover:bg-slate-50 text-slate-700"
                                   : "cursor-not-allowed bg-slate-50/30 text-slate-400",
-                                formData.batchId === batch.id && "text-cyan-600 bg-cyan-50/50 font-bold"
+                                formData.batchId === batch.id && "text-brand-primary bg-sky-50"
                               )}
                             >
                               <div className="truncate pr-2">
-                                <span className="font-bold text-slate-800">{batch.code}</span> - {batch.courseTitle}
+                                <span className="font-medium text-slate-800">{batch.code}</span> - {batch.courseTitle}
                                 {!eligible && <span className="text-[10px] text-slate-400 ml-1 italic">(không thể lập lịch)</span>}
                               </div>
                               {formData.batchId === batch.id && <span className="w-1.5 h-1.5 rounded-full bg-cyan-600 shrink-0" />}
@@ -460,7 +451,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                       </div>
                     )}
                   </div>
-                  <p className="min-h-5 pt-1 text-xs text-slate-500">{formData.batchId ? <>Khóa học: <span className="font-bold text-cyan-700">{batches.find((batch) => batch.id === formData.batchId)?.courseTitle || 'Đang tải khóa học'}</span></> : examEligibleBatches.length ? 'Có thể lập lịch trước; đến ngày thi mới chốt điểm danh và kết quả.' : batches.length ? 'Chỉ lớp đang học mới có thể lập lịch thi.' : 'Chưa tải được danh sách lớp học.'}</p>
+                  <p className="min-h-5 pt-1 text-xs text-slate-500">{formData.batchId ? <>Khóa học: <span className="text-brand-primary">{batches.find((batch) => batch.id === formData.batchId)?.courseTitle || 'Đang tải khóa học'}</span></> : examEligibleBatches.length ? 'Có thể lập lịch trước; đến ngày thi mới chốt điểm danh và kết quả.' : batches.length ? 'Chỉ lớp đang học mới có thể lập lịch thi.' : 'Chưa tải được danh sách lớp học.'}</p>
                   {selectedBatch ? <div className={`mt-1 rounded-lg border px-2.5 py-2 text-[11px] leading-relaxed ${selectedBatch.status === 'Đang học' ? 'border-cyan-100 bg-cyan-50 text-cyan-800' : 'border-amber-100 bg-amber-50 text-amber-800'}`}>
                     {selectedBatch.status === 'Đang học'
                       ? 'Lớp đang học: có thể tạo lịch trước. Trước ngày thi cần hoàn tất các buổi học và chốt điểm danh.'
@@ -468,18 +459,18 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                   </div> : null}
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Thang điểm</label>
+                  <label className="text-sm text-slate-700">Thang điểm</label>
                   <input type="number" name="maxScore" min="1" value={formData.maxScore} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">Ngưỡng đạt</label>
+                  <label className="text-sm text-slate-700">Ngưỡng đạt</label>
                   <input type="number" name="passScore" min="0" max={formData.maxScore} value={formData.passScore} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary" />
                   <p className="text-[11px] text-slate-500">Điểm từ ngưỡng này trở lên được tính là Đậu.</p>
                 </div>
                 {showLegacyCourseField && isFieldVisible('rank') && (
                   <div className="space-y-1 relative group/std">
                     {renderFieldActions('rank')}
-                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                    <label className="text-sm text-slate-700">
                       {getFieldLabel('rank', 'Nhóm thi')}{' '}
                       {isFieldRequired('rank', false) && <span className="text-rose-500">*</span>}
                     </label>
@@ -489,7 +480,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                         onClick={() => setIsOpenCourses(!isOpenCourses)}
                         className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all text-slate-800 text-left select-none cursor-pointer"
                       >
-                        <span className={formData.rank ? "text-slate-850 font-bold" : "text-slate-350 font-medium"}>
+                        <span className={formData.rank ? "text-slate-800" : "text-slate-350 font-medium"}>
                           {formData.rank || "-- Chọn khóa học --"}
                         </span>
                         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpenCourses ? "rotate-180" : ""}`} />
@@ -503,7 +494,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                               setFormData(prev => ({ ...prev, rank: '' }));
                               setIsOpenCourses(false);
                             }}
-                            className={`px-4 py-2 text-xs font-medium cursor-pointer transition-colors hover:bg-slate-50 ${!formData.rank ? "text-brand-primary bg-slate-50/50 font-bold" : "text-slate-500"}`}
+                            className={`px-4 py-2 text-sm cursor-pointer transition-colors hover:bg-sky-50 ${!formData.rank ? "text-brand-primary bg-slate-50/50 font-bold" : "text-slate-500"}`}
                           >
                             -- Chọn khóa học --
                           </div>
@@ -514,7 +505,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                                 setFormData(prev => ({ ...prev, rank: course.title }));
                                 setIsOpenCourses(false);
                               }}
-                              className={`px-4 py-2 text-xs font-medium cursor-pointer transition-colors hover:bg-slate-50 flex items-center justify-between ${formData.rank === course.title ? "text-brand-primary bg-slate-50/50 font-bold" : "text-slate-700"}`}
+                              className={`px-4 py-2 text-sm cursor-pointer transition-colors hover:bg-sky-50 flex items-center justify-between ${formData.rank === course.title ? "text-brand-primary bg-slate-50/50 font-bold" : "text-slate-700"}`}
                             >
                               <span>{course.title}</span>
                               {formData.rank === course.title && <span className="w-1.5 h-1.5 rounded-full bg-brand-primary" />}
@@ -529,25 +520,11 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                 {isFieldVisible('tentativeDate') && (
                   <div className="space-y-1 relative group/std">
                     {renderFieldActions('tentativeDate')}
-                    <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                    <label className="text-sm text-slate-700">
                       {getFieldLabel('tentativeDate', 'Ngày thi dự kiến')}{' '}
                       {isFieldRequired('tentativeDate', true) && <span className="text-rose-500">*</span>}
                     </label>
-                    <div className="relative">
-                      <input
-                        ref={dateInputRef}
-                        type="date"
-                        name="tentativeDate"
-                        value={localTentativeDate}
-                        min={earliestExamDate || undefined}
-                        onChange={(e) => {
-                          setLocalTentativeDate(e.target.value);
-                          handleInputChange(e);
-                        }}
-                        required={isFieldRequired('tentativeDate', true)}
-                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/5 focus:border-brand-primary transition-all pr-10"
-                      />
-                    </div>
+                    <VietnameseDatePicker ariaLabel={getFieldLabel('tentativeDate', 'Ngày thi dự kiến')} value={formData.tentativeDate} min={earliestExamDate || undefined} onChange={(value) => setFormData((previous) => ({ ...previous, tentativeDate: value }))} required={isFieldRequired('tentativeDate', true)} selectionOnly variant="filter" />
                     {earliestExamDate && <p className="text-[10px] text-slate-400">Có thể thi sớm tối đa 15%: từ {earliestExamDate.split('-').reverse().join('/')}.</p>}
                   </div>
                 )}
@@ -556,7 +533,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
               {isFieldVisible('location') && (
                 <div className="space-y-1 relative group/std">
                   {renderFieldActions('location')}
-                  <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+                  <label className="text-sm text-slate-700">
                     {getFieldLabel('location', 'Địa điểm thi')}{' '}
                     {isFieldRequired('location', true) && <span className="text-rose-500">*</span>}
                   </label>
@@ -586,7 +563,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
 
             {manageable && archivedStdFields.length ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
+                <h4 className="text-sm font-medium text-slate-700">Trường mặc định đã lưu trữ</h4>
                 <ul className="mt-2 divide-y divide-slate-100">
                   {archivedStdFields.map((field, index) => (
                     <li key={field.key || `archived-${index}`} className="flex items-center justify-between py-2 text-xs text-slate-600">
@@ -594,11 +571,12 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
                       <button
                         type="button"
                         disabled={isSubmitting}
-                        className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors cursor-pointer"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600 transition-colors hover:bg-sky-100 disabled:opacity-50"
                         aria-label={`Khôi phục ${field.label}`}
+                        title={`Khôi phục ${field.label}`}
                         onClick={() => restoreStdField(field.key)}
                       >
-                        Khôi phục
+                        <RotateCcw className="h-3.5 w-3.5" />
                       </button>
                     </li>
                   ))}
@@ -608,17 +586,9 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
 
             <div className="flex items-center justify-end gap-3 pt-3 mt-4 border-t border-slate-50 flex-shrink-0">
               <button
-                type="button"
-                onClick={onClose}
-                disabled={isSubmitting}
-                className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
-              >
-                Hủy
-              </button>
-              <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-cyan-100 transition-all hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-70 disabled:hover:translate-y-0"
+                className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-70"
               >
                 {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 {isSubmitting ? 'Đang lưu...' : initialData ? 'Cập nhật đợt thi' : 'Tạo đợt thi'}

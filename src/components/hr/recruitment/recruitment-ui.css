@@ -1,0 +1,35 @@
+.recruitment-screen select:not([multiple]) {
+  appearance: none;
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23087BDF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem;
+}
+
+.recruitment-screen input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.recruitment-screen input[type="number"]::-webkit-inner-spin-button,
+.recruitment-screen input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.recruitment-screen input[type="date"]::-webkit-calendar-picker-indicator,
+.recruitment-screen input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(42%) sepia(96%) saturate(1533%) hue-rotate(171deg) brightness(91%) contrast(94%);
+}
+
+.recruitment-screen input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #e8f4ff;
+  padding: 0.45rem 0.75rem;
+  color: #087bdf;
+  cursor: pointer;
+}

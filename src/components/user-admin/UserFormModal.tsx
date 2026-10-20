@@ -4,6 +4,7 @@ import { CompanyProfile, UserProfile } from "../../types";
 import { BranchRecord } from "../../services/branchService";
 import { authService } from "../../services/authService";
 import { toast } from "../../pages/Toast";
+import { AdminDatePicker } from "./AdminDatePicker";
 
 export interface UserFormModalProps {
   open: boolean;
@@ -185,8 +186,7 @@ export function UserFormModal({
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Ngày sinh</label>
-                <input type="date" value={userBirthDate} onChange={(e) => setUserBirthDate(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+                <AdminDatePicker label="Ngày sinh" value={userBirthDate} onChange={setUserBirthDate} max={new Date().toLocaleDateString("sv-SE")} />
               </div>
 
               {/* Mật khẩu */}

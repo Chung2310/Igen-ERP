@@ -8,7 +8,6 @@ import {
   Package,
   Settings,
   Shield,
-  GraduationCap,
   Users,
   BookOpen,
   Lock,
@@ -19,11 +18,13 @@ import {
   Megaphone,
   Wrench,
   ContactRound,
+  GraduationCap,
 } from "lucide-react";
+import { FilledMenu3DIcon, type FilledMenu3DIconShape, type Menu3DIconPalette } from "../components/FilledMenu3DIcon";
 import {
+  BRAND_FULL_LOGO_PATH,
   BRAND_LOGO_PATH,
   BRAND_NAME,
-  BRAND_TAGLINE,
   PRIVACY_POLICY_URL,
   TERMS_OF_SERVICE_URL,
   USER_DATA_DELETION_URL,
@@ -138,6 +139,37 @@ const groupTitles: Record<MenuItem["group"], string> = {
   system: "Hệ thống",
 };
 
+const brandIconPalette: Menu3DIconPalette = {
+  light: "#86DCFF",
+  dark: "#16ACE7",
+  edge: "#087EB8",
+};
+
+const softBrandIconPalette: Menu3DIconPalette = {
+  light: "#AFE7FA",
+  dark: "#56B9DD",
+  edge: "#2587AD",
+};
+
+const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
+  "TỔNG QUAN": "overview",
+  "NHÂN SỰ": "people",
+  "ĐỐI TÁC": "partners",
+  "KHO & SẢN PHẨM": "warehouse",
+  "SỬA CHỮA & BẢO HÀNH": "repair",
+  "QUẢN LÝ HỌC VIÊN": "student",
+  "QUẢN LÝ LAO ĐỘNG": "work",
+  "QUẢN LÝ KHÁCH HÀNG": "customer",
+  "BÁN LẺ": "retail",
+  "TÀI CHÍNH": "finance",
+  "MARKETING": "marketing",
+  "QUẢN LÝ TÀI NGUYÊN": "folder",
+  "TRÒ CHUYỆN": "chat",
+  "QUẢN TRỊ USER": "shield",
+  "CÀI ĐẶT": "settings",
+  "HƯỚNG DẪN": "guide",
+};
+
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
   const { userProfile, hasPermission } = useAuth();
   const [isCollapsedState, setIsCollapsed] = useState(false);
@@ -210,22 +242,24 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
         id="sidebar_container"
       >
         {/* Brand Header */}
-        <div className={`flex items-center border-b border-slate-100 ${isCollapsed ? "justify-center px-3 py-4" : "px-5 py-4.5"}`} id="sidebar_brand_header">
-          <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
+        <div className={`flex items-center border-b border-slate-100 ${isCollapsed ? "justify-center px-3 py-3" : "justify-start pl-3.5 pr-2 pt-1.5 pb-2"}`} id="sidebar_brand_header">
+          {isCollapsed ? (
             <img
               src={BRAND_LOGO_PATH}
               alt={BRAND_NAME}
               onClick={() => setActiveTab("TỔNG QUAN")}
               title="Về trang Tổng quan"
-              className="h-10 w-10 shrink-0 rounded-xl border border-sky-100 object-cover shadow-sm cursor-pointer transition-transform hover:scale-105 active:scale-95"
+              className="h-9 w-9 shrink-0 rounded-xl object-contain cursor-pointer transition-transform hover:scale-105 active:scale-95"
             />
-            {!isCollapsed ? (
-              <div className="min-w-0">
-                <h2 className="truncate font-sans text-base font-bold tracking-tight text-sky-700">{BRAND_NAME}</h2>
-                <p className="truncate font-mono text-[10px] uppercase tracking-widest text-slate-400">{BRAND_TAGLINE}</p>
-              </div>
-            ) : null}
-          </div>
+          ) : (
+            <img
+              src={BRAND_FULL_LOGO_PATH}
+              alt={BRAND_NAME}
+              onClick={() => setActiveTab("TỔNG QUAN")}
+              title="Về trang Tổng quan"
+              className="h-[64px] w-auto max-w-[220px] shrink-0 object-contain object-left -translate-y-1 cursor-pointer transition-transform hover:scale-102 active:scale-98"
+            />
+          )}
         </div>
 
         {/* Navigation Menu */}
@@ -245,6 +279,10 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                 {itemsInGroup.map((item) => {
                   const isActive = activeTab === item.label;
                   const Icon = item.icon;
+                  const iconShape = menuIconShapes[item.label];
+                  const iconPalette = isActive || groupKey === "main" || groupKey === "operations"
+                    ? brandIconPalette
+                    : softBrandIconPalette;
 
                   return (
                     <button
@@ -259,7 +297,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                         item.locked
                           ? "cursor-not-allowed text-slate-300 opacity-60"
                           : isActive
-                          ? "bg-sky-50 text-sky-700 font-semibold shadow-xs"
+                          ? "bg-sky-50 text-slate-900 font-semibold shadow-xs"
                           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                       } ${isCollapsed ? "justify-center" : "justify-between"}`}
                       id={`sidebar_menu_${item.label.replace(/\s+/g, "_")}`}
@@ -272,15 +310,11 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-                        <Icon
-                          className={`h-5 w-5 shrink-0 transition-colors ${
-                            item.locked
-                              ? "text-slate-300"
-                              : isActive
-                              ? "text-sky-600"
-                              : "text-slate-400 group-hover:text-slate-600"
-                          }`}
-                        />
+                        {iconShape ? (
+                          <FilledMenu3DIcon shape={iconShape} palette={iconPalette} className="h-6 w-6" />
+                        ) : (
+                          <Icon className={`h-5 w-5 shrink-0 transition-colors ${item.locked ? "text-slate-300" : isActive ? "text-[#00ADFC]" : "text-slate-400 group-hover:text-slate-600"}`} />
+                        )}
                         {!isCollapsed ? (
                           <span className="truncate">{item.title}</span>
                         ) : null}
@@ -289,7 +323,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       {item.locked ? (
                         <Lock className="h-3.5 w-3.5 shrink-0 text-slate-300" />
                       ) : !isCollapsed && isActive ? (
-                        <div className="h-1.5 w-1.5 rounded-full bg-sky-600" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#00ADFC]" />
                       ) : null}
                     </button>
                   );

@@ -75,7 +75,7 @@ export function SearchableSelect({
           isOpen ? "border-blue-500 ring-4 ring-blue-500/10" : ""
         }`}
       >
-        <span className={`truncate mr-2 flex-1 ${selectedOption ? "text-slate-800 font-medium" : "text-slate-400 font-normal"}`}>
+        <span data-placeholder={selectedOption ? undefined : ""} className={`truncate mr-2 flex-1 ${selectedOption ? "text-slate-800 font-medium" : "text-slate-400 font-normal"}`}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />

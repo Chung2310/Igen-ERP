@@ -17,6 +17,7 @@ import { resolveDashboardModuleAccess } from "./dashboard-module-access";
 import { ProductModel } from "../model/product.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { analyticsService } from "./analytics.service";
+import { HRContractModel } from "../model/hr-contract.model";
 
 export interface DashboardUser {
   id: string;
@@ -62,18 +63,19 @@ function parseFeeString(fee: unknown): number {
   return parseInt(String(fee || "").replace(/\D/g, ""), 10) || 0;
 }
 
-/** Dự án & Công việc — số liệu là snapshot hiện tại, không theo bộ lọc thời gian */
-async function getProjectStats(companyQ: Record<string, any>) {
+/** Công việc được tạo trong khoảng ngày đã chọn, nhóm theo trạng thái hiện tại. */
+async function getProjectStats(companyQ: Record<string, any>, range: DashboardRange) {
+  const periodQ = { ...companyQ, createdAt: { $gte: range.start, $lte: range.end } };
   const [activeProjects, byStatus, overdueTasks] = await Promise.all([
-    ProjectModel.countDocuments(companyQ),
+    ProjectModel.countDocuments(periodQ),
     KanbanTaskModel.aggregate([
-      { $match: companyQ },
+      { $match: periodQ },
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]),
     // dueDate là chuỗi "YYYY-MM-DDTHH:mm" — $gt: "" loại giá trị rỗng,
     // "Chưa cập nhật" bắt đầu bằng chữ nên sắp sau chữ số và bị $lt loại luôn
     KanbanTaskModel.countDocuments({
-      ...companyQ,
+      ...periodQ,
       status: { $nin: ["Done", "done"] },
       dueDate: { $gt: "", $lt: getLocalDateTimeString() },
     }),
@@ -203,7 +205,7 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
 /** Chấm công toàn doanh nghiệp trong ngày hôm nay */
 async function getTimekeepingStats(user: DashboardUser) {
   const todayStr = getLocalDateString();
-  const tkQ = user.companyCode ? { companyCode: user.companyCode } : {};
+  const tkQ = buildCompanyQuery(user);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -212,11 +214,12 @@ async function getTimekeepingStats(user: DashboardUser) {
 
   const [checkedInToday, lateToday, totalEmployees, onApprovedLeaveToday] = await Promise.all([
     TimekeepingLogModel.countDocuments({ ...tkQ, date: todayStr, checkIn: { $ne: null } }),
-    TimekeepingLogModel.countDocuments({ ...tkQ, date: todayStr, status: "Late" }),
+    TimekeepingLogModel.countDocuments({ ...tkQ, date: todayStr, status: { $in: ["Late", "Late-Left-Early"] } }),
     UserModel.countDocuments({ ...tkQ, role: { $ne: "superadmin" } }),
     HRLeaveApplicationModel.countDocuments({
       ...tkQ,
       status: "approved",
+      requestKind: "leave",
       startDate: { $lte: endOfToday },
       endDate: { $gte: today },
     }),
@@ -225,6 +228,37 @@ async function getTimekeepingStats(user: DashboardUser) {
   const absentWithoutLeave = Math.max(0, totalEmployees - checkedInToday - onApprovedLeaveToday);
 
   return { checkedInToday, lateToday, totalEmployees, onApprovedLeaveToday, absentWithoutLeave, date: todayStr };
+}
+
+async function getPersonnelNow(user: DashboardUser) {
+  const companyQ = buildCompanyQuery(user);
+  const canApproveLeave = user.role === "superadmin" || Boolean(user.permissions?.has("*") || user.permissions?.has("timekeeping:manage"));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiringBy = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30, 23, 59, 59, 999);
+  const contractQ = { ...companyQ, status: "active" as const, endDate: { $gte: today, $lte: expiringBy } };
+  const taskQ = { ...companyQ, status: { $nin: ["Done", "done", "Archived"] as const } };
+  const inProgressTaskQ = { ...companyQ, status: { $in: ["In Progress", "doing"] as const } };
+  const [expiringContractCount, contracts, pendingTaskCount, tasks, inProgressTaskCount, inProgressTasks, pendingApprovalCount, pendingApprovals] = await Promise.all([
+    HRContractModel.countDocuments(contractQ),
+    HRContractModel.find(contractQ).select("_id employeeName endDate").sort({ endDate: 1 }).limit(5).lean(),
+    KanbanTaskModel.countDocuments(taskQ),
+    KanbanTaskModel.find(taskQ).select("_id title assignee dueDate status").sort({ dueDate: 1 }).limit(5).lean(),
+    KanbanTaskModel.countDocuments(inProgressTaskQ),
+    KanbanTaskModel.find(inProgressTaskQ).select("_id title assignee dueDate status").sort({ dueDate: 1 }).limit(5).lean(),
+    canApproveLeave ? HRLeaveApplicationModel.countDocuments({ ...companyQ, status: "pending" }) : Promise.resolve(0),
+    canApproveLeave ? HRLeaveApplicationModel.find({ ...companyQ, status: "pending" }).select("_id employeeName type createdAt").sort({ createdAt: 1 }).limit(3).lean() : Promise.resolve([]),
+  ]);
+  return {
+    expiringContractCount,
+    expiringContracts: contracts.map((contract) => ({ id: String(contract._id), employeeName: contract.employeeName, endDate: contract.endDate })),
+    pendingTaskCount,
+    pendingTasks: tasks.map((task) => ({ id: String(task._id), title: task.title, assignee: task.assignee, dueDate: task.dueDate, status: task.status })),
+    inProgressTaskCount,
+    inProgressTasks: inProgressTasks.map((task) => ({ id: String(task._id), title: task.title, assignee: task.assignee, dueDate: task.dueDate })),
+    pendingApprovalCount,
+    pendingApprovals: pendingApprovals.map((application) => ({ id: String(application._id), employeeName: application.employeeName, type: application.type })),
+  };
 }
 
 /** Chat nội bộ — luôn scope theo chính người gọi, không theo toàn công ty */
@@ -268,14 +302,15 @@ async function getResourceStats(companyQ: Record<string, any>, range: DashboardR
 }
 
 /** Đào tạo nội bộ — khóa học và ghi danh */
-async function getTrainingStats(companyQ: Record<string, any>) {
+async function getTrainingStats(companyQ: Record<string, any>, range: DashboardRange) {
+  const periodQ = { ...companyQ, createdAt: { $gte: range.start, $lte: range.end } };
   const [totalCourses, enrollAgg, ongoingCourseIds] = await Promise.all([
-    TrainingCourseModel.countDocuments(companyQ),
+    TrainingCourseModel.countDocuments(periodQ),
     TrainingEnrollmentModel.aggregate([
-      { $match: companyQ },
+      { $match: periodQ },
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]),
-    TrainingEnrollmentModel.distinct("courseId", { ...companyQ, status: "in_progress" }),
+    TrainingEnrollmentModel.distinct("courseId", { ...periodQ, status: "in_progress" }),
   ]);
 
   const enrollCount = (status: string) =>
@@ -355,9 +390,9 @@ export const dashboardService = {
     const companyQ = buildCompanyQuery(user);
     const access = resolveDashboardModuleAccess(user);
 
-    const [projects, students, timekeeping, chat, resources, training] = await Promise.all([
+    const [projects, students, timekeeping, chat, resources, training, personnelNow] = await Promise.all([
       access.hr
-        ? getProjectStats(companyQ)
+        ? getProjectStats(companyQ, range)
         : Promise.resolve({ activeProjects: 0, tasks: { todo: 0, doing: 0, done: 0, total: 0 }, overdueTasks: 0 }),
       access.student
         ? getStudentStats(user, range)
@@ -368,8 +403,9 @@ export const dashboardService = {
       access.chat ? getChatStats(user) : Promise.resolve({ unreadMessages: 0, roomCount: 0 }),
       access.resource ? getResourceStats(companyQ, range) : Promise.resolve({ fileCount: 0, recentUploads: 0, totalSize: 0 }),
       access.hr
-        ? getTrainingStats(companyQ)
+        ? getTrainingStats(companyQ, range)
         : Promise.resolve({ totalCourses: 0, ongoingCourses: 0, enrollments: { notStarted: 0, inProgress: 0, completed: 0, total: 0 } }),
+      access.hr ? getPersonnelNow(user) : Promise.resolve({ expiringContractCount: 0, expiringContracts: [], pendingTaskCount: 0, pendingTasks: [], inProgressTaskCount: 0, inProgressTasks: [], pendingApprovalCount: 0, pendingApprovals: [] }),
     ]);
 
     let receivables = students.receivables;
@@ -401,6 +437,7 @@ export const dashboardService = {
       chat,
       resources,
       training,
+      personnelNow,
       receivables,
       instructors,
     };

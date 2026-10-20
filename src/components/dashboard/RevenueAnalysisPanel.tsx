@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { BarChart3, PieChart, Calendar, TrendingUp, Loader2 } from "lucide-react";
+import { BarChart3, PieChart, Calendar, TrendingUp, Loader2 } from "./DashboardIcons";
 import { BarChart, DonutCard } from "./DashboardWidgets";
 import { formatDashboardCurrency } from "./dashboardUtils";
 import { analyticsService } from "../../services/analyticsService";
+import { DASHBOARD_CHART_PALETTE } from "./dashboardPalette";
 
 type TimeFilter = "month" | "quarter" | "year";
 
@@ -84,7 +85,7 @@ export function RevenueAnalysisPanel() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl bg-white p-4 border border-slate-200/60 shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8F7FF] text-[#00ADFC]">
             <TrendingUp className="h-5 w-5" />
           </div>
           <div>
@@ -96,19 +97,19 @@ export function RevenueAnalysisPanel() {
         <div className="flex bg-slate-100 p-1 rounded-xl">
           <button
             onClick={() => setFilter("month")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${filter === "month" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${filter === "month" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
             Theo Tháng
           </button>
           <button
             onClick={() => setFilter("quarter")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${filter === "quarter" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${filter === "quarter" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
             Theo Quý
           </button>
           <button
             onClick={() => setFilter("year")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${filter === "year" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${filter === "year" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
             Theo Năm
           </button>
@@ -121,12 +122,12 @@ export function RevenueAnalysisPanel() {
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-cyan-500" />
+                <BarChart3 className="h-4 w-4 text-[#00ADFC]" />
                 Biểu đồ Doanh thu
               </h3>
               <p className="text-2xl font-black text-slate-900 mt-2">{formatDashboardCurrency(currentTotal, 1, false)}</p>
             </div>
-            <div className="rounded-full bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700 flex items-center gap-1.5">
+            <div className="rounded-full bg-[#E8F7FF] px-3 py-1.5 text-xs font-semibold text-[#007EB8] flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
               {filter === "month" ? "Tháng này" : filter === "quarter" ? "Quý này" : "Năm nay"}
             </div>
@@ -146,7 +147,7 @@ export function RevenueAnalysisPanel() {
         <div className="rounded-3xl border border-slate-200/60 bg-white p-6 shadow-sm flex flex-col">
           <div className="mb-6">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-indigo-500" />
+              <PieChart className="h-4 w-4 text-[#00ADFC]" />
               Cơ cấu Khóa học
             </h3>
             <p className="text-xs text-slate-500 mt-1">Tỷ trọng doanh thu theo từng chương trình</p>
@@ -161,7 +162,7 @@ export function RevenueAnalysisPanel() {
                 compact
                 centerLabel="Tổng"
                 centerValue="100%"
-                segments={realCourseData}
+                segments={realCourseData.map((item, index) => ({ ...item, color: DASHBOARD_CHART_PALETTE[index % DASHBOARD_CHART_PALETTE.length] }))}
               />
             )}
           </div>

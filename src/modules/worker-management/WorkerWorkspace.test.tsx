@@ -105,7 +105,7 @@ describe("WorkerWorkspace", () => {
     workspaceState.showWorkers = true;
     render(<WorkerWorkspace />);
     expect(await screen.findByText(/project prop: Project Alpha/)).toBeTruthy();
-    expect(screen.getByText(/profile prop: Runtime phone/)).toBeTruthy();
+    expect(screen.getByText(/profile prop: Số điện thoại/)).toBeTruthy();
     expect(workspaceState.projectFetch).toHaveBeenCalledWith("/worker-management/projects", {
       params: { companyCode: "LABOR" },
     });
@@ -133,7 +133,7 @@ describe("WorkerWorkspace", () => {
     render(<WorkerWorkspace />);
     await userEvent.click(await screen.findByRole("button", { name: "Open dashboard worker" }));
     const modal = document.querySelector(".fixed.z-\\[60\\]") as HTMLElement;
-    await userEvent.click(modal.querySelector(".border-b button") as HTMLElement);
+    await userEvent.click(screen.getByRole("button", { name: "Chỉnh sửa" }));
     fireEvent.change(modal.querySelector('input[name="phone"]') as HTMLInputElement, {
       target: { value: "0902" },
     });
@@ -147,7 +147,7 @@ describe("WorkerWorkspace", () => {
     render(<WorkerWorkspace />);
     await userEvent.click(await screen.findByRole("button", { name: "Open dashboard worker" }));
     const modal = document.querySelector(".fixed.z-\\[60\\]") as HTMLElement;
-    await userEvent.click(modal.querySelector(".border-b button") as HTMLElement);
+    await userEvent.click(screen.getByRole("button", { name: "Chỉnh sửa" }));
     fireEvent.change(modal.querySelector('input[name="fullName"]') as HTMLInputElement, {
       target: { value: "Nguyễn Văn B" },
     });
@@ -171,11 +171,13 @@ describe("WorkerWorkspace", () => {
     });
 
     render(<WorkerWorkspace />);
-    const centerSelect = screen.getByRole("combobox");
-    fireEvent.change(centerSelect, { target: { value: "COMPANY-A" } });
+    const centerSelect = screen.getByRole("button", { name: "Chọn cơ sở lao động" });
+    await userEvent.click(centerSelect);
+    await userEvent.click(screen.getByRole("option", { name: "Company A" }));
     expect(await screen.findByText(/project prop: Project A/)).toBeTruthy();
 
-    fireEvent.change(centerSelect, { target: { value: "COMPANY-B" } });
+    await userEvent.click(centerSelect);
+    await userEvent.click(screen.getByRole("option", { name: "Company B" }));
     expect(screen.queryByText(/project prop: Project A/)).toBeNull();
   });
 });

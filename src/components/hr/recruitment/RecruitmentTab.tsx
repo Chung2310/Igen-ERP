@@ -3,6 +3,7 @@ import { BriefcaseBusiness, CalendarClock, Users, ChevronLeft, ChevronRight } fr
 import RecruitmentJobsView from "./RecruitmentJobsView";
 import RecruitmentApplicantsView from "./RecruitmentApplicantsView";
 import RecruitmentInterviewsView from "./RecruitmentInterviewsWorkspace";
+import "./recruitment-ui.css";
 
 type View = "jobs" | "applicants" | "interviews";
 const tabs = [
@@ -25,19 +26,19 @@ export default function RecruitmentTab({ canManage = false }: { canManage?: bool
     }
   };
 
-  return <section className="flex min-h-0 flex-1 flex-col bg-slate-50" aria-label="Quản lý tuyển dụng">
-    <div className="flex shrink-0 items-center gap-1 border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 sm:px-5">
+  return <section className="recruitment-screen flex min-h-0 flex-1 flex-col bg-gradient-to-br from-[#F7FAFF] via-[#F2F8FF] to-[#F7FBFD]" aria-label="Quản lý tuyển dụng">
+    <div className="flex shrink-0 items-center gap-1 border-b border-[#E7F0F8] bg-white px-3 py-2 sm:px-5">
       <button
         type="button"
         aria-label="Cuộn tab tuyển dụng sang trái"
         onClick={() => scrollSubTabs("left")}
-        className="flex h-8 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"
+        className="flex h-8 w-5 shrink-0 items-center justify-center text-[#7C90AB] transition-colors hover:text-[#087BDF] sm:hidden"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
       <div
         ref={subTabsRef}
-        className="flex min-w-0 max-w-full flex-1 gap-1 overflow-x-auto scrollbar-none select-none -mb-px"
+        className="flex min-w-0 max-w-full flex-1 select-none gap-1 overflow-x-auto scrollbar-none"
       >
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
@@ -45,10 +46,10 @@ export default function RecruitmentTab({ canManage = false }: { canManage?: bool
             type="button"
             onClick={() => setView(id)}
             aria-pressed={view === id}
-            className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+            className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30 ${
               view === id
-                ? "bg-cyan-600 text-white font-bold shadow-sm"
-                : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
+                ? "bg-[#00A4E8] text-white"
+                : "text-[#536B8F] hover:bg-[#EAF6FE] hover:text-[#087BDF]"
             }`}
           >
             <Icon className="h-4 w-4" />
@@ -60,7 +61,7 @@ export default function RecruitmentTab({ canManage = false }: { canManage?: bool
         type="button"
         aria-label="Cuộn tab tuyển dụng sang phải"
         onClick={() => scrollSubTabs("right")}
-        className="flex h-8 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"
+        className="flex h-8 w-5 shrink-0 items-center justify-center text-[#7C90AB] transition-colors hover:text-[#087BDF] sm:hidden"
       >
         <ChevronRight className="h-4 w-4" />
       </button>

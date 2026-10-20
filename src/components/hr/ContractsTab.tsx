@@ -6,11 +6,14 @@ import {
   RefreshCw,
   Search,
   Upload,
+  X,
 } from "lucide-react";
 import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { FilePreviewModal } from "../resource/FilePreviewModal";
+import { DateInput24 } from "../common/TimeInput24";
+import { HrFormSelect } from "./HrFormSelect";
 import type { ResourceItem } from "../../types";
 
 type ContractStatus = "draft" | "active" | "expired" | "terminated";
@@ -140,7 +143,7 @@ const emptyExtension = {
   extensionSignedImageUploadToken: "",
 };
 const input =
-  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/15";
+  "w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-xs text-slate-700 outline-none transition focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15";
 const statusLabel: Record<ContractStatus, string> = {
   draft: "Bản nháp",
   active: "Còn hiệu lực",
@@ -512,51 +515,57 @@ export default function ContractsTab({
     });
   };
   return (
-    <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-5 text-left">
+    <div className="min-h-0 flex-1 overflow-auto bg-[#F5F8FC] p-4 text-left md:p-5">
       <div className="mx-auto max-w-7xl space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-              <FileSignature className="text-cyan-600" />
-              Quản lý hợp đồng
-            </h2>
-            <p className="text-xs text-slate-500">
-              Theo dõi hợp đồng và lịch sử gia hạn của từng nhân viên.
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#DCE7F4] bg-white px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8F7FF] text-[#00A4E8]">
+              <FileSignature size={19} />
+            </span>
+            <div>
+              <h2 className="text-base font-medium text-slate-800">
+                Quản lý hợp đồng
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Theo dõi hợp đồng và lịch sử gia hạn của từng nhân viên.
+              </p>
+            </div>
           </div>
           {canManage && tab === "contracts" && (
             <button
               onClick={() => openContract()}
-              className="flex items-center gap-1.5 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-bold text-white"
+              className="flex items-center gap-1.5 rounded-xl bg-[#00A4E8] px-4 py-2.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#008FCB]"
             >
               <Plus size={15} />
               Tạo hợp đồng
             </button>
           )}
         </div>
-        <div className="flex gap-1 rounded-xl border bg-white p-1 w-fit">
+        <div className="flex w-fit gap-1 rounded-xl border border-[#DCE7F4] bg-[#F0F6FB] p-1">
           <button
+            type="button"
             onClick={() => setTab("contracts")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold ${tab === "contracts" ? "bg-cyan-600 text-white" : "text-slate-600"}`}
+            className={`rounded-lg px-4 py-2 text-xs font-normal transition-colors ${tab === "contracts" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
           >
             Danh sách hợp đồng
           </button>
           <button
+            type="button"
             onClick={() => setTab("extensions")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold ${tab === "extensions" ? "bg-cyan-600 text-white" : "text-slate-600"}`}
+            className={`rounded-lg px-4 py-2 text-xs font-normal transition-colors ${tab === "extensions" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
           >
             Gia hạn hợp đồng
           </button>
         </div>
         {loading ? (
-          <div className="p-12 text-center text-xs text-slate-500">
+          <div className="rounded-2xl border border-[#DCE7F4] bg-white p-12 text-center text-xs text-slate-500">
             Đang tải hợp đồng...
           </div>
         ) : tab === "contracts" ? (
           <>
             {expiringContracts.length > 0 && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
-                <p className="text-xs font-bold">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-amber-800">
+                <p className="text-xs font-medium">
                   Có {expiringContracts.length} hợp đồng sắp hết hạn trong 20
                   ngày tới
                 </p>
@@ -576,7 +585,7 @@ export default function ContractsTab({
             )}
             <div className="relative max-w-sm">
               <Search
-                className="absolute left-3 top-2.5 text-slate-400"
+                className="absolute left-3 top-3 text-slate-400"
                 size={15}
               />
               <input
@@ -586,20 +595,20 @@ export default function ContractsTab({
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              <table className="w-full text-xs">
-                <thead className="bg-slate-50 text-slate-500">
+            <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4] bg-white shadow-sm">
+              <table className="w-full min-w-[820px] text-xs text-slate-700">
+                <thead className="bg-[#F1F8FC] text-slate-600">
                   <tr>
-                    <th className="p-3 text-left">Nhân viên</th>
-                    <th className="p-3 text-left">Loại hợp đồng</th>
-                    <th className="p-3">Bắt đầu</th>
-                    <th className="p-3">Hết hạn</th>
-                    <th className="p-3">Trạng thái</th>
-                    <th className="p-3">Tài liệu</th>
-                    <th className="p-3"></th>
+                    <th className="border-r border-[#E8EEF5] p-3 text-left font-medium">Nhân viên</th>
+                    <th className="border-r border-[#E8EEF5] p-3 text-left font-medium">Loại hợp đồng</th>
+                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Bắt đầu</th>
+                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Hết hạn</th>
+                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Trạng thái</th>
+                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Tài liệu</th>
+                    <th className="p-3 font-normal"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-[#E8EEF5]">
                   {contracts.map((c) => {
                     const remainingDays = daysUntilExpiry(c.endDate);
                     const expiringSoon = isExpiringSoon(c);
@@ -607,40 +616,40 @@ export default function ContractsTab({
                     return (
                       <tr
                         key={c._id}
-                        className={expiringSoon ? "bg-amber-50/60" : ""}
+                        className={`transition-colors hover:bg-[#F8FCFF] ${expiringSoon ? "bg-amber-50/50" : ""}`}
                       >
-                        <td className="p-3">
-                          <b>{c.employeeName}</b>
+                        <td className="border-r border-[#EEF3F8] p-3">
+                          <span className="font-medium text-slate-800">{c.employeeName}</span>
                           {emp && (
                             <div className="text-[10px] text-slate-400">
                               {emp.department}
                             </div>
                           )}
                         </td>
-                        <td className="p-3">{c.contractType}</td>
-                        <td className="p-3 text-center">
+                        <td className="border-r border-[#EEF3F8] p-3">{c.contractType}</td>
+                        <td className="border-r border-[#EEF3F8] p-3 text-center">
                           {date(c.startDate)}
                         </td>
-                        <td className="p-3 text-center">
+                        <td className="border-r border-[#EEF3F8] p-3 text-center">
                           <div>{date(c.endDate)}</div>
                           {expiringSoon && (
-                            <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                            <span className="mt-1 inline-block rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-normal text-amber-700">
                               Sắp hết hạn · Còn {remainingDays} ngày
                             </span>
                           )}
                         </td>
-                        <td className="p-3 text-center">
+                        <td className="border-r border-[#EEF3F8] p-3 text-center">
                           <span
-                            className={`rounded-full px-2 py-1 font-bold ${statusStyle[c.status]}`}
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-normal ${statusStyle[c.status]}`}
                           >
                             {statusLabel[c.status]}
                           </span>
                         </td>
-                        <td className="p-3 text-center space-x-2">
+                        <td className="border-r border-[#EEF3F8] p-3 text-center">
                           {c.contractFileUrl && (
                             <button
                               type="button"
-                              className="font-bold text-cyan-700 hover:underline"
+                              className="mr-2 text-[#007EB8] hover:underline"
                               onClick={() => preview(c, "contract")}
                             >
                               Xem file
@@ -649,7 +658,7 @@ export default function ContractsTab({
                           {c.signedImageUrl && (
                             <button
                               type="button"
-                              className="font-bold text-cyan-700 hover:underline"
+                              className="text-[#007EB8] hover:underline"
                               onClick={() => preview(c, "signed")}
                             >
                               Xem ảnh ký
@@ -657,18 +666,22 @@ export default function ContractsTab({
                           )}
                         </td>
                         <td className="p-3">
-                          <div className="flex gap-2">
+                          <div className="flex justify-center gap-1.5">
                             {canManage && (
                               <>
                                 <button
+                                  type="button"
                                   title="Sửa"
                                   onClick={() => openContract(c)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#DCE7F4] text-[#007EB8] transition-colors hover:bg-[#E8F7FF]"
                                 >
                                   <Pencil size={14} />
                                 </button>
                                 <button
+                                  type="button"
                                   title="Gia hạn"
                                   onClick={() => openExtension(c)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#DCE7F4] text-[#118F9B] transition-colors hover:bg-[#E8F8F7]"
                                 >
                                   <RefreshCw size={14} />
                                 </button>
@@ -683,9 +696,12 @@ export default function ContractsTab({
                     <tr>
                       <td
                         colSpan={7}
-                        className="p-10 text-center text-slate-400"
+                        className="p-10 text-center text-slate-500"
                       >
-                        Chưa có hợp đồng nào.
+                        <div className="mx-auto flex max-w-xs flex-col items-center gap-2">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E8F7FF] text-[#00A4E8]"><FileSignature size={19} /></span>
+                          <span>Chưa có hợp đồng nào.</span>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -695,19 +711,19 @@ export default function ContractsTab({
 
             {/* Pagination Controls */}
             {total > limit && (
-              <div className="flex items-center justify-between border-t border-slate-100 bg-white px-4 py-3 sm:px-6 rounded-b-2xl">
+              <div className="flex items-center justify-between border-t border-[#E8EEF5] bg-white px-4 py-3 sm:px-6">
                 <div className="flex flex-1 justify-between sm:hidden">
                   <button
                     disabled={page === 1}
                     onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                    className="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="relative inline-flex items-center rounded-lg border border-[#DCE7F4] bg-white px-4 py-2 text-xs text-slate-700 transition-colors hover:bg-[#F4FAFE] disabled:opacity-50"
                   >
                     Trước
                   </button>
                   <button
                     disabled={page * limit >= total}
                     onClick={() => setPage((p) => p + 1)}
-                    className="relative ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="relative ml-3 inline-flex items-center rounded-lg border border-[#DCE7F4] bg-white px-4 py-2 text-xs text-slate-700 transition-colors hover:bg-[#F4FAFE] disabled:opacity-50"
                   >
                     Sau
                   </button>
@@ -721,18 +737,18 @@ export default function ContractsTab({
                     </p>
                   </div>
                   <div>
-                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <nav className="inline-flex items-center gap-1 rounded-xl border border-[#DCE7F4] bg-white p-1" aria-label="Pagination">
                       <button
                         disabled={page === 1}
                         onClick={() => setPage(1)}
-                        className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                        className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-[#E8F7FF] hover:text-[#007EB8] disabled:opacity-30"
                       >
                         «
                       </button>
                       <button
                         disabled={page === 1}
                         onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                        className="relative inline-flex items-center px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                        className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-[#E8F7FF] hover:text-[#007EB8] disabled:opacity-30"
                       >
                         ‹
                       </button>
@@ -743,10 +759,10 @@ export default function ContractsTab({
                           <button
                             key={pageNum}
                             onClick={() => setPage(pageNum)}
-                            className={`relative inline-flex items-center px-4 py-2 text-xs font-semibold focus:z-20 ${
+                            className={`relative inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-xs font-normal transition-colors ${
                               page === pageNum
-                                ? "z-10 bg-cyan-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600"
-                                : "text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:outline-offset-0"
+                                ? "bg-[#E8F7FF] text-[#007EB8]"
+                                : "text-slate-600 hover:bg-[#F4FAFE]"
                             }`}
                           >
                             {pageNum}
@@ -756,14 +772,14 @@ export default function ContractsTab({
                       <button
                         disabled={page * limit >= total}
                         onClick={() => setPage((p) => p + 1)}
-                        className="relative inline-flex items-center px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                        className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-[#E8F7FF] hover:text-[#007EB8] disabled:opacity-30"
                       >
                         ›
                       </button>
                       <button
                         disabled={page * limit >= total}
                         onClick={() => setPage(Math.ceil(total / limit))}
-                        className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-30"
+                        className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-[#E8F7FF] hover:text-[#007EB8] disabled:opacity-30"
                       >
                         »
                       </button>
@@ -778,45 +794,45 @@ export default function ContractsTab({
             {canManage && (
               <button
                 onClick={() => openExtension()}
-                className="flex items-center gap-1.5 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-bold text-white"
+                className="flex items-center gap-1.5 rounded-xl border border-[#B8E8FB] bg-[#E8F7FF] px-4 py-2.5 text-xs font-medium text-[#007EB8] transition-colors hover:bg-[#DDF3FF]"
               >
                 <Plus size={15} />
                 Tạo gia hạn
               </button>
             )}
-            <div className="overflow-hidden rounded-2xl border bg-white">
-              <table className="w-full text-xs">
-                <thead className="bg-slate-50 text-slate-500">
+            <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4] bg-white shadow-sm">
+              <table className="w-full min-w-[760px] text-xs text-slate-700">
+                <thead className="bg-[#F1F8FC] text-slate-600">
                   <tr>
-                    <th className="p-3 text-left">Nhân viên</th>
-                    <th className="p-3">Ngày gia hạn</th>
-                    <th className="p-3">Hạn cũ</th>
-                    <th className="p-3">Hạn mới</th>
-                    <th className="p-3 text-left">Lý do</th>
-                    <th className="p-3">Tài liệu</th>
+                    <th className="border-r border-[#E8EEF5] p-3 text-left font-medium">Nhân viên</th>
+                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Ngày gia hạn</th>
+                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Hạn cũ</th>
+                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Hạn mới</th>
+                    <th className="border-r border-[#E8EEF5] p-3 text-left font-medium">Lý do</th>
+                    <th className="p-3 font-medium">Tài liệu</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-[#E8EEF5]">
                   {extensions.map((x) => (
-                    <tr key={x._id}>
-                      <td className="p-3 font-bold">{x.employeeName}</td>
-                      <td className="p-3 text-center">
+                    <tr key={x._id} className="transition-colors hover:bg-[#F8FCFF]">
+                      <td className="border-r border-[#EEF3F8] p-3 font-medium text-slate-800">{x.employeeName}</td>
+                      <td className="border-r border-[#EEF3F8] p-3 text-center">
                         {date(x.extensionDate)}
                       </td>
-                      <td className="p-3 text-center">
+                      <td className="border-r border-[#EEF3F8] p-3 text-center">
                         {date(x.previousEndDate)}
                       </td>
-                      <td className="p-3 text-center font-bold text-emerald-700">
+                      <td className="border-r border-[#EEF3F8] p-3 text-center text-emerald-700">
                         {date(x.newEndDate)}
                       </td>
-                      <td className="p-3">{x.reason || "—"}</td>
-                      <td className="p-3 text-center space-x-2">
+                      <td className="border-r border-[#EEF3F8] p-3">{x.reason || "—"}</td>
+                      <td className="p-3 text-center">
                         {x.extensionFileUrl && (
                           <a
                             href={x.extensionFileUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-cyan-700"
+                            className="mr-2 text-[#007EB8] hover:underline"
                           >
                             File
                           </a>
@@ -826,7 +842,7 @@ export default function ContractsTab({
                             href={x.signedImageUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-cyan-700"
+                            className="text-[#007EB8] hover:underline"
                           >
                             Ảnh ký
                           </a>
@@ -838,9 +854,12 @@ export default function ContractsTab({
                     <tr>
                       <td
                         colSpan={6}
-                        className="p-10 text-center text-slate-400"
+                        className="p-10 text-center text-slate-500"
                       >
-                        Chưa có lịch sử gia hạn hợp đồng.
+                        <div className="mx-auto flex max-w-xs flex-col items-center gap-2">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E8F7FF] text-[#00A4E8]"><RefreshCw size={18} /></span>
+                          <span>Chưa có lịch sử gia hạn hợp đồng.</span>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -864,27 +883,24 @@ export default function ContractsTab({
           )}
         >
           <div className="grid grid-cols-2 gap-3">
-            <label className="col-span-2 text-xs">
+            <label className="col-span-2 space-y-1.5 text-xs text-slate-600">
               Nhân viên
-              <select
-                className={input}
+              <HrFormSelect
                 value={contractForm.employeeId}
-                onChange={(e) =>
+                onChange={(value) =>
                   setContractForm({
                     ...contractForm,
-                    employeeId: e.target.value,
+                    employeeId: value,
                   })
                 }
-              >
-                <option value="">Chọn nhân viên</option>
-                {employees.map((e) => (
-                  <option key={e._id} value={e._id}>
-                    {e.displayName || e.email}
-                  </option>
-                ))}
-              </select>
+                label="Nhân viên"
+                options={[
+                  { value: "", label: "Chọn nhân viên" },
+                  ...employees.map((e) => ({ value: e._id, label: e.displayName || e.email })),
+                ]}
+              />
             </label>
-            <label className="col-span-2 text-xs">
+            <label className="col-span-2 space-y-1.5 text-xs text-slate-600">
               Loại hợp đồng
               <input
                 className={input}
@@ -897,54 +913,47 @@ export default function ContractsTab({
                 }
               />
             </label>
-            <label className="text-xs">
+            <label className="space-y-1.5 text-xs text-slate-600">
               Ngày bắt đầu
-              <input
-                type="date"
-                className={input}
+              <DateInput24
+                ariaLabel="Ngày bắt đầu"
                 value={contractForm.startDate}
-                onChange={(e) =>
+                onChange={(value) =>
                   setContractForm({
                     ...contractForm,
-                    startDate: e.target.value,
+                    startDate: value,
                   })
                 }
               />
             </label>
-            <label className="text-xs">
+            <label className="space-y-1.5 text-xs text-slate-600">
               Ngày hết hạn
-              <input
-                type="date"
-                className={input}
+              <DateInput24
+                ariaLabel="Ngày hết hạn"
                 value={contractForm.endDate}
-                onChange={(e) =>
-                  setContractForm({ ...contractForm, endDate: e.target.value })
+                onChange={(value) =>
+                  setContractForm({ ...contractForm, endDate: value })
                 }
               />
             </label>
-            <label className="text-xs">
+            <label className="space-y-1.5 text-xs text-slate-600">
               Trạng thái
-              <select
-                className={input}
+              <HrFormSelect
                 value={contractForm.status}
-                onChange={(e) =>
+                onChange={(value) =>
                   setContractForm({
                     ...contractForm,
-                    status: e.target.value as ContractStatus,
+                    status: value as ContractStatus,
                   })
                 }
-              >
-                {Object.entries(statusLabel).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
+                label="Trạng thái hợp đồng"
+                options={Object.entries(statusLabel).map(([value, label]) => ({ value, label }))}
+              />
             </label>
-            <div className="text-xs">
+            <div className="text-xs text-slate-600">
               <span>File hợp đồng (PDF, DOC, DOCX)</span>
               <label
-                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 font-bold text-cyan-700`}
+                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 bg-[#F8FCFF] font-normal text-[#007EB8] hover:bg-[#E8F7FF]`}
               >
                 <Upload size={14} />
                 {uploading === "contract"
@@ -973,10 +982,10 @@ export default function ContractsTab({
                 </a>
               )}
             </div>
-            <div className="text-xs">
+            <div className="text-xs text-slate-600">
               <span>Ảnh hợp đồng đã ký</span>
               <label
-                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 font-bold text-cyan-700`}
+                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 bg-[#F8FCFF] font-normal text-[#007EB8] hover:bg-[#E8F7FF]`}
               >
                 <Upload size={14} />
                 {uploading === "signed" ? "Đang tải lên..." : "Chọn ảnh đã ký"}
@@ -1003,7 +1012,7 @@ export default function ContractsTab({
                 </a>
               )}
             </div>
-            <label className="col-span-2 text-xs">
+            <label className="col-span-2 space-y-1.5 text-xs text-slate-600">
               Ghi chú
               <textarea
                 className={input}
@@ -1029,60 +1038,57 @@ export default function ContractsTab({
           )}
         >
           <div className="space-y-3">
-            <label className="text-xs">
+            <label className="space-y-1.5 text-xs text-slate-600">
               Hợp đồng
-              <select
-                className={input}
+              <HrFormSelect
                 value={extensionForm.contractId}
-                onChange={(e) =>
+                onChange={(value) =>
                   setExtensionForm({
                     ...extensionForm,
-                    contractId: e.target.value,
+                    contractId: value,
                   })
                 }
-              >
-                <option value="">Chọn hợp đồng</option>
-                {contracts
-                  .filter((c) => c.status !== "terminated")
-                  .map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.employeeName} — {c.contractType} — hạn{" "}
-                      {date(c.endDate)}
-                    </option>
-                  ))}
-              </select>
+                label="Hợp đồng"
+                options={[
+                  { value: "", label: "Chọn hợp đồng" },
+                  ...contracts
+                    .filter((c) => c.status !== "terminated")
+                    .map((c) => ({
+                      value: c._id,
+                      label: `${c.employeeName} — ${c.contractType} — hạn ${date(c.endDate)}`,
+                    })),
+                ]}
+              />
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs">
+              <label className="space-y-1.5 text-xs text-slate-600">
                 Ngày gia hạn
-                <input
-                  type="date"
-                  className={input}
+                <DateInput24
+                  ariaLabel="Ngày gia hạn"
                   value={extensionForm.extensionDate}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setExtensionForm({
                       ...extensionForm,
-                      extensionDate: e.target.value,
+                      extensionDate: value,
                     })
                   }
                 />
               </label>
-              <label className="text-xs">
+              <label className="space-y-1.5 text-xs text-slate-600">
                 Ngày hết hạn mới
-                <input
-                  type="date"
-                  className={input}
+                <DateInput24
+                  ariaLabel="Ngày hết hạn mới"
                   value={extensionForm.newEndDate}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setExtensionForm({
                       ...extensionForm,
-                      newEndDate: e.target.value,
+                      newEndDate: value,
                     })
                   }
                 />
               </label>
             </div>
-            <label className="text-xs">
+            <label className="space-y-1.5 text-xs text-slate-600">
               Lý do
               <textarea
                 className={input}
@@ -1092,10 +1098,10 @@ export default function ContractsTab({
                 }
               />
             </label>
-            <div className="text-xs">
+            <div className="text-xs text-slate-600">
               <span>File phụ lục/gia hạn (PDF, DOC, DOCX)</span>
               <label
-                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 font-bold text-cyan-700`}
+                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 bg-[#F8FCFF] font-normal text-[#007EB8] hover:bg-[#E8F7FF]`}
               >
                 <Upload size={14} />
                 {uploading === "extension"
@@ -1119,10 +1125,10 @@ export default function ContractsTab({
                 </span>
               )}
             </div>
-            <div className="text-xs">
+            <div className="text-xs text-slate-600">
               <span>Ảnh phụ lục đã ký</span>
               <label
-                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 font-bold text-cyan-700`}
+                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 bg-[#F8FCFF] font-normal text-[#007EB8] hover:bg-[#E8F7FF]`}
               >
                 <Upload size={14} />
                 {uploading === "extensionSigned"
@@ -1174,18 +1180,26 @@ function Modal({
   valid: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
-        <h3 className="mb-4 font-bold text-slate-900">{title}</h3>
-        {children}
-        <div className="mt-5 flex justify-end gap-2">
-          <button onClick={close} className="px-4 py-2 text-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+      <div role="dialog" aria-modal="true" aria-labelledby="contract-modal-title" className="flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white text-slate-800 shadow-[0_20px_60px_rgba(15,45,75,0.2)]">
+        <div className="flex items-center justify-between gap-4 border-b border-[#E8EEF5] bg-[#F8FBFF] px-5 py-4">
+          <h3 id="contract-modal-title" className="text-base font-medium text-slate-800">{title}</h3>
+          <button type="button" aria-label="Đóng" onClick={close} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm transition-colors hover:bg-rose-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          {children}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-[#E8EEF5] bg-white px-5 py-4">
+          <button type="button" onClick={close} className="rounded-xl border border-[#DCE7F4] bg-white px-4 py-2.5 text-xs text-slate-600 transition-colors hover:bg-[#F4FAFE]">
             Hủy
           </button>
           <button
+            type="button"
             disabled={!valid || saving}
             onClick={save}
-            className="rounded-xl bg-cyan-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+            className="rounded-xl bg-[#00A4E8] px-4 py-2.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#008FCB] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? "Đang lưu..." : "Lưu"}
           </button>

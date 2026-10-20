@@ -88,8 +88,8 @@ export default function ApplicantDetailPanel({
   };
   return (
     <RecruitmentDialog title={applicant.fullName} onClose={onClose}>
-      <div className="grid gap-5 md:grid-cols-2">
-        <dl className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-sm">
+      <div className="grid gap-4 md:grid-cols-2">
+        <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 rounded-xl bg-[#F7FBFF] p-4 text-sm text-[#15396C]">
           <dt className="text-slate-500">Vị trí</dt>
           <dd>{jobs.find((j) => j._id === applicant.jobId)?.title || "-"}</dd>
           <dt className="text-slate-500">Email</dt>
@@ -103,8 +103,8 @@ export default function ApplicantDetailPanel({
           <dt className="text-slate-500">Kinh nghiệm</dt>
           <dd className="whitespace-pre-wrap">{applicant.experience || "-"}</dd>
         </dl>
-        <div>
-          <h4 className="mb-2 text-sm font-bold text-slate-800">
+        <div className="rounded-xl bg-[#F7FBFF] p-4">
+          <h4 className="mb-2 text-sm font-medium text-[#15396C]">
             Lịch sử quy trình
           </h4>
           <ViewState
@@ -117,10 +117,10 @@ export default function ApplicantDetailPanel({
             }
           />
           {history.length > 0 && (
-            <ol className="border-l border-slate-300 pl-4">
+            <ol className="border-l border-[#B8DFF3] pl-4">
               {history.map((item) => (
                 <li key={item._id} className="mb-4 text-sm">
-                  <div className="font-semibold">
+                  <div className="font-medium text-[#15396C]">
                     {item.fromStageName ? `${item.fromStageName} → ` : ""}
                     {item.toStageName}
                   </div>
@@ -136,9 +136,9 @@ export default function ApplicantDetailPanel({
           )}
         </div>
       </div>
-      <div className="mt-5 border-t border-slate-200 pt-4">
+      <div className="mt-5 border-t border-[#E7F0F8] pt-4">
         <div className="mb-3 flex items-center justify-between">
-          <h4 className="text-sm font-bold text-slate-800">CV và hồ sơ</h4>
+          <h4 className="text-sm font-medium text-[#15396C]">CV và hồ sơ</h4>
           {canManage && (
             <label className={`${primaryButton} cursor-pointer`}>
               <Upload className="h-4 w-4" />
@@ -156,7 +156,7 @@ export default function ApplicantDetailPanel({
         {!attachment ? (
           <p className="text-sm text-slate-500">Chưa có tệp đính kèm.</p>
         ) : (
-          <div className="divide-y divide-slate-200 border-y border-slate-200">
+          <div className="divide-y divide-[#EDF3F9] rounded-xl bg-[#F7FBFF] px-3">
             {[attachment].map((file) => (
               <div
                 key={file._id}

@@ -115,32 +115,34 @@ export default function CustomerWorkspace() {
   };
 
   return (
-    <section className="space-y-5 p-4 sm:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Quản lý khách hàng</h1>
-          <p className="mt-1 text-sm text-slate-500">Hồ sơ khách hàng dùng chung trong toàn công ty.</p>
+    <section className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-5 text-slate-800 sm:px-6 sm:py-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="mt-1 h-8 w-1 shrink-0 rounded-full bg-[#00adfc]" aria-hidden="true" />
+          <div>
+            <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">Quản lý khách hàng</h1>
+            <p className="mt-1 text-sm text-slate-500">Hồ sơ khách hàng dùng chung trong toàn công ty.</p>
+          </div>
         </div>
         {canManage && activeTab === "list" && (
           <button
             type="button"
             onClick={() => setEditing("new")}
-            className="flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-cyan-700 transition"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00ADFC] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0095d9]"
           >
             <Plus className="h-4 w-4" />Thêm khách hàng
           </button>
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
         <button
           type="button"
           onClick={() => setActiveTab("list")}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold transition border-b-2 -mb-[2px] ${
+          className={`flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
             activeTab === "list"
-              ? "border-cyan-600 text-cyan-600"
-              : "border-transparent text-slate-500 hover:text-slate-700"
+              ? "bg-[#e8f7ff] text-[#007eb8]"
+              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
           }`}
         >
           <Users className="h-4 w-4" />
@@ -149,10 +151,10 @@ export default function CustomerWorkspace() {
         <button
           type="button"
           onClick={() => setActiveTab("settings")}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold transition border-b-2 -mb-[2px] ${
+          className={`flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
             activeTab === "settings"
-              ? "border-cyan-600 text-cyan-600"
-              : "border-transparent text-slate-500 hover:text-slate-700"
+              ? "bg-[#e8f7ff] text-[#007eb8]"
+              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
           }`}
         >
           <Settings className="h-4 w-4" />
@@ -212,23 +214,46 @@ export default function CustomerWorkspace() {
           )}
         </>
       ) : (
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-5">
-            <h2 className="font-bold text-slate-800 text-lg">Cấu hình phân cấp và mốc chi tiêu khách hàng</h2>
-            <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-              Các bậc xếp hạng sẽ được tự động áp dụng dựa trên tổng doanh số mua hàng tích lũy của khách hàng. 
-              Mốc đầu tiên bắt đầu từ 0 chi tiêu. Các mốc tiếp theo phải có mức chi tiêu lớn hơn bậc trước đó.
-            </p>
+        <div className="space-y-5">
+          <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base font-semibold text-slate-900">Cấu hình phân cấp và mốc chi tiêu khách hàng</h2>
+              <p className="mt-1 text-sm leading-relaxed text-slate-500">
+                Các bậc xếp hạng sẽ được tự động áp dụng dựa trên tổng doanh số mua hàng tích lũy của khách hàng.
+                Mốc đầu tiên bắt đầu từ 0 chi tiêu. Các mốc tiếp theo phải có mức chi tiêu lớn hơn bậc trước đó.
+              </p>
+            </div>
+            {canManage && settings && !loadingSettings && (
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddTier}
+                  className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2 text-sm font-semibold text-[#007EB8] transition hover:bg-sky-100"
+                >
+                  <Plus className="h-4 w-4" />
+                  Thêm bậc
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void saveSettings()}
+                  disabled={savingSettings}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#00ADFC] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0095d9] disabled:opacity-60"
+                >
+                  <Save className="h-4 w-4" />
+                  {savingSettings ? "Đang lưu..." : "Lưu cài đặt phân hạng"}
+                </button>
+              </div>
+            )}
           </div>
 
           {loadingSettings ? (
             <div className="text-center py-12 text-slate-500">Đang tải cấu hình phân hạng...</div>
           ) : settings ? (
-            <div className="space-y-4 max-w-4xl">
-              <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="max-w-5xl space-y-4">
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50 text-slate-600 font-semibold">
+                    <tr className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold text-slate-600">
                       <th className="px-5 py-3">Mã hạng</th>
                       <th className="px-5 py-3">Tên hạng</th>
                       <th className="px-5 py-3">Chi tiêu tối thiểu (VNĐ)</th>
@@ -242,7 +267,7 @@ export default function CustomerWorkspace() {
                           <input
                             aria-label={`Mã hạng ${index + 1}`}
                             disabled={!canManage}
-                            className="rounded-lg border border-slate-200 px-3 py-1.5 w-full bg-white disabled:bg-slate-50 text-slate-800 font-mono"
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-slate-800 outline-none focus:border-[#00adfc] focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50"
                             value={tier.code}
                             onChange={(e) => handleUpdateTier(index, "code", e.target.value)}
                             placeholder="vd: standard, gold, vip"
@@ -252,7 +277,7 @@ export default function CustomerWorkspace() {
                           <input
                             aria-label={`Tên hạng ${index + 1}`}
                             disabled={!canManage}
-                            className="rounded-lg border border-slate-200 px-3 py-1.5 w-full bg-white disabled:bg-slate-50 text-slate-800"
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 outline-none focus:border-[#00adfc] focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50"
                             value={tier.name}
                             onChange={(e) => handleUpdateTier(index, "name", e.target.value)}
                             placeholder="Tên hiển thị"
@@ -265,7 +290,7 @@ export default function CustomerWorkspace() {
                             min="0"
                             step="1"
                             disabled={!canManage || index === 0}
-                            className="rounded-lg border border-slate-200 px-3 py-1.5 w-full bg-white disabled:bg-slate-50 text-slate-800 font-semibold"
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-800 outline-none focus:border-[#00adfc] focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50"
                             value={tier.minSpend}
                             onChange={(e) => handleUpdateTier(index, "minSpend", Number(e.target.value))}
                           />
@@ -292,28 +317,6 @@ export default function CustomerWorkspace() {
                 </table>
               </div>
 
-              {canManage && (
-                <div className="flex items-center justify-between gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleAddTier}
-                    className="flex items-center gap-2 rounded-xl border border-cyan-200 bg-white px-4 py-2 text-sm font-bold text-cyan-600 shadow-sm hover:bg-cyan-50 hover:border-cyan-300 transition"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Thêm bậc xếp hạng
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => void saveSettings()}
-                    disabled={savingSettings}
-                    className="flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-cyan-700 transition disabled:opacity-60"
-                  >
-                    <Save className="h-4 w-4" />
-                    {savingSettings ? "Đang lưu..." : "Lưu cài đặt phân hạng"}
-                  </button>
-                </div>
-              )}
             </div>
           ) : (
             <div className="text-slate-500 text-center py-12 border border-dashed rounded-2xl">Không tìm thấy dữ liệu cấu hình.</div>

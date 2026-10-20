@@ -20,6 +20,7 @@ import { useVariantMatrix, Option, GeneratedVariant, generateEAN13 } from "../..
 import { buildMatrixVariantInput } from "./productVariantPayload";
 import { shouldCreateInitialPrice } from "./productCatalogCreation";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { StyledSelect } from "../common/StyledSelect";
 
 type Resources = { categories: ProductResource[]; brands: ProductResource[] };
 type VariantModalMode = "single" | "edit" | "bulk-create" | "bulk-edit";
@@ -75,9 +76,21 @@ const typeLabels: Record<ProductCatalogType, string> = { physical: "Hàng hóa",
 const statusLabels: Record<ProductCatalogStatus, string> = { draft: "Nháp", active: "Đang hoạt động", inactive: "Ngừng hoạt động", archived: "Lưu trữ" };
 const unitCategoryLabels: Record<string, string> = { count: "Đếm", weight: "Khối lượng", volume: "Thể tích", length: "Chiều dài", time: "Thời gian", other: "Khác" };
 const trackingLabels: Record<ProductTrackingMode, string> = { quantity: "Số lượng", unit_barcode: "Theo mã vạch từng đơn vị", lot: "Theo lô", serial: "Theo số sê-ri/IMEI", none: "Không theo dõi" };
+const labelOptions = (labels: Record<string, string>) => Object.entries(labels).map(([value, label]) => ({ value, label }));
+const variantStatusOptions = [
+  { value: "active", label: "Đang dùng" },
+  { value: "inactive", label: "Ngừng dùng" },
+  { value: "discontinued", label: "Ngừng bán" },
+];
+const trackingOptions = [
+  { value: "none", label: "Không theo dõi" },
+  { value: "quantity", label: "Số lượng" },
+  { value: "lot", label: "Theo lô" },
+  { value: "serial", label: "Theo số sê-ri/IMEI" },
+];
 
 function inputClassName(extra = "") {
-  return `w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 ${extra}`;
+  return `w-full rounded-xl border border-[#dce7f4] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/15 ${extra}`;
 }
 
 function ImageUploadBox({ value, onChange, className = "" }: { value?: string, onChange: (url: string) => void, className?: string }) {
@@ -211,49 +224,56 @@ export function ProductCatalogV2Section() {
   const activeCount = useMemo(() => products.filter((product) => product.status === "active").length, [products]);
 
   return (
-    <section className="space-y-5" aria-label="Danh mục sản phẩm dùng chung">
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">Danh mục sản phẩm dùng chung</h3>
+    <section className="space-y-5 rounded-2xl border border-[#dce7f4] bg-white p-4 shadow-sm sm:p-6" aria-label="Danh mục sản phẩm dùng chung">
+      <div className="flex flex-col gap-4 border-b border-[#e4edf7] pb-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e8f7ff] text-[#008acb]">
+            <Box className="h-5 w-5" strokeWidth={1.8} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight text-slate-900">Danh mục sản phẩm dùng chung</h3>
+            <p className="mt-0.5 text-xs text-slate-500">Quản lý thông tin sản phẩm, danh mục và thương hiệu.</p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setSetupKind("categories")} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Khai báo danh mục dùng chung"><Tag className="h-4 w-4" />Danh mục</button>
-          <button type="button" onClick={() => setSetupKind("brands")} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Khai báo thương hiệu dùng chung"><Tag className="h-4 w-4" />Thương hiệu</button>
-          <button type="button" onClick={() => setEditor("create")} className="inline-flex items-center gap-1.5 rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800"><PackagePlus className="h-4 w-4" />Tạo sản phẩm</button>
+          <button type="button" onClick={() => setSetupKind("categories")} className="inline-flex items-center gap-1.5 rounded-xl border border-[#bceaff] bg-[#e8f7ff] px-3.5 py-2.5 text-sm font-semibold text-[#007eb8] transition-colors hover:bg-[#d7f2ff]" title="Khai báo danh mục dùng chung"><Tag className="h-4 w-4" />Danh mục</button>
+          <button type="button" onClick={() => setSetupKind("brands")} className="inline-flex items-center gap-1.5 rounded-xl border border-[#bceaff] bg-[#e8f7ff] px-3.5 py-2.5 text-sm font-semibold text-[#007eb8] transition-colors hover:bg-[#d7f2ff]" title="Khai báo thương hiệu dùng chung"><Tag className="h-4 w-4" />Thương hiệu</button>
+          <button type="button" onClick={() => setEditor("create")} className="inline-flex items-center gap-1.5 rounded-xl bg-[#00adfc] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#0098e0]"><PackagePlus className="h-4 w-4" />Tạo sản phẩm</button>
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px_auto]">
+      <div className="grid gap-3 rounded-2xl border border-[#e4edf7] bg-[#f8fbff] p-3 sm:grid-cols-[minmax(0,1fr)_180px_auto] sm:p-4">
         <label className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
           <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void applyFilter(); }} className={`${inputClassName()} pl-9`} placeholder="Tìm tên, mã sản phẩm hoặc từ khóa" />
         </label>
-        <select value={status} onChange={(event) => setStatus(event.target.value)} className={inputClassName()}>
-          <option value="">Tất cả trạng thái</option>
-          {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
-        <button type="button" onClick={() => void applyFilter()} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Lọc</button>
+        <StyledSelect ariaLabel="Lọc trạng thái sản phẩm" value={status} onChange={setStatus} options={[{ value: "", label: "Tất cả trạng thái" }, ...labelOptions(statusLabels)]} className="h-[46px]" />
+        <button type="button" onClick={() => void applyFilter()} className="rounded-xl border border-[#bceaff] bg-white px-4 py-2.5 text-sm font-semibold text-[#007eb8] transition-colors hover:bg-[#e8f7ff]">Lọc</button>
       </div>
 
-      <div className="flex gap-6 text-sm text-slate-600">
-        <span><strong className="text-slate-900">{total}</strong> sản phẩm tổng cộng</span>
-        <span><strong className="text-slate-900">{products.length}</strong> hiển thị trên trang này</span>
+      <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+        <span className="rounded-full border border-[#dce7f4] bg-white px-3 py-1.5"><strong className="font-semibold text-[#007eb8]">{total}</strong> sản phẩm tổng cộng</span>
+        <span className="rounded-full border border-[#dce7f4] bg-white px-3 py-1.5"><strong className="font-semibold text-[#007eb8]">{products.length}</strong> hiển thị trên trang này</span>
       </div>
 
-      {loading ? <div className="py-12 text-center text-sm text-slate-500">Đang tải danh mục sản phẩm...</div> : products.length === 0 ? (
-        <div className="border-y border-dashed border-slate-300 py-12 text-center">
-          <Box className="mx-auto h-8 w-8 text-slate-300" />
-          <p className="mt-3 text-sm font-medium text-slate-700">Chưa có sản phẩm trong danh mục mới</p>
+      {loading ? <div className="rounded-2xl border border-[#dce7f4] bg-[#f8fbff] py-16 text-center text-sm text-slate-500">Đang tải danh mục sản phẩm...</div> : products.length === 0 ? (
+        <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-[#dce7f4] bg-[#f8fbff] px-4 py-12 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#bceaff] bg-[#e8f7ff] text-[#008acb]">
+            <Box className="h-8 w-8" strokeWidth={1.5} />
+          </div>
+          <p className="mt-4 text-base font-semibold text-slate-800">{query || status ? "Không tìm thấy sản phẩm phù hợp" : "Chưa có sản phẩm trong danh mục"}</p>
+          <p className="mt-1 text-sm text-slate-500">{query || status ? "Thử thay đổi từ khóa hoặc trạng thái để xem thêm sản phẩm." : "Tạo sản phẩm đầu tiên để bắt đầu quản lý danh mục dùng chung."}</p>
+          {!query && !status && <button type="button" onClick={() => setEditor("create")} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#00adfc] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#0098e0]"><PackagePlus className="h-4 w-4" />Tạo sản phẩm</button>}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-[#dce7f4] bg-white">
           <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200">
+            <thead className="border-b border-[#dce7f4] bg-[#f8fbff] text-xs text-slate-500">
               <tr><th className="px-4 py-3.5 font-medium w-[60px]">Ảnh</th><th className="px-4 py-3.5 font-medium">Mã</th><th className="px-4 py-3.5 font-medium">Sản phẩm</th><th className="px-4 py-3.5 font-medium">Loại</th><th className="px-4 py-3.5 font-medium">Danh mục</th><th className="px-4 py-3.5 font-medium">Trạng thái</th><th className="px-4 py-3.5 text-right">Thao tác</th></tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-[#e4edf7]">
               {products.map((product) => (
-                <tr key={product._id} className="hover:bg-slate-50">
+                <tr key={product._id} className="transition-colors hover:bg-[#f3faff]">
                   <td className="px-4 py-3.5">
                     <div className="h-10 w-10 overflow-hidden rounded-md border border-slate-200 bg-slate-50 flex items-center justify-center">
                       {product.mediaIds?.[0] ? <img src={product.mediaIds[0]} alt={product.productCode} className="h-full w-full object-cover" /> : <ImageIcon className="h-4 w-4 text-slate-300" />}
@@ -266,8 +286,8 @@ export function ProductCatalogV2Section() {
                   <td className="px-4 py-3.5"><span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${product.status === "active" ? "bg-emerald-50 text-emerald-700" : product.status === "draft" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{statusLabels[product.status]}</span></td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button type="button" onClick={() => void openView(product)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-cyan-700" title="Xem chi tiết"><Eye className="h-4 w-4" /></button>
-                      <button type="button" onClick={() => void openEdit(product)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-cyan-700" title="Sửa sản phẩm"><Pencil className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => void openView(product)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-[#e8f7ff] hover:text-[#007eb8]" title="Xem chi tiết"><Eye className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => void openEdit(product)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-[#e8f7ff] hover:text-[#007eb8]" title="Sửa sản phẩm"><Pencil className="h-4 w-4" /></button>
                       <button type="button" onClick={() => void deleteProduct(product)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-rose-600" title="Xóa sản phẩm"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </td>
@@ -461,6 +481,10 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
   };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!form.categoryCode) {
+      toast.error("Vui lòng chọn danh mục sản phẩm.");
+      return;
+    }
     setSubmitting(true);
     const payload = {
       productCode: form.productCode || undefined,
@@ -542,10 +566,10 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
           <div className="grid gap-4 md:grid-cols-2 h-fit">
             {isEditing && <Field label="Mã sản phẩm"><input readOnly value={form.productCode} className={inputClassName("bg-slate-50 text-slate-500")} /></Field>}
             <Field label="Tên sản phẩm"><input required value={form.name} onChange={(event) => setField("name", event.target.value)} className={inputClassName()} placeholder="Ví dụ: Áo thun nam Cotton" /></Field>
-            <Field label="Loại"><select disabled={isEditing} value={form.productType} onChange={(event) => { const productType = event.target.value as ProductCatalogType; setField("productType", productType); setVariant((current) => ({ ...current, trackingMode: productType === "service" ? "none" : current.trackingMode === "none" ? "quantity" : current.trackingMode })); }} className={inputClassName("disabled:bg-slate-50")}>{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-            <Field label="Danh mục"><select required value={form.categoryCode} onChange={(event) => setField("categoryCode", event.target.value)} className={inputClassName()}><option value="">Chọn danh mục</option>{resources.categories.map((item) => <option key={item._id} value={item.code}>{item.name} ({item.code})</option>)}</select></Field>
-            <Field label="Thương hiệu"><select value={form.brandCode} onChange={(event) => setField("brandCode", event.target.value)} className={inputClassName()}><option value="">Không chọn</option>{resources.brands.map((item) => <option key={item._id} value={item.code}>{item.name}</option>)}</select></Field>
-            <Field label="Trạng thái"><select value={form.status} onChange={(event) => setField("status", event.target.value as ProductCatalogStatus)} className={inputClassName()}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+            <Field label="Loại"><StyledSelect ariaLabel="Loại sản phẩm" disabled={isEditing} value={form.productType} onChange={(value) => { const productType = value as ProductCatalogType; setField("productType", productType); setVariant((current) => ({ ...current, trackingMode: productType === "service" ? "none" : current.trackingMode === "none" ? "quantity" : current.trackingMode })); }} options={labelOptions(typeLabels)} /></Field>
+            <Field label="Danh mục"><StyledSelect ariaLabel="Danh mục sản phẩm" value={form.categoryCode} onChange={(value) => setField("categoryCode", value)} options={[{ value: "", label: "Chọn danh mục" }, ...resources.categories.map((item) => ({ value: item.code, label: `${item.name} (${item.code})` }))]} /></Field>
+            <Field label="Thương hiệu"><StyledSelect ariaLabel="Thương hiệu sản phẩm" value={form.brandCode} onChange={(value) => setField("brandCode", value)} options={[{ value: "", label: "Không chọn" }, ...resources.brands.map((item) => ({ value: item.code, label: item.name }))]} /></Field>
+            <Field label="Trạng thái"><StyledSelect ariaLabel="Trạng thái sản phẩm" value={form.status} onChange={(value) => setField("status", value as ProductCatalogStatus)} options={labelOptions(statusLabels)} /></Field>
             <Field label="Bảo hành khách hàng (tháng)"><NumberInput value={form.warrantyMonths} onChange={(value) => setField("warrantyMonths", value)} className={inputClassName()} placeholder="0" /></Field>
           </div>
         </div>
@@ -657,7 +681,7 @@ function ProductEditorModal({ product, resources, onClose, onSaved, onDataChange
                   <Field label="Mã vạch"><input value={variant.barcode || ""} onChange={(event) => setVariant((current) => ({ ...current, barcode: event.target.value }))} className={inputClassName()} placeholder="Mã vạch sản phẩm" /></Field>
                   <Field label="Tên biến thể"><input value={variant.displayName || ""} onChange={(event) => setVariant((current) => ({ ...current, displayName: event.target.value }))} className={inputClassName()} placeholder="Tên hiển thị (Tùy chọn)" /></Field>
                   <Field label="Giá bán"><NumberInput value={variant.sellingPrice || 0} onChange={(value) => setVariant((current) => ({ ...current, sellingPrice: value }))} className={inputClassName()} placeholder="Nhập giá bán" /></Field>
-                  <Field label="Theo dõi kho"><select disabled={form.productType === "service"} value={form.productType === "service" ? "none" : variant.trackingMode} onChange={(event) => setVariant((current) => ({ ...current, trackingMode: event.target.value as ProductTrackingMode }))} className={inputClassName("disabled:bg-slate-100")}><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option><option value="none">Không theo dõi</option></select></Field>
+                  <Field label="Theo dõi kho"><StyledSelect ariaLabel="Theo dõi kho" disabled={form.productType === "service"} value={form.productType === "service" ? "none" : variant.trackingMode} onChange={(value) => setVariant((current) => ({ ...current, trackingMode: value as ProductTrackingMode }))} options={trackingOptions} /></Field>
                 </div>
               </div>
             </div>
@@ -808,8 +832,8 @@ function VariantModal({ product, variant: initialVariant, onClose, onSaved }: { 
     </div>
     <Field label="Tên biến thể"><input value={variant.displayName || ""} onChange={(event) => setVariant((current) => ({ ...current, displayName: event.target.value }))} className={inputClassName()} /></Field>
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Theo dõi kho"><select disabled={product.productType === "service"} value={product.productType === "service" ? "none" : variant.trackingMode} onChange={(event) => setVariant((current) => ({ ...current, trackingMode: event.target.value as ProductTrackingMode }))} className={inputClassName("disabled:bg-slate-100")}><option value="none">Không theo dõi</option><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option></select></Field>
-      <Field label="Trạng thái"><select value={variant.status} onChange={(event) => setVariant((current) => ({ ...current, status: event.target.value as VariantInput["status"] }))} className={inputClassName()}><option value="active">Đang dùng</option><option value="inactive">Ngừng dùng</option><option value="discontinued">Ngừng bán</option></select></Field>
+      <Field label="Theo dõi kho"><StyledSelect ariaLabel="Theo dõi kho SKU" disabled={product.productType === "service"} value={product.productType === "service" ? "none" : variant.trackingMode} onChange={(value) => setVariant((current) => ({ ...current, trackingMode: value as ProductTrackingMode }))} options={trackingOptions} /></Field>
+      <Field label="Trạng thái"><StyledSelect ariaLabel="Trạng thái SKU" value={variant.status} onChange={(value) => setVariant((current) => ({ ...current, status: value as VariantInput["status"] }))} options={variantStatusOptions} /></Field>
       <Field label="Bảo hành nhà cung cấp (tháng)"><NumberInput value={variant.supplierWarrantyMonths || 0} onChange={(value) => setVariant((current) => ({ ...current, supplierWarrantyMonths: value }))} className={inputClassName()} placeholder="0" /></Field>
     </div>
     <ModalActions onClose={onClose} submitting={submitting} label={isEditing ? "Lưu thay đổi" : "Thêm mã SKU"} />
@@ -850,7 +874,7 @@ function BulkVariantModal({ product, mode, ids, onClose, onSaved }: { product: C
       setSubmitting(false);
     }
   };
-  return <Modal title={isCreate ? `Tạo nhiều SKU cho ${product.name}` : `Sửa hàng loạt ${ids.length} SKU`} onClose={onClose} wide><form onSubmit={submit} className="space-y-5">{isCreate ? <><div className="flex items-center justify-between border-b border-slate-200 pb-3"><p className="text-sm text-slate-600">Mỗi SKU có thông tin riêng, giống form thêm một SKU.</p><button type="button" onClick={() => setVariants((current) => current.length < 500 ? [...current, emptyVariant(product.baseUnitCode, product.productType)] : current)} className="inline-flex items-center gap-1 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-semibold text-cyan-700"><Plus className="h-4 w-4" />Thêm SKU</button></div><div className="space-y-4">{variants.map((variant, index) => <section key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="mb-4 flex items-center justify-between"><h4 className="font-semibold text-slate-800">SKU {index + 1}</h4><button type="button" disabled={variants.length === 1} onClick={() => removeVariant(index)} className="rounded-md p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40" title="Xóa SKU"><Trash2 className="h-4 w-4" /></button></div><div className="flex gap-4"><div className="w-24 shrink-0"><label className="mb-1 block text-xs font-semibold text-slate-700">Ảnh</label><ImageUploadBox value={variant.mediaIds?.[0]} onChange={(url) => updateVariant(index, { mediaIds: [url] })} className="aspect-square w-full" /></div><div className="grid flex-1 gap-4 sm:grid-cols-2"><Field label="Mã SKU"><input value={variant.sku} onChange={(event) => updateVariant(index, { sku: event.target.value })} className={inputClassName()} placeholder="Tự sinh nếu để trống" /></Field><Field label="Mã vạch"><input value={variant.barcode || ""} onChange={(event) => updateVariant(index, { barcode: event.target.value })} className={inputClassName()} /></Field><Field label="Tên biến thể"><input value={variant.displayName || ""} onChange={(event) => updateVariant(index, { displayName: event.target.value })} className={inputClassName()} /></Field><Field label="Giá bán"><NumberInput value={variant.sellingPrice || 0} onChange={(value) => updateVariant(index, { sellingPrice: value })} className={inputClassName()} placeholder="Nhập giá bán" /></Field><Field label="Theo dõi kho"><select disabled={product.productType === "service"} value={product.productType === "service" ? "none" : variant.trackingMode} onChange={(event) => updateVariant(index, { trackingMode: event.target.value as ProductTrackingMode })} className={inputClassName("disabled:bg-slate-100")}><option value="none">Không theo dõi</option><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option></select></Field><Field label="Trạng thái"><select value={variant.status} onChange={(event) => updateVariant(index, { status: event.target.value as VariantInput["status"] })} className={inputClassName()}><option value="active">Đang dùng</option><option value="inactive">Ngừng dùng</option><option value="discontinued">Ngừng bán</option></select></Field><Field label="Bảo hành nhà cung cấp (tháng)"><NumberInput value={variant.supplierWarrantyMonths || 0} onChange={(value) => updateVariant(index, { supplierWarrantyMonths: value })} className={inputClassName()} placeholder="0" /></Field></div></div></section>)}</div></> : <><p className="text-sm text-slate-600">Các SKU đã chọn: <strong>{ids.length}</strong>. Chọn thông tin chung muốn áp dụng.</p><div className="grid gap-4 sm:grid-cols-2"><Field label="Trạng thái"><select value={status} onChange={(event) => setStatus(event.target.value as VariantInput["status"])} className={inputClassName()}><option value="">Giữ nguyên</option><option value="active">Đang dùng</option><option value="inactive">Ngừng dùng</option><option value="discontinued">Ngừng bán</option></select></Field><Field label="Theo dõi kho"><select disabled={product.productType === "service"} value={product.productType === "service" ? "none" : trackingMode || ""} onChange={(event) => setTrackingMode(event.target.value as ProductTrackingMode)} className={inputClassName("disabled:bg-slate-100")}><option value="">Giữ nguyên</option><option value="none">Không theo dõi</option><option value="quantity">Số lượng</option><option value="lot">Theo lô</option><option value="serial">Theo số sê-ri/IMEI</option></select></Field></div></>}<ModalActions onClose={onClose} submitting={submitting} label={isCreate ? "Tạo các SKU" : "Lưu thay đổi"} /></form></Modal>;
+  return <Modal title={isCreate ? `Tạo nhiều SKU cho ${product.name}` : `Sửa hàng loạt ${ids.length} SKU`} onClose={onClose} wide><form onSubmit={submit} className="space-y-5">{isCreate ? <><div className="flex items-center justify-between border-b border-slate-200 pb-3"><p className="text-sm text-slate-600">Mỗi SKU có thông tin riêng, giống form thêm một SKU.</p><button type="button" onClick={() => setVariants((current) => current.length < 500 ? [...current, emptyVariant(product.baseUnitCode, product.productType)] : current)} className="inline-flex items-center gap-1 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-semibold text-cyan-700"><Plus className="h-4 w-4" />Thêm SKU</button></div><div className="space-y-4">{variants.map((variant, index) => <section key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-4"><div className="mb-4 flex items-center justify-between"><h4 className="font-semibold text-slate-800">SKU {index + 1}</h4><button type="button" disabled={variants.length === 1} onClick={() => removeVariant(index)} className="rounded-md p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40" title="Xóa SKU"><Trash2 className="h-4 w-4" /></button></div><div className="flex gap-4"><div className="w-24 shrink-0"><label className="mb-1 block text-xs font-semibold text-slate-700">Ảnh</label><ImageUploadBox value={variant.mediaIds?.[0]} onChange={(url) => updateVariant(index, { mediaIds: [url] })} className="aspect-square w-full" /></div><div className="grid flex-1 gap-4 sm:grid-cols-2"><Field label="Mã SKU"><input value={variant.sku} onChange={(event) => updateVariant(index, { sku: event.target.value })} className={inputClassName()} placeholder="Tự sinh nếu để trống" /></Field><Field label="Mã vạch"><input value={variant.barcode || ""} onChange={(event) => updateVariant(index, { barcode: event.target.value })} className={inputClassName()} /></Field><Field label="Tên biến thể"><input value={variant.displayName || ""} onChange={(event) => updateVariant(index, { displayName: event.target.value })} className={inputClassName()} /></Field><Field label="Giá bán"><NumberInput value={variant.sellingPrice || 0} onChange={(value) => updateVariant(index, { sellingPrice: value })} className={inputClassName()} placeholder="Nhập giá bán" /></Field><Field label="Theo dõi kho"><StyledSelect ariaLabel={"Theo dõi kho SKU " + (index + 1)} disabled={product.productType === "service"} value={product.productType === "service" ? "none" : variant.trackingMode} onChange={(value) => updateVariant(index, { trackingMode: value as ProductTrackingMode })} options={trackingOptions} /></Field><Field label="Trạng thái"><StyledSelect ariaLabel={"Trạng thái SKU " + (index + 1)} value={variant.status} onChange={(value) => updateVariant(index, { status: value as VariantInput["status"] })} options={variantStatusOptions} /></Field><Field label="Bảo hành nhà cung cấp (tháng)"><NumberInput value={variant.supplierWarrantyMonths || 0} onChange={(value) => updateVariant(index, { supplierWarrantyMonths: value })} className={inputClassName()} placeholder="0" /></Field></div></div></section>)}</div></> : <><p className="text-sm text-slate-600">Các SKU đã chọn: <strong>{ids.length}</strong>. Chọn thông tin chung muốn áp dụng.</p><div className="grid gap-4 sm:grid-cols-2"><Field label="Trạng thái"><StyledSelect ariaLabel="Trạng thái SKU hàng loạt" value={status} onChange={(value) => setStatus(value as VariantInput["status"])} options={[{ value: "", label: "Giữ nguyên" }, ...variantStatusOptions]} /></Field><Field label="Theo dõi kho"><StyledSelect ariaLabel="Theo dõi kho hàng loạt" disabled={product.productType === "service"} value={product.productType === "service" ? "none" : trackingMode || ""} onChange={(value) => setTrackingMode(value as ProductTrackingMode)} options={[{ value: "", label: "Giữ nguyên" }, ...trackingOptions]} /></Field></div></>}<ModalActions onClose={onClose} submitting={submitting} label={isCreate ? "Tạo các SKU" : "Lưu thay đổi"} /></form></Modal>;
 }
 
 function CatalogSetupModal({ kind, items, onClose, onSaved }: { kind: ProductResourceKind | "templates"; items: Array<ProductResource | ProductTemplate>; onClose: () => void; onSaved: () => Promise<void> }) {
@@ -935,9 +959,9 @@ function CatalogSetupModal({ kind, items, onClose, onSaved }: { kind: ProductRes
     <div className="space-y-6">
       <form onSubmit={submit} className="space-y-4">
         <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-900">{editingId ? "Chỉnh sửa" : "Tạo mới"}</h4>{editingId && <span className="text-xs text-slate-500">Mã được giữ nguyên sau khi tạo.</span>}</div>
-        <div className="grid gap-4 md:grid-cols-2"><Field label="Tên"><input required value={name} onChange={(event) => setName(event.target.value)} className={inputClassName()} autoFocus /></Field><Field label="Trạng thái"><select value={status} onChange={(event) => setStatus(event.target.value as "active" | "inactive")} className={inputClassName()}><option value="active">Đang dùng</option><option value="inactive">Ngừng dùng</option></select></Field></div>
-        {kind === "units" && <Field label="Nhóm đơn vị"><select value={unitCategory} onChange={(event) => setUnitCategory(event.target.value)} className={inputClassName()}>{Object.entries(unitCategoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>}
-        {isTemplate && <><Field label="Loại sản phẩm"><select disabled={Boolean(editingId)} value={productType} onChange={(event) => setProductType(event.target.value as ProductCatalogType)} className={inputClassName("disabled:bg-slate-100")} >{Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field><div className="border-t border-slate-200 pt-4"><div className="mb-3 flex items-center justify-between"><span className="text-sm font-semibold text-slate-800">Trường thông tin</span><button type="button" onClick={() => setFields((current) => [...current, { code: "", label: "", type: "text", required: false, options: [] }])} className="inline-flex items-center gap-1 text-xs font-medium text-cyan-700"><Plus className="h-3.5 w-3.5" />Thêm trường</button></div>{fields.map((field, index) => <div key={`${field.code}-${index}`} className="mb-3 border-b border-slate-100 pb-3"><div className="grid grid-cols-[1fr_1fr_110px_auto] gap-2"><input required placeholder="Mã trường" value={field.code} onChange={(event) => updateField(index, { code: event.target.value })} className={inputClassName()} /><input required placeholder="Nhãn" value={field.label} onChange={(event) => updateField(index, { label: event.target.value })} className={inputClassName()} /><select value={field.type} onChange={(event) => updateField(index, { type: event.target.value as ProductTemplateField["type"] })} className={inputClassName()}><option value="text">Văn bản</option><option value="number">Số</option><option value="boolean">Đúng/sai</option><option value="select">Chọn một</option><option value="multi-select">Chọn nhiều</option></select><button type="button" disabled={fields.length === 1} onClick={() => setFields((current) => current.filter((_, fieldIndex) => fieldIndex !== index))} className="rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-red-600 disabled:opacity-40" title="Xóa trường"><X className="h-4 w-4" /></button></div><div className="mt-2 flex items-center gap-3"><input value={field.options.join(", ")} onChange={(event) => updateField(index, { options: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) })} className={inputClassName("text-xs")} placeholder="Lựa chọn, ngăn cách dấu phẩy (nếu có)" /><label className="inline-flex shrink-0 items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={field.required} onChange={(event) => updateField(index, { required: event.target.checked })} />Bắt buộc</label></div></div>)}</div></>}
+        <div className="grid gap-4 md:grid-cols-2"><Field label="Tên"><input required value={name} onChange={(event) => setName(event.target.value)} className={inputClassName()} autoFocus /></Field><Field label="Trạng thái"><StyledSelect ariaLabel="Trạng thái dữ liệu dùng chung" value={status} onChange={(value) => setStatus(value as "active" | "inactive")} options={[{ value: "active", label: "Đang dùng" }, { value: "inactive", label: "Ngừng dùng" }]} /></Field></div>
+        {kind === "units" && <Field label="Nhóm đơn vị"><StyledSelect ariaLabel="Nhóm đơn vị" value={unitCategory} onChange={setUnitCategory} options={labelOptions(unitCategoryLabels)} /></Field>}
+        {isTemplate && <><Field label="Loại sản phẩm"><StyledSelect ariaLabel="Loại sản phẩm mẫu" disabled={Boolean(editingId)} value={productType} onChange={(value) => setProductType(value as ProductCatalogType)} options={labelOptions(typeLabels)} /></Field><div className="border-t border-slate-200 pt-4"><div className="mb-3 flex items-center justify-between"><span className="text-sm font-semibold text-slate-800">Trường thông tin</span><button type="button" onClick={() => setFields((current) => [...current, { code: "", label: "", type: "text", required: false, options: [] }])} className="inline-flex items-center gap-1 text-xs font-medium text-cyan-700"><Plus className="h-3.5 w-3.5" />Thêm trường</button></div>{fields.map((field, index) => <div key={`${field.code}-${index}`} className="mb-3 border-b border-slate-100 pb-3"><div className="grid grid-cols-[1fr_1fr_110px_auto] gap-2"><input required placeholder="Mã trường" value={field.code} onChange={(event) => updateField(index, { code: event.target.value })} className={inputClassName()} /><input required placeholder="Nhãn" value={field.label} onChange={(event) => updateField(index, { label: event.target.value })} className={inputClassName()} /><StyledSelect ariaLabel={"Loại trường " + (index + 1)} value={field.type} onChange={(value) => updateField(index, { type: value as ProductTemplateField["type"] })} options={[{ value: "text", label: "Văn bản" }, { value: "number", label: "Số" }, { value: "boolean", label: "Đúng/sai" }, { value: "select", label: "Chọn một" }, { value: "multi-select", label: "Chọn nhiều" }]} /><button type="button" disabled={fields.length === 1} onClick={() => setFields((current) => current.filter((_, fieldIndex) => fieldIndex !== index))} className="rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-red-600 disabled:opacity-40" title="Xóa trường"><X className="h-4 w-4" /></button></div><div className="mt-2 flex items-center gap-3"><input value={field.options.join(", ")} onChange={(event) => updateField(index, { options: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) })} className={inputClassName("text-xs")} placeholder="Lựa chọn, ngăn cách dấu phẩy (nếu có)" /><label className="inline-flex shrink-0 items-center gap-1.5 text-xs text-slate-600"><input type="checkbox" checked={field.required} onChange={(event) => updateField(index, { required: event.target.checked })} />Bắt buộc</label></div></div>)}</div></>}
         <ModalActions onClose={onClose} submitting={submitting} label={editingId ? "Lưu thay đổi" : "Tạo"} />
       </form>
 
@@ -950,8 +974,8 @@ function CatalogSetupModal({ kind, items, onClose, onSaved }: { kind: ProductRes
 }
 
 function TemplateField({ field, value, onChange }: { field: ProductTemplateField; value: string; onChange: (value: string) => void }) {
-  if (field.type === "select") return <Field label={`${field.label}${field.required ? " *" : ""}`}><select required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={inputClassName()}><option value="">Chọn</option>{field.options.map((option) => <option key={option}>{option}</option>)}</select></Field>;
-  if (field.type === "boolean") return <Field label={`${field.label}${field.required ? " *" : ""}`}><select required={field.required} value={value} onChange={(event) => onChange(event.target.value)} className={inputClassName()}><option value="">Chọn</option><option value="true">Có</option><option value="false">Không</option></select></Field>;
+  if (field.type === "select") return <Field label={`${field.label}${field.required ? " *" : ""}`}><StyledSelect ariaLabel={field.label} value={value} onChange={onChange} options={[{ value: "", label: "Chọn" }, ...field.options.map((option) => ({ value: option, label: option }))]} /></Field>;
+  if (field.type === "boolean") return <Field label={`${field.label}${field.required ? " *" : ""}`}><StyledSelect ariaLabel={field.label} value={value} onChange={onChange} options={[{ value: "", label: "Chọn" }, { value: "true", label: "Có" }, { value: "false", label: "Không" }]} /></Field>;
   return <Field label={`${field.label}${field.required ? " *" : ""}`}><input required={field.required} type={field.type === "number" ? "number" : "text"} value={value} onChange={(event) => onChange(event.target.value)} className={inputClassName()} placeholder={field.type === "multi-select" ? "Ngăn cách bằng dấu phẩy" : undefined} /></Field>;
 }
 

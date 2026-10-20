@@ -28,7 +28,7 @@ export function PayrollPayslipsPanel({
           <button
             type="button"
             onClick={onPublish}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white cursor-pointer hover:bg-cyan-700"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#00A4E8] px-3 py-2 text-sm font-normal text-white cursor-pointer hover:bg-[#008FCB]"
           >
             <Send size={15} /> {publishedCount > 0 ? "Phát hành lại phiếu lương" : "Phát hành phiếu lương"}
           </button>
@@ -37,7 +37,7 @@ export function PayrollPayslipsPanel({
           type="button"
           onClick={() => onExport("detailed")}
           disabled={!canReleasePayslips}
-          className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer hover:bg-slate-50"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-[#F8FBFE] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer hover:bg-slate-50"
         >
           <Download size={15} /> Xuất bảng lương chi tiết
         </button>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import WarrantyLookupSection from "../components/inventory/WarrantyLookupSection";
 import RepairBoardPage, { type RepairCreatePrefill } from "../modules/repair/RepairBoardPage";
 import RepairReportsPanel from "../modules/repair/RepairReportsPanel";
+import "./repair-theme.css";
 
 const TABS = [
   { key: "warranty", label: "Tra cứu bảo hành" },
@@ -18,9 +19,9 @@ export default function RepairTab() {
     window.addEventListener("inventory:open-repair", openRepair);
     return () => window.removeEventListener("inventory:open-repair", openRepair);
   }, []);
-  return <div className="space-y-4">
-    <div className="flex flex-wrap gap-2 border-b pb-3">
-      {TABS.map((tab) => <button key={tab.key} type="button" onClick={() => setView(tab.key)} className={`rounded-lg px-4 py-2 text-sm font-semibold ${view === tab.key ? "bg-cyan-600 text-white" : "border text-slate-600"}`}>{tab.label}</button>)}
+  return <div className="repair-ui mx-auto max-w-[1380px] space-y-5">
+    <div className="repair-ui-tabs flex flex-wrap gap-2">
+      {TABS.map((tab) => <button key={tab.key} type="button" onClick={() => setView(tab.key)} aria-current={view === tab.key ? "page" : undefined} className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${view === tab.key ? "bg-primary text-white" : "bg-white text-slate-600 hover:bg-primary-fixed hover:text-cyan-700"}`}>{tab.label}</button>)}
     </div>
     {view === "warranty" && <WarrantyLookupSection />}
     {view === "repair" && <RepairBoardPage createPrefill={prefill} onCreatePrefillConsumed={() => setPrefill(null)} />}

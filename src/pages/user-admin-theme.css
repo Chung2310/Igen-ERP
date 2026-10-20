@@ -1,0 +1,200 @@
+.user-admin-ui {
+  --user-admin-primary: var(--color-primary);
+  color: #14273b;
+}
+
+.user-admin-ui :is(h1, h2, h3, h4, h5, h6) {
+  letter-spacing: -0.02em;
+}
+
+.user-admin-ui :is(.font-bold, .font-extrabold, .font-black) {
+  font-weight: 600;
+}
+
+.user-admin-ui :is(label, th, h1, h2, h3, h4, h5, h6, button, span)[class~="uppercase"] {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.user-admin-ui :is(label, th, button)[class~="font-mono"] {
+  font-family: inherit;
+}
+
+.user-admin-ui :is(input:not([type="checkbox"]), select, textarea) {
+  min-height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: #f2f8fd;
+  color: #14273b;
+  box-shadow: none;
+  font-weight: 400;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.user-admin-ui :is(input:not([type="checkbox"]), select, textarea):focus {
+  outline: none;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(0 173 252 / 18%);
+}
+
+.user-admin-ui :is(input:not([type="checkbox"]), select, textarea)::placeholder {
+  color: #91a2b7;
+}
+
+.user-admin-ui input[type="date"] {
+  color-scheme: light;
+  cursor: pointer;
+}
+
+.user-admin-ui input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+.user-admin-ui select {
+  cursor: pointer;
+  padding-right: 2rem;
+}
+
+.user-admin-ui select option {
+  background: #fff;
+  color: #14273b;
+}
+
+.user-admin-ui button {
+  border: 0;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.user-admin-ui button:focus-visible {
+  outline: 3px solid rgb(0 173 252 / 30%);
+  outline-offset: 2px;
+}
+
+.user-admin-ui button:is([class~="bg-indigo-600"], [class~="bg-cyan-600"], [class~="bg-slate-900"], [class~="bg-emerald-600"], [class~="bg-blue-600"]) {
+  background: var(--user-admin-primary);
+  color: #fff;
+}
+
+.user-admin-ui button:is([class~="bg-indigo-600"], [class~="bg-cyan-600"], [class~="bg-slate-900"], [class~="bg-emerald-600"], [class~="bg-blue-600"]):hover:not(:disabled) {
+  background: #0095d9;
+}
+
+.user-admin-ui button[class~="border"] {
+  background: #e9f7ff;
+  color: #0077b3;
+}
+
+.user-admin-ui button[class~="text-red-650"],
+.user-admin-ui button[class~="text-rose-700"] {
+  background: #fff0f2;
+  color: #be123c;
+}
+
+.user-admin-ui #user_admin_content,
+.user-admin-ui #roles_permissions_tab_content {
+  background: #f8fbff;
+}
+
+.user-admin-ui #roles_permissions_tab_content > div[class~="border"],
+.user-admin-ui #roles_permissions_tab_content > div.grid > div[class~="border"],
+.user-admin-ui #user_admin_content > div[class~="border"] {
+  border: 0;
+  box-shadow: 0 5px 20px rgb(20 68 108 / 5%);
+}
+
+.user-admin-ui #roles_permissions_tab_content > div.grid > div[class~="border"] {
+  background: #fff;
+}
+
+.user-admin-ui table thead {
+  background: #f2f8fd;
+}
+
+.user-admin-ui table :is(th, td) {
+  font-size: 0.8125rem;
+}
+
+.user-admin-ui table th {
+  font-weight: 500;
+}
+
+.user-admin-ui table td span[class~="rounded-full"] {
+  border: 0;
+  background: #e8f7ff;
+  color: #0077b3;
+}
+
+.user-admin-ui div[data-action-menu] > div[class~="absolute"] {
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgb(18 58 95 / 14%);
+}
+
+.user-admin-ui .fixed > div[class~="border"] {
+  border: 0;
+  box-shadow: 0 22px 60px rgb(9 35 66 / 18%);
+}
+
+.user-admin-ui .fixed :is(section, label)[class~="border"] {
+  border: 0;
+}
+
+.user-admin-ui .fixed section[class~="border"] {
+  background: #f5faff;
+}
+
+.user-admin-ui .fixed > div > div:is([class~="bg-slate-900"], [class~="bg-emerald-600"]) {
+  background: #f3faff;
+  color: #14273b;
+}
+
+.user-admin-ui .fixed > div > div:is([class~="bg-slate-900"], [class~="bg-emerald-600"]) > div > div[class~="bg-indigo-650"],
+.user-admin-ui .fixed > div > div:is([class~="bg-slate-900"], [class~="bg-emerald-600"]) > div > div[class~="bg-indigo-600"] {
+  background: #e3f5ff;
+  box-shadow: none;
+}
+
+.user-admin-ui .fixed > div > div:is([class~="bg-slate-900"], [class~="bg-emerald-600"]) > div > div[class~="bg-white/15"] {
+  background: #e3f5ff;
+}
+
+.user-admin-ui .fixed > div > div:is([class~="bg-slate-900"], [class~="bg-emerald-600"]) svg {
+  color: #008ed1;
+}
+
+.user-admin-ui .fixed > div > div:is([class~="bg-slate-900"], [class~="bg-emerald-600"]) p {
+  color: #64748b;
+}
+
+.user-admin-ui .fixed > div > div:is([class~="bg-slate-900"], [class~="bg-emerald-600"]) button:hover {
+  background: #e3f5ff;
+  color: #0077b3;
+}
+
+.user-admin-ui .fixed label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #52647a;
+}
+
+.user-admin-ui .fixed :is(h3, h6) {
+  font-weight: 600;
+}
+
+.user-admin-ui [aria-label="Lịch sử hoạt động người dùng"] > div {
+  background: #fff;
+  color: #14273b;
+}
+
+.user-admin-ui [aria-label="Lịch sử hoạt động người dùng"] section[class~="border"] {
+  background: #f7fbff;
+}
+
+.user-admin-ui [aria-label="Lịch sử hoạt động người dùng"] article {
+  background: #fff;
+}
+
+.user-admin-ui [aria-label="Lịch sử hoạt động người dùng"] article p[class~="text-slate-200"] {
+  color: #14273b;
+}

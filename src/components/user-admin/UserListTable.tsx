@@ -1,4 +1,4 @@
-import { Activity, MoreVertical, Pencil, Shield, Trash2 } from "lucide-react";
+import { Activity, Info, MoreVertical, Pencil, Shield, Trash2 } from "lucide-react";
 import { UserTableProps } from "./types";
 import { getRoleDisplayName } from "../../utils/permissionUtils";
 
@@ -22,12 +22,12 @@ export function UserListTable({
       <div className="max-w-full overflow-x-auto overscroll-x-contain">
         <table className="w-full min-w-[820px] border-collapse text-left font-sans text-xs sm:min-w-[1180px]">
           <thead>
-            <tr className="border-b border-gray-150 bg-gray-50 font-mono text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            <tr className="bg-slate-50 text-xs font-medium text-slate-500">
               <th className="p-4 pl-6">Thành viên</th>
               <th className="p-4">Địa chỉ email</th>
               {currentUser?.role === "superadmin" && <th className="p-4">Doanh nghiệp</th>}
               <th className="p-4">Ngày đăng ký</th>
-              <th className="p-4">Quyền hạn (role)</th>
+              <th className="p-4">Vai trò</th>
               <th className="p-4">HeyGen</th>
               <th className="p-4 pr-6 text-center">Hành động</th>
             </tr>
@@ -49,8 +49,8 @@ export function UserListTable({
                       <span className="flex items-center gap-1.5 font-semibold text-slate-800">
                         {usr.displayName}
                         {isSelf && (
-                          <span className="rounded-sm border border-blue-150 bg-blue-50 px-1.5 py-0.5 font-mono text-[8px] font-bold text-blue-700">
-                            BẠN
+                          <span className="rounded-md bg-cyan-50 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">
+                            Bạn
                           </span>
                         )}
                       </span>
@@ -72,7 +72,7 @@ export function UserListTable({
                   </td>
                   <td className="p-4">
                     <span
-                      className={`flex w-max items-center gap-1.5 rounded-full px-2.5 py-0.75 font-mono text-[9px] font-bold uppercase tracking-wider ${
+                      className={`flex w-max items-center gap-1.5 rounded-full px-2.5 py-0.75 text-xs font-medium ${
                         usr.role === "superadmin"
                           ? "border border-rose-200 bg-rose-50 text-rose-800"
                           : usr.role === "admin"
@@ -91,11 +91,11 @@ export function UserListTable({
                   <td className="p-4">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center rounded-md border border-cyan-100 bg-cyan-50 px-2 py-0.5 text-[9px] font-semibold text-cyan-800 uppercase tracking-wider">
+                        <span className="inline-flex items-center rounded-md bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-800">
                           Theo công ty
                         </span>
                         <div className="group relative flex cursor-help items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 h-4 w-4">
-                          <span className="text-[10px] font-bold">i</span>
+                          <Info className="h-3 w-3" aria-label="Thông tin HeyGen" />
                           <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-52 -translate-x-1/2 scale-95 rounded-lg bg-slate-900 p-2.5 text-[10px] font-normal leading-relaxed text-white opacity-0 shadow-xl transition-all duration-150 group-hover:pointer-events-auto group-hover:scale-100 group-hover:opacity-100">
                             Avatar và voice được lấy từ account HeyGen của doanh nghiệp.
                             <div className="absolute top-full left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1 bg-slate-900 rotate-45" />
@@ -119,7 +119,7 @@ export function UserListTable({
                       >
                         {[
                           ...getAvailableRoles(),
-                          ...(!getAvailableRoles().some((r) => r.role === usr.role) ? [{ role: usr.role, displayName: usr.role.toUpperCase(), level: 99 }] : []),
+                          ...(!getAvailableRoles().some((r) => r.role === usr.role) ? [{ role: usr.role, displayName: getRoleDisplayName(usr.role), level: 99 }] : []),
                         ].map((r, index) => (
                           <option key={`${usr.uid}-${r.role}-${index}`} value={r.role}>
                             {r.displayName}
@@ -189,8 +189,8 @@ export function UserListTable({
                 key={page}
                 type="button"
                 onClick={() => onPageChange(page)}
-                className={`h-9 min-w-9 rounded-xl px-3 text-[11px] font-bold transition ${
-                  page === userPage ? "bg-slate-900 text-white" : "border border-gray-200 bg-white text-slate-700 hover:bg-slate-50"
+                className={`h-9 min-w-9 rounded-xl px-3 text-xs font-medium transition ${
+                  page === userPage ? "bg-cyan-600 text-white" : "bg-slate-50 text-slate-700 hover:bg-cyan-50"
                 }`}
               >
                 {page}

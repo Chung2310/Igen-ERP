@@ -240,30 +240,30 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-5xl h-full sm:h-auto sm:max-h-[95vh] overflow-hidden flex flex-col bg-slate-50 sm:rounded-[2rem] shadow-2xl"
+            className="relative flex h-full w-full max-w-6xl flex-col overflow-hidden bg-slate-50 shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
           >
             {/* Header Section */}
-            <div className="bg-white px-4 py-4 sm:px-8 sm:py-6 border-b border-slate-100 flex-shrink-0">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4 sm:gap-6">
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-cyan-600 flex items-center justify-center text-white text-xl sm:text-2xl font-bold shadow-lg shadow-cyan-100 shrink-0">
+            <div className="flex-shrink-0 border-b border-sky-100 bg-white px-4 py-3 sm:px-6 sm:py-4">
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-primary text-base font-medium text-white">
                     {student.fullName.charAt(0)}
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight truncate">{student.fullName}</h2>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1 sm:mt-2">
-                      <span className="text-slate-500 text-[10px] sm:text-xs font-medium">{student.phone}</span>
+                    <h2 className="truncate text-lg font-medium tracking-tight text-slate-900">{student.fullName}</h2>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-normal text-slate-500">{student.phone}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 sm:gap-4 self-end sm:self-center">
+                <div className="flex items-center gap-2 self-end sm:self-center">
                   <div className="flex flex-wrap gap-1.5 justify-end">
                     {(Array.isArray(student.status) ? student.status : [student.status]).map((st) => (
                       <span
                         key={st}
                         className={cn(
-                          "px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold border shadow-sm whitespace-nowrap",
+                          "whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium",
                           getStatusColor(st)
                         )}
                       >
@@ -274,34 +274,34 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                   <div className="flex items-center gap-2">
                     <button
                       title="In thông tin"
-                      className="p-2 sm:p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all active:scale-95"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-white text-slate-500 transition-colors hover:bg-sky-50 hover:text-brand-primary"
                     >
-                      <Printer className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <Printer className="h-4 w-4" />
                     </button>
                     <button
                       onClick={onClose}
                       title="Đóng"
-                      className="p-2 sm:p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all active:scale-95"
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
                     >
-                      <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               </div>
 
               {/* Tab Navigation */}
-              <div className="mt-6 flex items-center gap-2 sm:mt-8">
+              <div className="mt-3 flex items-center gap-2">
                 <button type="button" title="Tab trước" onClick={() => scrollTabs("left")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronLeft className="h-4 w-4" /></button>
-                <div ref={tabsRef} className="flex min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto no-scrollbar scroll-smooth pb-1 sm:gap-2">
+                <div ref={tabsRef} className="no-scrollbar flex min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto scroll-smooth">
                   {tabs.map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-200",
+                        "flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm",
                         activeTab === tab
-                          ? "bg-slate-900 text-white shadow-md shadow-slate-200"
-                          : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                          ? "bg-brand-primary text-white"
+                          : "text-slate-600 hover:bg-sky-50 hover:text-brand-primary"
                       )}
                     >
                       <TabIcon tab={tab} />
@@ -314,7 +314,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
             </div>
 
             {/* Body Content */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-50/50">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/50 p-3 sm:p-5">
               <motion.div
                 key={activeTab}
                 initial={{ opacity: 0, y: 10 }}
@@ -387,7 +387,14 @@ function TabIcon({ tab, size = 16 }: { tab: TabType, size?: number }) {
 
 function StudentExamHistoryTab({ student }: { student: Student }) {
   const exams = student.exams || [];
-  return <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-5"><div className="flex items-center justify-between"><div><h3 className="text-sm font-black text-slate-800">Bài thi đã làm</h3><p className="mt-1 text-xs text-slate-400">Điểm số và kết quả của từng bài thi.</p></div><span className="text-xs font-bold text-slate-400">{exams.length} bài thi</span></div>{!exams.length ? <div className="py-10 text-center text-sm text-slate-400">Chưa có bài thi nào được ghi nhận.</div> : <div className="space-y-2">{[...exams].reverse().map((exam, index) => { const scores = [["Lý thuyết", exam.result?.theory], ["Thực hành", exam.result?.practice], ["Mô phỏng", exam.result?.simulation]].filter(([, score]) => typeof score === "number" && score > 0) as Array<[string, number]>; const overall = exam.result?.overall; return <div key={exam.id || index} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700"><FileText className="h-4 w-4" /></div><div className="min-w-0"><p className="truncate text-sm font-bold text-slate-700">{exam.name}</p><p className="mt-0.5 text-xs text-slate-400">{exam.type} · {toDisplayDate(exam.date)}</p>{scores.length ? <p className="mt-1 text-xs font-semibold text-cyan-700">{scores.map(([label, score]) => `${label}: ${score}`).join(" · ")}</p> : null}</div></div><span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${overall === "Đậu" ? "bg-emerald-50 text-emerald-700" : overall === "Trượt" ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-500"}`}>{overall || "Chưa có kết quả"}</span></div>; })}</div>}</div>;
+  return <div className="space-y-3 rounded-2xl border border-sky-100 bg-white p-4 shadow-sm">
+    <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-medium text-slate-800">Bài thi đã làm</h3><p className="mt-0.5 text-xs text-slate-500">Điểm số và kết quả của từng bài thi.</p></div><span className="text-xs font-normal text-slate-500">{exams.length} bài thi</span></div>
+    {!exams.length ? <div className="rounded-xl bg-sky-50/40 py-6 text-center text-sm text-slate-500">Chưa có bài thi nào được ghi nhận.</div> : <div className="space-y-2">{[...exams].reverse().map((exam, index) => {
+      const scores = [["Lý thuyết", exam.result?.theory], ["Thực hành", exam.result?.practice], ["Mô phỏng", exam.result?.simulation]].filter(([, score]) => typeof score === "number" && score > 0) as Array<[string, number]>;
+      const overall = exam.result?.overall;
+      return <div key={exam.id || index} className="flex items-center justify-between gap-3 rounded-xl border border-sky-100 bg-sky-50/40 px-3 py-2.5"><div className="flex min-w-0 items-center gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-brand-primary"><FileText className="h-4 w-4" /></div><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-800">{exam.name}</p><p className="mt-0.5 text-xs text-slate-500">{exam.type} · {toDisplayDate(exam.date)}</p>{scores.length ? <p className="mt-1 text-xs font-normal text-brand-primary">{scores.map(([label, score]) => `${label}: ${score}`).join(" · ")}</p> : null}</div></div><span className={`shrink-0 rounded-full px-2 py-1 text-xs font-normal ${overall === "Đậu" ? "bg-emerald-50 text-emerald-700" : overall === "Trượt" ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-500"}`}>{overall || "Chưa có kết quả"}</span></div>;
+    })}</div>}
+  </div>;
 }
 
 function StudentHistoryTab({ student }: { student: Student }) {

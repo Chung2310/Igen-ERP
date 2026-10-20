@@ -1,15 +1,14 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
-  Filter,
+  Maximize2,
+  Minimize2,
   Users,
-  Bell,
   Clock,
   Info,
-  CalendarCheck,
   CheckCircle,
   X,
   Check,
@@ -22,6 +21,8 @@ import { getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { companyWorkCalendarService, WorkCalendarDay } from "../../services/companyWorkCalendarService";
+import { HrFormSelect } from "./HrFormSelect";
+import { DateInput24 } from "../common/TimeInput24";
 import AttendanceUtilityMenu from "./AttendanceUtilityMenu";
 import AttendanceDailyOverview from "./AttendanceDailyOverview";
 import { buildAttendanceDailyOverview } from "../../utils/attendanceDailyOverview";
@@ -76,7 +77,7 @@ interface EffectiveWorkHours {
   workingDays?: number[];
 }
 
-const WEEKDAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+const WEEKDAYS = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ nhật"];
 
 const LeaveRequestsTab = lazy(() => import("./LeaveRequestsTab"));
 
@@ -100,7 +101,10 @@ export default function CalendarTab({
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   // Sub-tab Navigation
-  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "requests">("schedule");
+  const [currentSubTab, setCurrentSubTab] = useState<"schedule" | "attendance" | "requests">(() => {
+    const section = new URLSearchParams(window.location.search).get("section");
+    return section === "attendance" || section === "requests" ? section : "schedule";
+  });
 
   // Đơn nghỉ đã duyệt được dùng để tính công trong tab Lịch sử chấm công.
   const [applications, setApplications] = useState<any[]>([]);
@@ -145,6 +149,32 @@ export default function CalendarTab({
   const [editAttendanceReason, setEditAttendanceReason] = useState("");
   const [isAttendanceSaving, setIsAttendanceSaving] = useState(false);
   const [attendanceSectionMode, setAttendanceSectionMode] = useState<"overview" | "detail">("overview");
+  const attendancePanelRef = useRef<HTMLDivElement>(null);
+  const attendanceTableScrollRef = useRef<HTMLDivElement>(null);
+  const [isAttendanceFullscreen, setIsAttendanceFullscreen] = useState(false);
+  const [fullscreenWidth, setFullscreenWidth] = useState(() => typeof window === "undefined" ? 0 : window.innerWidth);
+  useEffect(() => {
+    const syncFullscreen = () => setIsAttendanceFullscreen(document.fullscreenElement === attendancePanelRef.current);
+    const syncWidth = () => setFullscreenWidth(window.innerWidth);
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    window.addEventListener("resize", syncWidth);
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreen);
+      window.removeEventListener("resize", syncWidth);
+    };
+  }, []);
+  const scrollAttendanceTable = (direction: -1 | 1) => {
+    const container = attendanceTableScrollRef.current;
+    if (container) container.scrollBy({ left: direction * Math.max(280, container.clientWidth * 0.7), behavior: "smooth" });
+  };
+  const toggleAttendanceFullscreen = async () => {
+    try {
+      if (document.fullscreenElement === attendancePanelRef.current) await document.exitFullscreen();
+      else await attendancePanelRef.current?.requestFullscreen();
+    } catch {
+      toast.error("Không thể mở toàn màn hình trên trình duyệt này.");
+    }
+  };
   const [attendanceOverviewDate, setAttendanceOverviewDate] = useState(() => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -777,20 +807,20 @@ export default function CalendarTab({
       "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
 
     return (
-      <div className="flex min-h-0 flex-1 flex-col animate-fade-in rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-white">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3 shrink-0">
-          <div className="flex rounded-xl bg-slate-100 p-1">
+      <div ref={attendancePanelRef} className={`flex min-h-0 flex-1 flex-col animate-fade-in overflow-hidden border border-[#dce7f4] bg-white ${isAttendanceFullscreen ? "h-screen w-screen rounded-none border-0" : "rounded-2xl"}`}>
+        <div className="flex items-center justify-between border-b border-[#e5eef8] bg-white px-5 py-3 shrink-0">
+          <div className="flex rounded-xl bg-[#f2f6fb] p-1">
             <button
               type="button"
               onClick={() => setAttendanceSectionMode("overview")}
-              className={`rounded-lg px-4 py-2 text-xs font-extrabold transition-all cursor-pointer ${attendanceSectionMode === "overview" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+              className={`rounded-lg px-4 py-2 text-sm font-normal transition-colors cursor-pointer ${attendanceSectionMode === "overview" ? "bg-white text-[#008dcc] shadow-sm" : "text-slate-600 hover:text-[#008dcc]"}`}
             >
               Tổng quan
             </button>
             <button
               type="button"
               onClick={() => setAttendanceSectionMode("detail")}
-              className={`rounded-lg px-4 py-2 text-xs font-extrabold transition-all cursor-pointer ${attendanceSectionMode === "detail" ? "bg-white text-cyan-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+              className={`rounded-lg px-4 py-2 text-sm font-normal transition-colors cursor-pointer ${attendanceSectionMode === "detail" ? "bg-white text-[#008dcc] shadow-sm" : "text-slate-600 hover:text-[#008dcc]"}`}
             >
               Chi tiết
             </button>
@@ -808,43 +838,31 @@ export default function CalendarTab({
         {/* ===== HEADER CONTROLS + BẢNG CHẤM CÔNG ===== */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header Controls */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-white gap-3 shrink-0 flex-wrap">
+          <div className="flex items-center justify-between gap-3 border-b border-[#e5eef8] bg-white px-5 py-3 shrink-0 flex-wrap">
             {/* Tiêu đề + chọn tháng */}
-            <div className="flex items-center gap-3">
-              <h1 className="text-base font-black text-slate-800 tracking-tight">Bảng chấm công</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-base font-normal text-slate-800">Bảng chấm công</h1>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={goToPrevMonth}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e8f7ff] text-[#007eb8] transition-colors hover:bg-[#d7f1ff] cursor-pointer"
                   title="Tháng trước"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <div className="flex items-center gap-1.5">
-                  <select
-                    value={selectedMonth}
-                    onChange={e => { setSelectedMonth(Number(e.target.value)); setLogsPage(1); }}
-                    className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-cyan-50 border border-cyan-200 rounded-lg cursor-pointer outline-none focus:ring-2 focus:ring-cyan-300"
-                  >
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <option key={i + 1} value={i + 1}>{monthNames[i]}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={selectedYear}
-                    onChange={e => { setSelectedYear(Number(e.target.value)); setLogsPage(1); }}
-                    className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-cyan-50 border border-cyan-200 rounded-lg cursor-pointer outline-none focus:ring-2 focus:ring-cyan-300"
-                  >
-                    {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
-                      <option key={y} value={y}>Năm {y}</option>
-                    ))}
-                  </select>
+                  <div className="w-28 text-xs font-normal">
+                    <HrFormSelect value={String(selectedMonth)} onChange={value => { setSelectedMonth(Number(value)); setLogsPage(1); }} label="Chọn tháng" options={monthNames.map((label, index) => ({ value: String(index + 1), label }))} />
+                  </div>
+                  <div className="w-28 text-xs font-normal">
+                    <HrFormSelect value={String(selectedYear)} onChange={value => { setSelectedYear(Number(value)); setLogsPage(1); }} label="Chọn năm" options={Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => ({ value: String(year), label: `Năm ${year}` }))} />
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={goToNextMonth}
-                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer border-0 bg-transparent"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e8f7ff] text-[#007eb8] transition-colors hover:bg-[#d7f1ff] cursor-pointer"
                   title="Tháng sau"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -857,19 +875,33 @@ export default function CalendarTab({
                 placeholder="Tìm nhân viên..."
                 value={empSearchQuery}
                 onChange={e => { setEmpSearchQuery(e.target.value); setLogsPage(1); }}
-                className="w-44 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-400/30 focus:border-cyan-400 placeholder:text-slate-400 font-medium"
+                className="w-44 rounded-xl border border-[#dce7f4] bg-white px-3 py-2 text-xs font-normal outline-none placeholder:text-slate-400 focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/10"
               />
             </div>
 
+            {attendanceSectionMode === "detail" && (!isMobile || mobileAttendanceViewMode === "table") && (
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => scrollAttendanceTable(-1)} aria-label="Cuộn bảng sang trái" title="Cuộn bảng sang trái" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e8f7ff] text-[#007eb8] transition-colors hover:bg-[#d7f1ff]">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => scrollAttendanceTable(1)} aria-label="Cuộn bảng sang phải" title="Cuộn bảng sang phải" className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e8f7ff] text-[#007eb8] transition-colors hover:bg-[#d7f1ff]">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => void toggleAttendanceFullscreen()} aria-label={isAttendanceFullscreen ? "Thu nhỏ bảng chấm công" : "Mở toàn màn hình bảng chấm công"} title={isAttendanceFullscreen ? "Thu nhỏ bảng" : "Xem toàn màn hình"} className="ml-1 flex h-9 w-9 items-center justify-center rounded-lg border border-[#bceaff] bg-white text-[#007eb8] transition-colors hover:bg-[#e8f7ff]">
+                  {isAttendanceFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </button>
+              </div>
+            )}
+
             {isMobile && (
-              <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs bg-white items-center">
+              <div className="flex overflow-hidden rounded-xl bg-[#f2f6fb] p-1 items-center">
                 <button
                   type="button"
                   onClick={() => setMobileAttendanceViewMode("table")}
-                  className={`px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`rounded-lg px-3 py-1.5 text-xs font-normal transition-colors cursor-pointer ${
                     mobileAttendanceViewMode === "table"
-                      ? "bg-cyan-600 text-white"
-                      : "text-slate-550 hover:bg-slate-50"
+                      ? "bg-white text-[#008dcc] shadow-sm"
+                      : "text-slate-600 hover:text-[#008dcc]"
                   }`}
                 >
                   Bảng
@@ -877,10 +909,10 @@ export default function CalendarTab({
                 <button
                   type="button"
                   onClick={() => setMobileAttendanceViewMode("list")}
-                  className={`px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                  className={`rounded-lg px-3 py-1.5 text-xs font-normal transition-colors cursor-pointer ${
                     mobileAttendanceViewMode === "list"
-                      ? "bg-cyan-600 text-white"
-                      : "text-slate-550 hover:bg-slate-50"
+                      ? "bg-white text-[#008dcc] shadow-sm"
+                      : "text-slate-600 hover:text-[#008dcc]"
                   }`}
                 >
                   Danh sách
@@ -890,7 +922,7 @@ export default function CalendarTab({
           </div>
 
           {/* Bảng Grid Chấm Công */}
-          <div className="min-h-0 flex-1 overflow-auto visible-scrollbar">
+          <div ref={attendanceTableScrollRef} className="min-h-0 flex-1 overflow-auto visible-scrollbar">
             {isLogsLoading ? (
               <div className="flex items-center justify-center h-full text-slate-400 gap-2">
                 <div className="w-5 h-5 border-2 border-cyan-600 border-t-transparent rounded-full animate-spin" />
@@ -912,7 +944,7 @@ export default function CalendarTab({
                     return (
                       <div
                         key={emp.uid}
-                        className="bg-white border border-slate-150 rounded-2xl p-4 shadow-3xs flex flex-col gap-3 transition-all"
+                        className="bg-white border border-[#dce7f4] rounded-2xl p-4 flex flex-col gap-3 transition-colors"
                       >
                         {/* Employee Row Header */}
                         <div
@@ -923,18 +955,18 @@ export default function CalendarTab({
                             {u.photoURL ? (
                               <img src={u.photoURL} alt={u.displayName} className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200 shrink-0" />
                             ) : (
-                              <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-black text-xs shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-[#e8f7ff] text-[#007eb8] flex items-center justify-center font-normal text-xs shrink-0">
                                 {u.displayName.slice(0, 2).toUpperCase()}
                               </div>
                             )}
                             <div className="flex flex-col">
-                              <span className="font-extrabold text-xs text-slate-800 tracking-wide">{u.displayName}</span>
-                              <span className="text-[10px] text-slate-550 font-medium truncate max-w-[150px]">{u.email}</span>
+                              <span className="font-normal text-xs text-slate-800">{u.displayName}</span>
+                              <span className="text-[10px] text-slate-500 font-normal truncate max-w-[150px]">{u.email}</span>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-50 border border-emerald-150 px-2 py-0.5 rounded-lg">
+                            <span className="text-[10px] font-normal text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg">
                               {totalCoeff} công
                             </span>
                             <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
@@ -1020,24 +1052,24 @@ export default function CalendarTab({
                 )}
               </div>
             ) : (
-              <table className="text-xs border-collapse table-fixed" style={{ minWidth: `${448 + daysInMonth * 50}px` }}>
+              <table className="table-fixed border-collapse text-xs" style={{ minWidth: `${448 + daysInMonth * 50}px`, zoom: isAttendanceFullscreen ? Math.min(1, (fullscreenWidth - 16) / (448 + daysInMonth * 50)) : 1 }}>
                 {/* === THEAD === */}
                 <thead className="sticky top-0 z-40">
-                  <tr className="bg-slate-100 border-b border-slate-300">
+                  <tr className="border-b border-[#dce7f4] bg-[#e8f7ff]">
                     {/* Cột STT */}
-                    <th className="sticky left-0 z-50 bg-slate-100 border-b border-r border-slate-300 px-2 py-2 text-center font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[36px] w-[36px]">
+                    <th className="sticky left-0 z-50 bg-[#e8f7ff] border-b border-r border-[#dce7f4] px-2 py-2 text-center font-normal text-[10px] text-[#007eb8] whitespace-nowrap min-w-[36px] w-[36px]">
                       #
                     </th>
                     {/* Cột Họ và Tên */}
-                    <th className="sticky left-[36px] z-50 bg-slate-100 border-b border-r border-slate-300 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[176px] w-[176px]">
+                    <th className="sticky left-[36px] z-50 bg-[#e8f7ff] border-b border-r border-[#dce7f4] px-3 py-2 text-left font-normal text-[10px] text-[#007eb8] whitespace-nowrap min-w-[176px] w-[176px]">
                       Họ và Tên
                     </th>
                     {/* Cột Email */}
-                    <th className="sticky left-[212px] z-50 bg-slate-100 border-b border-r-2 border-slate-400 px-3 py-2 text-left font-black text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap min-w-[180px] w-[180px]">
+                    <th className="sticky left-[212px] z-50 bg-[#e8f7ff] border-b border-r border-[#c9e5f5] px-3 py-2 text-left font-normal text-[10px] text-[#007eb8] whitespace-nowrap min-w-[180px] w-[180px]">
                       Mã đăng nhập
                     </th>
                     {/* Cột Số công */}
-                    <th className="sticky left-[392px] z-50 bg-emerald-700 border-b border-r-2 border-slate-400 px-2 py-2 text-center font-black text-[10px] text-white uppercase tracking-wider whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
+                    <th className="sticky left-[392px] z-50 bg-[#d8f2ff] border-b border-r border-[#bceaff] px-2 py-2 text-center font-normal text-[10px] text-[#007eb8] whitespace-nowrap min-w-[56px] w-[56px]">
                       Số<br/>công
                     </th>
                     {/* Các cột ngày */}
@@ -1052,16 +1084,16 @@ export default function CalendarTab({
                       return (
                         <th
                           key={day}
-                          className={`border-b border-r border-slate-300 px-1 py-1.5 text-center font-bold whitespace-nowrap min-w-[50px] w-[50px] ${
+                          className={`border-b border-r border-[#dce7f4] px-1 py-1.5 text-center font-normal whitespace-nowrap min-w-[50px] w-[50px] ${
                             isToday
-                              ? "bg-cyan-600 text-white"
+                              ? "bg-[#c8eeff] text-[#007eb8]"
                               : isWeekend
-                                ? "bg-slate-200 text-slate-500"
-                                : "bg-slate-100 text-slate-600"
+                                ? "bg-[#f3f7fb] text-slate-500"
+                                : "bg-[#e8f7ff] text-[#007eb8]"
                           }`}
                         >
-                          <div className="text-[9px] font-bold">{dayLabels[dow]}</div>
-                          <div className={`text-sm font-black leading-tight ${isToday ? "text-white" : isWeekend ? "text-slate-500" : "text-slate-800"}`}>
+                          <div className="text-[9px] font-normal">{dayLabels[dow]}</div>
+                          <div className={`text-sm font-normal leading-tight ${isToday ? "text-[#007eb8]" : isWeekend ? "text-slate-500" : "text-slate-800"}`}>
                             {day}
                           </div>
                         </th>
@@ -1083,33 +1115,33 @@ export default function CalendarTab({
                       const u = getUserDetail(emp.uid);
                       const { totalHours, totalCoeff } = calcMonthTotals(emp);
                       const globalIdx = (logsPage - 1) * gridPageSize + empIdx + 1;
-                      const rowBg = empIdx % 2 === 0 ? "bg-white" : "bg-slate-50";
+                      const rowBg = empIdx % 2 === 0 ? "bg-white" : "bg-[#f8fbff]";
                       return (
-                        <tr key={emp.uid} className={`border-b border-slate-200 hover:bg-cyan-50/50 transition-colors ${rowBg}`}>
+                        <tr key={emp.uid} className={`border-b border-[#e5eef8] hover:bg-[#f0faff] transition-colors ${rowBg}`}>
                           {/* STT */}
-                          <td className={`sticky left-0 z-30 border-r border-slate-200 px-2 py-2.5 text-center text-[10px] font-bold text-slate-400 whitespace-nowrap min-w-[36px] w-[36px] ${rowBg}`}>
+                          <td className={`sticky left-0 z-30 border-r border-[#e5eef8] px-2 py-2.5 text-center text-[10px] font-normal text-slate-500 whitespace-nowrap min-w-[36px] w-[36px] ${rowBg}`}>
                             {globalIdx}
                           </td>
                           {/* Họ và Tên */}
-                          <td className={`sticky left-[36px] z-30 border-r border-slate-200 px-3 py-2.5 whitespace-nowrap min-w-[176px] w-[176px] ${rowBg}`}>
+                          <td className={`sticky left-[36px] z-30 border-r border-[#e5eef8] px-3 py-2.5 whitespace-nowrap min-w-[176px] w-[176px] ${rowBg}`}>
                             <div className="flex items-center gap-2">
                               {u.photoURL ? (
                                 <img src={u.photoURL} alt={u.displayName} className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200 shrink-0" />
                               ) : (
-                                <div className="w-6 h-6 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center font-black text-[9px] shrink-0">
+                                <div className="w-6 h-6 rounded-full bg-[#e8f7ff] text-[#007eb8] flex items-center justify-center font-normal text-[9px] shrink-0">
                                   {u.displayName.slice(0, 2).toUpperCase()}
                                 </div>
                               )}
-                              <span className="font-bold text-cyan-700 truncate max-w-[120px] text-xs" title={u.displayName}>{u.displayName}</span>
+                              <span className="font-normal text-[#007eb8] truncate max-w-[120px] text-xs" title={u.displayName}>{u.displayName}</span>
                             </div>
                           </td>
                           {/* Email */}
-                          <td className={`sticky left-[212px] z-30 border-r-2 border-slate-400 px-3 py-2.5 whitespace-nowrap min-w-[180px] w-[180px] ${rowBg}`}>
-                            <span className="text-[10px] text-slate-500 font-medium truncate block max-w-[150px]" title={u.email}>{u.email}</span>
+                          <td className={`sticky left-[212px] z-30 border-r border-[#c9e5f5] px-3 py-2.5 whitespace-nowrap min-w-[180px] w-[180px] ${rowBg}`}>
+                            <span className="text-[10px] text-slate-500 font-normal truncate block max-w-[150px]" title={u.email}>{u.email}</span>
                           </td>
                           {/* Tổng công */}
-                          <td className="sticky left-[392px] z-30 border-r-2 border-slate-400 px-2 py-2.5 text-center bg-emerald-50 whitespace-nowrap min-w-[56px] w-[56px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.15)]">
-                            <span className="text-xs font-black text-emerald-700">{totalCoeff}</span>
+                          <td className="sticky left-[392px] z-30 border-r border-[#bceaff] px-2 py-2.5 text-center bg-[#f0faff] whitespace-nowrap min-w-[56px] w-[56px]">
+                            <span className="text-xs font-normal text-[#008dcc]">{totalCoeff}</span>
                           </td>
                           {dayColumns.map(day => {
                             const cell = getDayCellData(emp, day);
@@ -1120,15 +1152,15 @@ export default function CalendarTab({
 
                             if (isWeekend) {
                               return (
-                                <td key={day} className="border-r border-slate-200 px-1 py-2.5 text-center bg-slate-100 whitespace-nowrap w-12">
-                                  <span className="text-slate-300 text-[10px] font-bold">—</span>
+                                <td key={day} className="border-r border-[#e5eef8] px-1 py-2.5 text-center bg-[#f3f7fb] whitespace-nowrap w-12">
+                                  <span className="text-slate-400 text-[10px] font-normal">—</span>
                                 </td>
                               );
                             }
 
                             if (cell.isFuture) {
                               return (
-                                <td key={day} className={`border-r border-slate-200 px-1 py-2.5 text-center whitespace-nowrap w-12 ${isToday ? "bg-cyan-50" : ""}`}>
+                                <td key={day} className={`border-r border-[#e5eef8] px-1 py-2.5 text-center whitespace-nowrap w-12 ${isToday ? "bg-[#f0faff]" : ""}`}>
                                   <span className="text-slate-200 text-[10px]">·</span>
                                 </td>
                               );
@@ -1142,13 +1174,13 @@ export default function CalendarTab({
                               <td
                                 key={day}
                                 onClick={() => canEditAttendance && dbLog && openAttendanceEditor(dbLog)}
-                                className={`border-r border-slate-200 px-0.5 py-1.5 text-center whitespace-nowrap w-12 group ${canEditAttendance && dbLog ? "cursor-pointer hover:bg-cyan-100" : "cursor-default"} ${isToday ? "bg-cyan-50" : ""}`}
+                                className={`border-r border-[#e5eef8] px-0.5 py-1.5 text-center whitespace-nowrap w-12 group ${canEditAttendance && dbLog ? "cursor-pointer hover:bg-[#e8f7ff]" : "cursor-default"} ${isToday ? "bg-[#f0faff]" : ""}`}
                                 title={`${u.displayName} – ${dateStr}\nTrạng thái: ${getStatusShort(cell.status)}\nCheck-in: ${cell.checkIn || "--:--"} | Check-out: ${cell.checkOut || "--:--"}\nHệ số công: ${coeff}`}
                               >
                                 {isScheduleMode ? (
                                   cell.checkIn || cell.checkOut || (cell.status && cell.status !== "Absent") ? (
                                     <div className="flex flex-col items-start px-0.5 text-left max-w-full overflow-hidden">
-                                      <div className="flex items-center gap-1 text-[8.5px] font-extrabold leading-none truncate max-w-full text-slate-800">
+                                      <div className="flex items-center gap-1 text-[8.5px] font-normal leading-none truncate max-w-full text-slate-800">
                                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                           cell.status === "Present" || cell.status === "Half-Day" || cell.status?.startsWith("Approved")
                                             ? "bg-emerald-500"
@@ -1175,22 +1207,22 @@ export default function CalendarTab({
                                         </span>
                                       </div>
                                       {(cell.checkIn || cell.checkOut) && (
-                                        <div className="text-[8px] font-semibold text-slate-500 pl-2.5 leading-tight mt-0.5 font-mono">
+                                        <div className="text-[8px] font-normal text-slate-500 pl-2.5 leading-tight mt-0.5 font-mono">
                                           {cell.checkIn || "--:--"} - {cell.checkOut || "--:--"}
                                         </div>
                                       )}
-                                      {dbLog?.manuallyAdjusted && <div className="pl-2.5 text-[7px] font-bold text-violet-600">Đã điều chỉnh</div>}
+                                      {dbLog?.manuallyAdjusted && <div className="pl-2.5 text-[7px] font-normal text-[#008dcc]">Đã điều chỉnh</div>}
                                     </div>
                                   ) : null
                                 ) : cellDisplayMode === "coeff" ? (
                                   <>
                                     {/* Hệ số công */}
-                                    <div className={`text-sm font-black leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-slate-800" : "text-rose-500"}`}>
+                                    <div className={`text-sm font-normal leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-emerald-700" : "text-amber-600"}`}>
                                       {coeff === 1 ? "1" : coeff === 0 ? "0" : coeff.toFixed(2)}
                                     </div>
                                     {/* Nhãn trạng thái */}
                                     {cell.status && (
-                                      <div className={`text-[8px] font-bold mt-0.5 leading-none ${isAbsent ? "text-rose-400" : isFullDay ? "text-slate-400" : "text-amber-500"}`}>
+                                      <div className={`text-[8px] font-normal mt-0.5 leading-none ${isAbsent ? "text-rose-500" : isFullDay ? "text-emerald-700" : "text-amber-600"}`}>
                                         {getStatusShort(cell.status)}
                                       </div>
                                     )}
@@ -1198,17 +1230,17 @@ export default function CalendarTab({
                                 ) : (
                                   <>
                                     {/* Số giờ */}
-                                    <div className={`text-xs font-black leading-none ${isAbsent ? "text-rose-500" : "text-cyan-700"}`}>
+                                    <div className={`text-xs font-normal leading-none ${isAbsent ? "text-rose-500" : "text-[#008dcc]"}`}>
                                       {cell.hours && cell.hours > 0 ? `${cell.hours}h` : isFullDay ? "8h" : "0h"}
                                     </div>
                                     {cell.status && (
-                                      <div className={`text-[8px] font-bold mt-0.5 leading-none ${isAbsent ? "text-rose-400" : "text-slate-400"}`}>
+                                      <div className={`text-[8px] font-normal mt-0.5 leading-none ${isAbsent ? "text-rose-500" : "text-slate-500"}`}>
                                         {getStatusShort(cell.status)}
                                       </div>
                                     )}
                                   </>
                                 )}
-                                {dbLog?.manuallyAdjusted && !isScheduleMode && <div className="mt-0.5 text-[7px] font-bold text-violet-600">Đã sửa</div>}
+                                {dbLog?.manuallyAdjusted && !isScheduleMode && <div className="mt-0.5 text-[7px] font-normal text-[#008dcc]">Đã sửa</div>}
                               </td>
                             );
                           })}
@@ -1223,7 +1255,7 @@ export default function CalendarTab({
 
           {/* Footer Pagination */}
           {!isLogsLoading && sidebarEmployees.length > 0 && (
-            <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 bg-white shrink-0">
+            <div className="flex items-center justify-between border-t border-[#e5eef8] px-5 py-3 bg-white shrink-0">
               <span className="text-xs text-slate-500">
                 Hiển thị {Math.min((logsPage - 1) * gridPageSize + 1, sidebarEmployees.length)}–{Math.min(logsPage * gridPageSize, sidebarEmployees.length)} / {sidebarEmployees.length} nhân viên
               </span>
@@ -1231,17 +1263,17 @@ export default function CalendarTab({
                 <button
                   disabled={logsPage <= 1}
                   onClick={() => setLogsPage(logsPage - 1)}
-                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl border border-[#dce7f4] text-xs font-normal text-[#007eb8] bg-white hover:bg-[#f0faff] disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Trước
                 </button>
-                <span className="text-xs font-bold text-slate-800 px-2">
+                <span className="text-xs font-normal text-slate-700 px-2">
                   Trang {logsPage} / {totalGridPages}
                 </span>
                 <button
                   disabled={logsPage >= totalGridPages}
                   onClick={() => setLogsPage(logsPage + 1)}
-                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl border border-[#dce7f4] text-xs font-normal text-[#007eb8] bg-white hover:bg-[#f0faff] disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Sau
                 </button>
@@ -1290,7 +1322,7 @@ export default function CalendarTab({
   // Generate Calendar Grid
   const calendarDays = [];
   const firstDayOfMonth = new Date(year, month, 1);
-  const firstDayIndex = firstDayOfMonth.getDay(); // 0 = Sun
+  const firstDayIndex = (firstDayOfMonth.getDay() + 6) % 7; // Week starts on Monday
   const prevMonthLastDay = new Date(year, month, 0).getDate();
 
   // Prev month filler days
@@ -1406,17 +1438,17 @@ export default function CalendarTab({
 
   return (
     <div
-      className={`flex flex-col h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 p-5 duration-500 ${
+      className={`flex min-h-0 flex-col h-full bg-white p-3 md:p-4 ${
         currentSubTab === "attendance" ? "overflow-hidden" : "overflow-y-auto"
       }`}
       id="calendar_tab_wrapper"
     >
       {/* Subtab Switcher */}
-      <div className="flex border-b border-slate-200/60 pb-3 mb-5 justify-between items-center">
+      <div className="flex shrink-0 border-b border-[#DCE7F4] pb-2 mb-3 justify-between items-center">
         <div className="flex gap-2 bg-slate-100/85 p-1 rounded-xl w-fit">
           <button
             onClick={() => setCurrentSubTab("schedule")}
-            className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${currentSubTab === "schedule"
+            className={`calendar-subtab-button px-5 py-2 rounded-lg text-xs font-normal transition-all duration-200 cursor-pointer ${currentSubTab === "schedule"
                 ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
                 : "text-gray-500 hover:text-gray-800"
               }`}
@@ -1425,7 +1457,7 @@ export default function CalendarTab({
           </button>
           <button
             onClick={() => setCurrentSubTab("attendance")}
-            className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${currentSubTab === "attendance"
+            className={`calendar-subtab-button px-5 py-2 rounded-lg text-xs font-normal transition-all duration-200 cursor-pointer ${currentSubTab === "attendance"
                 ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
                 : "text-gray-500 hover:text-gray-800"
               }`}
@@ -1434,7 +1466,7 @@ export default function CalendarTab({
           </button>
           <button
             onClick={() => setCurrentSubTab("requests")}
-            className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${currentSubTab === "requests"
+            className={`calendar-subtab-button px-5 py-2 rounded-lg text-xs font-normal transition-all duration-200 cursor-pointer ${currentSubTab === "requests"
                 ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
                 : "text-gray-500 hover:text-gray-800"
               }`}
@@ -1449,7 +1481,7 @@ export default function CalendarTab({
           fallback={
             <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3">
               <div className="w-8 h-8 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-gray-500 font-semibold">Đang tải đơn từ...</span>
+              <span className="text-xs text-gray-500 font-normal">Đang tải đơn từ...</span>
             </div>
           }
         >
@@ -1469,180 +1501,52 @@ export default function CalendarTab({
         renderAttendanceTab()
       ) : (
         <>
-          {/* 1. Glassmorphism Header Controls & Filters & Quick Stats */}
-          <div className="flex flex-col gap-5 bg-white/80 backdrop-blur-md p-5 rounded-3xl border border-slate-100/80 shadow-md shadow-slate-100/50 mb-5 transition-all duration-300">
-            {/* Navigation & Actions */}
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="bg-indigo-50 p-2.5 rounded-2xl text-indigo-600 shadow-xs border border-indigo-100/40">
-                  <CalendarIcon className="h-5 w-5" />
+          {/* Calendar controls */}
+          <div className="mb-2 shrink-0 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-left font-normal">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <CalendarIcon className="h-4 w-4 shrink-0 text-[#00ADFC]" />
+                <h2 className="whitespace-nowrap text-base font-normal text-slate-800">Lịch làm việc</h2>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={handlePrevMonth} className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#007EB8] transition-colors hover:bg-[#D7F1FF]" title="Tháng trước" aria-label="Tháng trước"><ChevronLeft className="h-4 w-4" /></button>
+                  <DateInput24 value={formatLocalDate(currentDate)} onChange={(date) => { if (date) setCurrentDate(new Date(`${date}T00:00:00`)); }} ariaLabel="Chọn ngày xem lịch" required className="!min-h-9 !w-36 !rounded-lg !px-1.5" />
+                  <button type="button" onClick={handleNextMonth} className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#007EB8] transition-colors hover:bg-[#D7F1FF]" title="Tháng sau" aria-label="Tháng sau"><ChevronRight className="h-4 w-4" /></button>
                 </div>
-                <div>
-                  <h2 className="text-base font-extrabold text-slate-800 tracking-wide uppercase">
-                    Lịch trình
-                  </h2>
-                  <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                    Tháng {month + 1} / {year}
-                  </p>
-                </div>
-                <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs ml-3 bg-white items-center">
-                  <button
-                    onClick={handlePrevMonth}
-                    className="p-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-slate-650 cursor-pointer"
-                    title="Tháng trước"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </button>
-                  <input
-                    type="date"
-                    value={formatLocalDate(currentDate)}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        setCurrentDate(new Date(e.target.value + "T00:00:00"));
-                      }
-                    }}
-                    className="px-3 py-1.5 font-bold text-xs text-slate-700 border-x border-slate-200/80 bg-transparent outline-none cursor-pointer hover:bg-slate-50 transition-colors"
-                    title="Chọn ngày"
-                  />
-                  <button
-                    onClick={handleNextMonth}
-                    className="p-2.5 hover:bg-slate-50 active:bg-slate-100 transition-colors text-slate-650 cursor-pointer"
-                    title="Tháng sau"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-
-                {isMobile && (
-                  <div className="flex border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs ml-2 bg-white items-center">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode("grid")}
-                      className={`px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
-                        viewMode === "grid"
-                          ? "bg-indigo-600 text-white"
-                          : "text-slate-550 hover:bg-slate-50"
-                      }`}
-                    >
-                      Lịch
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode("list")}
-                      className={`px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
-                        viewMode === "list"
-                          ? "bg-indigo-600 text-white"
-                          : "text-slate-550 hover:bg-slate-50"
-                      }`}
-                    >
-                      Danh sách
-                    </button>
-                  </div>
-                )}
               </div>
-
-
+              <div className="ml-auto flex max-w-full flex-wrap items-center gap-1.5">
+                <div className="w-36 text-xs [&>button]:min-h-8 [&>button]:rounded-lg [&>button]:px-2 [&>button]:py-1"><HrFormSelect value={filterType} onChange={setFilterType} label="Danh mục lịch" options={[{ value: "all", label: "Tất cả danh mục" }, { value: "event", label: "Sự kiện" }, { value: "leave", label: "Nghỉ phép" }, { value: "wfh", label: "Làm tại nhà" }, { value: "exception", label: "Ngoại lệ" }, { value: "reminder", label: "Nhắc hẹn" }]} /></div>
+                <div className="w-36 text-xs [&>button]:min-h-8 [&>button]:rounded-lg [&>button]:px-2 [&>button]:py-1"><HrFormSelect value={filterEmployee} onChange={setFilterEmployee} label="Nhân sự" options={[{ value: "all", label: "Tất cả nhân sự" }, ...employees.map(emp => ({ value: emp.id, label: emp.name }))]} /></div>
+              </div>
+              {isMobile && (
+                <div className="flex gap-1 rounded-lg bg-[#F3FAFF] p-1 text-xs">
+                  <button onClick={() => setViewMode("grid")} className={viewMode === "grid" ? "rounded-md bg-[#00ADFC] px-2 py-1 text-white" : "px-2 py-1 text-slate-600"}>Lịch</button>
+                  <button onClick={() => setViewMode("list")} className={viewMode === "list" ? "rounded-md bg-[#00ADFC] px-2 py-1 text-white" : "px-2 py-1 text-slate-600"}>Danh sách</button>
+                </div>
+              )}
             </div>
-
-            {/* Filters and Stats Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center pt-4 border-t border-slate-100">
-              {/* Filters (6 cols) */}
-              <div className="lg:col-span-6 flex flex-wrap gap-2.5">
-                <div className="flex items-center gap-1.5 bg-slate-100/50 px-3 py-1.5 rounded-2xl border border-slate-200/50">
-                  <Filter className="h-3.5 w-3.5 text-slate-550" />
-                  <span className="text-xs text-slate-600 font-extrabold">Bộ lọc:</span>
-                </div>
-
-                {/* Type selector */}
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="px-3 py-1.5 border border-slate-200/80 bg-slate-50 hover:bg-slate-100/50 rounded-2xl text-xs font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer transition-all"
-                >
-                  <option value="all">Tất cả danh mục</option>
-                  <option value="event">📅 Sự kiện</option>
-                  <option value="leave">🌴 Nghỉ phép</option>
-                  <option value="wfh">🏠 Làm tại nhà</option>
-                  <option value="exception">⚡ Ngoại lệ</option>
-                  <option value="reminder">🔔 Nhắc hẹn</option>
-                </select>
-
-                {/* Employee selector */}
-                <select
-                  value={filterEmployee}
-                  onChange={(e) => setFilterEmployee(e.target.value)}
-                  className="px-3 py-1.5 border border-slate-200/80 bg-slate-50 hover:bg-slate-100/50 rounded-2xl text-xs font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer transition-all max-w-[180px]"
-                >
-                  <option value="all">Tất cả nhân sự</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Premium stats widgets (6 cols) */}
-              <div className="lg:col-span-6 flex flex-row lg:justify-end gap-3 overflow-x-auto pb-2 lg:pb-0 w-full lg:w-auto scrollbar-thin">
-                <div className="bg-white border-l-4 border-l-blue-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-500/5 transition-all duration-300">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Sự kiện</span>
-                    <span className="text-sm font-extrabold text-slate-800">{stats.events}</span>
-                  </div>
-                  <div className="bg-blue-50 p-1.5 rounded-full text-blue-600">
-                    <CalendarCheck className="h-4 w-4" />
-                  </div>
-                </div>
-
-                <div className="bg-white border-l-4 border-l-rose-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-rose-500/5 transition-all duration-300">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nghỉ phép</span>
-                    <span className="text-sm font-extrabold text-slate-800">{stats.leaves}</span>
-                  </div>
-                  <div className="bg-rose-50 p-1.5 rounded-full text-rose-600">
-                    <Users className="h-4 w-4" />
-                  </div>
-                </div>
-
-                <div className="bg-white border-l-4 border-l-teal-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-teal-500/5 transition-all duration-300">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Tại nhà</span>
-                    <span className="text-sm font-extrabold text-slate-800">{stats.wfhs}</span>
-                  </div>
-                  <div className="bg-teal-50 p-1.5 rounded-full text-teal-600">
-                    <Info className="h-4 w-4" />
-                  </div>
-                </div>
-
-                <div className="bg-white border-l-4 border-l-violet-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-violet-500/5 transition-all duration-300">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Ngoại lệ</span>
-                    <span className="text-sm font-extrabold text-slate-800">{stats.exceptions}</span>
-                  </div>
-                  <div className="bg-violet-50 p-1.5 rounded-full text-violet-600">
-                    <CheckCircle className="h-4 w-4" />
-                  </div>
-                </div>
-
-                <div className="bg-white border-l-4 border-l-amber-500 border-y border-r border-slate-100/80 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 flex items-center justify-between min-w-[130px] shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:shadow-amber-500/5 transition-all duration-300">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Nhắc hẹn</span>
-                    <span className="text-sm font-extrabold text-slate-800">{stats.reminders}</span>
-                  </div>
-                  <div className="bg-amber-50 p-1.5 rounded-full text-amber-600">
-                    <Bell className="h-4 w-4" />
-                  </div>
-                </div>
-              </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[#E8F0F8] pt-2 text-xs font-normal">
+              {[
+                { label: "Sự kiện", count: stats.events, dot: "bg-sky-500", value: "bg-sky-50 text-sky-700" },
+                { label: "Nghỉ phép", count: stats.leaves, dot: "bg-rose-500", value: "bg-rose-50 text-rose-700" },
+                { label: "Tại nhà", count: stats.wfhs, dot: "bg-teal-500", value: "bg-teal-50 text-teal-700" },
+                { label: "Ngoại lệ", count: stats.exceptions, dot: "bg-violet-500", value: "bg-violet-50 text-violet-700" },
+                { label: "Nhắc hẹn", count: stats.reminders, dot: "bg-amber-500", value: "bg-amber-50 text-amber-700" },
+              ].map(stat => (
+                <span key={stat.label} className="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+                  <span className={`h-1.5 w-1.5 rounded-full ${stat.dot}`} />
+                  {stat.label}
+                  <span className={`min-w-5 rounded-full px-1.5 text-center ${stat.count ? stat.value : "bg-slate-100 text-slate-400"}`}>{stat.count}</span>
+                </span>
+              ))}
             </div>
           </div>
 
           {/* 2. Premium Calendar Grid */}
-          <div className="flex-1 bg-white/90 backdrop-blur-md border border-slate-100/80 rounded-3xl shadow-md shadow-slate-100/40 p-5 overflow-x-auto min-h-[550px] transition-all duration-300">
+          <div className="flex-1 min-h-[380px] rounded-2xl bg-white p-2 overflow-auto">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full py-20 gap-3.5">
                 <div className="w-9 h-9 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs text-slate-500 font-bold tracking-wider">Đang tải lịch trình...</span>
+                <span className="text-xs text-slate-500 font-normal ">Đang tải lịch trình...</span>
               </div>
             ) : isMobile && viewMode === "list" ? (
               // Agenda List View for Mobile
@@ -1657,7 +1561,7 @@ export default function CalendarTab({
 
                   if (activeMonthItems.length === 0) {
                     return (
-                      <div className="flex flex-col items-center justify-center py-16 text-slate-400 font-medium">
+                      <div className="flex flex-col items-center justify-center py-16 text-slate-400 font-normal">
                         <CalendarIcon className="h-10 w-10 text-slate-300 mb-3" />
                         <span className="text-xs">Không có lịch trình nào trong tháng này.</span>
                       </div>
@@ -1711,22 +1615,22 @@ export default function CalendarTab({
                         className={`border border-slate-150 bg-white border-l-4 ${leftBorderColor} rounded-2xl p-4 flex flex-col gap-2 hover:border-slate-200 hover:shadow-md transition-all duration-300 cursor-pointer`}
                       >
                         <div className="flex justify-between items-center">
-                          <span className={`text-[9px] px-2 py-0.5 font-extrabold rounded-lg border uppercase tracking-wider ${badgeColor}`}>
+                          <span className={`text-[9px] px-2 py-0.5 font-normal rounded-lg border   ${badgeColor}`}>
                             {typeLabel}
                           </span>
-                          <span className="text-[10px] text-slate-550 font-bold bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200/50">
+                          <span className="text-[10px] text-slate-550 font-normal bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200/50">
                             {formattedDate}
                           </span>
                         </div>
 
-                        <h4 className="font-extrabold text-xs text-slate-800 tracking-wide">{item.title}</h4>
+                        <h4 className="font-normal text-xs text-slate-800 ">{item.title}</h4>
                         {item.description && (
-                          <p className="text-[10px] text-slate-550 font-semibold leading-relaxed line-clamp-2">
+                          <p className="text-[10px] text-slate-550 font-normal leading-relaxed line-clamp-2">
                             {item.description}
                           </p>
                         )}
 
-                        <div className="flex flex-wrap gap-y-1 items-center gap-3.5 text-[10px] text-slate-500 font-semibold pt-2 border-t border-slate-100/50">
+                        <div className="flex flex-wrap gap-y-1 items-center gap-3.5 text-[10px] text-slate-500 font-normal pt-2 border-t border-slate-100/50">
                           <span className="flex items-center gap-1.5">
                             <Clock className="h-3 w-3 text-slate-400" />
                             {new Date(item.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
@@ -1740,7 +1644,7 @@ export default function CalendarTab({
                             </span>
                           )}
                           {["leave", "wfh", "exception"].includes(item.type) && (
-                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-normal   ${
                               item.status === "approved"
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                                 : "bg-amber-50 text-amber-700 border border-amber-100"
@@ -1755,18 +1659,13 @@ export default function CalendarTab({
                 })()}
               </div>
             ) : (
-              <div className="min-w-[750px] h-full flex flex-col">
+              <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl bg-[#E8EDF3] p-px">
                 {/* Weekdays Labels */}
-                <div className="grid grid-cols-7 gap-1.5 mb-3">
+                <div className="grid shrink-0 grid-cols-7 gap-px bg-[#E8EDF3]">
                   {WEEKDAYS.map((day, idx) => (
                     <div
                       key={day}
-                      className={`text-center py-2.5 text-xs font-extrabold tracking-wider uppercase ${idx === 0
-                          ? "text-rose-500"
-                          : idx === 6
-                            ? "text-blue-500"
-                            : "text-slate-550"
-                        }`}
+                      className="bg-[#E8F7FF] py-1.5 text-center text-[11px] font-normal text-[#007EB8]"
                     >
                       {day}
                     </div>
@@ -1774,10 +1673,11 @@ export default function CalendarTab({
                 </div>
 
                 {/* Days Grid */}
-                <div className="grid grid-cols-7 gap-2 flex-1 select-none">
+                <div className="grid min-h-[320px] flex-1 grid-cols-7 gap-px bg-[#E8EDF3] select-none" style={{ gridTemplateRows: `repeat(${Math.ceil(calendarDays.length / 7)}, minmax(64px, 1fr))` }}>
                   {calendarDays.map(({ date: dayDate, isCurrentMonth }, index) => {
                     const dayItems = filteredItems.filter((item) => itemMatchesDay(item, dayDate));
                     const dayIsToday = isToday(dayDate);
+                    const isWeekend = dayDate.getDay() === 0 || dayDate.getDay() === 6;
                     const holiday = holidayByDate.get(formatLocalDate(dayDate));
 
                     return (
@@ -1785,44 +1685,28 @@ export default function CalendarTab({
                         key={index}
                         onClick={() => handleDayClick(dayDate)}
                         title={holiday?.name}
-                        className={`min-h-[100px] p-2.5 border rounded-2xl flex flex-col justify-between transition-all hover:bg-indigo-50/20 hover:border-indigo-100 hover:shadow-md hover:-translate-y-0.5 duration-300 cursor-pointer ${holiday
-                            ? "bg-rose-50/40 border-rose-100/70"
-                            : isCurrentMonth
-                              ? "bg-white border-slate-100/80 shadow-3xs"
-                              : "bg-slate-50/30 border-slate-50/50 text-slate-350"
-                          } ${dayIsToday
-                            ? "ring-2 ring-indigo-500 ring-offset-2 bg-gradient-to-br from-indigo-50/20 to-violet-50/20 border-indigo-200/50 shadow-sm shadow-indigo-500/5"
-                            : ""
-                          }`}
+                        className={`flex min-h-0 flex-col overflow-hidden p-1.5 transition-colors hover:bg-[#F3FAFF] cursor-pointer ${isCurrentMonth ? holiday ? "bg-rose-50/40" : isWeekend ? "bg-[#F8FAFD]" : "bg-white" : "bg-[#F7FAFD]"} ${dayIsToday ? "bg-[#E8F7FF] ring-1 ring-inset ring-[#85D7FF]" : ""}`}
                       >
                         {/* Day Number */}
-                        <div className="flex justify-between items-center mb-1.5">
+                        <div className="mb-1 flex shrink-0 items-center justify-between">
                           <span
-                            className={`text-xs font-extrabold rounded-xl w-6 h-6 flex items-center justify-center transition-all ${dayIsToday
-                                ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/30 font-black"
-                                : isCurrentMonth
-                                  ? "text-slate-700 hover:bg-slate-100"
-                                  : "text-slate-400"
-                              }`}
+                            className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-normal ${dayIsToday ? "bg-[#00ADFC] text-white" : "text-slate-600"}`}
                           >
-                            {dayDate.getDate()}
+                            {isCurrentMonth ? dayDate.getDate() : null}
                           </span>
-                          {dayItems.length > 0 && (
-                            <span className="text-[9px] bg-slate-100/80 text-slate-650 px-1.5 py-0.5 rounded-lg font-extrabold border border-slate-200/50 shadow-3xs">
-                              {dayItems.length}
-                            </span>
-                          )}
+                          {dayIsToday && <span className="text-[10px] font-normal text-[#007EB8]">Hôm nay</span>}
+                          {!dayIsToday && isCurrentMonth && dayItems.length > 1 && <span className="text-[10px] text-slate-500">{dayItems.length} lịch</span>}
                         </div>
 
-                        {holiday && (
-                          <div className="text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate bg-rose-50/80 text-rose-700 border-rose-100/60">
+                        {isCurrentMonth && holiday && (
+                          <div className="text-[9px] px-2 py-0.5 rounded-lg border font-normal truncate bg-rose-50/80 text-rose-700 border-rose-100/60">
                             🎌 {holiday.name}
                           </div>
                         )}
 
                         {/* Day events visual list */}
-                        <div className="flex-1 flex flex-col gap-1.5 overflow-hidden max-h-[75px]">
-                          {dayItems.slice(0, 3).map((item, idx) => {
+                        <div className="min-h-0 flex-1 flex flex-col gap-0.5 overflow-hidden">
+                          {isCurrentMonth && dayItems.slice(0, 3).map((item, idx) => {
                             const styleClass =
                               item.type === "leave"
                                 ? "bg-rose-50/80 text-rose-700 border-rose-100/60 hover:bg-rose-100/60"
@@ -1842,17 +1726,18 @@ export default function CalendarTab({
                                   setSelectedDayDate(dayDate);
                                   setIsDetailModalOpen(true);
                                 }}
-                                className={`text-[9px] px-2 py-0.5 rounded-lg border font-bold truncate transition-all duration-200 hover:scale-[1.01] active:scale-100 ${styleClass}`}
+                                className={`truncate rounded px-1 py-0.5 text-[10px] font-normal transition-colors ${styleClass}`}
                                 title={`${item.title} (${item.type === "leave" ? "Nghỉ phép" : item.type === "wfh" ? "Làm tại nhà" : item.type === "exception" ? "Ngoại lệ" : item.type === "reminder" ? "Nhắc hẹn" : "Sự kiện"
                                   })`}
                               >
-                                {item.type === "leave" ? `🌴 ` : item.type === "wfh" ? `🏠 ` : item.type === "exception" ? `⚡ ` : item.type === "reminder" ? `🔔 ` : `📅 `}
+                                <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current align-middle" />
+                                {(["event", "reminder"].includes(item.type)) && `${new Date(item.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} · `}
                                 {item.title}
                               </div>
                             );
                           })}
-                          {dayItems.length > 3 && (
-                            <div className="text-[9px] text-slate-450 font-extrabold pl-1.5">
+                          {isCurrentMonth && dayItems.length > 3 && (
+                            <div className="text-[9px] text-slate-450 font-normal pl-1.5">
                               + {dayItems.length - 3} lịch...
                             </div>
                           )}
@@ -1869,28 +1754,44 @@ export default function CalendarTab({
 
       {/* 3. Detail Popover Modal */}
       {isDetailModalOpen && selectedDayDate && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-white/20 overflow-y-auto animate-in fade-in zoom-in duration-200 max-h-[90dvh] overscroll-contain">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="calendar-day-dialog-title" className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white text-slate-800 shadow-[0_20px_60px_rgba(15,45,75,0.2)] animate-in fade-in zoom-in duration-200">
             {/* Modal Header */}
-            <div className="flex justify-between items-center bg-slate-50/50 border-b border-slate-100 px-6 py-4.5">
-              <div>
-                <h3 className="font-extrabold text-slate-800 text-sm">
-                  Lịch trình ngày {selectedDayDate.getDate()}/{selectedDayDate.getMonth() + 1}/{selectedDayDate.getFullYear()}
-                </h3>
-                <p className="text-[10px] text-slate-550 font-bold uppercase tracking-wide mt-0.5">
-                  Có {filteredItems.filter((it) => itemMatchesDay(it, selectedDayDate)).length} lịch trình trong ngày
-                </p>
+            <div className="flex items-center justify-between gap-4 border-b border-[#E8EEF5] bg-[#F8FBFF] px-5 py-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E8F7FF] text-[#00A4E8]">
+                  <CalendarIcon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <h3 id="calendar-day-dialog-title" className="text-[15px] font-medium text-slate-800">
+                    Lịch trình ngày {selectedDayDate.getDate()}/{selectedDayDate.getMonth() + 1}/{selectedDayDate.getFullYear()}
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {filteredItems.filter((it) => itemMatchesDay(it, selectedDayDate)).length} lịch trình trong ngày
+                  </p>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIsDetailModalOpen(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
+                aria-label="Đóng"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white shadow-sm transition-colors hover:bg-rose-600"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4.5 w-4.5" />
               </button>
             </div>
 
             {/* Modal Content */}
-            <div className="p-6 max-h-[350px] overflow-y-auto flex flex-col gap-3">
+            <div className="flex min-h-32 flex-col gap-3 overflow-y-auto p-4 sm:p-5">
+              {filteredItems.filter((item) => itemMatchesDay(item, selectedDayDate)).length === 0 && (
+                <div className="flex min-h-32 flex-col items-center justify-center rounded-xl bg-[#F8FBFF] px-4 py-6 text-center">
+                  <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#E8F7FF] text-[#00A4E8]">
+                    <CalendarIcon className="h-5 w-5" />
+                  </span>
+                  <p className="text-sm text-slate-700">Chưa có lịch trình</p>
+                  <p className="mt-1 text-xs text-slate-500">Ngày này chưa có lịch trình nào.</p>
+                </div>
+              )}
               {filteredItems
                 .filter((item) => itemMatchesDay(item, selectedDayDate))
                 .map((item) => {
@@ -1911,36 +1812,36 @@ export default function CalendarTab({
                   return (
                     <div
                       key={item._id || item.id}
-                      className="border border-slate-100/80 bg-slate-50/40 rounded-2xl p-4 flex flex-col gap-2 hover:bg-white hover:border-slate-200 hover:shadow-md transition-all duration-300 relative group"
+                      className="flex flex-col gap-2 rounded-xl border border-[#E7EEF6] bg-white p-3.5 transition-colors hover:border-[#B8DFF3] hover:bg-[#FBFDFF]"
                     >
                       <div className="flex justify-between items-start">
-                        <span className={`text-[9px] px-2 py-0.5 font-extrabold rounded-lg border uppercase tracking-wider ${badgeColor}`}>
+                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-normal ${badgeColor}`}>
                           {typeLabel}
                         </span>
                       </div>
 
-                      <h4 className="font-extrabold text-xs text-slate-800 tracking-wide">{item.title}</h4>
+                      <h4 className="text-sm font-medium text-slate-800">{item.title}</h4>
                       {item.description && (
-                        <p className="text-[10px] text-slate-650 font-medium leading-relaxed">{item.description}</p>
+                        <p className="text-xs leading-relaxed text-slate-600">{item.description}</p>
                       )}
 
-                      <div className="flex flex-wrap gap-y-1 items-center gap-3.5 text-[10px] text-slate-500 font-semibold pt-2 border-t border-slate-100">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[#EDF2F7] pt-2 text-xs text-slate-500">
                         <span className="flex items-center gap-1.5">
-                          <Clock className="h-3 w-3 text-slate-400" />
+                          <Clock className="h-3.5 w-3.5 text-slate-400" />
                           {new Date(item.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                           {` - `}
                           {new Date(item.endDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                         </span>
                         {["leave", "wfh", "exception"].includes(item.type) && item.employeeName && (
                           <span className="flex items-center gap-1.5">
-                            <Users className="h-3 w-3 text-rose-450" />
+                            <Users className="h-3.5 w-3.5 text-slate-400" />
                             {item.employeeName}
                           </span>
                         )}
                         {["leave", "wfh", "exception"].includes(item.type) && (
-                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${item.status === "approved"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                              : "bg-amber-50 text-amber-700 border border-amber-100"
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] ${item.status === "approved"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-amber-50 text-amber-700"
                             }`}>
                             {item.status === "approved" ? "Đã duyệt" : "Chờ duyệt"}
                           </span>
