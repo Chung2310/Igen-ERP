@@ -81,6 +81,19 @@ export function toDisplayDate(dateStr: string | undefined): string {
   return dateStr;
 }
 
+/** Parse the date formats accepted by student records without rolling invalid dates forward. */
+export function parseRegistrationDate(dateStr: string | undefined): Date | null {
+  const match = toDisplayDate(dateStr).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+    ? date
+    : null;
+}
+
 /**
  * Converts a Vietnamese string into a clean URL-friendly slug.
  */
