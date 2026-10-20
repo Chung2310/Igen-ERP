@@ -2,6 +2,7 @@ import React from "react";
 import { Activity } from "lucide-react";
 import { superAdminUserAccessService, type UserActivityCategory, type UserActivityEvent } from "../../../services/superAdminUserAccessService";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
+import { AdminDatePicker } from "../../../components/user-admin/AdminDatePicker";
 
 type Props = { tenantId: string; userId: string; loadActivity?: typeof superAdminUserAccessService.activity };
 
@@ -68,8 +69,8 @@ export function UserActivityTimeline({ tenantId, userId, loadActivity = superAdm
     <section className="rounded-xl border border-white/10 p-4">
       <h4 className="flex items-center gap-2 font-bold"><Activity className="h-4 w-4 text-cyan-300" />Hoạt động theo ngày</h4>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <label className="text-xs font-semibold text-slate-400">Từ ngày<input aria-label="Từ ngày" type="date" value={from} max={to} onChange={changeFilter(setFrom)} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white" /></label>
-        <label className="text-xs font-semibold text-slate-400">Đến ngày<input aria-label="Đến ngày" type="date" value={to} min={from} onChange={changeFilter(setTo)} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white" /></label>
+        <AdminDatePicker label="Từ ngày" value={from} max={to || undefined} onChange={(value) => { setPage(1); setFrom(value); }} />
+        <AdminDatePicker label="Đến ngày" value={to} min={from || undefined} onChange={(value) => { setPage(1); setTo(value); }} />
         <label className="text-xs font-semibold text-slate-400">Loại hoạt động<select aria-label="Loại hoạt động" value={category} onChange={changeFilter((value) => setCategory(value as UserActivityCategory | ""))} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white">{categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
         <label className="text-xs font-semibold text-slate-400">Kết quả<select aria-label="Kết quả" value={result} onChange={changeFilter((value) => setResult(value as typeof result))} className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white"><option value="">Tất cả</option><option value="success">Thành công</option><option value="failure">Thất bại</option></select></label>
         <label className="text-xs font-semibold text-slate-400">Tìm kiếm<input aria-label="Tìm kiếm hoạt động" value={search} onChange={changeFilter(setSearch)} placeholder="Nhập nội dung thao tác" className="mt-1 w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white" /></label>

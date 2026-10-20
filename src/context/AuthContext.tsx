@@ -33,6 +33,16 @@ const SESSION_REPLACED_CODE = "SESSION_REPLACED";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const mergeSelfProfileUpdate = (current: UserProfile, updated: UserProfile): UserProfile => ({
+  ...current,
+  ...updated,
+  // The profile PATCH response does not include the permissions and company modules
+  // supplied by /auth/me. Editing personal details must not clear access locally.
+  permissions: current.permissions,
+  enabledModules: current.enabledModules,
+  businessType: current.businessType,
+});
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -218,8 +228,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!userProfile) return;
     try {
       const updatedProfile = await authService.updateProfile({ displayName, photoURL });
-      setUser(updatedProfile as any);
-      setUserProfile(updatedProfile);
+      setUser((current) => current ? mergeSelfProfileUpdate(current as unknown as UserProfile, updatedProfile) as unknown as User : current);
+      setUserProfile((current) => current ? mergeSelfProfileUpdate(current, updatedProfile) : current);
       toast.success("Cập nhật thông tin tài khoản thành công!");
     } catch (error: any) {
       console.error("[updateProfileInfo] Error:", error);
@@ -233,8 +243,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const uploaded = await authService.uploadAvatar(userProfile.uid, file);
       const updatedProfile = await authService.updateProfile({ photoURL: uploaded.url, photoUploadToken: uploaded.uploadToken });
-      setUser(updatedProfile as any);
-      setUserProfile(updatedProfile);
+      setUser((current) => current ? mergeSelfProfileUpdate(current as unknown as UserProfile, updatedProfile) as unknown as User : current);
+      setUserProfile((current) => current ? mergeSelfProfileUpdate(current, updatedProfile) : current);
       toast.success("Tải lên ảnh đại diện thành công!");
       return uploaded.url;
     } catch (error: any) {

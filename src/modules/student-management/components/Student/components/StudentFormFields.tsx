@@ -27,7 +27,7 @@ export function FormInput({
 }: FormInputProps) {
   return (
     <div className={`space-y-1 ${className}`}>
-      <label className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">
+      <label className="text-xs font-normal text-slate-700">
         {label} {required && <span className="text-rose-500">*</span>}
       </label>
       <input
@@ -37,7 +37,7 @@ export function FormInput({
         onChange={onChange}
         readOnly={readOnly}
         placeholder={placeholder}
-        className={`w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all ${
+        className={`w-full rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm font-normal placeholder:text-slate-400 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/10 transition-colors ${
           readOnly ? 'bg-slate-50 text-slate-600 cursor-default' : ''
         }`}
       />

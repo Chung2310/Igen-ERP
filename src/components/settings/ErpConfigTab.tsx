@@ -139,14 +139,14 @@ export default function ErpConfigTab() {
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs space-y-6">
+    <div className="space-y-5 rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
       {/* Tab bar nội bộ của Cấu hình ERP */}
       {(canManageLocation || canManageCompanyModules) && (
-        <div className="flex gap-2 border-b border-gray-100 pb-3 overflow-x-auto no-scrollbar">
+        <div className="flex gap-1.5 overflow-x-auto border-b border-slate-100 pb-3 no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab("workShifts")}
-            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workShifts" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${activeTab === "workShifts" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"}`}
           >
             <Clock className="h-3.5 w-3.5" />
             Ca làm việc
@@ -154,8 +154,8 @@ export default function ErpConfigTab() {
           <button
             type="button"
             onClick={() => setActiveTab("general")}
-            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
-              activeTab === "general" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${
+              activeTab === "general" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"
             }`}
           >
             <Sliders className="h-3.5 w-3.5" />
@@ -164,7 +164,7 @@ export default function ErpConfigTab() {
           <button
             type="button"
             onClick={() => setActiveTab("workCalendar")}
-            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "workCalendar" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+            className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${activeTab === "workCalendar" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"}`}
           >
             <Calendar className="h-3.5 w-3.5" />
             Lịch nghỉ lễ
@@ -172,8 +172,8 @@ export default function ErpConfigTab() {
           <button
             type="button"
             onClick={() => setActiveTab("workHours")}
-            className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
-              activeTab === "workHours" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${
+              activeTab === "workHours" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"
             }`}
           >
             <Users className="h-3.5 w-3.5" />
@@ -181,7 +181,7 @@ export default function ErpConfigTab() {
           </button>
           {canManageCompanyModules && (
             <button type="button" onClick={() => setActiveTab("companyModules")}
-              className={`flex items-center gap-1.5 shrink-0 whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${activeTab === "companyModules" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+              className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${activeTab === "companyModules" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"}`}>
               <GraduationCap className="h-3.5 w-3.5" />
               Học viên & Email
             </button>
@@ -204,8 +204,8 @@ export default function ErpConfigTab() {
       {activeTab === "general" && (
       <>
       <div>
-        <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
-          <Sliders className="h-5 w-5 text-purple-500" />
+        <h3 className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 text-base font-medium text-slate-800">
+          <Sliders className="h-4 w-4 text-brand-primary" />
           Cài đặt hiển thị & Thông báo
         </h3>
 
@@ -213,19 +213,19 @@ export default function ErpConfigTab() {
           {/* Dark Mode toggle has been moved to the global top Header bar */}
 
           {/* Email notification toggle */}
-          <div className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors">
+          <div className="flex items-center justify-between rounded-xl p-3 transition-colors hover:bg-sky-50/50">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
-                <Bell className="h-4.5 w-4.5" />
+              <div className="rounded-lg bg-sky-50 p-2 text-brand-primary">
+                <Bell className="h-4 w-4" />
               </div>
               <div className="text-left">
-                <h4 className="text-xs font-bold text-gray-800">Nhận thông báo qua Email</h4>
-                <p className="text-[10px] text-gray-500 mt-0.5">Nhận các báo cáo tóm tắt hàng ngày qua email đăng ký.</p>
+                <h4 className="text-sm font-medium text-slate-800">Nhận thông báo qua Email</h4>
+                <p className="mt-0.5 text-xs text-slate-500">Nhận các báo cáo tóm tắt hàng ngày qua email đăng ký.</p>
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
 
-              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+              <div className="w-9 h-5 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all after:content-[''] peer-focus:outline-none peer-checked:bg-brand-primary peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
             </label>
           </div>
         </div>
@@ -236,121 +236,121 @@ export default function ErpConfigTab() {
       {/* Cấu hình Vị trí Chấm công (GPS) — chỉ admin/superadmin */}
       {canManageLocation && (
         <div>
-          <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
-            <MapPin className="h-5 w-5 text-indigo-500" />
+          <h3 className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 text-base font-medium text-slate-800">
+            <MapPin className="h-4 w-4 text-brand-primary" />
             Cấu hình Vị trí Chấm công (GPS)
           </h3>
 
           <form onSubmit={handleSaveLocation} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-1.5 text-left md:col-span-2">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tên địa điểm / Văn phòng</label>
+                <label className="block text-xs font-medium text-slate-600">Tên địa điểm / Văn phòng</label>
                 <input
                   type="text"
                   value={addressName}
                   onChange={(e) => setAddressName(e.target.value)}
                   placeholder="Ví dụ: Văn phòng đại diện TP.HCM"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-sky-100 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                 />
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Vĩ độ (Latitude)</label>
+                <label className="block text-xs font-medium text-slate-600">Vĩ độ (Latitude)</label>
                 <input
                   type="number"
                   step="any"
                   value={latitude}
                   onChange={(e) => setLatitude(e.target.value === "" ? "" : Number(e.target.value))}
                   placeholder="10.7769"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-sky-100 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                   required
                 />
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Kinh độ (Longitude)</label>
+                <label className="block text-xs font-medium text-slate-600">Kinh độ (Longitude)</label>
                 <input
                   type="number"
                   step="any"
                   value={longitude}
                   onChange={(e) => setLongitude(e.target.value === "" ? "" : Number(e.target.value))}
                   placeholder="106.7009"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-sky-100 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                   required
                 />
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Bán kính cho phép (mét)</label>
+                <label className="block text-xs font-medium text-slate-600">Bán kính cho phép (mét)</label>
                 <input
                   type="number"
                   value={allowedRadius}
                   onChange={(e) => setAllowedRadius(e.target.value === "" ? "" : Number(e.target.value))}
                   placeholder="150"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-sky-100 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                   required
                 />
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Giờ giới hạn Check-in (Vào)</label>
+                <label className="block text-xs font-medium text-slate-600">Giờ giới hạn Check-in (Vào)</label>
                 <input
                   type="text"
                   value={checkInLimit}
                   onChange={(e) => setCheckInLimit(e.target.value)}
                   placeholder="HH:MM (ví dụ: 08:30)"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-sky-100 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                   required
                 />
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Giờ giới hạn Check-out (Ra)</label>
+                <label className="block text-xs font-medium text-slate-600">Giờ giới hạn Check-out (Ra)</label>
                 <input
                   type="text"
                   value={checkOutLimit}
                   onChange={(e) => setCheckOutLimit(e.target.value)}
                   placeholder="HH:MM (ví dụ: 17:30)"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-sky-100 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                   required
                 />
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Bắt đầu nghỉ trưa</label>
+                <label className="block text-xs font-medium text-slate-600">Bắt đầu nghỉ trưa</label>
                 <input
                   type="text"
                   value={lunchBreakStart}
                   onChange={(e) => setLunchBreakStart(e.target.value)}
                   placeholder="HH:MM (ví dụ: 12:00)"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-sky-100 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                   required
                 />
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Kết thúc nghỉ trưa</label>
+                <label className="block text-xs font-medium text-slate-600">Kết thúc nghỉ trưa</label>
                 <input
                   type="text"
                   value={lunchBreakEnd}
                   onChange={(e) => setLunchBreakEnd(e.target.value)}
                   placeholder="HH:MM (ví dụ: 13:00)"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-sky-100 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                   required
                 />
               </div>
 
               <div className="space-y-2 text-left md:col-span-2">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ngày làm việc để lên lịch quy trình</label>
+                <label className="block text-xs font-medium text-slate-600">Ngày làm việc để lên lịch quy trình</label>
                 <div className="flex flex-wrap gap-2">
                   {[{ day: 1, label: "T2" }, { day: 2, label: "T3" }, { day: 3, label: "T4" }, { day: 4, label: "T5" }, { day: 5, label: "T6" }, { day: 6, label: "T7" }, { day: 0, label: "CN" }].map(({ day, label }) => (
-                    <label key={day} className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
-                      <input type="checkbox" checked={workingDays.includes(day)} onChange={() => setWorkingDays((current) => current.includes(day) ? current.filter((value) => value !== day) : [...current, day])} />
+                    <label key={day} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs text-slate-700 transition hover:bg-sky-50">
+                      <input type="checkbox" className="accent-[#00adfc]" checked={workingDays.includes(day)} onChange={() => setWorkingDays((current) => current.includes(day) ? current.filter((value) => value !== day) : [...current, day])} />
                       {label}
                     </label>
                   ))}
                 </div>
-                <p className="text-[10px] text-gray-500">Các bước trong quy trình sẽ tự động bỏ qua các ngày không được chọn. Hãy chọn Thứ Bảy và/hoặc Chủ Nhật nếu công ty của bạn làm việc vào những ngày đó.</p>
+                <p className="text-xs leading-5 text-slate-500">Các bước trong quy trình sẽ tự động bỏ qua các ngày không được chọn. Hãy chọn Thứ Bảy và/hoặc Chủ Nhật nếu công ty của bạn làm việc vào những ngày đó.</p>
               </div>
 
               <div className="flex items-end justify-start">
@@ -358,7 +358,7 @@ export default function ErpConfigTab() {
                   type="button"
                   onClick={handleGetCurrentLocation}
                   disabled={isLocating}
-                  className="px-4 py-2 border border-indigo-200 hover:border-indigo-500 rounded-xl text-xs font-semibold text-indigo-650 hover:bg-indigo-50/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-sky-200 bg-white px-3 text-sm font-medium text-brand-primary transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <MapPin className="h-4 w-4" />
                   {isLocating ? "Đang xác định..." : "Lấy vị trí hiện tại của tôi"}
@@ -366,11 +366,11 @@ export default function ErpConfigTab() {
               </div>
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <div className="flex justify-end pt-1">
               <button
                 type="submit"
                 disabled={savingLocation}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-600/10 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                className="h-9 cursor-pointer rounded-xl bg-brand-primary px-4 text-sm font-medium text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {savingLocation ? "Đang lưu cấu hình..." : "Lưu Cấu hình"}
               </button>

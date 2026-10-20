@@ -345,13 +345,13 @@ export function ImportPartnerModal({ isOpen, onClose, onSuccess }: ImportPartner
                   <p className="text-slate-500 text-sm mt-1">Đã xử lý xong danh sách đối tác từ file <strong>{fileName}</strong></p>
                 </div>
                 <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
-                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                    <span className="text-2xl font-black text-emerald-600">{importResult.importedCount}</span>
-                    <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">Đối tác mới đã tạo</p>
+                  <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                    <span className="text-2xl font-bold text-emerald-600">{importResult.importedCount}</span>
+                    <p className="text-xs font-medium text-slate-500 mt-1">Đối tác mới đã tạo</p>
                   </div>
-                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                    <span className="text-2xl font-black text-amber-500">{importResult.skippedCount}</span>
-                    <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">Dòng bị bỏ qua/Lỗi</p>
+                  <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                    <span className="text-2xl font-bold text-amber-500">{importResult.skippedCount}</span>
+                    <p className="text-xs font-medium text-slate-500 mt-1">Dòng bị bỏ qua/Lỗi</p>
                   </div>
                 </div>
               </motion.div>
@@ -369,36 +369,36 @@ export function ImportPartnerModal({ isOpen, onClose, onSuccess }: ImportPartner
                     if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]);
                   }}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-3xl p-12 text-center cursor-pointer transition-all flex flex-col items-center justify-center group ${isDragging ? 'border-brand-primary bg-cyan-50/30' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/30'}`}
+                  className={`border-2 border-dashed rounded-3xl p-12 text-center cursor-pointer transition-all flex flex-col items-center justify-center group ${isDragging ? 'border-[#00ADFC] bg-sky-50/30' : 'border-slate-200 hover:border-[#00ADFC]/50 hover:bg-slate-50/40'}`}
                 >
                   <input type="file" ref={fileInputRef} onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])} className="hidden" accept=".xlsx,.xls,.csv" />
-                  <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:scale-105 group-hover:text-brand-primary transition-all duration-300 shadow-sm">
+                  <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-200/80 flex items-center justify-center text-slate-400 group-hover:scale-105 group-hover:text-[#00ADFC] transition-all duration-300 shadow-xs">
                     <Upload className="w-6 h-6" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-700 mt-4">Kéo & thả file Excel của bạn vào đây</h3>
+                  <h3 className="text-sm font-semibold text-slate-800 mt-4">Kéo & thả file Excel của bạn vào đây</h3>
                   <p className="text-xs text-slate-400 mt-1">hoặc click để chọn file từ máy tính của bạn</p>
                 </div>
-                <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="bg-slate-50/50 rounded-2xl border border-slate-200/80 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-start gap-3">
-                    <div className="p-2 bg-white rounded-xl border border-slate-100 text-brand-primary shrink-0">
+                    <div className="p-2 bg-white rounded-xl border border-slate-200/80 text-[#00ADFC] shrink-0">
                       <Download className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-800">Chưa có file mẫu?</h4>
+                      <h4 className="text-sm font-semibold text-slate-900">Chưa có file mẫu?</h4>
                       <p className="text-xs text-slate-500 mt-0.5">Tải ngay file mẫu chuẩn của hệ thống để nhập dữ liệu chính xác và không bị lỗi.</p>
                     </div>
                   </div>
-                  <button onClick={handleDownloadTemplate} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shrink-0 shadow-sm">
+                  <button onClick={handleDownloadTemplate} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all shrink-0 shadow-xs cursor-pointer">
                     Tải file mẫu (.xlsx)
                   </button>
                 </div>
               </div>
             ) : (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3.5 gap-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tên file:</span>
-                    <span className="text-sm font-bold text-slate-800">{fileName}</span>
+                    <span className="text-xs font-medium text-slate-500">Tên file:</span>
+                    <span className="text-sm font-semibold text-slate-900">{fileName}</span>
                   </div>
                   <div className="flex items-center gap-6 text-xs font-bold">
                     <div className="flex items-center gap-2 text-emerald-600">

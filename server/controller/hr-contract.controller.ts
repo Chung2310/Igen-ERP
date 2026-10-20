@@ -5,6 +5,7 @@ import {
   HRContractModel,
 } from "../model/hr-contract.model";
 import { UserModel } from "../model/user.model";
+import { BranchModel } from "../model/branch.model";
 import { hrContractService } from "../service/hr-contract.service";
 import {
   managedUploadService,
@@ -12,6 +13,7 @@ import {
   type ManagedUploadActor,
 } from "../service/managed-upload.service";
 import type { ResourceIndexingRecord } from "../service/resource-indexing.service";
+import { buildBranchRosterFilter } from "../utils/branch-roster-filter";
 
 const tenant = (req: AuthenticatedRequest) =>
   req.user?.role === "superadmin" && req.query.companyCode
@@ -131,6 +133,13 @@ export const hrContractController = {
         : req.user!.id;
       await hrContractService.updateExpiredStatus(companyCode);
       const branchId = req.query.branchId ? String(req.query.branchId) : req.user?.branchId;
+      const selectedBranch = branchId
+        ? await BranchModel.findOne({ _id: branchId, companyCode }).select("_id code").lean()
+        : null;
+      const employeeBranchFilter = buildBranchRosterFilter(
+        branchId,
+        String(selectedBranch?.code || "").toUpperCase() === "MAIN",
+      );
       const page = Number(req.query.page) || 1;
       const limit = Number(req.query.limit) || 10;
       const [paginationResult, employees] = await Promise.all([
@@ -143,7 +152,7 @@ export const hrContractController = {
           limit,
         }),
         canViewAll(req)
-          ? UserModel.find({ companyCode, isActive: { $ne: false }, ...(branchId ? { branchId } : {}) })
+          ? UserModel.find({ companyCode, isActive: { $ne: false }, ...employeeBranchFilter })
               .select("_id displayName email department")
               .sort({ displayName: 1 })
               .lean()
@@ -184,10 +193,14 @@ export const hrContractController = {
           status: "error",
           message: "Không tìm thấy nhân viên trong công ty.",
         });
+      const selectedBranchId = req.query.branchId ? String(req.query.branchId) : req.user?.branchId;
+      const selectedBranch = selectedBranchId
+        ? await BranchModel.findOne({ _id: selectedBranchId, companyCode, isActive: true }).select("_id").lean()
+        : null;
       const data = await HRContractModel.create({
         ...req.body,
         companyCode,
-        branchId: employee.branchId || undefined,
+        branchId: employee.branchId || (selectedBranch ? String(selectedBranch._id) : undefined),
         employeeName: employee.displayName || employee.email,
         createdBy: req.user!.id,
       });

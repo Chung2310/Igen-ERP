@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Worker } from "../types";
@@ -32,8 +32,13 @@ describe("WorkerContractFormModal", () => {
     await userEvent.click(screen.getByRole("option", { name: /Trần Thị Bình.*0902 222 222/ }));
     await userEvent.type(screen.getByLabelText("Mã hợp đồng"), "hd-02");
     await userEvent.type(screen.getByLabelText(/Khách hàng \/ đơn vị sử dụng lao động/i), "Công ty B");
-    fireEvent.change(screen.getByLabelText("Ngày bắt đầu"), { target: { value: "2026-09-01" } });
-    fireEvent.change(screen.getByLabelText("Ngày kết thúc"), { target: { value: "2027-09-01" } });
+    await userEvent.click(screen.getByRole("button", { name: "Ngày bắt đầu" }));
+    await userEvent.click(screen.getByRole("button", { name: "Hôm nay" }));
+    await userEvent.click(screen.getByRole("button", { name: "Ngày kết thúc" }));
+    await userEvent.click(screen.getByRole("button", { name: "Tháng sau" }));
+    const today = new Date();
+    const firstDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    await userEvent.click(screen.getByRole("button", { name: `Chọn ngày ${new Intl.DateTimeFormat("vi-VN").format(firstDayNextMonth)}` }));
     await userEvent.click(screen.getByRole("button", { name: "Lưu hợp đồng" }));
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({

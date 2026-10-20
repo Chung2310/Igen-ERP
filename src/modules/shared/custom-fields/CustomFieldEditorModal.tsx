@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { Loader2, Save, X } from "lucide-react";
+import { NoticeDialog } from "../../../components/common/NoticeDialog";
+import { DateTimeInput24 } from "../../../components/common/TimeInput24";
+import { StyledSelect } from "../../../components/common/StyledSelect";
 import { DYNAMIC_FIELD_TYPES, createMaxSizeMb, type CreateFieldInput, type DynamicFieldType, type FieldDefinition } from "./types";
 
 export type CustomFieldEditorModalProps = {
@@ -32,7 +36,7 @@ const DEFAULT_ALLOWED_FILE_MIME_TYPES = [
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 ];
-const inputClass = "w-full px-4 py-2 mt-1 bg-white border border-slate-200 rounded-xl text-sm placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-cyan-600/5 focus:border-cyan-600 transition-all";
+const inputClass = "mt-1 h-10 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm font-normal text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15";
 
 function initialState(field?: FieldDefinition | null): FormState {
   const validation = field?.validation as Record<string, unknown> | undefined;
@@ -133,53 +137,57 @@ export function CustomFieldEditorModal({ open, moduleKey, initialField, onClose,
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
-    if (event.key === "Enter" && !event.shiftKey && (event.target as HTMLElement).tagName === "INPUT") {
-      event.preventDefault();
-      void submit();
-    }
   };
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4" role="presentation">
-      <div ref={dialogRef} onKeyDown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="custom-field-editor-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl" data-module-key={moduleKey}>
-        <div className="flex items-center justify-between"><h2 id="custom-field-editor-title" className="text-sm font-bold text-slate-900 uppercase tracking-wider">{initialField ? "Chỉnh sửa trường" : "Thêm trường"}</h2><button type="button" aria-label="Đóng" className="text-slate-400 hover:text-slate-600 transition-colors text-lg" onClick={onClose}>×</button></div>
-        <div className="mt-5 space-y-4">
-          {errors.length ? <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{errors.map((error) => <p key={error}>{error}</p>)}</div> : null}
-          <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Nhãn trường<input ref={labelInputRef} className={inputClass} value={form.label} onChange={(event) => set("label", event.target.value)} /></label>
-          <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Loại trường<select className={inputClass} value={form.type} disabled={isStandard} onChange={(event) => { const type = event.target.value as DynamicFieldType; setForm((current) => ({ ...current, type, defaultValue: defaultForType(type), maxFiles: "1" })); }}>{DYNAMIC_FIELD_TYPES.map((type) => <option key={type} value={type}>{typeLabels[type]}</option>)}</select></label>
-          <div className="grid gap-4 sm:grid-cols-2"><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Gợi ý<input className={inputClass} value={form.placeholder} onChange={(event) => set("placeholder", event.target.value)} /></label>
-            {fileType ? <p className="self-end text-xs text-slate-500 py-2">Tệp không hỗ trợ giá trị mặc định.</p>
-              : form.type === "checkbox" ? <label className="flex items-center gap-2 self-end py-2 text-[10px] font-bold text-slate-800 uppercase tracking-wider cursor-pointer"><input type="checkbox" className="h-4 w-4 rounded border-slate-200 text-cyan-600 focus:ring-cyan-600 focus:ring-opacity-20" checked={form.defaultValue === true} onChange={(event) => set("defaultValue", event.target.checked)} />Giá trị mặc định</label>
-                : <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Giá trị mặc định<input type={["percent", "currency"].includes(form.type) ? "number" : form.type === "dateTime" ? "datetime-local" : "text"} className={inputClass} value={typeof form.defaultValue === "string" ? form.defaultValue : ""} onChange={(event) => set("defaultValue", event.target.value)} /></label>}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation">
+      <div ref={dialogRef} onKeyDown={handleKeyDown} role="dialog" aria-modal="true" aria-labelledby="custom-field-editor-title" className="flex max-h-[min(90vh,52rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white text-slate-800 shadow-2xl" data-module-key={moduleKey}>
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <span className="h-5 w-1 rounded-full bg-[#00ADFC]" aria-hidden="true" />
+            <h2 id="custom-field-editor-title" className="text-base font-medium text-slate-900 normal-case">{initialField ? "Chỉnh sửa trường" : "Thêm trường"}</h2>
           </div>
-          <div className="flex gap-6"><label className="flex items-center gap-2 text-[10px] font-bold text-slate-800 uppercase tracking-wider cursor-pointer"><input type="checkbox" className="h-4 w-4 rounded border-slate-200 text-cyan-600 focus:ring-cyan-600 focus:ring-opacity-20" checked={form.isVisible} onChange={(event) => setForm((current) => ({ ...current, isVisible: event.target.checked, isRequired: event.target.checked ? current.isRequired : false }))} />Hiển thị</label><label className="flex items-center gap-2 text-[10px] font-bold text-slate-800 uppercase tracking-wider cursor-pointer"><input type="checkbox" className="h-4 w-4 rounded border-slate-200 text-cyan-600 focus:ring-cyan-600 focus:ring-opacity-20" checked={form.isRequired} disabled={!form.isVisible} onChange={(event) => set("isRequired", event.target.checked)} />Bắt buộc</label></div>
-          {textType ? <div className="grid gap-4 sm:grid-cols-2"><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Dài tối thiểu<input type="number" className={inputClass} value={form.minLength} onChange={(e) => set("minLength", e.target.value)} /></label><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Dài tối đa<input type="number" className={inputClass} value={form.maxLength} onChange={(e) => set("maxLength", e.target.value)} /></label></div> : null}
-          {numericType ? <div className="grid gap-4 sm:grid-cols-3"><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Giá trị nhỏ nhất<input type="number" className={inputClass} value={form.min} onChange={(e) => set("min", e.target.value)} /></label><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Giá trị lớn nhất<input type="number" className={inputClass} value={form.max} onChange={(e) => set("max", e.target.value)} /></label><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Số thập phân<input type="number" className={inputClass} value={form.decimals} onChange={(e) => set("decimals", e.target.value)} /></label></div> : null}
-          {form.type === "dateTime" ? <div className="grid grid-cols-2 gap-4"><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Ngày giờ nhỏ nhất<input type="datetime-local" className={inputClass} value={form.minDateTime} onChange={(e) => set("minDateTime", e.target.value)} /></label><label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Ngày giờ lớn nhất<input type="datetime-local" className={inputClass} value={form.maxDateTime} onChange={(e) => set("maxDateTime", e.target.value)} /></label></div> : null}
+          <button type="button" aria-label="Đóng" title="Đóng" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FF1755] text-white transition-colors hover:bg-[#e9104b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1755] focus-visible:ring-offset-2" onClick={onClose}><X className="h-4 w-4" aria-hidden="true" /></button>
+        </div>
+        <form onSubmit={(event) => void submit(event)} className="min-h-0 space-y-3 overflow-y-auto p-5">
+          <label className="block space-y-1 text-xs font-normal text-slate-600 normal-case">Nhãn trường<input ref={labelInputRef} className={inputClass} value={form.label} onChange={(event) => set("label", event.target.value)} /></label>
+          <label className="block space-y-1 text-xs font-normal text-slate-600 normal-case">Loại trường
+            <StyledSelect
+              value={form.type}
+              ariaLabel="Loại trường"
+              disabled={isStandard}
+              options={DYNAMIC_FIELD_TYPES.map((type) => ({ value: type, label: typeLabels[type] }))}
+              onChange={(value) => { const type = value as DynamicFieldType; setForm((current) => ({ ...current, type, defaultValue: defaultForType(type), maxFiles: "1" })); }}
+            />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2"><label className="block space-y-1 text-xs font-normal text-slate-600 normal-case">Gợi ý<input className={inputClass} value={form.placeholder} onChange={(event) => set("placeholder", event.target.value)} /></label>
+            {fileType ? <p className="self-end text-xs text-slate-500 py-2">Tệp không hỗ trợ giá trị mặc định.</p>
+              : form.type === "checkbox" ? <label className="flex cursor-pointer items-center gap-2 self-end py-2 text-xs font-normal text-slate-600 normal-case"><input type="checkbox" className="h-4 w-4 rounded border-slate-200 text-cyan-600 focus:ring-cyan-600 focus:ring-opacity-20" checked={form.defaultValue === true} onChange={(event) => set("defaultValue", event.target.checked)} />Giá trị mặc định</label>
+                : <label className="block space-y-1 text-xs font-normal text-slate-600 normal-case">Giá trị mặc định{form.type === "dateTime" ? <DateTimeInput24 value={typeof form.defaultValue === "string" ? form.defaultValue : ""} onChange={(value) => set("defaultValue", value)} className="mt-0 w-full" /> : <input type={["percent", "currency"].includes(form.type) ? "number" : "text"} className={inputClass} value={typeof form.defaultValue === "string" ? form.defaultValue : ""} onChange={(event) => set("defaultValue", event.target.value)} />}</label>}
+          </div>
+          <div className="flex gap-6"><label className="flex cursor-pointer items-center gap-2 text-xs font-normal text-slate-600 normal-case"><input type="checkbox" className="h-4 w-4 rounded border-slate-200 text-cyan-600 focus:ring-cyan-600 focus:ring-opacity-20" checked={form.isVisible} onChange={(event) => setForm((current) => ({ ...current, isVisible: event.target.checked, isRequired: event.target.checked ? current.isRequired : false }))} />Hiển thị</label><label className="flex cursor-pointer items-center gap-2 text-xs font-normal text-slate-600 normal-case"><input type="checkbox" className="h-4 w-4 rounded border-slate-200 text-cyan-600 focus:ring-cyan-600 focus:ring-opacity-20" checked={form.isRequired} disabled={!form.isVisible} onChange={(event) => set("isRequired", event.target.checked)} />Bắt buộc</label></div>
+          {textType ? <div className="grid gap-4 sm:grid-cols-2"><label className="block text-xs font-normal text-slate-700 normal-case">Dài tối thiểu<input type="number" className={inputClass} value={form.minLength} onChange={(e) => set("minLength", e.target.value)} /></label><label className="block text-xs font-normal text-slate-700 normal-case">Dài tối đa<input type="number" className={inputClass} value={form.maxLength} onChange={(e) => set("maxLength", e.target.value)} /></label></div> : null}
+          {numericType ? <div className="grid gap-4 sm:grid-cols-3"><label className="block text-xs font-normal text-slate-700 normal-case">Giá trị nhỏ nhất<input type="number" className={inputClass} value={form.min} onChange={(e) => set("min", e.target.value)} /></label><label className="block text-xs font-normal text-slate-700 normal-case">Giá trị lớn nhất<input type="number" className={inputClass} value={form.max} onChange={(e) => set("max", e.target.value)} /></label><label className="block text-xs font-normal text-slate-700 normal-case">Số thập phân<input type="number" className={inputClass} value={form.decimals} onChange={(e) => set("decimals", e.target.value)} /></label></div> : null}
+          {form.type === "dateTime" ? <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="block space-y-1 text-xs font-normal text-slate-600 normal-case">Ngày giờ nhỏ nhất<DateTimeInput24 value={form.minDateTime} onChange={(value) => set("minDateTime", value)} className="mt-0 w-full" /></label><label className="block space-y-1 text-xs font-normal text-slate-600 normal-case">Ngày giờ lớn nhất<DateTimeInput24 value={form.maxDateTime} onChange={(value) => set("maxDateTime", value)} className="mt-0 w-full" /></label></div> : null}
           {fileType ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Kích thước tối đa (MB)<input type="number" min="1" max="100" className={inputClass} value={form.maxSizeMb} onChange={(e) => set("maxSizeMb", e.target.value)} /></label>
-              <label className="block text-[10px] font-bold text-slate-800 uppercase tracking-wider">Số tệp tối đa<input type="number" min="1" className={inputClass} value={form.maxFiles} onChange={(e) => set("maxFiles", e.target.value)} /></label>
+              <label className="block text-xs font-normal text-slate-700 normal-case">Kích thước tối đa (MB)<input type="number" min="1" max="100" className={inputClass} value={form.maxSizeMb} onChange={(e) => set("maxSizeMb", e.target.value)} /></label>
+              <label className="block text-xs font-normal text-slate-700 normal-case">Số tệp tối đa<input type="number" min="1" className={inputClass} value={form.maxFiles} onChange={(e) => set("maxFiles", e.target.value)} /></label>
             </div>
           ) : null}
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-50 flex-shrink-0">
-            <button
-              type="button"
-              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
-              onClick={onClose}
-            >
-              Hủy
-            </button>
+          <div className="flex justify-end border-t border-slate-100 pt-3">
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 rounded-xl bg-cyan-600 text-xs font-bold text-white hover:bg-cyan-700 transition-colors disabled:opacity-50"
-              onClick={() => void submit()}
+              aria-label={submitting ? "Đang lưu trường" : "Lưu trường"}
+              title={submitting ? "Đang lưu trường" : "Lưu trường"}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#00ADFC] text-white transition-colors hover:bg-[#0095D9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "Đang lưu…" : "Lưu"}
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
             </button>
           </div>
-        </div>
+        </form>
       </div>
+      <NoticeDialog message={errors.length ? errors.join("\n") : null} onClose={() => setErrors([])} />
     </div>
   );
 }

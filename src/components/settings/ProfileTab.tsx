@@ -25,48 +25,48 @@ export default function ProfileTab() {
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs">
-      <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
-        <User className="h-5 w-5 text-blue-500" />
+    <div className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+      <h3 className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 text-base font-medium text-slate-800">
+        <User className="h-4 w-4 text-brand-primary" />
         Cập nhật thông tin hồ sơ
       </h3>
 
       <form onSubmit={handleUpdateProfile} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5 text-left">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Họ và Tên *</label>
+            <label className="block text-xs font-medium text-slate-600">Họ và tên <span className="text-rose-500">*</span></label>
             <div className="relative">
-              <User className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-400" />
+              <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 required
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Họ và tên của bạn"
-                className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 outline-none transition-all"
+                className="h-10 w-full rounded-xl border border-sky-100 bg-white py-0 pl-11 pr-4 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
               />
             </div>
           </div>
 
           <div className="space-y-1.5 text-left">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Địa chỉ Email (Không được đổi)</label>
+            <label className="block text-xs font-medium text-slate-600">Địa chỉ email <span className="font-normal text-slate-400">(không thể đổi)</span></label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-300" />
+              <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="email"
                 disabled
                 value={userProfile?.email || ""}
-                className="w-full pl-11 pr-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-xs text-gray-400 outline-none cursor-not-allowed select-none"
+                className="h-10 w-full cursor-not-allowed select-none rounded-xl border border-slate-200 bg-slate-50 py-0 pl-11 pr-4 text-sm font-normal text-slate-500 outline-none"
               />
             </div>
           </div>
         </div>
 
-        <div className="pt-2 flex justify-end">
+        <div className="flex justify-end pt-1">
           <button
             type="submit"
             disabled={updatingProfile}
-            className="px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/10 flex items-center gap-2 cursor-pointer"
+            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-medium text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Save className="h-4 w-4" />
             <span>{updatingProfile ? "Đang lưu..." : "Lưu thay đổi"}</span>

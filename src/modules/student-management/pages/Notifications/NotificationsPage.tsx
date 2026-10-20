@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Send, History, UserCheck, 
-  ChevronDown, SendHorizontal,
+  SendHorizontal,
   AlertCircle, MessageCircle, Smartphone, Mail,
   Inbox, Loader2, CheckCircle2, X, Trash2, Lock,
   Plus, Minus, ToggleLeft, ToggleRight, Banknote, BadgeCheck, Check
@@ -18,6 +18,7 @@ import { getApiErrorMessage } from '../../../../utils/errorMessage';
 import { AddPaymentModal } from '../../components/Fees/AddPaymentModal';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getWorkerOperationalCopy } from '../../config/workerRecruitmentCopy';
+import { PartnerFormDropdown } from '../Partners/components/PartnerFormDropdown';
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
 
@@ -91,21 +92,21 @@ function HistoryCard({ notification, onDelete }: HistoryCardProps) {
   const installmentPlan = (notification as BroadcastNotification & { installmentPlan?: InstallmentPlanItem }).installmentPlan;
 
   return (
-    <div className="p-3 rounded-xl border border-slate-100 hover:border-cyan-100 hover:bg-cyan-50/20 transition-all group relative">
+    <div className="group relative rounded-xl border border-slate-200 p-3 transition-colors hover:border-cyan-200 hover:bg-cyan-50/20">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="space-y-0.5">
-          <h4 className="text-xs font-black text-slate-800 line-clamp-1 text-left">{notification.title}</h4>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-left">{formattedDate}</p>
+          <h4 className="line-clamp-1 text-sm font-medium text-slate-800 text-left">{notification.title}</h4>
+          <p className="text-[11px] font-normal text-slate-500 text-left">{formattedDate}</p>
         </div>
         <div className="flex items-center gap-1.5">
           {installmentPlan && (
-            <div className="px-1.5 py-0.5 rounded text-[9px] font-black border bg-violet-50 text-violet-600 border-violet-100/50 flex items-center gap-1">
+            <div className="flex items-center gap-1 rounded-md border border-cyan-100 bg-cyan-50 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">
               <Banknote className="w-2.5 h-2.5" />
               {installmentPlan.label || `Đợt ${installmentPlan.installmentNo}`} · {installmentPlan.percent}%
             </div>
           )}
           <div className={cn(
-            "px-2 py-0.5 rounded text-[9px] font-black border",
+            "rounded-md border px-2 py-0.5 text-[10px] font-medium",
             notification.status === 'Đã gửi' ? "bg-emerald-50 text-emerald-600 border-emerald-100/50" : "bg-rose-50 text-rose-600 border-rose-100/50"
           )}>
             {notification.status}
@@ -114,31 +115,32 @@ function HistoryCard({ notification, onDelete }: HistoryCardProps) {
             onClick={handleDelete}
             disabled={isDeleting}
             className={cn(
-              "p-1 rounded-lg transition-all active:scale-95 disabled:opacity-50",
-              isDeleting ? "bg-slate-100 text-slate-400" : "bg-rose-50 text-rose-500 hover:bg-rose-100"
+              "inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-colors disabled:opacity-50",
+              isDeleting ? "border-slate-200 bg-slate-50 text-slate-400" : "border-rose-100 bg-white text-rose-500 hover:bg-rose-50"
             )}
             title="Xóa lịch sử"
+            aria-label="Xóa lịch sử thông báo"
           >
-            {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           </button>}
         </div>
       </div>
       
-      <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mb-2.5 text-left">
+      <p className="mb-2.5 line-clamp-2 text-xs leading-relaxed text-slate-600 text-left">
         {notification.content}
       </p>
 
-      <div className="flex items-center justify-between pt-2.5 border-t border-slate-100/50">
+      <div className="flex items-center justify-between border-t border-slate-100 pt-2.5">
         <div className="flex items-center gap-1.5">
           {notification.channels.map(channel => (
-            <span key={channel} className="px-1.5 py-0.2 bg-slate-100 rounded text-[8px] font-black text-slate-500 uppercase tracking-wider">
+            <span key={channel} className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-normal text-slate-600">
               {channel}
             </span>
           ))}
         </div>
         <div className="flex items-center gap-1">
           <UserCheck className="w-3 h-3 text-slate-400" />
-          <span className="text-[9px] font-extrabold text-slate-600">{notification.recipientCount} HV</span>
+          <span className="text-xs font-normal text-slate-600">{notification.recipientCount} HV</span>
         </div>
       </div>
     </div>
@@ -207,18 +209,18 @@ function InstallmentPlanEditor({
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             className={cn(
-              "flex items-center gap-3 p-3 rounded-2xl border transition-all cursor-pointer",
+              "flex items-center gap-2 rounded-lg border p-2 transition-colors cursor-pointer",
               selectedInstallmentNo === item.installmentNo
-                ? "bg-violet-50 border-violet-200 shadow-sm shadow-violet-100"
-                : "bg-slate-50 border-slate-100 hover:border-violet-100"
+                ? "border-cyan-200 bg-cyan-50/50"
+                : "border-slate-200 bg-white hover:border-cyan-200"
             )}
             onClick={() => onSelectInstallmentNo(item.installmentNo)}
           >
             {/* Radio indicator */}
             <div className={cn(
-              "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all",
+              "flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border transition-colors",
               selectedInstallmentNo === item.installmentNo
-                ? "border-violet-600 bg-violet-600"
+                ? "border-cyan-600 bg-cyan-600"
                 : "border-slate-300"
             )}>
               {selectedInstallmentNo === item.installmentNo && (
@@ -232,7 +234,7 @@ function InstallmentPlanEditor({
               value={item.label}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => updateLabel(idx, e.target.value)}
-              className="flex-1 bg-transparent text-xs font-bold text-slate-700 outline-none min-w-0"
+              className="min-w-0 flex-1 bg-transparent text-sm font-normal text-slate-700 outline-none"
               placeholder={`Đợt ${item.installmentNo}`}
             />
 
@@ -241,7 +243,8 @@ function InstallmentPlanEditor({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); updatePercent(idx, item.percent - 5); }}
-                className="w-5 h-5 rounded-md bg-slate-200 text-slate-600 flex items-center justify-center hover:bg-slate-300 transition-colors text-xs font-black"
+                aria-label="Giảm tỷ lệ đợt"
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50"
               >−</button>
               <div className="flex items-center gap-0.5">
                 <input
@@ -252,16 +255,17 @@ function InstallmentPlanEditor({
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => updatePercent(idx, parseInt(e.target.value) || 0)}
                   className={cn(
-                    "w-10 text-center text-xs font-black rounded-lg border px-1 py-0.5 outline-none",
-                    isOver ? "border-rose-300 bg-rose-50 text-rose-600" : "border-slate-200 bg-white text-violet-700"
+                    "h-8 w-12 rounded-lg border px-1 text-center text-xs font-normal outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100",
+                    isOver ? "border-rose-300 bg-rose-50 text-rose-600" : "border-slate-200 bg-white text-slate-700"
                   )}
                 />
-                <span className="text-[10px] font-black text-slate-500">%</span>
+                <span className="text-xs font-normal text-slate-500">%</span>
               </div>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); updatePercent(idx, item.percent + 5); }}
-                className="w-5 h-5 rounded-md bg-slate-200 text-slate-600 flex items-center justify-center hover:bg-slate-300 transition-colors text-xs font-black"
+                aria-label="Tăng tỷ lệ đợt"
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50"
               >+</button>
             </div>
             <input
@@ -270,7 +274,8 @@ function InstallmentPlanEditor({
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => updateDueDate(idx, e.target.value)}
               aria-label={`Hạn thanh toán đợt ${item.installmentNo}`}
-              className="w-32 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 outline-none focus:border-violet-300"
+              lang="vi"
+              className="h-9 w-36 rounded-lg border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
             />
           </motion.div>
         ))}
@@ -282,7 +287,7 @@ function InstallmentPlanEditor({
           <button
             type="button"
             onClick={addInstallment}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 text-violet-600 rounded-xl text-[11px] font-black border border-violet-100 hover:bg-violet-100 transition-all active:scale-95"
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-cyan-100 bg-cyan-50 px-3 text-xs font-medium text-cyan-700 transition-colors hover:bg-cyan-100"
           >
             <Plus className="w-3 h-3" />
             Thêm đợt
@@ -291,17 +296,18 @@ function InstallmentPlanEditor({
             <button
               type="button"
               onClick={removeLastInstallment}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-500 rounded-xl text-[11px] font-black border border-rose-100 hover:bg-rose-100 transition-all active:scale-95"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-white text-rose-500 transition-colors hover:bg-rose-50"
+              aria-label="Xóa đợt cuối"
+              title="Xóa đợt cuối"
             >
-              <Minus className="w-3 h-3" />
-              Xóa đợt cuối
+              <Minus className="h-4 w-4" />
             </button>
           )}
         </div>
 
         {/* Tổng % */}
         <div className={cn(
-          "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black border",
+          "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
           isOver
             ? "bg-rose-50 text-rose-600 border-rose-100"
             : totalPercent === 100
@@ -940,7 +946,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
   const totalInstallmentPercent = installmentPlan.reduce((s, p) => s + p.percent, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Send Progress Modal */}
       <AnimatePresence>
         {sendProgress.showModal && (
@@ -955,35 +961,38 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-2xl bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+              className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
             >
-              <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-black text-slate-900 tracking-tight">Kết quả gửi thông báo</h3>
-                  <p className="text-slate-500 text-xs font-bold mt-1">Đang xử lý: {sendProgress.current}/{sendProgress.total} {entityLabel.singular}</p>
-                  {currentInstallment && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-lg text-[10px] font-black border border-violet-200">
-                        {currentInstallment.label} · {currentInstallment.percent}% học phí gốc
-                      </span>
-                    </div>
-                  )}
+              <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 h-5 w-1 shrink-0 rounded-full bg-cyan-500" aria-hidden="true" />
+                  <div>
+                    <h3 className="text-base font-medium text-slate-900">Kết quả gửi thông báo</h3>
+                    <p className="mt-1 text-xs font-normal text-slate-500">Đang xử lý: {sendProgress.current}/{sendProgress.total} {entityLabel.singular}</p>
+                    {currentInstallment && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="rounded-md border border-cyan-100 bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700">
+                          {currentInstallment.label} · {currentInstallment.percent}% học phí gốc
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {!isSubmitting && (
-                  <button onClick={closeResults} className="p-2 bg-white text-slate-400 hover:text-slate-600 rounded-xl transition-colors">
-                    <X className="w-5 h-5" />
+                  <button onClick={closeResults} aria-label="Đóng kết quả gửi" className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600">
+                    <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
 
-              <div className="p-8 space-y-6 flex-1 overflow-y-auto">
+              <div className="flex-1 space-y-4 overflow-y-auto p-5">
                 {/* Progress Bar */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <div className="flex items-center justify-between text-xs font-normal text-slate-500">
                     <span>Tiến độ</span>
                     <span>{Math.round((sendProgress.current / sendProgress.total) * 100)}%</span>
                   </div>
-                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50 p-0.5">
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                     <motion.div 
                       className={cn(
                         "h-full rounded-full",
@@ -997,8 +1006,8 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
 
                 {/* Results List */}
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Danh sách phản hồi</p>
-                  <div className="space-y-1.5 min-h-[200px]">
+                  <p className="text-sm font-medium text-slate-700">Danh sách phản hồi</p>
+                  <div className="max-h-72 space-y-1.5 overflow-y-auto">
                     {sendProgress.results.slice().reverse().map((res, i) => {
                       // index trong mảng gốc (chưa reverse)
                       const originalIdx = sendProgress.results.length - 1 - i;
@@ -1008,7 +1017,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           className={cn(
-                            "flex items-center justify-between p-3 rounded-xl border text-xs font-bold gap-2",
+                            "flex items-center justify-between gap-2 rounded-lg border p-2.5 text-xs font-normal",
                             res.status === 'Thành công' ? "bg-emerald-50/50 border-emerald-100 text-emerald-700" : "bg-rose-50/50 border-rose-100 text-rose-700"
                           )}
                         >
@@ -1017,7 +1026,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                             <div className="min-w-0">
                               <span className="truncate block">{res.student.fullName}</span>
                               {res.installmentAmount !== undefined && (
-                                <span className="text-[10px] text-violet-600 font-black">
+                                <span className="text-[11px] font-medium text-cyan-700">
                                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(res.installmentAmount)}
                                 </span>
                               )}
@@ -1031,10 +1040,10 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                                 onClick={() => handleMarkInstallmentPaid(originalIdx)}
                                 disabled={res.markingPaid}
                                 className={cn(
-                                  "flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black transition-all active:scale-95",
+                                  "flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
                                   res.markingPaid
                                     ? "bg-slate-100 text-slate-400"
-                                    : "bg-violet-600 hover:bg-violet-700 text-white"
+                                    : "bg-cyan-600 text-white hover:bg-cyan-700"
                                 )}
                               >
                                 {res.markingPaid ? <Loader2 className="w-3 h-3 animate-spin" /> : <BadgeCheck className="w-3 h-3" />}
@@ -1042,7 +1051,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                               </button>
                             )}
                             {res.markedPaid && (
-                              <span className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black bg-emerald-100 text-emerald-700 border border-emerald-200">
+                              <span className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700">
                                 <BadgeCheck className="w-3 h-3" /> Đã thu
                               </span>
                             )}
@@ -1054,12 +1063,12 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                                   setSelectedStudentForPayment(res.student);
                                   setIsPaymentModalOpen(true);
                                 }}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] rounded-lg transition-colors font-black active:scale-95"
+                                className="rounded-lg bg-cyan-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-cyan-700"
                               >
                                 Đánh dấu đã thu
                               </button>
                             )}
-                            <span className="text-[10px] uppercase opacity-60">
+                            <span className="text-[11px] font-normal opacity-70">
                               {res.status} {res.error ? `- ${res.error}` : ''}
                             </span>
                           </div>
@@ -1071,10 +1080,10 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
               </div>
 
               {!isSubmitting && (
-                <div className="p-8 bg-slate-50 border-t border-slate-100">
+                <div className="border-t border-slate-100 bg-white px-5 py-4">
                   <button 
                     onClick={closeResults}
-                    className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black shadow-lg shadow-slate-200 hover:bg-black transition-all active:scale-95"
+                    className="h-10 w-full rounded-lg bg-cyan-600 text-sm font-medium text-white transition-colors hover:bg-cyan-700"
                   >
                     Hoàn tất
                   </button>
@@ -1088,47 +1097,41 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight text-left">BOT Thông báo</h1>
+          <h1 className="text-xl font-medium tracking-tight text-slate-900 text-left">BOT Thông báo</h1>
           <p className="text-slate-400 text-[11px] font-medium mt-0.5 text-left">{operationalCopy.notificationSubtitle}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
         {/* Composer */}
         {canManage && <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden"
+          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
         >
-          <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-2 bg-slate-50/30">
-            <div className="p-1.5 rounded-lg bg-cyan-50 text-cyan-600">
-              <SendHorizontal className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+            <div className="rounded-lg bg-cyan-50 p-1.5 text-cyan-600">
+              <SendHorizontal className="h-4 w-4" />
             </div>
-            <h3 className="text-xs font-bold text-slate-800 tracking-tight">Soạn thông báo</h3>
+            <h3 className="text-sm font-medium text-slate-800">Soạn thông báo</h3>
           </div>
 
-          <form onSubmit={handleSend} className="p-4 space-y-4">
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left block">Đối tượng nhận</label>
-              <div className="relative group">
-                <select 
-                  value={recipientFilter}
-                  onChange={(e) => setRecipientFilter(e.target.value)}
-                  className="w-full h-8 bg-slate-50 px-3 pr-8 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-800 outline-none appearance-none focus:border-cyan-600 transition-all text-left"
-                >
-                  {operationalCopy.isWorker || operationalCopy.isCustomer ? (
-                    <option>{operationalCopy.notificationAudienceLabel}</option>
-                  ) : (
-                    <>
-                      <option>Tất cả học viên đang học</option>
-                      <option>Học viên sắp thi</option>
-                      <option>Học viên còn nợ học phí</option>
-                      <option>Học viên cần học lại</option>
-                    </>
-                  )}
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-              </div>
+          <form onSubmit={handleSend} className="space-y-3 p-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-slate-600 text-left">Đối tượng nhận</label>
+              <PartnerFormDropdown
+                label="Đối tượng nhận"
+                value={recipientFilter}
+                onChange={setRecipientFilter}
+                options={operationalCopy.isWorker || operationalCopy.isCustomer
+                  ? [{ value: operationalCopy.notificationAudienceLabel, label: operationalCopy.notificationAudienceLabel }]
+                  : [
+                      { value: 'Tất cả học viên đang học', label: 'Tất cả học viên đang học' },
+                      { value: 'Học viên sắp thi', label: 'Học viên sắp thi' },
+                      { value: 'Học viên còn nợ học phí', label: 'Học viên còn nợ học phí' },
+                      { value: 'Học viên cần học lại', label: 'Học viên cần học lại' },
+                    ]}
+              />
             </div>
 
             {/* ── Installment Plan Section ── */}
@@ -1140,7 +1143,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="p-3 rounded-lg border border-violet-100 bg-violet-50/40 space-y-3">
+                  <div className="space-y-3 rounded-lg border border-cyan-100 bg-cyan-50/40 p-3">
                     {/* Toggle */}
                     <button
                       type="button"
@@ -1148,12 +1151,12 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                       className="w-full flex items-center justify-between group"
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 rounded-lg bg-violet-100 text-violet-600">
+                        <div className="rounded-lg bg-cyan-100 p-1.5 text-cyan-700">
                           <Banknote className="w-4 h-4" />
                         </div>
-                        <span className="text-sm font-black text-violet-800">Thu học phí theo đợt</span>
+                        <span className="text-sm font-medium text-cyan-800">Thu học phí theo đợt</span>
                       </div>
-                      <div className={cn("transition-colors", useInstallment ? "text-violet-600" : "text-slate-300")}>
+                      <div className={cn("transition-colors", useInstallment ? "text-cyan-600" : "text-slate-300")}>
                         {useInstallment
                           ? <ToggleRight className="w-8 h-8" />
                           : <ToggleLeft className="w-8 h-8" />
@@ -1170,7 +1173,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                           exit={{ opacity: 0, height: 0 }}
                           className="overflow-hidden space-y-3 pt-1"
                         >
-                          <p className="text-[10px] font-black text-violet-500 uppercase tracking-widest">
+                          <p className="text-xs font-medium text-cyan-700">
                             Cấu hình đợt · Chọn đợt muốn gửi thông báo lần này
                           </p>
                           <InstallmentPlanEditor
@@ -1181,10 +1184,10 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                           />
                           {/* Summary */}
                           {currentInstallment && (
-                            <div className="flex items-center gap-2 p-3 rounded-xl bg-violet-100/60 border border-violet-200/50">
-                              <Send className="w-3.5 h-3.5 text-violet-600 flex-shrink-0" />
-                              <p className="text-xs font-black text-violet-700">
-                                Sẽ gửi thông báo cho <b>{currentInstallmentCount()}</b> học viên với QR số tiền = <b>{currentInstallment.percent}%</b> tổng học phí gốc ({currentInstallment.label})
+                              <div className="flex items-center gap-2 rounded-lg border border-cyan-100 bg-cyan-50 p-3">
+                              <Send className="w-3.5 h-3.5 text-cyan-600 flex-shrink-0" />
+                              <p className="text-xs font-normal text-cyan-800">
+                                Sẽ gửi thông báo cho <span className="font-medium">{currentInstallmentCount()}</span> học viên với QR số tiền = <span className="font-medium">{currentInstallment.percent}%</span> tổng học phí gốc ({currentInstallment.label})
                               </p>
                             </div>
                           )}
@@ -1197,29 +1200,29 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
             </AnimatePresence>
 
             <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left block">Tiêu đề</label>
+              <label className="block text-xs font-medium text-slate-600 text-left">Tiêu đề</label>
               <input 
                 type="text" 
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Tiêu đề thông báo..."
-                className="w-full h-8 bg-slate-50 px-3 rounded-lg border border-slate-200 text-[11px] font-medium outline-none focus:border-cyan-600 transition-all text-left"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-normal text-slate-700 outline-none transition-colors focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 text-left"
               />
             </div>
 
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left block">Nội dung</label>
+                <label className="block text-xs font-medium text-slate-600 text-left">Nội dung</label>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase">Mẫu:</span>
+                  <span className="text-xs font-normal text-slate-500">Mẫu:</span>
                   <div className="flex gap-1">
                     {templates.map(tpl => (
                       <button 
                         key={tpl.name}
                         type="button"
                         onClick={() => applyTemplate(tpl)}
-                        className="px-1.5 py-0.5 bg-cyan-50 text-cyan-600 text-[9px] font-bold rounded border border-cyan-100 hover:bg-cyan-600 hover:text-white transition-all"
+                        className="rounded-md border border-cyan-100 bg-cyan-50 px-2 py-1 text-[11px] font-medium text-cyan-700 transition-colors hover:bg-cyan-600 hover:text-white"
                       >
                         {tpl.name}
                       </button>
@@ -1231,14 +1234,14 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                 <textarea 
                   ref={textareaRef}
                   required
-                  rows={6}
+                  rows={5}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Nội dung thông báo..."
-                  className="w-full p-3 bg-slate-50 rounded-lg border border-slate-200 text-[11px] font-medium outline-none focus:border-cyan-600 transition-all min-h-[145px] resize-none text-left"
+                  className="min-h-[120px] w-full resize-y rounded-lg border border-slate-200 bg-white p-3 text-sm font-normal text-slate-700 outline-none transition-colors focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100 text-left"
                 />
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 text-left">Biến dùng được (Nhấp để chèn):</p>
+                <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                  <p className="mb-2 text-xs font-medium text-slate-600 text-left">Biến dùng được (Nhấp để chèn)</p>
                   <div className="flex flex-wrap gap-1.5">
                     <VariableTag name="ten" label="Tên" onClick={() => insertVariable('ten')} />
                     <VariableTag name="email" label="Email" onClick={() => insertVariable('email')} />
@@ -1258,9 +1261,9 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
             </div>
 
             {isDebtFilter && channels.includes('Email') && (
-              <div className="text-xs font-bold text-left">
+              <div className="text-xs font-normal text-left">
                 {vietqrConfig && vietqrConfig.enabled && vietqrConfig.bankId && vietqrConfig.accountNo ? (
-                  <div className="flex items-center gap-2 text-cyan-700 bg-cyan-50/50 border border-cyan-100/50 p-3.5 rounded-2xl">
+                  <div className="flex items-center gap-2 rounded-lg border border-cyan-100 bg-cyan-50/50 p-3 text-cyan-700">
                     <Smartphone size={16} className="text-cyan-600 flex-shrink-0" />
                     <span>
                       📲 Mã QR chuyển khoản sẽ được chèn vào thư điện tử.
@@ -1270,7 +1273,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                     </span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-amber-700 bg-amber-50/50 border border-amber-100/50 p-3.5 rounded-2xl">
+                  <div className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50/50 p-3 text-amber-700">
                     <AlertCircle size={16} className="text-amber-600 flex-shrink-0" />
                     <span>⚠️ Chưa cấu hình mã QR chuyển khoản hoặc tính năng này đang tắt. Thư điện tử sẽ chỉ có văn bản thông thường. Vào Cài đặt để kích hoạt.</span>
                   </div>
@@ -1281,42 +1284,42 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
             <div className="space-y-3">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-left block">Kênh gửi</label>
+                  <label className="block text-xs font-medium text-slate-600 text-left">Kênh gửi</label>
                   <div className="flex items-center gap-4">
                     {channels.includes('Email') && (
                       <div className="flex items-center gap-1.5 border-r border-slate-100 pr-4">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Dịch vụ gửi Email :</span>
+                        <span className="text-[11px] font-normal text-slate-500">Dịch vụ gửi Email:</span>
                         {apiStatus === 'Checking' && <Loader2 className="w-2.5 h-2.5 text-slate-400 animate-spin" />}
                         {apiStatus === 'Ready' && (
                           <div className="flex flex-col items-end gap-0.5">
-                            <span className="flex items-center gap-1 text-[9px] font-black text-emerald-500 uppercase tracking-wider">
+                            <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
                               <CheckCircle2 size={8} /> Sẵn sàng
                             </span>
                           </div>
                         )}
-                        {apiStatus === 'Missing Key' && <span className="text-[9px] font-black text-rose-500 uppercase">Thiếu Key</span>}
-                        {apiStatus === 'Error' && <span className="text-[9px] font-black text-amber-500 uppercase">Lỗi</span>}
+                        {apiStatus === 'Missing Key' && <span className="text-[11px] font-medium text-rose-600">Thiếu Key</span>}
+                        {apiStatus === 'Error' && <span className="text-[11px] font-medium text-amber-600">Lỗi</span>}
                       </div>
                     )}
                     {channels.includes('SMS') && (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Dịch vụ gửi tin nhắn SMS :</span>
+                        <span className="text-[11px] font-normal text-slate-500">Dịch vụ gửi tin nhắn SMS:</span>
                         {smsApiStatus === 'Checking' && <Loader2 className="w-2.5 h-2.5 text-slate-400 animate-spin" />}
                         {smsApiStatus === 'Ready' && (
-                          <span className="flex items-center gap-1 text-[9px] font-black text-emerald-500 uppercase tracking-wider">
+                          <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
                             <CheckCircle2 size={8} /> Sẵn sàng
                           </span>
                         )}
-                        {smsApiStatus === 'Error' && <span className="text-[9px] font-black text-rose-500 uppercase">Chưa cấu hình</span>}
+                        {smsApiStatus === 'Error' && <span className="text-[11px] font-medium text-rose-600">Chưa cấu hình</span>}
                       </div>
                     )}
                   </div>
                 </div>
                 {channels.includes('Email') && apiStatus === 'Ready' && (
-                  <p className="text-[9px] text-slate-400 font-medium italic text-right">* Dịch vụ gửi thư: Gửi thư điện tử không giới hạn qua tài khoản của bạn.</p>
+                  <p className="text-[11px] font-normal italic text-slate-500 text-right">* Dịch vụ gửi thư: Gửi thư điện tử không giới hạn qua tài khoản của bạn.</p>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-6">
+              <div className="flex flex-wrap items-center gap-4">
                 <button 
                   type="button"
                   onClick={() => toggleChannel('Email')}
@@ -1330,7 +1333,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                   </div>
                   <div className="flex items-center gap-2">
                     <Mail className="w-4 h-4 text-rose-500" />
-                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">EMAIL</span>
+                    <span className="text-sm font-medium text-slate-700">Email</span>
                   </div>
                 </button>
 
@@ -1345,8 +1348,8 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                   </div>
                   <div className="flex items-center gap-1.5">
                     <MessageCircle className="w-4 h-4 text-blue-400" />
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">ZALO OA</span>
-                    <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-100/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider">Sắp có</span>
+                    <span className="text-sm font-medium text-slate-500">Zalo OA</span>
+                    <span className="rounded-md border border-amber-100 bg-amber-50 px-1.5 py-0.5 text-[10px] font-normal text-amber-700">Sắp có</span>
                   </div>
                 </button>
 
@@ -1361,26 +1364,26 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Smartphone className="w-4 h-4 text-slate-400" />
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">SMS</span>
-                    <span className="text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-100/50 px-1.5 py-0.5 rounded-md uppercase tracking-wider">Sắp có</span>
+                    <span className="text-sm font-medium text-slate-500">SMS</span>
+                    <span className="rounded-md border border-amber-100 bg-amber-50 px-1.5 py-0.5 text-[10px] font-normal text-amber-700">Sắp có</span>
                   </div>
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-slate-50">
-              <p className="text-[11px] font-bold text-cyan-600 bg-cyan-50 px-3 py-1.5 rounded-full">
-                Sẽ gửi đến: <span className="font-black underline underline-offset-4">{currentRecipientCount} {entityLabel.singular}</span>
+            <div className="flex flex-col items-center justify-between gap-2 border-t border-slate-100 pt-3 sm:flex-row">
+              <p className="rounded-lg bg-cyan-50 px-3 py-2 text-xs font-normal text-cyan-700">
+                Sẽ gửi đến: <span className="font-medium">{currentRecipientCount} {entityLabel.singular}</span>
               </p>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button 
                   type="submit"
                   disabled={isSubmitting || channels.length === 0 || currentRecipientCount === 0 || (useInstallment && totalInstallmentPercent > 100)}
                   className={cn(
-                    "w-full flex items-center justify-center gap-1.5 px-6 py-2 rounded-lg text-[11px] font-black shadow-md transition-all disabled:opacity-50 active:scale-95",
+                    "flex h-10 w-full items-center justify-center gap-1.5 rounded-lg px-5 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto",
                     useInstallment && isDebtFilter
-                      ? "bg-violet-600 text-white shadow-violet-100 hover:bg-violet-700"
-                      : "bg-cyan-600 text-white shadow-cyan-100 hover:bg-cyan-700"
+                      ? "bg-cyan-700 hover:bg-cyan-800"
+                      : "bg-cyan-600 hover:bg-cyan-700"
                   )}
                 >
                   {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
@@ -1397,13 +1400,13 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
         <motion.div 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col"
+          className="flex min-h-[400px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
         >
-          <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-2 bg-slate-50/30">
-            <div className="p-1.5 rounded-lg bg-orange-50 text-orange-600">
-              <History className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+            <div className="rounded-lg bg-orange-50 p-1.5 text-orange-600">
+              <History className="h-4 w-4" />
             </div>
-            <h3 className="text-xs font-bold text-slate-800 tracking-tight">Lịch sử thông báo</h3>
+            <h3 className="text-sm font-medium text-slate-800">Lịch sử thông báo</h3>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
@@ -1417,7 +1420,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                 <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center">
                   <Inbox className="w-7 h-7 text-slate-200" />
                 </div>
-                <p className="text-xs font-bold tracking-tight">Chưa có thông báo nào</p>
+                <p className="text-sm font-normal text-slate-500">Chưa có thông báo nào</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1458,18 +1461,18 @@ function VariableTag({ name, label, highlight = false, onClick }: { name: string
       type="button"
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 group px-2.5 py-1 rounded-lg border transition-all active:scale-95 cursor-pointer",
+        "group flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition-colors cursor-pointer",
         highlight
-          ? "bg-violet-50 border-violet-200 hover:bg-violet-100 hover:border-violet-300"
-          : "bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-350"
+          ? "border-cyan-200 bg-cyan-50 hover:bg-cyan-100"
+          : "border-slate-200 bg-white hover:border-cyan-200 hover:bg-cyan-50/40"
       )}
       title="Nhấp để chèn biến này vào nội dung"
     >
       <span className={cn(
-        "text-[10px] md:text-[11px] font-black leading-none",
-        highlight ? "text-violet-600" : "text-cyan-600"
+        "text-[11px] font-medium leading-none",
+        highlight ? "text-cyan-700" : "text-cyan-600"
       )}>{"{" + name + "}"}</span>
-      <span className="text-[9px] md:text-[10px] font-extrabold text-slate-500 tracking-tight"> - {label}</span>
+      <span className="text-[11px] font-normal text-slate-600"> - {label}</span>
     </button>
   );
 }

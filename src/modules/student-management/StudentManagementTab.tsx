@@ -8,7 +8,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
 import { useEntityLabel } from "./hooks/useEntityLabel";
 import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
-import { ChevronDown, ChevronLeft, ChevronRight, LayoutDashboard, Users, BookOpen, BriefcaseBusiness, GraduationCap, Calendar, CreditCard, Bell, FolderOpen, School, ClipboardCheck, Route } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { StudentNavIcon } from "./StudentNavIcon";
 import { canManageStudentArea, canReadStudentArea } from "../../utils/studentPermissionPolicy";
 import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
 import { setBusinessApiScope } from "./lib/api";
@@ -41,18 +42,18 @@ const ResourcesPage = lazy(() => import("./pages/Resources/ResourcesPage").then(
 const ClassroomsPage = lazy(() => import("./pages/Classrooms/ClassroomsPage").then((m) => ({ default: m.ClassroomsPage })));
 
 const SUB_TAB_ROUTES = [
-  { slug: "tong-quan", value: "TỔNG QUAN" as const, label: "Tổng quan", icon: LayoutDashboard },
-  { slug: "khoa-hoc", value: "KHÓA HỌC" as const, label: "Khóa học", icon: BookOpen },
-  { slug: "lop-hoc", value: "LỚP HỌC" as const, label: "Lớp học", icon: GraduationCap },
-  { slug: "chat-luong-hoc-vien", value: "CHẤT LƯỢNG HỌC VIÊN" as const, label: "Chất lượng học viên", icon: ClipboardCheck },
-  { slug: "hoc-vien", value: "HỌC VIÊN" as const, label: "Học viên", icon: Users },
-  { slug: "hoc-phi", value: "HỌC PHÍ" as const, label: "Học phí", icon: CreditCard },
-  { slug: "lich-thi", value: "LỊCH THI" as const, label: "Lịch thi", icon: Calendar },
-  { slug: "phong-hoc", value: "PHÒNG HỌC" as const, label: "Phòng học", icon: School },
-  { slug: "tai-nguyen", value: "TÀI NGUYÊN" as const, label: "Thiết bị", icon: FolderOpen },
-  { slug: "thong-bao", value: "THÔNG BÁO" as const, label: "Thông báo", icon: Bell },
-  { slug: "bao-luu-hoc-lai", value: "BAO_LUU_HOC_LAI" as const, label: "Bảo lưu & học lại", icon: ClipboardCheck },
-  { slug: "lo-trinh-va-cho-lop", value: "LO_TRINH_CHO_LOP" as const, label: "Lộ trình & chờ lớp", icon: Route },
+  { slug: "tong-quan", value: "TỔNG QUAN" as const, label: "Tổng quan" },
+  { slug: "khoa-hoc", value: "KHÓA HỌC" as const, label: "Khóa học" },
+  { slug: "lop-hoc", value: "LỚP HỌC" as const, label: "Lớp học" },
+  { slug: "chat-luong-hoc-vien", value: "CHẤT LƯỢNG HỌC VIÊN" as const, label: "Chất lượng học viên" },
+  { slug: "hoc-vien", value: "HỌC VIÊN" as const, label: "Học viên" },
+  { slug: "hoc-phi", value: "HỌC PHÍ" as const, label: "Học phí" },
+  { slug: "lich-thi", value: "LỊCH THI" as const, label: "Lịch thi" },
+  { slug: "phong-hoc", value: "PHÒNG HỌC" as const, label: "Phòng học" },
+  { slug: "tai-nguyen", value: "TÀI NGUYÊN" as const, label: "Thiết bị" },
+  { slug: "thong-bao", value: "THÔNG BÁO" as const, label: "Thông báo" },
+  { slug: "bao-luu-hoc-lai", value: "BAO_LUU_HOC_LAI" as const, label: "Bảo lưu & học lại" },
+  { slug: "lo-trinh-va-cho-lop", value: "LO_TRINH_CHO_LOP" as const, label: "Lộ trình & chờ lớp" },
 ];
 
 function formatDateLabel() {
@@ -85,9 +86,6 @@ export default function StudentManagementTab() {
       label: item.slug === "hoc-vien"
         ? entityLabel.tabLabel
         : getStudentManagementSubTabLabel(entityLabel.preset, item.slug, item.label),
-      icon: (entityLabel.preset === "worker" || entityLabel.preset === "customer") && item.slug === "khoa-hoc"
-        ? BriefcaseBusiness
-        : item.icon,
     })).filter((item) => allowedSlugs.some((slug) => slug === item.slug));
 
     if (entityLabel.preset !== "student") {
@@ -100,7 +98,8 @@ export default function StudentManagementTab() {
     return routes;
   }, [entityLabel.tabLabel, entityLabel.preset, userProfile?.permissions, userProfile?.role]);
   const [selectedCenter, setSelectedCenter] = React.useState<string>(() => {
-    return userProfile?.role === "superadmin" ? "all" : (userProfile as any)?.centerId || userProfile?.companyCode || "all";
+    const centerId = userProfile && "centerId" in userProfile && typeof userProfile.centerId === "string" ? userProfile.centerId : undefined;
+    return userProfile?.role === "superadmin" ? "all" : centerId || userProfile?.companyCode || "all";
   });
 
   const defaultSubTab = subTabRoutes[0]?.value || "TỔNG QUAN";
@@ -200,19 +199,20 @@ export default function StudentManagementTab() {
           <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar scroll-smooth">
           {subTabRoutes.map((item) => {
             const isActive = activeSubTab === item.value;
-            const Icon = item.icon;
             return (
               <button
                 key={item.value}
                 type="button"
                 onClick={() => setActiveSubTab(item.value)}
-                className={`flex items-center gap-2 px-4 py-2.5 font-bold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
                   isActive
-                    ? "bg-cyan-600 text-white font-bold shadow-sm"
-                    : "text-slate-600 hover:text-cyan-600 hover:bg-cyan-50 font-semibold"
+                    ? "bg-[#00ADFC] text-white font-semibold shadow-sm"
+                    : "text-slate-600 hover:text-[#008FCF] font-medium"
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${isActive ? "text-white" : "text-[#008FCF]"}`}>
+                  <StudentNavIcon slug={item.slug === "khoa-hoc" && entityLabel.preset !== "student" ? "cong-viec" : item.slug} />
+                </span>
                 <span>{item.label}</span>
               </button>
             );
@@ -228,7 +228,7 @@ export default function StudentManagementTab() {
               <select
                 value={selectedCenter}
                 onChange={(e) => setSelectedCenter(e.target.value)}
-                className="w-full h-8 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none appearance-none focus:border-cyan-600 transition-all cursor-pointer shadow-sm"
+                className="w-full h-8 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none appearance-none focus:border-[#00ADFC] transition-all cursor-pointer shadow-sm"
               >
                 <option value="all">Tất cả cơ sở</option>
                 {centers.map((center) => (

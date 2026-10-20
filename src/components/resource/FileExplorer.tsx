@@ -873,12 +873,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
         {/* Vùng nội dung bên trái */}
         <div
           className={`relative flex-1 overflow-y-auto rounded-2xl border ${
-            isDragging ? "border-blue-400 border-dashed bg-blue-50/50" : "border-slate-100 bg-slate-50/40"
+            isDragging ? "border-dashed border-[#00adfc] bg-[#e8f7ff]" : "border-[#dce7f4] bg-[#f8fbff]"
           } p-4 transition-colors`}
         >
           {isDragging && !isInsideFixedFolder && !showTrash && (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-blue-50/70 backdrop-blur-sm">
-              <div className="flex flex-col items-center gap-2 text-blue-600">
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-[#e8f7ff]/90">
+              <div className="flex flex-col items-center gap-2 text-[#007eb8]">
                 <Upload className="w-10 h-10" />
                 <p className="font-bold">Thả tệp vào đây để tải lên</p>
               </div>
@@ -890,11 +890,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               <Loader2 className="w-6 h-6 animate-spin" />
             </div>
           ) : items.length === 0 ? (
-            <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3 text-center text-slate-400">
-              <FolderOpen className="w-14 h-14 text-slate-300" />
+            <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-4 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#bceaff] bg-[#e8f7ff] text-[#008acb]">
+                <FolderOpen className="h-8 w-8" strokeWidth={1.5} />
+              </div>
               <div>
-                <p className="font-semibold text-slate-500">{showTrash ? "Thùng rác trống" : "Thư mục trống"}</p>
-                <p className="text-sm">
+                <p className="text-base font-semibold text-slate-800">{showTrash ? "Thùng rác trống" : "Thư mục trống"}</p>
+                <p className="mt-1 text-sm text-slate-500">
                   {showTrash 
                     ? "Các tài liệu đã xóa sẽ tự động bị xóa vĩnh viễn sau 15 ngày."
                     : "Tạo thư mục mới hoặc kéo-thả tệp vào đây để bắt đầu."}
@@ -918,7 +920,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                   {pagedFolders.map((item) => {
                     const isFolder = item.type === "folder";
                     const canMutate = canMutateResourceItem(item);
-                    const iconDetails = isFolder ? { Icon: Folder, color: "text-[#5bc0be]" } : getFileIcon(item.mimeType, item.name);
+                    const iconDetails = isFolder ? { Icon: Folder, color: "text-[#008acb]" } : getFileIcon(item.mimeType, item.name);
                     const Icon = iconDetails.Icon;
 
                     return (
@@ -935,7 +937,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                           <div className="relative shrink-0">
                             {item.name.toUpperCase().includes("GOOGLE") ? (
                               <div className="relative">
-                                <FolderOpen className="h-6 w-6 text-[#5bc0be]" strokeWidth={1.5} />
+                                <FolderOpen className="h-6 w-6 text-[#008acb]" strokeWidth={1.5} />
                                 <div className="absolute inset-0 flex items-center justify-center mt-1">
                                   <GoogleDriveLogo className="h-2.5 w-2.5 bg-white rounded-full p-0.5" />
                                 </div>
@@ -944,7 +946,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                               <Icon className={`h-6 w-6 ${iconDetails.color}`} strokeWidth={1.5} />
                             )}
                           </div>
-                          <span className="font-bold text-slate-700 truncate pr-2 hover:text-cyan-600 transition-colors">{item.name}</span>
+                          <span className="font-bold text-slate-700 truncate pr-2 hover:text-[#007eb8] transition-colors">{item.name}</span>
                         </div>
                         <div className="w-56 pl-4 text-slate-500 font-semibold">{formatDate(item.createdAt)}</div>
                         <div className="w-32 text-right text-slate-400 font-semibold">—</div>
@@ -1081,7 +1083,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                               <Icon className={`h-6 w-6 ${iconDetails.color}`} strokeWidth={1.5} />
                             )}
                           </div>
-                          <span className="font-bold text-slate-700 truncate pr-2 hover:text-cyan-600 transition-colors">{item.name}</span>
+                          <span className="font-bold text-slate-700 truncate pr-2 hover:text-[#007eb8] transition-colors">{item.name}</span>
                         </div>
                         <div className="w-56 pl-4 text-slate-500 font-semibold">{formatDate(item.createdAt)}</div>
                         <div className="w-32 text-right text-slate-500 font-semibold">
@@ -1219,7 +1221,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                             onClick={() => setListPage(p as number)}
                             className={`w-8 h-8 rounded-lg text-xs font-bold transition ${
                               safeListPage === p
-                                ? "bg-cyan-600 text-white shadow-sm"
+                                ? "bg-[#00adfc] text-white shadow-sm"
                                 : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                             }`}
                           >
@@ -2383,7 +2385,7 @@ const ResourceCard: React.FC<{
 }) => {
   const isFolder = item.type === "folder";
   const canMutate = canMutateResourceItem(item);
-  const { Icon, color } = isFolder ? { Icon: Folder, color: "text-[#5bc0be]" } : getFileIcon(item.mimeType, item.name);
+  const { Icon, color } = isFolder ? { Icon: Folder, color: "text-[#008acb]" } : getFileIcon(item.mimeType, item.name);
 
   return (
     <div
@@ -2394,16 +2396,16 @@ const ResourceCard: React.FC<{
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={`group relative flex flex-col items-center justify-between border rounded-3xl p-5 transition-all duration-300 ease-out select-none cursor-pointer text-center w-40 h-44 bg-white shadow-xs hover:shadow-lg hover:border-slate-200 hover:-translate-y-1 ${
+      className={`group relative flex h-44 w-40 cursor-pointer select-none flex-col items-center justify-between rounded-2xl border bg-white p-5 text-center shadow-xs transition-colors hover:border-[#8edcff] hover:bg-[#f8fbff] ${
         isDraggedOver
-          ? "bg-slate-50 border-[#10b981] border-dashed scale-105 shadow-md"
-          : "border-slate-100 hover:bg-slate-50/30"
+          ? "border-dashed border-[#00adfc] bg-[#e8f7ff]"
+          : "border-[#dce7f4]"
       } ${menuOpen ? "z-50" : "z-0"}`}
     >
       {/* Badge chia sẻ */}
       {item.isShared && (
         <div className="absolute top-1.5 left-2 z-10">
-          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-cyan-600/10 text-cyan-600 text-[9px] font-black tracking-wide">
+          <span className="flex items-center gap-0.5 rounded-full bg-[#e8f7ff] px-1.5 py-0.5 text-[9px] font-semibold text-[#007eb8]">
             <Share2 className="h-2.5 w-2.5" />
             Chia sẻ
           </span>
@@ -2579,8 +2581,8 @@ const ResourceCard: React.FC<{
       {/* Center Icon */}
       <div className="flex-1 flex items-center justify-center mt-4 w-full" onClick={onOpen}>
         {isFolder && item.name.toUpperCase().includes("GOOGLE") ? (
-          <div className="relative p-3.5 bg-[#5bc0be]/5 rounded-2xl group-hover:bg-[#5bc0be]/10 transition duration-300">
-            <FolderOpen className="h-11 w-11 text-[#5bc0be]" strokeWidth={1.5} />
+          <div className="relative rounded-2xl bg-[#e8f7ff] p-3.5 transition-colors group-hover:bg-[#d7f2ff]">
+            <FolderOpen className="h-11 w-11 text-[#008acb]" strokeWidth={1.5} />
             <div className="absolute bottom-1 right-1 flex items-center justify-center">
               <GoogleDriveLogo className="h-4 w-4 bg-white rounded-full p-0.5 shadow-xs" />
             </div>
@@ -2604,7 +2606,7 @@ const ResourceCard: React.FC<{
         ) : (
           <div className={`p-3.5 rounded-2xl transition duration-300 ${
             isFolder 
-              ? "bg-amber-50 group-hover:bg-amber-100/70" 
+              ? "bg-[#e8f7ff] group-hover:bg-[#d7f2ff]"
               : item.mimeType === "text/html" 
                 ? "bg-teal-50 group-hover:bg-teal-100/70"
                 : "bg-slate-50 group-hover:bg-slate-100/70"

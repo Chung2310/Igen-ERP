@@ -2,6 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
 import { toInputDate } from '../../../lib/utils';
+import { VietnameseDatePicker } from '../../Batches/VietnameseDatePicker';
+import { RoadmapPicker } from '../../ui/RoadmapPicker';
 
 interface EditingPaymentData {
   index: number;
@@ -40,19 +42,19 @@ export function EditPaymentModal({
             initial={{ opacity: 0, scale: 0.95, y: 30 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 30 }}
-            className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] z-[81]"
+            className="relative z-[81] flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-2xl"
           >
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <h3 className="text-lg font-extrabold text-slate-800">Chỉnh sửa đợt thanh toán</h3>
-              <button onClick={() => setEditingPayment(null)} className="p-2 rounded-full hover:bg-slate-100 text-slate-400">
-                <X className="w-5 h-5" />
+            <div className="flex shrink-0 items-center justify-between border-b border-sky-100 px-5 py-4">
+              <h3 className="border-l-4 border-brand-primary pl-3 text-base font-medium text-slate-900">Chỉnh sửa đợt thanh toán</h3>
+              <button onClick={() => setEditingPayment(null)} className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" aria-label="Đóng">
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6 overflow-y-auto no-scrollbar">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Số tiền đóng (VNĐ)*</label>
+            <div className="space-y-4 overflow-y-auto p-5 no-scrollbar">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-normal text-slate-700">Số tiền đóng (VNĐ) *</label>
                   <div className="relative">
                     <input
                       type="text"
@@ -64,63 +66,39 @@ export function EditPaymentModal({
                         setEditingPayment((prev) => prev ? { ...prev, amount: formatted } : null);
                       }}
                       placeholder="VD: 5.000.000"
-                      className="w-full h-14 bg-slate-50 px-5 rounded-2xl border border-slate-200 text-lg font-black text-cyan-600 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all"
+                      className="h-10 w-full rounded-xl border border-sky-100 bg-white px-3 pr-12 text-sm font-medium text-brand-primary outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                     />
-                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">VNĐ</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-normal text-slate-500">VNĐ</span>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Ngày đóng</label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      required
-                      value={toInputDate(editingPayment.date)}
-                      onChange={(e) => {
-                        setEditingPayment((prev) => prev ? { ...prev, date: e.target.value } : null);
-                      }}
-                      className="w-full h-14 bg-slate-50 px-5 rounded-2xl border border-slate-200 text-base font-bold text-slate-800 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all"
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-normal text-slate-700">Ngày đóng</label>
+                  <VietnameseDatePicker ariaLabel="Ngày đóng" required value={toInputDate(editingPayment.date)} onChange={(value) => setEditingPayment((prev) => prev ? { ...prev, date: value } : null)} selectionOnly variant="filter" />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Phương thức</label>
-                  <select
-                    value={editingPayment.method}
-                    onChange={(e) => setEditingPayment((prev) => prev ? { ...prev, method: e.target.value as 'Tiền mặt' | 'Chuyển khoản' } : null)}
-                    className="w-full h-14 bg-slate-50 px-5 rounded-2xl border border-slate-200 text-sm font-bold text-slate-800 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all"
-                  >
-                    <option value="Chuyển khoản">Chuyển khoản</option>
-                    <option value="Tiền mặt">Tiền mặt</option>
-                  </select>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-normal text-slate-700">Phương thức</label>
+                  <RoadmapPicker value={editingPayment.method} placeholder="Chọn phương thức" allowClear={false} options={[{ value: 'Chuyển khoản', label: 'Chuyển khoản' }, { value: 'Tiền mặt', label: 'Tiền mặt' }]} onChange={(value) => setEditingPayment((prev) => prev ? { ...prev, method: value as 'Tiền mặt' | 'Chuyển khoản' } : null)} />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Ghi chú</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-normal text-slate-700">Ghi chú</label>
                   <textarea
-                    rows={3}
+                    rows={2}
                     value={editingPayment.note}
                     onChange={(e) => setEditingPayment((prev) => prev ? { ...prev, note: e.target.value } : null)}
                     placeholder="Ghi chú đóng tiền..."
-                    className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-medium text-slate-800 outline-none focus:border-cyan-600 focus:ring-4 focus:ring-cyan-500/5 transition-all resize-none"
+                    className="w-full resize-none rounded-xl border border-sky-100 bg-white p-3 text-sm font-normal text-slate-800 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingPayment(null)}
-                  className="flex-1 h-14 bg-slate-100 text-slate-600 rounded-2xl text-base font-black hover:bg-slate-200 transition-all"
-                >
-                  Hủy
-                </button>
+              <div className="flex items-center justify-end border-t border-sky-100 pt-4">
                 <button
                   type="button"
                   onClick={handleSavePaymentEdit}
-                  className="flex-[2] h-14 bg-cyan-600 hover:bg-cyan-700 text-white rounded-2xl text-base font-black shadow-xl shadow-cyan-100 transition-all"
+                  className="h-9 rounded-xl bg-brand-primary px-5 text-xs font-medium text-white transition-colors hover:bg-brand-primary/90"
                 >
                   Lưu thay đổi
                 </button>

@@ -1,0 +1,33 @@
+.inventory-ui :is(.font-black, .font-bold, .font-semibold) {
+  font-weight: 500;
+}
+
+.inventory-ui :is(input:not([type="checkbox"]), textarea, select) {
+  border-color: #dce7f4;
+}
+
+.inventory-ui :is(input:not([type="checkbox"]), textarea, select):focus {
+  outline: none;
+  border-color: #70d5ff;
+  box-shadow: 0 0 0 3px rgb(0 173 252 / 15%);
+}
+
+.inventory-ui input[type="number"],
+.inventory-popup input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.inventory-ui input[type="number"]::-webkit-inner-spin-button,
+.inventory-ui input[type="number"]::-webkit-outer-spin-button,
+.inventory-popup input[type="number"]::-webkit-inner-spin-button,
+.inventory-popup input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.inventory-popup :is(input:not([type="checkbox"]), textarea, select):focus {
+  outline: none;
+  border-color: #70d5ff;
+  box-shadow: 0 0 0 3px rgb(0 173 252 / 15%);
+}

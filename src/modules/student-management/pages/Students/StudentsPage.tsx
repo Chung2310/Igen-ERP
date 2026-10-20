@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import {
   Search, Download, Printer, Plus,
   Eye, Trash2, Pencil,
-  X, Calendar as CalendarIcon, ChevronDown,
+  X,
   Users, Car, Upload, Languages, Lightbulb, BookOpen, UserX, QrCode
 } from 'lucide-react';
 import { cn, formatVND, formatDisplayDate } from '../../lib/utils';
@@ -19,6 +19,8 @@ import { AssignStudentBranchModal } from '../../components/Student/AssignStudent
 import { ImportStudentModal } from '../../components/Student/ImportStudentModal';
 import { RegisterQRModal } from '../../components/Student/RegisterQRModal';
 import { Pagination } from '../../components/ui/Pagination';
+import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
+import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { useBranch } from '../../../../context/BranchContext';
 import { useAuth } from '../../../../context/AuthContext';
@@ -515,47 +517,47 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>
-          <h1 className="text-lg font-bold text-cyan-700 tracking-tight">{entityLabel.tabLabel}</h1>
-          <p className="text-slate-400 text-[11px] font-medium mt-0.5">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
+          <h1 className="text-xl font-medium tracking-tight text-slate-900">{entityLabel.tabLabel}</h1>
+          <p className="mt-0.5 text-xs font-normal text-slate-500">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {canManage && selectedStudentIds.length > 0 && !isUnassignedScope && (
             <button
               onClick={handleBulkDelete}
               disabled={isBulkDeleting}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50 whitespace-nowrap"
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" /> Xóa hàng loạt ({selectedStudentIds.length})
             </button>
           )}
           <button
             onClick={handleExport}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm whitespace-nowrap"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-brand-primary"
           >
             <Download className="w-3.5 h-3.5" /> Xuất
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm whitespace-nowrap"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-brand-primary"
           >
             <Printer className="w-3.5 h-3.5" /> In
           </button>
           {canManage && usesEducationBilling && <button
             onClick={() => setIsImportOpen(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm whitespace-nowrap"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-brand-primary"
           >
             <Upload className="w-3.5 h-3.5" /> Nhập Excel
           </button>}
           {canManage && userProfile?.uid && <button
             onClick={() => setIsRegisterQROpen(true)}
             title="QR để học viên tự đăng ký"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer shadow-sm whitespace-nowrap"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-brand-primary"
           >
             <QrCode className="w-3.5 h-3.5" /> QR đăng ký
           </button>}
           {canManage && <button
             onClick={onAddStudent}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-primary text-white rounded-lg text-[11px] font-bold shadow-md shadow-cyan-100 hover:bg-brand-primary/95 transition-all cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-brand-primary px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sky-600"
           >
             <Plus className="w-3.5 h-3.5" /> Thêm
           </button>}
@@ -573,17 +575,17 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
               key={tab.label}
               onClick={() => setSelectedStatus(tab.label)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all whitespace-nowrap cursor-pointer",
+                "flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
                 isSelected
-                  ? "bg-slate-900 border-slate-900 text-white shadow-md"
-                  : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                  ? "border-brand-primary bg-brand-primary text-white"
+                  : "border-sky-100 bg-white text-slate-600 hover:border-sky-300 hover:text-brand-primary"
               )}
             >
               {getOperationalStatusLabel(entityLabel.preset, tab.label)}
               {tab.count !== undefined && (
                 <span className={cn(
                   "px-1.5 py-0.5 rounded-full text-[9px]",
-                  isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-400"
+                  isSelected ? "bg-white/20 text-white" : "bg-sky-50 text-slate-500"
                 )}>
                   {tab.count}
                 </span>
@@ -594,100 +596,40 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       </div>
 
       {/* Filters Bar */}
-      <div className="grid grid-cols-1 gap-2 rounded-xl border border-slate-100 bg-white p-2 shadow-sm sm:grid-cols-2 lg:grid-cols-6 filters-bar">
+      <div className="filters-bar grid grid-cols-1 gap-2 rounded-xl border border-sky-100 bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
         <div className="space-y-0.5">
-          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Khóa học</label>
-          <div className="relative">
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full h-7 px-2.5 bg-slate-50 border border-slate-200 rounded-md text-[11px] appearance-none focus:outline-none focus:border-cyan-600 truncate pr-7"
-            >
-              <option value={TAB_ALL}>Tất cả khóa học</option>
-              {Array.from(new Map(categories.map((cat) => [cat.name, cat])).values()).map((cat: CourseCategoryItem) => (
-                <option key={cat.name} value={cat.name}>{cat.name}</option>
-              ))}
-              <option value={TAB_UNASSIGNED}>{operationalCopy.unassignedGroupLabel}</option>
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-          </div>
+          <label className="text-xs font-normal text-slate-600">Khóa học</label>
+          <RoadmapPicker value={category} placeholder="Chọn khóa học" options={[{ value: TAB_ALL, label: 'Tất cả khóa học' }, ...Array.from(new Map(categories.map((cat) => [cat.name, cat])).values()).map((cat: CourseCategoryItem) => ({ value: cat.name, label: cat.name })), { value: TAB_UNASSIGNED, label: operationalCopy.unassignedGroupLabel }]} onChange={(value) => setCategory(value || TAB_ALL)} />
         </div>
         <div className="space-y-0.5">
-          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Từ ngày</label>
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="DD/MM/YYYY"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full h-7 pl-2.5 pr-7 bg-slate-50 border border-slate-200 rounded-md text-[11px] font-medium focus:outline-none focus:border-cyan-600 transition-all"
-            />
-            <CalendarIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-          </div>
+          <label className="text-xs font-normal text-slate-600">Từ ngày</label>
+          <VietnameseDatePicker ariaLabel="Từ ngày" value={startDate} onChange={setStartDate} selectionOnly variant="filter" />
         </div>
         <div className="space-y-0.5">
-          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Đến ngày</label>
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="DD/MM/YYYY"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full h-7 pl-2.5 pr-7 bg-slate-50 border border-slate-200 rounded-md text-[11px] font-medium focus:outline-none focus:border-cyan-600 transition-all"
-            />
-            <CalendarIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-          </div>
+          <label className="text-xs font-normal text-slate-600">Đến ngày</label>
+          <VietnameseDatePicker ariaLabel="Đến ngày" value={endDate} onChange={setEndDate} selectionOnly variant="filter" />
         </div>
 
         <div className="space-y-0.5">
-          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Sắp xếp</label>
-          <div className="relative">
-            <select
-              aria-label="Sắp xếp danh sách học viên"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as StudentSortOption)}
-              className="w-full h-7 px-2.5 bg-slate-50 border border-slate-200 rounded-md text-[11px] appearance-none focus:outline-none focus:border-cyan-600 truncate pr-7"
-            >
-              <option value="newest">Mới thêm trước</option>
-              <option value="oldest">Cũ nhất trước</option>
-              <option value="name-asc">Họ tên A - Z</option>
-              <option value="name-desc">Họ tên Z - A</option>
-              <option value="registration-newest">Ngày đăng ký mới nhất</option>
-              <option value="registration-oldest">Ngày đăng ký cũ nhất</option>
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-          </div>
+          <label className="text-xs font-normal text-slate-600">Sắp xếp</label>
+          <RoadmapPicker value={sortBy} placeholder="Mới thêm trước" options={[{ value: 'newest', label: 'Mới thêm trước' }, { value: 'oldest', label: 'Cũ nhất trước' }, { value: 'name-asc', label: 'Họ tên A - Z' }, { value: 'name-desc', label: 'Họ tên Z - A' }, { value: 'registration-newest', label: 'Ngày đăng ký mới nhất' }, { value: 'registration-oldest', label: 'Ngày đăng ký cũ nhất' }]} onChange={(value) => setSortBy((value || 'newest') as StudentSortOption)} />
         </div>
 
         {usesEducationBilling && <div className="space-y-0.5">
-          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Học phí</label>
-          <div className="relative">
-            <select
-              value={feeStatusFilter}
-              onChange={(e) => setFeeStatusFilter(e.target.value)}
-              className="w-full h-7 px-2.5 bg-slate-50 border border-slate-200 rounded-md text-[11px] appearance-none focus:outline-none focus:border-cyan-600"
-            >
-              <option>Tất cả học phí</option>
-              <option>Đã đóng đủ</option>
-              <option>Chưa đóng</option>
-              <option>Còn thiếu</option>
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-          </div>
+          <label className="text-xs font-normal text-slate-600">Học phí</label>
+          <RoadmapPicker value={feeStatusFilter} placeholder="Tất cả học phí" options={[{ value: 'Tất cả học phí', label: 'Tất cả học phí' }, { value: 'Đã đóng đủ', label: 'Đã đóng đủ' }, { value: 'Chưa đóng', label: 'Chưa đóng' }, { value: 'Còn thiếu', label: 'Còn thiếu' }]} onChange={(value) => setFeeStatusFilter(value || 'Tất cả học phí')} />
         </div>}
         <div className="space-y-0.5 col-span-2 lg:col-span-1">
-          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Tìm kiếm</label>
+          <label className="text-xs font-normal text-slate-600">Tìm kiếm</label>
           <div className="relative">
             <input
               type="text"
               placeholder="Tên / SĐT / CCCD..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-7 pl-7 pr-7 bg-slate-50 border border-slate-200 rounded-md text-[11px] focus:outline-none focus:border-cyan-600"
+              className="h-9 w-full rounded-xl border border-sky-100 bg-white pl-9 pr-8 text-sm font-normal outline-none placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
             />
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
@@ -701,11 +643,11 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       </div>
 
       {/* Main Table Card */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-sky-100 bg-white shadow-sm">
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[760px] text-left sm:min-w-[1100px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
+              <tr className="border-b border-sky-100 bg-brand-primary/10">
                 <th className="px-3 py-2 w-8 no-print">
                   <input
                     type="checkbox"
@@ -724,13 +666,13 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                     className="w-3.5 h-3.5 rounded border-slate-300 text-cyan-600 focus:ring-cyan-600 cursor-pointer"
                   />
                 </th>
-                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Họ và tên</th>
-                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Ngày ĐK</th>
-                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Lớp / Dự án</th>
-                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Người phụ trách</th>
-                {usesEducationBilling && <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Học phí</th>}
-                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Trạng thái</th>
-                <th className="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right no-print">Thao tác</th>
+                <th className="px-3 py-2.5 text-xs font-medium text-slate-700">Họ và tên</th>
+                <th className="px-3 py-2.5 text-center text-xs font-medium text-slate-700">Ngày đăng ký</th>
+                <th className="px-3 py-2.5 text-xs font-medium text-slate-700">Lớp / Dự án</th>
+                <th className="px-3 py-2.5 text-xs font-medium text-slate-700">Người phụ trách</th>
+                {usesEducationBilling && <th className="px-3 py-2.5 text-xs font-medium text-slate-700">Học phí</th>}
+                <th className="px-3 py-2.5 text-center text-xs font-medium text-slate-700">Trạng thái</th>
+                <th className="no-print px-3 py-2.5 text-right text-xs font-medium text-slate-700">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -739,7 +681,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
               ) : paginatedStudents.length === 0 ? (
                 <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</td></tr>
               ) : paginatedStudents.map((student) => (
-                <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
+                <tr key={student.id} className="group transition-colors hover:bg-sky-50/40">
                   <td className="px-3 py-1.5 no-print">
                     <input
                       type="checkbox"
@@ -757,20 +699,20 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                   </td>
                   <td className="px-3 py-1.5">
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-800 capitalize">{student.fullName}</span>
-                      <div className="flex flex-wrap items-center gap-x-2 text-[10px] font-medium text-slate-400">
+                      <span className="text-sm font-medium text-slate-800">{student.fullName}</span>
+                      <div className="flex flex-wrap items-center gap-x-2 text-xs font-normal text-slate-500">
                         <span>{student.phone}</span>
                         {student.idCard && (
                           <>
                             <span className="text-slate-200">•</span>
-                            <span className="bg-slate-100 px-1 py-0.5 rounded text-[9px] text-slate-600 font-semibold">CCCD: {student.idCard}</span>
+                            <span className="rounded bg-slate-100 px-1 py-0.5 text-xs font-normal text-slate-600">CCCD: {student.idCard}</span>
                           </>
                         )}
                         <span className="text-slate-200">•</span>
                         {getBranchLabel(student.branchId) ? (
-                          <span className="bg-cyan-50 px-1 py-0.5 rounded text-[9px] text-cyan-700 font-semibold">{getBranchLabel(student.branchId)}</span>
+                          <span className="rounded bg-sky-50 px-1 py-0.5 text-xs font-normal text-brand-primary">{getBranchLabel(student.branchId)}</span>
                         ) : (
-                          <span className="bg-amber-50 px-1 py-0.5 rounded text-[9px] text-amber-700 font-semibold">Chưa gán chi nhánh</span>
+                          <span className="rounded bg-amber-50 px-1 py-0.5 text-xs font-normal text-amber-700">Chưa gán chi nhánh</span>
                         )}
                         {student.birthday && (
                           <>
@@ -796,7 +738,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                             <span
                               key={b.id}
                               title={b.courseTitle}
-                              className="bg-indigo-50 px-1.5 py-0.5 rounded text-[9px] text-indigo-700 font-semibold whitespace-nowrap"
+                              className="whitespace-nowrap rounded bg-sky-50 px-1.5 py-0.5 text-xs font-normal text-brand-primary"
                             >
                               {b.code || b.courseTitle}
                             </span>
@@ -804,7 +746,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                           {joined.length > 2 && (
                             <span
                               title={joined.slice(2).map((b) => b.code || b.courseTitle).join(', ')}
-                              className="text-[9px] font-bold text-slate-400"
+                              className="text-xs font-normal text-slate-500"
                             >
                               +{joined.length - 2}
                             </span>
@@ -819,7 +761,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
 
                   {usesEducationBilling && <td className="px-3 py-1.5">
                     <div className="flex flex-col gap-0.5 w-24">
-                      <div className="flex items-center text-[10px] font-bold">
+                      <div className="flex items-center text-xs font-normal">
                         {(() => {
                           const totalFeeNum = parseInt(String(student.fee).replace(/\D/g, ''), 10) || 0;
                           const paidSoFar = student.paidAmount || 0;
@@ -858,7 +800,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                         <span
                           key={st}
                           className={cn(
-                            "px-1.5 py-0.5 rounded text-[9px] font-bold border shadow-none whitespace-nowrap",
+                            "whitespace-nowrap rounded border px-1.5 py-0.5 text-xs font-normal shadow-none",
                             getStatusBadgeClass(st)
                           )}
                         >
@@ -907,19 +849,19 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                             <motion.div
                               initial={{ opacity: 0, y: 10, scale: 0.9 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
-                              className="bg-white border border-slate-200 rounded-xl shadow-xl p-3 flex flex-col gap-2 min-w-[140px]"
+                              className="bg-white border border-sky-100 rounded-xl shadow-xl p-3 flex flex-col gap-2 min-w-[150px]"
                             >
-                              <p className="text-[10px] font-bold text-slate-800 text-center">Xóa {entityLabel.singular} này?</p>
+                              <p className="text-xs font-normal text-slate-800 text-center">Xóa {entityLabel.singular} này?</p>
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => setConfirmDeleteId(null)}
-                                  className="flex-1 py-1 text-[10px] font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                                  className="flex-1 py-1.5 text-xs font-normal text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
                                 >
                                   Hủy
                                 </button>
                                 <button
                                   onClick={() => handleDelete(student)}
-                                  className="flex-1 py-1 text-[10px] font-bold bg-rose-600 text-white hover:bg-rose-700 rounded-lg transition-all shadow-md shadow-rose-100"
+                                  className="flex-1 py-1.5 text-xs font-medium bg-rose-600 text-white hover:bg-rose-700 rounded-lg transition-colors"
                                 >
                                   Xóa
                                 </button>
@@ -957,27 +899,27 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
             className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
             onClick={() => !isBulkDeleting && setBulkDeletePreview(null)}
           />
-          <div className="relative w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
-              <div>
-                <h2 className="text-base font-bold text-slate-800">Kiểm tra trước khi xóa</h2>
+          <div className="relative w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-2xl flex flex-col">
+            <div className="flex items-start justify-between gap-4 border-b border-sky-100 px-5 py-4">
+              <div className="border-l-4 border-brand-primary pl-3">
+                <h2 className="text-base font-medium text-slate-900">Kiểm tra trước khi xóa</h2>
                 <p className="mt-1 text-xs text-slate-500">
                   Sẽ xóa <strong className="text-emerald-600">{bulkDeletePreview.deletableCount}</strong> {entityLabel.singular}, dữ liệu lớp học/điểm danh/điểm số liên quan; phiếu thu vẫn được giữ lại.
                 </p>
               </div>
-              <button disabled={isBulkDeleting} onClick={() => setBulkDeletePreview(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 disabled:opacity-50">
+              <button disabled={isBulkDeleting} onClick={() => setBulkDeletePreview(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50" aria-label="Đóng">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
               {bulkDeletePreview.blockedCount > 0 && (
                 <div>
-                  <h3 className="mb-2 text-xs font-bold text-rose-700">Không thể xóa vì đang được sử dụng</h3>
+                  <h3 className="mb-2 text-xs font-medium text-rose-700">Không thể xóa vì đang được sử dụng</h3>
                   <div className="space-y-2">
                     {bulkDeletePreview.items.filter(item => item.reasons.length > 0).map(item => (
                       <div key={item.studentId} className="rounded-xl border border-rose-100 bg-rose-50/50 p-3">
-                        <p className="text-xs font-bold text-slate-800">{item.name}</p>
+                        <p className="text-xs font-medium text-slate-800">{item.name}</p>
                         <ul className="mt-1.5 space-y-1 text-[11px] text-rose-700">
                           {item.reasons.map(reason => (
                             <li key={reason.key}>
@@ -992,7 +934,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
               )}
               {bulkDeletePreview.deletableCount > 0 && (
                 <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
-                  <h3 className="text-xs font-bold text-emerald-700">Sẽ xóa</h3>
+                  <h3 className="text-xs font-medium text-emerald-700">Sẽ xóa</h3>
                   <p className="mt-1 text-[11px] text-slate-600">
                     {bulkDeletePreview.items.filter(item => bulkDeletePreview.deletableIds.includes(item.studentId)).map(item => item.name).join(', ')}
                   </p>
@@ -1000,10 +942,9 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
-              <button disabled={isBulkDeleting} onClick={() => setBulkDeletePreview(null)} className="rounded-lg px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 disabled:opacity-50">Hủy</button>
+            <div className="flex items-center justify-end gap-3 border-t border-sky-100 px-5 py-4">
               {bulkDeletePreview.deletableCount > 0 && (
-                <button disabled={isBulkDeleting} onClick={confirmBulkDelete} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50">
+                <button disabled={isBulkDeleting} onClick={confirmBulkDelete} className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50">
                   {isBulkDeleting ? 'Đang xóa...' : `Xóa ${bulkDeletePreview.deletableCount} ${entityLabel.singular}`}
                 </button>
               )}

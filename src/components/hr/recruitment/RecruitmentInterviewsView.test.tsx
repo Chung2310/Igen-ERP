@@ -43,6 +43,19 @@ const interview = {
   version: 3,
 } as any;
 
+async function chooseOption(label: string, option: string) {
+  await userEvent.click(screen.getByRole("button", { name: label }));
+  await userEvent.click(screen.getByRole("option", { name: option }));
+}
+
+async function chooseStart(hour: string) {
+  await userEvent.click(screen.getByRole("button", { name: "Bắt đầu - ngày" }));
+  await userEvent.click(within(screen.getByRole("dialog", { name: "Lịch chọn ngày" })).getByRole("button", { name: "Hôm nay" }));
+  await userEvent.click(screen.getByRole("button", { name: "Bắt đầu - giờ" }));
+  await userEvent.click(screen.getByRole("button", { name: `Giờ ${hour}` }));
+  await userEvent.click(screen.getByRole("button", { name: "Phút 00" }));
+}
+
 describe("RecruitmentInterviewsView", () => {
   afterEach(cleanup);
 
@@ -66,17 +79,17 @@ describe("RecruitmentInterviewsView", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Sửa lịch phỏng vấn Nguyễn An" }));
     const dialog = screen.getByRole("dialog", { name: "Sửa lịch phỏng vấn" });
-    expect((within(dialog).getByLabelText("Ứng viên") as HTMLSelectElement).disabled).toBe(true);
+    expect((within(dialog).getByRole("button", { name: "Ứng viên" }) as HTMLButtonElement).disabled).toBe(true);
     expect((within(dialog).getByLabelText("Vị trí") as HTMLInputElement).disabled).toBe(true);
     expect((within(dialog).getByLabelText("Ghi chú") as HTMLTextAreaElement).value).toBe("Vòng kỹ thuật");
-    expect((within(dialog).getByLabelText("Trạng thái") as HTMLSelectElement).value).toBe("scheduled");
+    expect(within(dialog).getByRole("button", { name: "Trạng thái" }).textContent).toContain("Đã lên lịch");
     expect((within(dialog).getByLabelText("Kết quả") as HTMLInputElement).value).toBe("Chưa có");
 
-    await userEvent.selectOptions(within(dialog).getByLabelText("Trạng thái"), "completed");
+    await chooseOption("Trạng thái", "Hoàn thành");
     await userEvent.clear(within(dialog).getByLabelText("Kết quả"));
     await userEvent.type(within(dialog).getByLabelText("Kết quả"), "Đạt");
-    await userEvent.deselectOptions(within(dialog).getByLabelText("Người phỏng vấn"), ["user-1"]);
-    await userEvent.selectOptions(within(dialog).getByLabelText("Người phỏng vấn"), ["user-2"]);
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "Trần Minh" }));
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "Lê Hoa" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Lưu thay đổi" }));
 
     await waitFor(() => expect(recruitmentApi.updateInterview).toHaveBeenCalledWith(
@@ -114,9 +127,9 @@ describe("RecruitmentInterviewsView", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Lên lịch phỏng vấn" }));
     const dialog = screen.getByRole("dialog", { name: "Lên lịch phỏng vấn" });
-    await userEvent.selectOptions(within(dialog).getByLabelText("Ứng viên"), "applicant-1");
-    await userEvent.type(within(dialog).getByLabelText("Bắt đầu"), "2030-02-01T09:00");
-    expect((within(dialog).getByLabelText("Kết thúc") as HTMLInputElement).value).toBe("2030-02-01T10:00");
+    await chooseOption("Ứng viên", "Nguyễn An");
+    await chooseStart("09");
+    expect(screen.getByRole("button", { name: "Kết thúc - giờ" }).textContent).toContain("10:00");
     await userEvent.click(within(dialog).getByRole("button", { name: "Tạo lịch" }));
 
     await waitFor(() => expect(recruitmentApi.createInterview).toHaveBeenCalledWith(expect.objectContaining({ applicantId: "applicant-1", jobId: "job-1", status: "scheduled" })));
@@ -129,10 +142,10 @@ describe("RecruitmentInterviewsView", () => {
     await userEvent.click(screen.getByRole("button", { name: "Lên lịch phỏng vấn" }));
     const dialog = screen.getByRole("dialog", { name: "Lên lịch phỏng vấn" });
 
-    await userEvent.type(within(dialog).getByLabelText("Bắt đầu"), "2030-02-01T09:00");
+    await chooseStart("09");
 
-    expect((within(dialog).getByLabelText("Kết thúc") as HTMLInputElement).value).toBe("2030-02-01T10:00");
-    expect((within(dialog).getByLabelText("Kết thúc") as HTMLInputElement).min).toBe("2030-02-01T09:00");
+    expect(screen.getByRole("button", { name: "Kết thúc - giờ" }).textContent).toContain("10:00");
+    expect(screen.getByRole("button", { name: "Kết thúc - ngày" }).textContent).not.toContain("Chọn ngày");
   });
 
   it("stops an invalid interview time range before calling the API", async () => {
@@ -140,10 +153,11 @@ describe("RecruitmentInterviewsView", () => {
     await screen.findByText("Nguyễn An");
     await userEvent.click(screen.getByRole("button", { name: "Lên lịch phỏng vấn" }));
     const dialog = screen.getByRole("dialog", { name: "Lên lịch phỏng vấn" });
-    await userEvent.selectOptions(within(dialog).getByLabelText("Ứng viên"), "applicant-1");
-    await userEvent.type(within(dialog).getByLabelText("Bắt đầu"), "2030-02-01T10:00");
-    await userEvent.clear(within(dialog).getByLabelText("Kết thúc"));
-    await userEvent.type(within(dialog).getByLabelText("Kết thúc"), "2030-02-01T09:00");
+    await chooseOption("Ứng viên", "Nguyễn An");
+    await chooseStart("10");
+    await userEvent.click(screen.getByRole("button", { name: "Kết thúc - giờ" }));
+    await userEvent.click(screen.getByRole("button", { name: "Giờ 09" }));
+    await userEvent.click(screen.getByRole("button", { name: "Phút 00" }));
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Tạo lịch" }));
 

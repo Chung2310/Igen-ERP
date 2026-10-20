@@ -54,7 +54,7 @@ export function RoleModal({
             </div>
             <div>
               <h3 className="font-bold text-sm uppercase tracking-wider font-sans">
-                {editingRole ? "Cấu hình vai trò & Phân quyền" : "Tạo vai trò tùy chỉnh mới"}
+                {editingRole ? "Cấu hình vai trò và phân quyền" : "Tạo vai trò mới"}
               </h3>
               <p className="text-[10px] text-slate-300 font-mono mt-0.5">
                 {editingRole ? `Vai trò: ${roleSlug}` : "Thiết lập vai trò dành cho doanh nghiệp"}

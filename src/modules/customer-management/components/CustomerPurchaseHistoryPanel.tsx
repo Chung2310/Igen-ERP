@@ -27,8 +27,8 @@ export default function CustomerPurchaseHistoryPanel({ customerId, companyCode, 
     return () => { active = false; };
   }, [branchId, companyCode, customerId]);
 
-  if (!branchId) return <section className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">Vui lòng chọn chi nhánh để xem lịch sử mua hàng.</section>;
-  if (loading) return <section className="mt-6 rounded-xl border bg-white p-4 text-sm text-slate-500">Đang tải lịch sử mua hàng...</section>;
+  if (!branchId) return <section className="mt-6 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">Vui lòng chọn chi nhánh để xem lịch sử mua hàng.</section>;
+  if (loading) return <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Đang tải lịch sử mua hàng...</section>;
   if (error) return <section className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</section>;
   if (!history) return null;
 
@@ -40,8 +40,9 @@ export default function CustomerPurchaseHistoryPanel({ customerId, companyCode, 
     ["Lần mua gần nhất", date(history.summary.lastPurchaseAt)],
   ];
 
-  return <section className="mt-6 space-y-4" aria-label="Lịch sử mua hàng">
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{cards.map(([label, value]) => <div key={label} className="min-w-0 rounded-xl border bg-white p-3 shadow-sm"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 break-words font-bold tabular-nums text-slate-800">{value}</p></div>)}</div>
-    {history.items.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">Khách hàng chưa có đơn mua tại chi nhánh này.</div> : <div className="space-y-3">{history.items.map((order) => <article key={order._id} className="rounded-xl border bg-white p-4 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-bold text-slate-800">{orderLabel(order)}</p><p className="mt-1 text-sm text-slate-500">{date(order.businessDate)} · {statusLabel(order.status)}</p></div><p className="break-words font-bold tabular-nums text-cyan-700">{currency.format(order.grandTotal)}</p></div><div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-3"><p className="min-w-0 break-words">Đã thanh toán: <span className="font-semibold tabular-nums text-slate-800">{currency.format(order.paidAmount)}</span></p><p className="min-w-0 break-words">Công nợ: <span className="font-semibold tabular-nums text-slate-800">{currency.format(order.dueAmount)}</span></p><p className="min-w-0">{order.itemCount} sản phẩm</p></div><p className="mt-2 text-sm text-slate-500">Nhân viên: {order.salespersonName || "—"}</p></article>)}</div>}
+  return <section className="mt-6 space-y-3 border-t border-slate-100 pt-5" aria-label="Lịch sử mua hàng">
+    <h3 className="text-sm font-semibold text-slate-800">Lịch sử mua hàng</h3>
+    <div className="grid gap-2.5 sm:grid-cols-2">{cards.map(([label, value]) => <div key={label} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 break-words text-sm font-semibold tabular-nums text-slate-800">{value}</p></div>)}</div>
+    {history.items.length === 0 ? <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">Khách hàng chưa có đơn mua tại chi nhánh này.</div> : <div className="space-y-2.5">{history.items.map((order) => <article key={order._id} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-semibold text-slate-800">{orderLabel(order)}</p><p className="mt-1 text-xs text-slate-500">{date(order.businessDate)} · {statusLabel(order.status)}</p></div><p className="break-words font-semibold tabular-nums text-[#007eb8]">{currency.format(order.grandTotal)}</p></div><div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-3"><p className="min-w-0 break-words">Đã thanh toán: <span className="font-semibold tabular-nums text-slate-800">{currency.format(order.paidAmount)}</span></p><p className="min-w-0 break-words">Công nợ: <span className="font-semibold tabular-nums text-slate-800">{currency.format(order.dueAmount)}</span></p><p className="min-w-0">{order.itemCount} sản phẩm</p></div><p className="mt-2 text-xs text-slate-500">Nhân viên: {order.salespersonName || "—"}</p></article>)}</div>}
   </section>;
 }

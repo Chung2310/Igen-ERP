@@ -15,6 +15,7 @@ import { ExcelImportPreviewModal, PreviewStudent, InvalidStudent } from './Excel
 import { CustomFieldDetails } from '../../../shared/custom-fields/CustomFieldDetails';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { authService } from '../../../../services/authService';
+import { RoadmapPicker } from '../ui/RoadmapPicker';
 
 const handleDownloadTemplate = (exam: ExamSession, students: DrivingStudent[]) => {
   try {
@@ -309,106 +310,41 @@ export const ExamCard: React.FC<ExamCardProps> = ({
   const showStudentRank = businessType !== 'general' && (!!exam.rank || assignedStudents.some(s => s.rank));
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow transition-all overflow-hidden"
+      className="overflow-visible"
     >
-      <div className="p-2.5 sm:p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 sm:gap-4">
-        <div className="flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <h3 className="text-sm sm:text-base font-extrabold text-slate-900">{exam.name}</h3>
-            <div className="flex flex-wrap items-center gap-1">
-            {exam.rank && (
-                <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-700 rounded text-[9px] font-bold border border-cyan-100">
-                  {exam.rank}
-                </span>
-              )}
-              <span className="px-1.5 py-0.2 rounded border border-amber-100 bg-amber-50 text-[9px] font-bold text-amber-700">
-                Đạt ≥ {exam.passScore ?? Math.ceil((exam.maxScore || 100) / 2)}/{exam.maxScore || 100}
-              </span>
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <div className="flex items-center gap-1.5 group">
-              <div className="p-1 rounded bg-slate-50 group-hover:bg-slate-100 transition-colors border border-slate-100/50">
-                <CalendarIcon className="w-3 h-3 text-slate-400" />
-              </div>
-              <div>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Dự kiến</p>
-                <p className="text-[11px] font-bold text-slate-700 mt-0.5">{exam.tentativeDate}</p>
-              </div>
-            </div>
-
-            {exam.officialDate && (
-              <div className="flex items-center gap-1.5 group">
-                <div className="p-1 rounded bg-emerald-50 group-hover:bg-emerald-100 transition-colors border border-emerald-100/50">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-[8px] font-bold text-emerald-400 uppercase tracking-wide leading-none">Chính thức</p>
-                  <p className="text-[11px] font-bold text-emerald-600 mt-0.5">{exam.officialDate}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center gap-1.5 group">
-              <div className="p-1 rounded bg-slate-50 group-hover:bg-slate-100 transition-colors border border-slate-100/50">
-                <Map className="w-3 h-3 text-slate-400" />
-              </div>
-              <div>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wide leading-none">Địa điểm</p>
-                <p className="text-[11px] font-bold text-slate-700 mt-0.5 truncate max-w-[150px] sm:max-w-[250px]">{exam.location}</p>
-              </div>
-            </div>
+      <div className="grid grid-cols-2 items-center gap-x-3 gap-y-2 px-1 py-2.5 sm:grid-cols-3 xl:grid-cols-[minmax(220px,2fr)_minmax(100px,0.8fr)_minmax(100px,0.8fr)_minmax(110px,1fr)_minmax(140px,1fr)_auto] xl:gap-x-5">
+        <div className="col-span-2 min-w-0 sm:col-span-3 xl:col-span-1">
+          <h3 className="truncate text-sm font-medium text-slate-900" title={exam.name}>{exam.name}</h3>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+            {exam.rank && <span>{exam.rank}</span>}
+            <span>Đạt ≥ {exam.passScore ?? Math.ceil((exam.maxScore || 100) / 2)}/{exam.maxScore || 100}</span>
           </div>
         </div>
-
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-50">
-            <div className="flex items-center gap-1.5 w-full sm:w-auto">
-            <div className="flex-1 sm:flex-none px-2 py-1 bg-slate-50 rounded-lg text-center min-w-[50px] sm:min-w-[60px] border border-slate-100/50">
-              <p className="text-sm sm:text-base font-extrabold text-slate-900 leading-none">{assignedStudentCount}</p>
-              <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">{entityLabel.tabLabel}</p>
-            </div>
-              <div className="flex-1 sm:flex-none px-2 py-1 bg-cyan-50 rounded-lg text-center min-w-[65px] border border-cyan-100/30"><p className="text-sm sm:text-base font-extrabold text-cyan-700 leading-none">{(exam.results || []).filter((item) => typeof item.score === 'number').length}/{assignedStudentCount}</p><p className="text-[8px] sm:text-[9px] font-bold text-cyan-600 mt-0.5 uppercase tracking-wide">Đã chấm</p></div>
-          </div>
-
-          <div className="flex items-center gap-1 w-full sm:w-auto justify-end no-print">
-            {onProgressRoute ? <button onClick={(event) => { event.stopPropagation(); void onProgressRoute(); }} title="Chuyển sang đánh giá lộ trình" className="p-1 rounded-md text-cyan-700 hover:bg-cyan-50 transition-all border border-cyan-200 bg-white shadow-sm"><Route className="w-3.5 h-3.5" /></button> : null}
-            <button 
-              onClick={(e) => { e.stopPropagation(); onAssignClick(); }}
-              title={`Xếp ${entityLabel.singular}`}
-              className="p-1 rounded-md text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-all border border-slate-200 bg-white shadow-sm active:scale-95 cursor-pointer"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              title="Sửa đợt thi"
-              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-all border border-slate-200 bg-white shadow-sm active:scale-95 cursor-pointer"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              title="Xóa đợt thi"
-              className="p-1 rounded-md bg-rose-500 text-white hover:bg-rose-600 transition-all shadow-md shadow-rose-100 active:scale-95 cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-            <div className="hidden sm:block w-px h-5 bg-slate-100 mx-0.5" />
-            <button 
-              onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-              title={isExpanded ? "Thu gọn" : `Xem ${entityLabel.singular}`}
-              className={cn(
-                "p-1 rounded-md text-slate-300 hover:text-slate-600 hover:bg-slate-50 transition-all border border-slate-100 active:scale-95 cursor-pointer",
-                isExpanded && "bg-slate-50 text-slate-600 border-slate-200"
-              )}
-            >
-              <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", isExpanded && "rotate-180")} />
-            </button>
-          </div>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <div className="min-w-0 text-xs"><p className="text-slate-500">Dự kiến</p><p className="whitespace-nowrap text-slate-700">{exam.tentativeDate}</p></div>
+        </div>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <CheckCircle2 className={cn("h-3.5 w-3.5 shrink-0", exam.officialDate ? "text-brand-primary" : "text-slate-300")} />
+          <div className="min-w-0 text-xs"><p className="text-slate-500">Chính thức</p><p className={cn("whitespace-nowrap", exam.officialDate ? "text-brand-primary" : "text-slate-400")}>{exam.officialDate || '—'}</p></div>
+        </div>
+        <div className="col-span-2 flex min-w-0 items-center gap-1.5 sm:col-span-1">
+          <Map className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <span className="truncate text-xs text-slate-700" title={exam.location}>{exam.location}</span>
+        </div>
+        <div className="flex items-center gap-3 whitespace-nowrap text-xs">
+          <span><span className="font-medium text-slate-800">{assignedStudentCount}</span> <span className="text-slate-500">{entityLabel.tabLabel}</span></span>
+          <span><span className="font-medium text-brand-primary">{(exam.results || []).filter((item) => typeof item.score === 'number').length}/{assignedStudentCount}</span> <span className="text-slate-500">Đã chấm</span></span>
+        </div>
+        <div className="no-print flex items-center justify-end gap-0.5">
+          {onProgressRoute && <button type="button" onClick={(event) => { event.stopPropagation(); void onProgressRoute(); }} title="Chuyển sang đánh giá lộ trình" aria-label="Chuyển sang đánh giá lộ trình" className="flex h-7 w-7 items-center justify-center rounded-md text-brand-primary hover:bg-sky-50"><Route className="h-4 w-4" /></button>}
+          <button type="button" onClick={(event) => { event.stopPropagation(); onAssignClick(); }} title={`Xếp ${entityLabel.singular}`} aria-label={`Xếp ${entityLabel.singular}`} className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-sky-50 hover:text-brand-primary"><UserPlus className="h-4 w-4" /></button>
+          <button type="button" onClick={(event) => { event.stopPropagation(); onEdit(); }} title="Sửa đợt thi" aria-label="Sửa đợt thi" className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"><Edit3 className="h-4 w-4" /></button>
+          <button type="button" onClick={(event) => { event.stopPropagation(); onDelete(); }} title="Xóa đợt thi" aria-label="Xóa đợt thi" className="flex h-7 w-7 items-center justify-center rounded-md text-rose-500 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
+          <button type="button" onClick={(event) => { event.stopPropagation(); setIsExpanded(!isExpanded); }} title={isExpanded ? "Thu gọn" : `Xem ${entityLabel.singular}`} aria-label={isExpanded ? "Thu gọn" : `Xem ${entityLabel.singular}`} aria-expanded={isExpanded} className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"><ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isExpanded && "rotate-180")} /></button>
         </div>
       </div>
 
@@ -420,14 +356,14 @@ export const ExamCard: React.FC<ExamCardProps> = ({
              animate={{ height: "auto", opacity: 1 }}
              exit={{ height: 0, opacity: 0 }}
              transition={{ duration: 0.2 }}
-             className="border-t border-slate-100 bg-slate-50/50 overflow-hidden"
+             className="overflow-hidden border-t border-slate-100 bg-white"
           >
             <div className="p-3 space-y-2">
               <CustomFieldDetails moduleKey="exams" values={exam.customFields || {}} />
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <h4 className="text-xs font-medium text-slate-600">
                     Danh sách {entityLabel.singular} đăng ký ({assignedStudents.length} {entityLabel.singular})
                   </h4>
                   <p className="text-[9px] text-slate-400 font-medium mt-0.5 max-w-md">
@@ -467,14 +403,14 @@ export const ExamCard: React.FC<ExamCardProps> = ({
               {assignedStudents.length === 0 ? (
                 <p className="text-xs text-slate-450 italic">Đợt thi này chưa xếp {entityLabel.singular} nào.</p>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-slate-100 bg-white shadow-sm">
+                <div className="overflow-x-auto sm:overflow-visible rounded-lg border border-sky-100 bg-white shadow-sm">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50/60 border-b border-slate-100">
-                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider">{entityLabel.tabLabel}</th>
-                        {showStudentRank && <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">Hạng</th>}
-                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider">Trạng thái học</th>
-                        <th className="px-2.5 py-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider text-center">Kết quả</th>
+                        <th className="px-2.5 py-1.5 text-xs font-medium text-slate-600">{entityLabel.tabLabel}</th>
+                        {showStudentRank && <th className="px-2.5 py-1.5 text-xs font-medium text-slate-600 text-center">Hạng</th>}
+                        <th className="px-2.5 py-1.5 text-xs font-medium text-slate-600">Trạng thái học</th>
+                        <th className="px-2.5 py-1.5 text-xs font-medium text-slate-600 text-center">Kết quả</th>
                         <th className="px-2.5 py-1.5 text-right"></th>
                       </tr>
                     </thead>
@@ -496,14 +432,14 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                             </td>
                             {showStudentRank && (
                               <td className="px-2.5 py-1.5 text-center">
-                                <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-600 rounded text-[9px] font-black uppercase">
+                                <span className="px-1.5 py-0.2 bg-cyan-50 text-cyan-600 rounded text-xs font-medium">
                                   {student.rank || 'N/A'}
                                 </span>
                               </td>
                             )}
                             <td className="px-2.5 py-1.5">
                               <span className={cn(
-                                "px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase",
+                                "px-1.5 py-0.2 rounded text-xs font-medium",
                                 (Array.isArray(student.status) ? student.status.includes('Đã đậu') : student.status === 'Đã đậu') ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
                                 (Array.isArray(student.status) ? student.status.includes('Đang thi') : student.status === 'Đang thi') ? "bg-cyan-50 text-cyan-600 border border-cyan-100" :
                                 "bg-slate-50 text-slate-500 border border-slate-100"
@@ -513,23 +449,9 @@ export const ExamCard: React.FC<ExamCardProps> = ({
                             </td>
                             <td className="px-2.5 py-1.5 text-center">
                               {exam.batchId ? <div className="flex flex-col items-center gap-1"><input type="number" min="0" max={exam.maxScore || 100} value={draftScores[student.id] ?? ""} onChange={(event) => setDraftScores((current) => ({ ...current, [student.id]: event.target.value }))} placeholder={`/${exam.maxScore || 100}`} className="h-8 w-20 rounded border border-cyan-200 bg-cyan-50 px-2 text-center text-xs font-bold text-cyan-800" /><span className={cn("rounded px-1.5 py-0.5 text-[9px] font-bold", resultText === 'Đậu' ? "bg-emerald-50 text-emerald-700" : resultText === 'Trượt' ? "bg-rose-50 text-rose-700" : "bg-slate-50 text-slate-500")}>{resultText}</span></div> :
-                              <select
-                                value={resultText}
-                                onChange={async (e) => {
-                                  const val = e.target.value as "Đậu" | "Trượt" | "Chưa có";
-                                  onUpdateStudentResult?.(student.id, val);
-                                }}
-                                className={cn(
-                                  "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase outline-none border cursor-pointer transition-all focus:ring-2",
-                                  resultText === 'Đậu' ? "bg-emerald-50 text-emerald-600 border-emerald-100 focus:ring-emerald-500/10" :
-                                  resultText === 'Trượt' ? "bg-rose-50 text-rose-600 border-rose-100 focus:ring-rose-500/10" :
-                                  "bg-slate-50 text-slate-500 border-slate-200 focus:ring-slate-500/10"
-                                )}
-                              >
-                                <option value="Chưa có" className="bg-white text-slate-700 font-bold uppercase">Chưa có</option>
-                                <option value="Đậu" className="bg-white text-emerald-600 font-bold uppercase">Đậu</option>
-                                <option value="Trượt" className="bg-white text-rose-600 font-bold uppercase">Trượt</option>
-                              </select>
+                              <div className="min-w-28">
+                                <RoadmapPicker value={resultText} placeholder="Chưa có" allowClear={false} options={[{ value: 'Chưa có', label: 'Chưa có' }, { value: 'Đậu', label: 'Đậu' }, { value: 'Trượt', label: 'Trượt' }]} onChange={(value) => onUpdateStudentResult?.(student.id, value as 'Đậu' | 'Trượt' | 'Chưa có')} />
+                              </div>
                               }
                             </td>
                             <td className="px-2.5 py-1.5 text-right">

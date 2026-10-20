@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { Loader2, RotateCcw, Save } from 'lucide-react';
 import { apiFetch } from '../../../lib/api';
 import { toast } from '../../../../../pages/Toast';
-import { ErpModal, ErpField, ErpInput, ErpSelect, ErpSubmitButton } from '../../../components/Erp/ErpUI';
+import { ErpModal, ErpField, ErpInput } from '../../../components/Erp/ErpUI';
+import { StyledSelect } from '../../../../../components/common/StyledSelect';
 import { CustomFieldsSection } from '../../../../shared/custom-fields/CustomFieldsSection';
+import { FieldActionButtons } from '../../../../shared/custom-fields/FieldActionButtons';
 import type { CustomFieldValues } from '../../../../shared/custom-fields/types';
 import type { ResourceItem } from '../../../types';
 import { useStandardFields, getAdaptedFieldDefinition, type StandardFieldConfig } from '../../../hooks/useStandardFields';
@@ -76,13 +79,13 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
     const fieldConfig = stdFields.find(f => f.key === fieldKey);
     if (!fieldConfig) return null;
     return (
-      <div className="absolute right-0 top-0 z-10 flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 opacity-60 hover:opacity-100 transition-opacity">
-        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => openEditStdField(fieldConfig)}>Sửa</button>
-        <span>|</span>
-        <button type="button" className="hover:text-cyan-600 transition-colors" onClick={() => archiveStd(fieldConfig)}>Lưu trữ</button>
-        <span>|</span>
-        <button type="button" className="text-rose-500 hover:text-rose-600 transition-colors" onClick={() => deleteStd(fieldConfig)}>Xóa</button>
-      </div>
+      <FieldActionButtons
+        label={fieldConfig.label}
+        disabled={isSubmitting}
+        onEdit={() => openEditStdField(fieldConfig)}
+        onArchive={() => archiveStd(fieldConfig)}
+        onDelete={() => deleteStd(fieldConfig)}
+      />
     );
   };
 
@@ -184,12 +187,11 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
   if (!isOpen) return null;
 
   return (
-    <ErpModal title={resource ? 'Cập nhật tài nguyên' : 'Khai báo tài nguyên mới'} onClose={onClose}>
-      <form onSubmit={handleAddResource} className="space-y-4">
+    <ErpModal title={resource ? 'Cập nhật tài nguyên' : 'Khai báo tài nguyên mới'} titleClassName="font-medium" onClose={onClose} maxWidth="max-w-xl">
+      <form onSubmit={handleAddResource} className="space-y-3 [&_.erp-field-label]:font-normal [&_.erp-field-label]:text-slate-600">
         {isFieldVisible('name') && (
-          <div className="relative group/std">
-            {renderFieldActions('name')}
-            <ErpField label={getFieldLabel('name', 'Tên gọi tài nguyên')}>
+          <div>
+            <ErpField label={getFieldLabel('name', 'Tên gọi tài nguyên')} actions={renderFieldActions('name')}>
               <ErpInput
                 type="text"
                 required={isFieldRequired('name', true)}
@@ -202,30 +204,26 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
         )}
 
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {!forceType && isFieldVisible('type') && (
-            <div className="relative group/std">
-              {renderFieldActions('type')}
-              <ErpField label={getFieldLabel('type', 'Phân loại')}>
-                <ErpSelect
-                  required={isFieldRequired('type', true)}
+            <div>
+              <ErpField label={getFieldLabel('type', 'Phân loại')} actions={renderFieldActions('type')}>
+                <StyledSelect
                   value={selectedType}
-                  onChange={(e) => setNewResource({ ...newResource, type: e.target.value })}
-                >
-                  <option value="" disabled>-- Chọn phân loại --</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </ErpSelect>
+                  ariaLabel={getFieldLabel('type', 'Phân loại')}
+                  placeholder="-- Chọn phân loại --"
+                  options={[
+                    { value: '', label: '-- Chọn phân loại --', disabled: true },
+                    ...categories.map((cat) => ({ value: cat.name, label: cat.name })),
+                  ]}
+                  onChange={(value) => setNewResource({ ...newResource, type: value })}
+                />
               </ErpField>
             </div>
           )}
           {isFieldVisible('identifier') && (
-            <div className="relative group/std">
-              {renderFieldActions('identifier')}
-              <ErpField label={getFieldLabel('identifier', 'Mã nhận diện / Số phòng')}>
+            <div className={forceType || !isFieldVisible('type') ? 'sm:col-span-2' : ''}>
+              <ErpField label={getFieldLabel('identifier', 'Mã nhận diện / Số phòng')} actions={renderFieldActions('identifier')}>
                 <ErpInput
                   type="text"
                   required={isFieldRequired('identifier', true)}
@@ -239,9 +237,8 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
         </div>
 
         {isFieldVisible('capacity') && (
-          <div className="relative group/std">
-            {renderFieldActions('capacity')}
-            <ErpField label={getFieldLabel('capacity', 'Sức chứa / Khả năng đáp ứng')}>
+          <div>
+            <ErpField label={getFieldLabel('capacity', 'Sức chứa / Khả năng đáp ứng')} actions={renderFieldActions('capacity')}>
               <ErpInput
                 type="text"
                 required={isFieldRequired('capacity', true)}
@@ -262,11 +259,13 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
           tenantId={resource?.ownerId}
           isEditingFields={isEditingFields}
           onToggleEditingFields={setIsEditingFields}
+          compact
+          iconActions
         />
 
         {manageable && archivedStdFields.length ? (
           <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 mt-4 text-left">
-            <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Trường mặc định đã lưu trữ</h4>
+            <h4 className="text-sm font-normal text-slate-600">Trường mặc định đã lưu trữ</h4>
             <ul className="mt-2 divide-y divide-slate-100">
               {archivedStdFields.map((field) => (
                 <li key={field.key} className="flex items-center justify-between py-2 text-xs text-slate-600">
@@ -274,11 +273,12 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
                   <button
                     type="button"
                     disabled={isSubmitting}
-                    className="font-bold text-cyan-600 hover:text-cyan-700 disabled:opacity-50 transition-colors cursor-pointer"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-brand-primary transition-colors hover:bg-sky-100 disabled:opacity-50"
                     aria-label={`Khôi phục ${field.label}`}
+                    title={`Khôi phục ${field.label}`}
                     onClick={() => restoreStdField(field.key)}
                   >
-                    Khôi phục
+                    <RotateCcw className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </li>
               ))}
@@ -286,9 +286,17 @@ export function AddResourceModal({ isOpen, onClose, categories, onSuccess, resou
           </div>
         ) : null}
 
-        <ErpSubmitButton disabled={isSubmitting}>
-          {isSubmitting ? 'Đang lưu...' : resource ? 'Cập nhật tài nguyên' : 'Khai báo tài nguyên'}
-        </ErpSubmitButton>
+        <div className="flex justify-end border-t border-slate-100 pt-3">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            aria-label={isSubmitting ? 'Đang lưu tài nguyên' : resource ? 'Lưu thay đổi tài nguyên' : 'Khai báo tài nguyên'}
+            title={resource ? 'Lưu thay đổi tài nguyên' : 'Khai báo tài nguyên'}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-brand-primary text-white transition-colors hover:bg-brand-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
+          </button>
+        </div>
       </form>
 
       <CustomFieldEditorModal

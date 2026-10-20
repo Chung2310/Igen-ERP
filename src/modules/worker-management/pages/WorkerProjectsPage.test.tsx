@@ -42,6 +42,7 @@ const projectState = (overrides: Record<string, unknown> = {}) => ({
   updateProject: vi.fn().mockResolvedValue(project),
   deleteProject: vi.fn().mockResolvedValue(undefined),
   addWorker: vi.fn().mockResolvedValue(project),
+  addWorkers: vi.fn().mockResolvedValue(project),
   removeWorker: vi.fn().mockResolvedValue(project),
   reload: vi.fn(),
   ...overrides,
@@ -144,9 +145,11 @@ describe("worker project ownership", () => {
       branchId: "branch-1",
     });
     expect(screen.getByText("Project One")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Trạng thái P-1" }));
     expect(screen.getByRole("option", { name: "Sắp triển khai" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Đang triển khai" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Đã kết thúc" })).toBeTruthy();
+    await userEvent.keyboard("{Escape}");
     expect(screen.getByTitle("Chỉnh sửa dự án")).toBeTruthy();
     expect(screen.getByTitle("Xóa dự án")).toBeTruthy();
     expect(screen.getByTitle("Quản lý lao động")).toBeTruthy();
@@ -163,6 +166,8 @@ describe("worker project ownership", () => {
     render(<WorkerProjectsPage selectedCenter="ACME" />);
 
     await userEvent.click(screen.getByRole("button", { name: "Thêm dự án" }));
+    expect(screen.getByRole("button", { name: "Ngày bắt đầu" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ngày kết thúc" })).toBeTruthy();
     await userEvent.type(screen.getByLabelText("Mã dự án"), "P-2");
     await userEvent.type(screen.getByLabelText("Tên dự án"), "Project Two");
     await userEvent.click(screen.getByRole("button", { name: "Tạo dự án" }));
@@ -184,9 +189,8 @@ describe("worker project ownership", () => {
       ),
     );
 
-    fireEvent.change(screen.getByLabelText("Trạng thái P-1"), {
-      target: { value: "active" },
-    });
+    await userEvent.click(screen.getByRole("button", { name: "Trạng thái P-1" }));
+    await userEvent.click(screen.getByRole("option", { name: "Đang triển khai" }));
     await waitFor(() =>
       expect(hookValue.updateProject).toHaveBeenCalledWith(
         "project-1",
@@ -207,10 +211,10 @@ describe("worker project ownership", () => {
     render(<WorkerProjectsPage selectedCenter="ACME" />);
 
     await userEvent.click(screen.getByTitle("Quản lý lao động"));
-    await userEvent.selectOptions(screen.getByLabelText("Thêm lao động"), "worker-2");
-    await userEvent.click(screen.getByRole("button", { name: "Thêm vào dự án" }));
+    await userEvent.click(screen.getByText("Worker Two"));
+    await userEvent.click(screen.getByRole("button", { name: "Thêm đã chọn" }));
     await waitFor(() =>
-      expect(hookValue.addWorker).toHaveBeenCalledWith("project-1", "worker-2"),
+      expect(hookValue.addWorkers).toHaveBeenCalledWith("project-1", ["worker-2"]),
     );
 
     await userEvent.click(screen.getByTitle("Gỡ Worker One khỏi dự án"));
@@ -223,14 +227,14 @@ describe("worker project ownership", () => {
   });
 
   it("keeps the membership modal synchronized with reloaded projects", async () => {
-    const addWorker = vi
+    const addWorkers = vi
       .fn()
       .mockResolvedValue({ ...project, workerIds: ["worker-1", "worker-2"] });
     const removeWorker = vi
       .fn()
       .mockResolvedValue({ ...project, workerIds: ["worker-2"] });
     projectHooks.useWorkerProjects.mockReturnValue(
-      projectState({ addWorker, removeWorker }),
+      projectState({ addWorkers, removeWorker }),
     );
     const { rerender } = render(
       <WorkerProjectsPage selectedCenter="ACME" />,
@@ -241,20 +245,15 @@ describe("worker project ownership", () => {
     expect(manageButton).toBeTruthy();
     await userEvent.click(manageButton!);
 
-    const memberSelect = document.getElementById(
-      "worker-project-member",
-    ) as HTMLSelectElement;
-    await userEvent.selectOptions(memberSelect, "worker-2");
-    const addButton = memberSelect.parentElement?.querySelector("button");
-    expect(addButton).toBeTruthy();
-    await userEvent.click(addButton!);
+    await userEvent.click(screen.getByText("Worker Two"));
+    await userEvent.click(screen.getByRole("button", { name: "Thêm đã chọn" }));
     await waitFor(() =>
-      expect(addWorker).toHaveBeenCalledWith("project-1", "worker-2"),
+      expect(addWorkers).toHaveBeenCalledWith("project-1", ["worker-2"]),
     );
 
     projectHooks.useWorkerProjects.mockReturnValue(
       projectState({
-        addWorker,
+        addWorkers,
         removeWorker,
         projects: [
           { ...project, workerIds: ["worker-1", "worker-2"] },
@@ -264,9 +263,7 @@ describe("worker project ownership", () => {
     rerender(<WorkerProjectsPage selectedCenter="ACME" />);
 
     expect(screen.getByTitle((title) => title.includes("Worker Two"))).toBeTruthy();
-    expect(
-      screen.queryByRole("option", { name: "Worker Two" }),
-    ).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: /Worker Two/ })).toBeNull();
 
     await userEvent.click(
       screen.getByTitle((title) => title.includes("Worker One")),
@@ -277,7 +274,7 @@ describe("worker project ownership", () => {
 
     projectHooks.useWorkerProjects.mockReturnValue(
       projectState({
-        addWorker,
+        addWorkers,
         removeWorker,
         projects: [{ ...project, workerIds: ["worker-2"] }],
       }),
@@ -287,6 +284,6 @@ describe("worker project ownership", () => {
     expect(
       screen.queryByTitle((title) => title.includes("Worker One")),
     ).toBeNull();
-    expect(screen.getByRole("option", { name: "Worker One" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /Worker One/ })).toBeTruthy();
   });
 });

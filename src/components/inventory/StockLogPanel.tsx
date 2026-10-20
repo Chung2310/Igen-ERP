@@ -7,6 +7,8 @@ import { StockOutCustomerPicker } from "./StockOutCustomerPicker";
 import { StockOperatorPicker } from "./StockOperatorPicker";
 import { toast } from "../../pages/Toast";
 import { parseFirebaseError } from "../../utils/firebaseErrorParser";
+import { StyledSelect } from "../common/StyledSelect";
+import "./inventory-ui.css";
 
 
 /**
@@ -446,8 +448,8 @@ export function StockLogPanel({
   };
 
   return (
-    <div className="space-y-5" id="stock_transactions_list">
-      <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-xs" id="log_filters_bar">
+    <div className="inventory-ui space-y-5" id="stock_transactions_list">
+      <div className="rounded-2xl border border-[#DCE7F4] bg-white px-4 py-3" id="log_filters_bar">
         <div className="flex flex-wrap items-end gap-3">
 
           {/* ── Bộ lọc ── */}
@@ -455,41 +457,24 @@ export function StockLogPanel({
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <Search className="h-4 w-4 text-gray-400" />
             </div>
-                          <input
+            <input
               type="text"
               placeholder="Tìm mọi phiếu, sản phẩm..."
-              className="h-9 w-full rounded-lg border border-gray-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-700 placeholder:text-gray-400 transition-colors focus:border-slate-300 focus:bg-white focus:outline-none"
+              className="h-10 w-full rounded-xl border border-[#DCE7F4] bg-white pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400"
               value={searchLog}
               onChange={(event) => setSearchLog(event.target.value)}
             />
           </div>
 
-          {!outboundOnly && <label className="flex shrink-0 flex-col gap-1">
-            <span className="px-0.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">Loại phiếu</span>
-            <select
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value as "all" | "inbound" | "outbound")}
-              className="h-9 w-40 rounded-lg border border-gray-200 bg-white px-3 text-sm text-slate-700 focus:outline-none"
-            >
-              <option value="all">Tất cả phiếu</option>
-              <option value="inbound">Phiếu nhập</option>
-              <option value="outbound">Phiếu xuất</option>
-            </select>
-          </label>}
+          {!outboundOnly && <div className="flex w-40 shrink-0 flex-col gap-1">
+            <span className="px-0.5 text-xs text-slate-500">Loại phiếu</span>
+            <StyledSelect ariaLabel="Lọc loại phiếu" value={typeFilter} onChange={(value) => setTypeFilter(value as "all" | "inbound" | "outbound")} options={[{ value: "all", label: "Tất cả phiếu" }, { value: "inbound", label: "Phiếu nhập" }, { value: "outbound", label: "Phiếu xuất" }]} />
+          </div>}
 
-          <label className="flex shrink-0 flex-col gap-1">
-            <span className="px-0.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">Trạng thái</span>
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as "all" | "pending" | "processing" | "completed")}
-              className="h-9 w-44 rounded-lg border border-gray-200 bg-white px-3 text-sm text-slate-700 focus:outline-none"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="pending">Đang chờ</option>
-              <option value="processing">Đang xử lý</option>
-              <option value="completed">Hoàn thành</option>
-            </select>
-          </label>
+          <div className="flex w-44 shrink-0 flex-col gap-1">
+            <span className="px-0.5 text-xs text-slate-500">Trạng thái</span>
+            <StyledSelect ariaLabel="Lọc trạng thái phiếu" value={statusFilter} onChange={(value) => setStatusFilter(value as "all" | "pending" | "processing" | "completed")} options={[{ value: "all", label: "Tất cả trạng thái" }, { value: "pending", label: "Đang chờ" }, { value: "processing", label: "Đang xử lý" }, { value: "completed", label: "Hoàn thành" }]} />
+          </div>
 
           {/* ── Ngăn cách ── */}
           <div className="hidden h-7 w-px shrink-0 bg-gray-200 sm:block" />
@@ -516,7 +501,7 @@ export function StockLogPanel({
             <button
               type="button"
               onClick={openCreateModal}
-              className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-teal-800"
+              className="flex h-10 items-center gap-1.5 whitespace-nowrap rounded-xl bg-[#00ADFC] px-4 text-sm font-medium text-white transition-colors hover:bg-[#0097dc]"
             >
               <Plus className="h-4 w-4" />
               {outboundOnly ? "Tạo phiếu xuất" : "Tạo phiếu"}
@@ -526,7 +511,7 @@ export function StockLogPanel({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white">
         <div className="space-y-3">
           {isLoading ? (
             <div className="space-y-3">
@@ -555,44 +540,42 @@ export function StockLogPanel({
             const status = getLogStatus(log);
 
             return (
-              <div key={log.id} className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-5 hover:bg-slate-50/70">
+              <div key={log.id} className="flex flex-col gap-3 border-b border-[#E7EFF7] px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-5 hover:bg-[#F8FBFF]">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isInbound ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
                     {isInbound ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-sm font-semibold text-slate-800">{getLogTitle(log)}</h4>
+                      <h4 className="text-sm font-medium text-slate-800">{getLogTitle(log)}</h4>
                       <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${isInbound ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{isInbound ? "Nhập kho" : "Xuất kho"}</span>
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-slate-500">{previewText}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                    <p className="mt-0.5 truncate text-sm text-slate-600">{previewText}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                       <span>{log.operatorName || "Chưa rõ người tạo"}</span><span>•</span><span>{new Date(log.createdAt).toLocaleString("vi-VN")}</span>
                       {!readOnly && onUpdateStatus ? (
-                        <select
-                          value={status}
-                          disabled={statusUpdatingId === log.id}
-                          onChange={async (event) => {
-                            const nextStatus = event.target.value as TransactionStatus;
-                            if (nextStatus === status) return;
-                            try {
-                              setStatusUpdatingId(log.id);
-                              await onUpdateStatus(log.id, nextStatus);
-                            } catch (error) {
-                              console.error("Lỗi khi cập nhật trạng thái:", error);
-                              toast.error(parseFirebaseError(error, "Không thể cập nhật trạng thái."));
-                            } finally {
-                              setStatusUpdatingId(null);
-                            }
-                          }}
-                          className={`rounded-full border px-2 py-0.5 font-semibold ${getStatusTone(status)} ${
-                            statusUpdatingId === log.id ? "cursor-wait opacity-70" : "cursor-pointer"
-                          }`}
-                        >
-                          <option value="Đang chờ">Đang chờ</option>
-                          <option value="Đang xử lý">Đang xử lý</option>
-                          <option value="Hoàn thành">Hoàn thành</option>
-                        </select>
+                        <div className="w-36">
+                          <StyledSelect
+                            ariaLabel={`Trạng thái ${log.id}`}
+                            value={status}
+                            disabled={statusUpdatingId === log.id}
+                            onChange={async (value) => {
+                              const nextStatus = value as TransactionStatus;
+                              if (nextStatus === status) return;
+                              try {
+                                setStatusUpdatingId(log.id);
+                                await onUpdateStatus(log.id, nextStatus);
+                              } catch (error) {
+                                console.error("Lỗi khi cập nhật trạng thái:", error);
+                                toast.error(parseFirebaseError(error, "Không thể cập nhật trạng thái."));
+                              } finally {
+                                setStatusUpdatingId(null);
+                              }
+                            }}
+                            options={[{ value: "Đang chờ", label: "Đang chờ" }, { value: "Đang xử lý", label: "Đang xử lý" }, { value: "Hoàn thành", label: "Hoàn thành" }]}
+                            className="h-8 text-xs"
+                          />
+                        </div>
                       ) : (
                         <span className={`rounded-full px-2 py-0.5 font-semibold ${getStatusTone(status)}`}>{status}</span>
                       )}
@@ -601,7 +584,7 @@ export function StockLogPanel({
                 </div>
 
                 <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
-                  <div className={`text-right text-2xl font-bold ${isInbound ? "text-emerald-600" : "text-rose-600"}`}>
+                  <div className={`text-right text-xl font-medium ${isInbound ? "text-emerald-600" : "text-rose-600"}`}>
                     {isInbound ? "+" : "-"}
                     {formatNumber(totalQuantity)}
                     <span className="ml-1 text-sm font-semibold text-gray-400">sp</span>
@@ -653,14 +636,14 @@ export function StockLogPanel({
       </div>
 
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]">
+          <div className="inventory-popup max-h-[calc(100dvh-2rem)] w-full max-w-4xl overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,65,99,0.18)]">
+            <div className="flex items-start justify-between border-b border-[#E7EFF7] px-6 py-4">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">{editingLogId ? "Chỉnh sửa phiếu xuất kho" : outboundOnly ? "Tạo phiếu xuất kho" : "Tạo phiếu nhập xuất kho"}</h3>
+                <h3 className="border-l-[3px] border-[#00ADFC] pl-3 text-xl font-medium text-slate-900">{editingLogId ? "Chỉnh sửa phiếu xuất kho" : outboundOnly ? "Tạo phiếu xuất kho" : "Tạo phiếu nhập xuất kho"}</h3>
                 <p className="mt-1 text-sm text-slate-500">{outboundOnly ? "Khai báo thông tin và danh sách hàng cần xuất." : "Chọn loại phiếu, trạng thái xử lý và danh sách sản phẩm."}</p>
               </div>
-              <button type="button" onClick={() => setShowCreateModal(false)} className="-mr-2 -mt-1 rounded-lg p-2 text-gray-400 hover:bg-slate-100 hover:text-slate-700">
+              <button type="button" aria-label="Đóng phiếu" onClick={() => setShowCreateModal(false)} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -676,9 +659,9 @@ export function StockLogPanel({
                   <div className="mt-1 text-xs text-gray-500">Cộng tồn kho cho sản phẩm được chọn.</div>
                 </button>}
                 {outboundOnly ? (
-                  <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
-                    <div className="text-sm font-semibold text-rose-800">Phiếu xuất hàng</div>
-                    <div className="mt-1 text-xs leading-5 text-rose-700">Tồn kho được trừ khi phiếu hoàn thành.</div>
+                  <div className="rounded-xl border border-[#DCE7F4] bg-[#F5FAFE] px-4 py-3">
+                    <div className="text-sm font-medium text-slate-800">Phiếu xuất hàng</div>
+                    <div className="mt-1 text-xs leading-5 text-slate-600">Tồn kho được trừ khi phiếu hoàn thành.</div>
                   </div>
                 ) : (
                   <button
@@ -690,60 +673,39 @@ export function StockLogPanel({
                     <div className="mt-1 text-xs text-gray-500">Trừ tồn kho theo từng sản phẩm trong phiếu.</div>
                   </button>
                 )}
-                <label className={`space-y-1.5 ${outboundOnly ? "md:col-span-3" : "md:col-span-2"}`}>
-                  <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Trạng thái phiếu</span>
-                  <select
-                    value={draftStatus}
-                    onChange={(event) => setDraftStatus(event.target.value as TransactionStatus)}
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                  >
-                    <option value="Đang chờ">Đang chờ</option>
-                    <option value="Đang xử lý">Đang xử lý</option>
-                    <option value="Hoàn thành">Hoàn thành</option>
-                  </select>
-                </label>
+                <div className={`space-y-1.5 ${outboundOnly ? "md:col-span-3" : "md:col-span-2"}`}>
+                  <span className="text-sm text-slate-600">Trạng thái phiếu</span>
+                  <StyledSelect ariaLabel="Trạng thái phiếu" value={draftStatus} onChange={(value) => setDraftStatus(value as TransactionStatus)} options={[{ value: "Đang chờ", label: "Đang chờ" }, { value: "Đang xử lý", label: "Đang xử lý" }, { value: "Hoàn thành", label: "Hoàn thành" }]} />
+                </div>
               </div>
 
-              <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+              <section className="rounded-xl border border-[#DCE7F4] bg-[#F8FBFF] p-4">
                 <div className="mb-4 flex items-center gap-2">
-                  <span className="h-5 w-1 rounded-full bg-teal-600" />
-                  <h4 className="text-sm font-bold text-slate-800">Thông tin phiếu</h4>
+                  <span className="h-5 w-1 rounded-full bg-[#00ADFC]" />
+                  <h4 className="text-base font-medium text-slate-800">Thông tin phiếu</h4>
                 </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {outboundOnly && (
-                  <label className="space-y-1.5 md:col-span-2">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Xuất từ kho</span>
-                    <select
-                      value={sourceWarehouseId}
-                      onChange={(event) => setSourceWarehouseId(event.target.value)}
-                      required
-                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                    >
-                      <option value="">Chọn kho xuất</option>
-                      {warehouses.map((warehouse) => <option key={warehouse._id} value={warehouse._id}>{warehouse.name}{warehouse.isDefault ? " (mặc định)" : ""}</option>)}
-                    </select>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <span className="text-sm text-slate-600">Xuất từ kho</span>
+                    <StyledSelect ariaLabel="Xuất từ kho" value={sourceWarehouseId} onChange={setSourceWarehouseId} options={[{ value: "", label: "Chọn kho xuất" }, ...warehouses.map((warehouse) => ({ value: warehouse._id, label: `${warehouse.name}${warehouse.isDefault ? " (mặc định)" : ""}` }))]} />
                     <span className="block text-xs text-slate-500">Chỉ hiển thị SKU còn tồn khả dụng tại kho đã chọn.</span>
-                  </label>
+                  </div>
                 )}
                 {draftType === "xuất" && (
-                  <label className="space-y-1.5 md:col-span-2">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Mục đích xuất kho</span>
-                    <select
+                  <div className="space-y-1.5 md:col-span-2">
+                    <span className="text-sm text-slate-600">Mục đích xuất kho</span>
+                    <StyledSelect
+                      ariaLabel="Mục đích xuất kho"
                       value={draftPurpose}
-                      onChange={(event) => {
-                        setDraftPurpose(event.target.value as StockLogPurpose);
+                      onChange={(value) => {
+                        setDraftPurpose(value as StockLogPurpose);
                         setDraftCustomerId(undefined);
                         setDraftCustomerName("");
                       }}
-                      required
-                      className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                    >
-                      <option value="bán">Bán hàng</option>
-                      <option value="nội bộ">Sử dụng nội bộ</option>
-                      <option value="hủy">Hủy / hàng hỏng</option>
-                      <option value="chuyển kho">Điều chuyển kho / chi nhánh</option>
-                    </select>
-                  </label>
+                      options={[{ value: "bán", label: "Bán hàng" }, { value: "nội bộ", label: "Sử dụng nội bộ" }, { value: "hủy", label: "Hủy / hàng hỏng" }, { value: "chuyển kho", label: "Điều chuyển kho / chi nhánh" }]}
+                    />
+                  </div>
                 )}
                 {draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "chuyển kho") && (
                   <label className="space-y-1.5 md:col-span-2">
@@ -763,7 +725,7 @@ export function StockLogPanel({
                         value={draftCustomerName}
                         onChange={(event) => setDraftCustomerName(event.target.value)}
                         placeholder="Ví dụ: Kho trung tâm hoặc Chi nhánh Quận 1"
-                        className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        className="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15"
                       />
                     )}
                   </label>
@@ -775,7 +737,7 @@ export function StockLogPanel({
                     value={draftTitle}
                     onChange={(event) => setDraftTitle(event.target.value)}
                     placeholder={draftType === "nhập" ? "Ví dụ: Nhập hàng từ nhà cung cấp A" : "Ví dụ: Xuất kho cho đại lý Hà Nội"}
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                    className="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15"
                   />
                 </label>
 
@@ -792,7 +754,7 @@ export function StockLogPanel({
                   onChange={(event) => setDraftNotes(event.target.value)}
                   placeholder="Mô tả ngắn nội dung phiếu hoặc lưu ý vận hành"
                   rows={3}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                  className="w-full rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15"
                 />
               </label>
               </section>
@@ -821,12 +783,12 @@ export function StockLogPanel({
                 <div className="space-y-3">
                   {draftLines.map((line, index) => (
                     <div key={`${index}-${line.productId}-${line.sku || ""}`} className={`grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-slate-50 p-3 ${outboundOnly ? "md:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_140px_44px]" : "md:grid-cols-[1fr_140px_44px]"}`}>
-                      <label className="space-y-1.5">
-                        <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Sản phẩm</span>
-                        <select
+                      <div className="space-y-1.5">
+                        <span className="text-sm text-slate-600">Sản phẩm</span>
+                        <StyledSelect
+                          ariaLabel={`Sản phẩm dòng ${index + 1}`}
                           value={line.productId}
-                          onChange={(event) => {
-                            const productId = event.target.value;
+                          onChange={(productId) => {
                             const firstVariant = outboundOnly ? warehouseProductGroups.find((group) => group.productId === productId)?.variants[0] : undefined;
                             const firstSku = outboundOnly ? firstVariant?.sku || "" : undefined;
                             setDraftLines((current) => {
@@ -839,28 +801,22 @@ export function StockLogPanel({
                                 .filter((_, itemIndex) => itemIndex !== index);
                             });
                           }}
-                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
-                        >
-                          <option value="">Chọn sản phẩm</option>
-                          {outboundOnly && line.productId && !warehouseProductGroups.some((group) => group.productId === line.productId) && (
-                            <option value={line.productId}>{line.productName || line.sku || "Sản phẩm đã lưu"} (hết tồn)</option>
-                          )}
-                          {(outboundOnly ? warehouseProductGroups : selectableProducts).map((product) => (
-                            <option key={outboundOnly ? product.productId : product.id} value={outboundOnly ? product.productId : product.id}>
-                              {outboundOnly ? product.name : `${product.name} - ${product.sku} (${formatNumber(product.stock)})`}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                          options={[
+                            { value: "", label: "Chọn sản phẩm" },
+                            ...(outboundOnly && line.productId && !warehouseProductGroups.some((group) => group.productId === line.productId) ? [{ value: line.productId, label: `${line.productName || line.sku || "Sản phẩm đã lưu"} (hết tồn)` }] : []),
+                            ...(outboundOnly ? warehouseProductGroups.map((product) => ({ value: product.productId, label: product.name })) : selectableProducts.map((product) => ({ value: product.id, label: `${product.name} - ${product.sku} (${formatNumber(product.stock)})` }))),
+                          ]}
+                        />
+                      </div>
 
                       {outboundOnly && (
-                        <label className="space-y-1.5">
-                          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">SKU / biến thể</span>
-                          <select
+                        <div className="space-y-1.5">
+                          <span className="text-sm text-slate-600">SKU / biến thể</span>
+                          <StyledSelect
+                            ariaLabel={`SKU / biến thể dòng ${index + 1}`}
                             value={line.sku || ""}
                             disabled={!line.productId}
-                            onChange={(event) => {
-                              const sku = event.target.value;
+                            onChange={(sku) => {
                               const variantId = (warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).find((variant) => variant.sku === sku)?.variantId;
                               setDraftLines((current) => {
                                 const duplicateIndex = current.findIndex((item, itemIndex) => itemIndex !== index && item.productId === line.productId && item.sku === sku);
@@ -872,17 +828,13 @@ export function StockLogPanel({
                                   .filter((_, itemIndex) => itemIndex !== index);
                               });
                             }}
-                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
-                          >
-                            <option value="">Chọn SKU / biến thể</option>
-                            {line.sku && !(warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).some((variant) => variant.sku === line.sku) && (
-                              <option value={line.sku}>{line.sku} (hết tồn)</option>
-                            )}
-                            {(warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).map((variant) => (
-                              <option key={variant._id} value={variant.sku}>{variant.sku}{variant.variantName ? ` - ${variant.variantName}` : ""} (tồn {formatNumber(variant.quantity - variant.reservedQuantity)})</option>
-                            ))}
-                          </select>
-                        </label>
+                            options={[
+                              { value: "", label: "Chọn SKU / biến thể" },
+                              ...(line.sku && !(warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).some((variant) => variant.sku === line.sku) ? [{ value: line.sku, label: `${line.sku} (hết tồn)` }] : []),
+                              ...(warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).map((variant) => ({ value: variant.sku, label: `${variant.sku}${variant.variantName ? ` - ${variant.variantName}` : ""} (tồn ${formatNumber(variant.quantity - variant.reservedQuantity)})` })),
+                            ]}
+                          />
+                        </div>
                       )}
 
                       <label className="space-y-1.5">
@@ -909,15 +861,13 @@ export function StockLogPanel({
                     </div>
                   ))}
                 </div>
-                {unitPickerIndex !== null && <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50/60 p-4"><div className="mb-2 flex items-center justify-between"><h5 className="text-sm font-bold text-cyan-900">Chọn IMEI / mã vạch xuất kho</h5><button type="button" onClick={() => setUnitPickerIndex(null)} className="text-xs font-semibold text-slate-500">Đóng</button></div>{unitPickerLoading ? <p className="text-sm text-slate-500">Đang tải đơn vị tồn kho...</p> : <select multiple value={draftLines[unitPickerIndex]?.unitIdentifiers || []} onChange={(event) => updateDraftLine(unitPickerIndex, { ...draftLines[unitPickerIndex], unitIdentifiers: Array.from(event.target.selectedOptions).map((option) => option.value).slice(0, Number(draftLines[unitPickerIndex]?.quantity) || 0) })} className="min-h-28 w-full rounded-lg border border-cyan-200 bg-white p-2 text-sm">{unitPickerItems.map((item) => <option key={item._id} value={item.normalizedInternalBarcode}>{item.internalBarcode}{item.serialNumber ? ` · ${item.serialNumber}` : ""}</option>)}{selectedUnitsForPicker.filter((identifier) => !unitPickerItems.some((item) => item.normalizedInternalBarcode === identifier)).map((identifier) => <option key={identifier} value={identifier}>{identifier} · không còn trong kho</option>)}</select>}{selectedUnitsForPicker.length > 0 && <p className="mt-2 text-xs font-semibold text-cyan-900">Đã chọn ({selectedUnitsForPicker.length}/{requiredUnitCount}): {selectedUnitsForPicker.map((identifier) => unitPickerItems.find((item) => item.normalizedInternalBarcode === identifier)?.serialNumber || identifier).join(", ")}</p>}<p className="mt-2 text-xs text-cyan-800">Phải chọn đủ số lượng đơn vị trước khi lưu phiếu xuất.</p></div>}
               </div>
 
-              {unitPickerIndex !== null && <input value={unitPickerQuery} onChange={(event) => setUnitPickerQuery(event.target.value)} placeholder="Tìm IMEI hoặc mã vạch trong danh sách..." className="mb-2 w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm" />}
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
                   Đóng
                 </button>
-                <button type="submit" disabled={submitting} className="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800 disabled:opacity-60">
+                <button type="submit" disabled={submitting} className="rounded-xl bg-[#00ADFC] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#0097dc] disabled:opacity-60">
                   {submitting ? (editingLogId ? "Đang cập nhật phiếu..." : "Đang tạo phiếu...") : editingLogId ? "Cập nhật phiếu" : "Lưu phiếu"}
                 </button>
               </div>
@@ -927,51 +877,51 @@ export function StockLogPanel({
       )}
 
       {unitPickerIndex !== null && selectedLineForPicker && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/55 p-4">
-          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4"><div><h3 className="text-lg font-bold text-slate-900">Chọn IMEI / mã vạch</h3><p className="mt-1 text-sm text-slate-500">Đã chọn {selectedUnitsForPicker.length} / {requiredUnitCount} đơn vị</p></div><button type="button" onClick={() => setUnitPickerIndex(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button></div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]">
+          <div role="dialog" aria-modal="true" aria-label="Chọn IMEI / mã vạch" className="inventory-popup flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,65,99,0.18)]">
+            <div className="flex items-start justify-between border-b border-[#E7EFF7] px-5 py-4"><div><h3 className="border-l-[3px] border-[#00ADFC] pl-3 text-lg font-medium text-slate-900">Chọn IMEI / mã vạch</h3><p className="mt-1 pl-[15px] text-sm text-slate-500">Đã chọn {selectedUnitsForPicker.length} / {requiredUnitCount} đơn vị</p></div><button type="button" aria-label="Đóng chọn IMEI" onClick={() => setUnitPickerIndex(null)} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600"><X className="h-4 w-4" /></button></div>
             <div className="space-y-3 overflow-y-auto p-5"><input value={unitPickerQuery} onChange={(event) => setUnitPickerQuery(event.target.value)} placeholder="Tìm IMEI hoặc mã vạch..." className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm" />{unitPickerLoading ? <p className="py-8 text-center text-sm text-slate-500">Đang tải đơn vị tồn kho...</p> : filteredPickerItems.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Không tìm thấy IMEI / mã vạch phù hợp.</p> : <div className="space-y-2">{filteredPickerItems.map((item) => { const value = item.normalizedInternalBarcode; const checked = selectedUnitsForPicker.includes(value); const disabled = !checked && selectedUnitsForPicker.length >= requiredUnitCount; return <label key={item._id} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${checked ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white"} ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-cyan-200"}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => updateDraftLine(unitPickerIndex, { ...selectedLineForPicker, unitIdentifiers: checked ? selectedUnitsForPicker.filter((unit) => unit !== value) : [...selectedUnitsForPicker, value] })} className="h-4 w-4 accent-cyan-700" /><span className="text-sm text-slate-800">{item.internalBarcode}{item.serialNumber ? ` · ${item.serialNumber}` : ""}</span></label>; })}</div>}</div>
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4"><button type="button" onClick={() => setUnitPickerIndex(null)} className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">Đóng</button><button type="button" disabled={selectedUnitsForPicker.length !== requiredUnitCount} onClick={() => setUnitPickerIndex(null)} className="rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800 disabled:cursor-not-allowed disabled:opacity-50">Xác nhận lựa chọn</button></div>
+            <div className="flex justify-end gap-2 border-t border-[#E7EFF7] px-5 py-4"><button type="button" onClick={() => setUnitPickerIndex(null)} className="rounded-xl border border-[#DCE7F4] px-4 py-2.5 text-sm text-slate-700 hover:bg-[#F5FAFE]">Đóng</button><button type="button" disabled={selectedUnitsForPicker.length !== requiredUnitCount} onClick={() => setUnitPickerIndex(null)} className="rounded-xl bg-[#00ADFC] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#0097dc] disabled:cursor-not-allowed disabled:opacity-50">Xác nhận lựa chọn</button></div>
           </div>
         </div>
       )}
 
       {showDetailModal && selectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-          <div className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]">
+          <div role="dialog" aria-modal="true" aria-label="Chi tiết phiếu kho" className="inventory-popup max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border border-[#DCE7F4] bg-white p-6 shadow-[0_24px_70px_rgba(11,65,99,0.18)]">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">{getLogTitle(selectedLog)}</h3>
+                <h3 className="border-l-[3px] border-[#00ADFC] pl-3 text-xl font-medium text-slate-900">{getLogTitle(selectedLog)}</h3>
                 <p className="text-sm text-gray-500">
-                  {selectedLog.id} • {selectedLog.createdAt}
+                  {selectedLog.id} • {new Date(selectedLog.createdAt).toLocaleString("vi-VN")}
                 </p>
               </div>
-              <button type="button" onClick={() => setShowDetailModal(false)} className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+              <button type="button" aria-label="Đóng chi tiết" onClick={() => setShowDetailModal(false)} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 rounded-2xl border border-gray-200 bg-slate-50 p-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#DCE7F4] bg-[#F8FBFF] p-4 md:grid-cols-3">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">Loại phiếu</div>
-                <div className="mt-1 text-sm font-bold text-slate-800">{selectedLog.type === "nhập" ? "Nhập kho" : "Xuất kho"}</div>
+                <div className="text-xs text-slate-500">Loại phiếu</div>
+                <div className="mt-1 text-sm text-slate-800">{selectedLog.type === "nhập" ? "Nhập kho" : "Xuất kho"}</div>
               </div>
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">Phụ trách</div>
-                <div className="mt-1 text-sm font-bold text-slate-800">{selectedLog.operatorName}</div>
+                <div className="text-xs text-slate-500">Phụ trách</div>
+                <div className="mt-1 text-sm text-slate-800">{selectedLog.operatorName}</div>
               </div>
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">Trạng thái</div>
-                <div className="mt-1 text-sm font-bold text-slate-800">{getLogStatus(selectedLog)}</div>
+                <div className="text-xs text-slate-500">Trạng thái</div>
+                <div className="mt-1 text-sm text-slate-800">{getLogStatus(selectedLog)}</div>
               </div>
             </div>
 
             {selectedLog.type === "xuất" ? (
               <section className="mt-4">
-                <h4 className="mb-3 text-base font-bold text-slate-800">Hàng xuất</h4>
-                <div className="overflow-x-auto rounded-2xl border border-gray-200">
+                <h4 className="mb-3 text-base font-medium text-slate-800">Hàng xuất</h4>
+                <div className="overflow-x-auto rounded-xl border border-[#DCE7F4]">
                   <table className="w-full min-w-[720px] text-left text-sm">
-                    <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <thead className="bg-[#E8F7FF] text-xs text-slate-600">
                       <tr>
                         <th className="px-4 py-3">Sản phẩm</th>
                         <th className="px-4 py-3">SKU</th>
@@ -979,13 +929,13 @@ export function StockLogPanel({
                         <th className="px-4 py-3">IMEI / Serial</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
+                    <tbody className="divide-y divide-[#E7EFF7] bg-white">
                       {getLogItems(selectedLog).map((item, index) => (
                         <tr key={`${item.sku}-${index}`}>
-                          <td className="px-4 py-3 font-semibold text-slate-800">{item.productName}</td>
-                          <td className="px-4 py-3 font-mono text-xs text-slate-600">{item.sku}</td>
-                          <td className="px-4 py-3 text-right font-bold text-rose-600">{formatNumber(item.quantity)}</td>
-                          <td className="px-4 py-3 text-xs text-cyan-800">
+                          <td className="px-4 py-3 text-slate-800">{item.productName}</td>
+                          <td className="px-4 py-3 text-sm text-slate-600">{item.sku}</td>
+                          <td className="px-4 py-3 text-right text-rose-600">{formatNumber(item.quantity)}</td>
+                          <td className="px-4 py-3 text-sm text-cyan-800">
                             {item.serialNumbers?.length ? item.serialNumbers.join(", ") : item.unitIdentifiers?.length ? <span className="text-slate-600">Mã vạch nội bộ: {item.unitIdentifiers.join(", ")}</span> : <span className="text-slate-400">—</span>}
                           </td>
                         </tr>
@@ -1010,8 +960,8 @@ export function StockLogPanel({
               </div>
             )}
 
-            <div className="mt-4 rounded-2xl border border-gray-200 p-4 text-sm text-gray-600">
-              <div className="font-semibold text-slate-800">Ghi chú</div>
+            <div className="mt-4 rounded-xl border border-[#DCE7F4] p-4 text-sm text-slate-600">
+              <div className="font-medium text-slate-800">Ghi chú</div>
               <div className="mt-1">{selectedLog.notes || "Không có ghi chú bổ sung."}</div>
             </div>
           </div>

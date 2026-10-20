@@ -96,9 +96,10 @@ describe("worker profile ownership", () => {
     expect(screen.getByLabelText("Dự án")).toBeTruthy();
     expect(screen.getByLabelText("Từ ngày")).toBeTruthy();
     expect(screen.getByLabelText("Đến ngày")).toBeTruthy();
-    expect(screen.getByLabelText("Từ ngày").getAttribute("type")).toBe("date");
-    expect(screen.getByLabelText("Đến ngày").getAttribute("type")).toBe("date");
-    await userEvent.selectOptions(screen.getByLabelText("Dự án"), "unassigned");
+    expect(screen.getByRole("button", { name: "Từ ngày" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Đến ngày" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Dự án" }));
+    await userEvent.click(screen.getByRole("option", { name: "Chưa vào dự án" }));
     expect(screen.getByText("Không tìm thấy Lao động nào phù hợp với bộ lọc.")).toBeTruthy();
   });
 
@@ -235,7 +236,7 @@ describe("worker profile ownership", () => {
     await user.click(modal.querySelector(".border-b button") as HTMLElement);
     const note = modal.querySelector('input[name="note"]') as HTMLInputElement;
     expect(note).toBeTruthy();
-    expect(modal.querySelector('input[name="registrationDate"]')).toBeTruthy();
+    expect(within(modal).getByRole("button", { name: "Ngày tiếp nhận" })).toBeTruthy();
     fireEvent.change(note, { target: { value: "Ready" } });
     fireEvent.submit(modal.querySelector("form") as HTMLFormElement);
     await waitFor(() =>
