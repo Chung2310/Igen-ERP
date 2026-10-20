@@ -27,7 +27,7 @@ import { useBatches } from '../../hooks/useBatches';
 import { useCourses } from '../../hooks/useCourses';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { DrivingStudent } from '../../types';
-import { cn } from '../../lib/utils';
+import { cn, parseRegistrationDate } from '../../lib/utils';
 
 interface WorkerOverviewDashboardProps {
   onSelectStudent: (student: DrivingStudent) => void;
@@ -58,14 +58,6 @@ export function WorkerOverviewDashboard({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Helper parsing date string DD/MM/YYYY
-  const parseRegDate = (dateStr?: string) => {
-    if (!dateStr) return null;
-    const parts = dateStr.split('/').map(Number);
-    if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return null;
-    return new Date(parts[2], parts[1] - 1, parts[0]);
-  };
-
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
 
@@ -73,7 +65,7 @@ export function WorkerOverviewDashboard({
   const filteredWorkers = useMemo(() => {
     return students.filter(s => {
       if (timeRange === 'all') return true;
-      const d = parseRegDate(s.registrationDate);
+      const d = parseRegistrationDate(s.registrationDate);
       if (!d) return true;
       if (timeRange === 'this_year') return d.getFullYear() === currentYear;
       if (timeRange === 'this_month') return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
@@ -113,7 +105,7 @@ export function WorkerOverviewDashboard({
     }));
 
     filteredWorkers.forEach(s => {
-      const d = parseRegDate(s.registrationDate);
+      const d = parseRegistrationDate(s.registrationDate);
       if (d && d.getFullYear() === currentYear) {
         const m = d.getMonth();
         if (m >= 0 && m < 12) {
@@ -123,7 +115,7 @@ export function WorkerOverviewDashboard({
     });
 
     const maxCount = Math.max(...months.map(m => m.count), 1);
-    return { months, maxCount };
+    return { months, maxCount, total: months.reduce((sum, month) => sum + month.count, 0) };
   }, [filteredWorkers, currentYear]);
 
   // 2. Course distribution for education; rank distribution for labor.
@@ -234,11 +226,14 @@ export function WorkerOverviewDashboard({
               </div>
             </div>
             <span className="rounded-lg bg-[#E8F7FF] px-2.5 py-1 text-xs font-medium text-[#007EB8]">
-              Tổng: {totalWorkersCount}
+              Tổng: {monthlyData.total}
             </span>
           </div>
 
           <div className="pt-5 pb-2 overflow-x-auto scrollbar-thin">
+            {monthlyData.total === 0 && !studentsLoading && (
+              <p className="text-center text-xs text-slate-500">Chưa có {isEducation ? 'học viên' : entityLabel.singular} đăng ký trong năm {currentYear} hoặc chưa có ngày đăng ký hợp lệ.</p>
+            )}
             <div className="min-w-[600px] md:min-w-0">
               <div className="grid grid-cols-[30px_1fr] gap-2">
                 <div className="flex h-60 flex-col justify-between pb-7 text-right text-[10px] font-medium text-slate-400">
