@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, BrainCircuit, PackageSearch, RefreshCw, TrendingUp } from "lucide-react";
 import { InventoryForecastItem, InventoryForecastRecommendation, InventoryForecastSummary, StockLog } from "../../types";
-import { toast } from "../../pages/Toast";
 import { inventoryReceivingService, type InventoryBalance } from "../../services/inventoryReceivingService";
 import { buildWarehouseInventoryForecast } from "../../utils/inventoryForecast";
 
@@ -27,7 +26,9 @@ function getRecommendationStyles(tone: InventoryForecastRecommendation["tone"]) 
 type AdjustmentLevel = "out" | "shortage" | "excess" | "overstock";
 function getAdjustment(item: InventoryForecastItem): { level: AdjustmentLevel; label: string; action: string } | null {
   if (item.currentStock === 0) return { level: "out", label: "Hết hàng", action: "Ưu tiên tạo phiếu nhập hoặc điều chuyển về kho." };
-  if (item.currentStock < item.minStockAlert || (item.daysOfCover !== null && item.daysOfCover <= 7)) return { level: "shortage", label: "Thiếu hàng", action: `Nên bổ sung ${formatNumber(item.suggestedReorderQty)} để bảo đảm mức tồn an toàn.` };
+  if (item.currentStock < item.minStockAlert) return { level: "shortage", label: "Dưới mức tối thiểu", action: "Cần kiểm tra và bổ sung tồn kho theo mức tối thiểu đã cấu hình." };
+  if (!item.validation.accepted) return null;
+  if (item.daysOfCover !== null && item.daysOfCover <= 7) return { level: "shortage", label: "Thiếu hàng", action: `Nên bổ sung ${formatNumber(item.suggestedReorderQty)} để bảo đảm mức tồn an toàn.` };
   const noDemandButHighStock = item.forecast30Days === 0 && item.currentStock > Math.max(item.minStockAlert * 2, 1);
   if (noDemandButHighStock || (item.overstockDays !== null && item.overstockDays > 30)) return { level: "overstock", label: "Dư tồn cao", action: "Cân nhắc điều chuyển, khuyến mãi hoặc tạm dừng nhập thêm." };
   if (item.overstockDays !== null && item.overstockDays > 14) return { level: "excess", label: "Tồn cao", action: "Theo dõi tốc độ bán; ưu tiên giảm kế hoạch nhập tiếp theo." };
@@ -84,7 +85,7 @@ function Chart({ item }: { item: InventoryForecastItem }) {
   const splitX = padding.left + (history.length * chartWidth) / (item.series.length - 1);
 
   return (
-    <div className="relative my-6 h-72 rounded-2xl border border-gray-100 bg-gradient-to-b from-slate-50 to-white p-4">
+    <div className="relative my-6 h-72 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4">
       <svg className="h-full w-full" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
           const y = padding.top + chartHeight - chartHeight * tick;
@@ -165,7 +166,6 @@ export function AiForecastPanel({ forecast, stockLogs = [] }: AiForecastPanelPro
     skuCount: effectiveForecast.items.length,
     shortageCount: adjustmentItems.filter(({ adjustment }) => adjustment.level === "out" || adjustment.level === "shortage").length,
     excessCount: adjustmentItems.filter(({ adjustment }) => adjustment.level === "excess" || adjustment.level === "overstock").length,
-    demand30: effectiveForecast.items.reduce((sum, item) => sum + item.forecast30Days, 0),
   }), [adjustmentItems, effectiveForecast.items]);
 
   return (
@@ -181,9 +181,9 @@ export function AiForecastPanel({ forecast, stockLogs = [] }: AiForecastPanelPro
           <div className="mt-5 space-y-4">
             {warehouseForecastLoading ? (
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-slate-600">Đang đồng bộ tồn kho và dữ liệu dự báo...</div>
-            ) : !effectiveForecast.hasHistoricalDemand ? (
-              <div className="rounded-xl border border-blue-200 bg-blue-50 p-6 text-center text-sm font-semibold text-blue-800">
-                Chưa đủ dữ liệu phiếu xuất hoàn thành để tạo dự báo nhu cầu.
+            ) : adjustmentItems.length === 0 && !effectiveForecast.hasHistoricalDemand ? (
+              <div className="rounded-xl border border-outline-variant bg-surface p-6 text-center text-sm font-semibold text-on-surface-variant">
+                Chưa đủ dữ liệu phiếu xuất bán hoàn thành để tạo dự báo nhu cầu.
               </div>
             ) : adjustmentItems.length === 0 ? (
               <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center text-sm font-semibold text-green-800">
@@ -193,10 +193,9 @@ export function AiForecastPanel({ forecast, stockLogs = [] }: AiForecastPanelPro
               adjustmentItems.slice(0, 6).map(({ item, adjustment }) => {
                 const styles = adjustmentStyles[adjustment.level];
                 return (
-                  <button
+                  <div
                     key={item.productId}
-                    type="button"
-                    className={`w-full cursor-default rounded-xl border p-4 text-left ${styles.card}`}
+                    className={`w-full rounded-xl border p-4 text-left ${styles.card}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -216,22 +215,14 @@ export function AiForecastPanel({ forecast, stockLogs = [] }: AiForecastPanelPro
                       </div>
                     </div>
                     <p className="mt-2 text-[11px] leading-5 text-gray-600">{adjustment.action}</p>
-                  </button>
+                  </div>
                 );
               })
             )}
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => toast.success(`Đã đánh dấu ${adjustmentItems.length} SKU cần điều chỉnh tồn kho.`)}
-          className="mt-6 flex w-full items-center justify-center gap-1.5 rounded-xl bg-red-600 py-2.5 text-center text-xs font-bold text-white shadow-sm transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={!adjustmentItems.length}
-        >
-          <RefreshCw className="h-4 w-4" />
-          Xem danh sách cần điều chỉnh
-        </button>
+        {!!adjustmentItems.length && <a href="#forecast-adjustment-list" className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-center text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary"><RefreshCw className="size-4" aria-hidden="true" />Xem danh sách cần điều chỉnh</a>}
       </div>
 
       <div className="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-6 lg:col-span-2" id="ai_demand_chart_container">
@@ -242,11 +233,11 @@ export function AiForecastPanel({ forecast, stockLogs = [] }: AiForecastPanelPro
                 <TrendingUp className="h-4.5 w-4.5 text-blue-500" />
                 Dự báo nhu cầu khách hàng 30 ngày tới
               </h4>
-              <p className="mt-1 text-xs leading-snug text-gray-400">Forecast dùng phiếu xuất hoàn thành làm tín hiệu nhu cầu thật và ưu tiên trọng số cao hơn cho 7 ngày gần nhất.</p>
+              <p className="mt-1 text-pretty text-xs leading-snug text-on-surface-variant">Dự báo dùng phiếu xuất bán hoàn thành và được kiểm tra với nhu cầu thực tế 14 ngày trước khi hiện khuyến nghị.</p>
             </div>
             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 font-mono text-[10px] text-emerald-700">
               <BrainCircuit className="h-3.5 w-3.5" />
-              Rule-based AI Active
+              {effectiveForecast.validatedSkuCount} SKU đã kiểm định
             </span>
           </div>
 
@@ -254,20 +245,20 @@ export function AiForecastPanel({ forecast, stockLogs = [] }: AiForecastPanelPro
             <MetricCard label="SKU đang theo dõi" value={formatNumber(overview.skuCount)} />
             <MetricCard label="SKU cần bổ sung" value={formatNumber(overview.shortageCount)} />
             <MetricCard label="SKU cần giảm tồn" value={formatNumber(overview.excessCount)} />
-            <MetricCard label="Nhu cầu dự báo 30 ngày" value={formatNumber(overview.demand30)} />
+            <MetricCard label="SKU dự báo đạt kiểm định" value={formatNumber(effectiveForecast.validatedSkuCount)} />
           </div>
         </div>
 
-        <div className="mt-6 overflow-hidden rounded-xl border border-slate-200">
+        <div className="mt-6 overflow-hidden rounded-xl border border-outline-variant" id="forecast-adjustment-list">
           <div className="border-b border-slate-200 bg-slate-50 px-4 py-3"><h5 className="font-semibold text-slate-800">Danh sách điều chỉnh tồn kho</h5><p className="mt-0.5 text-xs text-slate-500">Ưu tiên các SKU thiếu hoặc dư tồn để điều chỉnh kế hoạch nhập, xuất và điều chuyển.</p></div>
-          <div className="max-h-[390px] overflow-auto"><table className="w-full min-w-[780px] text-left text-sm"><thead className="sticky top-0 bg-white text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Sản phẩm / SKU</th><th className="px-4 py-3 text-right">Tồn khả dụng</th><th className="px-4 py-3 text-right">Dự báo 30 ngày</th><th className="px-4 py-3 text-right">Đủ dùng</th><th className="px-4 py-3">Định hướng</th></tr></thead><tbody className="divide-y divide-slate-100">{adjustmentItems.length === 0 ? <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Chưa có SKU cần điều chỉnh tồn kho.</td></tr> : adjustmentItems.map(({ item, adjustment }) => <tr key={item.productId} className="hover:bg-slate-50"><td className="px-4 py-3"><p className="font-semibold text-slate-800">{item.name}</p><p className="font-mono text-xs text-slate-500">{item.sku}</p></td><td className="px-4 py-3 text-right font-semibold tabular-nums">{formatNumber(item.currentStock)}</td><td className="px-4 py-3 text-right tabular-nums">{formatNumber(item.forecast30Days)}</td><td className="px-4 py-3 text-right tabular-nums">{item.daysOfCover === null ? "—" : `${formatDemand(item.daysOfCover)} ngày`}</td><td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${adjustmentStyles[adjustment.level].badge}`}>{adjustment.label}</span><p className="mt-1 text-xs text-slate-500">{adjustment.level === "out" || adjustment.level === "shortage" ? `Bổ sung ${formatNumber(item.suggestedReorderQty)}` : "Giảm nhập / điều chuyển"}</p></td></tr>)}</tbody></table></div>
+          <div className="max-h-96 overflow-auto"><table className="w-full min-w-3xl text-left text-sm"><thead className="sticky top-0 bg-surface-container-lowest text-on-surface-variant"><tr><th scope="col" className="px-4 py-3">Sản phẩm / SKU</th><th scope="col" className="px-4 py-3 text-right">Tồn khả dụng</th><th scope="col" className="px-4 py-3 text-right">Dự báo 30 ngày</th><th scope="col" className="px-4 py-3 text-right">Đủ dùng</th><th scope="col" className="px-4 py-3">Kiểm định</th><th scope="col" className="px-4 py-3">Định hướng</th></tr></thead><tbody className="divide-y divide-outline-variant">{adjustmentItems.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-on-surface-variant">Chưa có SKU cần điều chỉnh tồn kho.</td></tr> : adjustmentItems.map(({ item, adjustment }) => <tr key={item.productId} className="hover:bg-surface"><td className="px-4 py-3"><p className="font-semibold text-on-surface">{item.name}</p><p className="font-mono text-xs text-on-surface-variant">{item.sku}</p></td><td className="px-4 py-3 text-right font-semibold tabular-nums">{formatNumber(item.currentStock)}</td><td className="px-4 py-3 text-right tabular-nums">{formatNumber(item.forecast30Days)}</td><td className="px-4 py-3 text-right tabular-nums">{item.daysOfCover === null ? "—" : `${formatDemand(item.daysOfCover)} ngày`}</td><td className="px-4 py-3 tabular-nums">{item.validation.accepted ? `Sai số ${item.validation.errorPercent}%` : "Theo ngưỡng tồn"}</td><td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${adjustmentStyles[adjustment.level].badge}`}>{adjustment.label}</span><p className="mt-1 text-xs text-on-surface-variant">{adjustment.level === "out" || adjustment.level === "shortage" ? `Bổ sung ${formatNumber(item.suggestedReorderQty)}` : "Giảm nhập / điều chuyển"}</p></td></tr>)}</tbody></table></div>
         </div>
 
         <div className="mt-6 border-t border-gray-150 pt-4" id="forecast_recommendations_grid">
           <span className="font-sans text-[10px] font-bold uppercase tracking-wide text-gray-500">Đề xuất tối ưu hóa tồn kho AI Co-pilot</span>
           {effectiveForecast.recommendations.length === 0 ? (
             <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-              Chưa có khuyến nghị nổi bật. Hệ thống sẽ tự động đề xuất khi phát hiện nguy cơ thiếu hoặc dư tồn từ phiếu xuất hoàn thành.
+              Chưa có khuyến nghị dự báo đã qua kiểm định. Cần thêm dữ liệu xuất bán hoặc cải thiện độ chính xác trước khi dùng để điều chỉnh tồn.
             </div>
           ) : (
             <div className="mt-3 grid grid-cols-1 gap-3.5 text-xs md:grid-cols-3">

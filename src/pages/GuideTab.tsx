@@ -135,8 +135,8 @@ export default function GuideTab() {
     {
       id: "quan-ly-tai-nguyen",
       tabName: "QUẢN LÝ TÀI NGUYÊN",
-      title: "Quản lý Tài liệu & Đồng bộ Google Drive",
-      shortDesc: "Lưu trữ quy trình nội bộ và liên kết xem file từ Google Drive cá nhân.",
+      title: "Quản lý tài liệu nội bộ",
+      shortDesc: "Lưu trữ, tìm kiếm và chia sẻ tài liệu trong doanh nghiệp.",
       icon: FolderOpen,
       tone: "indigo",
       purpose: "Giúp tập hợp tất cả tài liệu, quy trình làm việc, hợp đồng mẫu của công ty vào một nơi an toàn để nhân viên dễ dàng tìm kiếm và làm việc.",
@@ -148,10 +148,6 @@ export default function GuideTab() {
         {
           title: "Tải lên tài liệu mới",
           desc: "Nếu bạn có quyền, bạn có thể tạo thư mục mới hoặc tải file trực tiếp từ máy tính lên. Hãy đặt tên file rõ ràng, dễ hiểu và chọn đúng thư mục lưu trữ."
-        },
-        {
-          title: "Liên kết với Google Drive cá nhân",
-          desc: "Bấm vào nút 'Kết nối Google Drive', làm theo hướng dẫn đăng nhập tài khoản Google công việc của bạn. Sau khi liên kết thành công, bạn có thể duyệt tìm và mở các file Drive cá nhân của mình trực tiếp ngay trong giao diện ERP."
         }
       ],
       protip: "Thay vì tải file hợp đồng hay quy trình về máy rồi gửi cho đồng nghiệp qua chat, bạn chỉ cần copy link của file đó trong mục Tài nguyên gửi cho đồng nghiệp để đảm bảo mọi người luôn dùng chung một bản cập nhật mới nhất.",

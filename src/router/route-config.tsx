@@ -86,6 +86,14 @@ export const APP_ROUTES: AppRoute[] = [
       Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => permission === "retail:read" || permission === "retail:manage")),
   },
   {
+    tab: "ĐỐI TÁC BÁN LẺ",
+    component: lazy(() => import("../modules/retail/pages/RetailPartnersPage")),
+    canAccess: (userProfile) =>
+      userProfile.role === "superadmin" || userProfile.role === "admin" ||
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) =>
+        ["retail-partner:read", "retail-partner:manage", "retail-partner-self:read"].includes(permission))),
+  },
+  {
     tab: "TÀI CHÍNH",
     component: lazy(() => import("../modules/finance/FinanceTab")),
     canAccess: (userProfile) =>

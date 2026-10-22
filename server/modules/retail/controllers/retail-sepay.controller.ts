@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { Request, Response } from "express";
 import { buildRetailPaymentQr, processRetailSePayTransaction } from "../services/retail-sepay.service";
+import { requireRetailBranch, retailScopeFromRequest } from "../contracts";
 
 const safeEqual = (left: string, right: string) => {
   const a = Buffer.from(left); const b = Buffer.from(right);
@@ -24,7 +25,7 @@ function authenticate(req: Request) {
 
 export const retailSePayController = {
   qr: async (req: Request, res: Response) => {
-    try { res.json({ success: true, data: await buildRetailPaymentQr(String((req as any).user?.companyCode || ""), req.params.id) }); }
+    try { res.json({ success: true, data: await buildRetailPaymentQr(requireRetailBranch(retailScopeFromRequest((req as any).user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId })), req.params.id) }); }
     catch (error: any) { res.status(400).json({ success: false, error: error.message }); }
   },
   webhook: async (req: Request, res: Response) => {

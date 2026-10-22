@@ -55,6 +55,13 @@ export const payrollService = {
   cancelPayment: (paymentId: string) => request(`/payments/${paymentId}/cancel`, { method: "POST" }),
   reversePayment: (paymentId: string) => request(`/payments/${paymentId}/reverse`, { method: "POST" }), publishPayslips: (runId: string, employeeIds?: string[]) => request(`/runs/${runId}/payslips/publish`, { method: "POST", body: JSON.stringify({ employeeIds }) }),
   getEmployeePayslips: () => request("/employee/me/payslips"),
+  getReconciliation: (runId: string) => request(`/runs/${runId}/reconciliation`),
+  getReconciliationSchedule: () => request("/reconciliation-schedule"),
+  saveReconciliationSchedule: (payload: unknown) => request("/reconciliation-schedule", { method: "PUT", body: JSON.stringify(payload) }),
+  publishReconciliation: (runId: string, expectedVersion: number) => request(`/runs/${runId}/reconciliation/publish`, { method: "POST", body: JSON.stringify({ expectedVersion }) }),
+  replyReconciliation: (runId: string, employeeId: string, payload: unknown) => request(`/runs/${runId}/reconciliation/${employeeId}/actions`, { method: "POST", body: JSON.stringify(payload) }),
+  getMyReconciliation: () => request("/employee/me/reconciliation"),
+  actMyReconciliation: (runId: string, payload: unknown) => request(`/employee/me/reconciliation/${runId}/actions`, { method: "POST", body: JSON.stringify(payload) }),
   printPayslip: async (runId: string, employeeId: string) => {
     const response = await fetch(`/api/v1/payroll/runs/${runId}/payslips/${employeeId}/print`, {
       headers: { Authorization: `Bearer ${getAccessToken()}` },

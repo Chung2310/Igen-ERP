@@ -9,6 +9,8 @@ import { MonthPicker } from "../common/MonthPicker";
 import { StyledSelect } from "../common/StyledSelect";
 import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
+import { PayrollComplaintsPanel } from "./payroll/PayrollComplaintsPanel";
+import { PayrollPublicationSchedule } from "./payroll/PayrollPublicationSchedule";
 import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
 import { canMarkPayrollPaid } from "./payroll/payrollPaidAction";
 import { getPayrollProcessingAction, hasActivePolicyForMonth } from "./payroll/payrollProcessingAction";
@@ -466,6 +468,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     </div>
 
     {run?._id && effectiveDataAvailable && <div className="rounded-2xl border border-[#DCE7F4] bg-white p-4"><div className="mb-3 text-sm font-normal text-slate-700">Phiếu lương</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {run?._id && <PayrollComplaintsPanel runId={String(run._id)} runVersion={Number(run.version ?? 0)} canManage={canManage && effectiveDataAvailable} hasUnsavedChanges={Object.keys(inputDrafts).length > 0} onChanged={reload} onEdit={(employeeId) => setSearch(employeeId)} />}
+    <PayrollPublicationSchedule canManage={canManage} />
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {PAYROLL_FORMULA_LIBRARY_ENABLED && canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollCustomVariableManager />}

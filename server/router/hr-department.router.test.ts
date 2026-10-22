@@ -70,4 +70,21 @@ describe("HR department API", () => {
     expect((await request("DELETE", `/hr/departments/${created.body.data.id}?companyCode=A`)).status).toBe(200);
     expect(await HrDepartmentModel.countDocuments({ companyCode: "A" })).toBe(0);
   });
+
+  it("stores department metadata and rejects duplicate codes or managers from another company", async () => {
+    const manager = await UserModel.create({ email: "lead@example.test", displayName: "Trưởng phòng", companyCode: "A" });
+    const outsider = await UserModel.create({ email: "other@example.test", displayName: "Người ngoài", companyCode: "B" });
+    const created = await request("POST", "/hr/departments", { companyCode: "A", name: "Kinh doanh", code: "KD", description: "Bán hàng", managerUid: String(manager._id), sortOrder: 2, isActive: true });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({ code: "KD", description: "Bán hàng", managerName: "Trưởng phòng", sortOrder: 2, isActive: true });
+    const legacyRename = await request("PATCH", `/hr/departments/${created.body.data.id}?companyCode=A`, { companyCode: "A", name: "Kinh doanh mới" });
+    expect(legacyRename.status).toBe(200);
+    expect(legacyRename.body.data).toMatchObject({ code: "KD", description: "Bán hàng", managerName: "Trưởng phòng", sortOrder: 2, isActive: true });
+    expect((await request("POST", "/hr/departments", { companyCode: "A", name: "Khác", code: "KD" })).status).toBe(409);
+    expect((await request("POST", "/hr/departments", { companyCode: "A", name: "Sai quản lý", managerUid: String(outsider._id) })).status).toBe(400);
+    const changed = await request("PATCH", `/hr/departments/${created.body.data.id}?companyCode=A`, { companyCode: "A", name: "Kinh doanh", code: "SALES", description: "Kinh doanh bán lẻ", managerUid: "", sortOrder: 1, isActive: false });
+    expect(changed.status).toBe(200);
+    expect(changed.body.data).toMatchObject({ code: "SALES", sortOrder: 1, isActive: false });
+    expect(changed.body.data.managerUid).toBeUndefined();
+  });
 });

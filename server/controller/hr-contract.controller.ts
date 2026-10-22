@@ -30,7 +30,7 @@ type FinalizeUpload = (
 
 export async function finalizeContractPendingUploads(input: {
   contract: { _id: unknown; employeeId: string; employeeName: string };
-  body: { contractFileUploadToken?: string; signedImageUploadToken?: string };
+  body: { contractFileUploadToken?: string; signedImageUploadToken?: string; electronicSignatureUploadToken?: string };
   actor: ManagedUploadActor;
   finalizeManagedUpload?: FinalizeUpload;
 }) {
@@ -41,7 +41,7 @@ export async function finalizeContractPendingUploads(input: {
     entityLabel: input.contract.employeeName,
     sourceRecordId: String(input.contract._id),
   };
-  const patch: { contractResourceId?: string; signedImageResourceId?: string } = {};
+  const patch: { contractResourceId?: string; signedImageResourceId?: string; electronicSignatureResourceId?: string } = {};
   if (input.body.contractFileUploadToken) {
     const resource = await finalize(input.body.contractFileUploadToken, input.actor, {
       ...sourceBase,
@@ -55,6 +55,13 @@ export async function finalizeContractPendingUploads(input: {
       sourceField: "signedImage",
     });
     patch.signedImageResourceId = resource._id;
+  }
+  if (input.body.electronicSignatureUploadToken) {
+    const resource = await finalize(input.body.electronicSignatureUploadToken, input.actor, {
+      ...sourceBase,
+      sourceField: "electronicSignature",
+    });
+    patch.electronicSignatureResourceId = resource._id;
   }
   return patch;
 }
@@ -142,7 +149,7 @@ export const hrContractController = {
       );
       const page = Number(req.query.page) || 1;
       const limit = Number(req.query.limit) || 10;
-      const [paginationResult, employees] = await Promise.all([
+      const [paginationResult, employees, expiryAlerts] = await Promise.all([
         hrContractService.list({
           companyCode,
           branchId,
@@ -159,6 +166,7 @@ export const hrContractController = {
           : UserModel.find({ _id: req.user!.id, companyCode })
               .select("_id displayName email department")
               .lean(),
+        hrContractService.listExpiryAlerts({ companyCode, branchId, employeeId: employeeFilter || undefined }),
       ]);
       return res.json({
         status: "success",
@@ -168,6 +176,8 @@ export const hrContractController = {
           page: paginationResult.page,
           limit: paginationResult.limit,
           employees,
+          expiryAlerts: expiryAlerts.items,
+          expiryAlertTotal: expiryAlerts.total,
         },
       });
     } catch (error: any) {

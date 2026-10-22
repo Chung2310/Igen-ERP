@@ -117,6 +117,13 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
     priority: "0.7",
     changeFrequency: "weekly",
   },
+  "ĐỐI TÁC BÁN LẺ": {
+    title: "Đối tác bán lẻ",
+    description: "Quản lý cộng tác viên, đại lý và nhà cung cấp bán lẻ.",
+    keywords: "đối tác bán lẻ, cộng tác viên, đại lý, nhà cung cấp",
+    path: "/doi-tac-ban-le",
+    robots: "noindex, nofollow",
+  },
   "KHO & SẢN PHẨM": {
     title: "Quản lý kho & Sản phẩm - Quản lý tồn kho theo mã sản phẩm, xuất nhập kho",
     description:
@@ -128,11 +135,11 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
     changeFrequency: "weekly",
   },
   "QUẢN LÝ TÀI NGUYÊN": {
-    title: "Quản lý tài nguyên - Lưu trữ và đồng bộ Google Drive",
+    title: "Quản lý tài nguyên - Lưu trữ tài liệu nội bộ",
     description:
-      "Không gian quản lý tài nguyên, tài liệu nội bộ và liên kết đồng bộ trực tiếp với tài khoản Google Drive cá nhân của nhân viên trên iGen ERP.",
+      "Không gian lưu trữ, quản lý và chia sẻ tài liệu nội bộ trên iGen ERP.",
     keywords:
-      "quản lý tài nguyên, lưu trữ tài liệu, google drive erp, đồng bộ google drive, thư mục tài nguyên, igen erp",
+      "quản lý tài nguyên, lưu trữ tài liệu, chia sẻ tài liệu, thư mục tài nguyên, igen erp",
     path: "/quan-ly-tai-nguyen",
     priority: "0.8",
     changeFrequency: "weekly",
@@ -254,11 +261,11 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
     changeFrequency: "weekly",
   },
   "TÀI NGUYÊN": {
-    title: "Tài nguyên - Quản lý tài liệu & Drive nội bộ",
+    title: "Tài nguyên - Quản lý tài liệu nội bộ",
     description:
-      "Lưu trữ và quản lý tài liệu nội bộ, kết nối Google Drive và chia sẻ tài nguyên doanh nghiệp tập trung trên iGen ERP.",
+      "Lưu trữ, quản lý và chia sẻ tài liệu doanh nghiệp tập trung trên iGen ERP.",
     keywords:
-      "tài liệu nội bộ, google drive, quản lý tài nguyên, lưu trữ doanh nghiệp, tài nguyên ERP",
+      "tài liệu nội bộ, quản lý tài nguyên, lưu trữ doanh nghiệp, tài nguyên ERP",
     path: "/tai-nguyen",
     robots: "noindex, nofollow",
     priority: "0.5",

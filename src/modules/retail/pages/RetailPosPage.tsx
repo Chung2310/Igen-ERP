@@ -1,5 +1,5 @@
 import React from "react";
-import { Camera, Check, ChevronDown, Pause, Search, ShoppingCart, X } from "lucide-react";
+import { Camera, Check, CheckCircle2, ChevronDown, Loader2, Pause, QrCode, Search, ShoppingCart, X } from "lucide-react";
 import { customerApi } from "../../customer-management/customerApi";
 import { ShiftScheduleNotice } from "../components/ShiftScheduleNotice";
 import RetailShiftWorkspace from "./RetailShiftWorkspace";
@@ -17,6 +17,9 @@ import ScanFeedback, {
   type ScanFeedbackKind,
 } from "../components/pos/ScanFeedback";
 import RetailOfflineQueuePanel from "../components/pos/RetailOfflineQueuePanel";
+import RetailCollaboratorSelect from "../components/pos/RetailCollaboratorSelect";
+import RetailCouponInput from "../components/pos/RetailCouponInput";
+import RetailPointsInput from "../components/pos/RetailPointsInput";
 import { SerialPicker, UnitBarcodePicker } from "../components/pos/RetailUnitPickerDialog";
 import { retailOrdersApi } from "../api/retailOrders.api";
 import { retailProductsApi } from "../api/retailProducts.api";
@@ -31,12 +34,14 @@ import { useRetailScope } from "../hooks/useRetailScope";
 import { useRetailPosShortcuts } from "../hooks/useRetailPosShortcuts";
 import { createHidScannerBuffer } from "../hooks/retailScannerInput";
 import { retailWarrantyService } from "../../../services/retailWarrantyService";
+import { companyPaymentApi } from "../../../services/companyPaymentService";
 import { createIndexedDbRetailOfflineQueue, createMemoryRetailOfflineQueue, createRetailOfflineOrder, type OfflineScope, type RetailOfflineOrder } from "../offline/retailOfflineQueue";
 import { isRetailNetworkFailure, syncRetailOfflineQueue } from "../offline/retailOfflineSync";
 import type {
   RetailOrder,
   RetailOrderResult,
   RetailPaymentInput,
+  RetailPaymentQr,
   RetailProduct,
   RetailScope,
   RetailShift,
@@ -45,6 +50,15 @@ import { toast } from "../../../pages/Toast";
 
 const money = (value: number) =>
   new Intl.NumberFormat("vi-VN").format(value) + " ₫";
+const qrPaymentMethods: RetailPaymentInput["method"][] = ["transfer", "ewallet"];
+
+type PendingTransferPayment = {
+  order: RetailOrder;
+  qr: RetailPaymentQr | null;
+  loading: boolean;
+  error?: string;
+  settled: boolean;
+};
 
 export default function RetailPosPage() {
   const { scope, userProfile } = useRetailScope();
@@ -52,9 +66,11 @@ export default function RetailPosPage() {
     retailCartReducer,
     initialRetailCart,
   );
+  const quoteRequestId = React.useRef(0);
   const [products, setProducts] = React.useState<RetailProduct[]>([]);
   const [drafts, setDrafts] = React.useState<RetailOrder[]>([]);
   const [draft, setDraft] = React.useState<RetailOrder | null>(null);
+  const [retailPartnerId, setRetailPartnerId] = React.useState("");
   const [shift, setShift] = React.useState<RetailShift | null>(null);
   const [openingFloat, setOpeningFloat] = React.useState(0);
   const [terminalId, setTerminalId] = React.useState("");
@@ -68,6 +84,7 @@ export default function RetailPosPage() {
   const [completed, setCompleted] = React.useState<RetailOrderResult | null>(
     null,
   );
+  const [transferPayment, setTransferPayment] = React.useState<PendingTransferPayment | null>(null);
   const [help, setHelp] = React.useState(false);
   const [scanFeedback, setScanFeedback] = React.useState<{
     kind: ScanFeedbackKind;
@@ -78,8 +95,16 @@ export default function RetailPosPage() {
   const [offlineItems, setOfflineItems] = React.useState<RetailOfflineOrder[]>([]);
   const offlineScope = scope && userProfile?.uid ? { ...scope, userId: userProfile.uid } : null;
   const openPayment = () => {
+    if (!shift || shift.pausedAt) {
+      toast.error(shift?.pausedAt ? "Ca bán hàng đang tạm dừng. Vui lòng mở lại ca." : "Vui lòng mở ca bán hàng trước khi thanh toán.");
+      return;
+    }
     if (!cart.customer?._id) {
       toast.error("Vui lòng chọn khách hàng trước khi thanh toán.");
+      return;
+    }
+    if (!cart.quote || cart.quoteDirty) {
+      toast.error("Đang tính lại tổng tiền. Vui lòng đợi báo giá mới.");
       return;
     }
     setPaying(true);
@@ -149,13 +174,14 @@ export default function RetailPosPage() {
     return () => window.clearTimeout(timer);
   }, [scope?.companyCode, scope?.branchId, q, show]);
   React.useEffect(() => {
+    const requestId = ++quoteRequestId.current;
     if (!scope || !cart.lines.length || !cart.quoteDirty) return;
     const timer = window.setTimeout(
       () =>
         void retailOrdersApi
           .quote(scope, buildRetailOrderInput(cart))
-          .then((quote) => dispatch({ type: "quote", quote }))
-          .catch(show),
+          .then((quote) => { if (requestId === quoteRequestId.current) dispatch({ type: "quote", quote }); })
+          .catch((error) => { if (requestId === quoteRequestId.current) show(error); }),
       180,
     );
     return () => window.clearTimeout(timer);
@@ -179,6 +205,40 @@ export default function RetailPosPage() {
       });
   }, [scope?.companyCode, cart.customer?._id]);
   React.useEffect(() => { refreshOffline(); }, [refreshOffline]);
+  React.useEffect(() => {
+    if (!scope || !transferPayment || transferPayment.settled) return;
+    const orderId = transferPayment.order._id;
+    let active = true;
+    let notified = false;
+    const poll = async () => {
+      try {
+        const order = await retailOrdersApi.detail(scope, orderId);
+        if (!active) return;
+        if (order.paymentStatus === "paid" || order.dueAmount <= 0) {
+          setTransferPayment((current) => current?.order._id === orderId
+            ? { ...current, order, qr: null, loading: false, error: undefined, settled: true }
+            : current);
+          if (!notified) toast.success("SePay đã xác nhận thanh toán chuyển khoản.");
+          notified = true;
+          return;
+        }
+        if (transferPayment.qr && order.dueAmount !== transferPayment.qr.amount) {
+          const qr = await retailOrdersApi.paymentQr(scope, orderId);
+          if (!active) return;
+          setTransferPayment((current) => current?.order._id === orderId
+            ? { ...current, order, qr, loading: false, error: undefined }
+            : current);
+        }
+      } catch {
+        // Keep the current QR visible while a polling request fails temporarily.
+      }
+    };
+    const timer = window.setInterval(() => void poll(), 3000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [scope?.companyCode, scope?.branchId, transferPayment?.order._id, transferPayment?.qr?.amount, transferPayment?.settled]);
 
   if (!scope) return <Notice />;
 
@@ -299,6 +359,7 @@ export default function RetailPosPage() {
   };
   const openDraft = (value: RetailOrder) => {
     setDraft(value);
+    setRetailPartnerId(value.retailPartnerId || "");
     dispatch({
       type: "load",
       lines: value.items.map((item) => ({
@@ -339,7 +400,9 @@ export default function RetailPosPage() {
             version: 0,
           }
         : null,
-      orderDiscount: { type: "amount", value: value.orderDiscount },
+      orderDiscount: { type: "amount", value: value.manualOrderDiscount ?? value.orderDiscount },
+      couponCode: value.couponCode,
+      pointsToRedeem: value.pointsRedeemed,
       taxRate: value.taxRate,
       shippingFee: value.shippingFee,
     });
@@ -350,7 +413,7 @@ export default function RetailPosPage() {
     if (!cart.customer?._id) { toast.error("Vui lòng chọn khách hàng trước khi lưu đơn."); return; }
     setBusy(true);
     try {
-      const input = buildRetailOrderInput(cart);
+      const input = { ...buildRetailOrderInput(cart), retailPartnerId: retailPartnerId || undefined };
       if (draft)
         await retailOrdersApi.updateDraft(scope, draft._id, {
           ...input,
@@ -358,6 +421,7 @@ export default function RetailPosPage() {
         });
       else await retailOrdersApi.createDraft(scope, input);
       dispatch({ type: "reset" });
+      setRetailPartnerId("");
       setDraft(null);
       refreshDrafts();
       toast.success("Đã treo đơn. Đơn không giữ tồn kho.");
@@ -369,12 +433,30 @@ export default function RetailPosPage() {
   };
   const checkout = async (payments: RetailPaymentInput[], dueDate?: string) => {
     if (!cart.quote) return;
-    const customerId = cart.customer?._id;
+    const transferPayments = payments.filter((payment) => qrPaymentMethods.includes(payment.method));
+    const immediatePayments = payments.filter((payment) => !qrPaymentMethods.includes(payment.method));
+    const transferAmount = transferPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const immediateAmount = immediatePayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const hasPendingTransfer = transferPayments.length > 0;
+    if (hasPendingTransfer && transferAmount !== cart.quote.grandTotal - immediateAmount) {
+      throw new Error("Số tiền QR phải bằng phần còn lại sau các khoản thu ngay.");
+    }
+    if (hasPendingTransfer && !navigator.onLine) {
+      throw new Error("Cần kết nối mạng để tạo QR chuyển khoản.");
+    }
     setBusy(true);
     const key = crypto.randomUUID();
-    const input = { ...buildRetailOrderInput(cart), dueDate };
+    const today = new Date();
+    const localDate = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"), String(today.getDate()).padStart(2, "0")].join("-");
+    const input = { ...buildRetailOrderInput(cart), retailPartnerId: retailPartnerId || undefined, dueDate: hasPendingTransfer ? dueDate || localDate : dueDate };
     let savedId = draft?._id;
     try {
+      if (hasPendingTransfer) {
+        const config = await companyPaymentApi.getVietqr();
+        if (!config?.bankId || !config?.accountNo) {
+          throw new Error("Vui lòng cấu hình ngân hàng và số tài khoản trong Cài đặt doanh nghiệp trước.");
+        }
+      }
       const saved = draft
         ? await retailOrdersApi.updateDraft(scope, draft._id, {
             ...input,
@@ -384,16 +466,36 @@ export default function RetailPosPage() {
       savedId = saved._id;
       const result = await retailOrdersApi.confirm(scope, saved._id, {
         expectedGrandTotal: cart.quote.grandTotal,
-        payments,
+        payments: hasPendingTransfer ? immediatePayments : payments,
         idempotencyKey: key,
       });
-      finish(result);
-      setPaying(false);
+      if (hasPendingTransfer) await openTransferPayment(result.order);
+      else {
+        finish(result);
+        setPaying(false);
+      }
     } catch (error) {
       const attempt = await retailOrdersApi
         .idempotency(scope, key)
         .catch(() => null);
-      if (attempt?.status === "completed" && attempt.order && attempt.invoice) {
+      if (hasPendingTransfer) {
+        let confirmedOrder = attempt?.status === "completed" ? attempt.order as RetailOrder | undefined : undefined;
+        if (!confirmedOrder && isRetailNetworkFailure(error) && savedId) {
+          const current = await retailOrdersApi.detail(scope, savedId).catch(() => null);
+          if (current?.status === "confirmed") confirmedOrder = current;
+        }
+        if (confirmedOrder?.status === "confirmed" && confirmedOrder.dueAmount > 0) {
+          await openTransferPayment(confirmedOrder);
+        } else {
+          if (error instanceof Error && /tồn|không đủ/i.test(error.message)) {
+            await retailProductsApi.list(scope, { q, limit: 500 }).then((data) => setProducts(data.items)).catch(() => undefined);
+          }
+          if (savedId && !draft && !isRetailNetworkFailure(error)) {
+            await retailOrdersApi.cancel(scope, savedId, { reason: "Tự động hủy draft sau khi thanh toán thất bại." }).catch(() => {});
+          }
+          show(error);
+        }
+      } else if (attempt?.status === "completed" && attempt.order && attempt.invoice) {
         finish({ order: attempt.order, invoice: attempt.invoice });
         setPaying(false);
       }
@@ -411,6 +513,26 @@ export default function RetailPosPage() {
       setBusy(false);
     }
   };
+  const openTransferPayment = async (order: RetailOrder) => {
+    const settled = order.paymentStatus === "paid" || order.dueAmount <= 0;
+    setTransferPayment({ order, qr: null, loading: !settled, settled });
+    setCompleted(null);
+    dispatch({ type: "reset" });
+    setDraft(null);
+    setPaying(false);
+    refreshDrafts();
+    if (settled) return;
+    try {
+      const qr = await retailOrdersApi.paymentQr(scope, order._id);
+      setTransferPayment((current) => current?.order._id === order._id
+        ? { ...current, qr, loading: false, error: undefined }
+        : current);
+    } catch (error) {
+      setTransferPayment((current) => current?.order._id === order._id
+        ? { ...current, loading: false, error: error instanceof Error ? error.message : "Không tạo được QR thanh toán." }
+        : current);
+    }
+  };
   const finish = (result: RetailOrderResult) => {
     setCompleted(result);
     setDraft(null);
@@ -419,10 +541,25 @@ export default function RetailPosPage() {
   };
   const newOrder = () => {
     dispatch({ type: "reset" });
+    setRetailPartnerId("");
     setCompleted(null);
+    setTransferPayment(null);
     setDraft(null);
   };
   const syncOffline = async (activeScope: OfflineScope) => { const results = await syncRetailOfflineQueue(queueRef.current, activeScope, { check: (key) => retailOrdersApi.idempotency(activeScope, key), send: async (item) => { const payload = item.payload as any; const order = payload.draftId ? { _id: payload.draftId } : await retailOrdersApi.createDraft(activeScope, payload.input); return retailOrdersApi.confirm(activeScope, order._id, { expectedGrandTotal: payload.expectedGrandTotal, payments: payload.payments, idempotencyKey: item.idempotencyKey }); } }); refreshOffline(); return results; };
+  const retryTransferQr = async () => {
+    if (!transferPayment) return;
+    const orderId = transferPayment.order._id;
+    setTransferPayment((current) => current?.order._id === orderId ? { ...current, loading: true, error: undefined } : current);
+    try {
+      const qr = await retailOrdersApi.paymentQr(scope, orderId);
+      setTransferPayment((current) => current?.order._id === orderId ? { ...current, qr, loading: false, error: undefined } : current);
+    } catch (error) {
+      setTransferPayment((current) => current?.order._id === orderId
+        ? { ...current, loading: false, error: error instanceof Error ? error.message : "Không tạo được QR thanh toán." }
+        : current);
+    }
+  };
 
   return (
     <section className="grid min-h-[65vh] gap-4 lg:grid-cols-[1fr_440px]">
@@ -434,7 +571,7 @@ export default function RetailPosPage() {
             <h1 className="text-xl font-bold">Bán hàng</h1>
             <p className="text-sm text-slate-500">
               {shift
-                ? `${shift.shiftCode} · ${shift.businessDate}`
+                ? `${shift.shiftCode} · ${shift.businessDate}${shift.pausedAt ? " · Đang tạm dừng" : ""}`
                 : "Chưa mở ca bán hàng"}
             </p>
           </div>
@@ -451,6 +588,7 @@ export default function RetailPosPage() {
           activeId={draft?._id}
           onOpen={openDraft}
         />
+        {scope && userProfile?.enabledModules?.includes("retail-partner") && <RetailCollaboratorSelect scope={scope} value={retailPartnerId} onChange={setRetailPartnerId} />}
         <label className="relative block">
           <Search className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
           <input
@@ -480,7 +618,7 @@ export default function RetailPosPage() {
         cart={cart}
         billingProfiles={billingProfiles}
         busy={busy}
-        canPay={Boolean(shift)}
+        canPay={Boolean(shift && !shift.pausedAt)}
         dispatch={dispatch}
         onHold={saveDraft}
         onPay={openPayment}
@@ -492,6 +630,7 @@ export default function RetailPosPage() {
           busy={busy}
           customerId={cart.customer?._id}
           onClose={() => setPaying(false)}
+          transferAsPending
           onSubmit={checkout}
         />
       )}
@@ -499,6 +638,14 @@ export default function RetailPosPage() {
         <BarcodeScannerDialog
           onScan={(value) => void scan(value)}
           onClose={() => setScanning(false)}
+        />
+      )}
+      {transferPayment && (
+        <PosTransferPaymentDialog
+          transfer={transferPayment}
+          onClose={() => setTransferPayment(null)}
+          onNewOrder={newOrder}
+          onRetry={() => void retryTransferQr()}
         />
       )}
       {completed && (
@@ -510,6 +657,95 @@ export default function RetailPosPage() {
       )}
       {help && <PosShortcutHelp onClose={() => setHelp(false)} />}
     </section>
+  );
+}
+
+function PosTransferPaymentDialog({
+  transfer,
+  onClose,
+  onNewOrder,
+  onRetry,
+}: {
+  transfer: PendingTransferPayment;
+  onClose: () => void;
+  onNewOrder: () => void;
+  onRetry: () => void;
+}) {
+  const dialogRef = React.useRef<HTMLDialogElement>(null);
+  React.useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.showModal();
+    return () => { if (dialog.open) dialog.close(); };
+  }, []);
+
+  const amount = transfer.qr?.amount ?? transfer.order.dueAmount;
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="pos-transfer-title"
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      className="m-auto max-h-[95vh] w-full max-w-md overflow-y-auto rounded-3xl p-5 shadow-2xl backdrop:bg-slate-950/60"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          {transfer.settled
+            ? <CheckCircle2 className="mb-2 h-9 w-9 text-emerald-600" />
+            : <QrCode className="mb-2 h-9 w-9 text-cyan-700" />}
+          <h2 id="pos-transfer-title" className="text-balance text-xl font-bold">
+            {transfer.settled ? "Đã xác nhận thanh toán" : "Chờ thanh toán QR"}
+          </h2>
+          <p className="text-sm text-slate-500">{transfer.order.orderCode}</p>
+        </div>
+        <button type="button" aria-label="Đóng QR thanh toán" onClick={onClose}><X /></button>
+      </div>
+
+      {transfer.settled ? (
+        <p role="status" className="mt-5 rounded-xl bg-emerald-50 p-4 text-pretty text-sm text-emerald-800">
+          SePay đã xác nhận tiền vào tài khoản doanh nghiệp.
+        </p>
+      ) : (
+        <>
+          {transfer.loading && (
+            <div role="status" className="mt-5 flex items-center justify-center gap-2 py-5 text-sm text-slate-600">
+              <Loader2 className="h-5 w-5" />Đang tải QR thanh toán...
+            </div>
+          )}
+          {transfer.qr && (
+            <>
+              <img
+                className="mx-auto mt-4 w-full max-w-[280px] rounded-2xl border"
+                src={transfer.qr.qrUrl}
+                alt={"QR chuyển khoản đơn " + transfer.order.orderCode}
+              />
+              <p className="mt-3 text-center text-xl font-bold tabular-nums text-cyan-700">{money(amount)}</p>
+              <p className="mt-1 text-center text-sm">Nội dung chuyển khoản: <b>{transfer.qr.paymentCode}</b></p>
+              <p className="mt-1 text-center text-xs text-slate-500">
+                {transfer.qr.accountName} · {transfer.qr.accountNumber} · {transfer.qr.bankId}
+              </p>
+            </>
+          )}
+          {transfer.error && (
+            <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+              <p role="alert">{transfer.error}</p>
+              <button type="button" className="mt-2 rounded-lg border border-amber-300 px-3 py-2 font-semibold" onClick={onRetry}>
+                Tạo lại QR
+              </button>
+            </div>
+          )}
+          {!transfer.loading && !transfer.error && (
+            <p role="status" className="mt-4 rounded-xl bg-cyan-50 p-3 text-pretty text-sm text-cyan-900">
+              Đơn chỉ được đánh dấu đã thanh toán sau khi SePay gửi xác nhận webhook.
+            </p>
+          )}
+        </>
+      )}
+
+      <div className="mt-5 grid grid-cols-2 gap-2">
+        <button type="button" className="rounded-xl border px-3 py-3 font-bold" onClick={onClose}>Đóng</button>
+        <button type="button" className="rounded-xl bg-cyan-600 px-3 py-3 font-bold text-white" onClick={onNewOrder}>Đơn mới</button>
+      </div>
+    </dialog>
   );
 }
 
@@ -773,10 +1009,14 @@ function CartPanel({
         shippingFee={cart.shippingFee}
         onChange={(value) => dispatch({ type: "orderAdjustments", ...value })}
       />
+      <RetailCouponInput scope={scope} customerId={cart.customer?._id} value={cart.couponCode} onChange={(couponCode) => dispatch({ type: "coupon", couponCode })} />
+      <RetailPointsInput scope={scope} customerId={cart.customer?._id} value={cart.pointsToRedeem} onChange={(pointsToRedeem) => dispatch({ type: "points", pointsToRedeem })} />
       <div className="border-t pt-4">
+        {!cart.quoteDirty && Number(cart.quote?.couponDiscount || 0) > 0 && <div className="flex justify-between text-sm text-on-surface-variant"><span>Mã ưu đãi</span><span className="tabular-nums">−{money(Number(cart.quote?.couponDiscount))}</span></div>}
+        {!cart.quoteDirty && Number(cart.quote?.pointsDiscount || 0) > 0 && <div className="flex justify-between text-sm text-on-surface-variant"><span>Điểm thưởng</span><span className="tabular-nums">−{money(Number(cart.quote?.pointsDiscount))}</span></div>}
         <div className="flex justify-between text-lg font-bold">
           <span>Tổng tiền</span>
-          <span>{money(cart.quote?.grandTotal || 0)}</span>
+          <span aria-live="polite" className="tabular-nums">{cart.quoteDirty ? "Đang tính lại..." : money(cart.quote?.grandTotal || 0)}</span>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button
@@ -788,7 +1028,7 @@ function CartPanel({
             Treo đơn
           </button>
           <button
-            disabled={!cart.lines.length || !cart.quote || !canPay || busy}
+            disabled={!cart.lines.length || !cart.quote || cart.quoteDirty || !canPay || busy}
             className="rounded-xl bg-cyan-600 px-3 py-3 font-bold text-white disabled:opacity-40"
             onClick={onPay}
           >

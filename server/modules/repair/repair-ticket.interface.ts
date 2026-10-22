@@ -5,3 +5,5 @@ export interface RepairTicketDocument { companyCode: string; branchId: string; t
 export interface RepairTicketDocument { quotedAmount?: number; quotedAt?: Date; customerApprovedAt?: Date }
 export interface RepairTicketDocument { feedbackToken?: string }
 export interface RepairTicketDocument { normalizedCustomerPhone?: string; technicianId?: string; technicianName?: string; assignedAt?: Date; assignedBy?: string; partRevenue?: number }
+export interface RepairTicketDocument { retailPartnerId?: string; retailPartnerSnapshot?: { partnerId: string; code: string; name: string } }
+export interface RepairTicketDocument { paymentLedgerBaseline?: number }

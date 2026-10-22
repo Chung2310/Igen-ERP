@@ -3,6 +3,7 @@ import { Printer, Eye, X } from "lucide-react";
 import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
 import { getApiErrorMessage } from "../../utils/errorMessage";
+import { EmployeePayrollReconciliation } from "./payroll/EmployeePayrollReconciliation";
 
 type Payslip = { runId: string; periodKey?: string; employeeId: string; employeeName?: string; netPay: number; paidAmount: number; balance: number };
 const formatVnd = (value: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(Number(value) || 0);
@@ -13,6 +14,13 @@ export default function EmployeePayslips() {
   const [error, setError] = useState("");
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedItem) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setSelectedItem(null); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [selectedItem]);
 
   useEffect(() => {
     void payrollService.getEmployeePayslips()
@@ -46,24 +54,23 @@ export default function EmployeePayslips() {
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
-  if (loading) return <div className="p-5 text-sm text-slate-500">Đang tải phiếu lương...</div>;
-  if (error) return <div className="p-5 text-sm text-rose-600">{error}</div>;
-
   return (
     <section className="space-y-4 p-5">
+      <EmployeePayrollReconciliation />
+      {loading && <p className="text-sm text-on-surface-variant">Đang tải phiếu lương...</p>}
+      {error && <p role="alert" className="text-sm text-error">{error}</p>}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-slate-900">Phiếu lương của tôi</h2>
       </div>
 
-      {!items.length ? (
+      {!loading && !error && (!items.length ? (
         <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Chưa có phiếu lương nào được phát hành.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {items.map((item) => (
             <article
               key={`${item.runId}-${item.employeeId}`}
-              className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => void openDetail(item)}
+              className="flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm"
             >
               <div className="space-y-1">
                 <p className="font-semibold text-slate-800 text-sm md:text-base">Kỳ lương tháng {item.periodKey}</p>
@@ -75,6 +82,7 @@ export default function EmployeePayslips() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  aria-label={`Xem chi tiết phiếu lương tháng ${item.periodKey}`}
                   title="Xem chi tiết"
                   className="rounded-lg border p-2 text-slate-600 hover:bg-slate-50 cursor-pointer"
                   onClick={(e) => {
@@ -86,6 +94,7 @@ export default function EmployeePayslips() {
                 </button>
                 <button
                   type="button"
+                  aria-label={`In phiếu lương tháng ${item.periodKey}`}
                   title="In phiếu lương"
                   className="rounded-lg border p-2 text-slate-600 hover:bg-slate-50 cursor-pointer"
                   onClick={(e) => {
@@ -99,17 +108,17 @@ export default function EmployeePayslips() {
             </article>
           ))}
         </div>
-      )}
+      ))}
 
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" onClick={() => setSelectedItem(null)}>
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl overflow-y-auto max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label="Chi tiết phiếu lương" className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-5 shadow-lg overflow-y-auto max-h-[90dvh]" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3 mb-4">
               <div>
                 <h3 className="font-bold text-slate-900 text-base">Chi tiết phiếu lương</h3>
                 <p className="text-xs text-slate-500">Kỳ {selectedItem.periodKey} · {selectedItem.employeeName || selectedItem.employeeId}</p>
               </div>
-              <button onClick={() => setSelectedItem(null)} className="cursor-pointer p-1 rounded-full hover:bg-slate-100"><X size={17} /></button>
+              <button type="button" aria-label="Đóng chi tiết phiếu lương" onClick={() => setSelectedItem(null)} className="cursor-pointer p-1 rounded-full hover:bg-surface"><X size={17} /></button>
             </div>
 
             {detailLoading ? (

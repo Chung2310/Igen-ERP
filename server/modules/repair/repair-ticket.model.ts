@@ -16,6 +16,8 @@ RepairTicketSchema.index({ companyCode: 1, ticketCode: 1 }, { unique: true });
 RepairTicketSchema.index({ companyCode: 1, branchId: 1, status: 1, receivedAt: -1 });
 RepairTicketSchema.index({ companyCode: 1, "device.serialNumber": 1 });
 RepairTicketSchema.add({ normalizedCustomerPhone: { type: String, default: "" }, technicianId: String, technicianName: String, assignedAt: Date, assignedBy: String, partRevenue: { type: Number, min: 0, default: 0 } });
+RepairTicketSchema.add({ retailPartnerId: { type: String, index: true }, retailPartnerSnapshot: { type: new Schema({ partnerId: String, code: String, name: String }, { _id: false }) } });
+RepairTicketSchema.add({ paymentLedgerBaseline: Number });
 RepairTicketSchema.index({ companyCode: 1, "device.normalizedImei": 1, receivedAt: -1 });
 RepairTicketSchema.index({ companyCode: 1, "device.normalizedSerialNumber": 1, receivedAt: -1 });
 RepairTicketSchema.index({ companyCode: 1, normalizedCustomerPhone: 1, receivedAt: -1 });

@@ -7,6 +7,8 @@ export function buildRetailOrderInput(cart: RetailCartState): RetailOrderInput {
     ...(cart.customer ? { customerId: cart.customer._id } : {}),
     ...(cart.billingProfile ? { billingProfileId: cart.billingProfile._id } : {}),
     orderDiscount: cart.orderDiscount,
+    couponCode: cart.couponCode || undefined,
+    pointsToRedeem: cart.pointsToRedeem || undefined,
     taxRate: cart.taxRate,
     shippingFee: cart.shippingFee,
   };

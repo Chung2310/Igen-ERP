@@ -36,6 +36,7 @@ const schema = new Schema<PayrollRunDocument>({
   effectiveSnapshot: { type: Schema.Types.Mixed },
   supplementalReason: String,
   status: { type: String, enum: ["draft", "review", "closed", "paid"], default: "draft", index: true },
+  reconciliationRequired: { type: Boolean, default: false },
   needsInputRefresh: { type: Boolean, default: false },
   // vietnam giữ nguyên khối bảo hiểm/thuế; thiếu khai báo ở đây Mongoose sẽ cắt bỏ
   // và bảng lương mất toàn bộ chi tiết khấu trừ.

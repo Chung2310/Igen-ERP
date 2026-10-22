@@ -107,6 +107,12 @@ const baseMenuItems: MenuItem[] = [
     group: "operations",
   },
   {
+    label: "ĐỐI TÁC BÁN LẺ",
+    title: "Đối tác bán lẻ",
+    icon: Handshake,
+    group: "operations",
+  },
+  {
     label: "TÀI CHÍNH",
     title: "Tài chính",
     icon: Landmark,
@@ -161,6 +167,7 @@ const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
   "QUẢN LÝ LAO ĐỘNG": "work",
   "QUẢN LÝ KHÁCH HÀNG": "customer",
   "BÁN LẺ": "retail",
+  "ĐỐI TÁC BÁN LẺ": "partners",
   "TÀI CHÍNH": "finance",
   "MARKETING": "marketing",
   "QUẢN LÝ TÀI NGUYÊN": "folder",

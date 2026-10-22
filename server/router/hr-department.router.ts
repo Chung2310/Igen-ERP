@@ -10,10 +10,33 @@ export const hrDepartmentRouter = Router();
 hrDepartmentRouter.use(requireAuth as any, requireModule("hr"));
 
 const companyQuery = Joi.object({ companyCode: Joi.string().trim().max(80) });
-const nameBody = Joi.object({ name: Joi.string().trim().min(1).max(100).required(), companyCode: Joi.string().trim().max(80) });
+const nameBody = Joi.object({
+  name: Joi.string().trim().min(1).max(100).required(),
+  companyCode: Joi.string().trim().max(80),
+  code: Joi.string().trim().uppercase().pattern(/^[A-Z0-9_-]+$/).max(30).allow(""),
+  description: Joi.string().trim().max(500).allow(""),
+  managerUid: Joi.string().hex().length(24).allow(""),
+  sortOrder: Joi.number().integer().min(0).max(9999),
+  isActive: Joi.boolean(),
+});
 const idParams = Joi.object({ id: Joi.string().hex().length(24).required() });
 const normalizeName = (name: string) => name.trim().replace(/\s+/g, " ");
 const nameKey = (name: string) => normalizeName(name).toLocaleLowerCase("vi");
+async function metadata(body: any, companyCode: string) {
+  const result: Record<string, unknown> = {};
+  if (body.code !== undefined) result.code = String(body.code).trim().toUpperCase() || undefined;
+  if (body.description !== undefined) result.description = String(body.description).trim();
+  if (body.managerUid !== undefined) {
+    const managerUid = String(body.managerUid || "");
+    const manager = managerUid ? await UserModel.findOne({ _id: managerUid, companyCode }).select("displayName").lean() : null;
+    if (managerUid && !manager) throw Object.assign(new Error("Người quản lý không thuộc doanh nghiệp."), { status: 400 });
+    result.managerUid = managerUid || undefined;
+    result.managerName = manager?.displayName || undefined;
+  }
+  if (body.sortOrder !== undefined) result.sortOrder = Number(body.sortOrder);
+  if (body.isActive !== undefined) result.isActive = body.isActive;
+  return result;
+}
 async function assignedUserIds(companyCode: string, normalizedName: string) {
   const users = await UserModel.find({ companyCode, department: { $nin: [null, ""] } }).select("_id department").lean();
   return users.filter(user => nameKey(String(user.department || "")) === normalizedName).map(user => user._id);
@@ -25,6 +48,7 @@ function company(req: AuthenticatedRequest): string {
 }
 
 function fail(res: Response, error: unknown, fallback: string) {
+  if ((error as { status?: number })?.status === 400) return res.status(400).json({ message: (error as Error).message });
   if ((error as { code?: number })?.code === 11000) return res.status(409).json({ message: "Phòng ban này đã tồn tại." });
   console.error("[hr-departments]", error);
   return res.status(500).json({ message: fallback });
@@ -55,9 +79,9 @@ hrDepartmentRouter.get("/", requirePermission(["hr:read", "access:read"]) as any
         if ((error as { code?: number })?.code !== 11000) throw error;
       }
     }
-    const departments = await HrDepartmentModel.find({ companyCode }).sort({ name: 1 }).lean();
+    const departments = await HrDepartmentModel.find({ companyCode }).sort({ sortOrder: 1, name: 1 }).lean();
     return res.json({ data: departments.map(department => ({
-      id: String(department._id), name: department.name, employeeCount: counts.get(department.normalizedName) || 0,
+      id: String(department._id), name: department.name, code: department.code, description: department.description, managerUid: department.managerUid, managerName: department.managerName, sortOrder: department.sortOrder ?? 0, isActive: department.isActive !== false, employeeCount: counts.get(department.normalizedName) || 0,
     })) });
   } catch (error) { return fail(res, error, "Không thể tải phòng ban."); }
 });
@@ -67,8 +91,8 @@ hrDepartmentRouter.post("/", requirePermission("access:manage") as any, validate
   if (!companyCode) return res.status(400).json({ message: "Vui lòng chọn doanh nghiệp." });
   const name = normalizeName(req.body.name);
   try {
-    const department = await HrDepartmentModel.create({ companyCode, name, normalizedName: nameKey(name) });
-    return res.status(201).json({ data: { id: String(department._id), name: department.name, employeeCount: 0 } });
+    const department = await HrDepartmentModel.create({ companyCode, name, normalizedName: nameKey(name), ...await metadata(req.body, companyCode) });
+    return res.status(201).json({ data: { id: String(department._id), name: department.name, employeeCount: 0, code: department.code, description: department.description, managerUid: department.managerUid, managerName: department.managerName, sortOrder: department.sortOrder, isActive: department.isActive } });
   } catch (error) { return fail(res, error, "Không thể thêm phòng ban."); }
 });
 
@@ -83,21 +107,30 @@ hrDepartmentRouter.patch("/:id", requirePermission("access:manage") as any, vali
     if (normalizedName !== department.normalizedName && await HrDepartmentModel.exists({ companyCode, normalizedName })) {
       return res.status(409).json({ message: "Phòng ban này đã tồn tại." });
     }
-    const oldName = department.name;
+    const previous = department.toObject();
     const employeeIds = await assignedUserIds(companyCode, department.normalizedName);
     department.name = name;
     department.normalizedName = normalizedName;
+    Object.assign(department, await metadata(req.body, companyCode));
     await department.save();
     // Hồ sơ nhân sự hiện lưu phòng ban bằng chuỗi; đổi tên phải cập nhật cùng danh mục.
     try {
       if (employeeIds.length) await UserModel.updateMany({ _id: { $in: employeeIds }, companyCode }, { $set: { department: name } });
     } catch (error) {
-      department.name = oldName;
-      department.normalizedName = nameKey(oldName);
+      Object.assign(department, {
+        name: previous.name,
+        normalizedName: previous.normalizedName,
+        code: previous.code,
+        description: previous.description,
+        managerUid: previous.managerUid,
+        managerName: previous.managerName,
+        sortOrder: previous.sortOrder,
+        isActive: previous.isActive,
+      });
       await department.save();
       throw error;
     }
-    return res.json({ data: { id: String(department._id), name } });
+    return res.json({ data: { id: String(department._id), name, code: department.code, description: department.description, managerUid: department.managerUid, managerName: department.managerName, sortOrder: department.sortOrder, isActive: department.isActive } });
   } catch (error) { return fail(res, error, "Không thể đổi tên phòng ban."); }
 });
 

@@ -7,6 +7,7 @@ import { resolveShift } from "../service/work-shift.service";
 import { UserModel } from "../model/user.model";
 import { CompanyModel } from "../model/company.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
+import { assertPayrollReconciliationReady } from "../service/payroll-reconciliation.service";
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollPaymentModel } from "../model/payroll-payment.model";
@@ -1066,6 +1067,7 @@ export const payrollController = {
     if (!current) return res.status(409).json({ status: "error", message: "Bang luong khong o trang thai cho duyet." });
     let effectiveSnapshot;
     try {
+      await assertPayrollReconciliationReady(scope, current);
       effectiveSnapshot = await createEffectivePayrollSnapshot(scope, current);
     } catch (error) {
       return operationFailure(res, error);
@@ -1097,6 +1099,7 @@ export const payrollController = {
     if (!current) return res.status(409).json({ status: "error", message: "Bang luong phai duoc duyet truoc khi chot." });
     let effectiveSnapshot = current.effectiveSnapshot;
     try {
+      await assertPayrollReconciliationReady(scope, current);
       if (!effectiveSnapshot) {
         effectiveSnapshot = await createEffectivePayrollSnapshot(scope, current);
       } else if (!await verifyEffectivePayrollSnapshot(scope, current)) {

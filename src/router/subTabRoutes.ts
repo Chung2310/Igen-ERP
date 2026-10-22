@@ -10,7 +10,6 @@ export type SettingsSubTabType =
   | "profile"
   | "security"
   | "erp"
-  | "google-drive"
   | "face-recognition"
   | "branches";
 
@@ -42,14 +41,12 @@ export const INVENTORY_SUB_TAB_ROUTES: SubTabRouteMap<InventorySubTabType> = [
 
 export const RESOURCE_SUB_TAB_ROUTES: SubTabRouteMap<ResourceSubTabType> = [
   { slug: "tai-lieu", value: "TÀI LIỆU KHÁC" },
-  { slug: "google-drive", value: "GOOGLE DRIVE" },
 ];
 
 export const SETTINGS_SUB_TAB_ROUTES: SubTabRouteMap<SettingsSubTabType> = [
   { slug: "ho-so", value: "profile" },
   { slug: "bao-mat", value: "security" },
   { slug: "cau-hinh", value: "erp" },
-  { slug: "google-drive", value: "google-drive" },
   { slug: "nhan-dien-khuon-mat", value: "face-recognition" },
   { slug: "chi-nhanh", value: "branches" },
 ];

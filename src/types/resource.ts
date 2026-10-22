@@ -53,7 +53,7 @@ export interface BreadcrumbEntry {
   isFixed?: boolean;
 }
 
-export type ResourceSubTabType = "TÀI LIỆU KHÁC" | "GOOGLE DRIVE";
+export type ResourceSubTabType = "TÀI LIỆU KHÁC";
 
 /** File trả về từ Google Drive API (thư mục dùng chung của công ty). */
 export interface DriveApiFile {

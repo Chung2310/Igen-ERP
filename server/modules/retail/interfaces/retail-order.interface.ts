@@ -8,6 +8,9 @@ export interface RetailOrderCustomerSnapshot { customerId: string; customerCode?
 export interface RetailOrderBillingSnapshot { legalName: string; taxId: string; address: string; invoiceEmail: string; contactName?: string }
 export interface IRetailOrder {
   orderCode?: string; paymentCode?: string; companyCode: string; branchId: string; shiftId?: string; customerId?: string; customerName?: string; customerPhone?: string; billingProfileId?: string; customerSnapshot?: RetailOrderCustomerSnapshot; billingSnapshot?: RetailOrderBillingSnapshot;
+  retailPartnerId?: string; retailPartnerSnapshot?: { partnerId: string; code: string; name: string };
+  couponCode?: string; couponSnapshot?: { id: string; code: string; name: string; amount: number }; manualOrderDiscount?: number;
+  pointsToRedeem?: number; pointsRedeemed?: number; pointsDiscount?: number;
   items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; totalCost: number;
   payments: RetailOrderPayment[]; refunds: RetailOrderRefund[]; paidAmount: number; refundedAmount: number; dueAmount: number; paymentStatus: RetailPaymentStatus; dueDate?: Date;
   status: RetailOrderStatus; businessDate?: string; heldAt?: Date; heldSlot?: number; expiredBySystem?: boolean; confirmedAt?: Date; completedAt?: Date; cancelledAt?: Date; cancelReason?: string;

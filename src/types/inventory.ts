@@ -88,6 +88,7 @@ export interface InventoryForecastItem {
   suggestedReorderQty: number;
   overstockDays: number | null;
   riskLevel: "high" | "medium" | "low";
+  validation: { evaluated: boolean; accepted: boolean; actual14Days: number; predicted14Days: number; errorPercent: number | null };
   series: InventoryForecastSeriesPoint[];
 }
 
@@ -105,4 +106,5 @@ export interface InventoryForecastSummary {
   recommendations: InventoryForecastRecommendation[];
   warningItems: InventoryForecastItem[];
   hasHistoricalDemand: boolean;
+  validatedSkuCount: number;
 }

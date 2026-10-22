@@ -22,6 +22,7 @@ import { authService } from "../services/authService";
 import { ViewToggle } from "../components/inventory/ViewToggle";
 import { ProductCatalogV2Section } from "../components/inventory/ProductCatalogV2Section";
 import { WarehouseSection } from "../components/inventory/WarehouseSection";
+import { InventoryTransfersSection } from "../components/inventory/InventoryTransfersSection";
 import { ReceivingSection } from "../components/inventory/ReceivingSection";
 import { SerialRegistrySection } from "../components/inventory/SerialRegistrySection";
 
@@ -708,10 +709,10 @@ export default function InventoryTab() {
           </div>
         )}
 
-        {subTab === "KHO HÀNG" && <WarehouseSection onCreateOutbound={(warehouseId, sku) => {
+        {subTab === "KHO HÀNG" && <><WarehouseSection onCreateOutbound={(warehouseId, sku) => {
           setOutboundPrefill({ warehouseId, sku, nonce: Date.now() });
           setSubTab("XUẤT HÀNG");
-        }} />}
+        }} /><div className="mt-6"><InventoryTransfersSection /></div></>}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
         {subTab === "IMEI / SERIAL" && <SerialRegistrySection />}
 
