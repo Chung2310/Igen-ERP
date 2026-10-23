@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { marketingSuiteRouter } from "../modules/marketing-suite/router";
 import mongoose from "mongoose";
 import { authRouter } from "./auth.router";
 import { permissionRouter } from "./permission.router";
@@ -45,6 +46,7 @@ import { financeRouter } from "../modules/finance/router";
 import { customerRouter } from "../modules/customer-management/router";
 import { marketingRouter } from "../modules/marketing/router";
 export const apiRouter = Router();
+apiRouter.use(marketingSuiteRouter);
 
 // Webhooks
 apiRouter.use("/webhook", webhookRouter);

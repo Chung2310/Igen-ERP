@@ -1,0 +1,3331 @@
+import { getMarketingApprovalSecret, getMarketingAppUrl } from "../runtime-settings";
+import { companyModuleEnabled } from "../access";
+import { getEffectivePermissions } from "../../../../middleware/auth";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { ICRMTicket } from "../../message/interface/crm-ticket.interface.ts";
+import { geminiService } from "./gemini.service.ts";
+import { cloudinaryService } from "./cloudinary.service.ts";
+import { TelegramProcessedUpdateModel } from "../model/telegram-processed-update.model.ts";
+import { TelegramSessionModel } from "../../../../model/telegram-session.model.ts";
+import { TelegramLinkTokenModel } from "../../../../model/telegram-link-token.model.ts";
+import { UserModel } from "../../../../model/user.model.ts";
+import { CRMTicketModel } from "../../message/model/crm-ticket.model.ts";
+import { TransactionModel } from "../../../../model/transaction.model.ts";
+import { ProductModel } from "../../../../model/product.model.ts";
+import { SocialIntegrationModel } from "../model/social-integration.model.ts";
+import { MarketingContentModel } from "../../campaign/model/marketing-content.model.ts";
+import { facebookPostService } from "./facebook-post.service.ts";
+import { tiktokService } from "./tiktok.service.ts";
+import dns from "dns";
+import https from "https";
+import http from "http";
+import { URL } from "url";
+import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+import { MarketingCampaignSlotModel } from "../../campaign/model/marketing-campaign-slot.model.ts";
+import { MarketingCampaignModel } from "../../campaign/model/marketing-campaign.model.ts";
+import { marketingCampaignService } from "../../campaign/service/marketing-campaign.service.ts";
+
+try {
+  dns.setDefaultResultOrder("ipv4first");
+} catch {
+  // Ignored if not supported
+}
+
+const ipv4HttpsAgent = new https.Agent({ family: 4, keepAlive: true });
+const ipv4HttpAgent = new http.Agent({ family: 4, keepAlive: true });
+
+function telegramFetch(urlStr: string, options: any = {}): Promise<{
+  ok: boolean;
+  status: number;
+  text: () => Promise<string>;
+  json: () => Promise<any>;
+}> {
+  return new Promise((resolve, reject) => {
+    try {
+      const parsedUrl = new URL(urlStr);
+      const isHttps = parsedUrl.protocol === "https:";
+      const transport = isHttps ? https : http;
+      const agent = isHttps ? ipv4HttpsAgent : ipv4HttpAgent;
+
+      const postData = options.body ? (typeof options.body === "string" ? options.body : JSON.stringify(options.body)) : null;
+
+      const reqOptions: https.RequestOptions = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (isHttps ? 443 : 80),
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: options.method || "GET",
+        headers: {
+          ...(options.headers || {}),
+          ...(postData ? { "Content-Length": String(Buffer.byteLength(postData)) } : {}),
+        },
+        agent,
+        timeout: options.timeout || 15000,
+      };
+
+      const req = transport.request(reqOptions, (res) => {
+        let rawData = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => { rawData += chunk; });
+        res.on("end", () => {
+          const statusCode = res.statusCode || 500;
+          const ok = statusCode >= 200 && statusCode < 300;
+          resolve({
+            ok,
+            status: statusCode,
+            text: async () => rawData,
+            json: async () => JSON.parse(rawData),
+          });
+        });
+      });
+
+      const signal = options.signal;
+      if (signal) {
+        if (signal.aborted) {
+          req.destroy(new Error("Aborted"));
+          return reject(new Error("Aborted"));
+        }
+        signal.addEventListener("abort", () => {
+          req.destroy(new Error("Aborted"));
+          reject(new Error("Aborted"));
+        });
+      }
+
+      req.on("error", (err) => reject(err));
+      req.on("timeout", () => {
+        req.destroy();
+        reject(new Error("Request timeout"));
+      });
+
+      if (postData) {
+        req.write(postData);
+      }
+      req.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+const fetch = telegramFetch as any;
+
+const TELEGRAM_API_BASE_URL = process.env.TELEGRAM_API_BASE_URL || "https://api.telegram.org";
+
+let pollingActive = false;
+let lastOffset = 0;
+const campaignWizards = new Map<number, any>();
+const rejectWizards = new Map<number, { slotId: string; messageId?: number; isList?: boolean }>();
+const editWizards = new Map<number, { slotId: string; messageId?: number; isList?: boolean }>();
+
+/** Danh sách role được phép sử dụng lệnh quản trị */
+const ADMIN_ROLES = ["admin", "superadmin"];
+const TELEGRAM_QUEUE_LIMIT = 5;
+const TELEGRAM_DEBUG_PREFIX = `[Telegram Debug][instance=${process.env.INSTANCE_ID || process.env.HOSTNAME || "local"}][pid=${process.pid}]`;
+
+function getTelegramDebugContext(extra?: Record<string, unknown>) {
+  const dbName = mongoose.connection?.name || "unknown";
+  const base = { db: dbName, ...extra };
+  return Object.entries(base)
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join(" ");
+}
+
+function logTelegramDebug(message: string, extra?: Record<string, unknown>) {
+  console.log(`${TELEGRAM_DEBUG_PREFIX} ${message}${extra ? ` | ${getTelegramDebugContext(extra)}` : ""}`);
+}
+
+function buildSessionScope(session: any) {
+  const companyCode = String(session?.companyCode || "").trim();
+  const userId = String(session?.userId || "").trim();
+  const isAdmin = ADMIN_ROLES.includes(session?.role);
+
+  return {
+    companyCode,
+    userId,
+    isAdmin,
+  };
+}
+
+async function findTelegramSession(chatId: number, telegramUserId?: number) {
+  const conditions: Array<Record<string, unknown>> = [{ telegramChatId: chatId }];
+  if (telegramUserId) {
+    conditions.push({ telegramUserId });
+  }
+
+  return TelegramSessionModel.findOne({ $or: conditions }).lean();
+}
+
+async function hydrateLinkedSession(session: any) {
+  if (!session?.userId) {
+    return session;
+  }
+
+  const user = await UserModel.findById(session.userId)
+    .select("email displayName role companyCode disabledAt")
+    .lean();
+
+  if (!user || user.disabledAt || !user.companyCode) {
+    await TelegramSessionModel.deleteOne({ _id: session._id }).catch(() => undefined);
+    return null;
+  }
+
+  const permissions = await getEffectivePermissions(String(user._id), user.role, user.companyCode);
+  const canMarketing = (permissions.has("*") || permissions.has("marketing:manage")) && await companyModuleEnabled(user.companyCode, "social-marketing");
+  const canInbox = (permissions.has("*") || permissions.has("omni-inbox:manage")) && await companyModuleEnabled(user.companyCode, "omni-inbox");
+  if (!canMarketing && !canInbox) return null;
+  const nextSession = {
+    ...session,
+    canMarketing,
+    canInbox,
+    email: user.email,
+    displayName: user.displayName || user.email,
+    role: user.role || "user",
+    companyCode: user.companyCode || "",
+  };
+
+  const hasDrift =
+    session.email !== nextSession.email ||
+    session.displayName !== nextSession.displayName ||
+    session.role !== nextSession.role ||
+    session.companyCode !== nextSession.companyCode;
+
+  if (hasDrift) {
+    await TelegramSessionModel.updateOne(
+      { _id: session._id },
+      {
+        $set: {
+          email: nextSession.email,
+          displayName: nextSession.displayName,
+          role: nextSession.role,
+          companyCode: nextSession.companyCode,
+        },
+      }
+    );
+    logTelegramDebug("session:hydratedFromUser", {
+      sessionUserId: String(session.userId),
+      email: nextSession.email,
+      role: nextSession.role,
+      companyCode: nextSession.companyCode || "-",
+    });
+  }
+
+  return nextSession;
+}
+
+function truncateTelegramText(value: string, maxLength: number): string {
+  const normalized = String(value || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 3)}...`;
+}
+
+function normalizeTelegramCommand(rawText: string): { command: string; args: string } {
+  const text = String(rawText || "").trim();
+  const spaceIndex = text.indexOf(" ");
+  const rawCommand = spaceIndex === -1 ? text : text.substring(0, spaceIndex);
+  const args = spaceIndex === -1 ? "" : text.substring(spaceIndex + 1).trim();
+  const command = rawCommand.replace(/@[^@\s]+$/, "").toLowerCase();
+
+  return { command, args };
+}
+
+function buildApprovalLink(slotId: string, campaignId: string, companyCode: string): string {
+  const token = jwt.sign(
+    { slotId, campaignId, companyCode },
+    getMarketingApprovalSecret(),
+    { expiresIn: "30d" }
+  );
+
+  let baseUrl = getMarketingAppUrl();
+  if (baseUrl.endsWith("/")) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
+
+  return `${baseUrl}/approve-post?token=${token}`;
+}
+
+function formatScheduledTime(time?: Date | string): string {
+  if (!time) return "Chưa xác định";
+  const date = typeof time === "string" ? new Date(time) : time;
+  if (isNaN(date.getTime())) return "Chưa xác định";
+
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(date);
+}
+
+function buildGuestHelpMessage(): string {
+  return [
+    "🤖 <b>Chào mừng bạn đến với iGen Marketing Bot!</b>",
+    "Để sử dụng bot, bạn hãy liên kết Telegram từ web ERP.",
+    "",
+    "📌 <b>Cách dùng nhanh:</b>",
+    "Web ERP > menu tài khoản > Telegram > mở bot từ link.",
+  ].join("\n");
+}
+
+function buildSessionHelpMessage(session: any): string {
+  const isAdmin = ADMIN_ROLES.includes(session.role);
+  const helpLines = [
+    `🤖 <b>HƯỚNG DẪN SỬ DỤNG IGEN BOT</b>`,
+    `📧 Tài khoản: ${session.email} | Vai trò: <b>${session.role.toUpperCase()}</b>`,
+    "",
+    "💡 <b>TƯƠNG TÁC BẰNG NGÔN NGỮ ĐỜI THƯỜNG:</b>",
+    "• Bạn có thể nhắn tin trực tiếp như trò chuyện hàng ngày với trợ lý AI (không cần gõ lệnh slash):",
+    "  👉 <i>'Duyệt bài giúp anh'</i> | <i>'Báo cáo doanh thu hôm nay'</i>",
+    "  👉 <i>'Tạo ảnh chú mèo mập uống trà bưởi'</i> | <i>'Tạo video dòng sông chảy'</i>",
+    "  👉 <i>'Lên chiến dịch 7 ngày quảng bá quán cà phê'</i> | <i>'Hàng chờ có bài nào'</i>",
+    "",
+    "📌 <b>Các câu lệnh nhanh (Menu / Slash commands):</b>",
+    "• <code>/menu</code> hoặc <code>/help</code> - Mở bảng nút bấm điều khiển nhanh.",
+    "• <code>/image [mô tả]</code> - Tạo ảnh nghệ thuật bằng AI.",
+    "• <code>/video [mô tả]</code> - Tạo video ngắn bằng AI.",
+  ];
+
+  if (isAdmin) {
+    helpLines.push(
+      "",
+      "📣 <b>QUẢN LÝ CHIẾN DỊCH MARKETING (CAMPAIGNS)</b>",
+      "• <code>/create_campaign</code> - Khởi tạo chiến dịch Marketing mới từng bước ngay tại đây.",
+      "Khi thiết lập chiến dịch trên Web ERP, bạn cấu hình theo các bước sau:",
+      "• <b>Bước 1: Khởi tạo</b>: Định nghĩa chiến lược chung và thiết lập các slot bài đăng.",
+      "• <b>Bước 2: Chọn nguồn ảnh/media</b>:",
+      "  - <i>Ảnh AI (AI Gen)</i>: AI tự tạo ảnh/video minh họa tương ứng với nội dung bài viết.",
+      "  - <i>Ảnh thật từ Drive</i>: Cung cấp link thư mục Google Drive công khai, hệ thống sẽ tự động map ảnh vào slot và tải lên CDN Cloudinary (ví dụ đặt tên file: <code>1_1.jpg</code>, <code>2.png</code>,...).",
+      "• <b>Bước 3: Chọn nền tảng tìm dữ liệu</b>: Chọn các nền tảng (TikTok, Facebook, Google, v.v.) để AI Research Agent tiến hành phân tích xu hướng trước khi viết bài.",
+      "• <b>Bước 4: Thiết lập thời gian</b>: Lên lịch giờ đăng cụ thể (theo múi giờ mong muốn).",
+      "",
+      "🔔 <b>Quy trình phê duyệt & đăng bài qua Telegram:</b>",
+      "1. Khi bài viết và ảnh sẵn sàng, bot tự động gửi thông báo phê duyệt kèm nút bấm duyệt nhanh tới Telegram của bạn.",
+      "2. Bấm nút <b>⏳ Bài chờ đăng</b> hoặc gõ <code>/queue</code> để xem hàng chờ đăng của công ty.",
+      "3. Bạn có thể đăng bài thủ công ngay lập tức bằng lệnh:",
+      "   • <code>/publish_fb [mã_bài_viết]</code> - Đăng lên Facebook Fanpage.",
+      "   • <code>/publish_tt [mã_bài_viết]</code> - Đăng lên TikTok.",
+      "   <i>(Ví dụ: /publish_fb 654c12d4a5b6c7890123efab)</i>",
+      "",
+      "📊 <b>Kinh Doanh & CRM (Sales)</b>:",
+      "• Bấm nút <b>📊 Báo cáo CRM</b> hoặc gõ <code>/stats</code> để xem báo cáo doanh thu thanh toán hôm nay và số cơ hội kinh doanh (Leads)."
+    );
+  }
+
+  helpLines.push("", "• <code>/logout</code> - Đăng xuất tài khoản khỏi bot Telegram.");
+  return helpLines.join("\n");
+}
+
+export const telegramService = {
+  /**
+   * Tiến trình tương tác tạo chiến dịch Marketing từng bước qua Telegram
+   */
+  async processCampaignWizard(chatId: number, command: string, text: string, session: any): Promise<boolean> {
+    const wizard = campaignWizards.get(chatId);
+    if (!wizard) return false;
+
+    // Lệnh hủy bỏ luôn khả dụng trong wizard
+    if (command === "/cancel" || command === "/w_confirm_no") {
+      campaignWizards.delete(chatId);
+      await this.sendMessage(chatId, "❌ <b>Đã hủy bỏ tiến trình tạo chiến dịch.</b>");
+      return true;
+    }
+
+    const step = wizard.step;
+
+    if (step === "waiting_for_brief") {
+      const brief = text.trim();
+      if (!brief) {
+        await this.sendMessage(chatId, "⚠️ Định hướng chiến dịch không được để trống. Vui lòng nhập lại:");
+        return true;
+      }
+      campaignWizards.delete(chatId);
+      await this.executeDirectCampaignCreation(chatId, session, brief);
+      return true;
+    }
+
+    if (command === "/w_media_ai") {
+      wizard.imageMode = "ai";
+      wizard.step = "waiting_for_platform";
+      campaignWizards.set(chatId, wizard);
+
+      await this.sendMessageWithCallbackButtons(
+        chatId,
+        [
+          `📢 <b>Bước 3/6: Chọn nền tảng đăng bài</b>`,
+          `Nguồn media: <b>🤖 Ảnh sinh bằng AI</b>`,
+          ``,
+          `Chọn các nền tảng đăng bài:`
+        ].join("\n"),
+        [
+          [
+            { text: "🔵 Facebook Fanpage", callbackData: "/w_plat_fb" },
+            { text: "⚫ TikTok", callbackData: "/w_plat_tt" }
+          ],
+          [
+            { text: "🟣 Đăng cả hai (FB + TikTok)", callbackData: "/w_plat_both" }
+          ],
+          [{ text: "❌ Hủy", callbackData: "/cancel" }]
+        ]
+      );
+      return true;
+    }
+
+    if (command === "/w_media_drive") {
+      wizard.imageMode = "order";
+      wizard.step = "waiting_for_platform";
+      campaignWizards.set(chatId, wizard);
+
+      await this.sendMessageWithCallbackButtons(
+        chatId,
+        [
+          `📢 <b>Bước 3/6: Chọn nền tảng đăng bài</b>`,
+          `Nguồn media: <b>📁 Nhập ảnh, video từ Google Drive</b>`,
+          ``,
+          `Sau khi tạo chiến dịch, bạn có thể nhập thư mục Google Drive tại tab <b>Order ảnh, video</b> trong chi tiết chiến dịch.`,
+        ].join("\n"),
+        [
+          [
+            { text: "🔵 Facebook Fanpage", callbackData: "/w_plat_fb" },
+            { text: "⚫ TikTok", callbackData: "/w_plat_tt" }
+          ],
+          [
+            { text: "🟣 Đăng cả hai (FB + TikTok)", callbackData: "/w_plat_both" }
+          ],
+          [{ text: "❌ Hủy", callbackData: "/cancel" }]
+        ]
+      );
+      return true;
+    }
+
+    if (step === "waiting_for_drive_url") {
+      const url = text.trim();
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        await this.sendMessage(chatId, "⚠️ Đường dẫn không hợp lệ. Vui lòng nhập đầy đủ link Google Drive:");
+        return true;
+      }
+      wizard.googleDriveFolderUrl = url;
+      wizard.step = "waiting_for_platform";
+      campaignWizards.set(chatId, wizard);
+
+      await this.sendMessageWithCallbackButtons(
+        chatId,
+        [
+          `📢 <b>Bước 3/6: Chọn nền tảng đăng bài</b>`,
+          `Đường dẫn Drive: <code>${url}</code>`,
+          ``,
+          `Chọn nền tảng đăng bài:`
+        ].join("\n"),
+        [
+          [
+            { text: "🔵 Facebook Fanpage", callbackData: "/w_plat_fb" },
+            { text: "⚫ TikTok", callbackData: "/w_plat_tt" }
+          ],
+          [
+            { text: "🟣 Đăng cả hai (FB + TikTok)", callbackData: "/w_plat_both" }
+          ],
+          [{ text: "❌ Hủy", callbackData: "/cancel" }]
+        ]
+      );
+      return true;
+    }
+
+    if (command === "/w_plat_fb" || command === "/w_plat_tt" || command === "/w_plat_both") {
+      const chosenPlats: Array<"Facebook" | "TikTok"> = [];
+      if (command === "/w_plat_fb") chosenPlats.push("Facebook");
+      else if (command === "/w_plat_tt") chosenPlats.push("TikTok");
+      else {
+        chosenPlats.push("Facebook", "TikTok");
+      }
+
+      // Tự động kiểm tra liên kết của doanh nghiệp
+      try {
+        for (const platform of chosenPlats) {
+          const integration = await SocialIntegrationModel.findOne({
+            companyCode: session.companyCode,
+            platform,
+            isConnected: true
+          }).lean();
+          if (!integration) {
+            await this.sendMessage(
+              chatId,
+              `❌ <b>Không thể tiếp tục:</b> Doanh nghiệp chưa kết nối tài khoản <b>${platform}</b> trên Web ERP.\nVui lòng kết nối tài khoản trên giao diện web trước.`
+            );
+            campaignWizards.delete(chatId);
+            return true;
+          }
+          if (!wizard.integrationIds) wizard.integrationIds = {};
+          wizard.integrationIds[platform] = String(integration._id);
+        }
+      } catch (err: any) {
+        console.error("[Telegram Wizard] Lỗi kiểm tra liên kết mạng xã hội:", err);
+        await this.sendMessage(chatId, "❌ Lỗi kết nối hệ thống khi xác thực tài khoản liên kết.");
+        campaignWizards.delete(chatId);
+        return true;
+      }
+
+      wizard.platforms = chosenPlats;
+      wizard.step = "waiting_for_schedule_days";
+      campaignWizards.set(chatId, wizard);
+
+      await this.sendMessageWithCallbackButtons(
+        chatId,
+        [
+          `📅 <b>Bước 4/6: Thời gian chạy chiến dịch</b>`,
+          `Nền tảng đăng bài: <b>${chosenPlats.join(", ")}</b>`,
+          ``,
+          `Chọn số ngày muốn chạy chiến dịch (bắt đầu từ hôm nay):`
+        ].join("\n"),
+        [
+          [
+            { text: "⏱️ 3 ngày", callbackData: "/w_days_3" },
+            { text: "⏱️ 7 ngày", callbackData: "/w_days_7" }
+          ],
+          [
+            { text: "⏱️ 14 ngày", callbackData: "/w_days_14" }
+          ],
+          [{ text: "❌ Hủy", callbackData: "/cancel" }]
+        ]
+      );
+      return true;
+    }
+
+    if (command.startsWith("/w_days_") || step === "waiting_for_schedule_days") {
+      let days = 0;
+      if (command.startsWith("/w_days_")) {
+        days = parseInt(command.replace("/w_days_", ""), 10);
+      } else {
+        days = parseInt(text.trim(), 10);
+      }
+
+      if (isNaN(days) || days <= 0 || days > 30) {
+        await this.sendMessage(chatId, "⚠️ Số ngày chạy không hợp lệ (phải từ 1 đến 30). Vui lòng chọn hoặc nhập số ngày cụ thể:");
+        return true;
+      }
+
+      const formatZonedDate = (date: Date) => {
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Ho_Chi_Minh",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(date);
+      };
+
+      const now = new Date();
+      const startDate = formatZonedDate(now);
+      const end = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+      const endDate = formatZonedDate(end);
+
+      wizard.days = days;
+      wizard.startDate = startDate;
+      wizard.endDate = endDate;
+      wizard.step = "waiting_for_posts_per_day";
+      campaignWizards.set(chatId, wizard);
+
+      await this.sendMessageWithCallbackButtons(
+        chatId,
+        [
+          `✍️ <b>Bước 5/6: Tần suất đăng bài hàng ngày</b>`,
+          `Thời gian: <b>${days} ngày</b> (Từ ${startDate} đến ${endDate})`,
+          ``,
+          `Chọn số lượng bài đăng mỗi ngày cho từng kênh:`
+        ].join("\n"),
+        [
+          [
+            { text: "📝 1 bài/ngày", callbackData: "/w_freq_1" },
+            { text: "📝 2 bài/ngày", callbackData: "/w_freq_2" }
+          ],
+          [{ text: "❌ Hủy", callbackData: "/cancel" }]
+        ]
+      );
+      return true;
+    }
+
+    if (command.startsWith("/w_freq_") || step === "waiting_for_posts_per_day") {
+      let freq = 0;
+      if (command.startsWith("/w_freq_")) {
+        freq = parseInt(command.replace("/w_freq_", ""), 10);
+      } else {
+        freq = parseInt(text.trim(), 10);
+      }
+
+      if (isNaN(freq) || freq <= 0 || freq > 5) {
+        await this.sendMessage(chatId, "⚠️ Tần suất không hợp lệ (từ 1 đến 5 bài/ngày). Vui lòng chọn hoặc nhập lại:");
+        return true;
+      }
+
+      wizard.postsPerDay = freq;
+      wizard.step = "waiting_for_posting_time";
+      campaignWizards.set(chatId, wizard);
+
+      await this.sendMessage(
+        chatId,
+        [
+          `⏰ <b>Bước 6/6: Thiết lập thời gian đăng bài hàng ngày</b>`,
+          `Tần suất: <b>${freq} bài/ngày</b>`,
+          ``,
+          `Vui lòng nhập giờ đăng bài hàng ngày.`,
+          freq === 1 
+            ? `👉 Nhập 1 khung giờ đăng (Ví dụ: <code>09:00</code> hoặc <code>21:00</code>)`
+            : `👉 Nhập ${freq} khung giờ đăng, cách nhau bằng dấu phẩy (Ví dụ: <code>09:00, 21:00</code>)`,
+          ``,
+          `<i>(Định dạng 24h: HH:MM)</i>`
+        ].join("\n")
+      );
+      return true;
+    }
+
+    if (step === "waiting_for_posting_time") {
+      const timeParts = text.split(",").map((t) => t.trim());
+      const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+      if (timeParts.length !== wizard.postsPerDay) {
+        await this.sendMessage(chatId, `⚠️ Số lượng giờ đăng không khớp. Hãy nhập đúng ${wizard.postsPerDay} khung giờ:`);
+        return true;
+      }
+
+      const invalidTime = timeParts.find((t) => !timeRegex.test(t));
+      if (invalidTime) {
+        await this.sendMessage(chatId, `⚠️ Khung giờ "${invalidTime}" không đúng định dạng HH:MM. Vui lòng nhập lại:`);
+        return true;
+      }
+
+      wizard.postingTimes = timeParts;
+      wizard.step = "confirm_creation";
+      campaignWizards.set(chatId, wizard);
+
+      const summaryText = [
+        `📝 <b>XÁC NHẬN TẠO CHIẾN DỊCH</b>`,
+        `=============================`,
+        `• <b>Định hướng chiến dịch:</b>`,
+        `  <i>"${wizard.brief}"</i>`,
+        `• <b>Nguồn ảnh/media:</b> <b>${wizard.imageMode === "ai" ? "Ảnh sinh bằng AI (Gemini)" : "Nhập ảnh, video từ Drive"}</b>`,
+        `• <b>Nền tảng đăng:</b> <b>${wizard.platforms.join(", ")}</b>`,
+        `• <b>Khoảng thời gian:</b> Từ <code>${wizard.startDate}</code> đến <code>${wizard.endDate}</code> (${wizard.days} ngày)`,
+        `• <b>Tần suất:</b> ${wizard.postsPerDay} bài/ngày`,
+        `• <b>Giờ đăng bài:</b> <code>${wizard.postingTimes.join(", ")}</code>`,
+        `=============================`,
+        `Bấm nút xác nhận bên dưới để kích hoạt chiến dịch trên hệ thống ERP:`
+      ].filter(Boolean).join("\n");
+
+      await this.sendMessageWithCallbackButtons(
+        chatId,
+        summaryText,
+        [
+          [
+            { text: "✅ Xác nhận tạo", callbackData: "/w_confirm_yes" },
+            { text: "❌ Hủy bỏ", callbackData: "/w_confirm_no" }
+          ]
+        ]
+      );
+      return true;
+    }
+
+    if (command === "/w_confirm_yes") {
+      await this.sendMessage(chatId, "⏳ <b>Đang lập kế hoạch chiến dịch và cấu hình slots, vui lòng đợi...</b>");
+      try {
+        const { marketingCampaignService } = await import("../../campaign/service/marketing-campaign.service.ts");
+
+        const result = await marketingCampaignService.create(session.companyCode, session.email, {
+          sourceBrief: wizard.brief,
+          startDate: wizard.startDate,
+          endDate: wizard.endDate,
+          postsPerDay: wizard.postsPerDay,
+          postingTimes: wizard.postingTimes,
+          platforms: wizard.platforms,
+          integrationIds: wizard.integrationIds,
+          imageMode: wizard.imageMode,
+          googleDriveFolderUrl: wizard.googleDriveFolderUrl,
+          timezone: "Asia/Ho_Chi_Minh",
+          publishMode: "manual", // Duyệt trước qua Telegram cho an toàn
+          qualityMode: "premium",
+          apifySources: ["google"]
+        });
+
+        await this.sendMessage(
+          chatId,
+          [
+            `🎉 <b>KHỞI TẠO CHIẾN DỊCH THÀNH CÔNG!</b>`,
+            `=============================`,
+            `🏷️ Tên chiến dịch: <b>${result.campaign.title}</b>`,
+            `📦 Tổng số bài đăng đã lên lịch: <b>${result.slots.length} bài</b>`,
+            `⏱️ Trạng thái: <b>Đang hoạt động</b>`,
+            `=============================`,
+            `Hệ thống sẽ chuẩn bị bài viết và gửi thông báo phê duyệt qua Telegram trước giờ đăng 1 tiếng.`,
+            `Bạn có thể truy cập Web ERP để theo dõi chi tiết chiến dịch.`
+          ].join("\n")
+        );
+      } catch (err: any) {
+        console.error("[Telegram Wizard] Lỗi khởi tạo chiến dịch:", err);
+        await this.sendMessage(chatId, `❌ <b>Tạo chiến dịch thất bại:</b> ${err.message || err}`);
+      }
+      campaignWizards.delete(chatId);
+      return true;
+    }
+
+    return false;
+  },
+
+  /**
+   * Tiến trình xử lý nhập lý do từ chối bài đăng qua Telegram
+   */
+  async processRejectWizard(chatId: number, command: string, text: string, session: any): Promise<boolean> {
+    const wizard = rejectWizards.get(chatId);
+    if (!wizard) return false;
+
+    if (command === "/cancel") {
+      rejectWizards.delete(chatId);
+      await this.sendMessage(chatId, "❌ <b>Đã hủy bỏ thao tác từ chối bài đăng.</b>");
+      return true;
+    }
+
+    const slotId = wizard.slotId;
+    const reason = text.trim();
+    if (!reason) {
+      await this.sendMessage(chatId, "⚠️ Lý do từ chối không được để trống. Vui lòng nhập lại:");
+      return true;
+    }
+
+    try {
+      const slot = await MarketingCampaignSlotModel.findById(slotId);
+      if (!slot) {
+        await this.sendMessage(chatId, "❌ Không tìm thấy bài đăng trên hệ thống.");
+        rejectWizards.delete(chatId);
+        return true;
+      }
+
+      const scope = buildSessionScope(session);
+      if (slot.companyCode !== scope.companyCode) {
+        await this.sendMessage(chatId, "⛔ Bạn không có quyền từ chối bài viết của công ty khác.");
+        rejectWizards.delete(chatId);
+        return true;
+      }
+
+      if (slot.status !== "pending_approval") {
+        await this.sendMessage(chatId, `⚠️ Bài viết hiện không ở trạng thái chờ duyệt (Trạng thái: <b>${slot.status}</b>).`);
+        rejectWizards.delete(chatId);
+        return true;
+      }
+
+      const rejectedBy = session.displayName || session.email || "Admin qua Telegram";
+      await marketingCampaignService.rejectSlot(scope.companyCode, String(slot.campaignId), slotId, reason, rejectedBy);
+      rejectWizards.delete(chatId);
+
+      // Cập nhật giao diện tin nhắn gốc
+      const campaign = await MarketingCampaignModel.findById(slot.campaignId).lean();
+      const content = await MarketingContentModel.findOne({ campaignSlotId: slot._id }).lean();
+      
+      const campaignTitle = campaign?.title || "Chiến dịch Marketing";
+      const platform = slot.platform || "Không xác định";
+      const pillar = slot.pillar || "—";
+      const topicBrief = slot.topicBrief || "Không có chủ đề";
+      const scheduledDisplay = formatScheduledTime(slot.scheduledAt);
+      
+      const messageLines = [
+        "❌ <b>BÀI ĐĂNG ĐÃ BỊ TỪ CHỐI</b>",
+        "",
+        `🏷️ Chiến dịch: <b>${campaignTitle}</b>`,
+        `📱 Kênh: <b>${platform}</b> | Pillar: <b>${pillar}</b>`,
+        `📅 Lịch đăng: <b>${scheduledDisplay}</b>`,
+        `💡 Chủ đề: <i>${topicBrief}</i>`,
+      ];
+
+      if (content) {
+        const truncatedBody = content.bodyText ? truncateTelegramText(content.bodyText, 400) : "";
+        messageLines.push(
+          "",
+          "✍️ <b>Nội dung bản nháp:</b>",
+          `<b>Tiêu đề:</b> ${content.title || "—"}`,
+          `<i>${truncatedBody || "Chưa có nội dung"}</i>`
+        );
+      }
+
+      messageLines.push(
+        "",
+        `🔴 Trạng thái: <b>Từ chối phê duyệt</b>`,
+        `👤 Người từ chối: <b>${rejectedBy}</b>`,
+        `💬 Lý do: <i>${reason}</i>`,
+        `🕒 Lúc: <i>${new Date().toLocaleString("vi-VN")}</i>`
+      );
+
+      const approvalLink = buildApprovalLink(slotId, String(slot.campaignId), scope.companyCode);
+      
+      if (wizard.messageId) {
+        if (wizard.isList) {
+          await this.handleCommand(chatId, "private", session.telegramUserId, "/pending", undefined, undefined, undefined, wizard.messageId);
+        } else {
+          await this.editMessageText(chatId, wizard.messageId, messageLines.join("\n"), {
+            inline_keyboard: [[{ text: "🔗 Chi tiết trên Web", url: approvalLink }]]
+          });
+        }
+      } else {
+        await this.sendMessage(chatId, messageLines.join("\n"));
+      }
+
+      await this.sendMessage(chatId, "✅ Đã từ chối bài đăng thành công.");
+      return true;
+    } catch (err: any) {
+      console.error("[Telegram Bot] Lỗi trong quá trình từ chối bài đăng qua wizard:", err);
+      await this.sendMessage(chatId, `❌ Lỗi hệ thống khi từ chối bài đăng: ${err.message || err}`);
+      rejectWizards.delete(chatId);
+      return true;
+    }
+  },
+
+  /**
+   * Tiến trình xử lý chỉnh sửa nội dung bài đăng qua Telegram
+   */
+  async processEditWizard(chatId: number, command: string, text: string, session: any): Promise<boolean> {
+    const wizard = editWizards.get(chatId);
+    if (!wizard) return false;
+
+    if (command === "/cancel") {
+      editWizards.delete(chatId);
+      await this.sendMessage(chatId, "❌ <b>Đã hủy bỏ thao tác chỉnh sửa bài đăng.</b>");
+      return true;
+    }
+
+    const slotId = wizard.slotId;
+    const inputText = text.trim();
+    if (!inputText) {
+      await this.sendMessage(chatId, "⚠️ Nội dung chỉnh sửa không được để trống. Vui lòng nhập lại:");
+      return true;
+    }
+
+    try {
+      const slot = await MarketingCampaignSlotModel.findById(slotId);
+      if (!slot) {
+        await this.sendMessage(chatId, "❌ Không tìm thấy bài đăng trên hệ thống.");
+        editWizards.delete(chatId);
+        return true;
+      }
+
+      const scope = buildSessionScope(session);
+      if (slot.companyCode !== scope.companyCode) {
+        await this.sendMessage(chatId, "⛔ Bạn không có quyền chỉnh sửa bài viết của công ty khác.");
+        editWizards.delete(chatId);
+        return true;
+      }
+
+      const content = await MarketingContentModel.findOne({ campaignSlotId: slot._id });
+      if (!content) {
+        await this.sendMessage(chatId, "❌ Không tìm thấy nội dung bài đăng để chỉnh sửa.");
+        editWizards.delete(chatId);
+        return true;
+      }
+
+      // Phân tích title và bodyText từ input
+      let newTitle = content.title || "—";
+      let newBody = inputText;
+
+      // Tìm dòng "Tiêu đề: ..."
+      const titleLines = inputText.split("\n");
+      const firstLine = titleLines[0].trim();
+      const titleRegex = /^(?:Tiêu đề|Title)\s*:\s*(.+)$/i;
+      const match = firstLine.match(titleRegex);
+
+      if (match) {
+        newTitle = match[1].trim();
+        newBody = titleLines.slice(1).join("\n").trim();
+      } else if (firstLine.toLowerCase().startsWith("tiêu đề") || firstLine.toLowerCase().startsWith("title")) {
+        if (titleLines.length > 1) {
+          newTitle = titleLines[1].trim();
+          newBody = titleLines.slice(2).join("\n").trim();
+        }
+      }
+
+      if (!newBody) {
+        await this.sendMessage(chatId, "⚠️ Nội dung bài viết không được để trống. Vui lòng nhập lại:");
+        return true;
+      }
+
+      // Lưu cập nhật vào DB
+      await MarketingContentModel.findByIdAndUpdate(content._id, {
+        title: newTitle,
+        bodyText: newBody,
+        status: "draft"
+      });
+
+      editWizards.delete(chatId);
+
+      await this.sendMessage(chatId, "✅ <b>Đã cập nhật nội dung bài đăng thành công!</b>");
+
+      // Tự động gọi lại lệnh hiển thị chi tiết bài đăng mới cập nhật để sếp phê duyệt
+      await this.handleCommand(chatId, "private", session.telegramUserId, `/slot_view ${slotId}`);
+      return true;
+    } catch (err: any) {
+      console.error("[Telegram Bot] Lỗi khi lưu chỉnh sửa bài đăng:", err);
+      await this.sendMessage(chatId, `❌ Lỗi hệ thống khi lưu bài đăng: ${err.message || err}`);
+      editWizards.delete(chatId);
+      return true;
+    }
+  },
+
+  /**
+   * Gửi thông báo chốt đơn thành công sang Telegram
+   */
+  async sendLeadWonNotification(lead: ICRMTicket): Promise<void> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+
+    if (!botToken || !chatId) {
+      console.warn("[TelegramService] TELEGRAM_BOT_TOKEN hoặc TELEGRAM_CHAT_ID chưa được cấu hình trong file .env");
+      return;
+    }
+
+    try {
+      // 1. Xây dựng danh sách sản phẩm chi tiết kèm số lượng và đơn giá
+      let productsText = "";
+      if (Array.isArray(lead.selectedProducts) && lead.selectedProducts.length > 0) {
+        productsText = lead.selectedProducts
+          .map((prod) => {
+            const price = prod.price || 0;
+            const quantity = prod.quantity || 1;
+            const subtotal = price * quantity;
+            return `• <b>${prod.name}</b>\n  Số lượng: <code>${quantity}</code> x <code>${price.toLocaleString("vi-VN")} đ</code>\n  Thành tiền: <b>${subtotal.toLocaleString("vi-VN")} đ</b>`;
+          })
+          .join("\n\n");
+      } else if (lead.productOfChoice) {
+        productsText = `• <b>${lead.productOfChoice}</b>`;
+      } else {
+        productsText = "• Không có thông tin sản phẩm cụ thể.";
+      }
+
+      // 2. Định dạng thông điệp HTML gửi tới Telegram
+      const message = [
+        "🎉 <b>THÔNG BÁO CHỐT ĐƠN THÀNH CÔNG!</b> 🎉",
+        "=============================",
+        `👤 <b>Khách hàng:</b> ${lead.customerName}`,
+        `🏢 <b>Công ty:</b> ${lead.company || "Cá nhân"}`,
+        `📞 <b>Số điện thoại:</b> ${lead.phone || "Chưa bổ sung"}`,
+        `✉️ <b>Email:</b> ${lead.email || "Chưa bổ sung"}`,
+        "-----------------------------",
+        "📦 <b>Chi tiết đơn hàng:</b>",
+        productsText,
+        "-----------------------------",
+        `💰 <b>Tổng giá trị đơn hàng:</b> <code>${(lead.value || 0).toLocaleString("vi-VN")} đ</code>`,
+        "=============================",
+      ].join("\n");
+
+      await this.sendMessage(chatId, message);
+    } catch (error) {
+      console.error("[TelegramService] Gặp lỗi khi gửi thông báo tới Telegram:", error);
+    }
+  },
+
+  /**
+   * Helper gửi tin nhắn văn bản định dạng HTML
+   */
+  async sendMessage(chatId: string | number, text: string): Promise<any> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendMessage`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: text,
+          parse_mode: "HTML",
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[Telegram Bot] sendMessage error: ${response.status} - ${errText}`);
+      }
+      return response.json();
+    } catch (err) {
+      console.error("[Telegram Bot] Failed to execute sendMessage request:", err);
+    }
+  },
+
+  /**
+   * Helper gửi tin nhắn kèm Inline Keyboard (nút bấm URL)
+   */
+  async sendMessageWithInlineKeyboard(
+    chatId: string | number,
+    text: string,
+    buttons: Array<{ text: string; url: string }>
+  ): Promise<any> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendMessage`;
+      const inlineKeyboard = buttons.map((btn) => [{ text: btn.text, url: btn.url }]);
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: text,
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: inlineKeyboard,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[Telegram Bot] sendMessageWithInlineKeyboard error: ${response.status} - ${errText}`);
+      }
+      return response.json();
+    } catch (err) {
+      console.error("[Telegram Bot] Failed to execute sendMessageWithInlineKeyboard request:", err);
+    }
+  },
+
+  /**
+   * Helper gửi tin nhắn kèm các nút bấm Callback (không phải URL)
+   */
+  async sendMessageWithCallbackButtons(
+    chatId: string | number,
+    text: string,
+    buttons: Array<Array<{ text: string; callbackData: string }>>
+  ): Promise<any> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendMessage`;
+      const inlineKeyboard = buttons.map((row) =>
+        row.map((btn) => ({ text: btn.text, callback_data: btn.callbackData }))
+      );
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: text,
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: inlineKeyboard,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[Telegram Bot] sendMessageWithCallbackButtons error: ${response.status} - ${errText}`);
+      }
+      return response.json();
+    } catch (err) {
+      console.error("[Telegram Bot] Failed to execute sendMessageWithCallbackButtons request:", err);
+    }
+  },
+
+  /**
+   * Helper gửi tin nhắn kèm các nút phê duyệt (hỗ trợ cả callback_data và url)
+   */
+  async sendMessageWithSlotApprovalButtons(
+    chatId: string | number,
+    text: string,
+    buttons: Array<Array<{ text: string; callbackData?: string; url?: string }>>
+  ): Promise<any> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendMessage`;
+      const inlineKeyboard = buttons.map((row) =>
+        row.map((btn) => {
+          const item: any = { text: btn.text };
+          if (btn.callbackData) item.callback_data = btn.callbackData;
+          if (btn.url) item.url = btn.url;
+          return item;
+        })
+      );
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: text,
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: inlineKeyboard,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[Telegram Bot] sendMessageWithSlotApprovalButtons error: ${response.status} - ${errText}`);
+      }
+      return response.json();
+    } catch (err) {
+      console.error("[Telegram Bot] Failed to execute sendMessageWithSlotApprovalButtons request:", err);
+    }
+  },
+
+  /**
+   * Helper gửi ảnh kèm các nút phê duyệt
+   */
+  async sendPhotoWithSlotApprovalButtons(
+    chatId: string | number,
+    photoUrl: string,
+    caption: string,
+    buttons: Array<Array<{ text: string; callbackData?: string; url?: string }>>
+  ): Promise<any> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendPhoto`;
+      const inlineKeyboard = buttons.map((row) =>
+        row.map((btn) => {
+          const item: any = { text: btn.text };
+          if (btn.callbackData) item.callback_data = btn.callbackData;
+          if (btn.url) item.url = btn.url;
+          return item;
+        })
+      );
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          photo: photoUrl,
+          caption: caption,
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: inlineKeyboard,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Telegram API sendPhoto error: ${response.status} - ${errText}`);
+      }
+      return response.json();
+    } catch (err: any) {
+      console.error("[Telegram Bot] Failed to execute sendPhotoWithSlotApprovalButtons request:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Helper gửi video kèm các nút phê duyệt
+   */
+  async sendVideoWithSlotApprovalButtons(
+    chatId: string | number,
+    videoUrl: string,
+    caption: string,
+    buttons: Array<Array<{ text: string; callbackData?: string; url?: string }>>
+  ): Promise<any> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendVideo`;
+      const inlineKeyboard = buttons.map((row) =>
+        row.map((btn) => {
+          const item: any = { text: btn.text };
+          if (btn.callbackData) item.callback_data = btn.callbackData;
+          if (btn.url) item.url = btn.url;
+          return item;
+        })
+      );
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          video: videoUrl,
+          caption: caption,
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: inlineKeyboard,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Telegram API sendVideo error: ${response.status} - ${errText}`);
+      }
+      return response.json();
+    } catch (err: any) {
+      console.error("[Telegram Bot] Failed to execute sendVideoWithSlotApprovalButtons request:", err);
+      throw err;
+    }
+  },
+
+  /**
+   * Helper sửa tin nhắn văn bản đã gửi kèm thay đổi nút bấm
+   */
+  async editMessageText(
+    chatId: string | number,
+    messageId: number,
+    text: string,
+    replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> }
+  ): Promise<any> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/editMessageText`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: messageId,
+          text: text,
+          parse_mode: "HTML",
+          reply_markup: replyMarkup,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[Telegram Bot] editMessageText error: ${response.status} - ${errText}`);
+      }
+      return response.json();
+    } catch (err) {
+      console.error("[Telegram Bot] Failed to execute editMessageText request:", err);
+    }
+  },
+
+  /**
+   * Phản hồi callback query để tắt trạng thái loading trên nút bấm Telegram
+   */
+  async answerCallbackQuery(callbackQueryId: string, text?: string): Promise<any> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/answerCallbackQuery`;
+      await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          callback_query_id: callbackQueryId,
+          text: text,
+        }),
+      });
+    } catch (err) {
+      console.error("[Telegram Bot] Failed to execute answerCallbackQuery request:", err);
+    }
+  },
+
+  /**
+   * Helper gửi ảnh lên Telegram qua URL
+   */
+  async sendPhoto(chatId: string | number, photoUrl: string, caption: string): Promise<any> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendPhoto`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          photo: photoUrl,
+          caption: caption,
+          parse_mode: "HTML",
+        }),
+      });
+      return response.json();
+    } catch (err) {
+      console.error("[Telegram Bot] Failed to execute sendPhoto request:", err);
+    }
+  },
+
+  /**
+   * Helper gửi video lên Telegram qua URL
+   */
+  async sendVideo(chatId: string | number, videoUrl: string, caption: string): Promise<any> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/sendVideo`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          video: videoUrl,
+          caption: caption,
+          parse_mode: "HTML",
+        }),
+      });
+      return response.json();
+    } catch (err) {
+      console.error("[Telegram Bot] Failed to execute sendVideo request:", err);
+    }
+  },
+
+  /**
+   * Helper xóa tin nhắn trên Telegram (dùng để xóa tin nhắn chứa mật khẩu)
+   */
+  async deleteMessage(chatId: string | number, messageId: number): Promise<void> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+
+    try {
+      const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/deleteMessage`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: messageId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.warn(`[Telegram Bot] Không thể xóa tin nhắn ${messageId}: ${errText}`);
+      }
+    } catch (err) {
+      console.warn("[Telegram Bot] Lỗi khi xóa tin nhắn:", err);
+    }
+  },
+
+  /**
+   * Khởi động vòng lặp Polling chạy nền nhận và xử lý lệnh từ người dùng
+   */
+  /**
+   * Khởi động vòng lặp Polling chạy nền nhận và xử lý lệnh từ người dùng
+   */
+  async startPolling(): Promise<void> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      console.warn("[Telegram Bot] Chưa cấu hình TELEGRAM_BOT_TOKEN trong .env. Bỏ qua chạy Telegram Polling.");
+      return;
+    }
+
+    if (pollingActive) return;
+    pollingActive = true;
+
+    // Tự động dọn dẹp Webhook cũ (nếu có) để tránh lỗi 409 Conflict với Long Polling
+    try {
+      await fetch(`${TELEGRAM_API_BASE_URL}/bot${botToken}/deleteWebhook?drop_pending_updates=false`, {
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch {
+      // Bỏ qua nếu lỗi mạng tạm thời
+    }
+
+    // Xác thực thông tin Bot
+    try {
+      const meRes = await fetch(`${TELEGRAM_API_BASE_URL}/bot${botToken}/getMe`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (meRes.ok) {
+        const meData: any = await meRes.json();
+        if (meData.ok && meData.result?.username) {
+          console.log(`[Telegram Bot] Đã kết nối thành công Bot: @${meData.result.username} (ID: ${meData.result.id})`);
+        }
+      }
+    } catch (err: any) {
+      console.warn("[Telegram Bot] Không thể kiểm tra thông tin Bot khi khởi động:", err?.message || err);
+    }
+
+    console.log("[Telegram Bot] Đã khởi chạy dịch vụ Telegram Polling nhận tin nhắn.");
+
+    this.pollLoop().catch((err) => {
+      console.error("[Telegram Bot] Lỗi nghiêm trọng trong vòng lặp Polling:", err);
+      pollingActive = false;
+    });
+  },
+
+  /**
+   * Vòng lặp lấy thông tin tin nhắn liên tục (Long Polling)
+   */
+  async pollLoop(): Promise<void> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    let consecutiveErrors = 0;
+
+    while (pollingActive) {
+      try {
+        const allowedUpdates = JSON.stringify(["message", "callback_query"]);
+        const url = `${TELEGRAM_API_BASE_URL}/bot${botToken}/getUpdates?offset=${lastOffset + 1}&timeout=10&allowed_updates=${encodeURIComponent(allowedUpdates)}`;
+        
+        const response = await fetch(url, {
+          method: "GET",
+          signal: AbortSignal.timeout(25000),
+        });
+
+        if (!response.ok) {
+          consecutiveErrors++;
+          const delay = Math.min(consecutiveErrors * 1000, 5000);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        const body: any = await response.json();
+        consecutiveErrors = 0; // Reset đếm lỗi khi thành công
+
+        if (body.ok && Array.isArray(body.result)) {
+          for (const update of body.result) {
+            lastOffset = Math.max(lastOffset, update.update_id);
+
+            // === CHỐNG TRÙNG LẶP: Thử chèn update_id vào MongoDB ===
+            try {
+              await TelegramProcessedUpdateModel.create({ updateId: update.update_id });
+            } catch (dupErr: any) {
+              if (dupErr?.code === 11000) {
+                // Đã có tiến trình khác xử lý update này rồi → bỏ qua
+                continue;
+              }
+              console.error("[Telegram Bot] Lỗi ghi update_id vào DB:", dupErr);
+            }
+
+            if (update.message) {
+              const text = (update.message.text || update.message.caption || "").trim();
+              const photo = update.message.photo;
+              const document = update.message.document;
+              const replyToMessage = update.message.reply_to_message;
+              const chatId = update.message.chat.id;
+              const chatType = String(update.message.chat.type || "private").toLowerCase();
+              const telegramUserId = update.message.from?.id;
+              const messageId = update.message.message_id;
+
+              if (text.startsWith("/") || campaignWizards.has(chatId) || rejectWizards.has(chatId) || editWizards.has(chatId)) {
+                // Xử lý tuần tự từng command để tránh race condition giữa /link và lệnh ngay sau đó như /help.
+                await this.handleCommand(chatId, chatType, telegramUserId, text, photo, document, replyToMessage, messageId);
+              } else if (text) {
+                // Xử lý ngôn ngữ đời thường qua trợ lý AI
+                await this.processNaturalLanguageInput(chatId, chatType, telegramUserId, text, photo, document, replyToMessage, messageId);
+              }
+            }
+
+            if (update.callback_query) {
+              const callbackQuery = update.callback_query;
+              const chatId = callbackQuery.message?.chat?.id;
+              const telegramUserId = callbackQuery.from?.id;
+              const data = (callbackQuery.data || "").trim();
+              const messageId = callbackQuery.message?.message_id;
+
+              if (chatId && data) {
+                // Phản hồi callback query ngay lập tức để tắt trạng thái loading trên nút bấm
+                await this.answerCallbackQuery(callbackQuery.id);
+
+                // Thao tác như chạy câu lệnh thường
+                await this.handleCommand(
+                  chatId,
+                  String(callbackQuery.message?.chat?.type || "private").toLowerCase(),
+                  telegramUserId,
+                  data,
+                  undefined,
+                  undefined,
+                  undefined,
+                  messageId,
+                  callbackQuery.message?.text || ""
+                );
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        consecutiveErrors++;
+        const errStr = err?.message || String(err);
+        const isTimeout =
+          errStr.includes("ETIMEDOUT") ||
+          errStr.includes("fetch failed") ||
+          errStr.includes("timeout") ||
+          errStr === "Aborted" ||
+          err?.name === "AbortError" ||
+          err?.code === "ETIMEDOUT";
+
+        if (isTimeout) {
+          if (consecutiveErrors % 10 === 0) {
+            console.warn(
+              `[Telegram Bot] Cảnh báo kết nối: Không thể kết nối tới Telegram API (${TELEGRAM_API_BASE_URL}) sau ${consecutiveErrors} lần thử (${errStr}). Vui lòng kiểm tra mạng internet/firewall của VPS hoặc cấu hình TELEGRAM_API_BASE_URL trong .env.`
+            );
+          }
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        } else {
+          console.error("[Telegram Bot] Lỗi kết nối API getUpdates:", errStr);
+          const delay = Math.min(consecutiveErrors * 1000, 5000);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+  },
+
+  /**
+   * Phân tích và điều phối các câu lệnh được nhập từ Telegram Chat
+   */
+  async handleCommand(
+    chatId: number,
+    chatType: string,
+    telegramUserId: number | undefined,
+    text: string,
+    photo?: any[],
+    document?: any,
+    replyToMessage?: any,
+    messageId?: number,
+    originalMessageText?: string
+  ): Promise<void> {
+    const normalizedInput = normalizeTelegramCommand(text);
+    const command = normalizedInput.command === "/menu" ? "/help" : normalizedInput.command;
+    const args = normalizedInput.args;
+
+    logTelegramDebug("handleCommand:start", {
+      chatId,
+      chatType,
+      telegramUserId: telegramUserId ?? "none",
+      command,
+      args: args || "-",
+      messageId: messageId ?? "none",
+    });
+
+    if (chatType !== "private") {
+      await this.sendMessage(
+        chatId,
+        "🔒 Bot này chỉ hỗ trợ chat riêng 1-1. Vui lòng mở bot từ link trong web ERP và sử dụng trong cửa sổ chat riêng."
+      );
+      return;
+    }
+
+    if (command === "/start" && args) {
+      await this.handleCommand(chatId, chatType, telegramUserId, `/link ${args}`, photo, document, replyToMessage, messageId);
+      return;
+    }
+
+    // === XỬ LÝ ĐĂNG NHẬP ===
+    if (command === "/link") {
+      const normalizedCode = String(args || "").trim().toUpperCase();
+      logTelegramDebug("link:attempt", {
+        chatId,
+        telegramUserId: telegramUserId ?? "none",
+        code: normalizedCode || "-",
+      });
+      if (!normalizedCode) {
+        await this.sendMessage(chatId, "⚠️ Vui lòng nhập mã liên kết. Ví dụ: <code>/link ABC123</code>");
+        return;
+      }
+
+      try {
+        const existingSession = await TelegramSessionModel.findOne({
+          $or: [
+            { telegramChatId: chatId },
+            ...(telegramUserId ? [{ telegramUserId }] : []),
+          ],
+        }).lean();
+
+        const linkToken = await TelegramLinkTokenModel.findOne({
+          code: { $regex: new RegExp(`^${normalizedCode}$`, "i") },
+        }).lean();
+
+        logTelegramDebug("link:tokenLookup", {
+          chatId,
+          telegramUserId: telegramUserId ?? "none",
+          code: normalizedCode,
+          foundToken: !!linkToken,
+          tokenUserId: linkToken?.userId ? String(linkToken.userId) : "none",
+          tokenExpiresAt: linkToken?.expiresAt ? new Date(linkToken.expiresAt).toISOString() : "none",
+          hasExistingSession: !!existingSession,
+        });
+
+        if (!linkToken) {
+          if (existingSession) {
+            logTelegramDebug("link:alreadyLinkedNotice", { chatId });
+            await this.sendMessage(
+              chatId,
+              `ℹ️ <b>Tài khoản Telegram của sếp đã được liên kết với hệ thống iGen Marketing rồi!</b>\nEmail: <code>${existingSession.email || "Đã xác thực"}</code>\nMã công ty: <code>${existingSession.companyCode || "-"}</code>\n\nSếp có thể gõ <code>/help</code> hoặc ra lệnh trực tiếp cho trợ lý AI ngay bây giờ.`
+            );
+            return;
+          }
+          await this.sendMessage(chatId, "❌ Mã liên kết không hợp lệ hoặc đã hết hạn. Hãy tạo mã mới từ web ERP.");
+          return;
+        }
+
+        if (new Date(linkToken.expiresAt).getTime() <= Date.now()) {
+          await TelegramLinkTokenModel.deleteOne({ _id: linkToken._id }).catch(() => undefined);
+          await this.sendMessage(chatId, "⌛ Mã liên kết đã hết hạn. Hãy tạo mã mới từ web ERP.");
+          return;
+        }
+
+        const user = await UserModel.findById(linkToken.userId);
+        if (!user) {
+          await this.sendMessage(chatId, "❌ Không tìm thấy tài khoản ERP tương ứng với mã liên kết.");
+          return;
+        }
+
+        await TelegramSessionModel.deleteMany({
+          $or: [
+            { telegramChatId: chatId },
+            { userId: user._id },
+            ...(telegramUserId ? [{ telegramUserId }] : []),
+          ],
+        });
+
+        await TelegramSessionModel.create({
+          telegramChatId: chatId,
+          telegramUserId,
+          userId: user._id,
+          email: user.email,
+          displayName: user.displayName || user.email,
+          role: user.role || "user",
+          companyCode: user.companyCode || "",
+        });
+
+        await TelegramLinkTokenModel.deleteOne({ _id: linkToken._id });
+
+        logTelegramDebug("link:sessionCreated", {
+          chatId,
+          telegramUserId: telegramUserId ?? "none",
+          userId: String(user._id),
+          email: user.email,
+          companyCode: user.companyCode || "-",
+        });
+
+        const linkedSession = {
+          telegramChatId: chatId,
+          telegramUserId,
+          userId: user._id,
+          email: user.email,
+          displayName: user.displayName || user.email,
+          role: user.role || "user",
+          companyCode: user.companyCode || "",
+        };
+
+        await this.sendMessage(chatId, [
+          "✅ <b>Liên kết Telegram thành công!</b>",
+          `👤 Xin chào, <b>${user.displayName}</b>`,
+          `📧 Email: <code>${user.email}</code>`,
+          "Gõ /help để xem danh sách lệnh khả dụng.",
+        ].join("\n"));
+        await this.sendMessage(chatId, buildSessionHelpMessage(linkedSession));
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi xử lý liên kết Telegram:", err);
+        await this.sendMessage(chatId, "❌ Lỗi hệ thống khi liên kết Telegram. Vui lòng thử lại sau.");
+      }
+      return;
+    }
+
+    if (command === "/login") {
+      if (messageId) {
+        await this.deleteMessage(chatId, messageId);
+      }
+      await this.sendMessage(
+        chatId,
+        "🔗 Đăng nhập bằng mật khẩu trên Telegram đã được tắt.\nVui lòng vào web ERP > menu tài khoản > Telegram > mở bot từ link liên kết."
+      );
+      return;
+    }
+
+    // === XỬ LÝ ĐĂNG XUẤT ===
+    if (command === "/logout") {
+      try {
+        const deleted = await TelegramSessionModel.findOneAndDelete({
+          $or: [
+            { telegramChatId: chatId },
+            ...(telegramUserId ? [{ telegramUserId }] : []),
+          ],
+        });
+        if (deleted) {
+          await this.sendMessage(chatId, "👋 <b>Đã đăng xuất thành công.</b>\nHãy mở lại link liên kết từ web ERP nếu muốn dùng lại bot.");
+        } else {
+          await this.sendMessage(chatId, "⚠️ Telegram này chưa được liên kết với tài khoản nào.");
+        }
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi xử lý đăng xuất:", err);
+        await this.sendMessage(chatId, "❌ Lỗi hệ thống khi đăng xuất.");
+      }
+      return;
+    }
+
+    // === TRA CỨU SESSION HIỆN TẠI ===
+    let session: any = null;
+    try {
+      session = await findTelegramSession(chatId, telegramUserId);
+      logTelegramDebug("session:lookup", {
+        chatId,
+        telegramUserId: telegramUserId ?? "none",
+        command,
+        foundSession: !!session,
+        sessionChatId: session?.telegramChatId ?? "none",
+        sessionTelegramUserId: session?.telegramUserId ?? "none",
+        sessionUserId: session?.userId ? String(session.userId) : "none",
+        sessionEmail: session?.email || "none",
+        sessionRole: session?.role || "none",
+      });
+      if (session && (session.telegramChatId !== chatId || (telegramUserId && session.telegramUserId !== telegramUserId))) {
+        await TelegramSessionModel.updateOne(
+          { _id: session._id },
+          {
+            $set: {
+              telegramChatId: chatId,
+              telegramUserId,
+            },
+          }
+        );
+        session.telegramChatId = chatId;
+        session.telegramUserId = telegramUserId;
+        logTelegramDebug("session:repaired", {
+          chatId,
+          sessionChatId: session?.telegramChatId ?? "none",
+          sessionUserId: session?.userId ? String(session.userId) : "none",
+          telegramUserId: telegramUserId ?? "none",
+        });
+      }
+      if (session) {
+        session = await hydrateLinkedSession(session);
+      }
+    } catch (err) {
+      console.error("[Telegram Bot] Lỗi tra cứu session:", err);
+    }
+
+    // === LỆNH CÔNG KHAI: /start, /help, /menu ===
+    if (command === "/start" || command === "/help" || command === "/menu") {
+      if (!session) {
+        // Chưa liên kết → hiển thị hướng dẫn liên kết
+        await this.sendMessage(chatId, buildGuestHelpMessage());
+      } else {
+        const isAdmin = ADMIN_ROLES.includes(session.role);
+        const welcomeText = [
+          `🤖 <b>Xin chào, ${session.displayName}!</b>`,
+          `📧 ${session.email} | 🔑 <b>${session.role.toUpperCase()}</b>`,
+          "",
+          "Chọn một trong các tính năng bên dưới để thao tác nhanh:",
+        ].join("\n");
+
+        if (isAdmin) {
+          await this.sendMessageWithSlotApprovalButtons(chatId, welcomeText, [
+            [
+              { text: "📥 Bài chờ duyệt", callbackData: "/pending" },
+              { text: "⏳ Hàng chờ đăng", callbackData: "/queue" }
+            ],
+            [
+              { text: "📊 Báo cáo CRM", callbackData: "/stats" },
+              { text: "✨ Tạo chiến dịch", callbackData: "/create_campaign" }
+            ],
+            [
+              { text: "ℹ️ Hướng dẫn lệnh", callbackData: "/help_text" },
+              { text: "🚪 Đăng xuất", callbackData: "/logout" }
+            ]
+          ]);
+        } else {
+          await this.sendMessageWithCallbackButtons(chatId, welcomeText, [
+            [
+              { text: "ℹ️ Hướng dẫn lệnh", callbackData: "/help_text" },
+              { text: "🚪 Đăng xuất", callbackData: "/logout" }
+            ]
+          ]);
+        }
+      }
+      return;
+    }
+
+    if (command === "/help_text") {
+      if (!session) return;
+      await this.sendMessage(chatId, buildSessionHelpMessage(session));
+      return;
+    }
+
+    // === CÁC LỆNH CÒN LẠI: YÊU CẦU ĐĂNG NHẬP ===
+    if (!session) {
+      await this.sendMessage(chatId, "🔗 Bạn cần liên kết Telegram từ web ERP trước khi sử dụng lệnh này.");
+      return;
+    }
+
+    if (!(command === "/stats" ? session.canInbox : session.canMarketing)) {
+      await this.sendMessage(chatId, "Bạn chưa có quyền hoặc phân hệ tương ứng đã bị tắt trên ERP.");
+      return;
+    }
+    // === XỬ LÝ LỆNH HỦY BỎ CHUNG ===
+    if (command === "/cancel") {
+      let cancelled = false;
+      if (campaignWizards.has(chatId)) {
+        campaignWizards.delete(chatId);
+        cancelled = true;
+      }
+      if (rejectWizards.has(chatId)) {
+        rejectWizards.delete(chatId);
+        cancelled = true;
+      }
+      if (editWizards.has(chatId)) {
+        editWizards.delete(chatId);
+        cancelled = true;
+      }
+      if (cancelled) {
+        await this.sendMessage(chatId, "❌ <b>Đã hủy bỏ tiến trình hiện tại.</b>");
+      } else {
+        await this.sendMessage(chatId, "ℹ️ Không có tiến trình nào đang chạy để hủy.");
+      }
+      return;
+    }
+
+    // === XỬ LÝ REJECT WIZARD NẾU ĐANG CHẠY ===
+    if (rejectWizards.has(chatId)) {
+      const handled = await this.processRejectWizard(chatId, command, text, session);
+      if (handled) return;
+    }
+
+    // === XỬ LÝ EDIT WIZARD NẾU ĐANG CHẠY ===
+    if (editWizards.has(chatId)) {
+      const handled = await this.processEditWizard(chatId, command, text, session);
+      if (handled) return;
+    }
+
+    // === XỬ LÝ CAMPAIGN WIZARD NẾU ĐANG CHẠY ===
+    if (campaignWizards.has(chatId)) {
+      const handled = await this.processCampaignWizard(chatId, command, text, session);
+      if (handled) return;
+    }
+
+    // === KIỂM TRA QUYỀN QUẢN TRỊ CHO LỆNH NHẠY CẢM ===
+    const adminCommands = [
+      "/stats", "/report", "/warning_stock", "/lowstock", "/queue",
+      "/publish_fb", "/publish_tt", "/create_campaign",
+      "/slot_approve", "/slot_reject", "/slot_reject_no_reason",
+      "/pending", "/slot_view", "/slot_edit"
+    ];
+    if (adminCommands.includes(command) && !ADMIN_ROLES.includes(session.role)) {
+      await this.sendMessage(chatId, "⛔ Bạn không có quyền sử dụng lệnh này. Lệnh này chỉ dành cho quản trị viên.");
+      return;
+    }
+
+    if (command === "/slot_approve") {
+      const slotId = String(args || "").trim();
+      if (!slotId) {
+        await this.sendMessage(chatId, "⚠️ Thiếu mã bài viết (slotId).");
+        return;
+      }
+
+      try {
+        const slot = await MarketingCampaignSlotModel.findById(slotId);
+        if (!slot) {
+          await this.sendMessage(chatId, "❌ Không tìm thấy bài viết trên hệ thống.");
+          return;
+        }
+
+        const scope = buildSessionScope(session);
+        if (slot.companyCode !== scope.companyCode) {
+          await this.sendMessage(chatId, "⛔ Bạn không có quyền phê duyệt bài viết của công ty khác.");
+          return;
+        }
+
+        const allowedStatuses = ["pending_approval", "needs_attention", "failed"];
+        if (!allowedStatuses.includes(slot.status)) {
+          await this.sendMessage(chatId, `⚠️ Bài viết hiện không ở trạng thái chờ duyệt (Trạng thái: <b>${slot.status}</b>).`);
+          return;
+        }
+
+        const approvedBy = session.displayName || session.email || "Admin qua Telegram";
+        await marketingCampaignService.approveSlot(scope.companyCode, String(slot.campaignId), slotId, approvedBy);
+
+        // Edit tin nhắn gốc
+        if (messageId) {
+          const isList = originalMessageText?.includes("DANH SÁCH BÀI CHỜ DUYỆT");
+          if (isList) {
+            await this.handleCommand(chatId, "private", session.telegramUserId, "/pending", undefined, undefined, undefined, messageId);
+          } else {
+            const campaign = await MarketingCampaignModel.findById(slot.campaignId).lean();
+            const content = await MarketingContentModel.findOne({ campaignSlotId: slot._id }).lean();
+            
+            const campaignTitle = campaign?.title || "Chiến dịch Marketing";
+            const platform = slot.platform || "Không xác định";
+            const pillar = slot.pillar || "—";
+            const topicBrief = slot.topicBrief || "Không có chủ đề";
+            const scheduledDisplay = formatScheduledTime(slot.scheduledAt);
+            
+            const messageLines = [
+              "✅ <b>BÀI ĐĂNG ĐÃ ĐƯỢC PHÊ DUYỆT</b>",
+              "",
+              `🏷️ Chiến dịch: <b>${campaignTitle}</b>`,
+              `📱 Kênh: <b>${platform}</b> | Pillar: <b>${pillar}</b>`,
+              `📅 Lịch đăng: <b>${scheduledDisplay}</b>`,
+              `💡 Chủ đề: <i>${topicBrief}</i>`,
+            ];
+
+            if (content) {
+              const truncatedBody = content.bodyText ? truncateTelegramText(content.bodyText, 400) : "";
+              messageLines.push(
+                "",
+                "✍️ <b>Nội dung bản nháp:</b>",
+                `<b>Tiêu đề:</b> ${content.title || "—"}`,
+                `<i>${truncatedBody || "Chưa có nội dung"}</i>`
+              );
+            }
+
+            messageLines.push(
+              "",
+              `👤 Duyệt bởi: <b>${approvedBy}</b>`,
+              `🕒 Lúc: <i>${new Date().toLocaleString("vi-VN")}</i>`
+            );
+
+            const approvalLink = buildApprovalLink(slotId, String(slot.campaignId), scope.companyCode);
+            await this.editMessageText(chatId, messageId, messageLines.join("\n"), {
+              inline_keyboard: [[{ text: "🔗 Chi tiết trên Web", url: approvalLink }]]
+            });
+          }
+        }
+
+        await this.sendMessage(chatId, "✅ Đã phê duyệt bài đăng thành công.");
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi khi xử lý phê duyệt bài đăng:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/slot_reject") {
+      const slotId = String(args || "").trim();
+      if (!slotId) {
+        await this.sendMessage(chatId, "⚠️ Thiếu mã bài viết (slotId).");
+        return;
+      }
+
+      try {
+        const slot = await MarketingCampaignSlotModel.findById(slotId);
+        if (!slot) {
+          await this.sendMessage(chatId, "❌ Không tìm thấy bài viết trên hệ thống.");
+          return;
+        }
+
+        const scope = buildSessionScope(session);
+        if (slot.companyCode !== scope.companyCode) {
+          await this.sendMessage(chatId, "⛔ Bạn không có quyền từ chối bài viết của công ty khác.");
+          return;
+        }
+
+        if (slot.status !== "pending_approval") {
+          await this.sendMessage(chatId, `⚠️ Bài viết hiện không ở trạng thái chờ duyệt (Trạng thái: <b>${slot.status}</b>).`);
+          return;
+        }
+
+        // Đưa vào rejectWizards để chờ lý do từ chối
+        const isList = originalMessageText?.includes("DANH SÁCH BÀI CHỜ DUYỆT") || false;
+        rejectWizards.set(chatId, { slotId, messageId, isList });
+
+        await this.sendMessageWithSlotApprovalButtons(
+          chatId,
+          "📝 <b>TỪ CHỐI PHÊ DUYỆT BÀI ĐĂNG</b>\n\nVui lòng nhập lý do từ chối bài đăng này (ví dụ: <i>Sai thông tin khuyến mãi, cần viết lại tiêu đề...</i>):\n\n<i>(Hoặc bấm nút dưới đây để từ chối mà không cần lý do, hoặc gõ /cancel để hủy)</i>",
+          [
+            [
+              { text: "Từ chối không cần lý do", callbackData: `/slot_reject_no_reason ${slotId}` }
+            ],
+            [
+              { text: "❌ Hủy bỏ", callbackData: "/cancel" }
+            ]
+          ]
+        );
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi khi xử lý từ chối bài đăng:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/slot_reject_no_reason") {
+      const slotId = String(args || "").trim();
+      if (!slotId) {
+        await this.sendMessage(chatId, "⚠️ Thiếu mã bài viết (slotId).");
+        return;
+      }
+
+      try {
+        const slot = await MarketingCampaignSlotModel.findById(slotId);
+        if (!slot) {
+          await this.sendMessage(chatId, "❌ Không tìm thấy bài viết trên hệ thống.");
+          return;
+        }
+
+        const scope = buildSessionScope(session);
+        if (slot.companyCode !== scope.companyCode) {
+          await this.sendMessage(chatId, "⛔ Bạn không có quyền từ chối bài viết của công ty khác.");
+          return;
+        }
+
+        if (slot.status !== "pending_approval") {
+          await this.sendMessage(chatId, `⚠️ Bài viết hiện không ở trạng thái chờ duyệt (Trạng thái: <b>${slot.status}</b>).`);
+          return;
+        }
+
+        const rejectedBy = session.displayName || session.email || "Admin qua Telegram";
+        const reason = "Từ chối qua Telegram không kèm lý do.";
+
+        await marketingCampaignService.rejectSlot(scope.companyCode, String(slot.campaignId), slotId, reason, rejectedBy);
+        rejectWizards.delete(chatId);
+
+        // Edit tin nhắn gốc
+        if (messageId) {
+          const isList = originalMessageText?.includes("DANH SÁCH BÀI CHỜ DUYỆT");
+          if (isList) {
+            await this.handleCommand(chatId, "private", session.telegramUserId, "/pending", undefined, undefined, undefined, messageId);
+          } else {
+            const campaign = await MarketingCampaignModel.findById(slot.campaignId).lean();
+            const content = await MarketingContentModel.findOne({ campaignSlotId: slot._id }).lean();
+            
+            const campaignTitle = campaign?.title || "Chiến dịch Marketing";
+            const platform = slot.platform || "Không xác định";
+            const pillar = slot.pillar || "—";
+            const topicBrief = slot.topicBrief || "Không có chủ đề";
+            const scheduledDisplay = formatScheduledTime(slot.scheduledAt);
+            
+            const messageLines = [
+              "❌ <b>BÀI ĐĂNG ĐÃ BỊ TỪ CHỐI</b>",
+              "",
+              `🏷️ Chiến dịch: <b>${campaignTitle}</b>`,
+              `📱 Kênh: <b>${platform}</b> | Pillar: <b>${pillar}</b>`,
+              `📅 Lịch đăng: <b>${scheduledDisplay}</b>`,
+              `💡 Chủ đề: <i>${topicBrief}</i>`,
+            ];
+
+            if (content) {
+              const truncatedBody = content.bodyText ? truncateTelegramText(content.bodyText, 400) : "";
+              messageLines.push(
+                "",
+                "✍️ <b>Nội dung bản nháp:</b>",
+                `<b>Tiêu đề:</b> ${content.title || "—"}`,
+                `<i>${truncatedBody || "Chưa có nội dung"}</i>`
+              );
+            }
+
+            messageLines.push(
+              "",
+              `🔴 Trạng thái: <b>Từ chối phê duyệt</b>`,
+              `👤 Người từ chối: <b>${rejectedBy}</b>`,
+              `💬 Lý do: <i>${reason}</i>`,
+              `🕒 Lúc: <i>${new Date().toLocaleString("vi-VN")}</i>`
+            );
+
+            const approvalLink = buildApprovalLink(slotId, String(slot.campaignId), scope.companyCode);
+            await this.editMessageText(chatId, messageId, messageLines.join("\n"), {
+              inline_keyboard: [[{ text: "🔗 Chi tiết trên Web", url: approvalLink }]]
+            });
+          }
+        }
+
+        await this.sendMessage(chatId, "✅ Đã từ chối bài đăng thành công.");
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi khi xử lý từ chối không lý do:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/pending") {
+      try {
+        const scope = buildSessionScope(session);
+        if (!scope.companyCode) {
+          await this.sendMessage(chatId, "⚠️ Tài khoản của bạn chưa cấu hình companyCode.");
+          return;
+        }
+
+        const slots = await MarketingCampaignSlotModel.find({
+          companyCode: scope.companyCode,
+          status: "pending_approval"
+        })
+          .sort({ scheduledAt: 1 })
+          .lean();
+
+        if (!slots.length) {
+          const emptyKeyboard = [
+            [{ text: "🔄 Tải lại danh sách", callbackData: "/pending" }]
+          ];
+          if (messageId) {
+            await this.editMessageText(chatId, messageId, "📭 <b>Hiện tại không có bài đăng nào đang chờ phê duyệt.</b>", {
+              inline_keyboard: emptyKeyboard
+            });
+          } else {
+            await this.sendMessageWithSlotApprovalButtons(
+              chatId,
+              "📭 <b>Hiện tại không có bài đăng nào đang chờ phê duyệt.</b>",
+              [[{ text: "🔄 Tải lại danh sách", callbackData: "/pending" }]]
+            );
+          }
+          return;
+        }
+
+        const lines = [
+          "📥 <b>DANH SÁCH BÀI CHỜ DUYỆT</b>",
+          `Có <b>${slots.length}</b> bài đăng đang chờ phê duyệt cho công ty <code>${scope.companyCode}</code>:`,
+          ""
+        ];
+
+        const buttons: Array<Array<{ text: string; callbackData?: string; url?: string }>> = [];
+
+        slots.forEach((slot: any, index: number) => {
+          const timeStr = formatScheduledTime(slot.scheduledAt);
+          lines.push(
+            `${index + 1}. 📱 Kênh: <b>${slot.platform}</b> | Pillar: <b>${slot.pillar || "—"}</b>`,
+            `   📅 Lịch đăng: <b>${timeStr}</b>`,
+            `   💡 Chủ đề: <i>${slot.topicBrief || "Không có chủ đề"}</i>`,
+            ""
+          );
+
+          buttons.push([
+            { text: `🔍 Bài ${index + 1}`, callbackData: `/slot_view ${slot._id}` },
+            { text: `✅ Duyệt`, callbackData: `/slot_approve ${slot._id}` },
+            { text: `❌ Từ chối`, callbackData: `/slot_reject ${slot._id}` }
+          ]);
+        });
+
+        buttons.push([
+          { text: "🔄 Làm mới danh sách", callbackData: "/pending" }
+        ]);
+
+        const textContent = lines.join("\n");
+
+        if (messageId) {
+          await this.editMessageText(chatId, messageId, textContent, {
+            inline_keyboard: buttons.map(row => row.map(btn => ({
+              text: btn.text,
+              callback_data: btn.callbackData,
+              url: btn.url
+            })))
+          });
+        } else {
+          await this.sendMessageWithSlotApprovalButtons(chatId, textContent, buttons);
+        }
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi khi tải danh sách chờ duyệt:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/slot_view") {
+      const slotId = String(args || "").trim();
+      if (!slotId) {
+        await this.sendMessage(chatId, "⚠️ Thiếu mã bài viết (slotId).");
+        return;
+      }
+
+      try {
+        const slot = await MarketingCampaignSlotModel.findById(slotId);
+        if (!slot) {
+          await this.sendMessage(chatId, "❌ Không tìm thấy bài viết trên hệ thống.");
+          return;
+        }
+
+        const scope = buildSessionScope(session);
+        if (slot.companyCode !== scope.companyCode) {
+          await this.sendMessage(chatId, "⛔ Bạn không có quyền xem bài viết của công ty khác.");
+          return;
+        }
+
+        const campaign = await MarketingCampaignModel.findById(slot.campaignId).lean();
+        const content = await MarketingContentModel.findOne({ campaignSlotId: slot._id }).lean();
+        const approvalLink = buildApprovalLink(slotId, String(slot.campaignId), scope.companyCode);
+
+        const campaignTitle = campaign?.title || "Chiến dịch Marketing";
+        const platform = slot.platform || "Không xác định";
+        const pillar = slot.pillar || "—";
+        const topicBrief = slot.topicBrief || "Không có chủ đề";
+        const scheduledDisplay = formatScheduledTime(slot.scheduledAt);
+
+        const buttons = [
+          [
+            { text: "✅ Phê duyệt", callbackData: `/slot_approve ${slot._id}` },
+            { text: "✏️ Sửa", callbackData: `/slot_edit ${slot._id}` },
+            { text: "❌ Từ chối", callbackData: `/slot_reject ${slot._id}` }
+          ],
+          [
+            { text: "🔗 Chi tiết trên Web", url: approvalLink }
+          ]
+        ];
+
+        // Xác định xem có media để gửi xem trước không
+        let targetImageUrl = "";
+        let targetVideoUrl = "";
+        if (content) {
+          targetImageUrl = content.imageUrl || "";
+          targetVideoUrl = content.videoUrl || "";
+
+          if (!targetImageUrl && !targetVideoUrl && content.mediaUrls && content.mediaUrls.length > 0) {
+            const firstMedia = content.mediaUrls[0];
+            const isVideo = /\.(mp4|mov|avi|mkv|webm)/i.test(firstMedia) || firstMedia.includes("video");
+            if (isVideo) {
+              targetVideoUrl = firstMedia;
+            } else {
+              targetImageUrl = firstMedia;
+            }
+          }
+        }
+
+        const messageLinesForCaption = [
+          "📋 <b>CHI TIẾT BÀI ĐĂNG CẦN PHÊ DUYỆT</b>",
+          "",
+          `🏷️ Chiến dịch: <b>${campaignTitle}</b>`,
+          `📱 Kênh: <b>${platform}</b> | Pillar: <b>${pillar}</b>`,
+          `📅 Lịch đăng: <b>${scheduledDisplay}</b>`,
+          `💡 Chủ đề: <i>${topicBrief}</i>`,
+          `⏱️ Trạng thái: <b>${slot.status}</b>`
+        ];
+
+        if (content) {
+          const truncatedBody = content.bodyText ? truncateTelegramText(content.bodyText, 400) : "";
+          messageLinesForCaption.push(
+            "",
+            "✍️ <b>Bản nháp nội dung:</b>",
+            `<b>Tiêu đề:</b> ${content.title || "—"}`,
+            `<i>${truncatedBody || "Chưa có nội dung"}</i>`
+          );
+        }
+
+        messageLinesForCaption.push(
+          "",
+          "Bấm nút dưới đây để phê duyệt hoặc từ chối bài đăng này."
+        );
+
+        const captionText = messageLinesForCaption.join("\n");
+
+        if (targetVideoUrl) {
+          try {
+            await this.sendVideoWithSlotApprovalButtons(chatId, targetVideoUrl, captionText, buttons);
+            return;
+          } catch (mediaErr) {
+            console.warn("[Telegram Bot] Gửi video xem trước thất bại, chuyển sang chế độ văn bản thường:", mediaErr);
+          }
+        } else if (targetImageUrl) {
+          try {
+            await this.sendPhotoWithSlotApprovalButtons(chatId, targetImageUrl, captionText, buttons);
+            return;
+          } catch (mediaErr) {
+            console.warn("[Telegram Bot] Gửi ảnh xem trước thất bại, chuyển sang chế độ văn bản thường:", mediaErr);
+          }
+        }
+
+        // Fallback: Gửi tin nhắn văn bản thường kèm link phụ nếu gửi media lỗi hoặc không có media
+        const messageLinesForText = [...messageLinesForCaption];
+        if (content) {
+          if (content.imageUrl) {
+            messageLinesForText.push(`🖼️ <a href="${content.imageUrl}">Ảnh đính kèm</a>`);
+          } else if (content.videoUrl) {
+            messageLinesForText.push(`🎬 <a href="${content.videoUrl}">Video đính kèm</a>`);
+          }
+        }
+        await this.sendMessageWithSlotApprovalButtons(chatId, messageLinesForText.join("\n"), buttons);
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi khi hiển thị chi tiết bài đăng:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/slot_edit") {
+      const slotId = String(args || "").trim();
+      if (!slotId) {
+        await this.sendMessage(chatId, "⚠️ Thiếu mã bài viết (slotId).");
+        return;
+      }
+
+      try {
+        const slot = await MarketingCampaignSlotModel.findById(slotId);
+        if (!slot) {
+          await this.sendMessage(chatId, "❌ Không tìm thấy bài viết trên hệ thống.");
+          return;
+        }
+
+        const scope = buildSessionScope(session);
+        if (slot.companyCode !== scope.companyCode) {
+          await this.sendMessage(chatId, "⛔ Bạn không có quyền chỉnh sửa bài viết của công ty khác.");
+          return;
+        }
+
+        const content = await MarketingContentModel.findOne({ campaignSlotId: slot._id }).lean();
+        if (!content) {
+          await this.sendMessage(chatId, "❌ Không tìm thấy nội dung bài viết.");
+          return;
+        }
+
+        const isList = originalMessageText?.includes("DANH SÁCH BÀI CHỜ DUYỆT") || false;
+        editWizards.set(chatId, { slotId, messageId, isList });
+
+        const currentText = [
+          `Tiêu đề: ${content.title || "—"}`,
+          `${content.bodyText || ""}`
+        ].join("\n");
+
+        await this.sendMessage(
+          chatId,
+          `📝 <b>CHỈNH SỬA NỘI DUNG BÀI ĐĂNG</b>\n\nBạn đang chỉnh sửa bài viết thuộc chiến dịch.\nHãy copy khối văn bản dưới đây, sửa lại rồi gửi lại cho bot:\n\n<i>(Gõ /cancel bất kỳ lúc nào để hủy bỏ chỉnh sửa)</i>`
+        );
+
+        await this.sendMessage(chatId, `<code>${currentText}</code>`);
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi khi mở trình chỉnh sửa bài đăng:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/create_campaign") {
+      const brief = args.trim();
+      if (brief) {
+        await this.executeDirectCampaignCreation(chatId, session, brief);
+        return;
+      }
+      campaignWizards.set(chatId, { step: "waiting_for_brief" });
+      await this.sendMessage(
+        chatId,
+        [
+          "🚀 <b>TRỢ LÝ AI: TẠO CHIẾN DỊCH MARKETING TRỰC TIẾP WEB ERP</b>",
+          "Vui lòng nhập định hướng chiến lược chung, chủ đề hoặc thông điệp sản phẩm cho chiến dịch mới của sếp.",
+          "",
+          "<i>Ví dụ: Quảng bá thương hiệu trà sữa matcha tự nhiên mới khai trương, giảm giá 20% tuần đầu tiên.</i>",
+          "",
+          "(Gõ <code>/cancel</code> để hủy bỏ bất kỳ lúc nào)"
+        ].join("\n")
+      );
+      return;
+    }
+
+    if (command === "/queue") {
+      try {
+        const scope = buildSessionScope(session);
+        if (!scope.companyCode) {
+          await this.sendMessage(chatId, "⚠️ Tài khoản của bạn chưa có companyCode nên bot chưa thể đọc hàng chờ đăng một cách an toàn.");
+          return;
+        }
+
+        const cards = await MarketingContentModel.find({
+          companyCode: scope.companyCode,
+          status: { $in: ["approved", "scheduled", "processing", "failed"] },
+          channel: { $in: ["Facebook", "TikTok"] },
+        })
+          .sort({ generatedAt: -1 })
+          .limit(TELEGRAM_QUEUE_LIMIT)
+          .lean();
+
+        if (!cards.length) {
+          await this.sendMessage(chatId, "📭 Hiện chưa có card Facebook/TikTok nào đang chờ xử lý trong công ty của bạn.");
+          return;
+        }
+
+        const lines = [
+          "🗂️ <b>HÀNG CHỜ ĐĂNG MARKETING</b>",
+          `Hiển thị ${cards.length} card mới nhất trong phạm vi công ty <code>${scope.companyCode}</code>:`,
+          "",
+        ];
+
+        cards.forEach((card: any, index: number) => {
+          lines.push(
+            `${index + 1}. <b>${truncateTelegramText(card.title || "Không có tiêu đề", 80)}</b>`,
+            `• ID: <code>${card._id}</code>`,
+            `• Kênh: <b>${card.channel}</b> | Trạng thái: <b>${card.status}</b>`,
+            `• Nội dung: ${truncateTelegramText(card.bodyText || "", 120) || "Chưa có nội dung"}`,
+            ""
+          );
+        });
+
+        lines.push("Dùng <code>/publish_fb [cardId]</code> hoặc <code>/publish_tt [cardId]</code> để đăng ngay.");
+        await this.sendMessage(chatId, lines.join("\n"));
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi tải hàng chờ đăng:", err);
+        await this.sendMessage(chatId, `❌ Không thể tải hàng chờ đăng: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/publish_fb") {
+      try {
+        const scope = buildSessionScope(session);
+        const cardId = String(args || "").trim();
+
+        if (!scope.companyCode) {
+          await this.sendMessage(chatId, "⚠️ Tài khoản của bạn chưa có companyCode nên bot không thể đăng bài an toàn.");
+          return;
+        }
+        if (!cardId) {
+          await this.sendMessage(chatId, "⚠️ Sử dụng: <code>/publish_fb cardId</code>");
+          return;
+        }
+
+        const card = await this.getScopedMarketingCard(cardId, scope.companyCode, "Facebook");
+        const integration = await this.resolveScopedIntegration(card, scope.companyCode, "Facebook");
+        if (!integration.accessToken || !integration.username) {
+          throw new Error("Thiếu access token hoặc pageId Facebook trong tài khoản liên kết.");
+        }
+
+        await this.sendMessage(
+          chatId,
+          `🚀 <b>Đang gửi bài Facebook...</b>\nTiêu đề: <b>${truncateTelegramText(card.title || "Không có tiêu đề", 80)}</b>\nCard ID: <code>${card._id}</code>`
+        );
+
+        const result = await facebookPostService.publishToPage(
+          card.bodyText || "",
+          card.imageUrl || "",
+          card.videoUrl || "",
+          integration.username,
+          integration.accessToken,
+          String(card._id),
+          "immediate",
+          undefined,
+          card.title || ""
+        );
+
+        const fbData = result?.data?.data ?? result?.data ?? {};
+        const postId = String(fbData.id || fbData.post_id || "").trim();
+        const postUrl = String(fbData.postUrl || fbData.permalink_url || "").trim();
+
+        await MarketingContentModel.findByIdAndUpdate(card._id, {
+          status: "published",
+          publishedAt: new Date(),
+          facebookPostId: postId || card.facebookPostId || "",
+          postUrl: postUrl || card.postUrl || "",
+          publishError: null,
+        });
+
+        await this.sendMessage(
+          chatId,
+          [
+            "✅ <b>Đăng Facebook thành công</b>",
+            `Tiêu đề: <b>${truncateTelegramText(card.title || "Không có tiêu đề", 80)}</b>`,
+            `Card ID: <code>${card._id}</code>`,
+            postId ? `Post ID: <code>${postId}</code>` : "",
+            postUrl ? `Link bài đăng: <a href="${postUrl}">${postUrl}</a>` : "",
+          ]
+            .filter(Boolean)
+            .join("\n")
+        );
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi đăng Facebook từ Telegram:", err);
+        if (args) {
+          await MarketingContentModel.findByIdAndUpdate(String(args).trim(), {
+            status: "failed",
+            publishError: err.message || String(err),
+          }).catch(() => undefined);
+        }
+        await this.sendMessage(chatId, `❌ Đăng Facebook thất bại: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/publish_tt") {
+      try {
+        const scope = buildSessionScope(session);
+        const cardId = String(args || "").trim();
+
+        if (!scope.companyCode) {
+          await this.sendMessage(chatId, "⚠️ Tài khoản của bạn chưa có companyCode nên bot không thể đăng bài an toàn.");
+          return;
+        }
+        if (!cardId) {
+          await this.sendMessage(chatId, "⚠️ Sử dụng: <code>/publish_tt cardId</code>");
+          return;
+        }
+
+        const card = await this.getScopedMarketingCard(cardId, scope.companyCode, "TikTok");
+        if (!card.videoUrl) {
+          throw new Error("Card TikTok này chưa có videoUrl nên chưa thể đăng.");
+        }
+
+        await this.resolveScopedIntegration(card, scope.companyCode, "TikTok");
+        await this.sendMessage(
+          chatId,
+          `🚀 <b>Đang gửi video TikTok...</b>\nTiêu đề: <b>${truncateTelegramText(card.title || "Không có tiêu đề", 80)}</b>\nCard ID: <code>${card._id}</code>`
+        );
+
+        const result = await tiktokService.publishVideo(
+          String(card._id),
+          card.bodyText || card.title || "",
+          card.videoUrl,
+          "SELF_ONLY",
+          undefined,
+          undefined,
+          undefined,
+          card.integrationId ? String(card.integrationId) : undefined,
+          scope.companyCode
+        );
+
+        await tiktokService.registerPublishTracking(String(card._id), result);
+
+        const data = (result?.data || {}) as {
+          postId?: string;
+          shareUrl?: string;
+          publishStatus?: string;
+        };
+        const postId = String(data.postId || "").trim();
+        const shareUrl = String(data.shareUrl || "").trim();
+        const publishStatus = String(data.publishStatus || result.status || "").trim().toUpperCase();
+        const isSuccess = result.status === "success";
+
+        await MarketingContentModel.findByIdAndUpdate(card._id, {
+          status: isSuccess ? "published" : "processing",
+          publishedAt: isSuccess ? new Date() : card.publishedAt,
+          tiktokPostId: postId || card.tiktokPostId || "",
+          tiktokShareUrl: shareUrl || card.tiktokShareUrl || "",
+          publishError: null,
+        });
+
+        await this.sendMessage(
+          chatId,
+          [
+            isSuccess ? "✅ <b>Đăng TikTok thành công</b>" : "⏳ <b>TikTok đang xử lý video</b>",
+            `Tiêu đề: <b>${truncateTelegramText(card.title || "Không có tiêu đề", 80)}</b>`,
+            `Card ID: <code>${card._id}</code>`,
+            publishStatus ? `Trạng thái: <b>${publishStatus}</b>` : "",
+            postId ? `Post ID: <code>${postId}</code>` : "",
+            shareUrl ? `Link video: <a href="${shareUrl}">${shareUrl}</a>` : "",
+          ]
+            .filter(Boolean)
+            .join("\n")
+        );
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi đăng TikTok từ Telegram:", err);
+        if (args) {
+          await MarketingContentModel.findByIdAndUpdate(String(args).trim(), {
+            status: "failed",
+            publishError: err.message || String(err),
+          }).catch(() => undefined);
+        }
+        await this.sendMessage(chatId, `❌ Đăng TikTok thất bại: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/image") {
+      if (!args) {
+        await this.sendMessage(chatId, "⚠️ Vui lòng cung cấp mô tả ảnh. Ví dụ: <code>/image chú mèo con bay trên đám mây</code>");
+        return;
+      }
+
+      let refImageUrl: string | undefined;
+      try {
+        refImageUrl = await this.resolveTelegramReferenceImage(chatId, photo, document, replyToMessage);
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi tải ảnh tham chiếu:", err);
+        await this.sendMessage(chatId, `⚠️ Không thể xử lý ảnh tham chiếu: ${err.message || err}. Hệ thống sẽ tạo ảnh không có ảnh tham chiếu.`);
+      }
+
+      await this.sendMessage(chatId, `🎨 <b>Đang gửi yêu cầu tạo ảnh AI...</b>\nMô tả: <i>${args}</i>${refImageUrl ? "\n📎 <i>Có ảnh tham chiếu đi kèm</i>" : ""}\nVui lòng đợi trong giây lát.`);
+
+      try {
+        const result = await geminiService.generateImage(
+          args,
+          refImageUrl ? { existingImageUris: [refImageUrl] } : undefined
+        );
+        if (result && result.url) {
+          const sendRes = await this.sendPhoto(chatId, result.url, `🎨 <b>Ảnh được tạo thành công!</b>\nMô tả: <i>${args}</i>`);
+          if (!sendRes || !sendRes.ok) {
+            // Gửi tin nhắn dạng văn bản kèm liên kết nếu Telegram không hiển thị được ảnh trực tiếp
+            await this.sendMessage(
+              chatId,
+              `🎨 <b>Ảnh được tạo thành công!</b>\nMô tả: <i>${args}</i>\n\n🔗 <a href="${result.url}">Nhấn vào đây để tải và xem ảnh trực tiếp</a>`
+            );
+          }
+        } else {
+          await this.sendMessage(chatId, "❌ Quá trình tạo ảnh không thành công. Hãy thử lại mô tả khác.");
+        }
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi tạo ảnh:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống khi tạo ảnh: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/video") {
+      if (!args) {
+        await this.sendMessage(chatId, "⚠️ Vui lòng cung cấp mô tả video. Ví dụ: <code>/video dòng thác đổ trong rừng nguyên sinh</code>");
+        return;
+      }
+
+      let refImageUrl: string | undefined;
+      try {
+        refImageUrl = await this.resolveTelegramReferenceImage(chatId, photo, document, replyToMessage);
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi tải ảnh tham chiếu:", err);
+        await this.sendMessage(chatId, `⚠️ Không thể xử lý ảnh tham chiếu: ${err.message || err}. Hệ thống sẽ tạo video không có ảnh tham chiếu.`);
+      }
+
+      await this.sendMessage(chatId, `🎬 <b>Đã nhận yêu cầu sinh video AI...</b>\nMô tả: <i>${args}</i>${refImageUrl ? "\n📎 <i>Có ảnh tham chiếu đi kèm</i>" : ""}\nBot sẽ xử lý nền và tự gửi kết quả khi hoàn tất.`);
+
+      void (async () => {
+        try {
+          const result = await geminiService.generateVideo(
+            args,
+            6,
+            refImageUrl ? { referenceImageUris: [refImageUrl] } : undefined
+          );
+          if (result && result.url) {
+            if (result.url.startsWith("pending://openrouter/")) {
+              const taskId = result.url.replace("pending://openrouter/", "");
+              await this.sendMessage(chatId, "⏳ <b>Video đang được render trên máy chủ AI...</b>\nBot sẽ tự gửi video khi hoàn tất.");
+              const completedVideoUrl = await this.waitForOpenRouterVideo(taskId);
+              const sendRes = await this.sendVideo(chatId, completedVideoUrl, `🎬 <b>Video được tạo thành công!</b>\nMô tả: <i>${args}</i>`);
+              if (!sendRes || !sendRes.ok) {
+                await this.sendMessage(
+                  chatId,
+                  `🎬 <b>Video đã render xong!</b>\nMô tả: <i>${args}</i>\n\n🔗 <a href="${completedVideoUrl}">Nhấn vào đây để tải và xem video trực tiếp</a>`
+                );
+              }
+            } else {
+              const sendRes = await this.sendVideo(chatId, result.url, `🎬 <b>Video được tạo thành công!</b>\nMô tả: <i>${args}</i>`);
+              if (!sendRes || !sendRes.ok) {
+                await this.sendMessage(
+                  chatId,
+                  `🎬 <b>Video được tạo thành công!</b>\nMô tả: <i>${args}</i>\n\n🔗 <a href="${result.url}">Nhấn vào đây để tải và xem video trực tiếp</a>`
+                );
+              }
+            }
+          } else {
+            await this.sendMessage(chatId, "❌ Quá trình tạo video không thành công. Hãy thử lại sau.");
+          }
+        } catch (err: any) {
+          console.error("[Telegram Bot] Lỗi tạo video:", err);
+          await this.sendMessage(chatId, `❌ Lỗi hệ thống khi tạo video: ${err.message || err}`);
+        }
+      })();
+      return;
+    }
+
+    if (command === "/report" || command === "/stats") {
+      await this.sendMessage(chatId, "📊 <b>Đang truy vấn hệ thống để lập báo cáo, vui lòng đợi...</b>");
+      try {
+        const scope = buildSessionScope(session);
+        if (!scope.companyCode) {
+          await this.sendMessage(chatId, "⚠️ Tài khoản của bạn chưa được gắn companyCode nên bot không thể truy xuất dữ liệu an toàn.");
+          return;
+        }
+
+        const companyUsers = await UserModel.find({ companyCode: scope.companyCode }, { _id: 1 }).lean();
+        const companyUserIds = companyUsers.map((item: any) => String(item._id));
+
+        // 1. CRM Stats
+        const tickets = await CRMTicketModel.find({ companyCode: scope.companyCode }).lean();
+        const totalLeads = tickets.length;
+        let cold = 0, warm = 0, hot = 0, won = 0, upsell = 0;
+        let totalWonValue = 0;
+
+        for (const t of tickets) {
+          if (t.status === "cold") cold++;
+          else if (t.status === "warm") warm++;
+          else if (t.status === "hot") hot++;
+          else if (t.status === "won") {
+            won++;
+            totalWonValue += Number(t.value || 0);
+          } else if (t.status === "upsell") {
+            upsell++;
+            totalWonValue += Number(t.value || 0);
+          }
+        }
+
+        // 2. Transaction Stats
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const transactionUserIds = scope.isAdmin ? companyUserIds : [scope.userId];
+        const allSuccessTransactions = await TransactionModel.find({
+          status: "success",
+          userId: { $in: transactionUserIds },
+        }).lean();
+        const todaySuccessTransactions = await TransactionModel.find({
+          status: "success",
+          userId: { $in: transactionUserIds },
+          createdAt: { $gte: startOfDay },
+        }).lean();
+
+        const totalTransactedAmount = allSuccessTransactions.reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+        const todayTransactedAmount = todaySuccessTransactions.reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+
+        // 3. Low stock alert stats
+        const allProducts = await ProductModel.find({ companyCode: scope.companyCode }).lean();
+        const lowStockProducts = allProducts.filter((p: any) => {
+          const stock = typeof p.stock === "number" ? p.stock : 0;
+          const minAlert = typeof p.minStockAlert === "number" ? p.minStockAlert : 15;
+          return stock <= minAlert;
+        });
+
+        const report = [
+          "📊 <b>BÁO CÁO THỐNG KÊ DOANH NGHIỆP</b> 📊",
+          "=============================",
+          "👥 <b>QUẢN LÝ CƠ HỘI CRM (LEADS):</b>",
+          `• Tổng số cơ hội: <b>${totalLeads}</b>`,
+          `• ❄️ Thụ động (Cold): <b>${cold}</b>`,
+          `• 🔥 Tiềm năng (Warm/Hot): <b>${warm + hot}</b>`,
+          `• 🎉 Đã chốt đơn (Won/Upsell): <b>${won + upsell}</b>`,
+          `• 💰 Tổng giá trị chốt đơn: <b>${totalWonValue.toLocaleString("vi-VN")} VND</b>`,
+          "",
+          "💳 <b>GIAO DỊCH & THANH TOÁN (PAYMENTS):</b>",
+          `• Hôm nay: <b>+${todayTransactedAmount.toLocaleString("vi-VN")} VND</b> (${todaySuccessTransactions.length} GD thành công)`,
+          `• Tổng tích lũy: <b>${totalTransactedAmount.toLocaleString("vi-VN")} VND</b> (${allSuccessTransactions.length} GD)`,
+          "",
+          "📦 <b>CẢNH BÁO TỒN KHO:</b>",
+          `• Số sản phẩm dưới định mức: <b>${lowStockProducts.length}</b> sản phẩm`,
+        ];
+
+        if (lowStockProducts.length > 0) {
+          report.push("");
+          report.push("⚠️ <b>Chi tiết sản phẩm sắp hết hàng:</b>");
+          lowStockProducts.slice(0, 5).forEach((p: any) => {
+            report.push(`- <b>${p.name}</b> (SKU: <code>${p.sku}</code>): Tồn <b>${p.stock}</b> (Định mức: ${p.minStockAlert})`);
+          });
+          if (lowStockProducts.length > 5) {
+            report.push(`<i>...và ${lowStockProducts.length - 5} sản phẩm khác.</i>`);
+          }
+        } else {
+          report.push("✅ Tồn kho tất cả sản phẩm đều ở mức an toàn.");
+        }
+
+        report.push("=============================");
+        report.push(`🕒 <i>Báo cáo lúc: ${new Date().toLocaleString("vi-VN")}</i>`);
+
+        await this.sendMessage(chatId, report.join("\n"));
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi tạo báo cáo stats:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống khi lập báo cáo: ${err.message || err}`);
+      }
+      return;
+    }
+
+    if (command === "/warning_stock" || command === "/lowstock") {
+      await this.sendMessage(chatId, "🔍 <b>Đang quét danh sách tồn kho thấp...</b>");
+      try {
+        const scope = buildSessionScope(session);
+        if (!scope.companyCode) {
+          await this.sendMessage(chatId, "⚠️ Tài khoản của bạn chưa được gắn companyCode nên bot không thể truy xuất dữ liệu an toàn.");
+          return;
+        }
+
+        const allProducts = await ProductModel.find({ companyCode: scope.companyCode }).lean();
+        const lowStockProducts = allProducts.filter((p: any) => {
+          const stock = typeof p.stock === "number" ? p.stock : 0;
+          const minAlert = typeof p.minStockAlert === "number" ? p.minStockAlert : 15;
+          return stock <= minAlert;
+        });
+
+        if (lowStockProducts.length === 0) {
+          await this.sendMessage(chatId, "✅ <b>Tất cả sản phẩm đều có mức tồn kho an toàn!</b>");
+          return;
+        }
+
+        const msgLines = [
+          `⚠️ <b>CÓ ${lowStockProducts.length} SẢN PHẨM SẮP HẾT HÀNG:</b>`,
+          "=============================",
+        ];
+
+        lowStockProducts.forEach((p: any) => {
+          msgLines.push(`• <b>${p.name}</b> (SKU: <code>${p.sku}</code>)`);
+          msgLines.push(`  Tồn: <b>${p.stock}</b> / Định mức: ${p.minStockAlert} ${p.unit || "Cái"}`);
+        });
+
+        msgLines.push("=============================");
+        msgLines.push("👉 <i>Vui lòng lên kế hoạch nhập hàng sớm.</i>");
+
+        await this.sendMessage(chatId, msgLines.join("\n"));
+      } catch (err: any) {
+        console.error("[Telegram Bot] Lỗi quét tồn kho thấp:", err);
+        await this.sendMessage(chatId, `❌ Lỗi hệ thống: ${err.message || err}`);
+      }
+      return;
+    }
+
+    await this.sendMessage(
+      chatId,
+      "⚠️ <b>Tính năng hoặc câu lệnh này chưa được cài đặt / chưa được cấu hình trên hệ thống iGen Marketing.</b>\n👉 Vui lòng bấm <code>/help</code> hoặc <code>/menu</code> để xem danh sách tính năng đang hoạt động."
+    );
+  },
+
+  async resolveTelegramReferenceImage(
+    chatId: number,
+    photo?: any[],
+    document?: any,
+    replyToMessage?: any
+  ): Promise<string | undefined> {
+    const fileId = this.extractTelegramImageFileId(photo, document)
+      || this.extractTelegramImageFileId(replyToMessage?.photo, replyToMessage?.document);
+
+    if (!fileId) {
+      return undefined;
+    }
+
+    await this.sendMessage(chatId, "📥 <b>Đang tải ảnh tham chiếu từ Telegram...</b>");
+    const buffer = await this.downloadTelegramFile(fileId);
+    return cloudinaryService.uploadMediaBuffer(buffer, "telegram_refs");
+  },
+
+  extractTelegramImageFileId(photo?: any[], document?: any): string | undefined {
+    if (photo && photo.length > 0) {
+      return photo[photo.length - 1].file_id;
+    }
+
+    if (document?.file_id) {
+      const mimeType = String(document.mime_type || "").toLowerCase();
+      if (mimeType.startsWith("image/")) {
+        return document.file_id;
+      }
+      throw new Error("File đính kèm không phải ảnh hợp lệ. Hãy gửi ảnh dưới dạng photo hoặc file image/*.");
+    }
+
+    return undefined;
+  },
+
+  async waitForOpenRouterVideo(jobId: string): Promise<string> {
+    const maxAttempts = 60;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+      const result = await geminiService.getOpenRouterVideoTaskStatus(jobId);
+      if (result.status === "completed" && result.unsignedUrl) {
+        return result.unsignedUrl;
+      }
+      if (result.status === "failed") {
+        throw new Error(result.error || "Render video thất bại trên OpenRouter.");
+      }
+      attempts++;
+    }
+
+    throw new Error("Quá thời gian chờ render video từ OpenRouter.");
+  },
+
+  /**
+   * Tải tệp tin từ Telegram về dưới dạng Buffer
+   */
+  async downloadTelegramFile(fileId: string): Promise<Buffer> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) throw new Error("Chưa cấu hình TELEGRAM_BOT_TOKEN");
+
+    const getFileUrl = `${TELEGRAM_API_BASE_URL}/bot${botToken}/getFile?file_id=${fileId}`;
+    const res = await fetch(getFileUrl);
+    if (!res.ok) throw new Error("Không thể truy vấn thông tin tệp tin từ Telegram");
+
+    const body: any = await res.json();
+    if (!body.ok || !body.result?.file_path) {
+      throw new Error("Không tìm thấy đường dẫn tệp tin trên hệ thống Telegram");
+    }
+
+    const filePath = body.result.file_path;
+    const downloadUrl = `${TELEGRAM_API_BASE_URL}/file/bot${botToken}/${filePath}`;
+    const fileRes = await fetch(downloadUrl);
+    if (!fileRes.ok) throw new Error("Không thể tải tệp tin từ Telegram");
+
+    const arrayBuffer = await fileRes.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  },
+
+  async getScopedMarketingCard(cardId: string, companyCode: string, expectedChannel: "Facebook" | "TikTok"): Promise<any> {
+    const card = await MarketingContentModel.findOne({
+      _id: cardId,
+      companyCode,
+      channel: expectedChannel,
+    });
+
+    if (!card) {
+      throw new Error(`Không tìm thấy card ${expectedChannel} thuộc công ty của bạn.`);
+    }
+
+    if (!["approved", "scheduled", "failed", "processing"].includes(String(card.status || ""))) {
+      throw new Error(`Card hiện ở trạng thái "${card.status}" nên chưa phù hợp để đăng lại từ Telegram.`);
+    }
+
+    if (expectedChannel === "Facebook" && !card.bodyText) {
+      throw new Error("Card Facebook chưa có nội dung bodyText.");
+    }
+
+    return card;
+  },
+
+  async resolveScopedIntegration(card: any, companyCode: string, platform: "Facebook" | "TikTok"): Promise<any> {
+    let integration = null;
+
+    if (card.integrationId) {
+      integration = await SocialIntegrationModel.findOne({
+        _id: card.integrationId,
+        companyCode,
+        platform,
+        isConnected: true,
+      }).lean();
+    }
+
+    if (!integration) {
+      integration = await SocialIntegrationModel.findOne({
+        companyCode,
+        platform,
+        isConnected: true,
+      })
+        .sort({ connectedAt: -1, _id: -1 })
+        .lean();
+    }
+
+    if (!integration) {
+      throw new Error(`Chưa có tài khoản ${platform} nào đang kết nối cho công ty này.`);
+    }
+
+    return integration;
+  },
+
+  /**
+   * Gửi cảnh báo khi tồn kho giảm xuống dưới ngưỡng an toàn
+   */
+  async sendLowStockAlert(product: any): Promise<void> {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!botToken || !chatId) return;
+
+    const message = [
+      "⚠️ <b>CẢNH BÁO: TỒN KHO THẤP!</b> ⚠️",
+      "=============================",
+      `📦 <b>Sản phẩm:</b> ${product.name}`,
+      `🏷️ <b>Mã SKU:</b> <code>${product.sku}</code>`,
+      `🔴 <b>Tồn kho hiện tại:</b> <b>${product.stock}</b> ${product.unit || "Cái"}`,
+      `🛡️ <b>Ngưỡng tối thiểu:</b> ${product.minStockAlert || 15} ${product.unit || "Cái"}`,
+      `🏢 <b>Mã công ty:</b> <code>${product.companyCode || "unknown"}</code>`,
+      "=============================",
+      "👉 <i>Vui lòng lên kế hoạch nhập thêm hàng để tránh gián đoạn kinh doanh.</i>"
+    ].join("\n");
+
+    await this.sendMessage(chatId, message).catch((err) => {
+      console.error("[Telegram Bot] Lỗi gửi cảnh báo tồn kho thấp:", err);
+    });
+  },
+
+  /**
+   * Gửi cảnh báo mất kết nối liên kết mạng xã hội (Token hết hạn/lỗi)
+   */
+  async sendIntegrationDisconnectAlert(
+    platform: string,
+    displayName: string,
+    username: string,
+    companyCode: string,
+    reason: string
+  ): Promise<void> {
+    // 1. Cập nhật trạng thái isConnected = false trong DB
+    try {
+      await SocialIntegrationModel.findOneAndUpdate(
+        { platform: platform as any, username },
+        { isConnected: false }
+      );
+      console.log(`[Telegram Service] Đã cập nhật trạng thái kết nối tài khoản ${platform} (${username}) thành disconnected.`);
+    } catch (dbErr) {
+      console.error("[Telegram Service] Lỗi cập nhật trạng thái liên kết trong DB:", dbErr);
+    }
+
+    // 2. Gửi tin nhắn cảnh báo tới Telegram
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!botToken || !chatId) return;
+
+    const message = [
+      "⚠️ <b>CẢNH BÁO: MẤT KẾT NỐI LIÊN KẾT MẠNG XÃ HỘI!</b> ⚠️",
+      "=============================",
+      `🌐 <b>Nền tảng:</b> <b>${platform}</b>`,
+      `👤 <b>Tài khoản:</b> <b>${displayName}</b> (ID: <code>${username}</code>)`,
+      `🏢 <b>Mã công ty:</b> <code>${companyCode || "unknown"}</code>`,
+      `🔴 <b>Lý do:</b> <i>${reason}</i>`,
+      "=============================",
+      "👉 <i>Vui lòng truy cập Cấu hình ERP để kết nối lại tài khoản này, đảm bảo các tính năng tự động đăng bài và phản hồi khách hàng hoạt động bình thường.</i>"
+    ].join("\n");
+
+    await this.sendMessage(chatId, message).catch((err) => {
+      console.error("[Telegram Bot] Lỗi gửi cảnh báo mất kết nối liên kết:", err);
+    });
+  },
+
+  /**
+   * Xử lý tin nhắn dạng ngôn ngữ đời thường qua OpenRouter
+   */
+  async processNaturalLanguageInput(
+    chatId: number,
+    chatType: string,
+    telegramUserId: number | undefined,
+    rawText: string,
+    photo?: any[],
+    document?: any,
+    replyToMessage?: any,
+    messageId?: number
+  ): Promise<void> {
+    let session = await findTelegramSession(chatId, telegramUserId);
+    if (!session) {
+      await this.sendMessage(chatId, buildGuestHelpMessage());
+      return;
+    }
+
+    session = await hydrateLinkedSession(session);
+    if (!session) {
+      await this.sendMessage(chatId, buildGuestHelpMessage());
+      return;
+    }
+
+    const textTrimmed = rawText.trim();
+    if (!textTrimmed) return;
+
+    logTelegramDebug("nlu:start", { chatId, telegramUserId: telegramUserId ?? "none", text: truncateTelegramText(textTrimmed, 50) });
+
+    const textLower = textTrimmed.toLowerCase();
+
+    // 1. Phân loại bằng Heuristic Regex để phản hồi cực nhanh đối với các câu thường gặp
+    if (/^(xem|có|danh sách)?\s*(bài|nội dung)?\s*(chờ duyệt|chờ phê duyệt|pending)/i.test(textLower) || /^duyệt bài/i.test(textLower)) {
+      await this.handleCommand(chatId, chatType, telegramUserId, "/pending", photo, document, replyToMessage, messageId);
+      return;
+    }
+
+    if (/^(xem|cho xem|lấy)?\s*(báo cáo|thống kê|doanh thu|doanh số|stats|report)/i.test(textLower)) {
+      await this.handleCommand(chatId, chatType, telegramUserId, "/stats", photo, document, replyToMessage, messageId);
+      return;
+    }
+
+    if (/^(xem|cho xem)?\s*(hàng chờ|danh sách chờ đăng|queue)/i.test(textLower)) {
+      await this.handleCommand(chatId, chatType, telegramUserId, "/queue", photo, document, replyToMessage, messageId);
+      return;
+    }
+
+    if (/^(tạo|lên|thiết lập|khởi tạo)\s*(chiến dịch|campaign)/i.test(textLower)) {
+      const briefMatch = textTrimmed.match(/(?:tạo|lên|thiết lập|khởi tạo)\s*(?:chiến dịch|campaign)\s*(?:mới)?\s*[:\-\s]?\s*(.+)/i);
+      if (briefMatch && briefMatch[1] && briefMatch[1].trim().length > 3) {
+        await this.executeDirectCampaignCreation(chatId, session, briefMatch[1].trim());
+      } else {
+        await this.handleCommand(chatId, chatType, telegramUserId, "/create_campaign", photo, document, replyToMessage, messageId);
+      }
+      return;
+    }
+
+    if (/^(tạo|vẽ|sinh|làm|tạo cho|vẽ cho)\s*(bức ảnh|ảnh|hình|hình ảnh|image|picture)/i.test(textLower)) {
+      const imgPrompt = textTrimmed.replace(/^(tạo|vẽ|sinh|làm|tạo cho|vẽ cho)\s*(bức ảnh|ảnh|hình|hình ảnh|image|picture)\s*[:\-\s]?/i, "").trim();
+      if (imgPrompt) {
+        await this.handleCommand(chatId, chatType, telegramUserId, `/image ${imgPrompt}`, photo, document, replyToMessage, messageId);
+        return;
+      }
+    }
+
+    if (/^(tạo|quay|sinh|làm|tạo cho|làm cho)\s*(clip|video|phim)/i.test(textLower)) {
+      const vidPrompt = textTrimmed.replace(/^(tạo|quay|sinh|làm|tạo cho|làm cho)\s*(clip|video|phim)\s*[:\-\s]?/i, "").trim();
+      if (vidPrompt) {
+        await this.handleCommand(chatId, chatType, telegramUserId, `/video ${vidPrompt}`, photo, document, replyToMessage, messageId);
+        return;
+      }
+    }
+
+    if (/^(hướng dẫn|trợ giúp|help|bot làm được gì|dùng như thế nào|menu)/i.test(textLower)) {
+      await this.handleCommand(chatId, chatType, telegramUserId, "/help", photo, document, replyToMessage, messageId);
+      return;
+    }
+
+    // 2. Sử dụng OpenRouter để hiểu ngôn ngữ tự nhiên và tư vấn
+    try {
+      const { openrouterChat } = await import("./openrouter.service.ts");
+
+      const systemPrompt = `Bạn là trợ lý AI Marketing & Quản trị ERP của iGen Marketing.
+Người dùng đang trò chuyện bằng ngôn ngữ đời thường qua Telegram.
+Nhiệm vụ của bạn: Phân tích ý định (intent) của câu thoại và chọn một hành động hệ thống hoặc trả lời tự nhiên.
+
+Hệ thống hỗ trợ các lệnh:
+- PENDING: Xem/duyệt bài viết ("duyệt bài giúp mình", "bài nào chờ duyệt", "xem danh sách duyệt") -> intent: "pending"
+- STATS: Xem báo cáo/doanh thu ("doanh số hôm nay", "thống kê", "xem báo cáo") -> intent: "stats"
+- QUEUE: Hàng chờ đăng bài ("hàng chờ có gì", "xem bài sắp đăng") -> intent: "queue"
+- CREATE_CAMPAIGN: Tạo chiến dịch marketing ("lên chiến dịch trà sữa", "quảng bá sản phẩm X") -> intent: "create_campaign", extractedBrief: (mô tả chiến dịch nếu có)
+- IMAGE: Tạo ảnh AI ("tạo ảnh chú mèo...", "vẽ cho anh hình...") -> intent: "image", imagePrompt: (mô tả ảnh)
+- VIDEO: Tạo video AI ("quay clip thiên nhiên...", "tạo video...") -> intent: "video", videoPrompt: (mô tả video)
+- HELP: Trợ giúp/Menu ("hướng dẫn", "trợ giúp") -> intent: "help"
+- UNSUPPORTED: Khi người dùng hỏi hoặc yêu cầu một tính năng/thao tác nằm ngoài danh sách hỗ trợ hoặc chưa có trong hệ thống ERP -> intent: "unsupported", replyText: "⚠️ Tính năng này chưa được cài đặt hoặc chưa được cấu hình trên hệ thống iGen Marketing. Sếp có thể bấm /help để xem danh sách các chức năng đang khả dụng ạ!"
+- CHAT: Hỏi đáp kiến thức ERP/Marketing có trong hệ thống hoặc trò chuyện chào hỏi ngắn gọn -> intent: "chat", replyText: (câu trả lời tự nhiên bằng tiếng Việt)
+
+Trả về ĐÚNG 1 JSON object (không thêm markdown hay giải thích ngoài JSON):
+{
+  "intent": "pending" | "stats" | "queue" | "create_campaign" | "image" | "video" | "help" | "unsupported" | "chat",
+  "extractedBrief"?: string,
+  "imagePrompt"?: string,
+  "videoPrompt"?: string,
+  "replyText"?: string
+}`;
+
+      const aiRes = await openrouterChat({
+        model: "google/gemini-2.5-flash",
+        temperature: 0.3,
+        jsonMode: true,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: textTrimmed }
+        ]
+      });
+
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(aiRes.text);
+      } catch {
+        parsed = { intent: "unsupported", replyText: "⚠️ Tính năng này chưa được cài đặt hoặc chưa được cấu hình trên hệ thống iGen Marketing. Sếp có thể bấm /help để xem các chức năng khả dụng ạ!" };
+      }
+
+      if (parsed.intent === "pending") {
+        await this.handleCommand(chatId, chatType, telegramUserId, "/pending", photo, document, replyToMessage, messageId);
+      } else if (parsed.intent === "stats") {
+        await this.handleCommand(chatId, chatType, telegramUserId, "/stats", photo, document, replyToMessage, messageId);
+      } else if (parsed.intent === "queue") {
+        await this.handleCommand(chatId, chatType, telegramUserId, "/queue", photo, document, replyToMessage, messageId);
+      } else if (parsed.intent === "create_campaign") {
+        const briefToUse = parsed.extractedBrief || textTrimmed;
+        await this.executeDirectCampaignCreation(chatId, session, briefToUse);
+      } else if (parsed.intent === "image" && parsed.imagePrompt) {
+        await this.handleCommand(chatId, chatType, telegramUserId, `/image ${parsed.imagePrompt}`, photo, document, replyToMessage, messageId);
+      } else if (parsed.intent === "video" && parsed.videoPrompt) {
+        await this.handleCommand(chatId, chatType, telegramUserId, `/video ${parsed.videoPrompt}`, photo, document, replyToMessage, messageId);
+      } else if (parsed.intent === "help") {
+        await this.handleCommand(chatId, chatType, telegramUserId, "/help", photo, document, replyToMessage, messageId);
+      } else if (parsed.intent === "unsupported") {
+        const reply = parsed.replyText || "⚠️ Tính năng này chưa được cài đặt hoặc chưa được cấu hình trên hệ thống iGen Marketing. Sếp có thể bấm /help để xem danh sách các chức năng đang khả dụng ạ!";
+        await this.sendMessage(chatId, `🤖 <b>Trợ lý AI:</b>\n${reply}`);
+      } else {
+        const reply = parsed.replyText || "⚠️ Tính năng này chưa được cài đặt hoặc chưa được cấu hình trên hệ thống iGen Marketing. Sếp có thể bấm /help để xem các chức năng khả dụng ạ!";
+        await this.sendMessage(chatId, `🤖 <b>Trợ lý AI:</b>\n${reply}`);
+      }
+    } catch (err: any) {
+      console.error("[Telegram AI] Lỗi xử lý ngôn ngữ tự nhiên:", err);
+      await this.sendMessage(
+        chatId,
+        "🤖 <b>Trợ lý AI:</b> ⚠️ Tính năng này chưa được cài đặt hoặc chưa được cấu hình trên hệ thống iGen Marketing. Sếp có thể bấm /help hoặc /menu để xem danh sách chức năng khả dụng ạ!"
+      );
+    }
+  },
+
+  async parseCampaignParamsFromBrief(
+    brief: string,
+    connectedPlatforms: Array<"Facebook" | "TikTok">
+  ): Promise<{
+    days: number;
+    postsPerDay: number;
+    postingTimes: string[];
+    imageMode: "ai" | "order";
+    googleDriveFolderUrl?: string;
+    platforms: Array<"Facebook" | "TikTok">;
+    publishMode: "auto" | "manual";
+  }> {
+    const driveMatch = brief.match(/https?:\/\/(?:drive|docs)\.google\.com\/[^\s]+/i);
+    const googleDriveFolderUrl = driveMatch ? driveMatch[0] : undefined;
+    const hasDrive = !!googleDriveFolderUrl;
+
+    try {
+      const prompt = `Bạn là trợ lý AI phân tích yêu cầu tạo chiến dịch marketing.
+Hãy phân tích đoạn văn bản yêu cầu và trích xuất thông số thành JSON:
+
+Yêu cầu: "${brief}"
+Nền tảng kết nối hiện có: ${connectedPlatforms.join(", ")}
+
+Trả về duy nhất JSON object theo cấu trúc:
+{
+  "days": number (số ngày chạy chiến dịch, mặc định 7 nếu không nói rõ),
+  "postsPerDay": number (số bài đăng/ngày từ 1 đến 5, mặc định 1 nếu không nói rõ),
+  "postingTimes": string[] (khung giờ đăng HH:MM tương ứng số bài/ngày, ví dụ ["09:00"] hoặc ["08:00", "20:00"]),
+  "imageMode": "ai" | "order" (nếu có nhắc tới Google Drive/ảnh thật thì "order", mặc định "ai"),
+  "platforms": array chọn từ [${connectedPlatforms.map((p) => `"${p}"`).join(", ")}] (mặc định lấy tất cả nền tảng hiện có nếu người dùng không chỉ định riêng),
+  "publishMode": "manual" | "auto" (mặc định "manual")
+}`;
+
+      const { openrouterChat } = await import("./openrouter.service.ts");
+      const res = await openrouterChat({
+        model: process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        jsonMode: true,
+      });
+
+      if (res && res.text) {
+        let cleaned = res.text.trim();
+        const mdMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+        if (mdMatch) cleaned = mdMatch[1].trim();
+        const parsed = JSON.parse(cleaned);
+
+        const days = typeof parsed.days === "number" && parsed.days > 0 ? Math.min(parsed.days, 90) : 7;
+        const postsPerDay = typeof parsed.postsPerDay === "number" && parsed.postsPerDay > 0 ? Math.min(parsed.postsPerDay, 5) : 1;
+
+        let postingTimes: string[] = Array.isArray(parsed.postingTimes) && parsed.postingTimes.length > 0 ? parsed.postingTimes : ["09:00"];
+        const defaultTimes = ["09:00", "15:00", "20:00", "11:30", "18:00"];
+        if (postingTimes.length < postsPerDay) {
+          for (let i = postingTimes.length; i < postsPerDay; i++) {
+            postingTimes.push(defaultTimes[i % defaultTimes.length]);
+          }
+        } else if (postingTimes.length > postsPerDay) {
+          postingTimes = postingTimes.slice(0, postsPerDay);
+        }
+
+        let selectedPlatforms: Array<"Facebook" | "TikTok"> = [];
+        if (Array.isArray(parsed.platforms) && parsed.platforms.length > 0) {
+          selectedPlatforms = parsed.platforms.filter((p: any) => connectedPlatforms.includes(p));
+        }
+        if (selectedPlatforms.length === 0) {
+          selectedPlatforms = connectedPlatforms;
+        }
+
+        return {
+          days,
+          postsPerDay,
+          postingTimes,
+          imageMode: hasDrive || parsed.imageMode === "order" || parsed.imageMode === "real" ? "order" : "ai",
+          platforms: selectedPlatforms,
+          publishMode: parsed.publishMode === "auto" ? "auto" : "manual",
+        };
+      }
+    } catch (err) {
+      console.warn("[Telegram AI Campaign Parser] Lỗi AI parse brief, dùng fallback:", err);
+    }
+
+    // Fallback heuristic regex
+    let days = 7;
+    const daysMatch = brief.match(/(\d+)\s*(?:ngày|day)/i);
+    if (daysMatch) days = Math.min(parseInt(daysMatch[1], 10), 90);
+
+    let postsPerDay = 1;
+    const postsMatch = brief.match(/(\d+)\s*(?:bài|post)(?:\/|\s*mỗi\s*|\s*1\s*)ngày/i);
+    if (postsMatch) postsPerDay = Math.min(parseInt(postsMatch[1], 10), 5);
+
+    const timesMatch = brief.match(/([0-2]?\d:[0-5]\d)/gi);
+    let postingTimes = ["09:00"];
+    if (timesMatch && timesMatch.length > 0) {
+      postingTimes = timesMatch.map((t) => {
+        const parts = t.split(":");
+        const h = parts[0].padStart(2, "0");
+        const m = parts[1].padStart(2, "0");
+        return `${h}:${m}`;
+      }).slice(0, postsPerDay);
+    }
+
+    return {
+      days,
+      postsPerDay,
+      postingTimes,
+      imageMode: hasDrive ? "order" : "ai",
+      platforms: connectedPlatforms,
+      publishMode: "manual",
+    };
+  },
+
+  async executeDirectCampaignCreation(chatId: number, session: any, brief: string): Promise<void> {
+    const scope = buildSessionScope(session);
+    if (!scope.companyCode) {
+      await this.sendMessage(chatId, "⚠️ Tài khoản của bạn chưa được gán companyCode.");
+      return;
+    }
+
+    await this.sendMessage(
+      chatId,
+      [
+        "🚀 <b>TRỢ LÝ AI ĐANG TỰ ĐỘNG PHÂN TÍCH & KHỞI TẠO CHIẾN DỊCH...</b>",
+        "=============================",
+        `📝 <b>Định hướng:</b> <i>"${brief}"</i>`,
+        "⏱️ <i>AI đang tự động đọc thông số (thời gian, tần suất, kênh đăng) và cấu hình slots... Vui lòng đợi trong giây lát!</i>"
+      ].join("\n")
+    );
+
+    try {
+      // 1. Kiểm tra các liên kết Mạng Xã Hội khả dụng
+      const integrations = await SocialIntegrationModel.find({
+        companyCode: scope.companyCode,
+        isConnected: true,
+      }).lean();
+
+      if (!integrations || integrations.length === 0) {
+        await this.sendMessage(
+          chatId,
+          "❌ <b>Không thể tạo chiến dịch:</b> Doanh nghiệp chưa kết nối tài khoản Facebook hay TikTok nào trên Web ERP.\nVui lòng vào mục Cấu hình ERP để kết nối trước."
+        );
+        return;
+      }
+
+      const connectedPlatforms: Array<"Facebook" | "TikTok"> = [];
+      const integrationIds: Record<string, string> = {};
+
+      integrations.forEach((item: any) => {
+        if ((item.platform === "Facebook" || item.platform === "TikTok") && !connectedPlatforms.includes(item.platform)) {
+          connectedPlatforms.push(item.platform);
+          integrationIds[item.platform] = String(item._id);
+        }
+      });
+
+      if (connectedPlatforms.length === 0) {
+        await this.sendMessage(
+          chatId,
+          "❌ <b>Không tìm thấy liên kết Facebook/TikTok hợp lệ.</b> Vui lòng kiểm tra tài khoản liên kết trên Web ERP."
+        );
+        return;
+      }
+
+      // 2. Dùng AI phân tích linh hoạt thông số từ brief
+      const parsedParams = await this.parseCampaignParamsFromBrief(brief, connectedPlatforms);
+
+      const now = new Date();
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const endDateObj = new Date(now.getTime() + (parsedParams.days || 7) * 24 * 60 * 60 * 1000);
+
+      const formatZonedIsoDate = (date: Date) => {
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Ho_Chi_Minh",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(date);
+      };
+
+      const startDate = formatZonedIsoDate(tomorrow);
+      const endDate = formatZonedIsoDate(endDateObj);
+
+      // 3. Thực thi khởi tạo chiến dịch trực tiếp thông qua Marketing Campaign Service của Web
+      const { marketingCampaignService } = await import("../../campaign/service/marketing-campaign.service.ts");
+
+      const result = await marketingCampaignService.create(scope.companyCode, session.email || "telegram-user", {
+        sourceBrief: brief,
+        startDate,
+        endDate,
+        postsPerDay: parsedParams.postsPerDay,
+        postingTimes: parsedParams.postingTimes,
+        platforms: parsedParams.platforms,
+        integrationIds,
+        imageMode: parsedParams.imageMode,
+        googleDriveFolderUrl: parsedParams.googleDriveFolderUrl,
+        timezone: "Asia/Ho_Chi_Minh",
+        qualityMode: "premium",
+        publishMode: parsedParams.publishMode,
+        candidateCount: 1,
+      });
+
+      const campaign = result.campaign;
+      const slots = result.slots || [];
+
+      let baseUrl = getMarketingAppUrl();
+      if (baseUrl.endsWith("/")) baseUrl = baseUrl.slice(0, -1);
+      const campaignWebUrl = `${baseUrl}/campaigns/${campaign._id}`;
+
+      await this.sendMessage(
+        chatId,
+        [
+          "🎉 <b>TRỢ LÝ AI ĐÃ TẠO THÀNH CÔNG CHIẾN DỊCH TRÊN WEB ERP!</b>",
+          "=============================",
+          `📌 <b>Tên chiến dịch:</b> ${campaign.title}`,
+          `🏢 <b>Mã công ty:</b> <code>${scope.companyCode}</code>`,
+          `📢 <b>Nền tảng:</b> <b>${parsedParams.platforms.join(", ")}</b>`,
+          `📅 <b>Thời gian:</b> Từ <code>${startDate}</code> đến <code>${endDate}</code> (${parsedParams.days} ngày)`,
+          `⏰ <b>Giờ đăng bài:</b> <code>${parsedParams.postingTimes.join(", ")}</code> (${parsedParams.postsPerDay} bài/ngày)`,
+          `🖼️ <b>Nguồn media:</b> <b>${parsedParams.imageMode === "order" ? "Nhập ảnh, video từ Drive" : "Ảnh sinh tự động AI"}</b>`,
+          `📊 <b>Số bài viết (Slots):</b> <b>${slots.length} bài</b>`,
+          "=============================",
+          `🔗 <a href="${campaignWebUrl}"><b>Nhấn vào đây để xem chi tiết chiến dịch trên Web ERP</b></a>`
+        ].filter(Boolean).join("\n")
+      );
+    } catch (err: any) {
+      console.error("[Telegram Direct Campaign] Lỗi tạo chiến dịch:", err);
+      await this.sendMessage(chatId, `❌ <b>Không thể khởi tạo chiến dịch trực tiếp:</b> ${err.message || err}`);
+    }
+  },
+};

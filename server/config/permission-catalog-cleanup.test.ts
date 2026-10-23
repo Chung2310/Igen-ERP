@@ -9,11 +9,11 @@ import {
 } from "./permission-catalog";
 
 const EXPECTED_FEATURES = [
-  "access", "chat", "customer", "dashboard", "finance-receivable", "finance-wallet", "hr",
+  "access", "asset", "chat", "company-knowledge", "customer", "dashboard", "finance-receivable", "finance-wallet", "hr",
   "inventory", "labor-partner", "labor-partner-payout", "labor-partner-policy",
-  "labor-partner-settlement", "marketing", "payroll-payment", "payroll-period", "payroll-policy",
+  "labor-partner-settlement", "marketing", "omni-inbox", "payroll-payment", "payroll-period", "payroll-policy",
   "people", "recruitment", "relationship", "repair", "resource", "retail",
-  "settings", "timekeeping", "work",
+  "settings", "social-integration", "timekeeping", "work",
 ];
 
 describe("permission registry", () => {

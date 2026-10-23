@@ -1,0 +1,432 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export interface MarketingDevelopPost {
+  channel: string;
+  contentType: string;
+  bodyText: string;
+  outline?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  mediaPrompt?: string;
+  voiceScript?: string;
+  motionText?: string;
+}
+
+function getJwtHeaders(withContentType: boolean = true) {
+  const headers: Record<string, string> = {};
+  if (withContentType) {
+    headers["Content-Type"] = "application/json";
+  }
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+async function getHeaders(withContentType: boolean = true) {
+  const headers: Record<string, string> = {};
+  if (withContentType) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+async function handleErrorResponse(response: Response, defaultError: string): Promise<never> {
+  const data = await response.json().catch(() => ({}));
+  throw new Error(data.message || defaultError);
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number,
+  timeoutMessage: string
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      throw new Error(timeoutMessage);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+export const geminiApi = {
+  /**
+   * Lấy 3 gợi ý chủ �ề marketing ban �ầu từ server.
+   */
+  async fetchMarketingSuggestions(): Promise<string[]> {
+    const headers = await getHeaders(false);
+    const response = await fetch('/api/v1/gemini/marketing-suggestions', {
+      headers
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Không thể tải gợi ý chiến dịch marketing');
+    }
+    const data = await response.json();
+    return data.suggestions || [];
+  },
+
+  /**
+   * Phân tích mục tiêu chiến d�9ch �Ồ lấy các content pillars �ề xuất.
+   */
+  async analyzeMarketingPillars(campaignTopic: string, images?: string[]): Promise<{ pillars: any[] }> {
+    const headers = await getHeaders(true);
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/marketing-pillars',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ campaignTopic, images }),
+      },
+      150000,
+      'Hết thời gian phân tích Content Pillars. Vui lòng thử lại.'
+    );
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi phân tích Content Pillars');
+    }
+    return response.json();
+  },
+
+  /**
+   * Thay thế 1 Content Pillar bằng 1 Trụ c�"t khác m�:i hoàn toàn.
+   */
+  async swapMarketingPillar(
+    campaignTopic: string,
+    currentPillars: any[],
+    pillarIdToReplace: string,
+    images?: string[]
+  ): Promise<{ pillar: any; isMock?: boolean }> {
+    const headers = await getHeaders(true);
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/marketing-pillars/swap',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ campaignTopic, currentPillars, pillarIdToReplace, images }),
+      },
+      90000,
+      'Hết thời gian thay thế Content Pillar. Vui lòng thử lại.'
+    );
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi thay thế Content Pillar');
+    }
+    return response.json();
+  },
+
+  /**
+   */
+  async generateMarketingIdeas(
+    campaignTopic: string,
+    selectedPillars: string[],
+    channels?: string[],
+    mediaType?: string,
+    images?: string[]
+  ): Promise<{ concepts: any[]; isMock?: boolean }> {
+    const headers = await getHeaders(true);
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/marketing-ideas',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ campaignTopic, selectedPillars, channels, mediaType, images }),
+      },
+      mediaType === "human-video" ? 300000 : 180000,
+      mediaType === "human-video"
+        ? 'Tạo ý tưởng cho video người thật mất quá lâu. Vui lòng thử lại sau ít phút.'
+        : 'Tạo ý tưởng marketing quá lâu. Vui lòng thử lại.'
+    );
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi phát sinh ý tưởng marketing');
+    }
+    return response.json();
+  },
+
+  async generateScheduledCampaign(input: {
+    prompt: string;
+    startDate: string;
+    endDate: string;
+    postsPerDay: number;
+    postingTimes: string[];
+    channels: Array<'Facebook' | 'TikTok'>;
+  }): Promise<{
+    campaignTitle: string;
+    contentPillars: string[];
+    slots: Array<{
+      scheduledDate: string;
+      scheduledTime: string;
+      channel: 'Facebook' | 'TikTok';
+      pillar: string;
+      objective: string;
+      topicBrief: string;
+      mediaType: 'text' | 'image' | 'video' | 'human-video';
+    }>;
+  }> {
+    const headers = await getHeaders(true);
+    const response = await fetchWithTimeout('/api/v1/gemini/scheduled-campaign', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(input),
+    }, 300000, 'Tạo chiến dịch mất quá lâu. Vui lòng thử lại.');
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi tạo chiến dịch theo lịch');
+    }
+    return response.json();
+  },
+
+  /**
+   * Lập dàn ý và viết bài �Ēng chi tiết cho từng kênh truyền thông từ m�"t ý tư�xng cụ thỒ.
+   */
+  async developMarketingIdea(concept: {
+    title: string;
+    summary: string;
+    suggestedContent: string;
+    channels: string[];
+    mediaType?: string;
+    imageModel?: string;
+    imageResolution?: string;
+    imageAspectRatio?: string;
+    mediaPrompt?: string;
+  }): Promise<{ posts: MarketingDevelopPost[]; isMock?: boolean }> {
+    const headers = await getHeaders(true);
+    const response = await fetchWithTimeout(
+      '/api/v1/gemini/marketing-develop',
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(concept),
+      },
+      concept.mediaType === "human-video" ? 360000 : 240000,
+      concept.mediaType === "human-video"
+        ? 'Phát triển nội dung cho video người thật mất quá lâu. Vui lòng thử lại sau.'
+        : 'Phát triển nội dung AI quá lâu. Vui lòng thử lại.'
+    );
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi lập dàn ý và viết bài chi tiết');
+    }
+    return response.json();
+  },
+
+  /**
+   * Gửi tin nhắn chat �ến AI Assistant trong CRM Omni-Inbox.
+   */
+  async sendChatMessage(
+    message: string,
+    history: any[],
+    aiConfig: any
+  ): Promise<{ text: string; isMock: boolean }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/chat', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ message, history, aiConfig }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi kết nối Trợ lý AI');
+    }
+    return response.json();
+  },
+
+  async getKnowledgeHealth(): Promise<any> {
+    const response = await fetch("/api/v1/gemini/knowledge-health", {
+      headers: getJwtHeaders(false),
+    });
+    if (!response.ok) {
+      throw new Error("Không thể kiểm tra trạng thái AI knowledge");
+    }
+    return response.json();
+  },
+
+  async clearKnowledge(): Promise<any> {
+    const response = await fetch("/api/v1/gemini/clear-knowledge", {
+      method: "POST",
+      headers: getJwtHeaders(true),
+    });
+    if (!response.ok) {
+      throw new Error("Không thể xóa toàn bộ tri thức AI");
+    }
+    return response.json();
+  },
+
+  async clearCustomerServiceScenario(): Promise<any> {
+    const response = await fetch("/api/v1/gemini/customer-service-scenario", {
+      method: "DELETE",
+      headers: getJwtHeaders(true),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, "Không thể xóa kịch bản chăm sóc khách hàng");
+    }
+    return response.json();
+  },
+
+  async testReply(message: string, context: {
+    channel: "facebook" | "zalo" | "tiktok";
+    conversationId?: string;
+    platformId?: string;
+    images?: string[];
+  }): Promise<any> {
+    const response = await fetch("/api/v1/gemini/test-reply", {
+      method: "POST",
+      headers: getJwtHeaders(true),
+      body: JSON.stringify({ message, ...context }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, "Không thể tạo câu trả lời thử");
+    }
+    return response.json();
+  },
+
+  async fetchAIReplyLogs(limit: number = 8): Promise<any[]> {
+    const response = await fetch(`/api/v1/gemini/ai-reply-logs?limit=${limit}`, {
+      headers: getJwtHeaders(false),
+    });
+    if (!response.ok) {
+      throw new Error("Không thể tải log phản hồi AI");
+    }
+    const data = await response.json();
+    return data.logs || [];
+  },
+
+  async sendAIReplyFeedback(id: string, feedback: "good" | "bad" | "needs_fix", note: string = ""): Promise<void> {
+    const response = await fetch(`/api/v1/gemini/ai-reply-logs/${id}/feedback`, {
+      method: "PATCH",
+      headers: getJwtHeaders(true),
+      body: JSON.stringify({ feedback, note }),
+    });
+    if (!response.ok) {
+      throw new Error("Không thỒ lưu feedback AI");
+    }
+  },
+
+  /**
+   * Sinh ảnh minh họa AI.
+   */
+  async generateImage(
+    prompt: string,
+    options?: { aspectRatio?: string; modelName?: string; resolution?: string; negativePrompt?: string; existingImageUris?: string[] }
+  ): Promise<{ url: string; isMock: boolean; record?: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/generate-image', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prompt, ...options }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi khi sinh ảnh minh họa AI');
+    }
+    return response.json();
+  },
+
+  async editImage(input: {
+    sourceImageUrl: string;
+    sourceMediaId?: string;
+    instruction: string;
+    regionNote?: string;
+    region?: { x: number; y: number; width: number; height: number };
+    crop?: { x: number; y: number; width: number; height: number };
+    strokes?: Array<{ color?: string; width?: number; points: Array<{ x: number; y: number }> }>;
+    supportingImageUris?: string[];
+    annotationImageUrl?: string;
+    requestId?: string;
+    aspectRatio?: string;
+    modelName?: string;
+    resolution?: string;
+    preserveOutsideRegion?: boolean;
+  }): Promise<{ url: string; isMock: boolean; record?: any }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/edit-image', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi khi chỉnh sửa ảnh AI');
+    }
+    return response.json();
+  },
+
+
+  async optimizeScript(text: string, readingStyle?: string, model?: string): Promise<{ optimizedText: string }> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/optimize-script', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ text, readingStyle, model }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi khi tối ưu kịch bản');
+    }
+    return response.json();
+  },
+
+  async optimizeImagePrompt(description: string, imageUris?: string[], modelName?: string): Promise<any> {
+    const headers = await getHeaders(true);
+    const response = await fetch('/api/v1/gemini/optimize-prompt', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ description, imageUris, modelName }),
+    });
+    if (!response.ok) {
+      await handleErrorResponse(response, 'Lỗi khi tối ưu prompt ảnh');
+    }
+    return response.json();
+  },
+
+
+  async getMediaHistory(type: "image" | "video" | "voice"): Promise < { status: string; history: any[] } > {
+  const headers = await getHeaders(false);
+  const response = await fetch(`/api/v1/gemini/media-history?type=${type}`, {
+    headers,
+  });
+  if(!response.ok) {
+  throw new Error('Lỗi lấy lịch sử sinh ảnh phương tiện');
+}
+return response.json();
+  },
+
+  async deleteMediaHistory(id: string): Promise < { status: string } > {
+  const headers = await getHeaders(false);
+  const response = await fetch(`/api/v1/gemini/media-history/${id}`, {
+    method: 'DELETE',
+    headers,
+  });
+  if(!response.ok) {
+  throw new Error('Lỗi khi xóa bản ghi lịch sử');
+}
+return response.json();
+  },
+
+          async uploadLocalDocument(fileName: string, fileBase64: string, mimeType: string, options?: { extractOnly?: boolean; documentType?: "scenario" }): Promise < any > {
+            const headers = await getHeaders(true);
+            const endpoint = options?.extractOnly === true ? "/api/v1/gemini/extract-scenario" : "/api/v1/gemini/upload-document";
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                fileName,
+                fileBase64,
+                mimeType,
+                ...(options?.extractOnly ? { extractOnly: true } : {}),
+                ...(options?.documentType ? { documentType: options.documentType } : {}),
+              }),
+            });
+            if(!response.ok) {
+  await handleErrorResponse(response, "Lỗi tải lên tài liệu huấn luyện AI");
+}
+return response.json();
+  },
+};
+

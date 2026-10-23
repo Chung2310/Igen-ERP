@@ -269,10 +269,6 @@ export default function GuideTab() {
           title: "Phân quyền truy cập theo công việc",
           desc: "Bạn có thể chỉ định quyền hạn: Quản trị tối cao (toàn quyền hệ thống), Quản trị viên (quản lý phân hệ), Trưởng bộ phận hoặc Nhân viên bình thường. Nhân viên chỉ nhìn thấy các chức năng cần thiết cho công việc của họ để bảo mật thông tin nội bộ công ty."
         },
-        {
-          title: "Cài đặt kết nối hệ thống tạo video tự động (HeyGen)",
-          desc: "Để sử dụng tính năng tự động tạo video giới thiệu bằng người ảo thuyết trình phục vụ quảng cáo, hãy nhập mã bảo mật kết nối vào mục cấu hình tương ứng và bấm lưu lại."
-        }
       ],
       protip: "Hãy áp dụng nguyên tắc phân quyền tối thiểu: Nhân viên làm bộ phận nào thì chỉ cấp quyền truy cập vào đúng khu vực đó (Ví dụ: thủ kho chỉ cần quyền vào mục 'KHO & SẢN PHẨM'). Điều này giúp màn hình làm việc gọn gàng và tránh bấm nhầm dữ liệu của nhau.",
       warning: "Tài khoản Quản trị tối cao có thể thay đổi và xóa mọi dữ liệu trên hệ thống. Hãy cân nhắc cực kỳ kỹ trước khi cấp quyền này cho bất kỳ thành viên nào."

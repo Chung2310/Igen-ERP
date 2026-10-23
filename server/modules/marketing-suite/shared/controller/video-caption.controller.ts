@@ -1,0 +1,418 @@
+import { Response } from "express";
+import { Readable } from "stream";
+import { AuthenticatedRequest } from "../middleware/auth";
+import { enqueueVideoCaptionJob } from "../queue/video-caption-queue";
+import {
+  getVideoCaptionHttpStatus,
+  VideoCaptionError,
+} from "../service/video-caption-error";
+import { videoCaptionService } from "../service/video-caption.service.ts";
+import { videoCaptionContextService } from "../service/video-caption-context.service.ts";
+
+function getIdentity(req: AuthenticatedRequest) {
+  const userId = req.user?.id;
+  let companyCode = req.user?.companyCode;
+
+  if (req.user?.role === "superadmin") {
+    companyCode = String(
+      req.body?.companyCode ||
+        req.query?.companyCode ||
+        companyCode ||
+        "SYSTEM"
+    );
+  }
+
+  if (!userId || !companyCode) {
+    throw new VideoCaptionError(
+      "Không xác định được người dùng hoặc doanh nghiệp.",
+      "CAPTION_IDENTITY_REQUIRED",
+      "authentication",
+      false,
+      401
+    );
+  }
+  return { userId, companyCode };
+}
+
+function sendError(res: Response, error: unknown) {
+  const statusCode = getVideoCaptionHttpStatus(error);
+  const message =
+    error instanceof Error
+      ? error.message
+      : "Đã xảy ra lỗi khi xử lý caption video.";
+  if (statusCode >= 500) {
+    console.error("[Video Caption API]", error);
+  }
+  return res.status(statusCode).json({
+    status: "error",
+    message,
+    code:
+      error instanceof VideoCaptionError
+        ? error.code
+        : "UNEXPECTED_ERROR",
+  });
+}
+
+export const videoCaptionController = {
+  async create(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { userId, companyCode } = getIdentity(req);
+      const result = await videoCaptionService.createProject(
+        companyCode,
+        userId,
+        req.body
+      );
+
+      let analysisJob;
+      if (req.body.autoAnalyze !== false) {
+        analysisJob = await videoCaptionService.prepareAnalysisJob(
+          companyCode,
+          result.project.id,
+          userId
+        );
+        await enqueueVideoCaptionJob(analysisJob.id);
+      }
+
+      const detail = await videoCaptionService.getProjectDetail(
+        companyCode,
+        result.project.id
+      );
+      return res.status(result.created ? 201 : 200).json({
+        status: "success",
+        data: detail,
+        meta: {
+          created: result.created,
+          analysisQueued: Boolean(analysisJob),
+        },
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async list(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const data = await videoCaptionService.listProjects(companyCode, {
+        page: Number(req.query.page || 1),
+        limit: Number(req.query.limit || 20),
+        status: req.query.status as never,
+        mode:
+          typeof req.query.mode === "string"
+            ? req.query.mode
+            : undefined,
+      });
+      return res.status(200).json({ status: "success", data });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async contextOptions(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const data = await videoCaptionContextService.listOptions(
+        companyCode.trim().toUpperCase()
+      );
+      return res.status(200).json({ status: "success", data });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async detail(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const data = await videoCaptionService.getProjectDetail(
+        companyCode,
+        req.params.id
+      );
+      return res.status(200).json({ status: "success", data });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async update(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode, userId } = getIdentity(req);
+      const project = await videoCaptionService.updateProject(
+        companyCode,
+        req.params.id,
+        userId,
+        req.body
+      );
+      return res.status(200).json({
+        status: "success",
+        data: { project },
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async analyze(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode, userId } = getIdentity(req);
+      const job = await videoCaptionService.prepareAnalysisJob(
+        companyCode,
+        req.params.id,
+        userId
+      );
+      await enqueueVideoCaptionJob(job.id, true);
+      return res.status(202).json({
+        status: "success",
+        data: { job },
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async transcribe(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode, userId } = getIdentity(req);
+      const job = await videoCaptionService.prepareTranscriptionJob(
+        companyCode,
+        req.params.id,
+        userId
+      );
+      await enqueueVideoCaptionJob(job.id, true);
+      return res.status(202).json({
+        status: "success",
+        data: { job },
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async generateContext(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode, userId } = getIdentity(req);
+      const job = await videoCaptionService.prepareContextJob(
+        companyCode,
+        req.params.id,
+        userId
+      );
+      await enqueueVideoCaptionJob(job.id, true);
+      return res.status(202).json({
+        status: "success",
+        data: { job },
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async render(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode, userId } = getIdentity(req);
+      const job = await videoCaptionService.prepareRenderJob(
+        companyCode,
+        req.params.id,
+        userId,
+        req.body.preview === true
+      );
+      await enqueueVideoCaptionJob(job.id, true);
+      return res.status(202).json({
+        status: "success",
+        data: { job },
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async downloadSubtitles(
+    req: AuthenticatedRequest,
+    res: Response
+  ) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const format = req.params.format as "srt" | "vtt";
+      const result = await videoCaptionService.exportSubtitles(
+        companyCode,
+        req.params.id,
+        format
+      );
+      res.setHeader(
+        "Content-Type",
+        format === "srt"
+          ? "application/x-subrip; charset=utf-8"
+          : "text/vtt; charset=utf-8"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename*=UTF-8''${encodeURIComponent(result.filename)}`
+      );
+      return res.status(200).send(result.content);
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async downloadRenderedVideo(
+    req: AuthenticatedRequest,
+    res: Response
+  ) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const detail = await videoCaptionService.getProjectDetail(
+        companyCode,
+        req.params.id
+      );
+      const outputUrl = detail.project.output?.captionedVideoUrl;
+      if (!outputUrl) {
+        throw new VideoCaptionError(
+          "Video caption chưa xuất xong để tải xuống.",
+          "CAPTION_VIDEO_NOT_READY",
+          "validation",
+          false,
+          409
+        );
+      }
+
+      const upstream = await fetch(outputUrl);
+      if (!upstream.ok || !upstream.body) {
+        throw new VideoCaptionError(
+          "Không thể tải video caption từ kho lưu trữ.",
+          "CAPTION_VIDEO_DOWNLOAD_FAILED",
+          "provider",
+          true,
+          502
+        );
+      }
+
+      const filename = `${detail.project.name
+        .replace(/[^\p{L}\p{N}._-]+/gu, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || "caption-video"}.mp4`;
+      res.status(200);
+      res.setHeader(
+        "Content-Type",
+        upstream.headers.get("content-type") || "video/mp4"
+      );
+      const contentLength = upstream.headers.get("content-length");
+      if (contentLength) res.setHeader("Content-Length", contentLength);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`
+      );
+      Readable.fromWeb(upstream.body as never)
+        .on("error", (error) => {
+          console.error("[Video Caption Download] Stream error:", error);
+          if (!res.headersSent) res.status(502).end();
+          else res.destroy(error);
+        })
+        .pipe(res);
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async cancel(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode, userId } = getIdentity(req);
+      const project = await videoCaptionService.cancelProject(
+        companyCode,
+        req.params.id,
+        userId
+      );
+      return res.status(200).json({
+        status: "success",
+        data: { project },
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async retry(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode, userId } = getIdentity(req);
+      const job = await videoCaptionService.retryProject(
+        companyCode,
+        req.params.id,
+        userId
+      );
+      await enqueueVideoCaptionJob(job.id, true);
+      return res.status(202).json({
+        status: "success",
+        data: { job },
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async jobs(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const jobs = await videoCaptionService.listJobs(
+        companyCode,
+        req.params.id
+      );
+      return res.status(200).json({
+        status: "success",
+        data: { jobs },
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async replaceSegments(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      await videoCaptionService.replaceSegments(
+        companyCode,
+        req.params.id,
+        req.body
+      );
+      const data = await videoCaptionService.getProjectDetail(
+        companyCode,
+        req.params.id
+      );
+      return res.status(200).json({ status: "success", data });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+
+  async resolveDriveFolder(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { url } = req.body;
+      if (!url) {
+        throw new VideoCaptionError(
+          "Đường dẫn thư mục Google Drive không được để trống.",
+          "DRIVE_URL_REQUIRED",
+          "validation",
+          false,
+          400
+        );
+      }
+
+      const { listGoogleDriveFolderFiles, getGoogleDriveDirectLink } = await import("../../campaign/service/marketing-campaign-helper");
+      const files = await listGoogleDriveFolderFiles(url);
+
+      const videoFiles = files
+        .filter((f: { id: string; name: string }) => {
+          const lowerName = f.name.toLowerCase();
+          return /\.(mp4|mov|avi|webm|mkv)$/.test(lowerName);
+        })
+        .map((f: { id: string; name: string }) => ({
+          id: f.id,
+          name: f.name,
+          directUrl: getGoogleDriveDirectLink(f.id, "video"),
+        }));
+
+      return res.status(200).json({
+        status: "success",
+        data: videoFiles,
+      });
+    } catch (error) {
+      return sendError(res, error);
+    }
+  },
+};

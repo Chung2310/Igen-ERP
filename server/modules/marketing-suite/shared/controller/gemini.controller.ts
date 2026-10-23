@@ -1,0 +1,1549 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
+import { Request, Response } from "express";
+import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
+import mongoose from "mongoose";
+import { geminiService } from "../service/gemini.service.ts";
+import { AuthenticatedRequest } from "../middleware/auth";
+import { aiKnowledgeService } from "../../knowledge/service/ai-knowledge.service.ts";
+import { walletService, API_COSTS } from "../service/wallet.service.ts";
+import { AIMediaModel } from "../model/ai-media.model.ts";
+import { SocialIntegrationModel } from "../model/social-integration.model.ts";
+import { UserModel } from "../../../../model/user.model.ts";
+import { broadcastEvent } from "../socket";
+import * as XLSX from "xlsx";
+import AdmZip from "adm-zip";
+import { PDFParse } from "pdf-parse";
+import { openrouterChat } from "../service/openrouter.service.ts";
+import { prepareChatPreview } from "../../message/service/chat-preview.service.ts";
+import { prepareChatReplyContext, buildChatConversationInstructions, describeChatVisualContext } from "../../message/service/chat-reply-context.service.ts";
+import { randomUUID } from "node:crypto";
+import { getErpKnowledgeDriveClient, listErpKnowledgeDriveFiles, readErpKnowledgeDriveFile } from "../../knowledge/service/erp-drive.adapter";
+import { visualToImageObservation, type ChatReply } from "../../message/service/chat-visual-context";
+import { chatOrderFlowRegistry } from "../../message/service/chat-ordering/registry";
+import { createChatAiTrace, describeChatAiTrace, withChatAiTrace } from "../../message/service/chat-ai-trace";
+
+function handleGeminiError(res: Response, error: any, defaultMessage: string) {
+  const rawMessage = String(error.message || "");
+  const normalizedMessage = rawMessage.toLowerCase();
+  const isWalletBalanceError =
+    normalizedMessage.includes("số dư ví không đủ") ||
+    normalizedMessage.includes("so du vi khong du") ||
+    normalizedMessage.includes("wallet balance");
+  const details = rawMessage || String(error);
+  const status = error.status || error.statusCode;
+
+  if (status === 402) {
+    if (!isWalletBalanceError) {
+      return res.status(503).json({
+        status: "error",
+        message: "Dịch vụ AI đang tạm thời không khả dụng. Vui lòng thử lại sau.",
+      });
+    }
+    return res.status(402).json({
+      status: "error",
+      message: rawMessage || "Số dư ví không đủ. Vui lòng nạp thêm tiền.",
+    });
+  }
+
+  let errMsg = defaultMessage;
+  let statusCode = 500;
+  const errStr = String(error.message || "").toUpperCase();
+
+  // Pass through user-friendly overload message directly
+  const isOverloadMsg = (error.message || "").includes("Mô hình AI quá tải");
+  if (isOverloadMsg) {
+    return res.status(503).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+
+  if (status === 503 || errStr.includes("503") || errStr.includes("UNAVAILABLE")) {
+    errMsg = "Dịch vụ AI hiện đang quá tải hoặc tạm thời không khả dụng. Vui lòng thử lại sau ít phút.";
+    statusCode = 503;
+  } else if (status === 429 || errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED")) {
+    errMsg = "Yêu cầu vượt quá giới hạn tần suất (Rate Limit) cho phép của API Key. Vui lòng đợi và thử lại sau.";
+    statusCode = 429;
+  } else if (status === 400 || errStr.includes("400") || errStr.includes("INVALID_ARGUMENT")) {
+    errMsg = "Tham số yêu cầu không hợp lệ hoặc bị từ chối bởi quy tắc an toàn nội dung của dịch vụ AI.";
+    statusCode = 400;
+  } else if (status === 403 || errStr.includes("403") || errStr.includes("PERMISSION_DENIED")) {
+    errMsg = "API Key không hợp lệ hoặc không có quyền truy cập vào mô hình AI.";
+    statusCode = 403;
+  }
+
+  return res.status(statusCode).json({
+    status: "error",
+    message: errMsg,
+    details: details,
+  });
+}
+
+const DRIVE_PDF_PRIMARY_MODEL = process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const DRIVE_PDF_FALLBACK_MODEL = "gemini-2.5-flash";
+
+const IMAGE_CROP_ASPECT_RATIOS = [
+  { key: "1:1", value: 1 },
+  { key: "16:9", value: 16 / 9 },
+  { key: "9:16", value: 9 / 16 },
+  { key: "4:3", value: 4 / 3 },
+  { key: "3:4", value: 3 / 4 },
+  { key: "3:2", value: 3 / 2 },
+  { key: "2:3", value: 2 / 3 },
+] as const;
+
+function getClosestImageAspectRatio(region: { width: number; height: number }): string {
+  const ratio = Math.max(0.01, region.width) / Math.max(0.01, region.height);
+  return IMAGE_CROP_ASPECT_RATIOS.reduce((closest, candidate) => {
+    const distance = Math.abs(Math.log(ratio / candidate.value));
+    const closestDistance = Math.abs(Math.log(ratio / closest.value));
+    return distance < closestDistance ? candidate : closest;
+  }).key;
+}
+
+function isGeminiModelNotFound(error: any): boolean {
+  const errorMsg = error?.message || String(error);
+  return error?.status === 404 || errorMsg.includes("is not found for API version") || errorMsg.includes("\"status\":\"NOT_FOUND\"");
+}
+
+async function extractPdfTextWithModelFallback(pdfBase64: string): Promise<string> {
+  if (!process.env.OPENROUTER_API_KEY) {
+    throw new Error("OPENROUTER_API_KEY is not configured");
+  }
+
+  const model = DRIVE_PDF_PRIMARY_MODEL;
+  console.log(`[AI AutoReply] Dang goi OpenRouter trich xuat van ban tu PDF (model: ${model})...`);
+
+  const result = await openrouterChat({
+    model,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image_url", image_url: { url: `data:application/pdf;base64,${pdfBase64}` } },
+          { type: "text", text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản có trong file PDF này theo đúng thứ tự đọc. Chỉ trả về văn bản thuần, không thêm giải thích hay markdown." },
+        ],
+      },
+    ],
+    temperature: 0.1,
+  });
+
+  return result.text;
+}
+
+function getTextModelCost(aiConfig: any): number {
+  const model = String(aiConfig?.model || "").toLowerCase();
+  if (model.includes("pro")) return 10;
+  if (model.includes("lite")) return 1.5;
+  return 2.5; // Default flash
+}
+
+function isProbablyHtml(text: string) {
+  const sample = String(text || "").trim().slice(0, 500).toLowerCase();
+  return sample.includes("<!doctype html") || sample.includes("<html");
+}
+
+function isTextLikeContentType(contentType: string) {
+  const normalized = String(contentType || "").toLowerCase();
+  return [
+    "text/plain",
+    "text/csv",
+    "text/markdown",
+    "text/html",
+    "text/xml",
+    "application/json",
+    "application/xml",
+    "application/rtf",
+  ].some((type) => normalized.includes(type));
+}
+
+function extractWorkbookText(buffer: Buffer) {
+  try {
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    return workbook.SheetNames.map((sheetName) => {
+      const worksheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<(string | number | boolean | null)[]>(worksheet, {
+        header: 1,
+        raw: false,
+        defval: "",
+      });
+
+      if (!rows.length) return "";
+
+      const normalizedRows = rows
+        .map((row) => row.map((cell) => String(cell ?? "").trim()))
+        .filter((row) => row.some((cell) => cell.length > 0));
+
+      if (!normalizedRows.length) return "";
+
+      const headerKeywords = /(ten|tên|san pham|sản phẩm|sku|ma|mã|gia|giá|don gia|đơn giá|price|model|size|mau|màu|so luong|số lượng|tên hàng|tên hàng hóa|mã hàng|giá bán|giá lẻ|nhóm hàng|loại sản phẩm)/i;
+      const headerIndex = normalizedRows.findIndex((row) => row.filter(Boolean).some((cell) => headerKeywords.test(cell)));
+      const safeHeaderIndex = headerIndex >= 0 ? headerIndex : 0;
+
+      const headers = normalizedRows[safeHeaderIndex];
+      const bodyRows = normalizedRows.slice(safeHeaderIndex + 1);
+
+      const structuredLines = bodyRows
+        .map((row, rowIndex) => {
+          const pairs = row
+            .map((cell, index) => {
+              const header = headers[index] || `Cot ${index + 1}`;
+              return cell ? `${header}: ${cell}` : "";
+            })
+            .filter(Boolean);
+          if (pairs.length === 0) return "";
+
+          const rowMap = new Map<string, string>();
+          row.forEach((cell, index) => {
+            const header = String(headers[index] || `Cot ${index + 1}`).trim();
+            const value = String(cell || "").trim();
+            if (header && value) {
+              rowMap.set(header.toLowerCase(), value);
+            }
+          });
+
+          const productName =
+            rowMap.get("tên sản phẩm") ||
+            rowMap.get("ten san pham") ||
+            rowMap.get("tên hàng") ||
+            rowMap.get("ten hang") ||
+            rowMap.get("tên hàng hóa") ||
+            rowMap.get("ten hang hoa") ||
+            rowMap.get("sản phẩm") ||
+            rowMap.get("san pham") ||
+            rowMap.get("product") ||
+            "";
+
+          const category =
+            rowMap.get("danh mục") ||
+            rowMap.get("danh muc") ||
+            rowMap.get("nhóm hàng") ||
+            rowMap.get("nhom hang") ||
+            rowMap.get("loại sản phẩm") ||
+            rowMap.get("loai san pham") ||
+            rowMap.get("category") ||
+            "";
+
+          const price =
+            rowMap.get("giá tham khảo (vnđ)") ||
+            rowMap.get("gia tham khao (vnd)") ||
+            rowMap.get("giá bán") ||
+            rowMap.get("gia ban") ||
+            rowMap.get("giá lẻ") ||
+            rowMap.get("gia le") ||
+            rowMap.get("đơn giá") ||
+            rowMap.get("don gia") ||
+            rowMap.get("giá") ||
+            rowMap.get("gia") ||
+            rowMap.get("price") ||
+            "";
+
+          if (productName) {
+            const detailStr = pairs.join(" | ");
+            return `Sản phẩm ${rowIndex + 1}: ${productName}${category ? ` (Danh mục: ${category})` : ""}${price ? ` - Giá: ${price}` : ""} | Chi tiết: ${detailStr}`;
+          }
+
+          return `Dòng ${rowIndex + 1}: ${pairs.join(" | ")}`;
+        })
+        .filter(Boolean);
+
+      const sections = [
+        `Sheet: ${sheetName}`,
+        headers.filter(Boolean).length > 0 ? `Tiêu đề cột: ${headers.filter(Boolean).join(" | ")}` : "",
+        structuredLines.join("\n\n"),
+      ].filter(Boolean);
+
+      return sections.join("\n\n");
+    }).filter(Boolean).join("\n\n");
+  } catch (error) {
+    console.warn("[AI AutoReply] Khong the doc file bang xlsx:", error);
+    return "";
+  }
+}
+
+function extractStructuredSheetTextFromString(rawText: string, fileLabel: string) {
+  try {
+    const workbook = XLSX.read(rawText, { type: "string" });
+    return extractWorkbookText(Buffer.from(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" })));
+  } catch (error) {
+    console.warn(`[AI AutoReply] Khong the parse bang du lieu dang chuoi cho ${fileLabel}:`, error);
+    return rawText;
+  }
+}
+
+const COMMON_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+};
+
+async function fetchDirectDriveFile(fileId: string): Promise<{ buffer: Buffer; contentType: string }> {
+  const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+  
+  let res = await fetch(directUrl, { headers: COMMON_HEADERS });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  
+  let contentType = res.headers.get("content-type") || "";
+  let arrayBuffer = await res.arrayBuffer();
+  let buffer = Buffer.from(arrayBuffer);
+  
+  // Check if we got a Google Drive virus scan warning HTML page
+  if (contentType.toLowerCase().includes("text/html")) {
+    const htmlText = buffer.toString("utf-8");
+    const confirmMatch = htmlText.match(/confirm=([a-zA-Z0-9-_]+)/);
+    if (confirmMatch) {
+      const confirmToken = confirmMatch[1];
+      const confirmUrl = `https://drive.google.com/uc?export=download&confirm=${confirmToken}&id=${fileId}`;
+      const confirmRes = await fetch(confirmUrl, { headers: COMMON_HEADERS });
+      if (confirmRes.ok) {
+        contentType = confirmRes.headers.get("content-type") || "";
+        const confirmBuffer = await confirmRes.arrayBuffer();
+        buffer = Buffer.from(confirmBuffer);
+      }
+    }
+  }
+  
+  return { buffer, contentType };
+}
+
+function extractDocxText(buffer: Buffer): string {
+  try {
+    const zip = new AdmZip(buffer);
+    const xmlEntry = zip.getEntry("word/document.xml");
+    if (!xmlEntry) return "";
+    const xmlContent = zip.readAsText(xmlEntry);
+    const text = xmlContent
+      .replace(/<w:p(?: [^>]*)?>/gi, "\n")
+      .replace(/<w:tab\/>/gi, "\t")
+      .replace(/<w:br\/>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    return text;
+  } catch (err) {
+    console.warn("[geminiController.extractDocxText] Error parsing docx:", err);
+    return "";
+  }
+}
+
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  try {
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const result = await parser.getText();
+      return String(result?.text || "").trim();
+    } finally {
+      await parser.destroy();
+    }
+  } catch (err) {
+    console.warn("[geminiController.extractPdfText] Error parsing pdf:", err);
+    return "";
+  }
+}
+
+async function parseUploadedDocument(base64Data: string, mimeType: string, fileName: string): Promise<string> {
+  const normMime = mimeType.toLowerCase();
+  const buffer = Buffer.from(base64Data, "base64");
+
+  // 1. Text files (.txt, .md, .csv)
+  if (
+    normMime.includes("text/plain") ||
+    normMime.includes("text/markdown") ||
+    normMime.includes("text/csv") ||
+    fileName.endsWith(".txt") ||
+    fileName.endsWith(".md")
+  ) {
+    return Buffer.from(base64Data, "base64").toString("utf-8");
+  }
+
+  // 2. Spreadsheets (XLS, XLSX, CSV)
+  const isSpreadsheet =
+    normMime.includes("spreadsheetml") ||
+    normMime.includes("ms-excel") ||
+    normMime.includes("officedocument.spreadsheetml") ||
+    fileName.endsWith(".xlsx") ||
+    fileName.endsWith(".xls") ||
+    fileName.endsWith(".csv");
+
+  if (isSpreadsheet) {
+    const workbookText = extractWorkbookText(buffer);
+    if (workbookText) {
+      return workbookText;
+    }
+  }
+
+  // 3. Word Documents (.docx, .doc)
+  const isDocx =
+    normMime.includes("wordprocessingml") ||
+    normMime.includes("msword") ||
+    fileName.endsWith(".docx") ||
+    fileName.endsWith(".doc");
+
+  if (isDocx) {
+    const docxText = extractDocxText(buffer);
+    if (docxText && docxText.length > 0) {
+      return docxText;
+    }
+  }
+
+  // 4. PDFs (.pdf)
+  const isPdf = normMime.includes("pdf") || fileName.endsWith(".pdf");
+  if (isPdf) {
+    const pdfText = await extractPdfText(buffer);
+    if (pdfText && pdfText.length > 20) {
+      return pdfText;
+    }
+  }
+
+  // 5. Vision AI OCR for scanned PDFs, Images, or PPTX
+  const isPptx =
+    normMime.includes("presentationml") ||
+    normMime.includes("powerpoint") ||
+    fileName.endsWith(".pptx") ||
+    fileName.endsWith(".ppt");
+  const isImage =
+    normMime.startsWith("image/") ||
+    /\.(png|jpe?g|webp)$/i.test(fileName);
+
+  if (isPdf || isImage || isPptx) {
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not configured");
+    }
+    const model = process.env.OPENROUTER_TEXT_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+    console.log(`[AI AutoReply] Đang gọi OpenRouter trích xuất văn bản từ file upload (${fileName})...`);
+
+    let cleanMime = mimeType;
+    if (isPdf) cleanMime = "application/pdf";
+    else if (isDocx) cleanMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    else if (isPptx) cleanMime = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    else if (!cleanMime.startsWith("image/")) cleanMime = "image/jpeg";
+
+    const result = await openrouterChat({
+      model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image_url", image_url: { url: `data:${cleanMime};base64,${base64Data}` } },
+            { type: "text", text: "Bạn là trợ lý trích xuất văn bản. Hãy trích xuất và trả về toàn bộ nội dung văn bản có trong tài liệu này theo đúng thứ tự đọc. Chỉ trả về văn bản thuần của tài liệu, không thêm giải thích hay định dạng markdown." },
+          ],
+        },
+      ],
+      temperature: 0.1,
+    });
+
+    return result.text;
+  }
+
+  // Fallback to text
+  try {
+    return Buffer.from(base64Data, "base64").toString("utf-8");
+  } catch (e) {
+    throw new Error("Định dạng file không được hỗ trợ để trích xuất văn bản.");
+  }
+}
+
+async function fetchDriveFileContent(fileId: string): Promise<{ text: string; title: string }> {
+  // 1. Google Doc Text Export
+  try {
+    const docUrl = `https://docs.google.com/document/d/${fileId}/export?format=txt`;
+    const res = await fetch(docUrl, { headers: COMMON_HEADERS });
+    if (res.ok) {
+      const text = await res.text();
+      if (text && !isProbablyHtml(text) && text.length > 50) {
+        return { text, title: `Google Doc (${fileId})` };
+      }
+    }
+  } catch (e) {
+    console.warn(`Doc export failed for ${fileId}:`, e);
+  }
+
+  // 2. Google Sheet CSV Export
+  try {
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`;
+    const res = await fetch(sheetUrl, { headers: COMMON_HEADERS });
+    if (res.ok) {
+      const text = await res.text();
+      if (text && !isProbablyHtml(text) && text.length > 50) {
+        return {
+          text: extractStructuredSheetTextFromString(text, `Google Sheet (${fileId})`),
+          title: `Google Sheet (${fileId})`
+        };
+      }
+    }
+  } catch (e) {
+    console.warn(`Sheet export failed for ${fileId}:`, e);
+  }
+
+  // 3. Google Slides text export
+  try {
+    const slideUrl = `https://docs.google.com/presentation/d/${fileId}/export/txt`;
+    const res = await fetch(slideUrl, { headers: COMMON_HEADERS });
+    if (res.ok) {
+      const text = await res.text();
+      if (text && !isProbablyHtml(text) && text.length > 20) {
+        return { text, title: `Google Slides (${fileId})` };
+      }
+    }
+  } catch (e) {
+    console.warn(`Slides export failed for ${fileId}:`, e);
+  }
+
+  // 4. Direct File Download (e.g. for text files, spreadsheets or PDFs)
+  try {
+    const { buffer, contentType } = await fetchDirectDriveFile(fileId);
+
+    // Check if it is a PDF file by content-type or magic bytes (%PDF)
+    const isPdf = contentType.toLowerCase().includes("pdf") || 
+      (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46);
+
+    if (isPdf) {
+      console.log(`[AI AutoReply] Phát hiện file PDF (${fileId}). Tiến hành trích xuất văn bản qua Gemini...`);
+      const base64 = buffer.toString("base64");
+      const extractedText = await extractPdfTextWithModelFallback(base64);
+      if (extractedText && extractedText.trim().length > 0) {
+        return { text: extractedText, title: `PDF File (${fileId})` };
+      }
+    }
+
+    const normalizedContentType = contentType.toLowerCase();
+    const isSpreadsheet =
+      normalizedContentType.includes("spreadsheetml") ||
+      normalizedContentType.includes("ms-excel") ||
+      normalizedContentType.includes("officedocument.spreadsheetml");
+    if (isSpreadsheet) {
+      const workbookText = extractWorkbookText(buffer);
+      if (workbookText) {
+        return { text: workbookText, title: `Spreadsheet File (${fileId})` };
+      }
+    }
+
+    if (isTextLikeContentType(normalizedContentType)) {
+      const text = buffer.toString("utf-8");
+      if (text && !isProbablyHtml(text) && text.length > 10) {
+        return { text, title: `Drive File (${fileId})` };
+      }
+    }
+  } catch (e) {
+    console.warn(`Direct download failed for ${fileId}:`, e);
+  }
+
+  return { text: "", title: "" };
+}
+
+async function fetchDriveFolderFileIds(folderId: string): Promise<string[]> {
+  try {
+    const embeddedUrl = `https://drive.google.com/embeddedfolderview?id=${folderId}`;
+    let res = await fetch(embeddedUrl, { headers: COMMON_HEADERS });
+    let html = "";
+    if (res.ok) {
+      html = await res.text();
+    } else {
+      console.warn(`Failed to fetch embedded folder view, trying public folder view for ${folderId}`);
+      const publicUrl = `https://drive.google.com/drive/folders/${folderId}`;
+      res = await fetch(publicUrl, { headers: COMMON_HEADERS });
+      if (res.ok) {
+        html = await res.text();
+      }
+    }
+
+    if (!html) {
+      console.warn(`Could not retrieve folder HTML for ${folderId}`);
+      return [];
+    }
+
+    const fileIdMatches = [
+      ...html.matchAll(/\/document\/d\/([a-zA-Z0-9-_]{25,50})/g),
+      ...html.matchAll(/\/file\/d\/([a-zA-Z0-9-_]{25,50})/g),
+      ...html.matchAll(/\/spreadsheets\/d\/([a-zA-Z0-9-_]{25,50})/g),
+      ...html.matchAll(/\/presentation\/d\/([a-zA-Z0-9-_]{25,50})/g),
+      ...html.matchAll(/\/open\?id=([a-zA-Z0-9-_]{25,50})/g),
+      ...html.matchAll(/data-id="([a-zA-Z0-9-_]{28,45})"/g),
+      ...html.matchAll(/"id"\s*:\s*"([a-zA-Z0-9-_]{28,45})"/g),
+      ...html.matchAll(/\\x22([a-zA-Z0-9-_]{28,45})\\x22/g),
+      ...html.matchAll(/\\u0022([a-zA-Z0-9-_]{28,45})\\u0022/g)
+    ];
+    const docIds = Array.from(new Set(fileIdMatches.map(m => m[1]).filter(id => id !== folderId)));
+    console.log(`[AI AutoReply] Đã phân tích thư mục ${folderId}, tìm thấy ${docIds.length} files:`, docIds);
+    return docIds;
+  } catch (err) {
+    console.error(`Error listing folder ${folderId}:`, err);
+    return [];
+  }
+}
+
+function normalizeDriveDocText(rawText: string) {
+  return String(rawText || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export const geminiController = {
+  /**
+   * POST /api/v1/gemini/chat
+   */
+  async chat(req: Request, res: Response) {
+    try {
+      const { message, history, aiConfig } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      const cost = getTextModelCost({ ...aiConfig, model: AI_REPLY_PRIMARY_MODEL });
+      await walletService.checkBalance(userId, cost);
+      const companyCode = (req as any).user?.companyCode;
+      const effectiveRagContext = await aiKnowledgeService.prepareChatContext({
+        companyCode,
+        message,
+        history,
+        channel: "facebook",
+        trainingKnowledge: aiConfig?.trainingKnowledge,
+      });
+      const result = await geminiService.chat(message, history, aiConfig, effectiveRagContext);
+      await walletService.deductBalance(userId    , cost, "Chi phí sử dụng Trợ lý AI Chatbot");
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.chat] Error:", error);
+      return handleGeminiError(res, error, "Lỗi kết nối Trợ lý AI Chatbot");
+    }
+  },
+
+  /**
+   * GET /api/v1/gemini/knowledge-health
+   */
+  async getKnowledgeHealth(req: AuthenticatedRequest, res: Response) {
+    try {
+      const result = await aiKnowledgeService.getKnowledgeHealth(req.user?.companyCode);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.getKnowledgeHealth] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể kiểm tra trạng thái tri thức AI",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * DELETE /api/v1/gemini/customer-service-scenario
+   */
+  async clearCustomerServiceScenario(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = (req.user?.role === "superadmin" && (req.body?.companyCode || req.query?.companyCode))
+        ? String(req.body?.companyCode || req.query?.companyCode).trim().toUpperCase()
+        : String(req.user?.companyCode || "").trim().toUpperCase();
+      await aiKnowledgeService.clearKnowledgeDocumentType(companyCode, "scenario");
+      if (companyCode) {
+        const legacyScenarioFields = {
+          $unset: {
+            "aiAutoReplyConfig.customerServiceScript": 1,
+            "aiAutoReplyConfig.customerServiceScriptFileName": 1,
+          },
+        };
+        await Promise.all([
+          UserModel.updateMany({ companyCode }, legacyScenarioFields),
+          SocialIntegrationModel.updateMany({ companyCode }, legacyScenarioFields),
+        ]);
+      }
+      return res.status(200).json({
+        status: "success",
+        message: "Đã xóa kịch bản chăm sóc khách hàng khỏi RAG."
+      });
+    } catch (error: any) {
+      console.error("[geminiController.clearCustomerServiceScenario] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể xóa kịch bản chăm sóc khách hàng",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/clear-knowledge
+   */
+  async clearKnowledge(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = (req.user?.role === "superadmin" && (req.body?.companyCode || req.query?.companyCode))
+        ? String(req.body?.companyCode || req.query?.companyCode).trim().toUpperCase()
+        : String(req.user?.companyCode || "").trim().toUpperCase();
+      await aiKnowledgeService.clearKnowledge(companyCode);
+      return res.status(200).json({
+        status: "success",
+        message: "Đã xóa toàn bộ tài liệu tri thức AI của doanh nghiệp thành công."
+      });
+    } catch (error: any) {
+      console.error("[geminiController.clearKnowledge] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể xóa tài liệu tri thức",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/test-reply
+   */
+  async testReply(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { message = "", images = [], conversationId, platformId, channel = "facebook" } = req.body;
+      const companyCode = (req.user?.role === "superadmin" && (req.body?.companyCode || req.query?.companyCode))
+        ? String(req.body?.companyCode || req.query?.companyCode).trim().toUpperCase()
+        : String(req.user?.companyCode || "").trim().toUpperCase();
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      const { resolveAutoReplyOwner } = await import("../../message/service/ai-auto-reply.service.ts");
+      const preview = await prepareChatPreview({ userId, companyCode, channel, conversationId, platformId, withImages: images.length > 0 }, resolveAutoReplyOwner);
+      const aiConfig = images.length ? { ...preview.aiConfig, imageReplyEnabled: true } : preview.aiConfig;
+      const aiTrace = aiConfig.imageReplyEnabled ? createChatAiTrace() : undefined;
+      const cost = getTextModelCost({ ...aiConfig, model: AI_REPLY_PRIMARY_MODEL });
+      await walletService.checkBalance(userId, cost);
+      const startedAt = Date.now();
+      const preparedReplyContext = await prepareChatReplyContext({
+        companyCode, message, history: preview.history, channel: preview.channel,
+        platformId: preview.platformId, conversationId, sessionId: preview.sessionId,
+        messageId: "preview-" + randomUUID(), messages: preview.sourceMessages, uploadedImages: images, aiConfig,
+        deadlineAt: aiConfig.imageReplyEnabled ? startedAt + 90_000 : undefined,
+      });
+      const effectiveRagContext = preparedReplyContext.ragContext;
+      const effectiveRagContextDebug = aiKnowledgeService.describeEffectiveRagContext(effectiveRagContext as any);
+      console.log("[geminiController.testReply] Context diagnostics:", JSON.stringify({
+        messageLength: String(message || "").length,
+        ...effectiveRagContextDebug,
+        companyCode,
+      }));
+
+      let result = await withChatAiTrace<ChatReply>(aiTrace, () => geminiService.chat(message, preview.history, aiConfig.imageReplyEnabled
+        ? { ...aiConfig, advancedInstructions: buildChatConversationInstructions(String(aiConfig.advancedInstructions || "")) }
+        : aiConfig, effectiveRagContext));
+      const orderPreview = channel === "facebook" && conversationId && preview.pageId && result.visual
+        ? await withChatAiTrace(aiTrace, async () => chatOrderFlowRegistry.resolve(companyCode).preview?.({
+          companyCode, pageId: preview.pageId, conversationId, message,
+          messageId: preparedReplyContext.sourceMessageId,
+          imageUrls: preparedReplyContext.memoryImages.flatMap(image => image.url ? [image.url] : []),
+          observation: visualToImageObservation(result.visual, preparedReplyContext.memoryImages),
+          visualMode: true, session: preview.sessionId ? { sessionId: preview.sessionId, resetDraft: false } : undefined,
+          freshImage: images.length > 0, customerAddressStyle: String(aiConfig.customerAddressStyle || ""),
+          replyDeadlineAt: effectiveRagContext.replyDeadlineAt,
+          businessContext: [aiConfig.advancedInstructions, aiConfig.customerServiceScript,
+            effectiveRagContext.contextText, effectiveRagContext.scenarioContextText].filter(Boolean).join("\n\n"),
+        })) : undefined;
+      if (orderPreview?.consultationContext) {
+        const flow = chatOrderFlowRegistry.resolve(companyCode);
+        const rendered = await withChatAiTrace<ChatReply>(aiTrace, () => geminiService.chat(message, preview.history, {
+          ...aiConfig, advancedInstructions: [buildChatConversationInstructions(String(aiConfig.advancedInstructions || "")),
+            flow.conversationInstructions, flow.consultationInstructions].filter(Boolean).join("\n"),
+        }, { ...effectiveRagContext, visualInput: undefined, visualContext: result.visual,
+          contextText: [effectiveRagContext.contextText, "Đối chiếu đơn thử (chưa lưu): " + orderPreview.consultationContext].join("\n\n") }));
+        if (orderPreview.wordingSource && flow.preservesReplyFacts && !flow.preservesReplyFacts(orderPreview.wordingSource, rendered.text)) {
+          throw new Error("AI preview changed verified catalogue facts.");
+        }
+        result = { ...result, text: rendered.text };
+      }
+      const log = await aiKnowledgeService.createReplyLog({
+        companyCode,
+        channel: "test",
+        customerMessage: message,
+        aiResponse: result.text,
+        contextText: [effectiveRagContext.contextText, effectiveRagContext.scenarioContextText].filter(Boolean).join("\n\n"),
+        contextMatches: effectiveRagContext.matches,
+        latencyMs: Date.now() - startedAt,
+        status: "preview",
+        visualDiagnostics: { ...describeChatVisualContext(preparedReplyContext), ...(aiTrace ? describeChatAiTrace(aiTrace) : {}) },
+      });
+
+      await walletService.deductBalance(userId, cost, "Chi phí test câu trả lời tự động AI");
+      return res.status(200).json({
+        ...result,
+        mode: effectiveRagContext.contextText || effectiveRagContext.scenarioContextText ? "trained" : "default",
+        contextMatches: effectiveRagContext.matches || 0,
+        logId: log._id,
+        dryRun: true,
+        ...(orderPreview ? { orderPreview } : {}),
+      });
+    } catch (error: any) {
+      console.error("[geminiController.testReply] Error:", error);
+      if (error.status === 403 || error.status === 404) {
+        return res.status(error.status).json({ status: "error", message: error.message });
+      }
+      return handleGeminiError(res, error, "Không thể tạo câu trả lời thử");
+    }
+  },
+
+  /**
+   * GET /api/v1/gemini/ai-reply-logs
+   */
+  async listAIReplyLogs(req: AuthenticatedRequest, res: Response) {
+    try {
+      const logs = await aiKnowledgeService.listReplyLogs(req.user?.companyCode, Number(req.query.limit || 20));
+      return res.status(200).json({ logs });
+    } catch (error: any) {
+      console.error("[geminiController.listAIReplyLogs] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể tải log phản hồi AI",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * PATCH /api/v1/gemini/ai-reply-logs/:id/feedback
+   */
+  async updateAIReplyFeedback(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { feedback, note } = req.body;
+      const log = await aiKnowledgeService.updateReplyFeedback(req.user?.companyCode, req.params.id, feedback, note);
+      if (!log) {
+        return res.status(404).json({ status: "error", message: "Không tìm thấy log phản hồi AI." });
+      }
+      return res.status(200).json({ status: "success", log });
+    } catch (error: any) {
+      console.error("[geminiController.updateAIReplyFeedback] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Không thể lưu feedback phản hồi AI",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * GET /api/v1/gemini/marketing-suggestions
+   */
+  async getMarketingSuggestions(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
+      const suggestions = await geminiService.getMarketingSuggestions();
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí tạo gợi ý chủ đề Marketing AI");
+      return res.status(200).json({ suggestions });
+    } catch (error: any) {
+      console.error("[geminiController.getMarketingSuggestions] Error:", error);
+      return handleGeminiError(res, error, "Lỗi tạo gợi ý chủ đề marketing");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/marketing-pillars
+   */
+  async analyzeMarketingPillars(req: Request, res: Response) {
+    try {
+      const { campaignTopic, images } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      const startTime = Date.now();
+      console.log(`[geminiController.analyzeMarketingPillars] START | userId=${userId} | topic="${String(campaignTopic).slice(0, 80)}" | images=${images?.length || 0}`);
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
+      const result = await geminiService.analyzeMarketingPillars(campaignTopic, images);
+      const elapsed = Date.now() - startTime;
+      console.log(`[geminiController.analyzeMarketingPillars] DONE | ${elapsed}ms (${(elapsed / 1000).toFixed(1)}s) | pillars=${result?.pillars?.length || 0} | isMock=${result?.isMock}`);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí phân tích Content Pillars bằng AI");
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.analyzeMarketingPillars] Error:", error);
+      return handleGeminiError(res, error, "Lỗi phân tích khung nội dung content pillars");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/marketing-pillars/swap
+   */
+  async swapMarketingPillar(req: Request, res: Response) {
+    try {
+      const { campaignTopic, currentPillars, pillarIdToReplace, images } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
+      const result = await geminiService.swapMarketingPillar(campaignTopic, currentPillars, pillarIdToReplace, images);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí thay đổi Content Pillar bằng AI");
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.swapMarketingPillar] Error:", error);
+      return handleGeminiError(res, error, "Lỗi thay đổi Content Pillar");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/marketing-ideas
+   */
+  async generateMarketingIdeas(req: Request, res: Response) {
+    try {
+      const { campaignTopic, selectedPillars, channels, mediaType, images } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      const startTime = Date.now();
+      const promptLen = String(campaignTopic || "").length;
+      console.log(`[geminiController.generateMarketingIdeas] START | userId=${userId} | promptLen=${promptLen} | pillars=${selectedPillars?.length || 0} | channels=${channels?.join(",") || "auto"} | mediaType=${mediaType || "none"} | images=${images?.length || 0}`);
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
+      const result = await geminiService.generateMarketingIdeas(campaignTopic, selectedPillars, channels, mediaType, images);
+      const elapsed = Date.now() - startTime;
+      console.log(`[geminiController.generateMarketingIdeas] DONE | ${elapsed}ms (${(elapsed / 1000).toFixed(1)}s) | concepts=${result?.concepts?.length || 0} | isMock=${result?.isMock}`);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí phát sinh ý tưởng chiến dịch AI");
+      return res.status(200).json(result);
+    } catch (error: any) {
+      const elapsed = Date.now() - (req as any)._startTime || 0;
+      console.error(`[geminiController.generateMarketingIdeas] FAILED after ~${elapsed}ms |`, error);
+      return handleGeminiError(res, error, "Lỗi phát sinh ý tưởng chiến dịch AI");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/scheduled-campaign
+   */
+  async generateScheduledCampaign(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      const { prompt, startDate, endDate, postsPerDay, postingTimes, channels } = req.body;
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
+      const result = await geminiService.generateScheduledCampaign({
+        prompt,
+        startDate,
+        endDate,
+        postsPerDay,
+        postingTimes,
+        channels,
+      });
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí tạo chiến dịch nội dung theo lịch bằng AI");
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.generateScheduledCampaign] Error:", error);
+      return handleGeminiError(res, error, "Lỗi tạo chiến dịch nội dung theo lịch");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/marketing-develop
+   */
+  async developMarketingIdea(req: Request, res: Response) {
+    try {
+      const {
+        title,
+        summary,
+        suggestedContent,
+        channels,
+        mediaType,
+        imageModel,
+        imageResolution,
+        imageAspectRatio,
+        mediaPrompt,
+      } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      const startTime = Date.now();
+      console.log(`[geminiController.developMarketingIdea] START | userId=${userId} | title="${String(title).slice(0, 60)}" | channels=${channels?.join(",") || "auto"} | mediaType=${mediaType || "none"}`);
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_MARKETING);
+      const result = await geminiService.developMarketingIdea(title, summary, suggestedContent, channels, {
+        mediaType,
+        imageModel,
+        imageResolution,
+        imageAspectRatio,
+        mediaPrompt,
+      });
+      const elapsed = Date.now() - startTime;
+      console.log(`[geminiController.developMarketingIdea] DONE | ${elapsed}ms (${(elapsed / 1000).toFixed(1)}s) | posts=${result?.posts?.length || 0} | isMock=${result?.isMock}`);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_MARKETING, "Chi phí viết bài và lập dàn ý Marketing AI");
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.developMarketingIdea] Error:", error);
+      return handleGeminiError(res, error, "Lỗi lập dàn ý và phát triển bài đăng chi tiết");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/generate-image
+   */
+  async generateImage(req: Request, res: Response) {
+    try {
+      const { prompt, aspectRatio, modelName, resolution, negativePrompt, existingImageUris } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      const model = String(modelName || process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image").toLowerCase();
+      const cost = model.includes("pro") ? 57 : 27.5;
+
+      await walletService.checkBalance(userId, cost);
+      const result = await geminiService.generateImage(prompt, {
+        aspectRatio,
+        modelName,
+        resolution,
+        negativePrompt,
+        existingImageUris,
+      });
+
+      let record = null;
+      if (userId && result.url) {
+        record = await geminiService.saveGeneratedMediaRecord(userId, "image", result.url, prompt, {
+          aspectRatio,
+          resolution,
+          modelName,
+          negativePrompt,
+        });
+      }
+
+      await walletService.deductBalance(userId, cost, "Chi phí sinh ảnh minh họa AI");
+      return res.status(200).json({
+        ...result,
+        url: record ? record.url : result.url,
+        record,
+      });
+    } catch (error: any) {
+      console.error("[geminiController.generateImage] Error:", error);
+      return handleGeminiError(res, error, "Lỗi sinh ảnh AI");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/edit-image
+   * Region-aware image edit. Reference image 1 is always the authoritative source.
+   */
+  async editImage(req: Request, res: Response) {
+    try {
+      const {
+        sourceImageUrl,
+        sourceMediaId,
+        instruction,
+        regionNote,
+        region,
+        crop,
+        strokes,
+        supportingImageUris,
+        annotationImageUrl,
+        requestId,
+        aspectRatio,
+        modelName,
+        resolution,
+        preserveOutsideRegion = true,
+      } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      if (requestId) {
+        const existingRecord = await AIMediaModel.findOne({
+          userId,
+          mediaType: "image",
+          "metadata.requestId": requestId,
+        }).lean();
+        if (existingRecord) {
+          return res.status(200).json({
+            status: "success",
+            url: existingRecord.url,
+            isMock: false,
+            record: existingRecord,
+            replayed: true,
+          });
+        }
+      }
+
+      const sourceRecord = sourceMediaId
+        ? await AIMediaModel.findOne({ _id: sourceMediaId, userId, mediaType: "image" }).lean()
+        : null;
+      if (sourceMediaId && !sourceRecord) {
+        return res.status(404).json({ status: "error", message: "Không tìm thấy ảnh nguồn hoặc bạn không có quyền sử dụng ảnh này" });
+      }
+
+      const sourceUrl = sourceRecord?.url || sourceImageUrl;
+      const normalizedRegion = region
+        ? `TARGET REGION (normalized image coordinates): x=${region.x.toFixed(4)}, y=${region.y.toFixed(4)}, width=${region.width.toFixed(4)}, height=${region.height.toFixed(4)}.`
+        : "TARGET REGION: no selection; apply the requested edit to the full image.";
+      const annotationInstruction = annotationImageUrl
+        ? "ANNOTATED REFERENCE: reference image 2 is a marked copy of the source. Use its visible selection/crop/brush marks only as a location map; never reproduce any mark in the output."
+        : "";
+      const strokeInstruction = Array.isArray(strokes) && strokes.length > 0
+        ? `VISUAL MARK GUIDANCE: ${strokes.map((stroke: { points: Array<{ x: number; y: number }> }, index: number) => {
+          const xs = stroke.points.map((point) => point.x);
+          const ys = stroke.points.map((point) => point.y);
+          return `mark ${index + 1} near x=${Math.min(...xs).toFixed(4)}-${Math.max(...xs).toFixed(4)}, y=${Math.min(...ys).toFixed(4)}-${Math.max(...ys).toFixed(4)}`;
+        }).join("; ")}. Treat these locations as extra edit guidance and never render marks in the output.`
+        : "";
+      const model = String(modelName || process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image").toLowerCase();
+      const cost = model.includes("pro") ? 57 : 27.5;
+      await walletService.checkBalance(userId, cost);
+
+      // A crop is a framing operation, not a coordinate to apply blindly to
+      // the newly rendered image. AI models can change the framing/aspect
+      // ratio, so crop the authoritative source first and render that crop as
+      // the complete output. This prevents the second pixel crop from cutting
+      // off the subject (the bug that produced partial scooter images).
+      let generationSourceUrl = sourceUrl;
+      let generationAnnotationUrl = annotationImageUrl;
+      let generationAspectRatio = aspectRatio;
+      let cropApplied = false;
+      if (crop) {
+        try {
+          generationSourceUrl = await geminiService.cropImageToRegion(sourceUrl, crop);
+          if (annotationImageUrl) {
+            generationAnnotationUrl = await geminiService.cropImageToRegion(annotationImageUrl, crop);
+          }
+          generationAspectRatio = getClosestImageAspectRatio(crop);
+          cropApplied = true;
+        } catch (cropError: any) {
+          console.warn("[geminiController.editImage] Source crop skipped; keeping original framing:", cropError?.message || cropError);
+        }
+      }
+
+      const cropInstruction = crop
+        ? cropApplied
+          ? `CROP MODE: reference image 1 is already cropped to the requested framing. Fill the complete output with this crop, keep the full visible subject, do not zoom further, and do not cut off any part of the visible source crop. Use output aspect ratio ${generationAspectRatio || "the crop framing"}.`
+          : "CROP MODE: preserve the complete source framing; do not zoom in or cut off the subject."
+        : "";
+
+      const editPrompt = [
+        "GENERATION MODE: IMAGE EDIT.",
+        "Reference image 1 is the authoritative source image. Preserve its identity, geometry, materials, lighting, background, and all unmentioned details.",
+        normalizedRegion,
+        preserveOutsideRegion ? "Preserve everything outside the target region as closely as possible." : "The requested edit may affect the wider image when necessary.",
+        `MAIN EDIT INSTRUCTION: ${instruction}`,
+        regionNote ? `REGION NOTE: ${regionNote}` : "",
+        strokeInstruction,
+        annotationInstruction,
+        cropInstruction,
+        "Do not reproduce any selection box, brush stroke, arrow, annotation, or note text in the generated image. Do not add unrelated subjects or make a collage.",
+      ].filter(Boolean).join("\n\n");
+
+      const references: string[] = [generationSourceUrl];
+      const referenceImageRoles: Array<"source" | "supporting" | "annotation"> = ["source"];
+      if (generationAnnotationUrl && generationAnnotationUrl !== generationSourceUrl) {
+        references.push(generationAnnotationUrl);
+        referenceImageRoles.push("annotation");
+      }
+      for (const url of (supportingImageUris || []).filter((value: string) => value && value !== generationSourceUrl && value !== generationAnnotationUrl)) {
+        if (references.length >= 4) break;
+        references.push(url);
+        referenceImageRoles.push("supporting");
+      }
+      const result = await geminiService.generateImage(editPrompt, {
+        aspectRatio: generationAspectRatio,
+        modelName,
+        resolution,
+        existingImageUris: references,
+        referenceImageRoles,
+      });
+
+      let outputUrl = result.url;
+      if (preserveOutsideRegion && region && !cropApplied) {
+        try {
+          outputUrl = await geminiService.compositeEditedRegion(sourceUrl, outputUrl, region);
+        } catch (compositeError: any) {
+          console.warn("[geminiController.editImage] Pixel composite skipped:", compositeError?.message || compositeError);
+        }
+      }
+
+      const parentMediaId = sourceRecord?._id?.toString();
+      const rootMediaId = sourceRecord?.metadata?.rootMediaId || parentMediaId;
+      const revision = Number(sourceRecord?.metadata?.revision || 0) + 1;
+      let record;
+      try {
+        record = await geminiService.saveGeneratedMediaRecord(userId, "image", outputUrl, editPrompt, {
+          aspectRatio: generationAspectRatio,
+          resolution,
+          modelName,
+          provider: "openrouter",
+          parentMediaId,
+          rootMediaId,
+          revision,
+          editType: crop ? "crop" : region ? "region" : "global",
+          sourceImageUrl: sourceUrl,
+          referenceImageUrls: (supportingImageUris || []).filter((url: string) => /^https?:\/\//i.test(url)).slice(0, 2),
+          editInstruction: instruction,
+          regionNote,
+          editStrokes: strokes,
+          editRegion: region,
+          cropRegion: crop,
+          preserveOutsideRegion,
+          requestId,
+        });
+      } catch (saveError: any) {
+        if (saveError?.code === 11000 && requestId) {
+          const existingRecord = await AIMediaModel.findOne({
+            userId,
+            mediaType: "image",
+            "metadata.requestId": requestId,
+          }).lean();
+          if (existingRecord) {
+            return res.status(200).json({ status: "success", url: existingRecord.url, isMock: false, record: existingRecord, replayed: true });
+          }
+        }
+        throw saveError;
+      }
+
+      await walletService.deductBalance(userId, cost, "Chi phí chỉnh sửa ảnh AI");
+      return res.status(200).json({ ...result, url: record.url, record });
+    } catch (error: any) {
+      console.error("[geminiController.editImage] Error:", error);
+      return handleGeminiError(res, error, "Lỗi chỉnh sửa ảnh AI");
+    }
+  },
+
+
+  /**
+   * POST /api/v1/gemini/upload-document
+   */
+  async uploadLocalDocument(req: AuthenticatedRequest, res: Response) {
+    try {
+      const {
+        fileName,
+        fileBase64,
+        mimeType,
+        channelScope = ["all"],
+        purposeScope = ["all"],
+        pageScope = "all",
+        pageIds = [],
+        documentType = "general",
+        extractOnly = false,
+      } = req.body;
+      if (!fileName || !fileBase64 || !mimeType) {
+        return res.status(400).json({
+          status: "error",
+          message: "Thiếu thông tin file (tên, dữ liệu base64, mimeType)."
+        });
+      }
+
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_FAQ);
+      console.log(`[AI AutoReply] Bắt đầu xử lý file upload: ${fileName} (${mimeType})`);
+
+      const extractedText = await parseUploadedDocument(fileBase64, mimeType, fileName);
+
+      if (!extractedText || extractedText.trim().length === 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "Không thể trích xuất văn bản từ tài liệu này. Vui lòng kiểm tra lại định dạng file."
+        });
+      }
+
+      if (extractOnly) {
+        await walletService.deductBalance(userId, API_COSTS.GEMINI_FAQ, "Chi phí trích xuất kịch bản chăm sóc " + fileName);
+        const scenarioText = extractedText.trim();
+        const maxScenarioLength = 20_000;
+        return res.status(200).json({
+          status: "success",
+          title: fileName,
+          text: scenarioText.slice(0, maxScenarioLength),
+          truncated: scenarioText.length > maxScenarioLength,
+        });
+      }
+
+      const companyCode = (req.user?.role === "superadmin" && (req.body?.companyCode || req.query?.companyCode))
+        ? String(req.body?.companyCode || req.query?.companyCode).trim().toUpperCase()
+        : String(req.user?.companyCode || "").trim().toUpperCase();
+      const isScenario = documentType === "scenario";
+      const scenarioText = extractedText.trim();
+      const maxScenarioLength = 20_000;
+      const indexedText = isScenario
+        ? scenarioText.slice(0, maxScenarioLength)
+        : extractedText;
+      const sourceUrl = isScenario && req.body.appendScenario !== true
+        ? "scenario://customer-service"
+        : `uploaded://${fileName}_${Date.now()}`;
+
+      const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({
+        companyCode,
+        sourceType: "manual",
+        sourceTitle: fileName,
+        sourceUrl,
+        text: indexedText,
+        createdBy: req.user?.id,
+        channelScope,
+        purposeScope,
+        pageScope,
+        pageIds,
+        documentType,
+      });
+
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_FAQ, `Chi phí trích xuất & nạp tài liệu upload (${fileName})`);
+
+      return res.status(200).json({
+        status: "success",
+        title: fileName,
+        ...(!isScenario ? { text: extractedText } : {}),
+        companyCode,
+        chunksCount: syncResult.chunksCount,
+        truncated: isScenario && scenarioText.length > maxScenarioLength,
+      });
+    } catch (error: any) {
+      console.error("[geminiController.uploadLocalDocument] Error:", error);
+      return handleGeminiError(res, error, "Lỗi xử lý file tài liệu tải lên");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/sync-drive
+   */
+  async syncGoogleDrive(req: AuthenticatedRequest, res: Response) {
+    try {
+      const {
+        docLink,
+        channelScope = ["all"],
+        purposeScope = ["all"],
+        pageScope = "all",
+        pageIds = [],
+        documentType = "general",
+      } = req.body;
+      if (!docLink) {
+        return res.status(400).json({
+          status: "error",
+          message: "Thiếu đường dẫn tài liệu Google Drive."
+        });
+      }
+
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_FAQ);
+      console.log(`[AI AutoReply] Bắt đầu đồng bộ tài liệu từ Google Drive/Doc link: ${docLink}`);
+
+      const folderMatch = docLink.match(/folders\/([a-zA-Z0-9-_]{25,50})/);
+      const folderId = folderMatch ? folderMatch[1] : null;
+      const driveClient = await getErpKnowledgeDriveClient(userId, String(req.user?.companyCode || ""));
+
+      let docIds: string[] = [];
+      let isFolder = false;
+
+      if (folderId) {
+        console.log(`[AI AutoReply] Phát hiện đường dẫn thư mục Google Drive. Folder ID: ${folderId}`);
+        isFolder = true;
+        docIds = driveClient ? await listErpKnowledgeDriveFiles(driveClient, folderId) : await fetchDriveFolderFileIds(folderId);
+      } else {
+        const matches = [
+          ...docLink.matchAll(
+            /\/(?:document|spreadsheets|presentation|file)\/d\/([a-zA-Z0-9-_]+)/g
+          ),
+          ...docLink.matchAll(/[?&]id=([a-zA-Z0-9-_]+)/g),
+        ];
+        docIds = Array.from(
+          new Set(matches.map((match) => match[1]).filter(Boolean))
+        );
+      }
+
+      let extractedText = "";
+      let isMocked = true;
+      let docTitle = isFolder ? "Thu muc Google Drive" : "Tai lieu Google Drive";
+      const companyCode = (req.user?.role === "superadmin" && (req.body?.companyCode || req.query?.companyCode))
+        ? String(req.body?.companyCode || req.query?.companyCode).trim().toUpperCase()
+        : String(req.user?.companyCode || "").trim().toUpperCase();
+      const syncedDocuments: Array<{ title: string; fileId: string; chars: number; chunksCount: number }> = [];
+
+      if (docIds.length > 0) {
+        console.log(`[AI AutoReply] Bắt đầu tải nội dung từ ${docIds.length} tài liệu...`);
+        const filesContent = await Promise.all(
+          docIds.map(async (fileId) => {
+            const privateFile = driveClient ? await readErpKnowledgeDriveFile(driveClient, fileId) : undefined;
+            const fileData = privateFile ? {
+              title: privateFile.title,
+              text: privateFile.mimeType === "text/csv"
+                ? extractStructuredSheetTextFromString(privateFile.buffer.toString("utf8"), privateFile.title)
+                : await parseUploadedDocument(privateFile.buffer.toString("base64"), privateFile.mimeType, privateFile.title),
+            } : await fetchDriveFileContent(fileId);
+            return {
+              fileId,
+              title: fileData.title || `Drive File (${fileId})`,
+              text: normalizeDriveDocText(fileData.text || ""),
+            };
+          })
+        );
+
+        const validFiles = filesContent.filter((file) => file.text.length > 0);
+        extractedText = validFiles
+          .map((file) => `--- BAT DAU TAI LIEU (${file.title}) ---\n${file.text}\n--- KET THUC TAI LIEU (${file.title}) ---`)
+          .join("\n\n");
+
+        if (validFiles.length > 0) {
+          isMocked = false;
+          docTitle = isFolder
+            ? `Thu muc Google Drive (ID: ${folderId}, ${validFiles.length} files)`
+            : (validFiles.length === 1 ? validFiles[0].title : `Bo tai lieu Google Drive (${validFiles.length} files)`);
+          console.log(`[AI AutoReply] Đồng bộ thành công từ các links thật! Độ dài ký tự: ${extractedText.length}`);
+
+          // Tự động làm mới: Xóa toàn bộ tri thức cũ của doanh nghiệp trước khi nạp tài liệu mới
+          if (req.body.clearExisting === true) {
+            console.log(`[AI AutoReply] Tự động làm mới: Xóa toàn bộ tri thức cũ của công ty ${companyCode} trước khi nạp tài liệu mới từ Drive...`);
+            await aiKnowledgeService.clearKnowledge(companyCode);
+          }
+
+          for (const file of validFiles) {
+            const syncResult = await aiKnowledgeService.upsertKnowledgeFromText({
+              companyCode,
+              sourceType: "google_doc",
+              sourceTitle: file.title,
+              sourceUrl: `https://drive.google.com/open?id=${file.fileId}`,
+              text: file.text,
+              createdBy: req.user?.id,
+              channelScope,
+              purposeScope,
+              pageScope,
+              pageIds,
+              documentType,
+            });
+
+            syncedDocuments.push({
+              title: file.title,
+              fileId: file.fileId,
+              chars: file.text.length,
+              chunksCount: syncResult.chunksCount,
+            });
+          }
+        }
+      }
+
+      // Return error if fetch failed or no valid text could be extracted
+      if (isMocked) {
+        return res.status(400).json({
+          status: "error",
+          message: "Không thể tải hoặc trích xuất văn bản từ Google Drive. Vui lòng kiểm tra lại quyền chia sẻ công khai (Bất kỳ ai có liên kết đều có thể Xem/Viewer) và đảm bảo thư mục hoặc các file bên trong thuộc định dạng được hỗ trợ (PDF, Google Doc, Google Sheet, File văn bản)."
+        });
+      }
+
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_FAQ, `Chi phí đồng bộ Drive & FAQ AI (${docTitle})`);
+      return res.status(200).json({
+        status: "success",
+        title: docTitle,
+        text: extractedText,
+        isMocked,
+        companyCode,
+        documentsCount: syncedDocuments.length,
+        chunksCount: syncedDocuments.reduce((sum, item) => sum + item.chunksCount, 0),
+        documents: syncedDocuments,
+      });
+    } catch (error: any) {
+      console.error("[geminiController.syncGoogleDrive] Error:", error);
+      return handleGeminiError(res, error, "Lỗi đồng bộ dữ liệu từ Google Drive");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/optimize-script
+   */
+  async optimizeScript(req: Request, res: Response) {
+    try {
+      const { text, readingStyle, model } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
+      const result = await geminiService.optimizeScript(text, readingStyle, model);
+      await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Chi phí tối ưu kịch bản bằng AI");
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.optimizeScript] Error:", error);
+      return handleGeminiError(res, error, "Lỗi tối ưu kịch bản");
+    }
+  },
+
+  /**
+   * POST /api/v1/gemini/optimize-prompt
+   */
+  async optimizeImagePrompt(req: Request, res: Response) {
+    try {
+      const { description, imageUris, modelName } = req.body;
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+
+      await walletService.checkBalance(userId, API_COSTS.GEMINI_OPTIMIZE);
+      const result = await geminiService.optimizeImagePrompt(description, imageUris, modelName);
+      // A local fallback keeps the editor usable when both providers fail,
+      // but it is not a billable AI generation.
+      if (result?.isLocalFallback !== true) {
+        await walletService.deductBalance(userId, API_COSTS.GEMINI_OPTIMIZE, "Phí tối ưu prompt sinh ảnh AI");
+      }
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.optimizeImagePrompt] Error:", error);
+      return handleGeminiError(res, error, "Lỗi tối ưu prompt ảnh");
+    }
+  },
+
+
+  /**
+   * GET /api/v1/gemini/media-history
+   */
+  async getMediaHistory(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      const { type } = req.query;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+      const history = await geminiService.getMediaHistory(userId, type as any);
+      return res.status(200).json({ status: "success", history });
+    } catch (error: any) {
+      console.error("[geminiController.getMediaHistory] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi lấy lịch sử sinh đa phương tiện",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * DELETE /api/v1/gemini/media-history/:id
+   */
+  async deleteMediaHistory(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      const { id } = req.params;
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
+      }
+      const result = await geminiService.deleteMediaHistory(userId, id);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[geminiController.deleteMediaHistory] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi xóa bản ghi lịch sử",
+        details: error.message,
+      });
+    }
+  },
+};

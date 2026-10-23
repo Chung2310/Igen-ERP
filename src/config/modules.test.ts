@@ -49,5 +49,5 @@ test("toggles partner independently", () => {
 test("maps read and manage access without duplicate module permissions", () => {
   assert.deepEqual(MODULE_READ_PERMISSIONS["NHÂN SỰ"], ["hr:read", "access:read", "work:read", "timekeeping:read"]);
   assert.deepEqual(MODULE_READ_PERMISSIONS["BÁN LẺ"], ["retail:read", "retail:manage"]);
-  assert.deepEqual(MODULE_READ_PERMISSIONS["TÀI CHÍNH"], ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage"]);
+  assert.deepEqual(MODULE_READ_PERMISSIONS["TÀI CHÍNH"], ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage", "asset:read", "asset:manage"]);
 });

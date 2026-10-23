@@ -1,0 +1,2432 @@
+{
+  "sourceCommit": "cddce65",
+  "targetCommit": "d639fd13",
+  "files": [
+    {
+      "source": "server/controller/auth.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/auth.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/bulk-create.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/bulk-create.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/company-cake-catalog.controller.ts",
+      "target": "server/modules/marketing-suite/message/controller/company-cake-catalog.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/company-knowledge.controller.ts",
+      "target": "server/modules/marketing-suite/knowledge/controller/company-knowledge.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/company-sepay.controller.ts",
+      "target": "server/modules/marketing-suite/message/controller/company-sepay.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/company-telegram-order.controller.ts",
+      "target": "server/modules/marketing-suite/message/controller/company-telegram-order.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/elevenlabs.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/elevenlabs.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/facebook-post.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/facebook-post.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/fb-messenger.controller.ts",
+      "target": "server/modules/marketing-suite/message/controller/fb-messenger.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/gemini.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/gemini.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/marketing-campaign.controller.ts",
+      "target": "server/modules/marketing-suite/campaign/controller/marketing-campaign.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/media.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/media.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/order-sheet.controller.ts",
+      "target": "server/modules/marketing-suite/message/controller/order-sheet.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/scheduler.controller.ts",
+      "target": "server/modules/marketing-suite/campaign/controller/scheduler.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/tiktok-messenger.controller.ts",
+      "target": "server/modules/marketing-suite/message/controller/tiktok-messenger.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/tiktok.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/tiktok.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/video-caption.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/video-caption.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/zalo-messenger.controller.ts",
+      "target": "server/modules/marketing-suite/message/controller/zalo-messenger.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/ai-media.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/ai-media.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/bulk-create.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/bulk-create.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/campaign-asset-order.interface.ts",
+      "target": "server/modules/marketing-suite/campaign/interface/campaign-asset-order.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/campaign-content-sheet.interface.ts",
+      "target": "server/modules/marketing-suite/campaign/interface/campaign-content-sheet.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/company.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/company.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/crm-ticket.interface.ts",
+      "target": "server/modules/marketing-suite/message/interface/crm-ticket.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/marketing-campaign-slot.interface.ts",
+      "target": "server/modules/marketing-suite/campaign/interface/marketing-campaign-slot.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/marketing-campaign.interface.ts",
+      "target": "server/modules/marketing-suite/campaign/interface/marketing-campaign.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/marketing-candidate.interface.ts",
+      "target": "server/modules/marketing-suite/campaign/interface/marketing-candidate.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/marketing-content.interface.ts",
+      "target": "server/modules/marketing-suite/campaign/interface/marketing-content.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/social-integration.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/social-integration.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/social-post-metric.interface.ts",
+      "target": "server/modules/marketing-suite/campaign/interface/social-post-metric.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/telegram-link.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/telegram-link.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/user-data-deletion.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/user-data-deletion.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/user.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/user.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/video-caption.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/video-caption.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/middleware/auth.ts",
+      "target": "server/modules/marketing-suite/shared/middleware/auth.ts",
+      "mode": "adapter"
+    },
+    {
+      "source": "server/middleware/validation.ts",
+      "target": "server/middleware/validation.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "server/model/ai-faq-candidate.model.ts",
+      "target": "server/modules/marketing-suite/knowledge/model/ai-faq-candidate.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/ai-knowledge.model.ts",
+      "target": "server/modules/marketing-suite/knowledge/model/ai-knowledge.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/ai-media.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/ai-media.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/ai-reply-log.model.ts",
+      "target": "server/modules/marketing-suite/message/model/ai-reply-log.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/bulk-asset.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/bulk-asset.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/bulk-render-item.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/bulk-render-item.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/bulk-render-job.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/bulk-render-job.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/bulk-template.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/bulk-template.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/cake-checkout.model.ts",
+      "target": "server/modules/marketing-suite/message/model/cake-checkout.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/cake-customer-memory.model.ts",
+      "target": "server/modules/marketing-suite/message/model/cake-customer-memory.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/campaign-asset-order-ai-job.model.ts",
+      "target": "server/modules/marketing-suite/campaign/model/campaign-asset-order-ai-job.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/campaign-asset-order.model.ts",
+      "target": "server/modules/marketing-suite/campaign/model/campaign-asset-order.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/campaign-content-sheet.model.ts",
+      "target": "server/modules/marketing-suite/campaign/model/campaign-content-sheet.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/category.model.ts",
+      "target": "server/model/category.model.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "server/model/chat-visual-memory.model.ts",
+      "target": "server/modules/marketing-suite/message/model/chat-visual-memory.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/company.model.ts",
+      "target": "server/model/company.model.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "server/model/crm-ticket.model.ts",
+      "target": "server/modules/marketing-suite/message/model/crm-ticket.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/facebook-auto-reply-job.model.ts",
+      "target": "server/modules/marketing-suite/message/model/facebook-auto-reply-job.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/fb-messenger.model.ts",
+      "target": "server/modules/marketing-suite/message/model/fb-messenger.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/marketing-campaign-slot.model.ts",
+      "target": "server/modules/marketing-suite/campaign/model/marketing-campaign-slot.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/marketing-campaign.model.ts",
+      "target": "server/modules/marketing-suite/campaign/model/marketing-campaign.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/marketing-candidate.model.ts",
+      "target": "server/modules/marketing-suite/campaign/model/marketing-candidate.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/marketing-content.model.ts",
+      "target": "server/modules/marketing-suite/campaign/model/marketing-content.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/messenger-order.model.ts",
+      "target": "server/modules/marketing-suite/message/model/messenger-order.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/product.model.ts",
+      "target": "server/model/product.model.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "server/model/role-permission.model.ts",
+      "target": "server/model/role-permission.model.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "server/model/sepay-webhook-transaction.model.ts",
+      "target": "server/modules/marketing-suite/message/model/sepay-webhook-transaction.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/social-integration.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/social-integration.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/social-post-metric.model.ts",
+      "target": "server/modules/marketing-suite/campaign/model/social-post-metric.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/telegram-link-token.model.ts",
+      "target": "server/model/telegram-link-token.model.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "server/model/telegram-processed-update.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/telegram-processed-update.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/telegram-session.model.ts",
+      "target": "server/model/telegram-session.model.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "server/model/tiktok-messenger.model.ts",
+      "target": "server/modules/marketing-suite/message/model/tiktok-messenger.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/transaction.model.ts",
+      "target": "server/model/transaction.model.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "server/model/user-data-deletion.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/user-data-deletion.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/user.model.ts",
+      "target": "server/model/user.model.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "server/model/video-caption-job.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/video-caption-job.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/video-caption-project.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/video-caption-project.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/video-caption-segment.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/video-caption-segment.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/wallet.model.ts",
+      "target": "server/model/wallet.model.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "server/model/zalo-messenger.model.ts",
+      "target": "server/modules/marketing-suite/message/model/zalo-messenger.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/bulk-create-queue.ts",
+      "target": "server/modules/marketing-suite/shared/queue/bulk-create-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/campaign-asset-order-ai-queue.ts",
+      "target": "server/modules/marketing-suite/campaign/queue/campaign-asset-order-ai-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/campaign-content-sheet-queue.ts",
+      "target": "server/modules/marketing-suite/campaign/queue/campaign-content-sheet-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/campaign-queue.ts",
+      "target": "server/modules/marketing-suite/campaign/queue/campaign-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/campaign-workers.ts",
+      "target": "server/modules/marketing-suite/campaign/queue/campaign-workers.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/video-caption-queue.ts",
+      "target": "server/modules/marketing-suite/shared/queue/video-caption-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/bulk-create.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/bulk-create.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/canva.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/canva.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/company-cake-catalog.router.ts",
+      "target": "server/modules/marketing-suite/message/router/company-cake-catalog.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/company-knowledge.router.ts",
+      "target": "server/modules/marketing-suite/knowledge/router/company-knowledge.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/company-product-catalog.router.ts",
+      "target": "server/modules/marketing-suite/message/router/company-product-catalog.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/company-sepay.router.ts",
+      "target": "server/modules/marketing-suite/message/router/company-sepay.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/company-telegram-order.router.ts",
+      "target": "server/modules/marketing-suite/message/router/company-telegram-order.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/elevenlabs.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/elevenlabs.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/facebook-post.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/fb-messenger.router.ts",
+      "target": "server/modules/marketing-suite/message/router/fb-messenger.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/gemini.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/gemini.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/marketing-campaign.router.ts",
+      "target": "server/modules/marketing-suite/campaign/router/marketing-campaign.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/media.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/media.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/order-sheet.router.ts",
+      "target": "server/modules/marketing-suite/message/router/order-sheet.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/scheduler.router.ts",
+      "target": "server/modules/marketing-suite/campaign/router/scheduler.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/tiktok-messenger.router.ts",
+      "target": "server/modules/marketing-suite/message/router/tiktok-messenger.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/tiktok.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/video-caption.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/video-caption.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/zalo-messenger.router.ts",
+      "target": "server/modules/marketing-suite/message/router/zalo-messenger.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/campaign-caption.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/agents/campaign-caption.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/campaign-contact-footer.ts",
+      "target": "server/modules/marketing-suite/campaign/service/agents/campaign-contact-footer.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/campaign-matrix-generator.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/agents/campaign-matrix-generator.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/campaign-orchestrator.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/agents/campaign-orchestrator.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/campaign-utils.ts",
+      "target": "server/modules/marketing-suite/campaign/service/agents/campaign-utils.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/media-creator-agent.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/agents/media-creator-agent.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/publisher-agent.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/agents/publisher-agent.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/qc-agent.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/agents/qc-agent.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/researcher-agent.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/agents/researcher-agent.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/visual-analyst-agent.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/agents/visual-analyst-agent.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/ai-auto-reply.service.ts",
+      "target": "server/modules/marketing-suite/message/service/ai-auto-reply.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/ai-knowledge-learning.service.ts",
+      "target": "server/modules/marketing-suite/knowledge/service/ai-knowledge-learning.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/ai-knowledge.service.ts",
+      "target": "server/modules/marketing-suite/knowledge/service/ai-knowledge.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/ai-reply-provider.ts",
+      "target": "server/modules/marketing-suite/message/service/ai-reply-provider.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/apify-research.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/apify-research.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/approval-notifier.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/approval-notifier.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/auth.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/auth.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/auto-reply-owner.ts",
+      "target": "server/modules/marketing-suite/message/service/auto-reply-owner.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/bulk-create-ai.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/bulk-create-ai.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/bulk-create-chromium-renderer.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/bulk-create-chromium-renderer.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/bulk-create-renderer.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/bulk-create-renderer.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/bulk-create-xlsx-image.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/bulk-create-xlsx-image.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/bulk-create.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/bulk-create.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/cake-checkout.service.ts",
+      "target": "server/modules/marketing-suite/message/service/cake-checkout.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/cake-deposit-worker.ts",
+      "target": "server/modules/marketing-suite/message/service/cake-deposit-worker.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/cake-price-catalog.ts",
+      "target": "server/modules/marketing-suite/message/service/cake-price-catalog.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/cake-shipping.ts",
+      "target": "server/modules/marketing-suite/message/service/cake-shipping.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/campaign-asset-order.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/campaign-asset-order.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/campaign-content-sheet.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/campaign-content-sheet.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/campaign-drive-order-import.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/campaign-drive-order-import.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/campaign-scheduler.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/campaign-scheduler.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/canva.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/canva.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ai-trace.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ai-trace.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-context.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-context.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-image-context.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-image-context.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/core/types.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/core/types.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/flows/bakery-default/cake-checkout.service.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/flows/bakery-default/cake-checkout.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/flows/bakery-default/cake-customer-memory.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/flows/bakery-default/cake-customer-memory.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/flows/bakery-default/cake-deposit-worker.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/flows/bakery-default/cake-deposit-worker.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/flows/bakery-default/cake-order-confirmation.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/flows/bakery-default/cake-order-confirmation.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/flows/bakery-default/cake-order-status.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/flows/bakery-default/cake-order-status.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/flows/bakery-default/cake-price-catalog.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/flows/bakery-default/cake-price-catalog.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/flows/bakery-default/cake-serving-guidance.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/flows/bakery-default/cake-serving-guidance.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/flows/bakery-default/cake-shipping.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/flows/bakery-default/cake-shipping.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/flows/bakery-default/index.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/flows/bakery-default/index.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-ordering/registry.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-ordering/registry.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-preview.service.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-preview.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-reply-context.service.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-reply-context.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-visual-context.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-visual-context.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/chat-visual-memory.service.ts",
+      "target": "server/modules/marketing-suite/message/service/chat-visual-memory.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/cloudinary.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/cloudinary.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/company-cake-catalog.service.ts",
+      "target": "server/modules/marketing-suite/message/service/company-cake-catalog.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/company-product-catalog.service.ts",
+      "target": "server/modules/marketing-suite/message/service/company-product-catalog.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/company-sepay.service.ts",
+      "target": "server/modules/marketing-suite/message/service/company-sepay.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/company-telegram-order.service.ts",
+      "target": "server/modules/marketing-suite/message/service/company-telegram-order.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/elevenlabs.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/elevenlabs.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/facebook-auto-reply-queue.ts",
+      "target": "server/modules/marketing-suite/message/service/facebook-auto-reply-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/facebook-comment.service.ts",
+      "target": "server/modules/marketing-suite/message/service/facebook-comment.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/facebook-post.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/facebook-post.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/facebook-reply-failure.service.ts",
+      "target": "server/modules/marketing-suite/message/service/facebook-reply-failure.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/facebook-send-request.ts",
+      "target": "server/modules/marketing-suite/shared/service/facebook-send-request.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/fb-messenger-error.ts",
+      "target": "server/modules/marketing-suite/message/service/fb-messenger-error.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/fb-messenger.service.ts",
+      "target": "server/modules/marketing-suite/message/service/fb-messenger.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/gemini.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini/chat.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/gemini/chat.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini/core.ts",
+      "target": "server/modules/marketing-suite/shared/service/gemini/core.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini/image.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/gemini/image.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini/index.ts",
+      "target": "server/modules/marketing-suite/shared/service/gemini/index.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini/marketing.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/gemini/marketing.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini/media-history.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/gemini/media-history.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini/prompt-optimizer.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/gemini/prompt-optimizer.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini/types.ts",
+      "target": "server/modules/marketing-suite/shared/service/gemini/types.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini/video.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/gemini/video.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/google-order-sheet.service.ts",
+      "target": "server/modules/marketing-suite/message/service/google-order-sheet.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/marketing-analytics.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/marketing-analytics.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/marketing-campaign-activation.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/marketing-campaign-activation.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/marketing-campaign-facebook-worker.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/marketing-campaign-facebook-worker.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/marketing-campaign-helper.ts",
+      "target": "server/modules/marketing-suite/campaign/service/marketing-campaign-helper.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/marketing-campaign-schedule.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/marketing-campaign-schedule.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/marketing-campaign-worker.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/marketing-campaign-worker.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/marketing-campaign.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/marketing-campaign.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/media-binary.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/media-binary.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/messenger-order-context.ts",
+      "target": "server/modules/marketing-suite/message/service/messenger-order-context.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/messenger-order.service.ts",
+      "target": "server/modules/marketing-suite/message/service/messenger-order.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/metrics-sync.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/metrics-sync.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/openrouter-video.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/openrouter-video.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/openrouter.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/openrouter.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/scheduler.service.ts",
+      "target": "server/modules/marketing-suite/campaign/service/scheduler.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/telegram.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/telegram.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/tiktok-messenger.service.ts",
+      "target": "server/modules/marketing-suite/message/service/tiktok-messenger.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/tiktok.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/tiktok.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-caption-context.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-caption-context.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-caption-domain.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-caption-domain.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-caption-error.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-caption-error.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-caption-media.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-caption-media.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-caption-render.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-caption-render.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-caption-segmentation.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-caption-segmentation.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-caption-subtitle.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-caption-subtitle.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-caption-transcription.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-caption-transcription.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-caption.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-caption.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/wallet.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/wallet.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/zalo-messenger.service.ts",
+      "target": "server/modules/marketing-suite/message/service/zalo-messenger.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/socket.ts",
+      "target": "server/modules/marketing-suite/shared/socket.ts",
+      "mode": "adapter"
+    },
+    {
+      "source": "shared/ai-reply-models.ts",
+      "target": "shared/marketing-suite/ai-reply-models.ts",
+      "mode": "port"
+    },
+    {
+      "source": "shared/video-caption.contract.ts",
+      "target": "shared/marketing-suite/video-caption.contract.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/api/elevenlabs.ts",
+      "target": "src/modules/marketing-suite/shared/api/elevenlabs.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/api/gemini.ts",
+      "target": "src/modules/marketing-suite/shared/api/gemini.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/common/CleanMarkdownView.tsx",
+      "target": "src/modules/marketing-suite/shared/components/common/CleanMarkdownView.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/common/CustomTimePicker.tsx",
+      "target": "src/modules/marketing-suite/shared/components/common/CustomTimePicker.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/common/ErrorBoundary.tsx",
+      "target": "src/modules/marketing-suite/shared/components/common/ErrorBoundary.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/BulkCreateWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/BulkCreateWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/ImageDetailEditor.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/ImageDetailEditor.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/ImageGenerationWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/ImageGenerationWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/VoiceGenerationWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/VoiceGenerationWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/BulkAiPanel.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/BulkAiPanel.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/BulkWorkspaceHeader.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/BulkWorkspaceHeader.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/BulkWorkspaceStatus.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/BulkWorkspaceStatus.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/CampaignPicker.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/content-studio/bulk-create/CampaignPicker.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/CampaignSetupDialog.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/content-studio/bulk-create/CampaignSetupDialog.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/CanvasSizePicker.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/CanvasSizePicker.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/ContextMenu.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/ContextMenu.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/DataPanel.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/DataPanel.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/EditorCanvas.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/EditorCanvas.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/EditorPanel.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/EditorPanel.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/JobPanel.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/JobPanel.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/PageContextMenu.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/PageContextMenu.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/PageStrip.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/PageStrip.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/PropertiesToolbar.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/PropertiesToolbar.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/SceneCanvas.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/SceneCanvas.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/TemplatePreview.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/TemplatePreview.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/constants.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/constants.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/systemTemplates.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/systemTemplates.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/types.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/types.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/useBulkKeyboardShortcuts.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/useBulkKeyboardShortcuts.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/useBulkPageActions.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/useBulkPageActions.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/useCanvasInteractions.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/useCanvasInteractions.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/utils.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/utils.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/bulk-create/workspace-utils.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/bulk-create/workspace-utils.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/video-generation.constants.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/video-generation.constants.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/crm/AiAssistantConfigPanel.tsx",
+      "target": "src/modules/marketing-suite/message/components/crm/AiAssistantConfigPanel.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/crm/AiCommentReplyManager.tsx",
+      "target": "src/modules/marketing-suite/message/components/crm/AiCommentReplyManager.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/crm/OmniChatTab.tsx",
+      "target": "src/modules/marketing-suite/message/components/crm/OmniChatTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/crm/PipelineCard.tsx",
+      "target": "src/modules/marketing-suite/message/components/crm/PipelineCard.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/crm/PipelineTab.tsx",
+      "target": "src/modules/marketing-suite/message/components/crm/PipelineTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/knowledge/FaqLearningSuggestionsPanel.tsx",
+      "target": "src/modules/marketing-suite/knowledge/components/knowledge/FaqLearningSuggestionsPanel.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/knowledge/KnowledgeCenterSummaryCard.tsx",
+      "target": "src/modules/marketing-suite/knowledge/components/knowledge/KnowledgeCenterSummaryCard.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/AnalyticsDashboard.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/AnalyticsDashboard.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/ApprovalTab.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/ApprovalTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/AssetOrderAIPreviewModal.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/AssetOrderAIPreviewModal.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CalendarTab.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CalendarTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CampaignAssetOrderSheet.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CampaignAssetOrderSheet.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CampaignAssetOrders.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CampaignAssetOrders.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CampaignContentSheet.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CampaignContentSheet.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CampaignDetailModal.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CampaignDetailModal.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CampaignDriveImportPanel.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CampaignDriveImportPanel.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CampaignItem.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CampaignItem.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CampaignPlannerTab.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CampaignPlannerTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CampaignPromptBox.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CampaignPromptBox.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CampaignSlotDetail.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CampaignSlotDetail.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CampaignSlotsTable.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CampaignSlotsTable.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CardDetailDrawer.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CardDetailDrawer.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/CardWidgets.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/CardWidgets.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/IdeationGuideModal.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/IdeationGuideModal.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/IdeationTab.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/IdeationTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/TikTokBatchApprovalModal.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/TikTokBatchApprovalModal.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/TikTokPublishModal.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/TikTokPublishModal.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/settings/CompanyIntegrationsTab.tsx",
+      "target": "src/modules/marketing-suite/shared/components/settings/CompanyIntegrationsTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/settings/OrderSheetConfigCard.tsx",
+      "target": "src/modules/marketing-suite/shared/components/settings/OrderSheetConfigCard.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/settings/PersonalIntegrationsTab.tsx",
+      "target": "src/modules/marketing-suite/shared/components/settings/PersonalIntegrationsTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/settings/SepayConfigCard.tsx",
+      "target": "src/modules/marketing-suite/shared/components/settings/SepayConfigCard.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/settings/TelegramOrderConfigCard.tsx",
+      "target": "src/modules/marketing-suite/shared/components/settings/TelegramOrderConfigCard.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/config/brand.ts",
+      "target": "src/modules/marketing-suite/shared/config/brand.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/constants/autoReplyScenarioLibrary.ts",
+      "target": "src/modules/marketing-suite/shared/constants/autoReplyScenarioLibrary.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/context/AuthContext.tsx",
+      "target": "src/modules/marketing-suite/shared/context/AuthContext.tsx",
+      "mode": "adapter"
+    },
+    {
+      "source": "src/hooks/use-progress.ts",
+      "target": "src/modules/marketing-suite/shared/hooks/use-progress.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/hooks/useSubTabRouter.ts",
+      "target": "src/hooks/useSubTabRouter.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "src/pages/CRMTab.tsx",
+      "target": "src/modules/marketing-suite/message/pages/CRMTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/pages/CompanyKnowledgePage.tsx",
+      "target": "src/modules/marketing-suite/knowledge/pages/CompanyKnowledgePage.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/pages/MarketingTab.tsx",
+      "target": "src/modules/marketing-suite/campaign/pages/MarketingTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/pages/PublicDailySlotsApproval.tsx",
+      "target": "src/modules/marketing-suite/campaign/pages/PublicDailySlotsApproval.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/pages/PublicMonthlyApproval.tsx",
+      "target": "src/modules/marketing-suite/campaign/pages/PublicMonthlyApproval.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/pages/PublicSlotApproval.tsx",
+      "target": "src/modules/marketing-suite/campaign/pages/PublicSlotApproval.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/pages/Toast.tsx",
+      "target": "src/pages/Toast.tsx",
+      "mode": "reuse"
+    },
+    {
+      "source": "src/services/authService.ts",
+      "target": "src/services/authService.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "src/services/bulkCreateService.ts",
+      "target": "src/modules/marketing-suite/shared/services/bulkCreateService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/companyKnowledgeService.ts",
+      "target": "src/modules/marketing-suite/knowledge/services/companyKnowledgeService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/crmService.ts",
+      "target": "src/modules/marketing-suite/message/services/crmService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/fbMessengerService.ts",
+      "target": "src/modules/marketing-suite/message/services/fbMessengerService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/marketingAnalyticsService.ts",
+      "target": "src/modules/marketing-suite/campaign/services/marketingAnalyticsService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/marketingCampaignService.ts",
+      "target": "src/modules/marketing-suite/campaign/services/marketingCampaignService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/marketingService.ts",
+      "target": "src/modules/marketing-suite/campaign/services/marketingService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/socialIntegrationService.ts",
+      "target": "src/modules/marketing-suite/shared/services/socialIntegrationService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/socketService.ts",
+      "target": "src/services/socketService.ts",
+      "mode": "reuse"
+    },
+    {
+      "source": "src/services/tiktokMessengerService.ts",
+      "target": "src/modules/marketing-suite/message/services/tiktokMessengerService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/videoProjectMediaService.ts",
+      "target": "src/modules/marketing-suite/shared/services/videoProjectMediaService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/zaloMessengerService.ts",
+      "target": "src/modules/marketing-suite/message/services/zaloMessengerService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/types/common.ts",
+      "target": "src/modules/marketing-suite/shared/types/common.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/types/crm.ts",
+      "target": "src/modules/marketing-suite/message/types/crm.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/types/index.ts",
+      "target": "src/modules/marketing-suite/shared/types/index.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/types/integrations.ts",
+      "target": "src/modules/marketing-suite/shared/types/integrations.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/types/marketing.ts",
+      "target": "src/modules/marketing-suite/campaign/types/marketing.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/utils/aiReplyScope.ts",
+      "target": "src/modules/marketing-suite/shared/utils/aiReplyScope.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/utils/contentStudioNavigation.ts",
+      "target": "src/modules/marketing-suite/shared/utils/contentStudioNavigation.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/utils/errorParser.ts",
+      "target": "src/modules/marketing-suite/shared/utils/errorParser.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/utils/knowledgeNavigation.ts",
+      "target": "src/modules/marketing-suite/knowledge/utils/knowledgeNavigation.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/utils/usage-tracker.ts",
+      "target": "src/modules/marketing-suite/shared/utils/usage-tracker.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/utils/videoStudioNavigation.ts",
+      "target": "src/modules/marketing-suite/shared/utils/videoStudioNavigation.ts",
+      "mode": "port"
+    }
+  ],
+  "unresolved": [],
+  "packages": [
+    "@remotion/renderer",
+    "adm-zip",
+    "archiver",
+    "bcryptjs",
+    "bullmq",
+    "child_process",
+    "cloudinary",
+    "crypto",
+    "dns",
+    "dotenv",
+    "express",
+    "ffmpeg-static",
+    "fs",
+    "http",
+    "https",
+    "ioredis",
+    "joi",
+    "jsonwebtoken",
+    "lucide-react",
+    "mongoose",
+    "net",
+    "os",
+    "path",
+    "pdf-parse",
+    "react",
+    "react-dom",
+    "recharts",
+    "sanitize-html",
+    "sharp",
+    "stream",
+    "undici",
+    "url",
+    "xlsx"
+  ],
+  "encodingRecovery": [
+    "server/router/fb-messenger.router.ts",
+    "server/router/opusclip.router.ts",
+    "server/service/opusclip.service.ts",
+    "server/service/piapi.service.ts",
+    "server/service/scheduler.service.ts",
+    "server/service/video-edit/ffmpeg.ts",
+    "server/service/video-edit/hyperframe.ts",
+    "server/service/video-edit/remotion.ts",
+    "src/api/gemini.ts",
+    "src/components/content-studio/EditVideoWorkspace.tsx",
+    "src/components/crm/PipelineCard.tsx"
+  ],
+  "excludedStandaloneTools": [
+    {
+      "source": "server/controller/shotstack-webhook.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/shotstack-webhook.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/integration/shotstack/shotstack.client.ts",
+      "target": "server/modules/marketing-suite/shared/integration/shotstack/shotstack.client.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/integration/shotstack/shotstack.converter.ts",
+      "target": "server/modules/marketing-suite/shared/integration/shotstack/shotstack.converter.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/integration/shotstack/shotstack.types.ts",
+      "target": "server/modules/marketing-suite/shared/integration/shotstack/shotstack.types.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/video-project-render.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/video-project-render.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/video-template.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/video-template.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/video-project-render.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/video-project-render.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/video-template-version.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/video-template-version.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/video-template.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/video-template.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/shotstack-webhook.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/shotstack-webhook.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/agents/copywriter-agent.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/agents/copywriter-agent.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/gemini/voice.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/gemini/voice.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/hermes.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/hermes.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/piapi.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/piapi.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/shotstack-render.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/shotstack-render.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/hermes.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/hermes.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-blueprint.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-blueprint.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/claude-render.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/claude-render.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/ffmpeg.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/ffmpeg.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/hyperframe.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/hyperframe.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/hyperframes-render-adapter.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/hyperframes-render-adapter.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/index.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/index.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/job-runner.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/job-runner.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/queue.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/remotion.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/remotion.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/render-adapter-registry.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/render-adapter-registry.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/render-adapter.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/render-adapter.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/render-waterfall.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/render-waterfall.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/script.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/script.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-edit/video-render-adapters.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-edit/video-render-adapters.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/creative-image.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/creative-image.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/html-video-context.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/html-video-context.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/html-video-generation.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/html-video-generation.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/html-video-render.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/html-video-render.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/kling.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/kling.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/opusclip.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/opusclip.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/real-estate-map-video.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/real-estate-map-video.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/video-template.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/video-template.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/html-video-pipeline.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/html-video-pipeline.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/opusclip-project.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/opusclip-project.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/interface/real-estate-map-video.interface.ts",
+      "target": "server/modules/marketing-suite/shared/interface/real-estate-map-video.interface.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/creative-image-project.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/creative-image-project.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/creative-image-render.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/creative-image-render.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/html-video-generation.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/html-video-generation.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/html-video-prompt-history.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/html-video-prompt-history.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/html-video-render.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/html-video-render.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/opusclip-project.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/opusclip-project.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/real-estate-map-video-draft.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/real-estate-map-video-draft.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/real-estate-map-video-render.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/real-estate-map-video-render.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/video-project.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/video-project.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/model/video-template-sync.model.ts",
+      "target": "server/modules/marketing-suite/shared/model/video-template-sync.model.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/creative-image-queue.ts",
+      "target": "server/modules/marketing-suite/shared/queue/creative-image-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/html-video-generation-queue.ts",
+      "target": "server/modules/marketing-suite/shared/queue/html-video-generation-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/html-video-render-queue.ts",
+      "target": "server/modules/marketing-suite/shared/queue/html-video-render-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/real-estate-map-video-render-queue.ts",
+      "target": "server/modules/marketing-suite/shared/queue/real-estate-map-video-render-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/queue/video-project-render-queue.ts",
+      "target": "server/modules/marketing-suite/shared/queue/video-project-render-queue.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/creative-image.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/creative-image.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/html-video-render.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/html-video-render.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/html-video-render.schemas.ts",
+      "target": "server/modules/marketing-suite/shared/router/html-video-render.schemas.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/kling.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/kling.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/opusclip.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/opusclip.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/professional.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/professional.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/real-estate-map-video.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/real-estate-map-video.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/real-estate-map-video.schemas.ts",
+      "target": "server/modules/marketing-suite/shared/router/real-estate-map-video.schemas.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/video-project.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/video-project.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/video-template.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/video-template.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/video-template.schemas.ts",
+      "target": "server/modules/marketing-suite/shared/router/video-template.schemas.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/creative-image/creative-image.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/creative-image/creative-image.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/creative-image/render.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/creative-image/render.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-context.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-context.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-draft.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-draft.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-generation.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-generation.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-grounding.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-grounding.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-pipeline.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-pipeline.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-prompt-history.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-prompt-history.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-render.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-render.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-revision.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-revision.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-security.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-security.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-tts.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-tts.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/kling.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/kling.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/opusclip.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/opusclip.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/real-estate-map-video/map-scene-engine.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/real-estate-map-video/map-scene-engine.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/real-estate-map-video/provider/index.ts",
+      "target": "server/modules/marketing-suite/shared/service/real-estate-map-video/provider/index.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/real-estate-map-video/provider/mock-map.provider.ts",
+      "target": "server/modules/marketing-suite/shared/service/real-estate-map-video/provider/mock-map.provider.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/real-estate-map-video/provider/openstreetmap.provider.ts",
+      "target": "server/modules/marketing-suite/shared/service/real-estate-map-video/provider/openstreetmap.provider.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/real-estate-map-video/provider/vietmap.provider.ts",
+      "target": "server/modules/marketing-suite/shared/service/real-estate-map-video/provider/vietmap.provider.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/real-estate-map-video/real-estate-map-video-render.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/real-estate-map-video/real-estate-map-video-render.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/remotion.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/remotion.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/shotstack-template-sync.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/shotstack-template-sync.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-project-media-policy.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-project-media-policy.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-project-render-policy.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-project-render-policy.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-project-render-runner.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-project-render-runner.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-project-render.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-project-render.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-template-policy.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-template-policy.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-template-preview.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-template-preview.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/video-template.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/video-template.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/validation/opusclip.validation.ts",
+      "target": "server/modules/marketing-suite/shared/validation/opusclip.validation.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/api/kling.ts",
+      "target": "src/modules/marketing-suite/shared/api/kling.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/ContentStudioWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/ContentStudioWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/EditVideoWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/EditVideoWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/HtmlVideoBatchWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/HtmlVideoBatchWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/HtmlVideoWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/HtmlVideoWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/KlingMotionWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/KlingMotionWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/VideoCaptionWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/VideoCaptionWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/VideoEditScriptPanel.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/VideoEditScriptPanel.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/html-video/types.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/html-video/types.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/html-video/utils.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/html-video/utils.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/video-templates/VideoTemplateCard.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/video-templates/VideoTemplateCard.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/video-templates/VideoTemplateDetailModal.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/video-templates/VideoTemplateDetailModal.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/video-templates/VideoTemplateFilters.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/video-templates/VideoTemplateFilters.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/video-templates/VideoTemplateLibrary.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/video-templates/VideoTemplateLibrary.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/video-templates/VideoTemplateSkeleton.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/video-templates/VideoTemplateSkeleton.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/video-templates/shotstackTemplateSync.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/video-templates/shotstackTemplateSync.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/video-templates/video-template-preview-state.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/video-templates/video-template-preview-state.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/TemplateEditorCanvas.tsx",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/TemplateEditorCanvas.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/TemplateEditorTimeline.tsx",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/TemplateEditorTimeline.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/TemplateEditorTopbar.tsx",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/TemplateEditorTopbar.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/TemplateEditorWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/TemplateEditorWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/TemplateExportHistory.tsx",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/TemplateExportHistory.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/TemplateExportModal.tsx",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/TemplateExportModal.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/hooks/useTemplateEditor.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/hooks/useTemplateEditor.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/mockData.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/mockData.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/template-editor-autosave.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/template-editor-autosave.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/template-editor-clips.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/template-editor-clips.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/template-editor-export.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/template-editor-export.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/template-editor-media.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/template-editor-media.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/template-editor-replacement.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/template-editor-replacement.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/template-editor-selection.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/template-editor-selection.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/template-editor-timeline-presenter.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/template-editor-timeline-presenter.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/timeline-scale.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/timeline-scale.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/template-editor/types.ts",
+      "target": "src/modules/marketing-suite/shared/components/template-editor/types.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/creative-image/template-registry.ts",
+      "target": "src/modules/marketing-suite/shared/creative-image/template-registry.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/creative-image/types.ts",
+      "target": "src/modules/marketing-suite/shared/creative-image/types.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/mocks/videoTemplates.ts",
+      "target": "src/modules/marketing-suite/shared/mocks/videoTemplates.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/pages/ContentStudioPage.tsx",
+      "target": "src/modules/marketing-suite/shared/pages/ContentStudioPage.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/pages/LongToShortTab.tsx",
+      "target": "src/modules/marketing-suite/shared/pages/LongToShortTab.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/pages/VideoStudioPage.tsx",
+      "target": "src/modules/marketing-suite/shared/pages/VideoStudioPage.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/seo/SEOHead.tsx",
+      "target": "src/modules/marketing-suite/shared/seo/SEOHead.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/seo/seo-config.ts",
+      "target": "src/modules/marketing-suite/shared/seo/seo-config.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/htmlVideoRenderService.ts",
+      "target": "src/modules/marketing-suite/shared/services/htmlVideoRenderService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/opusclipService.ts",
+      "target": "src/modules/marketing-suite/shared/services/opusclipService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/renderPollingController.ts",
+      "target": "src/modules/marketing-suite/shared/services/renderPollingController.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/videoCaptionService.ts",
+      "target": "src/modules/marketing-suite/shared/services/videoCaptionService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/videoProjectRenderService.ts",
+      "target": "src/modules/marketing-suite/shared/services/videoProjectRenderService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/services/videoTemplateService.ts",
+      "target": "src/modules/marketing-suite/shared/services/videoTemplateService.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/types/video-template.ts",
+      "target": "src/modules/marketing-suite/shared/types/video-template.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/controller/heygen.controller.ts",
+      "target": "server/modules/marketing-suite/shared/controller/heygen.controller.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/router/heygen.router.ts",
+      "target": "server/modules/marketing-suite/shared/router/heygen.router.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/heygen-http.ts",
+      "target": "server/modules/marketing-suite/shared/service/heygen-http.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/heygen-legacy.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/heygen-legacy.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/heygen.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/heygen.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "server/service/html-video/html-video-reference-grid.service.ts",
+      "target": "server/modules/marketing-suite/shared/service/html-video/html-video-reference-grid.service.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/api/heygen.ts",
+      "target": "src/modules/marketing-suite/shared/api/heygen.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/HeyGenLegacyScriptInput.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/HeyGenLegacyScriptInput.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/HeyGenLegacyVoiceOption.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/HeyGenLegacyVoiceOption.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/HeyGenOptionsDrawer.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/HeyGenOptionsDrawer.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/HeyGenPopovers.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/HeyGenPopovers.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/HeyGenVerticalToolbar.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/HeyGenVerticalToolbar.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/HeyGenVideoItem.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/HeyGenVideoItem.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/HeyGenVideoPreview.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/HeyGenVideoPreview.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/HeyGenWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/HeyGenWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/SimpleVideoWorkspace.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/SimpleVideoWorkspace.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/VeoSettingsPanel.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/VeoSettingsPanel.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/VoiceSourcePopover.tsx",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/VoiceSourcePopover.tsx",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/content-studio/heygenTheme.ts",
+      "target": "src/modules/marketing-suite/shared/components/content-studio/heygenTheme.ts",
+      "mode": "port"
+    },
+    {
+      "source": "src/components/marketing/HumanVideoSettingsCard.tsx",
+      "target": "src/modules/marketing-suite/campaign/components/marketing/HumanVideoSettingsCard.tsx",
+      "mode": "port"
+    }
+  ]
+}
