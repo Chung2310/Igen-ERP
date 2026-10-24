@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import mongoose from "mongoose";
 import { getAiUsageContext, withAiUsage } from "../../../shared/service/ai-subscription.service";
 import { guardCampaignSlot } from "../../worker-access";
+import { createCampaignPrepareLease, isPrepareLeaseLost } from "../campaign-prepare-lease";
 import { MarketingCampaignModel } from "../../model/marketing-campaign.model.ts";
 import { MarketingCampaignSlotModel } from "../../model/marketing-campaign-slot.model.ts";
 import { MarketingContentModel } from "../../model/marketing-content.model.ts";
@@ -74,7 +75,8 @@ async function mapWithConcurrency<T, R>(
 
 async function ingestRealMedia(
   slot: InstanceType<typeof MarketingCampaignSlotModel>,
-  campaign: InstanceType<typeof MarketingCampaignModel>
+  campaign: InstanceType<typeof MarketingCampaignModel>,
+  save = async () => { await slot.save(); },
 ): Promise<string[]> {
   const sourceUrls = (slot.realImageDirectUrls || []).filter(Boolean);
   if (sourceUrls.length === 0) {
@@ -104,7 +106,7 @@ async function ingestRealMedia(
     reason: `Đã ingest ${ingestedMedia.length} media thật lên Cloudinary để dùng chung cho Vision và xuất bản.`,
     at: new Date(),
   });
-  await slot.save();
+  await save();
   return ingestedMedia.map((item) => item.url);
 }
 
@@ -142,7 +144,8 @@ async function billCampaignOperation(
 
 async function getResearchContext(
   slot: InstanceType<typeof MarketingCampaignSlotModel>,
-  campaign: InstanceType<typeof MarketingCampaignModel>
+  campaign: InstanceType<typeof MarketingCampaignModel>,
+  save: () => Promise<void>,
 ): Promise<string> {
   const fingerprint = ResearcherAgentService.fingerprint(slot, campaign);
   let analysis = slot.researchAnalysis;
@@ -157,7 +160,7 @@ async function getResearchContext(
       reason: `Researcher Agent đã hoàn tất nghiên cứu web cho slot bằng ${analysis.model}.`,
       at: new Date(),
     });
-    await slot.save();
+    await save();
   }
 
   if (!analysis.billedAt) {
@@ -170,7 +173,7 @@ async function getResearchContext(
     );
     analysis.billedAt = new Date();
     slot.researchAnalysis = analysis;
-    await slot.save();
+    await save();
   }
 
   const integration = slot.integrationId
@@ -235,7 +238,8 @@ async function getResearchContext(
 
 async function getVisualContext(
   slot: InstanceType<typeof MarketingCampaignSlotModel>,
-  campaign: InstanceType<typeof MarketingCampaignModel>
+  campaign: InstanceType<typeof MarketingCampaignModel>,
+  save: () => Promise<void>,
 ): Promise<string> {
   const fingerprint = VisualAnalystAgentService.fingerprint(slot, campaign);
   let analysis = slot.visualAnalysis;
@@ -252,7 +256,7 @@ async function getVisualContext(
       reason: `Vision Agent đã phân tích ${analysis.sourceUrls.length} ảnh thật của slot bằng ${analysis.model}.`,
       at: new Date(),
     });
-    await slot.save();
+    await save();
   }
 
   if (!analysis.billedAt) {
@@ -265,7 +269,7 @@ async function getVisualContext(
     );
     analysis.billedAt = new Date();
     slot.visualAnalysis = analysis;
-    await slot.save();
+    await save();
   }
 
   return VisualAnalystAgentService.formatForCopywriter(analysis);
@@ -295,7 +299,9 @@ export class CampaignOrchestratorService {
       return;
     }
 
+    const lease = createCampaignPrepareLease(slot, lockId);
     try {
+      await lease.assertActive();
       const sheetInput = await campaignContentSheetService.getWorkerInput(
         slot.companyCode,
         String(slot.campaignId),
@@ -332,16 +338,17 @@ export class CampaignOrchestratorService {
           reason: "Researcher Agent bắt đầu thu thập bối cảnh trước khi phân tích ảnh thật của slot.",
           at: new Date(),
         });
-        await slot.save();
+        await lease.save();
         emitSlotUpdate(slot);
 
-        await ingestRealMedia(slot, campaign);
+        await ingestRealMedia(slot, campaign, lease.save);
 
         let researchContext = "";
         let visualContext = "";
         if (!manualBodyText) {
-          researchContext = await getResearchContext(slot, campaign);
-          visualContext = await getVisualContext(slot, campaign);
+          researchContext = await getResearchContext(slot, campaign, lease.save);
+          await lease.assertActive();
+          visualContext = await getVisualContext(slot, campaign, lease.save);
         }
 
         slot.status = "writing";
@@ -351,7 +358,7 @@ export class CampaignOrchestratorService {
           reason: "Đã kết hợp nghiên cứu slot và phân tích ảnh thật. Copywriter Agent bắt đầu viết nội dung.",
           at: new Date(),
         });
-        await slot.save();
+        await lease.save();
         emitSlotUpdate(slot);
 
         if (manualBodyText) {
@@ -368,7 +375,8 @@ export class CampaignOrchestratorService {
           candidate = await CopywriterAgentService.write(
             slot,
             campaign,
-            `${researchContext}\n\n${visualContext}\n\n${sheetInput.contextText}`.trim()
+            `${researchContext}\n\n${visualContext}\n\n${sheetInput.contextText}`.trim(),
+            lease.assertActive,
           );
         }
       } else {
@@ -380,11 +388,11 @@ export class CampaignOrchestratorService {
           reason: "Researcher Agent bắt đầu thu thập bối cảnh và nghiên cứu từ khóa.",
           at: new Date(),
         });
-        await slot.save();
+        await lease.save();
         emitSlotUpdate(slot);
 
         // Run Researcher Agent
-        const researchContext = await getResearchContext(slot, campaign);
+        const researchContext = await getResearchContext(slot, campaign, lease.save);
 
         // Step B: Move to "writing" status
         slot.status = "writing";
@@ -394,7 +402,7 @@ export class CampaignOrchestratorService {
           reason: "Copywriter Agent bắt đầu viết bài viết dựa trên kết quả nghiên cứu.",
           at: new Date(),
         });
-        await slot.save();
+        await lease.save();
         emitSlotUpdate(slot);
 
         // Run Copywriter Agent (Single-Variant Content Generation)
@@ -410,7 +418,8 @@ export class CampaignOrchestratorService {
           candidate = await CopywriterAgentService.write(
             slot,
             campaign,
-            `${researchContext}\n\n${sheetInput.contextText}`.trim()
+            `${researchContext}\n\n${sheetInput.contextText}`.trim(),
+            lease.assertActive,
           );
         }
       }
@@ -419,116 +428,128 @@ export class CampaignOrchestratorService {
 
       // Candidate generation/scoring settles its own operation reservations.
 
-      // Create Marketing Content once; retries reuse the record for this slot.
-      const content = persistedContent || await MarketingContentModel.findOneAndUpdate(
-        { campaignSlotId: slot._id, companyCode: slot.companyCode },
-        {
-          $setOnInsert: {
-            companyCode: slot.companyCode,
-            authorUid: campaign.createdBy,
-            campaignId: String(campaign._id),
-            campaignTitle: campaign.title,
-            campaignSlotId: slot._id,
-            title: candidate.title,
-            channel: slot.platform,
-            contentType: slot.platform === "TikTok" ? "Video ngắn" : "Bài viết chiến dịch",
-            status: "pending",
-            bodyText: candidate.bodyText,
-            outline: candidate.outline,
-            mediaPrompt: candidate.mediaPrompt,
-            voiceScript: candidate.voiceScript,
-            mediaType: slot.mediaType === "text" ? undefined : slot.mediaType === "image" ? "image" : slot.mediaType,
-            generatedAt: new Date(),
-            integrationId: slot.integrationId,
-          }
-        },
-        { upsert: true, new: true }
-      );
-
-      if (campaign.imageMode === "order" && slot.mediaType !== "text") {
-        const isVideo = slot.mediaType === "video" || slot.mediaType === "human-video";
-        const productionBrief = buildUserFacingProductionBrief({
-          outline: candidate.outline,
-          bodyText: candidate.bodyText,
-          topicBrief: slot.topicBrief,
-        });
-        const generatedOrderFields = {
-          title: String(candidate.title || slot.topicBrief || "Order bài viết").slice(0, 240),
-          contentGroup: String(slot.pillar || "").slice(0, 240),
-          shootingContent: productionBrief.shootingContent,
-          productionRequirements: productionBrief.productionRequirements,
-          quantitySuggestion: isVideo ? "1 video" : "1 ảnh",
-          usageChannels: slot.platform,
-          format: isVideo ? "video" as const : "image" as const,
-          aspectRatio: isVideo ? "9:16" as const : "4:5" as const,
-          headline: String(candidate.title || slot.topicBrief || "").slice(0, 120),
-          subheadline: String(candidate.bodyText || "").slice(0, 220),
-          visualBrief: productionBrief.visualBrief,
-          videoScript: isVideo ? String(candidate.voiceScript || candidate.bodyText || "").slice(0, 4000) : "",
-        };
-        await CampaignAssetOrderModel.updateOne(
-          {
-            companyCode: slot.companyCode,
-            campaignId: slot.campaignId,
-            slotId: slot._id,
-            manualFieldKeys: { $size: 0 },
-          },
-          { $set: generatedOrderFields }
-        );
-        await CampaignAssetOrderModel.updateOne(
-          {
-            companyCode: slot.companyCode,
-            campaignId: slot.campaignId,
-            slotId: slot._id,
-          },
+      await lease.assertActive();
+      // Serialize the final content/order/slot commit with cancellation and lease recovery.
+      const nextStatus = await MarketingCampaignSlotModel.db.transaction(async (session) => {
+        if (!await MarketingCampaignModel.exists({ _id: campaign._id, companyCode: slot.companyCode, status: "active" }).session(session)) return null;
+        const fenced = await MarketingCampaignSlotModel.updateOne(lease.scope(), { $set: { lockedAt: new Date() } }, { session });
+        if (!fenced.matchedCount) return null;
+        // Create Marketing Content once; retries reuse the record for this slot.
+        const content = persistedContent || await MarketingContentModel.findOneAndUpdate(
+          { campaignSlotId: slot._id, companyCode: slot.companyCode },
           {
             $setOnInsert: {
               companyCode: slot.companyCode,
+              authorUid: campaign.createdBy,
+              campaignId: String(campaign._id),
+              campaignTitle: campaign.title,
+              campaignSlotId: slot._id,
+              title: candidate.title,
+              channel: slot.platform,
+              contentType: slot.platform === "TikTok" ? "Video ngắn" : "Bài viết chiến dịch",
+              status: "pending",
+              bodyText: candidate.bodyText,
+              outline: candidate.outline,
+              mediaPrompt: candidate.mediaPrompt,
+              voiceScript: candidate.voiceScript,
+              mediaType: slot.mediaType === "text" ? undefined : slot.mediaType === "image" ? "image" : slot.mediaType,
+              generatedAt: new Date(),
+              integrationId: slot.integrationId,
+            }
+          },
+          { upsert: true, new: true, session }
+        );
+
+        if (campaign.imageMode === "order" && slot.mediaType !== "text") {
+          const isVideo = slot.mediaType === "video" || slot.mediaType === "human-video";
+          const productionBrief = buildUserFacingProductionBrief({
+            outline: candidate.outline,
+            bodyText: candidate.bodyText,
+            topicBrief: slot.topicBrief,
+          });
+          const generatedOrderFields = {
+            title: String(candidate.title || slot.topicBrief || "Order bài viết").slice(0, 240),
+            contentGroup: String(slot.pillar || "").slice(0, 240),
+            shootingContent: productionBrief.shootingContent,
+            productionRequirements: productionBrief.productionRequirements,
+            quantitySuggestion: isVideo ? "1 video" : "1 ảnh",
+            usageChannels: slot.platform,
+            format: isVideo ? "video" as const : "image" as const,
+            aspectRatio: isVideo ? "9:16" as const : "4:5" as const,
+            headline: String(candidate.title || slot.topicBrief || "").slice(0, 120),
+            subheadline: String(candidate.bodyText || "").slice(0, 220),
+            visualBrief: productionBrief.visualBrief,
+            videoScript: isVideo ? String(candidate.voiceScript || candidate.bodyText || "").slice(0, 4000) : "",
+          };
+          await CampaignAssetOrderModel.updateOne(
+            {
+              companyCode: slot.companyCode,
               campaignId: slot.campaignId,
               slotId: slot._id,
-              createdBy: campaign.createdBy,
-              ...generatedOrderFields,
-              source: "manual",
-              assets: [],
-              manualFieldKeys: [],
-              status: "needs_assets",
-              revision: 0,
+              manualFieldKeys: { $size: 0 },
             },
-          },
-          { upsert: true }
-        );
-      }
-
-      // Calculate next status
-      const mediaSource = resolveSlotMediaSource(slot, campaign);
-      const requiresManualApproval = slot.platform === "TikTok" || campaign.publishMode !== "auto";
-      const nextStatus = slot.mediaType === "text"
-        ? (requiresManualApproval ? "pending_approval" : "verifying")
-        : mediaSource !== "ai" && !(slot.realImageDirectUrls || []).some(Boolean)
-          ? "awaiting_assets"
-          : "generating_media";
-
-      await MarketingCampaignSlotModel.updateOne(
-        { _id: slot._id, lockId },
-        {
-          $set: {
-            status: nextStatus,
-            selectedCandidateId: candidate._id || null,
-            marketingContentId: content._id,
-            lockId: null,
-            lockedAt: null,
-            lockExpiresAt: null,
-          },
-          $push: {
-            transitions: {
-              from: "writing",
-              to: nextStatus,
-              reason: `Đã hoàn thành nội dung bản nháp. Content Sheet row v${sheetInput.rowRevision}, config v${sheetInput.configRevision}. Chuyển sang bước kế tiếp: ${nextStatus}.`,
-              at: new Date(),
+            { $set: generatedOrderFields },
+            { session }
+          );
+          await CampaignAssetOrderModel.updateOne(
+            {
+              companyCode: slot.companyCode,
+              campaignId: slot.campaignId,
+              slotId: slot._id,
             },
-          },
+            {
+              $setOnInsert: {
+                companyCode: slot.companyCode,
+                campaignId: slot.campaignId,
+                slotId: slot._id,
+                createdBy: campaign.createdBy,
+                ...generatedOrderFields,
+                source: "manual",
+                assets: [],
+                manualFieldKeys: [],
+                status: "needs_assets",
+                revision: 0,
+              },
+            },
+            { upsert: true, session }
+          );
         }
-      );
+
+        // Calculate next status
+        const mediaSource = resolveSlotMediaSource(slot, campaign);
+        const requiresManualApproval = slot.platform === "TikTok" || campaign.publishMode !== "auto";
+        const nextStatus = slot.mediaType === "text"
+          ? (requiresManualApproval ? "pending_approval" : "verifying")
+          : mediaSource !== "ai" && !(slot.realImageDirectUrls || []).some(Boolean)
+            ? "awaiting_assets"
+            : "generating_media";
+
+        const changed = await MarketingCampaignSlotModel.updateOne(
+          lease.scope(),
+          {
+            $set: {
+              status: nextStatus,
+              selectedCandidateId: candidate._id || null,
+              marketingContentId: content._id,
+              lockId: null,
+              lockedAt: null,
+              lockExpiresAt: null,
+            },
+            $push: {
+              transitions: {
+                from: "writing",
+                to: nextStatus,
+                reason: `Đã hoàn thành nội dung bản nháp. Content Sheet row v${sheetInput.rowRevision}, config v${sheetInput.configRevision}. Chuyển sang bước kế tiếp: ${nextStatus}.`,
+                at: new Date(),
+              },
+            },
+          },
+          { session }
+        );
+        if (!changed.matchedCount) throw Object.assign(new Error("Worker chuẩn bị đã mất khóa slot."), { code: "CAMPAIGN_SLOT_LEASE_LOST" });
+        return nextStatus;
+      });
+      if (!nextStatus) return;
 
       console.log(`[Orchestrator] Slot ${slotId} prepare phase completed. Next status: ${nextStatus}`);
       emitSlotUpdate({ _id: slot._id, campaignId: slot.campaignId, companyCode: slot.companyCode, status: nextStatus });
@@ -538,6 +559,7 @@ export class CampaignOrchestratorService {
         approvalNotifierService.notifyPendingApproval(slot, campaign).catch(() => undefined);
       }
     } catch (error: unknown) {
+      if (isPrepareLeaseLost(error)) return;
       const msg = error instanceof Error ? error.message : String(error);
       const statusCode = typeof error === "object" && error !== null
         ? Number((error as { statusCode?: unknown }).statusCode || 0)
@@ -548,8 +570,8 @@ export class CampaignOrchestratorService {
       const errorType = isBudgetError ? "budget" : attemptsExhausted ? "terminal" : "retryable";
       console.error(`[Orchestrator] Error during slot ${slotId} prepare phase:`, error);
       // Retry transient failures with a cap; budget exhaustion requires user attention.
-      await MarketingCampaignSlotModel.updateOne(
-        { _id: slot._id, lockId },
+      const changed = await MarketingCampaignSlotModel.updateOne(
+        lease.scope(),
         {
           $set: {
             status: targetStatus,
@@ -570,6 +592,7 @@ export class CampaignOrchestratorService {
           },
         }
       );
+      if (!changed.matchedCount) return;
       emitSlotUpdate({ _id: slot._id, campaignId: slot.campaignId, companyCode: slot.companyCode, status: targetStatus });
       if (isBudgetError) {
         await MarketingCampaignModel.updateOne(
@@ -577,6 +600,8 @@ export class CampaignOrchestratorService {
           { $set: { status: "paused" } }
         );
       }
+    } finally {
+      lease.stop();
     }
   }
 

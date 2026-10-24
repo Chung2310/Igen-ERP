@@ -5,128 +5,90 @@ import { MarketingContentModel } from "../model/marketing-content.model.ts";
 import { UserModel } from "../../../../model/user.model.ts";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model.ts";
 import { companyModuleEnabled } from "../../shared/access";
+import { recordFacebookPublication } from "./facebook-publication.service";
 
 export const schedulerService = {
-  /**
-   * Re-check các bài Facebook �ang �x trạng thái "processing" (video chưa encode xong sau khi n8n callback).
-   * n8n workflow m�:i �ã tự �Ēng bài và check status ngay sau 20s.
-   * Hàm này ch�0 cần xử lý trường hợp video vẫn chưa ready sau lần check �ó.
-   */
+  /** Reconcile Facebook videos that were still processing after the n8n callback. */
   async checkAndPublishPosts() {
-    console.log("[Scheduler Service] Bắt �ầu quét bài Facebook �ang processing...");
-
+    console.log("[Scheduler Service] Bắt đầu quét bài Facebook đang processing...");
     try {
       const processingCards = await MarketingContentModel.find({
-        status: "processing",
-        channel: "Facebook",
+        status: "processing", channel: "Facebook",
         facebookPostId: { $exists: true, $ne: "" },
       });
-
-      if (!processingCards || processingCards.length === 0) {
-        console.log("[Scheduler Service] Không có bài Facebook nào �ang processing.");
-        return { processedCount: 0, successCount: 0, failedCount: 0, details: [] };
-      }
-
       let processedCount = 0;
       let successCount = 0;
       let failedCount = 0;
       const details: any[] = [];
-
-      for (const card of processingCards) {
+      for (const card of processingCards || []) {
         if (!card.companyCode || !await companyModuleEnabled(card.companyCode, "social-marketing")) continue;
         const cardId = card._id.toString();
         processedCount++;
-
         try {
-          let accessToken: string | undefined = undefined;
+          let accessToken: string | undefined;
           let isMock = false;
-
           if (card.integrationId) {
-            const fbIntegration = await SocialIntegrationModel.findOne({
-              _id: card.integrationId,
-              companyCode: card.companyCode,
-              platform: "Facebook",
-              isConnected: true,
+            const integration = await SocialIntegrationModel.findOne({
+              _id: card.integrationId, companyCode: card.companyCode,
+              platform: "Facebook", isConnected: true,
             }).lean();
-            if (!fbIntegration) {
-              throw new Error("Liên kết Facebook không còn t�n tại hoặc �ã b�9 ngắt.");
-            }
-            accessToken = fbIntegration.accessToken;
-            isMock = !!fbIntegration.isMock;
+            if (!integration) throw new Error("Liên kết Facebook không còn tồn tại hoặc đã bị ngắt.");
+            accessToken = integration.accessToken;
+            isMock = !!integration.isMock;
           } else {
             const user = await UserModel.findOne({ _id: card.authorUid, companyCode: card.companyCode }).lean();
-            const fbInt = user?.facebookIntegration;
-            if (!fbInt?.isConnected) {
-              throw new Error("Tài khoản chưa liên kết Facebook Page.");
-            }
-            accessToken = fbInt.pageAccessToken;
-            isMock = !!fbInt.isMock;
+            if (!user?.facebookIntegration?.isConnected) throw new Error("Tài khoản chưa liên kết Facebook Page.");
+            accessToken = user.facebookIntegration.pageAccessToken;
+            isMock = !!user.facebookIntegration.isMock;
           }
-
-          if (!accessToken) throw new Error("Không lấy �ược access token.");
-
-          if (isMock || accessToken.includes("mock")) {
-            await MarketingContentModel.findByIdAndUpdate(cardId, {
-              status: "published",
-              publishedAt: new Date(),
-              publishError: null,
-            });
-            successCount++;
-            details.push({ cardId, title: card.title, status: "success" });
-            continue;
-          }
-
-          const checkResult = await facebookPostService.checkVideoStatus(
-            card.facebookPostId!,
-            accessToken,
-            true
-          );
-
-          console.log(`[Scheduler Service] Re-check video ${card.facebookPostId}: ${checkResult.status}`);
-
-          if (checkResult.status === "ready") {
-            await MarketingContentModel.findByIdAndUpdate(cardId, {
-              status: "published",
-              publishedAt: new Date(),
-              publishError: null,
-            });
-            successCount++;
-            details.push({ cardId, title: card.title, status: "success" });
-          } else if (checkResult.status === "failed") {
-            throw new Error(checkResult.error || "Facebook video processing failed.");
-          } else {
-            // Vẫn processing � bỏ qua, lần sau quét tiếp
+          if (!accessToken) throw new Error("Không lấy được access token.");
+          const result: { status: string; error?: string } = isMock || accessToken.includes("mock")
+            ? { status: "ready" }
+            : await facebookPostService.checkVideoStatus(card.facebookPostId!, accessToken, true);
+          if (result.status === "failed") throw new Error(result.error || "Facebook video processing failed.");
+          if (result.status !== "ready") {
             details.push({ cardId, title: card.title, status: "pending" });
             processedCount--;
+            continue;
           }
-        } catch (err: any) {
-          const errMsg = err.message || String(err);
-          console.error(`[Scheduler Service] L�i re-check bài ${cardId}:`, errMsg);
-          await MarketingContentModel.findByIdAndUpdate(cardId, {
-            status: "failed",
-            publishError: errMsg,
-          });
-          failedCount++;
-          details.push({ cardId, title: card.title, status: "failed", error: errMsg });
+          const publication = await recordFacebookPublication(cardId, {
+            status: "published", postId: card.facebookPostId,
+          }, card.companyCode);
+          if (!publication) { processedCount--; continue; }
+          successCount++;
+          details.push({ cardId, title: card.title, status: "success" });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error(`[Scheduler Service] Lỗi re-check bài ${cardId}:`, errorMessage);
+          // A successful callback can arrive while the provider check is in flight.
+          // The shared recorder preserves publication and reconciles slot/statistics.
+          const publication = await recordFacebookPublication(cardId, {
+            status: "failed", error: errorMessage,
+          }, card.companyCode);
+          if (!publication) { processedCount--; continue; }
+          if (publication.status === "published") {
+            successCount++;
+            details.push({ cardId, title: card.title, status: "success" });
+          } else {
+            failedCount++;
+            details.push({ cardId, title: card.title, status: "failed", error: errorMessage });
+          }
         }
       }
-
-      console.log(`[Scheduler Service] Xong. T�"ng: ${processedCount}, Thành công: ${successCount}, Thất bại: ${failedCount}`);
+      console.log(`[Scheduler Service] Xong. Tổng: ${processedCount}, Thành công: ${successCount}, Thất bại: ${failedCount}`);
       return { processedCount, successCount, failedCount, details };
-    } catch (dbError: any) {
-      console.error("[Scheduler Service] L�i DB:", dbError.message);
-      throw dbError;
+    } catch (error: unknown) {
+      console.error("[Scheduler Service] Lỗi DB:", error instanceof Error ? error.message : String(error));
+      throw error;
     }
   },
 
-  /**
-   * Gửi thông tin bài �Ēng + l�9ch hẹn sang n8n Webhook �Ồ n8n tự ��"ng quản lý ��" tr�& và tự ��"ng �Ēng bài
-   */
+  /** Send the post and its schedule to n8n. */
   async sendScheduleToN8n(payload: any) {
     const webhookUrl = process.env.N8N_FB_WEBHOOK_URL;
     if (!webhookUrl) {
       throw new Error(
-        "Cấu hình N8N_FB_WEBHOOK_URL chưa �ược thiết lập trong biến môi trường."
+        "Cấu hình N8N_FB_WEBHOOK_URL chưa được thiết lập trong biến môi trường."
       );
     }
 
@@ -190,7 +152,7 @@ export const schedulerService = {
       if (!response.ok) {
         const text = await response.text();
         throw new Error(
-          `n8n Webhook phản h�i l�i: ${response.status} - ${text}`
+          `n8n Webhook phản hồi lỗi: ${response.status} - ${text}`
         );
       }
 
@@ -228,12 +190,12 @@ export const schedulerService = {
 
       return {
         status: "success",
-        message: "Gửi yêu cầu lên l�9ch bài �Ēng sang n8n thành công",
+        message: "Gửi yêu cầu lên lịch bài đăng sang n8n thành công",
         data: responseData,
       };
     } catch (error: any) {
       console.error("[schedulerService.sendScheduleToN8n] Error:", error);
-      throw new Error(`Gửi yêu cầu lên l�9ch sang n8n thất bại: ${error.message}`);
+      throw new Error(`Gửi yêu cầu lên lịch sang n8n thất bại: ${error.message}`);
     }
   },
 };

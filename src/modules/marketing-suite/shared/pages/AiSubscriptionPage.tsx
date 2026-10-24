@@ -5,8 +5,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../../../../context/AuthContext";
-import { getCurrentAiSubscription, type AiSubscriptionSummary } from "../../../../services/aiSubscriptionService";
+import { getCurrentAiSubscription, formatAiPlanPrice, type AiSubscriptionSummary } from "../../../../services/aiSubscriptionService";
 import AiPlanCatalog from "./AiPlanCatalog";
+import { socketService } from "../../../../services/socketService";
 import "./ai-subscription.css";
 
 const number = (value: number) => value.toLocaleString("vi-VN");
@@ -16,10 +17,10 @@ const date = (value: string) => new Date(value).toLocaleString("vi-VN", {
 
 export default function AiSubscriptionPage() {
   const { userProfile } = useAuth();
-  return <CompanyAiSubscription key={`${userProfile?.uid}:${userProfile?.companyCode}`} companyName={userProfile?.companyName || userProfile?.companyCode} />;
+  return <CompanyAiSubscription key={`${userProfile?.uid}:${userProfile?.companyCode}`} companyName={userProfile?.companyName || userProfile?.companyCode} companyCode={userProfile?.companyCode} />;
 }
 
-function CompanyAiSubscription({ companyName }: { companyName?: string }) {
+function CompanyAiSubscription({ companyName, companyCode }: { companyName?: string; companyCode?: string }) {
   const [subscription, setSubscription] = useState<AiSubscriptionSummary | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -32,9 +33,11 @@ function CompanyAiSubscription({ companyName }: { companyName?: string }) {
   useEffect(() => {
     let active = true;
     let pending = false;
+    let refreshAgain = false;
     const controller = new AbortController();
     const load = async () => {
-      if (pending || document.visibilityState === "hidden") return;
+      if (document.visibilityState === "hidden") return;
+      if (pending) { refreshAgain = true; return; }
       pending = true;
       try {
         const value = await getCurrentAiSubscription(controller.signal);
@@ -44,6 +47,7 @@ function CompanyAiSubscription({ companyName }: { companyName?: string }) {
       } finally {
         pending = false;
         if (active) { setLoaded(true); setRefreshing(false); }
+        if (active && refreshAgain) { refreshAgain = false; void load(); }
       }
     };
     const refresh = () => { setNow(Date.now()); void load(); };
@@ -51,14 +55,19 @@ function CompanyAiSubscription({ companyName }: { companyName?: string }) {
     const timer = window.setInterval(refresh, 60_000);
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
+    const unsubscribe = socketService.on("ai-subscription:updated", (event: { companyCode: string }) => {
+      if (event.companyCode === companyCode) refresh();
+    });
+    const unsubscribeStatus = socketService.onStatusChange((connected) => { if (connected) refresh(); });
     return () => {
       active = false;
       controller.abort();
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
+      unsubscribe(); unsubscribeStatus();
     };
-  }, [revision]);
+  }, [revision, companyCode]);
 
   useEffect(() => {
     if (!subscription || subscription.status !== "active") return;
@@ -131,6 +140,8 @@ function CompanyAiSubscription({ companyName }: { companyName?: string }) {
           <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-2 lg:gap-10">
             <div className="min-w-0">
               <h3 className="break-words text-2xl font-semibold tracking-tight">{subscription.planName}</h3>
+              <p className="ai-subscription-secondary mt-2 text-sm">Giá kỳ được cấp: <strong className="font-semibold tabular-nums">{formatAiPlanPrice(subscription.priceVnd)}</strong></p>
+              {(subscription.carriedOver || 0) > 0 && <p className="ai-subscription-muted mt-2 text-sm">Đã cộng {number(subscription.carriedOver!)} lượt chuyển từ gói trước vào hạn mức kỳ này.</p>}
               <button type="button" onClick={openPlans} className="ai-subscription-upgrade-link mt-2 inline-flex min-h-9 items-center gap-1.5 text-sm font-medium">
                 Xem gói và nâng cấp<ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -197,7 +208,7 @@ function CompanyAiSubscription({ companyName }: { companyName?: string }) {
           <ul className="ai-subscription-panel-footer grid gap-5 p-5 lg:grid-cols-3">
             {[
               { icon: CheckCheck, title: "Thành công mới tính lượt", text: "Mỗi lời gọi AI thành công tính 1 lượt sử dụng." },
-              { icon: RotateCcw, title: "Giải phóng lượt khi thất bại", text: "Lời gọi không thành công được trả lại lượt đang giữ." },
+              { icon: RotateCcw, title: "Giải phóng lượt khi thất bại", text: "Lời gọi thất bại được trả lại lượt đang giữ. Kết quả chưa xác định được giữ chờ đối soát." },
               { icon: Layers3, title: "Campaign tính theo từng bước", text: "Tổng lượt AI dự kiến được hiển thị trước khi bạn xác nhận chạy." },
             ].map(({ icon: Icon, title, text }) => <li key={title} className="flex items-start gap-3">
               <span className="ai-subscription-inset flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"><Icon className="ai-subscription-accent h-4 w-4" aria-hidden="true" /></span>
@@ -223,7 +234,7 @@ function CompanyAiSubscription({ companyName }: { companyName?: string }) {
       </div>
       <footer className="ai-subscription-muted flex flex-wrap items-center justify-between gap-2 px-1 text-xs leading-5">
         <p>Gói và hạn mức do Superadmin quản lý.</p>
-        <p>{updatedAt ? `Cập nhật ${updatedAt.toLocaleTimeString("vi-VN")} · ` : ""}Tự làm mới mỗi phút khi đang mở trang.</p>
+        <p>{updatedAt ? `Cập nhật ${updatedAt.toLocaleTimeString("vi-VN")} · ` : ""}Cập nhật ngay khi đổi gói, tự làm mới mỗi phút.</p>
       </footer>
     </div>
   );

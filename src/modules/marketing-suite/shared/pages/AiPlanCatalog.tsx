@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertCircle, ArrowRight, CalendarDays, Check, Copy, Layers3, Sparkles } from "lucide-react";
 import {
   getAvailableAiSubscriptionPlans,
+  formatAiPlanPrice,
   type AiSubscriptionPlan,
   type AiSubscriptionSummary,
 } from "../../../../services/aiSubscriptionService";
@@ -58,6 +59,7 @@ export default function AiPlanCatalog({ subscription, revision, companyName }: {
     `Gói AI: ${selectedPlan.name} (${selectedPlan.code})`,
     `Hạn mức: ${number(selectedPlan.aiLimit)} lượt AI dùng chung`,
     `Thời hạn: ${duration(selectedPlan.durationDays)} kể từ khi được cấp gói`,
+    `Giá trọn gói: ${formatAiPlanPrice(selectedPlan.priceVnd)}`,
     "Nhờ Superadmin kiểm tra và cấp gói cho doanh nghiệp.",
   ].join("\n") : "";
 
@@ -76,7 +78,7 @@ export default function AiPlanCatalog({ subscription, revision, companyName }: {
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h2 id="ai_plan_catalog_title" className="text-lg font-semibold tracking-tight">Xem gói & nâng cấp</h2>
-        <p className="ai-subscription-muted mt-1 text-sm leading-6">So sánh lượt AI và thời hạn, chọn gói bạn muốn nâng cấp hoặc gia hạn.</p>
+        <p className="ai-subscription-muted mt-1 text-sm leading-6">So sánh giá, lượt AI và thời hạn để chọn gói nâng cấp hoặc gia hạn.</p>
       </div>
       {loaded && durations.length > 1 && <div className="ai-plan-filters flex max-w-full flex-wrap items-center gap-1 rounded-xl p-1" role="group" aria-label="Lọc gói theo thời hạn">
         {[null, ...durations].map((days) => <button key={days ?? "all"} type="button" aria-pressed={activeDays === days} onClick={() => setSelectedDays(days)} className={`ai-plan-duration rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeDays === days ? "ai-plan-duration-active" : ""}`}>
@@ -109,6 +111,7 @@ export default function AiPlanCatalog({ subscription, revision, companyName }: {
             {current && <span className="ai-subscription-badge inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"><Check className="h-3.5 w-3.5" aria-hidden="true" />Gói đang dùng</span>}
           </div>
           <h3 className="break-words text-xl font-semibold">{plan.name}</h3>
+          <p className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1"><strong className="text-2xl font-semibold tracking-tight tabular-nums">{formatAiPlanPrice(plan.priceVnd)}</strong><span className="ai-subscription-muted text-sm">/ {duration(plan.durationDays)}</span></p>
           <div className="ai-plan-quota my-5 border-y py-5">
             <p className="ai-subscription-accent flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <span className="text-4xl font-semibold tracking-tight tabular-nums">{number(plan.aiLimit)}</span><span className="text-sm font-medium">lượt AI</span>
@@ -123,7 +126,7 @@ export default function AiPlanCatalog({ subscription, revision, companyName }: {
             ].map((text) => <li key={text} className="flex items-start gap-2"><Check className="ai-subscription-accent mt-1 h-4 w-4 shrink-0" aria-hidden="true" /><span>{text}</span></li>)}
           </ul>
           <button type="button" onClick={() => { setSelectedId(plan._id); setCopiedId(""); setCopyError(""); }} aria-expanded={selected} aria-controls="ai_plan_activation" className="ai-plan-action mt-auto inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors">
-            {selected ? "Đang chọn gói này" : samePlan ? "Gia hạn gói" : subscription && plan.aiLimit > subscription.aiLimit ? "Nâng cấp gói" : "Chọn gói này"}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+            {selected ? "Đang chọn gói này" : samePlan ? "Gia hạn gói" : subscription && plan.aiLimit > subscription.aiLimit - (subscription.carriedOver || 0) ? "Nâng cấp gói" : "Chọn gói này"}<ArrowRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </article>;
       })}
@@ -140,7 +143,7 @@ export default function AiPlanCatalog({ subscription, revision, companyName }: {
         <div>
           <h3 className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="ai-subscription-accent h-4 w-4" aria-hidden="true" />Gói đã chọn: {selectedPlan.name}</h3>
           <p className="ai-subscription-muted mt-2 text-sm leading-6">Để nâng cấp hoặc gia hạn, sao chép thông tin bên dưới và gửi cho Superadmin. Gói mới chỉ có hiệu lực sau khi được Superadmin cấp.</p>
-          <p className="ai-subscription-muted mt-2 text-sm leading-6">Gói mới bắt đầu ngay khi được cấp và thay thế kỳ hiện tại. Lượt còn lại của kỳ cũ không cộng dồn.</p>
+          <p className="ai-subscription-muted mt-2 text-sm leading-6">Gói mới bắt đầu ngay khi được cấp. Lượt chưa dùng của gói cũ còn hiệu lực được cộng vào gói mới.</p>
           <button type="button" onClick={() => { void copyRequest(); }} className="ai-subscription-refresh mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium">
             {copiedId === selectedPlan._id ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
             {copiedId === selectedPlan._id ? "Đã sao chép thông tin" : "Sao chép thông tin nâng cấp"}
