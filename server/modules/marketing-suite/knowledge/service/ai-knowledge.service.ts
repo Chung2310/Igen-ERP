@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from "crypto";
-import mongoose from "mongoose";
+import mongoose, { type ClientSession } from "mongoose";
 import { AIKnowledgeChunkModel, AIKnowledgeDocumentModel } from "../model/ai-knowledge.model.ts";
 import { activeChunkSetIds, mapActiveKnowledgeChunks, knowledgeUsageFilter, allDocumentChunkSets } from "./knowledge-chunks";
 import { rankKnowledgeStream } from "./knowledge-context-ranking";
@@ -743,7 +743,7 @@ let legacyChunkIndexRepairPromise: Promise<void> | undefined;
  * in one compound index (error 171). The current schema uses separate indexes,
  * so remove only that obsolete, invalid index before writing chunks.
  */
-async function repairLegacyChunkScopeIndexes() {
+export async function repairLegacyChunkScopeIndexes() {
   if (!legacyChunkIndexRepairPromise) {
     const repairPromise = (async () => {
       const indexes = await AIKnowledgeChunkModel.collection.indexes();
@@ -787,7 +787,7 @@ export const aiKnowledgeService = {
     pageScope?: PageScope;
     pageIds?: string[];
     documentType?: KnowledgeDocumentType;
-  }) {
+  }, session?: ClientSession) {
     const companyCode = normalizeCompanyCode(params.companyCode);
     if (!companyCode) {
       throw new Error("Mã doanh nghiệp (companyCode) không được để trống khi nạp tài liệu.");
@@ -810,10 +810,10 @@ export const aiKnowledgeService = {
       companyCode,
       sourceType: params.sourceType,
       sourceUrl: params.sourceUrl || "",
-    }).sort({ updatedAt: -1 });
+    }).sort({ updatedAt: -1 }).session(session || null);
 
     if (!text) {
-      if (existing) await this.deleteKnowledgeDocument(companyCode, String(existing._id));
+      if (existing) await this.deleteKnowledgeDocument(companyCode, String(existing._id), session);
       return { document: null, chunksCount: 0 };
     }
 
@@ -829,25 +829,38 @@ export const aiKnowledgeService = {
       sourceUrl: params.sourceUrl || "", status: "active" as const, version, chunkSetId,
       channelScope, purposeScope, pageScope: pageTarget.pageScope, pageIds: pageTarget.pageIds,
       documentType, contentHash, createdBy: params.createdBy || "" };
+    const chunks = textChunks.map((chunk, index) => ({
+      companyCode,
+      documentId: chunkSetId,
+      sourceDocumentId: documentId,
+      chunkIndex: index,
+      text: chunk,
+      embedding: embedText(chunk),
+      tokensApprox: Math.ceil(chunk.length / 4),
+      channelScope,
+      purposeScope,
+      pageScope: pageTarget.pageScope,
+      pageIds: pageTarget.pageIds,
+      version,
+    }));
+    // The caller repairs legacy indexes before opening the transaction. Never
+    // swallow a write failure here: the FAQ review and its RAG data roll back together.
+    if (session) {
+      await AIKnowledgeChunkModel.insertMany(chunks, { session });
+      const document = existing
+        ? await AIKnowledgeDocumentModel.findOneAndUpdate({ _id: documentId, companyCode,
+            updatedAt: existing.updatedAt, chunkSetId: existing.chunkSetId || null },
+          { $set: metadata }, { returnDocument: "after", runValidators: true, session })
+        : (await AIKnowledgeDocumentModel.create([{ _id: documentId, ...metadata }], { session }))[0];
+      if (!document) throw Object.assign(new Error("Tài liệu vừa được thay đổi. Hãy tải lại và thử đồng bộ lại."), { status: 409 });
+      if (existing) await AIKnowledgeChunkModel.deleteMany({ companyCode,
+        documentId: existing.chunkSetId || existing._id }, { session });
+      return { document, chunksCount: textChunks.length };
+    }
     let document;
     try {
       await repairLegacyChunkScopeIndexes();
-      await AIKnowledgeChunkModel.insertMany(
-        textChunks.map((chunk, index) => ({
-          companyCode,
-          documentId: chunkSetId,
-          sourceDocumentId: documentId,
-          chunkIndex: index,
-          text: chunk,
-          embedding: embedText(chunk),
-          tokensApprox: Math.ceil(chunk.length / 4),
-          channelScope,
-          purposeScope,
-          pageScope: pageTarget.pageScope,
-          pageIds: pageTarget.pageIds,
-          version,
-        }))
-      );
+      await AIKnowledgeChunkModel.insertMany(chunks);
       document = existing
         ? await AIKnowledgeDocumentModel.findOneAndUpdate({ _id: documentId, companyCode,
             updatedAt: existing.updatedAt, chunkSetId: existing.chunkSetId || null },
@@ -1686,7 +1699,7 @@ export const aiKnowledgeService = {
     };
   },
 
-  async deleteKnowledgeDocument(companyCode: string | undefined, documentId: string) {
+  async deleteKnowledgeDocument(companyCode: string | undefined, documentId: string, session?: ClientSession) {
     const normalizedCompanyCode = normalizeCompanyCode(companyCode);
     if (!normalizedCompanyCode) return null;
     const document = await AIKnowledgeDocumentModel.findOne({
@@ -1694,8 +1707,16 @@ export const aiKnowledgeService = {
       companyCode: normalizedCompanyCode,
     })
       .select("_id sourceTitle")
+      .session(session || null)
       .lean();
     if (!document) return null;
+    if (session) {
+      await AIKnowledgeChunkModel.deleteMany({
+        ...allDocumentChunkSets([document._id]), companyCode: normalizedCompanyCode,
+      }, { session });
+      await AIKnowledgeDocumentModel.deleteOne({ _id: document._id, companyCode: normalizedCompanyCode }, { session });
+      return { id: String(document._id), title: document.sourceTitle };
+    }
     await Promise.all([
       AIKnowledgeChunkModel.deleteMany({
         ...allDocumentChunkSets([document._id]),
@@ -1726,7 +1747,7 @@ export const aiKnowledgeService = {
     return { documentsRemoved: documents.length };
   },
 
-  async deleteKnowledgeDocumentByUrl(companyCode: string | undefined, sourceUrl: string) {
+  async deleteKnowledgeDocumentByUrl(companyCode: string | undefined, sourceUrl: string, session?: ClientSession) {
     const normalizedCompanyCode = normalizeCompanyCode(companyCode);
     if (!normalizedCompanyCode || !sourceUrl) return null;
     const document = await AIKnowledgeDocumentModel.findOne({
@@ -1734,8 +1755,10 @@ export const aiKnowledgeService = {
       companyCode: normalizedCompanyCode,
     })
       .select("_id sourceTitle")
+      .session(session || null)
       .lean();
     if (!document) return null;
+    if (session) return this.deleteKnowledgeDocument(normalizedCompanyCode, String(document._id), session);
     await Promise.all([
       AIKnowledgeChunkModel.deleteMany({
         ...allDocumentChunkSets([document._id]),

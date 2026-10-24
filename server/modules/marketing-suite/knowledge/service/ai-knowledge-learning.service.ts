@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { ClientSession } from "mongoose";
 import { AIFaqCandidateModel, IAIFaqCandidate } from "../model/ai-faq-candidate.model.ts";
 import { AIReplyLogModel } from "../../message/model/ai-reply-log.model.ts";
 import { FBConversationModel, FBMessageModel } from "../../message/model/fb-messenger.model.ts";
@@ -8,7 +9,7 @@ import { assertMarketingAccountOwnership } from "../../shared/account-ownership"
 import { ZaloMessageModel } from "../../message/model/zalo-messenger.model.ts";
 import { TikTokMessageModel } from "../../message/model/tiktok-messenger.model.ts";
 import { AIKnowledgeDocumentModel } from "../model/ai-knowledge.model.ts";
-import { aiKnowledgeService } from "./ai-knowledge.service.ts";
+import { aiKnowledgeService, repairLegacyChunkScopeIndexes } from "./ai-knowledge.service.ts";
 import { openrouterChat } from "../../shared/service/openrouter.service.ts";
 import { GEMINI_TEXT_MODEL, safeParseJson } from "../../shared/service/gemini/core";
 
@@ -282,35 +283,38 @@ YÊU CẦU ĐẦU RA (JSON FORMAT):
     userId?: string;
   }) {
     const normalizedCompanyCode = normalizeCompanyCode(params.companyCode);
-    const candidate = await AIFaqCandidateModel.findOne({
-      _id: params.candidateId,
-      companyCode: normalizedCompanyCode,
+    await repairLegacyChunkScopeIndexes();
+    return AIFaqCandidateModel.db.transaction(async (session) => {
+      const candidate = await AIFaqCandidateModel.findOne({
+        _id: params.candidateId,
+        companyCode: normalizedCompanyCode,
+      }).session(session);
+
+      if (!candidate) {
+        throw new Error("Không tìm thấy câu hỏi đề xuất hoặc bạn không có quyền thao tác.");
+      }
+
+      const finalAnswer = (params.customAnswer || candidate.suggestedAnswer || "").trim();
+      if (!finalAnswer) {
+        throw new Error("Câu trả lời không được để trống khi duyệt vào kho tri thức.");
+      }
+
+      const approved = await AIFaqCandidateModel.findOneAndUpdate(
+        { _id: candidate._id, companyCode: normalizedCompanyCode, status: candidate.status, updatedAt: candidate.updatedAt },
+        { $set: { suggestedAnswer: finalAnswer, status: "approved", reviewedBy: params.userId || "admin", reviewedAt: new Date() } },
+        { returnDocument: "after", session },
+      );
+      if (!approved) throw Object.assign(new Error("Đề xuất FAQ vừa được xử lý ở nơi khác. Hãy tải lại trước khi duyệt."), { statusCode: 409 });
+
+      // Đồng bộ lại tài liệu FAQ tổng của công ty trong AIKnowledgeDocumentModel
+      await this.syncApprovedFaqsToKnowledgeBase(normalizedCompanyCode, params.userId, session);
+
+      return {
+        success: true,
+        message: `Đã duyệt câu hỏi “${candidate.question}” vào Kho tri thức thành công!`,
+        candidate: approved,
+      };
     });
-
-    if (!candidate) {
-      throw new Error("Không tìm thấy câu hỏi đề xuất hoặc bạn không có quyền thao tác.");
-    }
-
-    const finalAnswer = (params.customAnswer || candidate.suggestedAnswer || "").trim();
-    if (!finalAnswer) {
-      throw new Error("Câu trả lời không được để trống khi duyệt vào kho tri thức.");
-    }
-
-    const approved = await AIFaqCandidateModel.findOneAndUpdate(
-      { _id: candidate._id, companyCode: normalizedCompanyCode, status: candidate.status, updatedAt: candidate.updatedAt },
-      { $set: { suggestedAnswer: finalAnswer, status: "approved", reviewedBy: params.userId || "admin", reviewedAt: new Date() } },
-      { returnDocument: "after" },
-    );
-    if (!approved) throw Object.assign(new Error("Đề xuất FAQ vừa được xử lý ở nơi khác. Hãy tải lại trước khi duyệt."), { statusCode: 409 });
-
-    // Đồng bộ lại tài liệu FAQ tổng của công ty trong AIKnowledgeDocumentModel
-    await this.syncApprovedFaqsToKnowledgeBase(normalizedCompanyCode, params.userId);
-
-    return {
-      success: true,
-      message: `Đã duyệt câu hỏi “${candidate.question}” vào Kho tri thức thành công!`,
-      candidate: approved,
-    };
   },
 
   /**
@@ -358,41 +362,44 @@ YÊU CẦU ĐẦU RA (JSON FORMAT):
     userId?: string;
   }) {
     const normalizedCompanyCode = normalizeCompanyCode(params.companyCode);
-    const candidate = await AIFaqCandidateModel.findOneAndDelete({
-      _id: params.candidateId,
-      companyCode: normalizedCompanyCode,
+    await repairLegacyChunkScopeIndexes();
+    return AIFaqCandidateModel.db.transaction(async (session) => {
+      const candidate = await AIFaqCandidateModel.findOneAndDelete({
+        _id: params.candidateId,
+        companyCode: normalizedCompanyCode,
+      }, { session });
+
+      if (!candidate) {
+        throw new Error("Không tìm thấy đề xuất cần xóa.");
+      }
+
+      // Nếu trước đó candidate đã được approved, đồng bộ lại để loại bỏ khỏi kho tri thức
+      if (candidate.status === "approved") {
+        await this.syncApprovedFaqsToKnowledgeBase(normalizedCompanyCode, params.userId, session);
+      }
+
+      return {
+        success: true,
+        message: "Đã xóa đề xuất câu hỏi.",
+      };
     });
-
-    if (!candidate) {
-      throw new Error("Không tìm thấy đề xuất cần xóa.");
-    }
-
-    // Nếu trước đó candidate đã được approved, đồng bộ lại để loại bỏ khỏi kho tri thức
-    if (candidate.status === "approved") {
-      await this.syncApprovedFaqsToKnowledgeBase(normalizedCompanyCode, params.userId);
-    }
-
-    return {
-      success: true,
-      message: "Đã xóa đề xuất câu hỏi.",
-    };
   },
 
   /**
    * Gom tất cả các FAQ đã approved của doanh nghiệp và cập nhật vào tài liệu Kho Tri Thức
    */
-  async syncApprovedFaqsToKnowledgeBase(companyCode: string, userId?: string) {
+  async syncApprovedFaqsToKnowledgeBase(companyCode: string, userId?: string, session?: ClientSession) {
     const approvedList = await AIFaqCandidateModel.find({
       companyCode,
       status: "approved",
-    }).sort({ category: 1, frequency: -1 });
+    }).sort({ category: 1, frequency: -1 }).session(session || null);
 
     const docTitle = "[Tự động] Bộ câu hỏi thường gặp từ khách hàng (FAQs)";
     const sourceUrl = "ai_learned_faq_knowledge";
 
     if (approvedList.length === 0) {
       // Nếu không còn câu nào approved, xóa document FAQ tương ứng
-      await aiKnowledgeService.deleteKnowledgeDocumentByUrl(companyCode, sourceUrl).catch(() => {});
+      await aiKnowledgeService.deleteKnowledgeDocumentByUrl(companyCode, sourceUrl, session);
       return;
     }
 
@@ -450,7 +457,7 @@ YÊU CẦU ĐẦU RA (JSON FORMAT):
       purposeScope: ["all"],
       pageScope: "all",
       documentType: "faq",
-    });
+    }, session);
 
     console.log(`[AI Learning] Đã đồng bộ ${approvedList.length} câu hỏi FAQ vào kho tri thức của ${companyCode}!`);
   },

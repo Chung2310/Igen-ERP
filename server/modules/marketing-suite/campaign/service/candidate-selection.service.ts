@@ -24,7 +24,8 @@ async function bounded<T, R>(items: T[], fn: (item: T, index: number) => Promise
   return results;
 }
 export class CandidateSelectionService {
-  static async write(slot: IMarketingCampaignSlot, campaign: IMarketingCampaign, context: string) {
+  static async write(slot: IMarketingCampaignSlot, campaign: IMarketingCampaign, context: string, assertActive: () => Promise<void> = async () => {}) {
+    await assertActive();
     const inputHash = createHash("sha256").update(JSON.stringify({ brief: campaign.sourceBrief, rules: campaign.rules, topic: slot.topicBrief, objective: slot.objective, mediaType: slot.mediaType, platform: slot.platform, context })).digest("hex");
     const scope = { companyCode: slot.companyCode, slotId: slot._id, inputHash };
     const existing = await MarketingCandidateModel.findOne({ ...scope, selected: true });
@@ -33,6 +34,7 @@ export class CandidateSelectionService {
     const price = campaign.qualityMode === "budget" ? API_COSTS.CAMPAIGN_CONTENT_BUDGET : API_COSTS.CAMPAIGN_CONTENT_PREMIUM;
     let providerErrors = 0;
     async function billed<T>(variant: string, operation: string, task: (completed: () => void) => Promise<T>): Promise<T> {
+      await assertActive();
       const key = `erp-candidate:${slot.companyCode}:${slot._id}:${inputHash}:${variant}:${operation}`;
       const reservation = await walletService.reserveBalance(campaign.createdBy, price, `Campaign ${operation} ${slot._id} ${variant}`, key);
       if (!reservation.reserved) throw new Error("Tác vụ AI đã có bút toán; cần đối soát kết quả trước khi chạy lại.");
@@ -52,6 +54,7 @@ export class CandidateSelectionService {
       }
     }
     for (let round = 0; round < 2; round++) {
+      await assertActive();
       const variants = ANGLES.slice(0, candidateCount(campaign.candidateCount)).map((angle) => `${angle}-${inputHash.slice(0, 10)}-r${round}`);
       const generated = await bounded(variants, async (variant, index) => {
         const cached = await MarketingCandidateModel.findOne({ ...scope, variant });
@@ -88,7 +91,11 @@ export class CandidateSelectionService {
         acceptedBodies.push(candidate.bodyText);
         valid.push(candidate);
       }
-      await MarketingCampaignSlotModel.updateOne({ _id: slot._id, lockId: slot.lockId }, { $set: { status: "scoring" }, $push: { transitions: { from: "writing", to: "scoring", reason: `Chấm ${valid.length} phương án hợp lệ.`, at: new Date() } } });
+      await assertActive();
+      const scoring = await MarketingCampaignSlotModel.updateOne({ _id: slot._id, companyCode: slot.companyCode, lockId: slot.lockId,
+        lockExpiresAt: { $gt: new Date() }, status: { $in: ["writing", "scoring"] } },
+        { $set: { status: "scoring" }, $push: { transitions: { from: "writing", to: "scoring", reason: `Chấm ${valid.length} phương án hợp lệ.`, at: new Date() } } });
+      if (!scoring.matchedCount) throw Object.assign(new Error("Worker chuẩn bị đã mất khóa slot."), { code: "CAMPAIGN_SLOT_LEASE_LOST" });
       const scored = await bounded(valid, async (candidate) => {
         if (candidate.evaluationStatus === "scored") return candidate;
         return billed(candidate.variant, "score", async (completed) => {
@@ -109,13 +116,16 @@ export class CandidateSelectionService {
       if (scoreQuotaFailure?.status === "rejected") throw scoreQuotaFailure.reason;
       const winner = ranked.find((candidate) => candidate.score >= campaign.minimumScore && !candidate.rejectionReasons.length);
       if (winner) {
+        await assertActive();
         await MarketingCandidateModel.updateMany({ companyCode: slot.companyCode, slotId: slot._id }, { $set: { selected: false } });
         winner.selected = true; await winner.save();
         return winner;
       }
       if (round > 0 || !ranked.some((candidate) => candidate.score >= 65)) break;
     }
-    await MarketingCampaignSlotModel.updateOne({ _id: slot._id, lockId: slot.lockId }, {
+    await assertActive();
+    await MarketingCampaignSlotModel.updateOne({ _id: slot._id, companyCode: slot.companyCode, lockId: slot.lockId,
+      lockExpiresAt: { $gt: new Date() }, status: { $in: ["writing", "scoring"] } }, {
       $set: { status: "needs_attention", lastError: { type: providerErrors ? "provider" : "validation", message: "Không có phương án hợp lệ đạt điểm tối thiểu.", occurredAt: new Date() } },
       $unset: { lockId: "", lockedAt: "", lockExpiresAt: "" },
       $push: { transitions: { from: "scoring", to: "needs_attention", reason: "Candidate selection exhausted.", at: new Date() } },
