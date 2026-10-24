@@ -5,7 +5,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../../../../context/AuthContext";
-import { getCurrentAiSubscription, type AiSubscriptionSummary } from "../../../../services/aiSubscriptionService";
+import { getCurrentAiSubscription, formatAiPlanPrice, type AiSubscriptionSummary } from "../../../../services/aiSubscriptionService";
 import AiPlanCatalog from "./AiPlanCatalog";
 import "./ai-subscription.css";
 
@@ -131,6 +131,7 @@ function CompanyAiSubscription({ companyName }: { companyName?: string }) {
           <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-2 lg:gap-10">
             <div className="min-w-0">
               <h3 className="break-words text-2xl font-semibold tracking-tight">{subscription.planName}</h3>
+              <p className="ai-subscription-secondary mt-2 text-sm">Giá kỳ được cấp: <strong className="font-semibold tabular-nums">{formatAiPlanPrice(subscription.priceVnd)}</strong></p>
               <button type="button" onClick={openPlans} className="ai-subscription-upgrade-link mt-2 inline-flex min-h-9 items-center gap-1.5 text-sm font-medium">
                 Xem gói và nâng cấp<ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </button>

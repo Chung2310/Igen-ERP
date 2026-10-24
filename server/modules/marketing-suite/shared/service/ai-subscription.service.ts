@@ -45,6 +45,7 @@ export const aiSubscriptionService = {
       await AiSubscriptionPeriodModel.updateMany({ companyCode, status: "active" }, { $set: { status: "replaced" } }, { session });
       const [period] = await AiSubscriptionPeriodModel.create([{
         companyCode, planId: plan._id, planName: plan.name, aiLimit: plan.aiLimit,
+        priceVnd: plan.priceVnd ?? null,
         startsAt, expiresAt: new Date(startsAt.getTime() + plan.durationDays * 86_400_000), createdBy: actorId,
       }], { session });
       return period;

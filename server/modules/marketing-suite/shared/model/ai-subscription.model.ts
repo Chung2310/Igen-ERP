@@ -2,6 +2,7 @@ import { Schema, model, type Types } from "mongoose";
 
 export interface SubscriptionPlanRecord {
   code: string; name: string; description: string; durationDays: number; aiLimit: number; active: boolean;
+  priceVnd?: number | null;
   createdBy: string; createdAt: Date; updatedAt: Date;
 }
 const integer = { validator: Number.isSafeInteger, message: "Giá trị phải là số nguyên." };
@@ -10,12 +11,14 @@ const planSchema = new Schema<SubscriptionPlanRecord>({
   name: { type: String, required: true, trim: true }, description: { type: String, default: "" },
   durationDays: { type: Number, required: true, min: 1, max: 3660, validate: integer },
   aiLimit: { type: Number, required: true, min: 1, max: 10_000_000, validate: integer },
+  priceVnd: { type: Number, default: null, min: 0, max: 1_000_000_000, validate: { validator: (value: number | null) => value == null || Number.isSafeInteger(value), message: "Giá phải là số nguyên VND." } },
   active: { type: Boolean, default: true }, createdBy: { type: String, required: true },
 }, { timestamps: true });
 export const AiSubscriptionPlanModel = model<SubscriptionPlanRecord>("AiSubscriptionPlan", planSchema);
 
 export interface SubscriptionPeriodRecord {
   companyCode: string; planId: Types.ObjectId; planName: string; aiLimit: number;
+  priceVnd?: number | null;
   used: number; reserved: number; startsAt: Date; expiresAt: Date;
   status: "active" | "cancelled" | "replaced"; createdBy: string; createdAt: Date;
 }
@@ -23,6 +26,7 @@ const periodSchema = new Schema<SubscriptionPeriodRecord>({
   companyCode: { type: String, required: true },
   planId: { type: Schema.Types.ObjectId, ref: "AiSubscriptionPlan", required: true },
   planName: { type: String, required: true }, aiLimit: { type: Number, required: true, min: 1, validate: integer },
+  priceVnd: { type: Number, default: null, min: 0, max: 1_000_000_000, validate: { validator: (value: number | null) => value == null || Number.isSafeInteger(value), message: "Giá phải là số nguyên VND." } },
   used: { type: Number, default: 0, min: 0 }, reserved: { type: Number, default: 0, min: 0 },
   startsAt: { type: Date, required: true }, expiresAt: { type: Date, required: true },
   status: { type: String, enum: ["active", "cancelled", "replaced"], default: "active" },

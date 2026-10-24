@@ -2,6 +2,7 @@ import type { AiSubscriptionPlan, AiSubscriptionSummary } from "../../shared/mar
 import { superAdminRequest } from "./superAdminRequest";
 import { getAccessToken } from "./authService";
 export type { AiSubscriptionPlan, AiSubscriptionSummary };
+export { formatAiPlanPrice } from "../../shared/marketing-suite/subscription";
 
 const root = "/api/v1/super-admin";
 const pendingMutations = new Map<string, string>();
@@ -23,7 +24,7 @@ async function mutation(path: string, method: string, body: unknown) {
     throw error;
   }
 }
-export type SubscriptionPlanInput = Pick<AiSubscriptionPlan, "code" | "name" | "description" | "durationDays" | "aiLimit" | "active"> & { reason: string; updatedAt?: string };
+export type SubscriptionPlanInput = Pick<AiSubscriptionPlan, "code" | "name" | "description" | "durationDays" | "aiLimit" | "active"> & { priceVnd: number; reason: string; updatedAt?: string };
 export const aiSubscriptionAdminService = {
   async plans(): Promise<AiSubscriptionPlan[]> { return (await superAdminRequest(root + "/ai-subscription/plans")).plans; },
   save: (data: SubscriptionPlanInput, id?: string) => mutation(`/ai-subscription/plans${id ? `/${encodeURIComponent(id)}` : ""}`, id ? "PUT" : "POST", data),

@@ -5,6 +5,7 @@ export interface AiSubscriptionPlan {
   description: string;
   durationDays: number;
   aiLimit: number;
+  priceVnd?: number | null;
   active: boolean;
   updatedAt: string;
 }
@@ -14,6 +15,7 @@ export interface AiSubscriptionSummary {
   companyCode: string;
   planId: string;
   planName: string;
+  priceVnd?: number | null;
   aiLimit: number;
   used: number;
   reserved: number;
@@ -21,6 +23,12 @@ export interface AiSubscriptionSummary {
   startsAt: string;
   expiresAt: string;
   status: "active" | "expired" | "cancelled" | "replaced";
+}
+
+/** Missing prices on older plans must not be displayed as free. */
+export function formatAiPlanPrice(priceVnd: number | null | undefined): string {
+  if (priceVnd == null) return "Chưa thiết lập giá";
+  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(priceVnd);
 }
 
 export interface CampaignAiEstimate {

@@ -16,6 +16,7 @@ const objectId = Joi.string().hex().length(24).required();
 const plan = Joi.object({ code: Joi.string().trim().uppercase().pattern(/^[A-Z0-9_-]+$/).max(40).required(),
   name: Joi.string().trim().min(1).max(120).required(), description: Joi.string().trim().max(1000).allow("").default(""),
   durationDays: Joi.number().integer().min(1).max(3660).required(), aiLimit: Joi.number().integer().min(1).max(10_000_000).required(),
+  priceVnd: Joi.number().integer().min(0).max(1_000_000_000).required(),
   active: Joi.boolean().required(), reason, updatedAt: Joi.date().iso().optional() });
 const headers = Joi.object({ "idempotency-key": Joi.string().guid().required() }).unknown(true);
 const idempotency: RequestHandler = (req, res, next) => {
