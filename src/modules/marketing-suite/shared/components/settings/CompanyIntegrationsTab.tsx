@@ -1,0 +1,1599 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Building2, Plus, Save, Terminal, Key, Eye, EyeOff, Lock,
+  Trash2, FileEdit, CheckCircle, Copy, Globe, RefreshCw, X, Search, Bot, Landmark
+} from "lucide-react";
+import { toast } from "../../../../../pages/Toast";
+import { socialIntegrationService, SocialIntegration } from "../../services/socialIntegrationService";
+import { getAccessToken } from "../../services/authService";
+import OrderSheetConfigCard from "./OrderSheetConfigCard";
+import TelegramOrderConfigCard from "./TelegramOrderConfigCard";
+import SepayConfigCard from "./SepayConfigCard";
+import IntegrationSection from "./IntegrationSection";
+
+interface CompanyIntegrationsTabProps {
+  userProfile: any;
+}
+
+export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrationsTabProps) {
+  // Company integrations state
+  const [companyIntegrations, setCompanyIntegrations] = useState<SocialIntegration[]>([]);
+  const [loadingIntegrations, setLoadingIntegrations] = useState(false);
+  const [submittingIntegration, setSubmittingIntegration] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingIntegrationId, setEditingIntegrationId] = useState<string | null>(null);
+  const [showAccounts, setShowAccounts] = useState(false);
+  const [accountSearch, setAccountSearch] = useState("");
+  const accountsDialogRef = useRef<HTMLDialogElement>(null);
+  const integrationFormRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const dialog = accountsDialogRef.current;
+    if (!showAccounts || !dialog) return;
+    dialog.showModal();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showAccounts]);
+
+  const matchesAccount = (...values: (string | undefined)[]) => values.some(value =>
+    (value || "").toLocaleLowerCase("vi").includes(accountSearch.trim().toLocaleLowerCase("vi")));
+  const [loadingFacebookDiagnostics, setLoadingFacebookDiagnostics] = useState(false);
+  const [facebookDiagnostics, setFacebookDiagnostics] = useState<any | null>(null);
+  const [loadingZaloDiagnostics, setLoadingZaloDiagnostics] = useState(false);
+  const [zaloDiagnostics, setZaloDiagnostics] = useState<any | null>(null);
+  const [connectingTikTokOAuth, setConnectingTikTokOAuth] = useState(false);
+  const [showAdvancedTikTok, setShowAdvancedTikTok] = useState(false);
+
+  // Company members integrations state
+  const [companyUsers, setCompanyUsers] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Form states for Facebook credentials login
+  const [fbConnectMode, setFbConnectMode] = useState<"oauth" | "token" | "credentials">("oauth");
+  const [fbEmail, setFbEmail] = useState("");
+  const [fbPassword, setFbPassword] = useState("");
+  const [fbPagesList, setFbPagesList] = useState<any[]>([]);
+
+  // Form states for company integration
+  const [compPlatform, setCompPlatform] = useState<"TikTok" | "Facebook" | "Zalo">("TikTok");
+  const [compDisplayName, setCompDisplayName] = useState("");
+  const [compUsername, setCompUsername] = useState("");
+  const [compBlotatoAccountId, setCompBlotatoAccountId] = useState("");
+  const [compAccessToken, setCompAccessToken] = useState("");
+  const [compRefreshToken, setCompRefreshToken] = useState("");
+  const [compTokenExpiredAt, setCompTokenExpiredAt] = useState("");
+  const [showCompToken, setShowCompToken] = useState(false);
+  const [compAppSecret, setCompAppSecret] = useState("");
+  const [compVerifyToken, setCompVerifyToken] = useState("");
+  const editingIntegration = companyIntegrations.find((item) => item._id === editingIntegrationId);
+  const keepsStoredCredentials = editingIntegration?.platform === compPlatform &&
+    (editingIntegration.username || "").trim() === compUsername.trim();
+  const hasStoredAccessToken = keepsStoredCredentials && Boolean(editingIntegration?.hasAccessToken);
+  const platformMeta = {
+    TikTok: {
+      displayPlaceholder: "Vi du: TikTok Cong ty",
+      usernameLabel: "Ten tai khoan (Username)",
+      usernamePlaceholder: "igen_business",
+      tokenLabel: "TikTok Access Token *",
+      tokenPlaceholder: "Nhap TikTok Access Token",
+      tokenHelp: "Access Token TikTok Production API dùng để xác thực và đăng video trực tiếp.",
+      activeClass: "border-black bg-black text-white shadow-sm",
+    },
+    Facebook: {
+      displayPlaceholder: "Vi du: Fanpage Chinh thuc",
+      usernameLabel: "Page ID / Username",
+      usernamePlaceholder: "Vi du: 123456789012345 hoac igen.erp.fanpage",
+      tokenLabel: "Page Access Token *",
+      tokenPlaceholder: "Nhap Page Access Token",
+      tokenHelp: "Nen luu Page ID that cua fanpage de dung on dinh cho cac luong Facebook.",
+      activeClass: "border-[#1877F2] bg-[#1877F2] text-white shadow-sm",
+    },
+    Zalo: {
+      displayPlaceholder: "Vi du: Zalo OA Shop",
+      usernameLabel: "OA ID hoac Username",
+      usernamePlaceholder: "OA ID hoac Username",
+      tokenLabel: "Zalo Access Token *",
+      tokenPlaceholder: "Nhap Zalo Access Token",
+      tokenHelp: "Access Token cua Official Account.",
+      activeClass: "border-[#0068ff] bg-[#0068ff] text-white shadow-sm",
+    },
+  } as const;
+  const currentPlatformMeta = platformMeta[compPlatform];
+  const canStartCompanyTikTokOAuth = compPlatform === "TikTok";
+
+  // Fetch company integrations
+  const fetchCompanyIntegrations = async (fallbackFacebookPages: any[] = [], showLoading = true) => {
+    if (showLoading) {
+      setLoadingIntegrations(true);
+    }
+    try {
+      const data = await socialIntegrationService.getIntegrations();
+      setCompanyIntegrations((currentIntegrations) => {
+        if (fallbackFacebookPages.length === 0) {
+          return data;
+        }
+
+        const integrationsWithFallback = [...data];
+        fallbackFacebookPages.forEach((page) => {
+          const pageId = String(page?.id || "").trim();
+          if (!pageId || integrationsWithFallback.some((item) => (
+            item.platform === "Facebook" && item.username === pageId
+          ))) {
+            return;
+          }
+
+          const optimisticIntegration = currentIntegrations.find((item) => (
+            item.platform === "Facebook" && item.username === pageId
+          ));
+          integrationsWithFallback.push(optimisticIntegration || {
+            _id: `facebook-oauth-${pageId}`,
+            platform: "Facebook",
+            displayName: page.name || `Fanpage ${pageId}`,
+            username: pageId,
+            isConnected: true,
+            createdBy: userProfile?.email || "system",
+          });
+        });
+
+        return integrationsWithFallback;
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Lỗi khi tải danh sách liên kết mạng xã hội");
+    } finally {
+      if (showLoading) {
+        setLoadingIntegrations(false);
+      }
+    }
+  };
+
+  const fetchCompanyUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch("/api/v1/auth/users", {
+        headers: {
+          "Authorization": `Bearer ${getAccessToken()}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error("Không thể tải danh sách nhân sự");
+      }
+      const result = await res.json();
+      setCompanyUsers(result.data || []);
+    } catch (err: any) {
+      console.error("Lỗi khi tải danh sách nhân sự:", err);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanyIntegrations();
+    fetchCompanyUsers();
+  }, []);
+
+  useEffect(() => {
+    const handleTikTokOAuthPayload = async (payload: any) => {
+      if (!payload) return;
+      if (!payload.ok) {
+        toast.error(payload.error || "Kết nối TikTok thất bại.");
+        return;
+      }
+      if (payload.target !== "company") {
+        return;
+      }
+
+      await fetchCompanyIntegrations();
+      toast.success(`Đã kết nối TikTok doanh nghiệp: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
+    };
+
+    const handleTikTokOAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "TIKTOK_OAUTH_RESULT") {
+        void handleTikTokOAuthPayload(event.data.payload);
+      }
+    };
+
+    window.addEventListener("message", handleTikTokOAuthMessage);
+    return () => window.removeEventListener("message", handleTikTokOAuthMessage);
+  }, []);
+
+  const memberIntegrations = React.useMemo(() => {
+    const list: Array<{
+      userId: string;
+      userName: string;
+      email: string;
+      platform: "Facebook" | "TikTok" | "Zalo";
+      displayName: string;
+      username: string;
+    }> = [];
+
+    companyUsers.forEach((u) => {
+      const name = u.displayName || u.email || "Thành viên";
+
+      if (u.facebookIntegration?.isConnected) {
+        list.push({
+          userId: u._id || u.uid,
+          userName: name,
+          email: u.email,
+          platform: "Facebook",
+          displayName: u.facebookIntegration.pageName || "Facebook Page",
+          username: u.facebookIntegration.pageId || "",
+        });
+      }
+      if (u.zaloIntegration?.isConnected) {
+        list.push({
+          userId: u._id || u.uid,
+          userName: name,
+          email: u.email,
+          platform: "Zalo",
+          displayName: u.zaloIntegration.oaName || "Zalo OA",
+          username: u.zaloIntegration.oaId || "",
+        });
+      }
+      if (u.tiktokIntegration?.isConnected) {
+        list.push({
+          userId: u._id || u.uid,
+          userName: name,
+          email: u.email,
+          platform: "TikTok",
+          displayName: u.tiktokIntegration.displayName || "TikTok Account",
+          username: u.tiktokIntegration.username || "",
+        });
+      }
+    });
+
+    return list;
+  }, [companyUsers]);
+
+  const handleTikTokOAuth = async () => {
+    setConnectingTikTokOAuth(true);
+    try {
+      localStorage.removeItem("tt_oauth_result");
+      const authUrl = await socialIntegrationService.getTikTokOAuthUrl(
+        "company",
+        compPlatform === "TikTok" && editingIntegrationId ? editingIntegrationId : undefined
+      );
+      if (!authUrl) {
+        throw new Error("Không tạo được link đăng nhập TikTok.");
+      }
+
+      const width = 620;
+      const height = 760;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      const oauthWindow = window.open(
+        authUrl,
+        "TikTokOAuthPopupCompany",
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+      );
+
+      if (!oauthWindow) {
+        throw new Error("Trình duyệt đang chặn popup TikTok.");
+      }
+
+      const checkInterval = setInterval(() => {
+        const rawResult = localStorage.getItem("tt_oauth_result");
+        if (rawResult) {
+          clearInterval(checkInterval);
+          localStorage.removeItem("tt_oauth_result");
+          try {
+            const payload = JSON.parse(rawResult);
+            if (payload?.target === "company" && payload?.ok) {
+              void fetchCompanyIntegrations();
+              toast.success(`Đã kết nối TikTok doanh nghiệp: ${payload.profile?.displayName || payload.profile?.username || "TikTok"}`);
+            } else if (payload?.ok === false) {
+              toast.error(payload.error || "Kết nối TikTok thất bại.");
+            }
+          } catch (error) {
+            console.error("Lỗi đọc kết quả TikTok OAuth company:", error);
+          } finally {
+            setConnectingTikTokOAuth(false);
+          }
+        }
+
+        if (oauthWindow.closed) {
+          clearInterval(checkInterval);
+          setConnectingTikTokOAuth(false);
+        }
+      }, 800);
+    } catch (error: any) {
+      console.error("Loi khoi tao TikTok OAuth company:", error);
+      toast.error(error.message || "Không thể mở cửa sổ kết nối TikTok.");
+      setConnectingTikTokOAuth(false);
+    }
+  };
+
+  // Backend đã lưu trực tiếp vào DB khi OAuth callback — chỉ cần refresh UI
+  const handleFacebookPagesSelected = async (pages: any[]) => {
+    console.log("[Facebook OAuth] Backend đã lưu DB, refresh UI với", pages?.length, "pages.");
+    const count = pages?.length || 0;
+    if (count > 0) {
+      setCompanyIntegrations((currentIntegrations) => {
+        const nextIntegrations = [...currentIntegrations];
+
+        pages.forEach((page) => {
+          const pageId = String(page?.id || "").trim();
+          if (!pageId) return;
+
+          const existingIndex = nextIntegrations.findIndex((integration) => (
+            integration.platform === "Facebook" && integration.username === pageId
+          ));
+          const pageIntegration: SocialIntegration = {
+            _id: `facebook-oauth-${pageId}`,
+            platform: "Facebook",
+            displayName: page.name || `Fanpage ${pageId}`,
+            username: pageId,
+            isConnected: true,
+            createdBy: userProfile?.email || "system",
+          };
+
+          if (existingIndex >= 0) {
+            nextIntegrations[existingIndex] = {
+              ...nextIntegrations[existingIndex],
+              ...pageIntegration,
+              _id: nextIntegrations[existingIndex]._id,
+            };
+          } else {
+            nextIntegrations.push(pageIntegration);
+          }
+        });
+
+        return nextIntegrations;
+      });
+      toast.success(`✅ Đã kết nối thành công ${count} Fanpage! Đang cập nhật danh sách...`);
+    }
+    // Backend đã upsert tất cả pages vào DB trong oauthCallback
+    // Chỉ cần gọi lại API để lấy danh sách mới nhất và cập nhật UI
+    await fetchCompanyIntegrations(pages, false);
+  };
+
+  // Lưu Fanpage Facebook sau khi lấy được token từ OAuth (Fallback đơn lẻ)
+  const handleFacebookPageSelected = async (page: any) => {
+    if (!page || !page.id || !page.access_token) {
+      toast.error("Dữ liệu Fanpage trả về không hợp lệ.");
+      return;
+    }
+
+    toast.success(`Đang lưu Fanpage "${page.name}"...`);
+    try {
+      await socialIntegrationService.createIntegration({
+        platform: "Facebook",
+        displayName: page.name || `Fanpage ${page.id}`,
+        username: page.id,
+        accessToken: page.access_token,
+        isConnected: true,
+        createdBy: userProfile?.email || "system",
+      });
+      toast.success(`✅ Đã kết nối Fanpage "${page.name}" thành công!`);
+      fetchCompanyIntegrations();
+    } catch (err: any) {
+      console.error("Lỗi lưu Fanpage Facebook:", err);
+      toast.error(`Lỗi khi lưu Fanpage: ${err.message || "Không xác định"}`);
+    }
+  };
+
+  // Mở popup OAuth để đăng nhập Facebook
+  const handleFacebookOAuth = async () => {
+    try {
+      // Xóa kết quả cũ trong localStorage
+      localStorage.removeItem("fb_oauth_result");
+
+      // Lấy App ID và thông tin tổ chức từ server
+      const configRes = await fetch("/api/v1/facebook/config", {
+        headers: { "Authorization": `Bearer ${getAccessToken()}` }
+      });
+      const configData = await configRes.json().catch(() => ({}));
+      const appId = configData.appId;
+
+      if (!appId) {
+        toast.error("Hệ thống chưa cấu hình Facebook App ID. Liên hệ quản trị viên.");
+        return;
+      }
+
+      // Tạo phiên OAuth ràng buộc với người dùng và doanh nghiệp tại máy chủ ERP.
+      const stateRes = await fetch("/api/v1/facebook/oauth-session", { method: "POST", headers: { Authorization: `Bearer ${getAccessToken()}` } });
+      const stateData = await stateRes.json();
+      if (!stateRes.ok || !stateData.state) throw new Error(stateData.message || "Không thể khởi tạo phiên Facebook.");
+      const stateStr = encodeURIComponent(stateData.state);
+
+      const redirectUri = `${window.location.origin}/api/v1/facebook/oauth-callback`;
+      const oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${stateData.appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_show_list,pages_read_engagement,pages_read_user_content,pages_manage_posts,pages_manage_engagement,pages_messaging,pages_manage_metadata,read_insights&state=${stateStr}`;
+
+      const width = 600;
+      const height = 800;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+
+      console.log("[Facebook OAuth] Đang mở popup với redirectUri:", redirectUri);
+      const oauthWindow = window.open(
+        oauthUrl,
+        "FacebookOAuthPopup",
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`
+      );
+
+      if (!oauthWindow) {
+        toast.error("Trình duyệt đang chặn cửa sổ đăng nhập Facebook.");
+        return;
+      }
+
+      // Theo dõi popup: khi đóng thì refresh UI
+      // Backend đã lưu DB trong callback, không cần frontend tạo lại
+      let alreadyRefreshed = false;
+      const checkInterval = setInterval(() => {
+        // Dọn localStorage nếu có (dữ liệu đã được lưu bởi backend)
+        const rawResult = localStorage.getItem("fb_oauth_result");
+        if (rawResult && !alreadyRefreshed) {
+          console.log("[Facebook OAuth] Phát hiện tín hiệu hoàn thành trong localStorage.");
+          localStorage.removeItem("fb_oauth_result");
+          try {
+            const result = JSON.parse(rawResult);
+            if (result.type === "FACEBOOK_OAUTH_FAILED") {
+              toast.error(`Kết nối Facebook thất bại: ${result.error || "Lỗi không xác định"}`);
+              clearInterval(checkInterval);
+              alreadyRefreshed = true;
+            } else if (result.type === "FACEBOOK_PAGES_SELECTED") {
+              alreadyRefreshed = true;
+              clearInterval(checkInterval);
+              void handleFacebookPagesSelected(result.pages || []);
+            }
+          } catch (_) { /* bỏ qua lỗi parse */ }
+        }
+
+        if (oauthWindow && oauthWindow.closed) {
+          clearInterval(checkInterval);
+          if (!alreadyRefreshed) {
+            alreadyRefreshed = true;
+            console.log("[Facebook OAuth] Popup đóng → refresh danh sách tích hợp.");
+            // Delay nhỏ để đảm bảo DB write trên server đã hoàn tất
+            setTimeout(() => {
+              void fetchCompanyIntegrations();
+            }, 500);
+          }
+        }
+      }, 300);
+    } catch (err: any) {
+      console.error("Lỗi mở Facebook OAuth:", err);
+      toast.error("Không thể mở cửa sổ đăng nhập Facebook.");
+    }
+  };
+
+  // Lắng nghe sự kiện callback từ cửa sổ popup gửi về
+  useEffect(() => {
+    const handleOAuthMessage = async (event: MessageEvent) => {
+      console.log("[Facebook OAuth] Nhận event.data từ message listener:", event.data);
+      if (event.origin !== window.location.origin) {
+        console.warn("[Facebook OAuth] Bỏ qua message do sai origin:", event.origin, "vs", window.location.origin);
+        return;
+      }
+
+      if (event.data && event.data.type === "FACEBOOK_PAGES_SELECTED") {
+        console.log("[Facebook OAuth] Nhận postMessage PAGES_SELECTED, đồng bộ giao diện.");
+        void handleFacebookPagesSelected(event.data.pages || []);
+      } else if (event.data && event.data.type === "FACEBOOK_PAGE_SELECTED") {
+        const page = event.data.page;
+        handleFacebookPageSelected(page);
+      } else if (event.data && event.data.type === "FACEBOOK_OAUTH_FAILED") {
+        toast.error(`Kết nối Facebook thất bại: ${event.data.error || "Lỗi không xác định"}`);
+      }
+    };
+
+    window.addEventListener("message", handleOAuthMessage);
+    return () => window.removeEventListener("message", handleOAuthMessage);
+  }, [userProfile]);
+
+  const handleSaveCompanyIntegration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!compDisplayName.trim()) {
+      toast.error("Vui lòng nhập Tên hiển thị!");
+      return;
+    }
+
+    let finalAccessToken = compAccessToken.trim();
+    let finalUsername = compUsername.trim();
+    let finalDisplayName = compDisplayName.trim();
+    const hasTikTokClientCredentials = Boolean(compVerifyToken.trim() || (keepsStoredCredentials && editingIntegration?.hasVerifyToken)) &&
+      Boolean(compAppSecret.trim() || (keepsStoredCredentials && editingIntegration?.hasAppSecret));
+
+    // Nếu chọn kết nối Facebook bằng tài khoản/mật khẩu, gọi backend lấy token trước
+    if (compPlatform === "Facebook" && fbConnectMode === "credentials") {
+      if (!fbEmail.trim() || !fbPassword.trim()) {
+        toast.error("Vui lòng nhập đầy đủ tài khoản và mật khẩu Facebook!");
+        return;
+      }
+      setSubmittingIntegration(true);
+      try {
+        const response = await fetch("/api/v1/facebook/login-credentials", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${getAccessToken()}`
+          },
+          body: JSON.stringify({
+            email: fbEmail.trim(),
+            password: fbPassword.trim(),
+            pageId: compUsername.trim() || undefined
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.message || "Đăng nhập Facebook thất bại.");
+        }
+
+        const result = await response.json();
+        toast.success(result.message || "Tự động kết nối lấy token thành công!");
+        finalAccessToken = result.accessToken;
+        finalUsername = result.pageId;
+        finalDisplayName = result.pageName || finalDisplayName;
+      } catch (err: any) {
+        toast.error(err.message || "Không thể kết nối. Vui lòng kiểm tra lại tài khoản.");
+        setSubmittingIntegration(false);
+        return;
+      }
+    } else {
+      if (compPlatform === "TikTok" ? (!finalAccessToken && !hasStoredAccessToken && !hasTikTokClientCredentials) : (!finalAccessToken && !hasStoredAccessToken)) {
+        toast.error("Vui lòng nhập Access Token hoặc API Key!");
+        return;
+      }
+      if (compPlatform === "Facebook" && finalUsername && !/^\d+$/.test(finalUsername)) {
+        toast.error("Facebook cần nhập Page ID dạng số thật, không dùng username/vanity URL.");
+        return;
+      }
+    }
+
+    setSubmittingIntegration(true);
+    try {
+      if (compPlatform === "TikTok" && finalAccessToken) {
+        toast.info("Dang xac thuc TikTok voi ben thu 3...");
+        const result = await socialIntegrationService.validateTikTokIntegration({
+          username: compUsername.trim() || undefined,
+          accessToken: finalAccessToken,
+        });
+
+        finalDisplayName = result.displayName || finalDisplayName;
+      }
+
+      if (compPlatform === "Facebook" && finalAccessToken) {
+        toast.info("Dang xac thuc Facebook Page voi ben thu 3...");
+        await socialIntegrationService.validateFacebookIntegration({
+          pageId: finalUsername,
+          accessToken: finalAccessToken,
+        });
+      }
+
+      if (compPlatform === "Zalo" && finalAccessToken) {
+        toast.info("Dang xac thuc Zalo OA voi ben thu 3...");
+        await socialIntegrationService.validateZaloIntegration({
+          oaId: compUsername.trim(),
+          oaName: compDisplayName.trim(),
+          accessToken: finalAccessToken,
+        });
+      }
+
+      const payload: Partial<SocialIntegration> = {
+        platform: compPlatform,
+        displayName: finalDisplayName,
+        username: finalUsername || undefined,
+        blotatoAccountId: undefined,
+        accessToken: finalAccessToken || undefined,
+        refreshToken: (compPlatform === "Zalo" || compPlatform === "TikTok") ? compRefreshToken.trim() || undefined : undefined,
+        tokenExpiredAt: (compPlatform === "Zalo" || compPlatform === "TikTok") && compTokenExpiredAt ? new Date(compTokenExpiredAt).toISOString() : undefined,
+        appSecret: (compPlatform === "Facebook" || compPlatform === "TikTok") ? compAppSecret.trim() || undefined : undefined,
+        verifyToken: (compPlatform === "Facebook" || compPlatform === "TikTok") ? compVerifyToken.trim() : undefined,
+        isConnected: true,
+        createdBy: userProfile?.email || "system",
+      };
+
+      if (editingIntegrationId) {
+        await socialIntegrationService.updateIntegration(editingIntegrationId, payload);
+        toast.success("Cập nhật liên kết mạng xã hội thành công!");
+      } else {
+        await socialIntegrationService.createIntegration(payload);
+        toast.success("Thêm liên kết mạng xã hội thành công!");
+      }
+
+      // Reset form and reload
+      resetCompForm();
+      fetchCompanyIntegrations();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Lỗi khi lưu thông tin liên kết");
+    } finally {
+      setSubmittingIntegration(false);
+    }
+  };
+
+  const handleEditCompanyIntegration = (integration: SocialIntegration) => {
+    if (!integration._id) return;
+    setEditingIntegrationId(integration._id);
+    if (integration.platform === "Facebook") setFbConnectMode("token");
+    setCompPlatform(integration.platform);
+    setCompDisplayName(integration.displayName);
+    setCompUsername(integration.username || "");
+    setCompBlotatoAccountId(integration.blotatoAccountId || "");
+    setCompAccessToken(integration.accessToken || "");
+    setCompRefreshToken(integration.refreshToken || "");
+    setCompTokenExpiredAt(
+      integration.tokenExpiredAt
+        ? new Date(integration.tokenExpiredAt).toISOString().slice(0, 16)
+        : ""
+    );
+    setShowCompToken(false);
+    setCompAppSecret(integration.appSecret || "");
+    setCompVerifyToken(integration.verifyToken || "");
+  };
+
+  const handleDeleteCompanyIntegration = async (id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa liên kết tài khoản mạng xã hội này? Hành động này không thể hoàn tác.")) {
+      return;
+    }
+    setDeletingId(id);
+    try {
+      await socialIntegrationService.deleteIntegration(id);
+      toast.success("Xóa liên kết thành công!");
+      fetchCompanyIntegrations();
+      if (editingIntegrationId === id) {
+        resetCompForm();
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Lỗi khi xóa liên kết");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const resetCompForm = () => {
+    setEditingIntegrationId(null);
+    setCompPlatform("TikTok");
+    setCompDisplayName("");
+    setCompUsername("");
+    setCompBlotatoAccountId("");
+    setCompAccessToken("");
+    setCompRefreshToken("");
+    setCompTokenExpiredAt("");
+    setShowCompToken(false);
+    setCompAppSecret("");
+    setCompVerifyToken("");
+  };
+
+  const handleRunFacebookDiagnostics = async () => {
+    setLoadingFacebookDiagnostics(true);
+    try {
+      const res = await fetch("/api/v1/facebook/messenger/diagnostics/page", {
+        headers: {
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(result.message || "Không thể lấy chẩn đoán Facebook.");
+      }
+
+      setFacebookDiagnostics(result.data || null);
+      toast.success("Đã tải chẩn đoán Facebook.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Lỗi khi chẩn đoán Facebook.");
+    } finally {
+      setLoadingFacebookDiagnostics(false);
+    }
+  };
+
+  const handleRunZaloDiagnostics = async () => {
+    setLoadingZaloDiagnostics(true);
+    try {
+      const res = await fetch("/api/v1/zalo/diagnostics/oa", {
+        headers: {
+          Authorization: `Bearer ${getAccessToken()}`,
+        },
+      });
+
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(result.message || "Không thể lấy chẩn đoán Zalo.");
+      }
+
+      setZaloDiagnostics(result.data || null);
+      toast.success("Đã tải chẩn đoán Zalo.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Lỗi khi chẩn đoán Zalo.");
+    } finally {
+      setLoadingZaloDiagnostics(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+        <div className="mb-5 flex flex-col items-start justify-between gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-center">
+          <div className="text-left">
+            <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800">
+              <Building2 className="h-5 w-5 text-indigo-650" />
+              Mạng xã hội Doanh nghiệp
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+              Quản lý các tài khoản mạng xã hội dùng chung của công ty. Các bài viết tự động đăng tải sẽ lấy cấu hình tại đây.
+            </p>
+            <p className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-slate-500">
+              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              Đây là khu vực dùng chung theo doanh nghiệp. Nếu sửa hoặc xóa tại đây, mọi tài khoản cùng company sẽ bị ảnh hưởng.
+            </p>
+          </div>
+          {editingIntegrationId && (
+            <button
+              onClick={resetCompForm}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-gray-200"
+            >
+              <Plus className="h-3.5 w-3.5" /> Hủy sửa & Thêm mới
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          {/* Left: Form to Add/Edit Integration */}
+          <div ref={integrationFormRef} tabIndex={-1} className="integration-form min-w-0 space-y-5 rounded-xl bg-slate-50 p-4 sm:p-5">
+            <h4 className="text-left text-sm font-semibold text-slate-800">
+              {editingIntegrationId ? "Chỉnh sửa tài khoản" : "Thêm tài khoản liên kết"}
+            </h4>
+
+            <form onSubmit={handleSaveCompanyIntegration} className="space-y-4 text-left">
+              {/* Platform Select */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Nền tảng *</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: "TikTok", label: "TikTok" },
+                    { value: "Facebook", label: "Facebook" },
+                    { value: "Zalo", label: "Zalo" }
+                  ].map((p) => (
+                    <label key={p.value} className="cursor-pointer">
+                      <input
+                        type="radio"
+                        name="compPlatform"
+                        value={p.value}
+                        checked={compPlatform === p.value}
+                        onChange={() => {
+                          if (!editingIntegrationId) {
+                            setCompPlatform(p.value as any);
+                          }
+                        }}
+                        disabled={!!editingIntegrationId}
+                        className="sr-only peer"
+                      />
+                      <div className={`py-2 text-center rounded-xl border text-xs font-semibold transition-all ${compPlatform === p.value
+                        ? platformMeta[p.value as keyof typeof platformMeta].activeClass
+                        : "border-gray-250 bg-white text-gray-500"
+                        } ${editingIntegrationId ? "opacity-60 cursor-not-allowed" : "hover:border-gray-300"}`}>
+                        {p.label}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Display Name */}
+              {!(compPlatform === "TikTok" && !editingIntegrationId) && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tên hiển thị kênh *</label>
+                  <input
+                    type="text"
+                    required
+                    value={compDisplayName}
+                    onChange={(e) => setCompDisplayName(e.target.value)}
+                    placeholder={currentPlatformMeta.displayPlaceholder}
+                    className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+              )}
+
+              {/* Facebook Connection Mode Selector */}
+              {compPlatform === "Facebook" && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-end items-center mb-1">
+                    {companyIntegrations.some(item => item.platform === "Facebook" && item.isConnected) && (
+                      <button
+                        type="button"
+                        onClick={handleFacebookOAuth}
+                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-855 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        Đổi tài khoản / Trang
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { value: "oauth", label: "Facebook Login" },
+                      { value: "token", label: "Nhập Token trực tiếp" },
+                      { value: "credentials", label: "Tài khoản & Mật khẩu" }
+                    ].map((mode) => (
+                      <button
+                        key={mode.value}
+                        type="button"
+                        onClick={() => setFbConnectMode(mode.value as any)}
+                        className={`py-2 text-[10px] font-bold text-center rounded-xl border transition-all cursor-pointer ${fbConnectMode === mode.value
+                          ? "bg-indigo-650 border-indigo-650 text-white shadow-sm"
+                          : "border-gray-250 bg-white text-gray-500 hover:border-gray-300"
+                          }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Conditional Facebook Inputs */}
+              {compPlatform === "Facebook" && fbConnectMode === "oauth" && (
+                <div className="space-y-4 pt-2">
+                  {companyIntegrations.filter(item => item.platform === "Facebook" && item.isConnected).map((item) => (
+                    <div key={item._id} className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-xl">
+                      <div className="w-8 h-8 rounded-full bg-[#1877F2] flex items-center justify-center text-white text-xs font-bold font-sans">
+                        f
+                      </div>
+                      <div className="text-left min-w-0 flex-1">
+                        <p className="text-xs font-bold text-gray-800 truncate">{item.displayName}</p>
+                        <p className="text-[10px] text-gray-500 font-mono truncate">ID: {item.username}</p>
+                      </div>
+                      <span className="text-[10px] font-bold text-green-700 bg-green-100/50 px-2 py-0.5 rounded-full shrink-0">
+                        Đã kết nối
+                      </span>
+                    </div>
+                  ))}
+
+                  {!companyIntegrations.some(item => item.platform === "Facebook" && item.isConnected) && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleFacebookOAuth}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                      >
+                        <Globe className="h-4 w-4" />
+                        <span>Đăng nhập bằng Facebook</span>
+                      </button>
+                      <p className="text-[9px] text-gray-400 text-center leading-normal">
+                        Bấm để mở popup đăng nhập Facebook. Hệ thống sẽ tự động lấy danh sách Fanpage và Page Token — bạn chỉ cần chọn Fanpage muốn kết nối.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {compPlatform === "Facebook" && fbConnectMode === "credentials" && (
+                <>
+                  {/* FB Account */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tài khoản Facebook (Email/SĐT) *</label>
+                    <input
+                      type="text"
+                      required
+                      value={fbEmail}
+                      onChange={(e) => setFbEmail(e.target.value)}
+                      placeholder="Nhập email hoặc số điện thoại đăng nhập"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* FB Password */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Mật khẩu Facebook *</label>
+                    <input
+                      type="password"
+                      required
+                      value={fbPassword}
+                      onChange={(e) => setFbPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu Facebook"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                    />
+                    <p className="text-[9px] text-gray-450 leading-normal">
+                      Mẹo: Nhập email chứa từ "demo" hoặc "mock" (ví dụ: `demo@gmail.com`) để liên kết Fanpage giả lập lập tức.
+                    </p>
+                  </div>
+
+                  {/* FB Target Page ID (Optional) */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Mục tiêu Page ID (Tùy chọn)</label>
+                    <input
+                      type="text"
+                      value={compUsername}
+                      onChange={(e) => setCompUsername(e.target.value)}
+                      placeholder="Để trống để tự động lấy Page đầu tiên"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Standard Platform Fields (Visible when NOT in Facebook OAuth/Credentials mode) */}
+              {!(compPlatform === "Facebook" && (fbConnectMode === "oauth" || fbConnectMode === "credentials")) && (
+                <>
+                  {compPlatform === "TikTok" && !editingIntegrationId && (
+                    <div className="space-y-4 pt-2">
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 text-left text-slate-800">
+                        <div className="flex flex-col gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-lg bg-black border border-slate-850 flex items-center justify-center text-rose-500 shadow-md">
+                                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.89-.6-4.09-1.51-.71-.53-1.3-1.22-1.77-1.97v7.08c0 1.28-.21 2.6-.9 3.67-.84 1.37-2.28 2.37-3.86 2.66-1.49.27-3.11.14-4.5-.48-1.57-.71-2.77-2.15-3.23-3.78-.54-1.87-.22-3.99.88-5.6 1.11-1.64 2.99-2.58 4.96-2.55.07 1.34.02 2.69.04 4.04-1.21-.05-2.5.47-3.14 1.5-.47.74-.52 1.69-.32 2.53.25.96.99 1.76 1.91 2.1 1 .37 2.16.21 3-.38.77-.54 1.16-1.45 1.15-2.39V.02z" />
+                                </svg>
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-semibold text-slate-800">TikTok OAuth</h4>
+                                <span className="text-xs font-medium text-slate-500">Production API · Đã duyệt</span>
+                              </div>
+                            </div>
+                            <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                              Kết nối tài khoản TikTok thật qua Production API để tự động liên kết kênh và đồng bộ trạng thái đăng bài.
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleTikTokOAuth()}
+                            disabled={connectingTikTokOAuth || !canStartCompanyTikTokOAuth}
+                            className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.89-.6-4.09-1.51-.71-.53-1.3-1.22-1.77-1.97v7.08c0 1.28-.21 2.6-.9 3.67-.84 1.37-2.28 2.37-3.86 2.66-1.49.27-3.11.14-4.5-.48-1.57-.71-2.77-2.15-3.23-3.78-.54-1.87-.22-3.99.88-5.6 1.11-1.64 2.99-2.58 4.96-2.55.07 1.34.02 2.69.04 4.04-1.21-.05-2.5.47-3.14 1.5-.47.74-.52 1.69-.32 2.53.25.96.99 1.76 1.91 2.1 1 .37 2.16.21 3-.38.77-.54 1.16-1.45 1.15-2.39V.02z" />
+                            </svg>
+                            <span>{connectingTikTokOAuth ? "Đang kết nối..." : "Kết nối TikTok"}</span>
+                          </button>
+                        </div>
+
+                        <p className="mt-3 border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-500">
+                          * Hệ thống tự động đồng bộ <b>Tên hiển thị</b>, <b>Username</b> và <b>Access Token</b> từ tài khoản sau khi đăng nhập thành công. Không cần nhập thủ công.
+                        </p>
+                      </div>
+
+                      {/* Toggle button for custom client application credentials */}
+                      <div className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => setShowAdvancedTikTok(!showAdvancedTikTok)}
+                          className="text-[10px] font-bold text-gray-500 hover:text-indigo-650 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Key className="h-3 w-3" />
+                          <span>{showAdvancedTikTok ? "Ẩn cấu hình Client App nâng cao" : "Cấu hình Client App riêng (Tùy chọn)"}</span>
+                        </button>
+                      </div>
+
+                      {showAdvancedTikTok && (
+                        <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Cấu hình Custom App (Tùy chọn)</p>
+                            <p className="mt-1 text-[9px] leading-relaxed text-gray-400">
+                              Nếu doanh nghiệp muốn sử dụng Client Key và Client Secret của ứng dụng riêng đã đăng ký trên TikTok Developer Portal. Bỏ trống để dùng mặc định của hệ thống.
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">TikTok Client Key</label>
+                            <input
+                              type="text"
+                              value={compVerifyToken}
+                              onChange={(e) => setCompVerifyToken(e.target.value)}
+                              placeholder="Nhập TikTok Client Key (Bỏ trống để dùng mặc định)"
+                              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">TikTok Client Secret</label>
+                            <input
+                              type={showCompToken ? "text" : "password"}
+                              value={compAppSecret}
+                              onChange={(e) => setCompAppSecret(e.target.value)}
+                              placeholder="Nhập TikTok Client Secret (Bỏ trống để dùng mặc định)"
+                              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {compPlatform === "TikTok" && editingIntegrationId && (
+                    <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs text-left">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Chỉnh sửa cấu hình TikTok</p>
+                        <p className="mt-1 text-[9px] leading-relaxed text-gray-400">
+                          Cập nhật các mã khóa ứng dụng hoặc Access Token/Refresh Token thủ công.
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tên hiển thị kênh *</label>
+                        <input
+                          type="text"
+                          required
+                          value={compDisplayName}
+                          onChange={(e) => setCompDisplayName(e.target.value)}
+                          placeholder="Ví dụ: TikTok Công ty"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">TikTok Client Key (Verify Token)</label>
+                        <input
+                          type="text"
+                          value={compVerifyToken}
+                          onChange={(e) => setCompVerifyToken(e.target.value)}
+                          placeholder="Nhập TikTok Client Key"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">TikTok Client Secret (App Secret)</label>
+                        <input
+                          type={showCompToken ? "text" : "password"}
+                          value={compAppSecret}
+                          onChange={(e) => setCompAppSecret(e.target.value)}
+                          placeholder="Nhập TikTok Client Secret"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Access Token</label>
+                        <input
+                          type={showCompToken ? "text" : "password"}
+                          value={compAccessToken}
+                          onChange={(e) => setCompAccessToken(e.target.value)}
+                          placeholder="Nhập Access Token"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Refresh Token</label>
+                        <input
+                          type={showCompToken ? "text" : "password"}
+                          value={compRefreshToken}
+                          onChange={(e) => setCompRefreshToken(e.target.value)}
+                          placeholder="Nhập Refresh Token"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Username (Page ID / Account Username) */}
+                  {compPlatform !== "TikTok" && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.usernameLabel}</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={compUsername}
+                          onChange={(e) => setCompUsername(e.target.value)}
+                          placeholder={currentPlatformMeta.usernamePlaceholder}
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                        />
+                      </div>
+                      {compPlatform === "Facebook" && (
+                        <p className="text-[9px] text-gray-400 leading-normal">
+                          Ưu tiên nhập Page ID thật của fanpage. Đây là trường backend đang dùng để gọi lại các luồng Facebook.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Access Token / API Key / Zalo Configs */}
+                  {compPlatform !== "TikTok" && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">{currentPlatformMeta.tokenLabel}</label>
+                      <div className="relative flex items-center">
+                        <input
+                          type={showCompToken ? "text" : "password"}
+                          required={!hasStoredAccessToken && (fbConnectMode === "token" || compPlatform !== "Facebook")}
+                          value={compAccessToken}
+                          onChange={(e) => setCompAccessToken(e.target.value)}
+                          placeholder={currentPlatformMeta.tokenPlaceholder}
+                          className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCompToken(!showCompToken)}
+                          className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 cursor-pointer"
+                        >
+                          {showCompToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      <p className="text-[9px] text-gray-400 leading-normal">{currentPlatformMeta.tokenHelp}</p>
+                      {compPlatform === "Zalo" && (
+                        <div className="mt-3 space-y-1">
+                          <label className="text-[11px] font-semibold text-gray-700">Refresh Token (tùy chọn)</label>
+                          <input
+                            type={showCompToken ? "text" : "password"}
+                            value={compRefreshToken}
+                            onChange={(e) => setCompRefreshToken(e.target.value)}
+                            placeholder="Dán Refresh Token nếu có"
+                            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
+                          />
+                          <p className="text-[9px] text-gray-400 leading-normal">Nếu Zalo OA của bạn có Refresh Token, hãy nhập để hệ thống tự làm mới token khi sắp hết hạn.</p>
+                          <div className="pt-2 space-y-1">
+                            <label className="text-[11px] font-semibold text-gray-700">Token hết hạn lúc (tùy chọn)</label>
+                            <input
+                              type="datetime-local"
+                              value={compTokenExpiredAt}
+                              onChange={(e) => setCompTokenExpiredAt(e.target.value)}
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-800 shadow-sm focus:border-[#0068ff] focus:outline-none focus:ring-1 focus:ring-[#0068ff]"
+                            />
+                            <p className="text-[9px] text-gray-400 leading-normal">Nếu bạn biết thời điểm hết hạn của access token hiện tại, hãy lưu để backend chủ động refresh sớm hơn.</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Facebook Message configurations: App Secret and Verify Token */}
+              {compPlatform === "Facebook" && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">App Secret</label>
+                    <input
+                      type="text"
+                      value={compAppSecret}
+                      onChange={(e) => setCompAppSecret(e.target.value)}
+                      placeholder="Nhập Facebook App Secret (nếu dùng cho Message)"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                    />
+                    <p className="text-[9px] text-gray-400 leading-normal">
+                      App Secret của ứng dụng Facebook dùng để xác thực chữ ký tin nhắn.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Verify Token</label>
+                    <input
+                      type="text"
+                      value={compVerifyToken}
+                      onChange={(e) => setCompVerifyToken(e.target.value)}
+                      placeholder="Nhập Webhook Verify Token (nếu dùng cho Message)"
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-mono text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 outline-none transition-all"
+                    />
+                    <p className="text-[9px] text-gray-400 leading-normal">
+                      Mã xác minh cấu hình trên Facebook Webhook dashboard.
+                    </p>
+                  </div>
+
+                  <div className="mt-3 p-3.5 bg-indigo-50/50 border border-indigo-100 rounded-xl text-left">
+                    <p className="text-[10px] font-bold text-indigo-750 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Terminal className="h-3.5 w-3.5 text-indigo-650" />
+                      Hướng dẫn Webhook Facebook
+                    </p>
+                    <ul className="text-[9px] text-gray-500 list-disc pl-3.5 space-y-1 leading-normal">
+                      <li><strong>Tin nhắn (Chat):</strong> Đăng ký sự kiện <code>messages</code> và <code>messaging_postbacks</code>.</li>
+                      <li><strong>Bình luận (Auto Comment):</strong> Đăng ký sự kiện <code>feed</code> (bắt buộc để nhận bình luận bài viết).</li>
+                      <li><strong>Verify Token:</strong> Điền mã xác minh trùng khớp với Verify Token cấu hình trên Meta Developer.</li>
+                    </ul>
+                  </div>
+                </>
+              )}
+
+              {/* Action Buttons */}
+              {!(
+                (compPlatform === "Facebook" && fbConnectMode === "oauth" && !editingIntegrationId) ||
+                (compPlatform === "TikTok" && !editingIntegrationId)
+              ) && (
+                  <div className="pt-2 flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={submittingIntegration}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+                    >
+                      <Save className="h-4 w-4" />
+                      <span>{submittingIntegration ? "Đang lưu..." : editingIntegrationId ? "Cập nhật" : "Lưu liên kết"}</span>
+                    </button>
+                    {editingIntegrationId && (
+                      <button
+                        type="button"
+                        onClick={resetCompForm}
+                        className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all border border-gray-200 cursor-pointer"
+                      >
+                        Hủy
+                      </button>
+                    )}
+                  </div>
+                )}
+            </form>
+          </div>
+
+          {/* Right: List of Connected Accounts */}
+          <div className="min-w-0 space-y-4">
+            <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 text-left">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800">Tài khoản mạng xã hội</h4>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  {loadingIntegrations || loadingUsers
+                    ? "Đang tải danh sách tài khoản..."
+                    : `${companyIntegrations.length} tài khoản doanh nghiệp · ${memberIntegrations.length} tài khoản cá nhân`}
+                </p>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {["Facebook", "TikTok", "Zalo"].map((platform) => (
+                  <div key={platform} className="flex items-center justify-between gap-3 py-3 text-sm">
+                    <span className="text-slate-700">{platform}</span>
+                    <span className="text-xs text-slate-500">
+                      {loadingIntegrations
+                        ? "Đang tải..."
+                        : `${companyIntegrations.filter((account) => account.platform === platform && account.isConnected).length} đã kết nối`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <button type="button" onClick={() => { setAccountSearch(""); setShowAccounts(true); }}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
+                <Globe className="h-4 w-4" /> Xem danh sách tài khoản
+              </button>
+            </div>
+            <IntegrationSection title="Kiểm tra kết nối Zalo" description="Mở khi cần kiểm tra tài khoản hoặc lỗi kết nối." icon={Terminal}>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <button
+                  type="button"
+                  onClick={handleRunZaloDiagnostics}
+                  disabled={loadingZaloDiagnostics}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-300 bg-white px-3 py-2 text-[11px] font-bold text-sky-700 transition-all hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Terminal className="h-3.5 w-3.5" />
+                  <span>{loadingZaloDiagnostics ? "Đang chẩn đoán..." : "Chạy chẩn đoán Zalo"}</span>
+                </button>
+              </div>
+
+              {zaloDiagnostics && (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="rounded-xl border border-sky-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Resolved OA ID</p>
+                      <p className="mt-1 break-all font-mono text-[11px] text-slate-700">{zaloDiagnostics.resolvedOaId || "none"}</p>
+                    </div>
+                    <div className="rounded-xl border border-sky-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Source</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-700">{zaloDiagnostics.resolvedSource || "none"}</p>
+                    </div>
+                    <div className="rounded-xl border border-sky-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Token</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-700">
+                        {zaloDiagnostics.hasResolvedToken ? `FOUND (...${zaloDiagnostics.resolvedTokenTail || ""})` : "NOT_FOUND"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-sky-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Refresh</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-700">
+                        {zaloDiagnostics.companyIntegrations?.some((item: any) => item.hasRefreshToken) || zaloDiagnostics.personalIntegration?.hasRefreshToken ? "YES" : "NO"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-sky-200 bg-slate-950 p-3">
+                    <pre className="max-h-[260px] overflow-auto whitespace-pre-wrap break-words text-[10px] leading-relaxed text-green-200">
+                      {JSON.stringify(zaloDiagnostics, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </IntegrationSection>
+
+            <IntegrationSection title="Kiểm tra kết nối Facebook" description="Mở khi cần kiểm tra Fanpage hoặc lỗi kết nối." icon={Terminal}>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <button
+                  type="button"
+                  onClick={handleRunFacebookDiagnostics}
+                  disabled={loadingFacebookDiagnostics}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-blue-300 bg-white px-3 py-2 text-[11px] font-bold text-blue-700 transition-all hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Terminal className="h-3.5 w-3.5" />
+                  <span>{loadingFacebookDiagnostics ? "Đang chẩn đoán..." : "Chạy chẩn đoán Facebook"}</span>
+                </button>
+              </div>
+
+              {facebookDiagnostics && (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="rounded-xl border border-blue-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Resolved Page ID</p>
+                      <p className="mt-1 break-all font-mono text-[11px] text-slate-700">{facebookDiagnostics.resolvedPageId || "none"}</p>
+                    </div>
+                    <div className="rounded-xl border border-blue-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Token</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-700">
+                        {facebookDiagnostics.hasResolvedToken ? `FOUND (...${facebookDiagnostics.resolvedTokenTail || ""})` : "NOT_FOUND"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-blue-200 bg-white px-3 py-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Conversations</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-700">{facebookDiagnostics.conversationsForResolvedPage ?? 0}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-blue-200 bg-slate-950 p-3">
+                    <pre className="max-h-[260px] overflow-auto whitespace-pre-wrap break-words text-[10px] leading-relaxed text-green-200">
+                      {JSON.stringify(facebookDiagnostics, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </IntegrationSection>
+
+            <dialog ref={accountsDialogRef} aria-labelledby="company-accounts-title"
+              onCancel={() => setShowAccounts(false)}
+              className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-6xl overflow-hidden rounded-2xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-slate-950/50 open:flex open:flex-col">
+              <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-200 px-4 py-4 sm:px-6">
+                <div>
+                  <h3 id="company-accounts-title" className="text-lg font-bold text-gray-900">Danh sách tài khoản mạng xã hội</h3>
+                  <p className="mt-1 text-sm text-gray-500">Quản lý tài khoản doanh nghiệp và xem tài khoản của thành viên.</p>
+                </div>
+                <button type="button" aria-label="Đóng danh sách tài khoản" onClick={() => setShowAccounts(false)}
+                  className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="min-h-0 space-y-4 overflow-y-auto p-4 sm:p-6">
+                <label className="flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2.5 focus-within:border-indigo-500">
+                  <Search className="h-4 w-4 shrink-0 text-gray-400" />
+                  <input type="search" value={accountSearch} onChange={event => setAccountSearch(event.target.value)}
+                    aria-label="Tìm tài khoản" placeholder="Tìm theo tên, nền tảng, ID hoặc thành viên..."
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+                </label>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                Danh sách tài khoản ({companyIntegrations.length})
+              </h4>
+              <button
+                onClick={() => {
+                  fetchCompanyIntegrations();
+                  fetchCompanyUsers();
+                }}
+                disabled={loadingIntegrations || loadingUsers}
+                className="p-1.5 hover:bg-gray-100 text-gray-500 hover:text-gray-700 rounded-lg transition-all cursor-pointer border border-transparent hover:border-gray-200"
+                title="Tải lại danh sách"
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingIntegrations ? "animate-spin" : ""}`} />
+              </button>
+            </div>
+
+            {loadingIntegrations ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-3 bg-gray-50/30 border border-gray-150 rounded-2xl">
+                <div className="w-6 h-6 border-2 border-indigo-650 border-t-transparent rounded-full animate-spin" />
+                <p className="text-xs text-gray-500">Đang tải danh sách tài khoản doanh nghiệp...</p>
+              </div>
+            ) : companyIntegrations.length === 0 ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-2 bg-gray-50/30 border border-gray-150 rounded-2xl text-center px-4">
+                <Globe className="h-8 w-8 text-gray-300 mb-1" />
+                <p className="text-xs font-bold text-gray-600">Chưa có liên kết doanh nghiệp nào</p>
+                <p className="text-[10px] text-gray-400 max-w-xs">
+                  Đóng danh sách và dùng biểu mẫu thêm tài khoản để liên kết tài khoản đầu tiên phục vụ đăng bài viết marketing.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {!companyIntegrations.some(item => matchesAccount(item.displayName, item.username, item.platform, item.createdBy)) && (
+                  <p className="col-span-full py-6 text-center text-sm text-gray-500">Không có tài khoản doanh nghiệp phù hợp.</p>
+                )}
+                {companyIntegrations.map((item) => (
+                  <div
+                    key={item._id}
+                    style={matchesAccount(item.displayName, item.username, item.platform, item.createdBy) ? undefined : { display: "none" }}
+                    className={`border rounded-2xl p-4 bg-white shadow-2xs flex flex-col justify-between gap-4 transition-all hover:shadow-xs ${editingIntegrationId === item._id ? "border-indigo-500 ring-2 ring-indigo-500/10" : "border-gray-200"}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        {/* Platform Icon */}
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 font-bold text-sm ${item.platform === "TikTok" ? "bg-black" : item.platform === "Facebook" ? "bg-blue-600" : "bg-[#0068ff]"
+                          }`}>
+                          {item.platform === "TikTok" ? "♪" : item.platform === "Facebook" ? "F" : "Z"}
+                        </div>
+                        <div className="text-left min-w-0 flex-1">
+                          <h5 className="text-sm font-bold text-gray-800 break-words" title={item.displayName}>
+                            {item.displayName}
+                          </h5>
+                          <p className="text-xs text-gray-500 break-all mt-0.5" title={item.platform === "TikTok" ? `@${item.username || "n/a"}` : item.username || "n/a"}>
+                            {item.platform === "TikTok" ? `@${item.username || "n/a"}` : item.username || "n/a"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className="flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full text-[10px] font-bold shrink-0">
+                        <CheckCircle className="h-3 w-3" /> Đang chạy
+                      </span>
+                    </div>
+
+                    {/* Details details */}
+                    <div className="bg-gray-50/70 border border-gray-150/60 rounded-xl p-3 text-left text-xs space-y-2 font-mono text-gray-600">
+                      {item.platform === "TikTok" && (
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0">Chế độ:</span>
+                          <span className="font-semibold truncate">TikTok Production API</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-gray-400 shrink-0">Token/Key:</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="font-semibold">••••••••</span>
+                          <button
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/v1/social-integrations/${item._id}/reveal-secret`, { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` } });
+                                const result = await response.json();
+                                if (!response.ok) throw new Error(result.message || "Không thể lấy token.");
+                                await navigator.clipboard.writeText(result.data.accessToken);
+                                toast.success("Đã sao chép token!");
+                              } catch (error) { toast.error(error instanceof Error ? error.message : "Không thể lấy token."); }
+                            }}
+                            className="p-0.5 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-600 cursor-pointer"
+                            title="Copy Token"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                      {item.platform === "Zalo" && (
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0">Refresh:</span>
+                          <span className="font-semibold truncate">
+                            {item.hasRefreshToken || item.refreshToken ? "Đã lưu" : "Chưa có"}
+                          </span>
+                        </div>
+                      )}
+                      {item.platform === "Zalo" && item.tokenExpiredAt && (
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0">Hết hạn:</span>
+                          <span className="font-semibold truncate">
+                            {new Date(item.tokenExpiredAt).toLocaleString("vi-VN")}
+                          </span>
+                        </div>
+                      )}
+                      {item.platform === "Facebook" && item.appSecret && (
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0">App Secret:</span>
+                          <span className="font-semibold truncate" title={item.appSecret}>{item.appSecret}</span>
+                        </div>
+                      )}
+                      {item.platform === "Facebook" && item.verifyToken && (
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="text-gray-400 shrink-0">Verify Token:</span>
+                          <span className="font-semibold truncate" title={item.verifyToken}>{item.verifyToken}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center gap-2 pt-1.5 border-t border-gray-150">
+                        <span className="text-gray-400 shrink-0">Tạo bởi:</span>
+                        <span className="truncate font-sans font-medium text-gray-700" title={item.createdBy}>{item.createdBy}</span>
+                      </div>
+                    </div>
+
+                    {item.platform === "Facebook" && (
+                      <OrderSheetConfigCard
+                        integration={item}
+                        onSaved={() => fetchCompanyIntegrations([], false)}
+                      />
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-2 pt-2 border-t border-gray-100 mt-1">
+                      <button
+                        onClick={() => {
+                          handleEditCompanyIntegration(item);
+                          setShowAccounts(false);
+                          requestAnimationFrame(() => {
+                            integrationFormRef.current?.focus({ preventScroll: true });
+                            integrationFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          });
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer"
+                      >
+                        <FileEdit className="h-3.5 w-3.5" /> Sửa
+                      </button>
+                      <button
+                        onClick={() => item._id && handleDeleteCompanyIntegration(item._id)}
+                        disabled={deletingId === item._id}
+                        className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-xl text-[10px] font-bold transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> {deletingId === item._id ? "Đang xóa..." : "Xóa"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Personal Integrations of Members */}
+            <div className="mt-8 pt-6 border-t border-gray-200 text-left">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                  Tài khoản cá nhân của các thành viên ({memberIntegrations.length})
+                </h4>
+                <button
+                  onClick={fetchCompanyUsers}
+                  disabled={loadingUsers}
+                  className="p-1.5 hover:bg-gray-100 text-gray-500 hover:text-gray-700 rounded-lg transition-all cursor-pointer border border-transparent hover:border-gray-200"
+                  title="Tải lại danh sách thành viên"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingUsers ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+
+              {loadingUsers ? (
+                <div className="py-6 flex flex-col items-center justify-center gap-2 bg-gray-50/20 border border-gray-150 rounded-2xl">
+                  <div className="w-5 h-5 border-2 border-indigo-650 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-xs text-gray-500">Đang tải danh sách tài khoản thành viên...</p>
+                </div>
+              ) : memberIntegrations.length === 0 ? (
+                <div className="py-8 flex flex-col items-center justify-center gap-2 bg-gray-50/20 border border-gray-150 rounded-2xl text-center px-4">
+                  <Globe className="h-6 w-6 text-gray-300 mb-1" />
+                  <p className="text-xs font-bold text-gray-500">Chưa có liên kết cá nhân nào</p>
+                  <p className="text-[10px] text-gray-400 max-w-xs">
+                    Thành viên công ty chưa thêm liên kết cá nhân ở tab MXH Cá Nhân.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {!memberIntegrations.some(item => matchesAccount(item.displayName, item.username, item.platform, item.userName, item.email)) && (
+                    <p className="col-span-full py-6 text-center text-sm text-gray-500">Không có tài khoản thành viên phù hợp.</p>
+                  )}
+                  {memberIntegrations.map((item, idx) => (
+                    <div
+                      key={`${item.userId}-${item.platform}-${idx}`}
+                      style={matchesAccount(item.displayName, item.username, item.platform, item.userName, item.email) ? undefined : { display: "none" }}
+                      className="border border-gray-200 rounded-2xl p-4 bg-white shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between gap-3"
+                    >
+                      <div className="flex items-start justify-between gap-2 min-w-0">
+                        <div className="flex gap-2.5 min-w-0">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 font-bold text-xs ${item.platform === "TikTok" ? "bg-black" : item.platform === "Facebook" ? "bg-blue-600" : "bg-[#0068ff]"
+                            }`}>
+                            {item.platform === "TikTok" ? "♪" : item.platform === "Facebook" ? "F" : "Z"}
+                          </div>
+                          <div className="text-left min-w-0">
+                            <h5 className="text-sm font-bold text-gray-800 break-words" title={item.displayName}>
+                              {item.displayName}
+                            </h5>
+                            <p className="text-xs text-gray-500 break-all">
+                              {item.platform === "TikTok" ? `@${item.username || "n/a"}` : item.username || "n/a"}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 bg-gray-100 border border-gray-200 text-gray-600 rounded-full text-[9px] font-bold shrink-0">
+                          Cá nhân
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-50/50 border border-gray-150 rounded-xl p-3 text-left text-xs space-y-2 font-mono text-gray-500">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-400">Thành viên:</span>
+                          <span className="min-w-0 break-words text-right font-bold text-slate-700">{item.userName}</span>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-400">Email:</span>
+                          <span className="min-w-0 break-all text-right text-slate-600" title={item.email}>{item.email}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+              </div>
+            </dialog>
+          </div>
+        </div>
+      </div>
+      <section className="space-y-3" aria-labelledby="marketing-order-settings-title">
+        <div>
+          <h2 id="marketing-order-settings-title" className="text-sm font-semibold text-slate-800">Thiết lập đơn hàng</h2>
+          <p className="mt-1 text-sm text-slate-500">Mở từng mục để cấu hình nhận thông báo và xác nhận thanh toán.</p>
+        </div>
+        <IntegrationSection title="SePay · Thanh toán & tiền cọc" description="Webhook, tài khoản nhận tiền và mã QR thanh toán." icon={Landmark}>
+          <SepayConfigCard userProfile={userProfile} />
+        </IntegrationSection>
+        <IntegrationSection title="Telegram · Thông báo đơn hàng" description="Bot và nhóm nhận thông báo của doanh nghiệp." icon={Bot}>
+          <TelegramOrderConfigCard userProfile={userProfile} />
+        </IntegrationSection>
+      </section>
+    </div>
+  );
+}

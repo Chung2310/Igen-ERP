@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   FolderOpen,
   LayoutDashboard,
   MessageSquare,
@@ -15,7 +16,6 @@ import {
   BriefcaseBusiness,
   ShoppingCart,
   Landmark,
-  Megaphone,
   Wrench,
   ContactRound,
   GraduationCap,
@@ -33,6 +33,7 @@ import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
+import { MARKETING_SUITE_MENU } from "../modules/marketing-suite/navigation";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -47,11 +48,12 @@ interface MenuItem {
   label: TabType;
   title: string;
   icon: React.ElementType;
-  group: "main" | "operations" | "tools" | "system";
+  group: "main" | "operations" | "marketing" | "tools" | "system";
   locked?: boolean;
 }
 
 const baseMenuItems: MenuItem[] = [
+  ...MARKETING_SUITE_MENU.map((item) => ({ ...item, group: "marketing" as const })),
   {
     label: "TỔNG QUAN",
     title: "Tổng quan",
@@ -113,12 +115,6 @@ const baseMenuItems: MenuItem[] = [
     group: "operations",
   },
   {
-    label: "MARKETING",
-    title: "Marketing tự động",
-    icon: Megaphone,
-    group: "operations",
-  },
-  {
     label: "QUẢN LÝ TÀI NGUYÊN",
     title: "Quản lý tài nguyên",
     icon: FolderOpen,
@@ -135,6 +131,7 @@ const baseMenuItems: MenuItem[] = [
 const groupTitles: Record<MenuItem["group"], string> = {
   main: "Tổng quan",
   operations: "Vận hành",
+  marketing: "Marketing",
   tools: "Công cụ",
   system: "Hệ thống",
 };
@@ -162,7 +159,11 @@ const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
   "QUẢN LÝ KHÁCH HÀNG": "customer",
   "BÁN LẺ": "retail",
   "TÀI CHÍNH": "finance",
-  "MARKETING": "marketing",
+  "CHIẾN DỊCH NỘI DUNG": "marketing",
+  "OMNI INBOX": "chat",
+  "MARKETING": "partners",
+  "KHO TRI THỨC": "guide",
+  "TÍCH HỢP MARKETING": "settings",
   "QUẢN LÝ TÀI NGUYÊN": "folder",
   "TRÒ CHUYỆN": "chat",
   "QUẢN TRỊ USER": "shield",
@@ -173,6 +174,7 @@ const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
   const { userProfile, hasPermission } = useAuth();
   const [isCollapsedState, setIsCollapsed] = useState(false);
+  const [isMarketingExpanded, setIsMarketingExpanded] = useState(true);
   const isMobile = useIsMobile();
   const isCollapsed = isCollapsedState && !isMobile;
 
@@ -187,6 +189,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
   const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules, userProfile?.businessType));
   const menuItems: MenuItem[] = baseMenuItems
     .filter((item) => enabledTabs.has(item.label))
+    .filter((item) => item.label !== "TÍCH HỢP MARKETING" || userProfile?.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key)))
     .map((item) => {
       const requiredPerms = MODULE_READ_PERMISSIONS[item.label];
       const isPartnerAdmin =
@@ -222,7 +225,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     group: "system",
   });
 
-  const groups: MenuItem["group"][] = ["main", "operations", "tools", "system"];
+  const groups: MenuItem["group"][] = ["main", "operations", "marketing", "tools", "system"];
 
   return (
     <>
@@ -270,17 +273,46 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
 
             return (
               <div key={groupKey} className="space-y-1">
-                {!isCollapsed ? (
+                {groupKey === "marketing" ? (
+                  <button
+                    type="button"
+                    id="sidebar_marketing_group"
+                    aria-expanded={!isCollapsed && isMarketingExpanded}
+                    aria-controls="sidebar_marketing_children"
+                    title={isCollapsed ? "Marketing" : undefined}
+                    onClick={() => {
+                      if (isCollapsed) {
+                        setIsCollapsed(false);
+                        setIsMarketingExpanded(true);
+                      } else setIsMarketingExpanded((current) => !current);
+                    }}
+                    className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 ${isCollapsed ? "justify-center" : "justify-between"} ${itemsInGroup.some((item) => item.label === activeTab) ? "text-slate-900" : "text-slate-600"}`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <FilledMenu3DIcon shape="marketing" palette={brandIconPalette} className="h-6 w-6" />
+                      {!isCollapsed && <span>Marketing</span>}
+                    </span>
+                    {!isCollapsed && <ChevronDown className={`h-4 w-4 transition-transform ${isMarketingExpanded ? "" : "-rotate-90"}`} />}
+                  </button>
+                ) : !isCollapsed ? (
                   <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     {groupTitles[groupKey]}
                   </p>
                 ) : null}
 
+                <div
+                  id={groupKey === "marketing" ? "sidebar_marketing_children" : undefined}
+                  role={groupKey === "marketing" ? "group" : undefined}
+                  aria-label={groupKey === "marketing" ? "Các chức năng Marketing" : undefined}
+                  className={groupKey === "marketing"
+                    ? isCollapsed || !isMarketingExpanded ? "hidden" : "ml-3 space-y-1 border-l border-slate-200 pl-2"
+                    : "space-y-1"}
+                >
                 {itemsInGroup.map((item) => {
                   const isActive = activeTab === item.label;
                   const Icon = item.icon;
                   const iconShape = menuIconShapes[item.label];
-                  const iconPalette = isActive || groupKey === "main" || groupKey === "operations"
+                  const iconPalette = isActive || groupKey === "main" || groupKey === "operations" || groupKey === "marketing"
                     ? brandIconPalette
                     : softBrandIconPalette;
 
@@ -293,6 +325,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                         onMobileClose();
                       }}
                       aria-disabled={item.locked}
+                      aria-current={isActive ? "page" : undefined}
                       className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] ${
                         item.locked
                           ? "cursor-not-allowed text-slate-300 opacity-60"
@@ -328,6 +361,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                     </button>
                   );
                 })}
+                </div>
               </div>
             );
           })}

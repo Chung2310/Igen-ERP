@@ -2,9 +2,9 @@ import type { TabType } from "../types";
 import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "repair", "finance", "marketing"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
-export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance" && key !== "marketing") as Exclude<ModuleKey, "retail" | "finance" | "marketing">[];
+export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge") as Exclude<ModuleKey, "retail" | "finance" | "marketing" | "social-marketing" | "omni-inbox" | "company-knowledge">[];
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
   hr: "Nhân sự",
@@ -19,6 +19,9 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   repair: "Sửa chữa & bảo hành",
   finance: "Tài chính",
   marketing: "Marketing tự động",
+  "social-marketing": "Chiến dịch nội dung",
+  "omni-inbox": "Hộp thư đa kênh",
+  "company-knowledge": "Kho tri thức",
 };
 
 export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
@@ -34,6 +37,9 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   repair: "SỬA CHỮA & BẢO HÀNH",
   finance: "TÀI CHÍNH",
   marketing: "MARKETING",
+  "social-marketing": "CHIẾN DỊCH NỘI DUNG",
+  "omni-inbox": "OMNI INBOX",
+  "company-knowledge": "KHO TRI THỨC",
 };
 
 export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
@@ -49,6 +55,9 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "BÁN LẺ": "retail",
   "TÀI CHÍNH": "finance",
   "MARKETING": "marketing",
+  "CHIẾN DỊCH NỘI DUNG": "social-marketing",
+  "OMNI INBOX": "omni-inbox",
+  "KHO TRI THỨC": "company-knowledge",
 };
 
 export const MODULE_OPTIONS = [
@@ -63,6 +72,9 @@ export const MODULE_OPTIONS = [
   { key: "repair", label: MODULE_LABELS.repair, moduleKeys: ["repair"] },
   { key: "finance", label: MODULE_LABELS.finance, moduleKeys: ["finance"] },
   { key: "marketing", label: MODULE_LABELS.marketing, moduleKeys: ["marketing"] },
+  { key: "social-marketing", label: MODULE_LABELS["social-marketing"], moduleKeys: ["social-marketing"] },
+  { key: "omni-inbox", label: MODULE_LABELS["omni-inbox"], moduleKeys: ["omni-inbox"] },
+  { key: "company-knowledge", label: MODULE_LABELS["company-knowledge"], moduleKeys: ["company-knowledge"] },
 ] as const satisfies ReadonlyArray<{ key: string; label: string; moduleKeys: readonly ModuleKey[] }>;
 
 /**
@@ -84,6 +96,10 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "TÀI CHÍNH": ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage", "asset:read", "asset:manage"],
   "TRÒ CHUYỆN": ["chat:read"],
   "MARKETING": ["marketing:read", "marketing:manage"],
+  "CHIẾN DỊCH NỘI DUNG": ["marketing:read", "marketing:manage"],
+  "OMNI INBOX": ["omni-inbox:read", "omni-inbox:manage"],
+  "KHO TRI THỨC": ["company-knowledge:read", "company-knowledge:manage"],
+  "TÍCH HỢP MARKETING": ["social-integration:read", "social-integration:manage"],
 };
 
 /**
@@ -119,7 +135,7 @@ export const HIDE_AI_AUTO_REPLY = true;
  * Thiếu dữ liệu (company cũ) → bật tất cả.
  */
 export function isModuleEnabled(enabledModules: string[] | undefined, key: ModuleKey): boolean {
-  if (key === "retail" || key === "finance") return Boolean(enabledModules?.includes(key));
+  if (key === "retail" || key === "finance" || key === "social-marketing" || key === "omni-inbox" || key === "company-knowledge") return Boolean(enabledModules?.includes(key));
   if (!enabledModules || enabledModules.length === 0) return true;
   return enabledModules.includes(key);
 }

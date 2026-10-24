@@ -11,6 +11,10 @@ export type AppRoute = {
 };
 
 export const APP_ROUTES: AppRoute[] = [
+  { tab: "CHIẾN DỊCH NỘI DUNG", component: lazy(() => import("../modules/marketing-suite/campaign/pages/MarketingTab")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "marketing:read", "marketing:manage"].includes(value))) },
+  { tab: "OMNI INBOX", component: lazy(() => import("../modules/marketing-suite/message/pages/CRMTab")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "omni-inbox:read", "omni-inbox:manage"].includes(value))) },
+  { tab: "KHO TRI THỨC", component: lazy(() => import("../modules/marketing-suite/knowledge/pages/CompanyKnowledgePage")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "company-knowledge:read", "company-knowledge:manage"].includes(value))) },
+  { tab: "TÍCH HỢP MARKETING", component: lazy(() => import("../modules/marketing-suite/shared/pages/MarketingIntegrationsPage")), canAccess: (user) => Boolean(user.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key))) && (["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "social-integration:read", "social-integration:manage"].includes(value)))) },
   {
     tab: "TỔNG QUAN",
     component: lazy(() => import("../pages/DashboardTab")),

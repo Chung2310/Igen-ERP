@@ -51,7 +51,7 @@ export function useTabRouter(options?: { enabled?: boolean }) {
 
     const nextPath = tabToPath(activeTab);
     console.log(`[useTabRouter] Sync Path Effect: activeTab="${activeTab}", currentPath="${window.location.pathname}", nextPath="${nextPath}"`);
-    if (window.location.pathname !== nextPath) {
+    if (window.location.pathname !== nextPath && pathToTab(window.location.pathname) !== activeTab) {
       console.log(`[useTabRouter] Pushing state to nextPath="${nextPath}"`);
       window.history.pushState(null, "", nextPath);
     }

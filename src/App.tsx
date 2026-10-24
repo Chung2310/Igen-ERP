@@ -33,6 +33,9 @@ const WorkerQRCheckinPage = lazy(() => import("./modules/worker-management/pages
 const SubmitProofPage = lazy(() => import("./pages/SubmitProofPage"));
 const PublicRegisterPage = lazy(() => import("./pages/PublicRegisterPage"));
 const PublicRepairFeedbackPage = lazy(() => import("./modules/repair/pages/PublicRepairFeedbackPage"));
+const PublicSlotApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicSlotApproval"));
+const PublicDailySlotsApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicDailySlotsApproval"));
+const PublicMonthlyApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicMonthlyApproval"));
 
 function AppContent() {
   const { user, userProfile, loading } = useAuth();
@@ -46,7 +49,9 @@ function AppContent() {
   const isSubmitProofPage = currentPath.startsWith("/public/submit-proof");
   const isPublicRegisterPage = currentPath.startsWith("/public/dang-ky");
   const isLegalPublicPage = isPrivacyPage || isTermsPage || isDeletionPage;
-  const isPublicPage = isLandingGuestPage || isLegalPublicPage || isSubmitProofPage || isPublicRegisterPage;
+  const approvalPath = currentPath.replace(/\.html$/, "");
+  const isCampaignApprovalPage = ["/approve-post", "/approve-posts-day", "/approve-posts-month"].includes(approvalPath);
+  const isPublicPage = isLandingGuestPage || isLegalPublicPage || isSubmitProofPage || isPublicRegisterPage || isCampaignApprovalPage;
 
   const { activeTab, setActiveTab } = useTabRouter({
 
@@ -144,6 +149,12 @@ function AppContent() {
         <LandingPage />
       </Suspense>
     );
+  }
+
+  if (isCampaignApprovalPage) {
+    return <Suspense fallback={<AuthLoader />}>
+      {approvalPath === "/approve-posts-day" ? <PublicDailySlotsApproval /> : approvalPath === "/approve-posts-month" ? <PublicMonthlyApproval /> : <PublicSlotApproval />}
+    </Suspense>;
   }
 
   if (isSubmitProofPage) {

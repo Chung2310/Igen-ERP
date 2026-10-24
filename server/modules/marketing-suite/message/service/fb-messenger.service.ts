@@ -1,0 +1,1413 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
+import { randomUUID } from "node:crypto";
+import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model.ts";
+import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
+import { UserModel } from "../../../../model/user.model.ts";
+import { emitToMessengerAccount } from "../../shared/socket";
+import { aiAutoReplyService } from "./ai-auto-reply.service.ts";
+import { facebookCommentService } from "./facebook-comment.service.ts";
+import { SocialIntegrationModel } from "../../shared/model/social-integration.model.ts";
+import { messengerOrderService } from "./messenger-order.service.ts";
+import { companyProductCatalogService } from "./company-product-catalog.service.ts";
+import { AmbiguousAutoReplyOwnerError, selectAutoReplyCompanyIntegration } from "./auto-reply-owner";
+import { facebookSendRequest } from "../../shared/service/facebook-send-request";
+import {
+  FacebookMessengerError,
+  createFacebookIntegrationNotFoundError,
+  createFacebookReplyWindowExpiredError,
+  isFacebookReplyWindowOpen,
+  translateFacebookSendError,
+} from "./fb-messenger-error";
+
+const syncTimestamps = new Map<string, number>();
+const CONVERSATION_SYNC_TTL_MS = 15000;
+const MESSAGE_SYNC_TTL_MS = 5000;
+
+export type FacebookTokenContext = {
+  companyCode?: string;
+  userId?: string;
+  source?: "company" | "personal";
+};
+
+function normalizeFacebookId(value: any) {
+  return String(value || "").trim();
+}
+
+function normalizeOptionalFacebookConversationId(value: any): string | undefined {
+  const normalized = String(value || "").trim();
+  return normalized || undefined;
+}
+
+export const fbMessengerService = {
+  shouldSync(key: string, ttlMs: number) {
+    const now = Date.now();
+    const lastRun = syncTimestamps.get(key) || 0;
+    if (now - lastRun < ttlMs) {
+      return false;
+    }
+
+    syncTimestamps.set(key, now);
+    return true;
+  },
+
+  async fetchGraphJson(url: string) {
+    const response = await (globalThis as any).fetch(url);
+    const rawText = await response.text();
+    let parsed: any = null;
+
+    try {
+      parsed = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      parsed = rawText;
+    }
+
+    if (!response.ok) {
+      throw new Error(typeof parsed === "string" ? parsed : JSON.stringify(parsed));
+    }
+
+    return parsed;
+  },
+
+  async syncConversationsFromFacebook(pageId: string, tokenContext?: FacebookTokenContext) {
+    const startedAt = Date.now();
+    console.log(`[FB Service syncConversations] Bắt đầu đồng bộ hội thoại trực tiếp từ Facebook cho Page ID: ${pageId}`);
+    const token = await this.getPageAccessTokenByPageId(pageId, tokenContext);
+    if (!token) {
+      throw new Error(`Không tìm thấy Access Token cấu hình cho Page ID: ${pageId}`);
+    }
+
+    // Tự động đảm bảo Webhook Subscription của Page này luôn được kích hoạt trên Meta Graph API
+    void this.subscribePageWebhooks(pageId, token).catch((err) => {
+      console.warn(`[FB Service syncConversations] Không thể tự động subscribe webhook cho Page ${pageId}:`, err.message || err);
+    });
+
+    const fields = [
+      "id",
+      "updated_time",
+      "senders",
+      "messages.limit(1){id,message,created_time,from,to}"
+    ].join(",");
+    const url = `https://graph.facebook.com/v25.0/${pageId}/conversations?fields=${encodeURIComponent(fields)}&limit=50&access_token=${encodeURIComponent(token)}`;
+    const data = await this.fetchGraphJson(url);
+    const conversations = Array.isArray(data?.data) ? data.data : [];
+
+    for (const fbConversation of conversations) {
+      const senders = Array.isArray(fbConversation?.senders?.data) ? fbConversation.senders.data : [];
+      const latestMessage = Array.isArray(fbConversation?.messages?.data) ? fbConversation.messages.data[0] : null;
+      const nonPageSender = senders.find((sender: any) => sender?.id && sender.id !== pageId);
+      const fallbackRecipientId = latestMessage?.from?.id && latestMessage.from.id !== pageId
+        ? latestMessage.from.id
+        : "";
+      const recipientId = nonPageSender?.id || fallbackRecipientId;
+
+      if (!recipientId) {
+        console.warn(`[FB Service syncConversations] Bỏ qua conversation ${fbConversation?.id} vì không xác định được recipientId.`);
+        continue;
+      }
+
+      let conversation = await FBConversationModel.findOne({
+        pageId,
+        $or: [
+          { facebookConversationId: fbConversation.id },
+          { recipientId }
+        ]
+      });
+
+      let avatarUrl = "";
+      let senderName = nonPageSender?.name || "";
+
+      // Chỉ fetch profile của khách hàng nếu hội thoại chưa có trong DB hoặc chưa có đủ Tên/Avatar
+      if (!conversation || !conversation.avatarUrl || !conversation.senderName || conversation.senderName === "Khách hàng Facebook") {
+        if (recipientId) {
+          try {
+            const profile = await this.getSenderProfile(recipientId, token);
+            avatarUrl = profile?.profile_pic || "";
+            if (profile?.first_name || profile?.last_name) {
+              senderName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+            }
+          } catch (error) {
+            console.warn(`[FB Service syncConversations] Không lấy được avatar/profile cho PSID ${recipientId}:`, error);
+          }
+        }
+      }
+
+      if (conversation) {
+        conversation.facebookConversationId = normalizeOptionalFacebookConversationId(fbConversation.id);
+        conversation.recipientId = recipientId;
+        conversation.senderName = senderName || conversation.senderName || "Khách hàng Facebook";
+        if (avatarUrl) {
+          conversation.avatarUrl = avatarUrl;
+        }
+        conversation.lastMessageText = latestMessage?.message || conversation.lastMessageText || "[Đính kèm]";
+        conversation.lastMessageAt = latestMessage?.created_time
+          ? new Date(latestMessage.created_time)
+          : (conversation.lastMessageAt || new Date(fbConversation?.updated_time || Date.now()));
+        conversation.status = "open";
+        await conversation.save();
+      } else {
+        conversation = new FBConversationModel({
+          recipientId,
+          pageId,
+          facebookConversationId: normalizeOptionalFacebookConversationId(fbConversation.id),
+          senderName: senderName || "Khách hàng Facebook",
+          avatarUrl,
+          lastMessageText: latestMessage?.message || "[Đính kèm]",
+          lastMessageAt: latestMessage?.created_time
+            ? new Date(latestMessage.created_time)
+            : new Date(fbConversation?.updated_time || Date.now()),
+          status: "open",
+        });
+        await conversation.save();
+      }
+
+      // Phát sự kiện socket để cập nhật realtime danh sách ở frontend
+      emitToMessengerAccount("facebook", pageId, "conversation_updated", conversation);
+    }
+
+    console.log(`[FB Service syncConversations] Đồng bộ xong ${conversations.length} hội thoại từ Facebook cho Page ID: ${pageId} trong ${Date.now() - startedAt}ms`);
+  },
+
+  async syncMessagesFromFacebook(pageId: string, recipientId: string, tokenContext?: FacebookTokenContext) {
+    const startedAt = Date.now();
+    console.log(`[FB Service syncMessages] Bắt đầu đồng bộ tin nhắn từ Facebook cho PSID ${recipientId}, Page ID: ${pageId}`);
+    const conversation = await FBConversationModel.findOne({ pageId, recipientId });
+    const conversationGraphId = conversation?.facebookConversationId;
+
+    if (!conversationGraphId) {
+      console.warn(`[FB Service syncMessages] Không có facebookConversationId cho PSID ${recipientId}. Thử đồng bộ lại danh sách hội thoại.`);
+      await this.syncConversationsFromFacebook(pageId, tokenContext);
+    }
+
+    const refreshedConversation = await FBConversationModel.findOne({ pageId, recipientId });
+    if (!refreshedConversation?.facebookConversationId) {
+      console.warn(`[FB Service syncMessages] Vẫn không tìm thấy conversation graph ID cho PSID ${recipientId}.`);
+      return [];
+    }
+
+    const token = await this.getPageAccessTokenByPageId(pageId, tokenContext);
+    if (!token) {
+      throw new Error(`Không tìm thấy Access Token cấu hình cho Page ID: ${pageId}`);
+    }
+
+    const existingMids = new Set(
+      (await FBMessageModel.find({ conversationId: refreshedConversation._id }, { messageId: 1 }))
+        .map(m => m.messageId)
+    );
+
+    const fields = ["id", "message", "created_time", "from", "to", "attachments"].join(",");
+    const url = `https://graph.facebook.com/v25.0/${refreshedConversation.facebookConversationId}/messages?fields=${encodeURIComponent(fields)}&limit=25&access_token=${encodeURIComponent(token)}`;
+    const data = await this.fetchGraphJson(url);
+    const messages = Array.isArray(data?.data) ? data.data : [];
+    let upsertedCount = 0;
+    const newMessagesToEmit: any[] = [];
+
+    for (const fbMessage of messages) {
+      if (existingMids.has(fbMessage.id)) {
+        continue;
+      }
+
+      const fromId = fbMessage?.from?.id || "";
+      const direction = fromId === pageId ? "outbound" : "inbound";
+      const toList = Array.isArray(fbMessage?.to?.data) ? fbMessage.to.data : [];
+      const matchedRecipientId = direction === "outbound"
+        ? (toList.find((item: any) => item?.id && item.id !== pageId)?.id || recipientId)
+        : recipientId;
+      const attachmentList = Array.isArray(fbMessage?.attachments?.data)
+        ? fbMessage.attachments.data.map((attachment: any) => ({
+            type: attachment?.mime_type?.startsWith("image/") ? "image" : (attachment?.mime_type || attachment?.type || "attachment"),
+            url: attachment?.image_data?.url || attachment?.file_url || attachment?.video_data?.url || attachment?.payload?.url || "",
+          }))
+        : [];
+      const normalizedText = fbMessage?.message || "";
+
+      const savedMsg = await FBMessageModel.findOneAndUpdate(
+        { messageId: fbMessage.id },
+        {
+          conversationId: refreshedConversation._id,
+          senderId: fromId || (direction === "outbound" ? pageId : recipientId),
+          recipientId: matchedRecipientId,
+          direction,
+          text: normalizedText,
+          attachments: attachmentList,
+          messageId: fbMessage.id,
+          timestamp: fbMessage?.created_time ? new Date(fbMessage.created_time) : new Date(),
+          status: "delivered",
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true,
+        }
+      );
+      upsertedCount += 1;
+      newMessagesToEmit.push(savedMsg);
+    }
+
+    console.log(`[FB Service syncMessages] Đồng bộ xong ${upsertedCount}/${messages.length} tin nhắn từ Facebook cho PSID ${recipientId} trong ${Date.now() - startedAt}ms`);
+
+    if (newMessagesToEmit.length > 0) {
+      // Sắp xếp tin nhắn theo thời gian tăng dần trước khi emit
+      newMessagesToEmit.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      for (const msg of newMessagesToEmit) {
+        emitToMessengerAccount("facebook", pageId, "new_message", {
+          message: msg,
+          conversation: refreshedConversation
+        });
+      }
+      emitToMessengerAccount("facebook", pageId, "conversation_updated", refreshedConversation);
+
+      // Kích hoạt AI Auto-Reply nếu phát hiện tin nhắn đến mới từ khách hàng qua đồng bộ
+      const latestInboundMsg = [...newMessagesToEmit]
+        .reverse()
+        .find((m) => m.direction === "inbound" && m.text);
+      if (
+        latestInboundMsg &&
+        isFacebookReplyWindowOpen(latestInboundMsg.timestamp)
+      ) {
+        console.log(
+          `[FB Service syncMessages] 🚀 TRIGGER AI từ Sync: Phát hiện tin nhắn inbound mới ` +
+          `cho conversationId=${refreshedConversation._id.toString()}, pageId=${pageId}, textLength=${latestInboundMsg.text.length}`
+        );
+        aiAutoReplyService.triggerAutoReply(
+          "facebook",
+          pageId,
+          refreshedConversation._id.toString(),
+          latestInboundMsg.text,
+          latestInboundMsg.messageId
+        );
+      }
+    }
+
+    return FBMessageModel.find({ conversationId: refreshedConversation._id }).sort({ timestamp: 1 });
+  },
+
+  normalizeWebhookBody(body: any) {
+    if (body?.object === "page" && Array.isArray(body?.entry)) {
+      return body;
+    }
+
+    const sample = body?.sample;
+    if (sample?.field === "messages" && sample?.value?.sender?.id && sample?.value?.recipient?.id) {
+      console.log("[FB Service normalizeWebhookBody] Phát hiện payload test từ Meta Webhooks UI. Chuẩn hóa về định dạng page webhook.");
+      const sampleValue = sample.value;
+      const timestampNumber = Number(sampleValue.timestamp);
+      const normalizedEvent = {
+        sender: { id: sampleValue.sender.id },
+        recipient: { id: sampleValue.recipient.id },
+        timestamp: Number.isFinite(timestampNumber) ? timestampNumber * 1000 : Date.now(),
+        message: {
+          mid: sampleValue.message?.mid || `sample_${Date.now()}`,
+          text: sampleValue.message?.text || "",
+          attachments: sampleValue.message?.attachments || [],
+          is_echo: sampleValue.message?.is_echo || false,
+        },
+      };
+
+      return {
+        object: "page",
+        entry: [
+          {
+            id: sampleValue.recipient.id,
+            messaging: [normalizedEvent],
+          },
+        ],
+      };
+    }
+
+    return body;
+  },
+
+  /**
+   * Xác thực Webhook (GET request) từ Facebook gửi qua
+   */
+  async verifyWebhook(mode: string | undefined, token: string | undefined, challenge: string | undefined) {
+    const verifyToken = process.env.FB_VERIFY_TOKEN || "igen_erp_fb_verify_2026";
+    console.log(`[FB Service verifyWebhook] So sánh Verify Token nhận được: "${token}" với Token cấu hình hệ thống.`);
+
+    if (mode === "subscribe") {
+      if (token === verifyToken) {
+        console.log("[FB Service verifyWebhook] Trùng khớp với Default Verify Token trong biến môi trường!");
+        return challenge;
+      }
+
+      // Check if any user in DB has configured this verifyToken
+      const user = await UserModel.findOne({
+        "facebookIntegration.isConnected": true,
+        "facebookIntegration.verifyToken": token
+      });
+
+      if (user) {
+        console.log(`[FB Service verifyWebhook] Trùng khớp với Verify Token được cấu hình bởi user: ${user.email}`);
+        return challenge;
+      }
+
+      // Check if any company-level integration has configured this verifyToken
+      const integration = await SocialIntegrationModel.findOne({
+        platform: "Facebook",
+        isConnected: true,
+        verifyToken: token
+      });
+
+      if (integration) {
+        console.log(`[FB Service verifyWebhook] Trùng khớp với Verify Token được cấu hình trong Company Integration: ${integration.displayName}`);
+        return challenge;
+      }
+    }
+
+    console.error(`[FB Service verifyWebhook] Không tìm thấy Verify Token khớp với "${token}". Xác thực thất bại.`);
+    throw new Error("Mã xác minh không chính xác");
+  },
+
+  /**
+   * Xử lý dữ liệu Webhook Event (POST request) từ Facebook gửi tới khi có tin nhắn mới
+   */
+  async handleWebhookEvent(body: any) {
+    const normalizedBody = this.normalizeWebhookBody(body);
+
+    if (normalizedBody.object !== "page") {
+      console.warn(`[FB Service handleWebhookEvent] Nhận đối tượng webhook không phải page: "${normalizedBody.object}"`);
+      throw new Error("Sự kiện webhook không hợp lệ.");
+    }
+
+    const entries = normalizedBody.entry || [];
+
+    for (const entry of entries) {
+      const { canProcessMessengerWebhook } = await import("../webhook-access");
+      if (!await canProcessMessengerWebhook("Facebook", String(entry.id || ""))) continue;
+      // 1. Xử lý sự kiện tin nhắn (Messenger)
+      const messagingEvents = entry.messaging || [];
+      if (messagingEvents.length > 0) {
+        for (const event of messagingEvents) {
+          if (event.message && !event.message.is_echo) {
+            const attachmentCount = Array.isArray(event.message?.attachments) ? event.message.attachments.length : 0;
+            const quickReplyPayload = String(event.message?.quick_reply?.payload || "").trim();
+            console.log(
+              `[FB Service] Nhận tin nhắn mới: sender=${event.sender?.id}, textLength=${String(event.message.text || "").length}, attachments=${attachmentCount}`
+            );
+            await this.processIncomingMessage(event, entry.id);
+          } else if (event.read) {
+            await this.processReadReceipt(event);
+          }
+        }
+      }
+
+      // 2. Xử lý sự kiện thay đổi trên feed bài viết (Bình luận / Post)
+      const changesEvents = entry.changes || [];
+      if (changesEvents.length > 0) {
+        for (const change of changesEvents) {
+          if (change.field === "feed") {
+            const value = change.value;
+            if (value && value.item === "comment" && value.verb === "add") {
+              facebookCommentService.handleIncomingComment(entry.id, value).catch((err) => {
+                console.error("[FB Service] Lỗi khi xử lý bình luận tự động:", err.message || err);
+              });
+            }
+          }
+        }
+      }
+    }
+  },
+
+  /**
+   * Lấy Page Access Token của một User bất kỳ đang liên kết với Page ID này
+   */
+  async getPageAccessTokenByPageId(pageId: string, context?: FacebookTokenContext): Promise<string | null> {
+    const resolvedPageId = normalizeFacebookId(pageId);
+    console.log(`[FB Service Token] Đang tìm Access Token cho Page ID: raw=${pageId}, resolved=${resolvedPageId}`);
+
+    if (context?.source === "company" && !String(context.companyCode || "").trim()) {
+      console.warn(`[FB Service Token] Từ chối tìm token company cho pageId=${resolvedPageId} vì thiếu companyCode.`);
+      return null;
+    }
+    if (context?.source === "personal" && !String(context.userId || "").trim()) {
+      console.warn(`[FB Service Token] Từ chối tìm token cá nhân cho pageId=${resolvedPageId} vì thiếu userId.`);
+      return null;
+    }
+
+    if (context?.source !== "personal") {
+      const companyIntegration = await SocialIntegrationModel.findOne({
+        ...(context?.companyCode ? { companyCode: context.companyCode } : {}),
+        platform: "Facebook",
+        isConnected: true,
+        username: resolvedPageId,
+      });
+
+      if (companyIntegration?.accessToken) {
+        console.log(`[FB Service Token] Đã tìm thấy Page Access Token từ Company Integration: ${companyIntegration.displayName}, company=${companyIntegration.companyCode}, pageId=${resolvedPageId}`);
+        return companyIntegration.accessToken;
+      }
+    }
+
+    if (context?.source !== "company") {
+      const user = await UserModel.findOne({
+        ...(context?.userId ? { _id: context.userId } : {}),
+        ...(context?.companyCode && !context?.userId ? { companyCode: context.companyCode } : {}),
+        "facebookIntegration.isConnected": true,
+        "facebookIntegration.pageId": resolvedPageId,
+      });
+
+      if (user?.facebookIntegration?.pageAccessToken) {
+        console.log(`[FB Service Token] Đã tìm thấy Page Access Token từ tài khoản User: ${user.email}, company=${user.companyCode || "SYSTEM"}, pageId=${resolvedPageId}`);
+        return user.facebookIntegration.pageAccessToken;
+      }
+    }
+
+    if (context?.companyCode || context?.userId || context?.source) {
+      console.warn(`[FB Service Token] Không tìm thấy token đúng phạm vi cho pageId=${resolvedPageId}, company=${context.companyCode || "none"}, userId=${context.userId || "none"}, source=${context.source || "none"}. Từ chối fallback chéo tenant.`);
+      return null;
+    }
+    
+    const samePlatformIntegrations = await SocialIntegrationModel.find({
+      platform: "Facebook",
+      isConnected: true,
+    }).select("companyCode displayName username").lean();
+    console.warn(`[FB Service Token] Khong tim thay config khop chinh xac cho Page ID=${pageId}. Cac company integration Facebook dang co: ${samePlatformIntegrations.map((item: any) => `${item.companyCode}:${item.displayName}:${item.username}`).join(" | ") || "none"}`);
+    const envPageId = normalizeFacebookId(process.env.FB_PAGE_ID);
+    const envToken = process.env.FB_PAGE_ACCESS_TOKEN || "";
+    if (envToken && envPageId && envPageId === resolvedPageId) {
+      console.log(`[FB Service Token] Dùng Page Access Token từ env vì FB_PAGE_ID khớp: pageId=${resolvedPageId}`);
+      return envToken;
+    }
+
+    console.warn(`[FB Service Token] Từ chối fallback token env vì không có FB_PAGE_ID khớp với Page ID=${resolvedPageId}.`);
+    return null;
+  },
+
+  async subscribePageWebhooks(pageId: string, token: string): Promise<any> {
+    const cleanPageId = normalizeFacebookId(pageId);
+    const isMockPage = cleanPageId.startsWith("mock_") || cleanPageId === "unknown_page" || cleanPageId === "123456";
+    if (isMockPage) {
+      console.log(`[FB Service subscribePageWebhooks] Bỏ qua subscribe cho Page giả lập: ${cleanPageId}`);
+      return { success: true, message: "Mock Page bypass" };
+    }
+
+    const fields = "feed,messages,messaging_postbacks,message_deliveries,message_reads";
+    const url = `https://graph.facebook.com/v25.0/${cleanPageId}/subscribed_apps?subscribed_fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(token)}`;
+    console.log(`[FB Service subscribePageWebhooks] Đang đăng ký webhook cho Page ID: ${cleanPageId}...`);
+
+    try {
+      const response = await (globalThis as any).fetch(url, {
+        method: "POST",
+      });
+      const data = await response.json();
+      console.log(`[FB Service subscribePageWebhooks] Kết quả đăng ký từ Facebook Graph API:`, data);
+      return data;
+    } catch (error: any) {
+      console.error(`[FB Service subscribePageWebhooks] Lỗi khi đăng ký webhook cho Page ID ${cleanPageId}:`, error.message || error);
+      return { error: error.message || error };
+    }
+  },
+
+  async enrichConversationProfile(pageId: string, senderId: string, conversationId: string) {
+    try {
+      const token = await this.getPageAccessTokenByPageId(pageId);
+      if (!token) {
+        return;
+      }
+
+      const profile = await this.getSenderProfile(senderId, token);
+      if (!profile) {
+        return;
+      }
+
+      const updatedConversation = await FBConversationModel.findOneAndUpdate(
+        { _id: conversationId, pageId },
+        {
+          senderName: `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Khach hang Facebook",
+          avatarUrl: profile.profile_pic || "",
+        },
+        { new: true }
+      );
+
+      if (updatedConversation) {
+        emitToMessengerAccount("facebook", pageId, "conversation_updated", updatedConversation);
+      }
+    } catch (error) {
+      console.error("[FB Service enrichConversationProfile] Khong the cap nhat profile Facebook:", error);
+    }
+  },
+
+  /**
+   * Lưu tin nhắn đến vào DB và tạo cuộc hội thoại nếu chưa có
+   */
+  async processIncomingMessage(event: any, pageId?: string) {
+    const senderId = event.sender.id; // PSID của khách hàng
+    const recipientId = event.recipient.id; // ID của Fanpage mình (pageId)
+    const message = event.message;
+    const messageId = String(message?.mid || `fb_in_${recipientId}_${senderId}_${randomUUID()}`).trim();
+    const timestamp = new Date(event.timestamp);
+
+    const resolvedPageId = pageId || recipientId;
+    if (senderId === resolvedPageId || event.message?.is_echo) {
+      console.log(`[FB Service processIncomingMessage] Bỏ qua tin nhắn outbound từ Page ${resolvedPageId}`);
+      return;
+    }
+
+    const text = String(message?.text || "").trim();
+    const rawAttachments = Array.isArray(message?.attachments) ? message.attachments : [];
+    const attachments = rawAttachments.map((att: any) => ({
+      type: att?.type || "attachment",
+      url: att?.payload?.url || "",
+    }));
+    const quickReplyPayload = String(message?.quick_reply?.payload || "").trim();
+
+    if (!text && attachments.length === 0 && !quickReplyPayload) {
+      return;
+    }
+
+    const token = await this.getPageAccessTokenByPageId(resolvedPageId);
+    const duplicateMsg = await FBMessageModel.exists({ messageId });
+    if (duplicateMsg) {
+      console.log(`[FB Service processIncomingMessage] Bỏ qua webhook trùng messageId=${messageId}`);
+      return;
+    }
+
+    // Lấy token động từ DB dựa theo Page ID của tin nhắn đến
+
+    // 1. Kiểm tra xem đã có cuộc hội thoại với khách hàng này chưa
+    let conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: resolvedPageId });
+
+    if (!conversation) {
+      let senderName = "Khách hàng Facebook";
+      let avatarUrl = "";
+
+      if (token) {
+        try {
+          const profile = await Promise.race([
+            this.getSenderProfile(senderId, token),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 350))
+          ]);
+          if (profile) {
+            senderName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Khách hàng Facebook";
+            avatarUrl = profile.profile_pic || "";
+          }
+        } catch (err: any) {
+          console.error("[FB Service] Thất bại khi lấy thông tin profile từ Graph API:", err.message || err);
+        }
+      }
+
+      conversation = new FBConversationModel({
+        recipientId: senderId,
+        senderName,
+        avatarUrl,
+        pageId: resolvedPageId,
+        lastMessageText: text || "[Đính kèm]",
+        lastMessageAt: timestamp,
+        unreadCount: 0,
+        status: "open",
+      });
+      try {
+        await conversation.save();
+      } catch (err: any) {
+        if (err?.code === 11000) {
+          conversation = await FBConversationModel.findOne({ recipientId: senderId, pageId: resolvedPageId });
+          if (!conversation) {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
+      console.log(`[FB Service processIncomingMessage] 💾 CONVERSATION NEW: Đã tạo cuộc hội thoại mới _id=${conversation._id.toString()}`);
+    }
+
+    // Claim atomically because Meta may deliver the same webhook concurrently.
+    let insertResult;
+    try {
+      insertResult = await FBMessageModel.updateOne(
+        { messageId },
+        {
+          $setOnInsert: {
+            conversationId: conversation._id,
+            senderId,
+            recipientId,
+            direction: "inbound",
+            text,
+            attachments,
+            messageId,
+            timestamp,
+            status: "delivered",
+          },
+        },
+        { upsert: true },
+      );
+    } catch (error: any) {
+      if (error?.code === 11000) {
+        console.log(`[FB Service processIncomingMessage] Bỏ qua webhook trùng messageId=${messageId}`);
+        return;
+      }
+      throw error;
+    }
+
+    if (insertResult.upsertedCount !== 1) {
+      console.log(`[FB Service processIncomingMessage] Bỏ qua webhook trùng messageId=${messageId}`);
+      return;
+    }
+
+    const newMsg = await FBMessageModel.findOne({ messageId });
+    if (!newMsg) {
+      throw new Error(`Không thể đọc lại tin nhắn Facebook vừa lưu: ${messageId}`);
+    }
+
+    const updatedConversation = await FBConversationModel.findByIdAndUpdate(
+      conversation._id,
+      {
+        $set: {
+          lastMessageText: text || "[Đính kèm]",
+          lastMessageAt: timestamp,
+          status: "open",
+        },
+        $inc: { unreadCount: 1 },
+      },
+      { new: true },
+    );
+    if (updatedConversation) {
+      conversation = updatedConversation;
+    }
+
+    console.log(`[FB Service processIncomingMessage] 💾 CONVERSATION UPDATE: Đã cập nhật hội thoại _id=${conversation._id.toString()}, unreadCount=${conversation.unreadCount}`);
+    console.log(`[FB Service processIncomingMessage] 💾 MSG SAVE: Đã lưu tin nhắn inbound thành công (messageId=${messageId})`);
+
+    // Realtime update via Socket.IO
+    emitToMessengerAccount("facebook", resolvedPageId, "new_message", {
+      message: newMsg,
+      conversation: conversation
+    });
+    emitToMessengerAccount("facebook", resolvedPageId, "conversation_updated", conversation);
+
+    const conversationId = conversation._id.toString();
+    const handleOrderMessage = async () => {
+      try {
+        const { chatOrderFlowRegistry } = await import("./chat-ordering/registry");
+        const orderFlow = await chatOrderFlowRegistry.resolveForPage(resolvedPageId);
+        const orderFlowEnabled = orderFlow ? await orderFlow.isEnabled(resolvedPageId) : false;
+        const orderFlowActive = orderFlow ? await orderFlow.isActive(resolvedPageId, conversationId) : false;
+        const receiptOrder = orderFlowActive ? null : await messengerOrderService.capturePaymentReceipt(
+          resolvedPageId,
+          conversationId,
+          messageId,
+          attachments,
+          token || undefined,
+        );
+        if (receiptOrder) {
+          await this.sendReply(
+            resolvedPageId,
+            conversationId,
+            `Shop đã nhận biên lai cho đơn ${receiptOrder.orderId}. Shop sẽ kiểm tra và xác nhận sau khi đối soát giao dịch.`,
+            "ai",
+          );
+          return;
+        }
+
+        const productSelection = orderFlowActive ? null : await messengerOrderService.captureProductSelection(
+          resolvedPageId,
+          conversationId,
+          messageId,
+          attachments,
+          token || undefined,
+        );
+        if (productSelection) {
+          await this.sendReply(resolvedPageId, conversationId, `Shop đã lưu ảnh ${productSelection.itemLabel} bạn chọn.`, "ai");
+          return;
+        }
+
+        if (!orderFlowEnabled && !orderFlowActive && messengerOrderService.isConfirmationMessage(text)) {
+          const order = await messengerOrderService.captureConfirmedOrder(resolvedPageId, conversationId, messageId, text);
+          if (order) {
+            const depositRequest = await messengerOrderService.getDepositRequest(order.orderId);
+            if (depositRequest) {
+              await this.sendReply(resolvedPageId, conversationId, depositRequest, "ai");
+              await messengerOrderService.markDepositRequested(order.orderId);
+              const paymentQr = await messengerOrderService.getDepositPaymentQr(order.orderId);
+              if (paymentQr) {
+                try {
+                  await this.sendImage(resolvedPageId, conversationId, paymentQr.imageUrl, undefined, "[Mã VietQR thanh toán]");
+                } catch (qrError) {
+                  console.error(`[FB Service processIncomingMessage] Khong the gui VietQR orderId=${order.orderId}:`, qrError);
+                }
+              }
+              return;
+            }
+          }
+        }
+
+        if (text && !orderFlowActive) {
+          const suggestions = await companyProductCatalogService.findSuggestionsForPage(resolvedPageId, text);
+          if (suggestions?.images.length) {
+            let sentCount = 0;
+            for (const image of suggestions.images) {
+              try {
+                await this.sendImage(resolvedPageId, conversationId, image.imageUrl, undefined, `[Ảnh ${suggestions.itemLabel}]`);
+                sentCount += 1;
+              } catch (imageError) {
+                console.error(`[FB Service processIncomingMessage] Không thể gửi ảnh mẫu ${image.id}:`, imageError);
+              }
+            }
+            if (sentCount) {
+              conversation.productCatalogSentAt = new Date();
+              conversation.productCatalogCategory = suggestions.categoryName;
+              conversation.productCatalogItemLabel = suggestions.itemLabel;
+              conversation.productSelectionStatus = "awaiting_selection";
+              await conversation.save();
+              await this.sendReply(resolvedPageId, conversationId, suggestions.selectionMessage, "ai");
+              return;
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`[FB Service processIncomingMessage] Khong the xu ly don/bien lai Messenger messageId=${messageId}:`, error);
+      }
+
+      console.log(
+        `[FB Service processIncomingMessage] TRIGGER AI: conversationId=${conversationId}, ` +
+        `pageId=${resolvedPageId}, textLength=${text.length}`
+      );
+      aiAutoReplyService.triggerAutoReply("facebook", resolvedPageId, conversationId, text, messageId);
+    };
+    void handleOrderMessage();
+  },
+
+  /**
+   * Cập nhật trạng thái đã đọc của tin nhắn
+   */
+  async processReadReceipt(event: any) {
+    const senderId = event.sender?.id;
+    const pageId = event.recipient?.id;
+    if (!senderId || !pageId) {
+      console.warn("[FB Read Receipt] Bỏ qua receipt thiếu sender hoặc page ID.");
+      return;
+    }
+    await FBConversationModel.findOneAndUpdate(
+      { recipientId: senderId, pageId },
+      { unreadCount: 0 }
+    );
+  },
+
+  async markConversationRead(pageId: string, conversationId: string) {
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
+    if (!conversation) {
+      throw new Error("Không tìm thấy hội thoại Facebook.");
+    }
+
+    if (conversation.unreadCount !== 0) {
+      conversation.unreadCount = 0;
+      await conversation.save();
+      emitToMessengerAccount("facebook", pageId, "conversation_updated", conversation);
+    }
+
+    return { success: true };
+  },
+
+  async resumeAIAutoReply(pageId: string, conversationId: string) {
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
+    if (!conversation) {
+      throw new Error("Không tìm thấy hội thoại Facebook.");
+    }
+    conversation.aiPausedUntil = undefined;
+    await conversation.save();
+    emitToMessengerAccount("facebook", pageId, "conversation_updated", conversation);
+    return conversation;
+  },
+
+  /**
+   * Gọi Graph API lấy Profile từ PSID bằng Token động
+   */
+  async getSenderProfile(psid: string, token: string): Promise<any> {
+    const url = `https://graph.facebook.com/v25.0/${encodeURIComponent(psid)}?fields=first_name,last_name,profile_pic&access_token=${encodeURIComponent(token)}`;
+    try {
+      const response = await (globalThis as any).fetch(url);
+      if (!response.ok) {
+        const errText = await response.text();
+        if (errText.includes('"error_subcode":33') || errText.includes('"code":100')) {
+          console.warn(`[FB Service GraphAPI] Không có quyền lấy profile chi tiết cho PSID ${psid} (Facebook App hạn chế quyền User Profile hoặc tài khoản khách hàng bật bảo mật). Sẽ sử dụng thông tin mặc định.`);
+        } else {
+          console.error(`[FB Service GraphAPI] Lỗi phản hồi từ Graph API: ${response.status} - ${errText}`);
+        }
+        return null;
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("[FB Service GraphAPI] Lỗi kết nối Graph API:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Gửi tin nhắn phản hồi tới khách hàng qua Facebook Send API (sử dụng Token của Page tương ứng)
+   */
+  async sendReply(
+    pageId: string,
+    conversationId: string,
+    text: string,
+    senderType: "human" | "ai" = "human",
+    tokenContext?: FacebookTokenContext,
+    consultationSessionId?: string,
+    beforeSend?: () => Promise<void>,
+  ) {
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
+    if (!conversation) {
+      throw new Error("Không tìm thấy cuộc hội thoại để gửi phản hồi.");
+    }
+
+    // Hủy các phản hồi AI đang lên lịch do nhân viên đã can thiệp
+    if (senderType === "human") {
+      aiAutoReplyService.cancelPendingReply(conversationId, "human_reply");
+      await FBConversationModel.updateOne({ _id: conversation._id, pageId }, {
+        $set: { aiPausedUntil: new Date(Date.now() + 30 * 60 * 1000), followUpStatus: "responded" },
+      });
+    }
+
+    const recipientPsid = conversation.recipientId;
+    const resolvedPageId = conversation.pageId || pageId || process.env.FB_PAGE_ID || "";
+    console.log(
+      `[FB Service sendReply] Chuẩn bị gửi reply: conversationId=${conversationId}, pageId=${resolvedPageId}, ` +
+      `recipientPsid=${recipientPsid}, textLength=${String(text || "").length}`
+    );
+    
+    // Lấy token động của Page này từ DB
+    const token = await this.getPageAccessTokenByPageId(resolvedPageId, tokenContext);
+    
+    if (!token) {
+      console.error(`[FB Service sendReply] Lỗi: Không thể tìm thấy Access Token cấu hình cho Page ID: ${resolvedPageId}`);
+      throw createFacebookIntegrationNotFoundError();
+    }
+
+    let latestInbound = await FBMessageModel.findOne({
+      conversationId: conversation._id,
+      direction: "inbound",
+    }).sort({ timestamp: -1 });
+
+    if (!isFacebookReplyWindowOpen(latestInbound?.timestamp)) {
+      let windowRefreshSucceeded = true;
+      try {
+        await this.syncMessagesFromFacebook(resolvedPageId, recipientPsid, tokenContext);
+        latestInbound = await FBMessageModel.findOne({
+          conversationId: conversation._id,
+          direction: "inbound",
+        }).sort({ timestamp: -1 });
+      } catch (syncError) {
+        windowRefreshSucceeded = false;
+        console.warn(`[FB Service sendReply] Không thể làm mới cửa sổ phản hồi cho conversationId=${conversationId}:`, syncError);
+      }
+
+      if (windowRefreshSucceeded && !isFacebookReplyWindowOpen(latestInbound?.timestamp)) {
+        throw createFacebookReplyWindowExpiredError();
+      }
+    }
+
+    const url = `https://graph.facebook.com/v25.0/me/messages?access_token=${token}`;
+    
+    const body = {
+      recipient: { id: recipientPsid },
+      message: { text },
+      messaging_type: "RESPONSE"
+    };
+
+    // The follow-up guard runs after token/window synchronization, directly before delivery.
+    if (beforeSend) await beforeSend();
+    try {
+      const response = await facebookSendRequest(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const textErr = await response.text();
+        console.error(`[FB Service sendReply] Send API phản hồi lỗi: ${response.status} - ${textErr}`);
+        
+        const translatedError = translateFacebookSendError(textErr, response.status);
+
+        if (translatedError.code === "FB_ACCESS_TOKEN_INVALID") {
+          const integration = await SocialIntegrationModel.findOne({
+            ...(tokenContext?.companyCode ? { companyCode: tokenContext.companyCode } : {}),
+            platform: "Facebook",
+            username: resolvedPageId,
+          });
+          const { telegramService } = require("../../shared/service/telegram.service.ts");
+          await telegramService.sendIntegrationDisconnectAlert(
+            "Facebook",
+            integration?.displayName || "Facebook Page",
+            resolvedPageId,
+            integration?.companyCode || "SYSTEM",
+            `Mã lỗi Facebook: ${response.status}. Chi tiết: ${textErr.slice(0, 150)}`
+          ).catch((e: any) => console.error("[FB Service] Không thể gửi cảnh báo lỗi Token về Telegram:", e));
+        }
+
+        throw translatedError;
+      }
+
+      const data = await response.json();
+      console.log(
+        `[FB Service sendReply] Send API thành công: conversationId=${conversationId}, ` +
+        `facebookMessageId=${data.message_id || "n/a"}, recipientId=${recipientPsid}`
+      );
+
+      conversation.lastMessageText = text;
+      conversation.lastMessageAt = new Date();
+      conversation.unreadCount = 0;
+      if (senderType === "human") {
+        conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
+        conversation.followUpStatus = "responded";
+      }
+      await conversation.save();
+
+      const outboundMessageId = data.message_id || `out_${conversation._id.toString()}_${randomUUID()}`;
+      const newMsg = await FBMessageModel.findOneAndUpdate(
+        { messageId: outboundMessageId },
+        {
+          ...(consultationSessionId ? { $set: { consultationSessionId } } : {}),
+          $setOnInsert: {
+            conversationId: conversation._id,
+            senderId: resolvedPageId,
+            recipientId: recipientPsid,
+            direction: "outbound",
+            senderType,
+            text,
+            attachments: [],
+            messageId: outboundMessageId,
+            timestamp: new Date(),
+            status: "sent",
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+      if (!newMsg) {
+        throw new Error(`Không thể lưu phản hồi Facebook messageId=${outboundMessageId}`);
+      }
+      console.log(
+        `[FB Service sendReply] Đã lưu outbound message: conversationId=${conversationId}, messageId=${newMsg.messageId}`
+      );
+
+      // Realtime update via Socket.IO
+      emitToMessengerAccount("facebook", resolvedPageId, "new_message", {
+        message: newMsg,
+        conversation: conversation
+      });
+      emitToMessengerAccount("facebook", resolvedPageId, "conversation_updated", conversation);
+
+      return {
+        status: "success",
+        messageId: newMsg.messageId,
+      };
+    } catch (error: any) {
+      console.error("[FB Service sendReply] Thất bại khi gửi hoặc lưu phản hồi:", error);
+      if (error instanceof FacebookMessengerError) {
+        throw error;
+      }
+      throw new FacebookMessengerError(
+        "Không thể hoàn tất việc gửi tin nhắn Facebook lúc này. Vui lòng thử lại.",
+        500,
+        "FB_SEND_FAILED",
+      );
+    }
+  },
+
+  async sendImage(
+    pageId: string,
+    conversationId: string,
+    imageUrl: string,
+    tokenContext?: FacebookTokenContext,
+    messageLabel = "[Hình ảnh]",
+    beforeSend?: () => Promise<void>,
+  ) {
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
+    if (!conversation) throw new Error("Không tìm thấy cuộc hội thoại để gửi ảnh.");
+    const recipientPsid = conversation.recipientId;
+    const resolvedPageId = conversation.pageId || pageId || process.env.FB_PAGE_ID || "";
+    const token = await this.getPageAccessTokenByPageId(resolvedPageId, tokenContext);
+    if (!token) throw createFacebookIntegrationNotFoundError();
+    const url = `https://graph.facebook.com/v25.0/me/messages?access_token=${token}`;
+    if (beforeSend) await beforeSend();
+    const response = await facebookSendRequest(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipientPsid },
+        message: {
+          attachment: {
+            type: "image",
+            payload: { url: imageUrl, is_reusable: true },
+          },
+        },
+        messaging_type: "RESPONSE",
+      }),
+    });
+    if (!response.ok) {
+      const responseText = await response.text();
+      throw translateFacebookSendError(responseText, response.status);
+    }
+    const data = await response.json();
+    conversation.lastMessageText = messageLabel;
+    conversation.lastMessageAt = new Date();
+    conversation.unreadCount = 0;
+    await conversation.save();
+    const outboundMessageId = data.message_id || `out_image_${conversation._id.toString()}_${randomUUID()}`;
+    const newMsg = await FBMessageModel.findOneAndUpdate(
+      { messageId: outboundMessageId },
+      {
+        $setOnInsert: {
+          conversationId: conversation._id,
+          senderId: resolvedPageId,
+          recipientId: recipientPsid,
+          direction: "outbound",
+          senderType: beforeSend ? "ai" : "human",
+          text: "",
+          attachments: [{ type: "image", url: imageUrl }],
+          messageId: outboundMessageId,
+          timestamp: new Date(),
+          status: "sent",
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    if (newMsg) emitToMessengerAccount("facebook", resolvedPageId, "new_message", { message: newMsg, conversation });
+    emitToMessengerAccount("facebook", resolvedPageId, "conversation_updated", conversation);
+    return { status: "success", messageId: outboundMessageId };
+  },
+
+  /**
+   * Gửi sender_action (ví dụ: typing_on, typing_off, mark_seen) tới khách hàng qua Facebook Graph API
+   */
+  async sendSenderAction(
+    pageId: string,
+    conversationId: string,
+    action: "typing_on" | "typing_off" | "mark_seen",
+    tokenContext?: FacebookTokenContext,
+  ) {
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
+    if (!conversation) return;
+
+    const recipientPsid = conversation.recipientId;
+    const resolvedPageId = conversation.pageId || pageId || "";
+    const token = await this.getPageAccessTokenByPageId(resolvedPageId, tokenContext);
+    if (!token) return;
+
+    const url = `https://graph.facebook.com/v25.0/me/messages?access_token=${token}`;
+    const body = {
+      recipient: { id: recipientPsid },
+      sender_action: action
+    };
+
+    try {
+      await (globalThis as any).fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      console.error(`[FB Service sendSenderAction] Thất bại khi gửi sender_action ${action}:`, error);
+    }
+  },
+
+  async getConversations(
+    pageId?: string,
+    options?: { sync?: boolean; limit?: number; skip?: number; tokenContext?: FacebookTokenContext },
+  ) {
+    console.log(`[FB Service getConversations] Lọc hội thoại theo Page ID: ${pageId || "Tất cả"}, limit: ${options?.limit || 20}, skip: ${options?.skip || 0}`);
+    const filter = pageId ? { pageId } : {};
+    const skip = options?.skip || 0;
+    const limit = options?.limit || 20;
+
+    if (pageId && options?.sync && skip === 0 && this.shouldSync(`conversations:${pageId}`, CONVERSATION_SYNC_TTL_MS)) {
+      // Chạy đồng bộ bất đồng bộ dưới nền để không block request của Frontend
+      this.syncConversationsFromFacebook(pageId, options?.tokenContext)
+        .then(() => {
+          console.log(`[FB Service getConversations] Đồng bộ ngầm thành công cho Page ID: ${pageId}`);
+        })
+        .catch((error) => {
+          console.error(`[FB Service getConversations] Đồng bộ ngầm thất bại cho Page ID ${pageId}:`, error);
+        });
+    }
+
+    return FBConversationModel.find(filter)
+      .sort({ lastMessageAt: -1 })
+      .skip(skip)
+      .limit(limit);
+  },
+
+  /**
+   * Lấy lịch sử tin nhắn của cuộc hội thoại
+   */
+  async getMessages(
+    pageId: string,
+    conversationId: string,
+    options?: { limit?: number; before?: string; sync?: boolean; tokenContext?: FacebookTokenContext },
+  ) {
+    console.log(`[FB Service getMessages] Lấy tin nhắn cho conversation ${conversationId} thuộc Page ID: ${pageId}`);
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId });
+    if (!conversation) {
+      console.warn(`[FB Service getMessages] Không tìm thấy conversation ${conversationId} thuộc Page ID: ${pageId}.`);
+      return {
+        messages: [],
+        pagination: {
+          limit: Math.min(Math.max(Number(options?.limit || 20), 1), 100),
+          hasMore: false,
+          nextBefore: null,
+        },
+      };
+    }
+
+    // Reset số lượng tin nhắn chưa đọc
+    if (conversation.unreadCount > 0) {
+      conversation.unreadCount = 0;
+      await conversation.save();
+    }
+
+    const limit = Math.min(Math.max(Number(options?.limit || 20), 1), 100);
+    const beforeDate = options?.before ? new Date(options.before) : null;
+    const filter: any = { conversationId: conversation._id };
+    if (beforeDate && !Number.isNaN(beforeDate.getTime())) {
+      filter.timestamp = { $lt: beforeDate };
+    }
+
+    let existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
+
+    if (!beforeDate && options?.sync && conversation.recipientId && this.shouldSync(`messages:${pageId}:${conversation._id}`, MESSAGE_SYNC_TTL_MS)) {
+      if (existingMessages.length === 0) {
+        await this.syncMessagesFromFacebook(pageId, conversation.recipientId, options?.tokenContext);
+        existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
+      } else {
+        this.syncMessagesFromFacebook(pageId, conversation.recipientId, options?.tokenContext)
+          .then((syncedMsgs) => {
+            console.log(`[FB Service getMessages] Đồng bộ ngầm thành công ${syncedMsgs.length} tin nhắn cho conversation: ${conversation._id}`);
+          })
+          .catch((err) => {
+            console.error(`[FB Service getMessages] Đồng bộ ngầm thất bại cho conversation ${conversation._id}:`, err);
+          });
+      }
+    }
+
+    const hasMore = existingMessages.length > limit;
+    const trimmedMessages = hasMore ? existingMessages.slice(0, limit) : existingMessages;
+    const orderedMessages = [...trimmedMessages].reverse();
+    const oldestMessage = orderedMessages[0];
+    const latestMessage = orderedMessages[orderedMessages.length - 1];
+
+    return {
+      messages: orderedMessages,
+      pagination: {
+        limit,
+        hasMore,
+        nextBefore: oldestMessage?.timestamp ? new Date(oldestMessage.timestamp).toISOString() : null,
+      },
+    };
+  },
+
+  async diagnoseConversation(pageId: string, conversationId: string, tokenContext?: FacebookTokenContext) {
+    const resolvedPageId = normalizeFacebookId(pageId);
+    const conversation = await FBConversationModel.findOne({ _id: conversationId, pageId }).lean();
+    const directOwnerCandidates = await UserModel.find({
+      "facebookIntegration.isConnected": true,
+      "facebookIntegration.pageId": resolvedPageId,
+    })
+      .select("email companyCode aiAutoReplyConfig.enabled")
+      .lean();
+    const pageOwner = await UserModel.findOne({
+      "facebookIntegration.isConnected": true,
+      "facebookIntegration.pageId": resolvedPageId,
+    })
+      .select("email companyCode aiAutoReplyConfig facebookIntegration.pageId facebookIntegration.pageName facebookIntegration.pageAccessToken")
+      .lean();
+    const companyIntegrations = await SocialIntegrationModel.find({
+      platform: "Facebook",
+      username: resolvedPageId,
+      isConnected: true
+    }).lean();
+    let companyIntegration;
+    try {
+      companyIntegration = selectAutoReplyCompanyIntegration(companyIntegrations);
+    } catch (error) {
+      if (!(error instanceof AmbiguousAutoReplyOwnerError)) throw error;
+      return {
+        channel: "facebook", pageId, resolvedPageId,
+        conversationFound: !!conversation,
+        conversationPageId: conversation?.pageId || null,
+        companyCode: null, ownerSource: null, aiEnabled: false,
+        companyIntegrationCount: companyIntegrations.length,
+        companyIntegrationCompanies: companyIntegrations.map((item) => item.companyCode),
+        shouldTriggerAutoReply: false,
+        reasons: ["ambiguous_company_page_mapping"],
+        message: error.message,
+      };
+    }
+    let companyCode = pageOwner?.companyCode || null;
+    let aiEnabled = !!pageOwner?.aiAutoReplyConfig?.enabled;
+    let replyDelay = pageOwner?.aiAutoReplyConfig?.replyDelay ?? null;
+    const model = AI_REPLY_PRIMARY_MODEL;
+    let pageOwnerEmail = pageOwner?.email || null;
+    let ownerSource = pageOwner ? "user" : null;
+
+    if (!pageOwner) {
+      if (companyIntegration) {
+        companyCode = companyIntegration.companyCode;
+        const companyUser = await UserModel.findOne({
+          companyCode,
+          "aiAutoReplyConfig.enabled": true,
+        }).select("email aiAutoReplyConfig").lean()
+          || await UserModel.findOne({ companyCode }).select("email aiAutoReplyConfig").lean();
+        if (companyUser) {
+          pageOwnerEmail = companyUser.email;
+          aiEnabled = !!companyUser.aiAutoReplyConfig?.enabled;
+          replyDelay = companyUser.aiAutoReplyConfig?.replyDelay ?? null;
+          ownerSource = "company";
+        }
+      }
+    }
+
+    const latestMessage = conversation
+      ? await FBMessageModel.findOne({ conversationId: conversation._id }).sort({ timestamp: -1 }).lean()
+      : null;
+    const token = await this.getPageAccessTokenByPageId(pageId, tokenContext);
+    const reasons: string[] = [];
+    if (!conversation) reasons.push("conversation_not_found");
+    if (!pageOwner && !companyIntegration) reasons.push("owner_not_found");
+    if (directOwnerCandidates.length > 1) reasons.push("multiple_user_page_mappings");
+    if (!aiEnabled) reasons.push("ai_disabled");
+    if (!token) reasons.push("missing_page_access_token");
+    if (conversation && !latestMessage) reasons.push("no_messages");
+    if (latestMessage && latestMessage.direction !== "inbound") reasons.push("latest_message_not_inbound");
+    if (latestMessage?.direction === "inbound" && !String(latestMessage.text || "").trim()) reasons.push("latest_inbound_message_empty");
+    const shouldTriggerAutoReply = reasons.length === 0;
+
+    return {
+      channel: "facebook",
+      pageId,
+      resolvedPageId,
+      conversationFound: !!conversation,
+      conversationPageId: conversation?.pageId || null,
+      recipientId: conversation?.recipientId || null,
+      pageOwnerEmail,
+      ownerSource,
+      companyCode,
+      aiEnabled,
+      replyDelay,
+      model,
+      hasPageAccessToken: !!token,
+      pageAccessTokenTail: token ? token.slice(-6) : null,
+      directOwnerCandidateCount: directOwnerCandidates.length,
+      directOwnerCandidates: directOwnerCandidates.map((item: any) => ({
+        email: item.email,
+        companyCode: item.companyCode || null,
+        aiEnabled: !!item.aiAutoReplyConfig?.enabled,
+      })),
+      companyIntegrationCount: companyIntegrations.length,
+      companyIntegrationCompanies: companyIntegrations.map((item: any) => item.companyCode),
+      latestMessageDirection: latestMessage?.direction || null,
+      latestMessageId: latestMessage?.messageId || null,
+      latestMessageText: latestMessage?.text || null,
+      latestMessageAt: latestMessage?.timestamp || null,
+      shouldTriggerAutoReply,
+      reasons,
+    };
+  },
+
+  async diagnosePageConfig(userId: string, resolvedPageId?: string) {
+    const user = await UserModel.findById(userId)
+      .select("email companyCode facebookIntegration")
+      .lean();
+    const normalizedResolvedPageId = normalizeFacebookId(resolvedPageId);
+
+    const companyIntegrations = await SocialIntegrationModel.find({
+      companyCode: user?.companyCode,
+      platform: "Facebook",
+    })
+      .select("displayName username isConnected verifyToken accessToken")
+      .lean();
+
+    const directOwnerCandidates = normalizedResolvedPageId
+      ? await UserModel.find({
+          "facebookIntegration.isConnected": true,
+          "facebookIntegration.pageId": normalizedResolvedPageId,
+        })
+          .select("email companyCode aiAutoReplyConfig.enabled")
+          .lean()
+      : [];
+
+    const crossCompanyIntegrations = normalizedResolvedPageId
+      ? await SocialIntegrationModel.find({
+          platform: "Facebook",
+          username: normalizedResolvedPageId,
+          isConnected: true,
+        })
+          .select("companyCode displayName username createdBy")
+          .lean()
+      : [];
+
+    const conversationsForResolvedPage = normalizedResolvedPageId
+      ? await FBConversationModel.countDocuments({ pageId: normalizedResolvedPageId })
+      : 0;
+
+    const recentConversations = await FBConversationModel.find({})
+      .sort({ lastMessageAt: -1 })
+      .limit(5)
+      .select("pageId recipientId senderName lastMessageAt")
+      .lean();
+
+    const tokenContext: FacebookTokenContext | undefined = normalizedResolvedPageId
+      ? {
+          companyCode: user?.companyCode,
+          userId,
+          source: user?.facebookIntegration?.pageId === normalizedResolvedPageId ? "personal" : "company",
+        }
+      : undefined;
+    const token = normalizedResolvedPageId
+      ? await this.getPageAccessTokenByPageId(normalizedResolvedPageId, tokenContext)
+      : null;
+    let webhookSubscription: any = null;
+    if (normalizedResolvedPageId && token) {
+      try {
+        webhookSubscription = await this.subscribePageWebhooks(normalizedResolvedPageId, token);
+      } catch (err: any) {
+        webhookSubscription = { error: err.message || err };
+      }
+    }
+
+    console.log(`[FB Diagnose Page] user=${user?.email}, company=${user?.companyCode}, resolvedPageId=${resolvedPageId || "none"}, personalPageId=${user?.facebookIntegration?.pageId || "none"}, companyPages=${companyIntegrations.map((item: any) => item.username).join(",") || "none"}, token=${token ? `FOUND(...${token.slice(-6)})` : "NOT_FOUND"}, conversationsForResolvedPage=${conversationsForResolvedPage}, webhookSubscription=${JSON.stringify(webhookSubscription)}`);
+
+    return {
+      userEmail: user?.email || null,
+      companyCode: user?.companyCode || null,
+      personalIntegration: user?.facebookIntegration
+        ? {
+            isConnected: !!user.facebookIntegration.isConnected,
+            pageId: user.facebookIntegration.pageId || null,
+            pageName: user.facebookIntegration.pageName || null,
+            hasToken: !!user.facebookIntegration.pageAccessToken,
+            verifyToken: user.facebookIntegration.verifyToken || null,
+          }
+        : null,
+      companyIntegrations: companyIntegrations.map((item: any) => ({
+        displayName: item.displayName,
+        pageId: item.username || null,
+        isConnected: !!item.isConnected,
+        hasToken: !!item.accessToken,
+        verifyToken: item.verifyToken || null,
+      })),
+      resolvedPageId: normalizedResolvedPageId || null,
+      hasResolvedToken: !!token,
+      resolvedTokenTail: token ? token.slice(-6) : null,
+      webhookSubscription,
+      directOwnerCandidateCount: directOwnerCandidates.length,
+      directOwnerCandidates: directOwnerCandidates.map((item: any) => ({
+        email: item.email,
+        companyCode: item.companyCode || null,
+        aiEnabled: !!item.aiAutoReplyConfig?.enabled,
+      })),
+      crossCompanyIntegrationCount: crossCompanyIntegrations.length,
+      crossCompanyIntegrations: crossCompanyIntegrations.map((item: any) => ({
+        companyCode: item.companyCode,
+        displayName: item.displayName,
+        pageId: item.username || null,
+        createdBy: item.createdBy || null,
+      })),
+      conversationsForResolvedPage,
+      recentConversationPageIds: recentConversations.map((item: any) => ({
+        pageId: item.pageId,
+        recipientId: item.recipientId,
+        senderName: item.senderName,
+        lastMessageAt: item.lastMessageAt,
+      })),
+    };
+  }
+};

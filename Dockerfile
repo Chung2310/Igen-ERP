@@ -29,12 +29,15 @@ RUN yarn build
 FROM node:22-alpine AS runner
 
 # Cài ca-certificates và tzdata (Alpine)
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata ffmpeg chromium nss freetype harfbuzz ttf-freefont
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV FFMPEG_PATH=/usr/bin/ffmpeg
+ENV CHROME_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Copy package files first to leverage Docker build cache for node_modules
 COPY --from=builder /app/package.json /app/yarn.lock ./
@@ -49,6 +52,7 @@ RUN --mount=type=cache,target=/root/.cache/yarn yarn install --production --froz
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/dist-server ./dist-server
 COPY --from=builder /app/server/assets/fonts ./server/assets/fonts
+COPY --from=builder /app/server/modules/marketing-suite/campaign/service/agents/skills ./server/modules/marketing-suite/campaign/service/agents/skills
 
 # Expose Express server port
 EXPOSE 3000

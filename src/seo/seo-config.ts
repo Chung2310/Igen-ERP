@@ -87,6 +87,10 @@ export const DELETION_SEO: SeoMeta = {
 };
 
 export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, SeoMeta> = {
+  "CHIẾN DỊCH NỘI DUNG": { title: "Chiến dịch nội dung", description: "Quản lý chiến dịch nội dung", keywords: "", path: "/chien-dich-noi-dung", robots: "noindex, nofollow" },
+  "OMNI INBOX": { title: "Hộp thư đa kênh", description: "Quản lý hội thoại khách hàng", keywords: "", path: "/omni-inbox", robots: "noindex, nofollow" },
+  "KHO TRI THỨC": { title: "Kho tri thức doanh nghiệp", description: "Quản lý tri thức doanh nghiệp", keywords: "", path: "/kho-tri-thuc", robots: "noindex, nofollow" },
+  "TÍCH HỢP MARKETING": { title: "Tích hợp Marketing", description: "Kết nối tài khoản Marketing", keywords: "", path: "/tich-hop-marketing", robots: "noindex, nofollow" },
   "TỔNG QUAN": {
     title: "Tổng quan nhân sự - iGen ERP",
     description:
@@ -223,9 +227,9 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
   "QUẢN TRỊ USER": {
     title: "Quản trị người dùng - Phân quyền và cấu hình tài khoản",
     description:
-      "Quản lý tài khoản người dùng, phân quyền truy cập hệ thống, cấu hình HeyGen  và quản trị thông tin doanh nghiệp tập trung.",
+      "Quản lý tài khoản người dùng, phân quyền truy cập hệ thống, quản trị thông tin doanh nghiệp tập trung.",
     keywords:
-      "quản trị user, phân quyền người dùng, quản trị tài khoản, admin ERP, heygen user, cấu hình phân quyền",
+      "quản trị user, phân quyền người dùng, quản trị tài khoản, admin ERP, cấu hình phân quyền",
     path: "/quan-tri-user",
     robots: "noindex, nofollow",
     priority: "0.2",

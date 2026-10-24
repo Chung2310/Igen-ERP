@@ -22,6 +22,22 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  marketing-worker:
+    image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG:-latest}
+    profiles: ["marketing"]
+    restart: unless-stopped
+    command: ["node", "dist-server/marketing-worker.cjs"]
+    env_file: [.env]
+    environment:
+      MARKETING_WORKERS_ENABLED: "true"
+      MARKETING_WORKER_ROLE: ${MARKETING_WORKER_ROLE:-all}
+    networks: [default_network]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 networks:
   default_network:
     external: true

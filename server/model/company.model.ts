@@ -1,6 +1,7 @@
 import { Schema, model } from "mongoose";
 import { ICompany } from "../interface/company.interface";
 import { DEFAULT_MODULE_KEYS, MODULE_KEYS } from "../config/module-keys";
+import { addMarketingCompanyFields } from "../modules/marketing-suite/shared/model/company-integration.schema";
 
 const CompanyDriveOAuthSchema = new Schema(
   {
@@ -81,4 +82,5 @@ const CompanySchema = new Schema<ICompany>({
   deletionReason: { type: String, default: "" },
 });
 
+addMarketingCompanyFields(CompanySchema);
 export const CompanyModel = model<ICompany>("Company", CompanySchema);
