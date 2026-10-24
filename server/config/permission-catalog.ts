@@ -64,6 +64,9 @@ export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
 
 PERMISSION_FEATURES.push(feature("repair", "Sửa chữa & bảo hành", "Sửa chữa"));
 PERMISSION_FEATURES.push(feature("marketing", "Marketing tự động", "Marketing"));
+PERMISSION_FEATURES.push(feature("omni-inbox", "Hộp thư đa kênh", "Marketing"));
+PERMISSION_FEATURES.push(feature("company-knowledge", "Kho tri thức doanh nghiệp", "Marketing"));
+PERMISSION_FEATURES.push(feature("social-integration", "Tích hợp mạng xã hội", "Marketing"));
 
 export const PERMISSION_CATALOG: PermissionCatalogEntry[] = PERMISSION_FEATURES.flatMap((entry) => (
   (["read", "manage"] as const).map((action) => ({

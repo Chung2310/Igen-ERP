@@ -2,6 +2,7 @@ import { Server as SocketIOServer, Socket } from "socket.io";
 import { Server as HTTPServer } from "http";
 import jwt from "jsonwebtoken";
 import { createAdapter } from "@socket.io/redis-adapter";
+import { attachMessengerScopes } from "./modules/marketing-suite/message/socket-scopes";
 import Redis from "ioredis";
 import { redisHost } from "./config/redis-host";
 import { UserModel } from "./model/user.model";
@@ -211,6 +212,7 @@ export async function initSocketServer(httpServer: HTTPServer) {
   });
 
   io.on("connection", (socket: Socket) => {
+    attachMessengerScopes(socket);
     const user = socket.data.user;
 
     socket.use(async (packet, next) => {
@@ -443,6 +445,11 @@ export function disconnectUserSockets(userId: string) {
 
 export function disconnectCompanySockets(companyCode: string) {
   io?.in(`company:${companyCode}`).disconnectSockets(true);
+}
+
+/** Internal emitter: callers must authorize account rooms before joining them. */
+export function emitToMarketingRoom(room: string, eventName: string, data: unknown) {
+  if (room.startsWith("marketing:messenger:")) io?.to(room).emit(eventName, data);
 }
 
 let mockHealthyForTesting = false;

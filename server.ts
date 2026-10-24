@@ -2,6 +2,7 @@ import "./server/config/timezone"; // PHẢI đứng đầu — cố định TZ 
 import "dotenv/config";
 import { assertSecurityEnv } from "./server/config/env";
 import express from "express";
+import { startMarketingEventRelay } from "./server/modules/marketing-suite/shared/event-relay";
 import helmet from "helmet";
 import path from "path";
 import fs from "fs";
@@ -394,6 +395,7 @@ async function startServer() {
   // Tạo HTTP Server bọc Express để hỗ trợ cả HTTP & Socket.IO
   const httpServer = createServer(app);
   await initSocketServer(httpServer);
+  void startMarketingEventRelay().catch((error: unknown) => console.warn("[Marketing events] Subscriber unavailable", error instanceof Error ? error.message : "unknown"));
 
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Express and Socket.IO server running on http://localhost:${PORT}`);

@@ -48,6 +48,13 @@ export interface IZaloIntegration {
 }
 
 export interface IAiAutoReplyConfig {
+  imageReplyEnabled?: boolean;
+  customerAddressStyle?: string;
+  customerServiceScript?: string;
+  customerServiceScriptFileName?: string;
+  autoFollowUpEnabled?: boolean;
+  followUpDelayHours?: number;
+  followUpPrompt?: string;
   enabled: boolean;
   commentReplyEnabled?: boolean;
   autoClassify: boolean;
@@ -60,12 +67,6 @@ export interface IAiAutoReplyConfig {
   disabledAt?: string | null;
 }
 
-export interface IHeyGenAccessConfig {
-  avatarIds?: string[];
-  avatarId?: string;
-  voiceId?: string;
-  apiKey?: string;
-}
 
 export interface IGoogleDriveIntegration {
   isConnected: boolean;
@@ -90,6 +91,8 @@ export interface IWorkHoursConfig {
 }
 
 export interface IUser extends Document {
+  elevenlabsAccess?: { apiKey?: string } | null;
+  canvaIntegration?: import("../modules/marketing-suite/shared/interface/user.interface").ICanvaIntegration | null;
   workHoursConfig?: IWorkHoursConfig;
   employmentStatus?: "official" | "probation" | "internship";
   officialDate?: Date;
@@ -106,7 +109,6 @@ export interface IUser extends Document {
   zaloIntegration?: IZaloIntegration | null;
   googleDriveIntegration?: IGoogleDriveIntegration | null;
   aiAutoReplyConfig?: IAiAutoReplyConfig | null;
-  heygenAccess?: IHeyGenAccessConfig | null;
 
   // Org Chart & SaaS fields
   jobTitle?: string;

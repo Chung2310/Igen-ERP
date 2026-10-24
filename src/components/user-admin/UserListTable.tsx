@@ -1,4 +1,4 @@
-import { Activity, Info, MoreVertical, Pencil, Shield, Trash2 } from "lucide-react";
+import { Activity, MoreVertical, Pencil, Shield, Trash2 } from "lucide-react";
 import { UserTableProps } from "./types";
 import { getRoleDisplayName } from "../../utils/permissionUtils";
 
@@ -28,7 +28,6 @@ export function UserListTable({
               {currentUser?.role === "superadmin" && <th className="p-4">Doanh nghiệp</th>}
               <th className="p-4">Ngày đăng ký</th>
               <th className="p-4">Vai trò</th>
-              <th className="p-4">HeyGen</th>
               <th className="p-4 pr-6 text-center">Hành động</th>
             </tr>
           </thead>
@@ -87,23 +86,6 @@ export function UserListTable({
                       <Shield className="h-3 w-3" />
                       {getRoleDisplayName(usr.role, rolePermissionsList.find((rp) => rp.role === usr.role)?.displayName)}
                     </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center rounded-md bg-cyan-50 px-2 py-0.5 text-xs font-medium text-cyan-800">
-                          Theo công ty
-                        </span>
-                        <div className="group relative flex cursor-help items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 h-4 w-4">
-                          <Info className="h-3 w-3" aria-label="Thông tin HeyGen" />
-                          <div className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-52 -translate-x-1/2 scale-95 rounded-lg bg-slate-900 p-2.5 text-[10px] font-normal leading-relaxed text-white opacity-0 shadow-xl transition-all duration-150 group-hover:pointer-events-auto group-hover:scale-100 group-hover:opacity-100">
-                            Avatar và voice được lấy từ account HeyGen của doanh nghiệp.
-                            <div className="absolute top-full left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1 bg-slate-900 rotate-45" />
-                          </div>
-                        </div>
-                      </div>
-                      <span className="font-mono text-[9px] text-slate-400">Mã: {usr.companyCode || "SYSTEM"}</span>
-                    </div>
                   </td>
                   <td className="p-4 pr-6">
                     <div className="flex items-center justify-end gap-3">

@@ -14,6 +14,7 @@ services:
     volumes:
       - .env:/app/.env
       - ./logs:/app/logs
+      - ai_settlement_journal:/app/server/cache/ai-settlements
     networks:
       - default_network
     dns:
@@ -24,6 +25,27 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  marketing-worker:
+    image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG:-latest}
+    profiles: ["marketing"]
+    restart: unless-stopped
+    command: ["node", "dist-server/marketing-worker.cjs"]
+    env_file: [.env]
+    volumes:
+      - ai_settlement_journal:/app/server/cache/ai-settlements
+    environment:
+      MARKETING_WORKERS_ENABLED: "true"
+      MARKETING_WORKER_ROLE: ${MARKETING_WORKER_ROLE:-all}
+    networks: [default_network]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ai_settlement_journal:
 
 networks:
   default_network:

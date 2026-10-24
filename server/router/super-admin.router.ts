@@ -6,6 +6,7 @@ import { superAdminAuthService } from "../service/super-admin-auth.service";
 import { createTenantRouter } from "./super-admin-tenant.router";
 import { superAdminUserAccessRouter } from "./super-admin-user-access.router";
 import { createActivityMonitorRouter } from "./super-admin-activity.router";
+import { superAdminAiSubscriptionRouter } from "./super-admin-ai-subscription.router";
 import { superAdminController } from "../controller/super-admin.controller";
 import { superAdminAccountService } from "../service/super-admin-account.service";
 import { validateRequest } from "../middleware/validation";
@@ -91,6 +92,7 @@ superAdminRouter.post("/admins", validateRequest(createSuperAdminSchema), async 
 });
 superAdminRouter.use(createTenantRouter());
 superAdminRouter.use(createActivityMonitorRouter());
+superAdminRouter.use(superAdminAiSubscriptionRouter);
 superAdminRouter.use("/", superAdminUserAccessRouter);
 superAdminRouter.get("/auth/sessions", async (req: any, res) => res.json({ sessions: await superAdminAuthService.listSessions(req.user.id) }));
 

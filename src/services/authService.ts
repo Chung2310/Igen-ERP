@@ -367,12 +367,7 @@ export const authService = {
     department?: string,
     division?: string,
     phone?: string,
-    heygenAccess?: {
-      avatarIds?: string[];
-      avatarId?: string;
-      voiceId?: string;
-      apiKey?: string;
-    },
+    _legacyMediaAccess?: unknown,
     jobDescriptionLink?: string,
     branchId?: string,
     birthDate?: string,
@@ -398,7 +393,6 @@ export const authService = {
         department,
         division,
         phone,
-        heygenAccess,
         jobDescriptionLink,
         branchId,
         birthDate,

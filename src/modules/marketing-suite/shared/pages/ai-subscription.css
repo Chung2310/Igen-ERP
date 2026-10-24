@@ -1,0 +1,197 @@
+/* Follow ERP theme tokens, which already adapt to the global dark theme. */
+.ai-subscription-page {
+  --ai-panel: var(--color-white);
+  --ai-border: var(--color-slate-200);
+  --ai-text: var(--color-slate-900);
+  --ai-muted: var(--color-slate-600);
+  --ai-accent: var(--color-blue-600);
+  --ai-accent-soft: var(--color-blue-50);
+  --ai-accent-border: var(--color-blue-100);
+  color: var(--ai-text);
+}
+
+.ai-subscription-page .ai-subscription-panel {
+  border: 1px solid var(--ai-border);
+  border-radius: 1rem;
+  background: var(--ai-panel);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 4%);
+}
+
+.ai-subscription-page .ai-subscription-muted {
+  color: var(--ai-muted);
+}
+
+.ai-subscription-page .ai-subscription-accent {
+  color: var(--ai-accent);
+}
+
+.ai-subscription-page .ai-subscription-icon {
+  background: var(--ai-accent-soft);
+  color: var(--ai-accent);
+}
+
+.ai-subscription-page .ai-subscription-refresh {
+  border: 1px solid var(--ai-border);
+  background: var(--ai-panel);
+  color: var(--color-slate-700);
+}
+
+.ai-subscription-page .ai-subscription-badge {
+  background: var(--ai-accent-soft);
+  color: var(--color-slate-700);
+}
+
+.ai-subscription-page .ai-subscription-refresh:hover:not(:disabled) {
+  background: var(--ai-accent-soft);
+}
+
+.ai-subscription-page .ai-subscription-refresh:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.ai-subscription-page .ai-subscription-panel-footer {
+  border-top: 1px solid var(--ai-border);
+}
+
+.ai-subscription-page .ai-subscription-inset {
+  background: var(--color-slate-50);
+}
+
+.ai-subscription-page .ai-subscription-notice,
+.ai-subscription-page .ai-subscription-badge-warning {
+  border-color: var(--color-amber-100);
+  background: var(--color-amber-50);
+  color: var(--color-amber-800);
+}
+
+.ai-subscription-page .ai-subscription-meter,
+.ai-subscription-page .ai-subscription-skeleton {
+  background: var(--color-slate-100);
+}
+
+.ai-subscription-page .ai-subscription-meter-remaining {
+  background: var(--color-primary);
+}
+
+.ai-subscription-page .ai-subscription-remaining-percent {
+  background: var(--ai-panel);
+  color: var(--color-slate-700);
+}
+
+.ai-subscription-page .ai-subscription-company,
+.ai-subscription-page .ai-plan-code,
+.ai-subscription-page .ai-plan-filters {
+  background: var(--color-slate-100);
+  color: var(--ai-muted);
+}
+
+.ai-subscription-page .ai-subscription-balance {
+  background: var(--ai-accent-soft);
+}
+
+.ai-subscription-page .ai-subscription-secondary {
+  color: var(--color-slate-700);
+}
+
+.ai-subscription-page .ai-subscription-view-switch {
+  border-color: var(--ai-border);
+}
+
+.ai-subscription-page .ai-subscription-view {
+  color: var(--ai-muted);
+}
+
+.ai-subscription-page .ai-subscription-view:hover,
+.ai-subscription-page .ai-subscription-view-active {
+  background: var(--ai-accent-soft);
+  color: var(--ai-text);
+}
+
+.ai-subscription-page .ai-subscription-view-active {
+  box-shadow: inset 0 0 0 1px var(--ai-accent-border);
+}
+
+.ai-subscription-page .ai-subscription-upgrade-link {
+  color: var(--color-slate-700);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.ai-subscription-page .ai-subscription-summary-stats,
+.ai-subscription-page .ai-plan-empty {
+  border-color: var(--ai-border);
+}
+
+.ai-subscription-page .ai-subscription-help summary::-webkit-details-marker {
+  display: none;
+}
+
+.ai-subscription-page .ai-subscription-help[open] .ai-subscription-help-chevron {
+  transform: rotate(180deg);
+}
+
+.ai-subscription-page .ai-plan-duration {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ai-muted);
+}
+
+.ai-subscription-page .ai-plan-duration:hover {
+  color: var(--ai-text);
+}
+
+.ai-subscription-page .ai-plan-duration-active {
+  border-color: var(--ai-border);
+  background: var(--ai-panel);
+  color: var(--ai-text);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 6%);
+}
+
+.ai-subscription-page .ai-plan-card {
+  border-radius: 1.25rem;
+}
+
+.ai-subscription-page .ai-plan-card-current,
+.ai-subscription-page .ai-plan-selection {
+  border-color: var(--ai-accent-border);
+}
+
+.ai-subscription-page .ai-plan-card-selected {
+  border-color: var(--ai-accent);
+  box-shadow: 0 0 0 1px var(--ai-accent);
+}
+
+.ai-subscription-page .ai-plan-quota {
+  border-color: var(--ai-border);
+}
+
+.ai-subscription-page .ai-plan-action {
+  background: var(--color-blue-700);
+  color: #fff;
+}
+
+.ai-subscription-page .ai-plan-action:hover {
+  filter: brightness(0.94);
+}
+
+.ai-subscription-page .ai-plan-action:focus-visible,
+.ai-subscription-page .ai-plan-duration:focus-visible,
+.ai-subscription-page .ai-subscription-view:focus-visible,
+.ai-subscription-page .ai-subscription-upgrade-link:focus-visible,
+.ai-subscription-page .ai-subscription-help summary:focus-visible {
+  outline: 2px solid var(--ai-accent);
+  outline-offset: 3px;
+}
+
+@media (min-width: 640px) {
+  .ai-subscription-page .ai-subscription-stat + .ai-subscription-stat {
+    border-left: 1px solid var(--ai-border);
+  }
+}
+
+@media (max-width: 639px) {
+  .ai-subscription-page .ai-subscription-stat + .ai-subscription-stat {
+    border-top: 1px solid var(--ai-border);
+  }
+}

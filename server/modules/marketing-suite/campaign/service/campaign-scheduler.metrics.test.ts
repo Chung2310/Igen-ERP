@@ -1,0 +1,20 @@
+import { expect, it, vi } from "vitest";
+import { syncCampaignMetricsIfDue } from "./campaign-scheduler.service";
+const sync = vi.hoisted(() => vi.fn());
+vi.mock("../../shared/service/metrics-sync.service", () => ({ MetricsSyncService: { syncFacebookMetrics: sync } }));
+vi.mock("../model/marketing-campaign.model.ts", () => ({ MarketingCampaignModel: {} }));
+vi.mock("../model/marketing-campaign-slot.model.ts", () => ({ MarketingCampaignSlotModel: {} }));
+vi.mock("../queue/campaign-queue", () => ({ campaignQueueService: {} }));
+vi.mock("./campaign-recovery.service", () => ({ recoverCampaignSlots: vi.fn() }));
+it("runs metrics independently at most every 15 minutes with no overlapping sync", async () => {
+  let complete!: () => void;
+  sync.mockImplementationOnce(() => new Promise<void>(resolve => { complete = resolve; })).mockResolvedValue({});
+  const first = syncCampaignMetricsIfDue(1_000_000);
+  await syncCampaignMetricsIfDue(2_000_000);
+  expect(sync).toHaveBeenCalledTimes(1);
+  complete(); await first;
+  await syncCampaignMetricsIfDue(1_000_001);
+  expect(sync).toHaveBeenCalledTimes(1);
+  await syncCampaignMetricsIfDue(2_000_000);
+  expect(sync).toHaveBeenCalledTimes(2);
+});

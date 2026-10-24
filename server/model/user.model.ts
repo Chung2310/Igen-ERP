@@ -64,6 +64,13 @@ const GoogleDriveIntegrationSchema = new Schema(
 
 export const AiAutoReplyConfigSchema = new Schema(
   {
+    imageReplyEnabled: { type: Boolean, default: false },
+    customerAddressStyle: { type: String, default: "" },
+    customerServiceScript: { type: String, default: "" },
+    customerServiceScriptFileName: { type: String, default: "" },
+    autoFollowUpEnabled: { type: Boolean, default: false },
+    followUpDelayHours: { type: Number, default: 2 },
+    followUpPrompt: { type: String, default: "" },
     enabled: { type: Boolean, default: false },
     commentReplyEnabled: { type: Boolean, default: false },
     autoClassify: { type: Boolean, default: true },
@@ -78,15 +85,6 @@ export const AiAutoReplyConfigSchema = new Schema(
   { _id: false }
 );
 
-const HeyGenAccessSchema = new Schema(
-  {
-    avatarIds: { type: [String], default: [] },
-    avatarId: { type: String, default: "" },
-    voiceId: { type: String, default: "" },
-    apiKey: { type: String, default: "" },
-  },
-  { _id: false }
-);
 
 const WorkHoursConfigSchema = new Schema(
   {
@@ -112,10 +110,16 @@ const SuperAdminSecuritySchema = new Schema({
 
 function removeSuperAdminSecrets(_doc: unknown, ret: Record<string, any>) {
   if (ret.superAdminSecurity) { delete ret.superAdminSecurity.totpSecretEncrypted; delete ret.superAdminSecurity.recoveryCodeHashes; }
+  if (ret.elevenlabsAccess) delete ret.elevenlabsAccess.apiKey;
+  if (ret.canvaIntegration) {
+    for (const field of ["accessToken", "refreshToken", "oauthState", "oauthStateExpiresAt", "oauthCodeVerifier"]) delete ret.canvaIntegration[field];
+  }
   return ret;
 }
 
 const UserSchema = new Schema<IUser>({
+  elevenlabsAccess: { type: new Schema({ apiKey: { type: String, default: "", select: false } }, { _id: false }), default: () => ({}) },
+  canvaIntegration: { type: new Schema({ connected: { type: Boolean, default: false }, accessToken: { type: String, select: false }, refreshToken: { type: String, select: false }, tokenExpiresAt: Date, connectedAt: Date, oauthState: { type: String, select: false }, oauthStateExpiresAt: { type: Date, select: false }, oauthCodeVerifier: { type: String, select: false } }, { _id: false }), default: null },
   email: { type: String, required: true, unique: true, index: true, lowercase: true },
   password: { type: String },
   displayName: { type: String, required: true },
@@ -128,7 +132,6 @@ const UserSchema = new Schema<IUser>({
   zaloIntegration: { type: ZaloIntegrationSchema, default: null },
   googleDriveIntegration: { type: GoogleDriveIntegrationSchema, default: null },
   aiAutoReplyConfig: { type: AiAutoReplyConfigSchema, default: () => ({}) },
-  heygenAccess: { type: HeyGenAccessSchema, default: () => ({}) },
   jobTitle: { type: String },
   qualification: { type: String, default: "", trim: true },
   department: { type: String },

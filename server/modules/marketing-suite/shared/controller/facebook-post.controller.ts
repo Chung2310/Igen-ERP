@@ -1,0 +1,764 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+import { Request, Response } from "express";
+import { facebookPostService } from "../service/facebook-post.service.ts";
+import { fbMessengerService } from "../../message/service/fb-messenger.service.ts";
+import { SocialIntegrationModel } from "../model/social-integration.model.ts";
+import { UserDataDeletionModel } from "../model/user-data-deletion.model.ts";
+import { assertMarketingAccountOwnership } from "../account-ownership";
+import { MarketingContentModel } from "../../campaign/model/marketing-content.model.ts";
+import { UserModel } from "../../../../model/user.model.ts";
+import crypto from "crypto";
+import { recordFacebookPublication } from "../../campaign/service/facebook-publication.service";
+
+function base64UrlDecode(str: string) {
+  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (base64.length % 4) {
+    base64 += "=";
+  }
+  return Buffer.from(base64, "base64");
+}
+
+function parseSignedRequest(signedRequest: string, appSecret: string) {
+  const parts = signedRequest.split(".");
+  if (parts.length !== 2) {
+    throw new Error("Invalid signed request format.");
+  }
+  const encodedSig = parts[0];
+  const payload = parts[1];
+
+  const sig = base64UrlDecode(encodedSig);
+  const payloadStr = base64UrlDecode(payload).toString("utf-8");
+  const data = JSON.parse(payloadStr);
+
+  if (!data.algorithm || data.algorithm.toUpperCase() !== "HMAC-SHA256") {
+    throw new Error("Unknown algorithm. Expected HMAC-SHA256");
+  }
+
+  const expectedSig = crypto
+    .createHmac("sha256", appSecret)
+    .update(payload)
+    .digest();
+
+  if (!crypto.timingSafeEqual(sig, expectedSig)) {
+    throw new Error("Invalid signature.");
+  }
+
+  return data;
+}
+
+function buildFacebookPostUrl(postId?: string) {
+  const normalizedPostId = String(postId || "").trim();
+  if (!normalizedPostId) {
+    return "";
+  }
+
+  if (normalizedPostId.includes("_")) {
+    const [pageId, storyFbid] = normalizedPostId.split("_");
+    if (pageId && storyFbid) {
+      return `https://www.facebook.com/permalink.php?story_fbid=${encodeURIComponent(storyFbid)}&id=${encodeURIComponent(pageId)}`;
+    }
+  }
+
+  return `https://www.facebook.com/${encodeURIComponent(normalizedPostId)}`;
+}
+
+export const facebookPostController = {
+  /**
+   * POST /api/v1/facebook/publish
+   */
+  async publish(req: Request, res: Response) {
+    try {
+      const { content, imageUrl, videoUrl, pageId, accessToken, cardId, title } = req.body;
+      const companyCode = (req as any).user?.companyCode;
+      const card = companyCode && cardId
+        ? await MarketingContentModel.findOne({ _id: cardId, companyCode }).lean() : null;
+      if (!card) return res.status(403).json({ status: "error", message: "Bạn không có quyền truy cập bài đăng này." });
+      if (card.campaignSlotId) {
+        const { marketingCampaignService } = await import("../../campaign/service/marketing-campaign.service");
+        const publication = await marketingCampaignService.publishFacebookContent(companyCode, String(card._id), String((req as any).user?.id || ""), pageId);
+        return res.status(200).json({ status: "success", data: { id: publication.postId, postUrl: publication.postUrl }, publication });
+      }
+      if (card.status === "published") {
+        return res.json({ status: "success", data: { id: card.facebookPostId, postUrl: card.postUrl }, publication: { status: "published", postId: card.facebookPostId, postUrl: card.postUrl } });
+      }
+      await MarketingContentModel.updateOne({ _id: card._id, companyCode, status: "failed" }, { $set: { status: "processing" }, $unset: { publishError: 1 } });
+      let result: Awaited<ReturnType<typeof facebookPostService.publishToPage>>;
+      try {
+        result = await facebookPostService.publishToPage(
+          content, imageUrl, videoUrl, pageId, accessToken, cardId, "immediate", undefined, title || card.title,
+          undefined, undefined, card.status === "failed"
+        );
+      } catch (error) {
+        const current = await recordFacebookPublication(cardId, {
+          status: "failed",
+          error: error instanceof Error ? error.message : "Không thể gửi yêu cầu đăng Facebook qua n8n.",
+        }, companyCode);
+        if (current?.status === "published") {
+          return res.json({ status: "success", data: { id: current.facebookPostId, postUrl: current.postUrl }, publication: { status: "published", postId: current.facebookPostId, postUrl: current.postUrl } });
+        }
+        throw error;
+      }
+      const data = result.data?.data ?? result.data ?? {};
+      const postId = String(data.id || data.post_id || "").trim();
+      const providerStatus = String(data.status || "").toLowerCase();
+      const publication = await recordFacebookPublication(cardId, {
+        status: ["failed", "error"].includes(providerStatus) ? "failed"
+          : postId && !["processing", "pending", "queued", "publishing"].includes(providerStatus) ? "published" : "processing",
+        postId: postId || undefined,
+        postUrl: data.postUrl || data.permalink_url || (postId ? buildFacebookPostUrl(postId) : undefined),
+        error: data.error || data.message,
+      }, companyCode);
+      return res.status(200).json({ ...result, publication: publication ? { status: publication.status, postId: publication.facebookPostId, postUrl: publication.postUrl, error: publication.publishError } : undefined });
+    } catch (error: any) {
+      console.error("[facebookPostController.publish] Error:", error);
+      return res.status(error.statusCode || 500).json({ status: "error", message: "Lỗi kết nối hoặc xử lý đăng bài lên Facebook qua n8n", details: error.message });
+    }
+  },
+
+  /**
+   * POST /api/v1/facebook/validate-token
+   */
+  async validateToken(req: Request, res: Response) {
+    try {
+      const { pageId, accessToken } = req.body;
+      const result = await facebookPostService.validateToken(pageId, accessToken);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[facebookPostController.validateToken] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi kết nối hoặc xử lý xác thực token liên kết Facebook qua n8n",
+        details: error.message,
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/facebook/login-credentials
+   */
+  async loginWithCredentials(req: Request, res: Response) {
+    try {
+      const { email, password, pageId } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({
+          status: "error",
+          message: "Vui lòng nhập đầy đủ tài khoản và mật khẩu Facebook."
+        });
+      }
+      const result = await facebookPostService.loginWithCredentials(email, password, pageId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[facebookPostController.loginWithCredentials] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: error.message || "Gặp lỗi khi xử lý đăng nhập bằng tài khoản Facebook.",
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/facebook/init-oauth
+   * Lưu App ID + App Secret vào DB cho công ty này,
+   * trả về integrationId để dùng làm state trong OAuth URL.
+   * Kiến trúc multi-tenant: mỗi công ty có App riêng.
+   */
+  async initOAuth(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const { fbAppId, appSecret, displayName } = req.body;
+
+      if (!fbAppId || !appSecret) {
+        return res.status(400).json({
+          status: "error",
+          message: "Vui lòng nhập đầy đủ App ID và App Secret từ Meta Developer."
+        });
+      }
+
+      const companyCode = user?.companyCode;
+      if (!companyCode) {
+        return res.status(401).json({ status: "error", message: "Không xác định được công ty." });
+      }
+
+      // Tìm hoặc tạo mới bản ghi "pending" để lưu App credentials
+      // Sau khi OAuth xong, page token sẽ được cập nhật vào cùng bản ghi này
+      let integration = await SocialIntegrationModel.findOne({
+        companyCode,
+        platform: "Facebook",
+        fbAppId,
+        username: { $exists: false }, // chưa có page token
+      });
+
+      if (!integration) {
+        integration = await SocialIntegrationModel.create({
+          companyCode,
+          platform: "Facebook",
+          displayName: displayName || `Facebook App (${fbAppId})`,
+          fbAppId,
+          appSecret,
+          isConnected: false,
+          createdBy: user?.email || "system",
+          isMock: false,
+        });
+      } else {
+        // Cập nhật secret nếu đã có bản ghi cũ
+        integration.appSecret = appSecret;
+        integration.fbAppId = fbAppId;
+        if (displayName) integration.displayName = displayName;
+        await integration.save();
+      }
+
+      return res.status(200).json({
+        status: "success",
+        integrationId: integration._id.toString(),
+        fbAppId,
+      });
+    } catch (error: any) {
+      console.error("[facebookPostController.initOAuth] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: error.message || "Lỗi khi khởi tạo OAuth session.",
+      });
+    }
+  },
+
+  /**
+   * GET /api/v1/facebook/oauth-callback
+   * Facebook redirect về đây sau khi user đăng nhập.
+   * state = integrationId để biết dùng App credentials nào từ DB.
+   */
+  async oauthCallback(req: Request, res: Response) {
+    const sendErrorHtml = (message: string) => {
+      return res.status(500).send(`
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head><meta charset="UTF-8"/><title>Facebook Login Error</title>
+        <style>
+          body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #fee2e2; }
+          .box { background: white; border-radius: 12px; padding: 30px; max-width: 400px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+          h2 { color: #dc2626; margin-bottom: 12px; }
+          p { color: #6b7280; font-size: 13px; line-height: 1.5; }
+        </style>
+        </head>
+        <body>
+          <div class="box">
+            <h2>❌ Lỗi kết nối Facebook</h2>
+            <p>${message}</p>
+          </div>
+          <script>
+            localStorage.setItem('fb_oauth_result', JSON.stringify({ type: 'FACEBOOK_OAUTH_FAILED', error: ${JSON.stringify(message)} }));
+            if (window.opener) {
+              window.opener.postMessage({ type: 'FACEBOOK_OAUTH_FAILED', error: ${JSON.stringify(message)} }, '*');
+            }
+            setTimeout(() => window.close(), 5000);
+          </script>
+        </body>
+        </html>
+      `);
+    };
+
+    try {
+      const { code, error, error_description, state } = req.query;
+
+      if (error) {
+        return sendErrorHtml(String(error_description || error));
+      }
+
+      if (!code) {
+        return sendErrorHtml("Không tìm thấy mã authorization code từ Facebook.");
+      }
+
+      // Lấy App credentials từ DB theo integrationId (state) hoặc từ state JSON
+      let appId: string;
+      let appSecret: string;
+      let integrationId: string | null = null;
+      let companyCode = "default";
+      let createdBy = "system";
+
+      if (state) {
+        try {
+          const parsedState = JSON.parse(decodeURIComponent(String(state)));
+          if (parsedState && typeof parsedState === "object") {
+            // Normalize: "default" là fallback của superadmin (không có companyCode trong JWT)
+            // CRUD service dùng "SYSTEM" cho superadmin → phải khớp
+            const rawCompanyCode = parsedState.companyCode || "SYSTEM";
+            companyCode = (rawCompanyCode === "default") ? "SYSTEM" : rawCompanyCode;
+            createdBy = parsedState.createdBy || "system";
+            if (parsedState.integrationId && parsedState.integrationId.length === 24) {
+              integrationId = parsedState.integrationId;
+            }
+          }
+        } catch (e) {
+          // Fallback: nếu state không phải JSON, kiểm tra xem có phải integrationId 24 ký tự
+          if (String(state).length === 24) {
+            integrationId = String(state);
+          }
+        }
+      }
+
+      if (integrationId) {
+        const integration = await SocialIntegrationModel.findById(integrationId);
+        if (!integration || !integration.fbAppId || !integration.appSecret) {
+          return sendErrorHtml("Không tìm thấy thông tin App Facebook trong hệ thống. Vui lòng thử lại.");
+        }
+        appId = integration.fbAppId;
+        appSecret = integration.appSecret;
+        companyCode = integration.companyCode || companyCode;
+        console.log(`[FB OAuth] Dùng App ID từ DB: ${appId} (integration: ${integrationId})`);
+      } else {
+        // Fallback: dùng .env nếu không có state hoặc không tìm thấy trong DB (backward compatibility)
+        appId = process.env.FB_APP_ID || "";
+        appSecret = process.env.FB_APP_SECRET || "";
+
+        if (!appId || !appSecret) {
+          return sendErrorHtml("App Facebook chưa được cấu hình. Vui lòng nhập App ID và App Secret.");
+        }
+        console.log(`[FB OAuth] Fallback dùng App ID từ .env: ${appId}`);
+      }
+
+      // Build redirect URI
+      const host = req.get("host") || "";
+      const isLocal = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("192.168.");
+      const protocol = isLocal ? req.protocol : "https";
+      const redirectUri = `${protocol}://${host}/api/v1/facebook/oauth-callback`;
+
+      // Đổi code lấy danh sách pages
+      const pages = await facebookPostService.exchangeCodeForPagesWithCreds(
+        String(code),
+        redirectUri,
+        appId,
+        appSecret
+      );
+
+      if (!pages || pages.length === 0) {
+        return res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="UTF-8"/><title>Lỗi kết nối Facebook</title></head>
+          <body>
+            <script>
+              alert("Tài khoản Facebook của bạn chưa quản lý Fanpage nào hoặc chưa cấp quyền cho ứng dụng.");
+              if (window.opener) {
+                window.opener.postMessage({ type: 'FACEBOOK_OAUTH_FAILED', error: "Không tìm thấy Fanpage nào." }, '*');
+              }
+              window.close();
+            </script>
+          </body>
+          </html>
+        `);
+      }
+
+      // Tự động lưu các pages vào DB ngay tại backend (đảm bảo đồng bộ 100% không phụ thuộc trình duyệt)
+      let successCount = 0;
+      const savedPages: typeof pages = [];
+      if (companyCode) {
+        console.log(`[FB OAuth Callback] Bắt đầu tự động lưu ${pages.length} Pages vào DB cho company: ${companyCode}...`);
+        for (const page of pages) {
+          if (!page.id || !page.access_token || !page.facebookUserId) continue;
+          try {
+            await assertMarketingAccountOwnership(companyCode, "Facebook", page.id);
+            await SocialIntegrationModel.findOneAndUpdate(
+              { companyCode, platform: "Facebook", username: page.id },
+              {
+                $set: {
+                  displayName: page.name || `Fanpage ${page.id}`,
+                  accessToken: page.access_token,
+                  isConnected: true,
+                  createdBy: createdBy,
+                  appSecret: appSecret,
+                  fbAppId: appId,
+                  facebookUserId: page.facebookUserId,
+                  isMock: false,
+                  connectedAt: new Date()
+                }
+              },
+              { upsert: true, new: true }
+            );
+            try {
+              await fbMessengerService.subscribePageWebhooks(page.id, page.access_token);
+            } catch (webhookError: any) {
+              console.warn(`[FB OAuth Callback] Không thể đăng ký webhook cho Page ${page.id}:`, webhookError.message || webhookError);
+            }
+            successCount++;
+            savedPages.push({ ...page, access_token: "" });
+          } catch (dbErr: any) {
+            console.error(`[FB OAuth Callback] Lỗi ghi DB cho page ID ${page.id}:`, dbErr.message || dbErr);
+          }
+        }
+        console.log(`[FB OAuth Callback] Đã lưu thành công ${successCount}/${pages.length} Pages vào DB.`);
+      } else {
+        console.warn(`[FB OAuth Callback] Bỏ qua lưu tự động do không xác định được companyCode.`);
+      }
+
+      if (successCount === 0) {
+        return sendErrorHtml("Không thể lưu Fanpage vào hệ thống. Vui lòng thử lại.");
+      }
+
+      // Trả về giao diện đồng bộ tự động và thông báo thành công
+      return res.send(`
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Kết nối Facebook thành công</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              background-color: #f0f2f5;
+              margin: 0;
+            }
+            .box {
+              text-align: center;
+              background: white;
+              border-radius: 12px;
+              padding: 32px;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+              max-width: 400px;
+            }
+            .spinner {
+              border: 4px solid rgba(0, 0, 0, 0.1);
+              width: 40px;
+              height: 40px;
+              border-radius: 50%;
+              border-left-color: #1877f2;
+              animation: spin 1s linear infinite;
+              margin: 0 auto 16px auto;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            h3 {
+              color: #1c1e21;
+              margin: 0 0 8px 0;
+              font-size: 16px;
+            }
+            p {
+              color: #65676b;
+              font-size: 13px;
+              margin: 0;
+              line-height: 1.4;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <div class="spinner"></div>
+            <h3>Đăng nhập Facebook thành công</h3>
+            <p>Dữ liệu các Trang đã được đồng bộ với hệ thống ERP.</p>
+            <p style="font-size: 11px; margin-top: 8px; color: #a0a0a0;">Cửa sổ này sẽ tự động đóng sau giây lát...</p>
+          </div>
+          <script>
+            // Chắc chắn đóng popup tự động sau 3 giây để tránh treo
+            setTimeout(() => {
+              console.log("[FB Popup] Tự động đóng popup...");
+              window.close();
+            }, 3000);
+
+            try {
+              const pages = ${JSON.stringify(savedPages)};
+              const integrationId = ${JSON.stringify(integrationId)};
+              
+              // 1. Gửi message cập nhật giao diện ngay lập tức
+              try {
+                if (window.opener) {
+                  console.log("[FB Popup] Gửi postMessage tới cửa sổ cha...");
+                  window.opener.postMessage({
+                    type: 'FACEBOOK_PAGES_SELECTED',
+                    pages: pages,
+                    integrationId: integrationId
+                  }, '*');
+                }
+              } catch (msgErr) {
+                console.error("[FB Popup] Lỗi gửi postMessage:", msgErr);
+              }
+              
+              // 2. Ghi localStorage làm phương án dự phòng
+              try {
+                console.log("[FB Popup] Lưu kết quả vào localStorage...");
+                localStorage.setItem('fb_oauth_result', JSON.stringify({
+                  type: 'FACEBOOK_PAGES_SELECTED',
+                  pages: pages,
+                  integrationId: integrationId
+                }));
+              } catch (stErr) {
+                console.warn("[FB Popup] Không thể ghi localStorage:", stErr);
+              }
+            } catch (err) {
+              console.error("[FB Popup] Lỗi thực thi script đồng bộ:", err);
+            }
+          </script>
+        </body>
+        </html>
+      `);
+    } catch (err: any) {
+      console.error("[facebookPostController.oauthCallback] Error:", err);
+      return res.status(500).send(`
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head><meta charset="UTF-8"/><title>Facebook Login Error</title>
+        <style>
+          body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #fee2e2; }
+          .box { background: white; border-radius: 12px; padding: 30px; max-width: 400px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+          h2 { color: #dc2626; margin-bottom: 12px; }
+          p { color: #6b7280; font-size: 13px; line-height: 1.5; }
+        </style>
+        </head>
+        <body>
+          <div class="box">
+            <h2>❌ Lỗi hệ thống</h2>
+            <p>${err.message}</p>
+          </div>
+          <script>
+            localStorage.setItem('fb_oauth_result', JSON.stringify({ type: 'FACEBOOK_OAUTH_FAILED', error: ${JSON.stringify(err.message)} }));
+            if (window.opener) {
+              window.opener.postMessage({ type: 'FACEBOOK_OAUTH_FAILED', error: ${JSON.stringify(err.message)} }, '*');
+            }
+            setTimeout(() => window.close(), 5000);
+          </script>
+        </body>
+        </html>
+      `);
+    }
+  },
+
+  /**
+   * POST /api/v1/facebook/data-deletion-callback
+   * Facebook gọi webhook này khi user yêu cầu xóa dữ liệu hoặc gỡ ứng dụng.
+   */
+  async dataDeletionCallback(req: Request, res: Response) {
+    try {
+      const { signed_request } = req.body;
+      if (!signed_request) {
+        return res.status(400).json({
+          status: "error",
+          message: "Thiếu tham số signed_request trong yêu cầu."
+        });
+      }
+
+      // Lấy danh sách tất cả các App Secrets của Facebook trong DB và .env
+      const integrations = await SocialIntegrationModel.find({ platform: "Facebook" });
+      const personalIntegrations = await UserModel.find({ "facebookIntegration.isConnected": true,
+        "facebookIntegration.pageId": { $nin: [null, ""] } }).select("facebookIntegration.appSecret");
+      const secrets = Array.from(new Set(
+        integrations
+          .map((i) => i.appSecret)
+          .filter((s): s is string => !!s)
+          .concat(personalIntegrations.map(user => user.facebookIntegration?.appSecret).filter((s): s is string => Boolean(s)))
+          .concat(process.env.FB_APP_SECRET || "")
+      ));
+
+      if (secrets.length === 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "Hệ thống chưa cấu hình Facebook App Secret nào."
+        });
+      }
+
+      let decodedData: any = null;
+      let matchingSecret: string | null = null;
+
+      for (const secret of secrets) {
+        try {
+          decodedData = parseSignedRequest(signed_request, secret);
+          matchingSecret = secret;
+          break;
+        } catch (err) {
+          // Thử tiếp secret khác
+        }
+      }
+
+      if (!decodedData || !matchingSecret) {
+        return res.status(400).json({
+          status: "error",
+          message: "Chữ ký signed_request không hợp lệ hoặc không khớp với App Secret nào."
+        });
+      }
+
+      const facebookUserId = decodedData.user_id;
+      if (!facebookUserId) {
+        return res.status(400).json({
+          status: "error",
+          message: "Không tìm thấy Facebook User ID trong payload."
+        });
+      }
+
+      console.log(`[FB Data Deletion] Nhận yêu cầu xóa dữ liệu cho FB User ID: ${facebookUserId}`);
+
+      // Tạo mã xác nhận duy nhất
+      const confirmationCode = "DEL-" + crypto.randomBytes(8).toString("hex").toUpperCase();
+
+      // An app signature identifies the app, not every person who connected a Page through it.
+      // Compare decrypted secrets in memory; encrypted secret fields must not be used as query keys.
+      const matchingAccounts = integrations.filter(integration => integration.appSecret === matchingSecret);
+      const appIds = Array.from(new Set([
+        ...matchingAccounts.map(integration => integration.fbAppId).filter((id): id is string => Boolean(id)),
+        ...(process.env.FB_APP_SECRET === matchingSecret && process.env.FB_APP_ID ? [process.env.FB_APP_ID] : []),
+      ]));
+      const accounts = matchingAccounts.filter(integration => integration.facebookUserId === String(facebookUserId)
+        && integration.fbAppId && appIds.includes(integration.fbAppId));
+      let disconnectedCount = 0;
+      if (accounts.length) {
+        const result = await SocialIntegrationModel.updateMany({
+          platform: "Facebook", facebookUserId: String(facebookUserId), fbAppId: { $in: appIds },
+          $or: accounts.map(integration => ({ _id: integration._id, companyCode: integration.companyCode })),
+        }, { $set: { isConnected: false, accessToken: "", refreshToken: "" } });
+        disconnectedCount = result.modifiedCount;
+      }
+      const requiresReview = matchingAccounts.some(integration => Boolean(integration.username)
+        && (!integration.facebookUserId || !integration.fbAppId))
+        || personalIntegrations.some(user => user.facebookIntegration?.appSecret === matchingSecret
+          || (!user.facebookIntegration?.appSecret && process.env.FB_APP_SECRET === matchingSecret));
+
+      // Ghi nhận yêu cầu vào bảng UserDataDeletionModel
+      await UserDataDeletionModel.create({
+        facebookUserId,
+        confirmationCode,
+        status: requiresReview ? "pending" : "completed",
+        completedAt: requiresReview ? undefined : new Date(),
+        details: requiresReview
+          ? `Đã xử lý ${disconnectedCount} kết nối có mã người cấp quyền khớp yêu cầu. Các kết nối cũ thiếu thông tin cấp quyền cần đối chiếu; không tự động ngắt kết nối theo App Secret.`
+          : `Đã tự động ngắt ${disconnectedCount} kết nối Facebook cho FB User ID ${facebookUserId}.`
+      });
+
+      // Trả về kết quả JSON đúng cấu trúc chuẩn của Meta
+      const host = req.get("host") || "";
+      const isLocal = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("192.168.");
+      const protocol = isLocal ? req.protocol : "https";
+
+      const statusUrl = `${protocol}://${host}/user-data-deletion?code=${confirmationCode}`;
+
+      return res.status(200).json({
+        url: statusUrl,
+        confirmation_code: confirmationCode
+      });
+    } catch (error: any) {
+      console.error("[facebookPostController.dataDeletionCallback] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi xử lý yêu cầu xóa dữ liệu người dùng từ Facebook.",
+        details: error.message
+      });
+    }
+  },
+
+  /**
+   * GET /api/v1/facebook/data-deletion-status/:code
+   * Kiểm tra trạng thái xóa dữ liệu qua mã xác nhận
+   */
+  async getDataDeletionStatus(req: Request, res: Response) {
+    try {
+      const { code } = req.params;
+      if (!code) {
+        return res.status(400).json({
+          status: "error",
+          message: "Vui lòng cung cấp mã xác nhận."
+        });
+      }
+
+      const deletionRecord = await UserDataDeletionModel.findOne({ confirmationCode: code });
+      if (!deletionRecord) {
+        return res.status(404).json({
+          status: "error",
+          message: "Không tìm thấy yêu cầu xóa dữ liệu với mã xác nhận đã cung cấp."
+        });
+      }
+
+      return res.status(200).json({
+        status: "success",
+        data: {
+          code: deletionRecord.confirmationCode,
+          facebookUserId: deletionRecord.facebookUserId,
+          status: deletionRecord.status,
+          requestedAt: deletionRecord.requestedAt,
+          completedAt: deletionRecord.completedAt,
+          details: deletionRecord.details
+        }
+      });
+    } catch (error: any) {
+      console.error("[facebookPostController.getDataDeletionStatus] Error:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Lỗi truy vấn trạng thái yêu cầu xóa dữ liệu.",
+        details: error.message
+      });
+    }
+  },
+
+  /**
+   * GET /api/v1/facebook/config
+   * Trả về App ID của công ty từ DB (multi-tenant).
+   * Fallback về .env nếu chưa có cấu hình trong DB.
+   */
+  async getConfig(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const companyCode = user?.companyCode;
+
+      let appId = process.env.FB_APP_ID || "";
+
+      if (companyCode) {
+        // Tìm integration Facebook đang có App ID (chưa cần có page token)
+        const integration = await SocialIntegrationModel.findOne({
+          companyCode,
+          platform: "Facebook",
+          fbAppId: { $exists: true, $ne: "" },
+        }).sort({ connectedAt: -1 });
+
+        if (integration?.fbAppId) {
+          appId = integration.fbAppId;
+        }
+      }
+
+      return res.status(200).json({
+        status: "success",
+        appId,
+        source: appId === process.env.FB_APP_ID ? "env" : "database",
+        companyCode: companyCode || "SYSTEM",
+        createdBy: user?.email || "system",
+      });
+    } catch (error: any) {
+      return res.status(200).json({
+        status: "success",
+        appId: process.env.FB_APP_ID || "",
+        source: "env",
+        companyCode: "SYSTEM",
+        createdBy: "system",
+      });
+    }
+  },
+
+  /**
+   * POST /api/v1/facebook/n8n-callback
+   * Tiếp nhận callback từ n8n để cập nhật trạng thái bài đăng vào DB.
+   * status: "published" | "processing" | "failed"
+   */
+  async receiveN8nCallback(req: Request, res: Response) {
+    try {
+      const secretToken = process.env.N8N_WEBHOOK_SECRET;
+      if (!secretToken || req.headers["x-webhook-token"] !== secretToken) {
+        return res.status(401).json({ status: "error", message: "Token xác thực callback không chính xác." });
+      }
+      const { cardId, postId, postUrl, status, error: publishError } = req.body;
+      if (!cardId || typeof cardId !== "string" || !/^[0-9a-fA-F]{24}$/.test(cardId)) {
+        return res.status(200).json({ status: "success", message: "Card ID không hợp lệ hoặc rỗng, bỏ qua cập nhật." });
+      }
+      const publishStatus = status || "published";
+      const card = await recordFacebookPublication(cardId, {
+        status: publishStatus,
+        postId,
+        postUrl: postUrl || buildFacebookPostUrl(postId),
+        error: publishError,
+      });
+      if (!card) return res.status(404).json({ status: "error", message: "Không tìm thấy bài viết tương ứng với cardId." });
+      return res.status(200).json({ status: "success", message: `Cập nhật trạng thái bài viết thành công: ${card.status}` });
+    } catch (error: any) {
+      console.error("[facebookPostController.receiveN8nCallback] Error:", error);
+      return res.status(error.statusCode || 500).json({ status: "error", message: "Lỗi xử lý callback từ n8n", details: error.message });
+    }
+  },
+};

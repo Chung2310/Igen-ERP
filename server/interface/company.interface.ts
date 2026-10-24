@@ -39,6 +39,11 @@ export interface ICompanyVietqrConfig {
 }
 
 export interface ICompany extends Document {
+  elevenlabsConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyElevenLabsConfig;
+  telegramOrderConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyTelegramOrderConfig;
+  sepayConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanySepayConfig;
+  productCatalogConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyProductCatalogConfig;
+  cakeCatalogConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyCakeCatalogConfig;
   code: string;
   name: string;
   createdAt: Date;

@@ -2,6 +2,10 @@ import express, { type NextFunction, type Request, type RequestHandler, type Res
 import { ddosConfig } from "../config/ddos";
 
 const LARGE_BODY_ROUTES = [
+  "/api/v1/company-knowledge/documents/upload",
+  "/api/v1/marketing-media/upload",
+  "/api/v1/gemini/upload-document",
+  "/api/v1/gemini/extract-scenario",
   "/api/v1/media/upload",
   "/api/v1/resources/drive/upload",
   "/api/v1/integrations/google-drive/upload",
