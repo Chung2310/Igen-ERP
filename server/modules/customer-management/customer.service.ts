@@ -1,6 +1,6 @@
 ﻿import { Types } from "mongoose";
 import { CustomerError } from "./customer-errors";
-import { formatCustomerCode, normalizeCustomerInput } from "./customer-normalization";
+import { formatCustomerCode, normalizeCustomerInput, normalizePhone, phoneLookupVariants } from "./customer-normalization";
 import type { CustomerInput, CustomerStatus, CustomerType, ICustomer } from "./interfaces/customer.interface";
 import { CustomerCounterModel } from "./models/customer-counter.model";
 import { CustomerModel } from "./models/customer.model";
@@ -39,9 +39,14 @@ export function buildCustomerListFilter(scope: CustomerScope, query: CustomerLis
   const q = String(query.q || "").trim();
   if (q) {
     const pattern = new RegExp(escapeRegex(q), "i");
+    const isPhoneQuery = /^[\d\s()+.-]+$/.test(q);
+    const normalizedPhoneQuery = isPhoneQuery ? normalizePhone(q) : "";
+    const normalizedPhoneVariants = normalizedPhoneQuery ? phoneLookupVariants(normalizedPhoneQuery) : [];
     filter.$or = [
       { customerCode: pattern }, { name: pattern }, { phone: pattern },
-      { normalizedPhone: pattern }, { email: pattern },
+      { normalizedPhone: pattern },
+      ...normalizedPhoneVariants.map((phone) => ({ normalizedPhone: new RegExp(escapeRegex(phone), "i") })),
+      { email: pattern },
     ];
   }
   return filter;
@@ -137,7 +142,7 @@ const mongooseRepository: CustomerRepository = {
     ).lean();
     return counter!.sequence;
   },
-  findByPhone: (scope, normalizedPhone) => CustomerModel.findOne({ ...scope, normalizedPhone }).lean() as any,
+  findByPhone: (scope, normalizedPhone) => CustomerModel.findOne({ ...scope, normalizedPhone: { $in: phoneLookupVariants(normalizedPhone) } }).lean() as any,
   create: async (values) => (await CustomerModel.create(values)).toObject() as any,
   findById: (scope, id) => CustomerModel.findOne({ _id: id, ...scope }).lean() as any,
   updateWithVersion: (scope, id, version, values) => CustomerModel.findOneAndUpdate(

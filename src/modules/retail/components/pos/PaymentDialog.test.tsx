@@ -8,14 +8,13 @@ import PaymentDialog from "./PaymentDialog";
 afterEach(cleanup);
 
 describe("PaymentDialog", () => {
-  it("blocks full payment without a customer and exposes the guidance", async () => {
-    const onSubmit = vi.fn();
+  it("allows a walk-in customer to pay the full amount", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<PaymentDialog total={500_000} busy={false} onClose={vi.fn()} onSubmit={onSubmit} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Xác nhận thanh toán" }));
 
-    expect((await screen.findByRole("alert")).textContent).toBe("Vui lòng chọn khách hàng trước khi thanh toán.");
-    expect(onSubmit).not.toHaveBeenCalled();
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith([{ method: "cash", amount: 500_000, tenderedAmount: 500_000 }], undefined));
   });
 
   it("defaults to full payment and exposes three explicit modes", () => {
@@ -27,6 +26,26 @@ describe("PaymentDialog", () => {
     expect(screen.getByText("Nguồn tiền 1")).toBeTruthy();
     expect(screen.getByText("Khoản được ghi nhận vào đơn.")).toBeTruthy();
     expect(screen.getByText("Dùng để tính tiền trả lại.")).toBeTruthy();
+  });
+
+  it("collects only the configured installment upfront amount", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<PaymentDialog total={1_000_000} busy={false} customerId="c1" installment={{ partner: "HD Saison", months: 6, prepayPercent: 20 }} onClose={vi.fn()} onSubmit={onSubmit} />);
+    expect((screen.getByRole("textbox", { name: "Số tiền thu" }) as HTMLInputElement).value).toBe("200.000");
+    expect(screen.queryByRole("button", { name: "Thanh toán đủ" })).toBeNull();
+    await userEvent.type(screen.getByLabelText("Hạn thanh toán công nợ"), "2026-09-30");
+    await userEvent.click(screen.getByRole("button", { name: "Xác nhận thanh toán" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith([{ method: "cash", amount: 200_000, tenderedAmount: 200_000 }], "2026-09-30"));
+  });
+
+  it("allows installment upfront payment by QR while keeping the financed balance", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<PaymentDialog total={1_000_000} busy={false} customerId="c1" installment={{ partner: "HD Saison", months: 6, prepayPercent: 20 }} transferAsPending onClose={vi.fn()} onSubmit={onSubmit} />);
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Phương thức thanh toán" }), "transfer");
+    expect(screen.getByText("Khoản đối tác tài trợ: 800.000 ₫")).toBeTruthy();
+    await userEvent.type(screen.getByLabelText("Hạn thanh toán công nợ"), "2026-09-30");
+    await userEvent.click(screen.getByRole("button", { name: "Tạo QR thanh toán" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith([expect.objectContaining({ method: "transfer", amount: 200_000 })], "2026-09-30"));
   });
 
   it("submits actual collections and due date in partial mode", async () => {

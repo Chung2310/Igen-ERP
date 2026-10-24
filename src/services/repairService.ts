@@ -1,7 +1,7 @@
 import { apiFetch } from "../modules/shared/lib/apiFetch";
 
 export type RepairStatus = "received" | "diagnosing" | "quoted" | "approved" | "repairing" | "waiting_parts" | "waiting_supplier" | "done" | "delivered" | "cancelled" | "returned";
-export interface RepairTicket { _id: string; ticketCode: string; status: RepairStatus; customerId: string; customerName: string; customerPhone: string; device: { productId?: string; name: string; serialNumber?: string; imei?: string; condition: string; accessories: string[] }; coverage: { customer: { covered: boolean; startAt?: string; endAt?: string; daysLeft?: number }; supplier: { covered: boolean; startAt?: string; endAt?: string; daysLeft?: number; supplierName?: string }; costBearer: string; checkedAt: string }; symptom: string; diagnosis?: string; laborFee: number; partCost: number; discountAmount: number; totalAmount: number; paidAmount: number; dueAmount: number; paymentStatus: string; quotedAmount?: number; receivedAt: string; promisedAt?: string; completedAt?: string; deliveredAt?: string; statusHistory?: Array<{ from?: string; to: string; at: string; byName: string; note?: string; customerNotified?: boolean; technicianName?: string }>; partRevenue?: number; technicianId?: string; technicianName?: string; assignedAt?: string }
+export interface RepairTicket { _id: string; ticketCode: string; status: RepairStatus; customerId: string; customerName: string; customerPhone: string; retailPartnerId?: string; retailPartnerSnapshot?: { partnerId: string; code: string; name: string }; device: { productId?: string; name: string; serialNumber?: string; imei?: string; condition: string; accessories: string[] }; coverage: { customer: { covered: boolean; startAt?: string; endAt?: string; daysLeft?: number }; supplier: { covered: boolean; startAt?: string; endAt?: string; daysLeft?: number; supplierName?: string }; costBearer: string; checkedAt: string }; symptom: string; diagnosis?: string; laborFee: number; partCost: number; discountAmount: number; totalAmount: number; paidAmount: number; dueAmount: number; paymentStatus: string; quotedAmount?: number; receivedAt: string; promisedAt?: string; completedAt?: string; deliveredAt?: string; statusHistory?: Array<{ from?: string; to: string; at: string; byName: string; note?: string; customerNotified?: boolean; technicianName?: string }>; partRevenue?: number; technicianId?: string; technicianName?: string; assignedAt?: string }
 type Envelope<T> = { success: boolean; data: T };
 const root = "/repair/tickets";
 export const repairService = {
@@ -12,7 +12,22 @@ export const repairService = {
   async transition(id: string, to: RepairStatus, payload: { technicianId?: string; note?: string } = {}) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/status`, { method: "POST", body: JSON.stringify({ to, ...payload }) })).data; },
   async quote(id: string, amount: number, note?: string) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/quote`, { method: "POST", body: JSON.stringify({ amount, ...(note ? { note } : {}) }) })).data; },
   async approveQuote(id: string) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/approve-quote`, { method: "POST", body: JSON.stringify({}) })).data; },
-  async pay(id: string, amount: number) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/payments`, { method: "POST", body: JSON.stringify({ amount }) })).data; },
+  async pay(id: string, amount: number) {
+    const storageKey = `repair-payment:${id}`;
+    const stored = sessionStorage.getItem(storageKey);
+    const pending = stored ? JSON.parse(stored) as { amount: number; key: string } : null;
+    if (pending) {
+      const prior = (await apiFetch<Envelope<{ idempotencyKey: string } | null>>(`${root}/${id}/payments/${encodeURIComponent(pending.key)}`)).data;
+      if (prior) { sessionStorage.removeItem(storageKey); return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}`)).data; }
+      if (pending.amount !== amount) throw new Error("Khoản thu trước chưa rõ kết quả. Hãy thử lại đúng số tiền trước khi thay đổi số tiền thu.");
+    }
+    const key = pending?.key || crypto.randomUUID();
+    if (!pending) sessionStorage.setItem(storageKey, JSON.stringify({ amount, key }));
+    const result = (await apiFetch<Envelope<{ ticket: RepairTicket }>>(`${root}/${id}/payments`, { method: "POST", body: JSON.stringify({ amount, idempotencyKey: key }) })).data;
+    sessionStorage.removeItem(storageKey);
+    return result.ticket;
+  },
+  async reconcilePayments(id: string) { return (await apiFetch<Envelope<{ baseline: number; ledgerPaid: number; currentPaid: number; currentDue: number; recordedDue: number; balanced: boolean; payments: Array<{ _id: string; amount: number; createdAt: string }> }>>(`${root}/${id}/payments/reconcile`)).data; },
   async parts(id: string) { return (await apiFetch<Envelope<unknown[]>>(`${root}/${id}/parts`)).data; },
   async cancel(id: string, reason: string) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) })).data; },
   async deliver(id: string) { return (await apiFetch<Envelope<RepairTicket>>(`${root}/${id}/deliver`, { method: "POST", body: JSON.stringify({}) })).data; },

@@ -106,7 +106,7 @@ test("controller ignores body scope and derives includeProfit from the manager c
     },
   });
 
-  for (const permissions of [["retail:manage"], ["retail:manage"]]) {
+  for (const permissions of [[], ["retail:manage"]]) {
     const req: any = {
       user: { id: permissions[0], role: "user", companyCode: "ACME", branchId: "branch-1", permissions },
       query: { from: "2026-08-10", to: "2026-08-10", includeProfit: "true" },

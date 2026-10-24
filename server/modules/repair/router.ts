@@ -2,7 +2,7 @@
 import { requirePermission } from "../../middleware/auth";
 import { retailScopeFromRequest } from "../retail/contracts";
 import { RepairTicketModel } from "./repair-ticket.model";
-import { approveRepairQuote, cancelRepairTicket, createFeedbackQr, createRepairTicket, deliverRepairTicket, quoteRepairTicket, recordRepairPayment, transitionRepairTicket } from "./repair-ticket.service";
+import { approveRepairQuote, cancelRepairTicket, createFeedbackQr, createRepairTicket, deliverRepairTicket, quoteRepairTicket, transitionRepairTicket } from "./repair-ticket.service";
 import { lookupSoldDevice } from "../retail/contracts";
 import { issueRepairPart, listRepairParts, returnRepairPart } from "./repair-part.service";
 import { lookupRepairHistory } from "./services/repair-history.service";
@@ -12,6 +12,8 @@ import { RepairNotificationModel } from "./repair-notification.model";
 import { DEFAULT_REPAIR_TEMPLATES, RepairSettingsModel } from "./repair-settings.model";
 import { repairFeedbackSummaryReport, repairPartUsageReport, repairRevenueReport, repairTechnicianPerformanceReport, type RepairRevenueGroupBy } from "./services/repair-report.service";
 import { REPAIR_COST_READ_PERMISSION, REPAIR_MANAGE_PERMISSION, REPAIR_NOTIFICATION_EVENTS, REPAIR_PART_ISSUE_PERMISSION, REPAIR_QUOTE_PERMISSION, REPAIR_READ_PERMISSION, REPAIR_TECHNICIAN_ASSIGN_PERMISSION, type RepairNotificationEvent } from "./permissions";
+import { collectRepairPayment, lookupRepairPayment, reconcileRepairPayments } from "./services/repair-payment-safe.service";
+import { addRepairCareMessage, changeRepairCareStatus, repairCareForCustomer, repairCareForTicket } from "./services/repair-care.service";
 
 export const repairRouter = Router();
 const manage = requirePermission(REPAIR_MANAGE_PERMISSION) as any;
@@ -54,7 +56,13 @@ repairRouter.post("/tickets/:id/status", manage, async (req, res, next) => { try
 repairRouter.post("/tickets/:id/quote", quote, async (req, res, next) => { try { const data = await quoteRepairTicket(scope(req), req.params.id, Number(req.body?.amount), actor(req), req.body?.note); return res.json({ success: true, data }); } catch (error) { next(error); } });
 repairRouter.post("/tickets/:id/approve-quote", manage, async (req, res, next) => { try { const data = await approveRepairQuote(scope(req), req.params.id, actor(req)); return res.json({ success: true, data }); } catch (error) { next(error); } });
 repairRouter.post("/tickets/:id/deliver", manage, async (req, res, next) => { try { const user = (req as any).user || {}; const allowDebt = user.role === "admin" || user.role === "superadmin" || (Array.isArray(user.permissions) && user.permissions.includes("repair:deliver-with-debt")); const data = await deliverRepairTicket(scope(req), req.params.id, actor(req), allowDebt); return res.json({ success: true, data }); } catch (error) { next(error); } });
-repairRouter.post("/tickets/:id/payments", manage, async (req, res, next) => { try { const data = await recordRepairPayment(scope(req), req.params.id, Number(req.body?.amount), actor(req)); return res.json({ success: true, data }); } catch (error) { next(error); } });
+repairRouter.post("/tickets/:id/payments", manage, async (req, res, next) => { try { const data = await collectRepairPayment(scope(req), req.params.id, Number(req.body?.amount), String(req.body?.idempotencyKey || "").trim(), actor(req)); return res.json({ success: true, data }); } catch (error) { next(error); } });
+repairRouter.get("/tickets/:id/payments/reconcile", manage, async (req, res, next) => { try { return res.json({ success: true, data: await reconcileRepairPayments(scope(req), req.params.id) }); } catch (error) { next(error); } });
+repairRouter.get("/tickets/:id/payments/:key", manage, async (req, res, next) => { try { return res.json({ success: true, data: await lookupRepairPayment(scope(req), req.params.id, req.params.key) }); } catch (error) { next(error); } });
+repairRouter.get("/tickets/:id/care", read, async (req, res, next) => { try { return res.json({ success: true, data: await repairCareForTicket(scope(req), req.params.id) }); } catch (error) { next(error); } });
+repairRouter.post("/tickets/:id/care/messages", manage, async (req, res, next) => { try { return res.json({ success: true, data: await addRepairCareMessage(scope(req), req.params.id, req.body || {}, actor(req)) }); } catch (error) { next(error); } });
+repairRouter.post("/tickets/:id/care/status", manage, async (req, res, next) => { try { return res.json({ success: true, data: await changeRepairCareStatus(scope(req), req.params.id, req.body || {}, actor(req)) }); } catch (error) { next(error); } });
+repairRouter.get("/care/customers/:id", read, async (req, res, next) => { try { return res.json({ success: true, data: await repairCareForCustomer(scope(req), req.params.id) }); } catch (error) { next(error); } });
 repairRouter.post("/tickets/:id/cancel", manage, async (req, res, next) => { try { const data = await cancelRepairTicket(scope(req), req.params.id, String(req.body?.reason || ""), actor(req)); return res.json({ success: true, data }); } catch (error) { next(error); } });
 repairRouter.post("/tickets/:id/feedback-qr", manage, async (req, res, next) => { try { return res.json({ success: true, data: await createFeedbackQr(scope(req), req.params.id) }); } catch (error) { next(error); } });
 repairRouter.get("/tickets/:id/parts", read, async (req, res, next) => { try { return res.json({ success: true, data: await listRepairParts(scope(req), req.params.id) }); } catch (error) { next(error); } });

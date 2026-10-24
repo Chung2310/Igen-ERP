@@ -4,6 +4,7 @@ import PDFDocument from "pdfkit";
 import path from "node:path";
 
 export function invoicePdfPageSize(paperSize: RetailInvoicePaperSize): "A4" | "A5" | [number, number] {
+  if (paperSize === "58mm") return [164.41, 600];
   if (paperSize === "80mm") return [226.77, 600];
   return paperSize;
 }
@@ -37,7 +38,7 @@ export async function renderRetailInvoicePdf(
   invoice: IRetailInvoice,
   paperSize: RetailInvoicePaperSize,
 ): Promise<RetailInvoicePdfResult> {
-  const compact = paperSize === "80mm";
+  const compact = paperSize === "58mm" || paperSize === "80mm";
   const doc = new PDFDocument({ size: invoicePdfPageSize(paperSize) as any, margin: compact ? 14 : 40, compress: true });
   const chunks: Buffer[] = [];
   doc.on("data", (chunk: Buffer) => chunks.push(chunk));

@@ -6,6 +6,7 @@ import { BranchModel } from "../model/branch.model";
 import { RolePermissionModel } from "../model/role-permission.model";
 import { getJwtAccessSecret } from "../config/env";
 import { expandEffectivePermissions, normalizeStoredPermissions } from "../config/permission-catalog";
+import { AccountAccessError, assertAccountUsable, assertPrivilegedSessionCurrent } from "../security/account-access";
 
 const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
 const REGULAR_SESSION_REPLACED_MESSAGE = "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.";
@@ -64,6 +65,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   // được middleware kiểm tra thêm theo lớp mà tài khoản được phân công.
   teacher: ["people:manage"]
 };
+DEFAULT_ROLE_PERMISSIONS.admin.push("retail-partner:manage", "retail-partner-policy:manage", "retail-partner-payout:manage", "retail-shift-approve:manage", "retail-shift-assign:manage", "retail-payment-review:manage", "retail-coupon:manage", "retail-points:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("repair:manage");
 // repair:read tách khỏi repair:manage nên phải cấp riêng, nếu không mọi API GET của
 // module sửa chữa trả 403 kể cả với admin.
@@ -109,12 +111,17 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   try {
     const decoded = jwt.verify(token, getJwtAccessSecret()) as any;
 
-    const userDoc = await UserModel.findById(decoded.id).select("branchId activeSessionId displayName").lean();
+    const userDoc = await UserModel.findById(decoded.id).select("role email companyCode branchId activeSessionId displayName lockedAt disabledAt isActive").lean();
     if (!userDoc) {
       return res.status(401).json({ status: "error", message: "Mã xác thực không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại." });
     }
 
-    if (decoded.role !== "superadmin" && (!decoded.sid || userDoc.activeSessionId !== decoded.sid)) {
+    if (decoded.role !== userDoc.role || decoded.companyCode !== userDoc.companyCode) {
+      return res.status(401).json({ status: "error", code: "ACCOUNT_ACCESS_CHANGED", message: "Quyền truy cập đã thay đổi. Vui lòng đăng nhập lại." });
+    }
+    await assertAccountUsable(userDoc);
+    if (userDoc.role === "superadmin") await assertPrivilegedSessionCurrent(decoded.id, decoded.sid);
+    if (userDoc.role !== "superadmin" && (!decoded.sid || userDoc.activeSessionId !== decoded.sid)) {
       return res.status(401).json({
         status: "error",
         code: REGULAR_SESSION_REPLACED_CODE,
@@ -131,9 +138,9 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     }
     req.user = {
       id: decoded.id,
-      email: decoded.email,
-      role: decoded.role,
-      companyCode: decoded.companyCode,
+      email: userDoc.email,
+      role: userDoc.role,
+      companyCode: userDoc.companyCode,
       branchId,
       sessionId: decoded.sid,
       authLevel: decoded.authLevel,
@@ -143,6 +150,7 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     // console.log(`[requireAuth] Xác thực thành công: ${req.method} ${req.originalUrl} - User: ${decoded.email} (${decoded.role}), ID: ${decoded.id}`);
     return next();
   } catch (error) {
+    if (error instanceof AccountAccessError) return res.status(403).json({ status: "error", code: error.code, message: error.message });
     if (!shouldSkipRoutineAuthLog(req.method, req.originalUrl)) {
       console.warn(`[requireAuth] JWT không hợp lệ hoặc hết hạn cho ${req.method} ${req.originalUrl}:`, (error as Error).message);
     }

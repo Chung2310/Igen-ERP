@@ -1,6 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { calculateDetailedPayrollBatch, calculateRun } from "./payroll-run-calculation.service";
-import { projectPayrollRevisionWithOverrides } from "./payroll-run-calculate-operations.service";
+import { projectPayrollRevisionWithOverrides, summarizePayrollAdjustmentRows } from "./payroll-run-calculate-operations.service";
+
+it("applies salary advances only after approval and keeps them separate from other deductions", () => {
+  const totals = summarizePayrollAdjustmentRows([
+    { employeeId: "e1", kind: "advance", amount: 300_000, status: "pending" },
+    { employeeId: "e1", kind: "advance", amount: 500_000, status: "approved" },
+    { employeeId: "e1", kind: "deduction", amount: 50_000, status: "approved" },
+  ]);
+  expect(totals.get("e1")).toMatchObject({ advances: 500_000, deductions: 50_000 });
+});
 
 const employee = (employeeId: string, monthlySalary: number) => ({
   employeeId,

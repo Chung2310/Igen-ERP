@@ -7,7 +7,6 @@ import {
   Sliders,
   Building2,
   Shield,
-  HardDrive,
   UserCheck
   , ChevronLeft, ChevronRight
 } from "lucide-react";
@@ -20,7 +19,6 @@ import { canManageFaces } from "../services/faceManagementService";
 const ProfileTab = lazy(() => import("../components/settings/ProfileTab"));
 const SecurityTab = lazy(() => import("../components/settings/SecurityTab"));
 const ErpConfigTab = lazy(() => import("../components/settings/ErpConfigTab"));
-const GoogleDriveTab = lazy(() => import("../components/settings/GoogleDriveTab"));
 const FaceRecognitionSettingsTab = lazy(() => import("../components/settings/FaceRecognitionSettingsTab"));
 const BranchManagementTab = lazy(() => import("../components/settings/BranchManagementTab"));
 
@@ -134,7 +132,6 @@ export default function SettingsTab() {
               { id: "profile", label: "Hồ sơ cá nhân", icon: User },
               { id: "security", label: "Bảo mật", icon: Shield },
               { id: "erp", label: "Cấu hình ERP", icon: Sliders },
-              { id: "google-drive", label: "Google Drive", icon: HardDrive },
               ...(faceManagementAllowed
                 ? [{ id: "face-recognition", label: "Nhận diện khuôn mặt", icon: UserCheck }]
                 : []),
@@ -231,7 +228,6 @@ export default function SettingsTab() {
             {activeSubTab === "profile" && <ProfileTab />}
             {activeSubTab === "security" && <SecurityTab />}
             {activeSubTab === "erp" && <ErpConfigTab />}
-            {activeSubTab === "google-drive" && <GoogleDriveTab />}
             {activeSubTab === "face-recognition" && faceManagementAllowed && <FaceRecognitionSettingsTab />}
             {activeSubTab === "branches" && userProfile?.role === "admin" && <BranchManagementTab />}
           </Suspense>

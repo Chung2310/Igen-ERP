@@ -121,6 +121,7 @@ export interface IUser extends Document {
   status?: "online" | "offline";
   isLeader?: boolean;
   disabledAt?: Date | null;
+  lockedAt?: Date | null;
   division?: string;
   companyCode?: string;
   companyName?: string;

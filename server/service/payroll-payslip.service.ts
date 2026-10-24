@@ -24,6 +24,17 @@ export type PayrollPayslipView = {
   vietnam?: Record<string, unknown>;
 };
 
+export function publicationMatchesEffectivePayroll(publicationChecksum: string, run: any, effective: any): boolean {
+  return publicationChecksum === effective.effectiveChecksum
+    || (
+      effective.legacyUnpinned === true
+      && (
+        publicationChecksum === effective.sourceRevisionChecksum
+        || (!run.activeRevisionId && publicationChecksum === "legacy")
+      )
+    );
+}
+
 export function buildPayslip(run: PayslipRun, line: PayrollLineSnapshot, payments: Payment[]): PayrollPayslipView {
   if (run.status !== "closed" && run.status !== "paid") {
     throw new Error("Payslip requires a closed payroll run");

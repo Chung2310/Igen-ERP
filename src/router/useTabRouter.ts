@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { pathToTab, tabToPath } from "../seo/seo-config";
 import type { TabType } from "../types";
 import { DEFAULT_APP_TAB } from "./route-config";
@@ -46,19 +46,19 @@ export function useTabRouter(options?: { enabled?: boolean }) {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [enabled]);
 
-  useEffect(() => {
-    if (!enabled) return;
-
-    const nextPath = tabToPath(activeTab);
-    console.log(`[useTabRouter] Sync Path Effect: activeTab="${activeTab}", currentPath="${window.location.pathname}", nextPath="${nextPath}"`);
-    if (window.location.pathname !== nextPath && pathToTab(window.location.pathname) !== activeTab) {
-      console.log(`[useTabRouter] Pushing state to nextPath="${nextPath}"`);
-      window.history.pushState(null, "", nextPath);
+  const navigateToTab: Dispatch<SetStateAction<TabType>> = useCallback((next) => {
+    const tab = typeof next === "function" ? next(activeTab) : next;
+    setActiveTab(tab);
+    if (enabled) {
+      const nextPath = tabToPath(tab);
+      if (window.location.pathname !== nextPath) {
+        window.history.pushState(null, "", nextPath);
+      }
     }
   }, [activeTab, enabled]);
 
   return {
     activeTab,
-    setActiveTab,
+    setActiveTab: navigateToTab,
   };
 }

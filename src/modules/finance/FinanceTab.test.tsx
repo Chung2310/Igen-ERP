@@ -19,6 +19,13 @@ describe("Finance workspace routing and permissions", () => {
     expect(getAllowedFinanceTabSlugs(["*"])).toEqual(FINANCE_SUB_TABS.map((tab) => tab.slug));
   });
 
+  it("does not expose management-only reports to wallet readers", () => {
+    expect(getAllowedFinanceTabSlugs(["finance-wallet:read"])).toEqual(["so-quy"]);
+    expect(getAllowedFinanceTabSlugs(["finance-wallet:manage"])).toEqual([
+      "tong-quan", "thu-chi", "lai-lo", "vat", "hoa-von", "so-quy",
+    ]);
+  });
+
   it("opens the Finance tab for asset-only permissions", () => {
     const route = APP_ROUTES.find((item) => item.tab === "TÀI CHÍNH");
     for (const permission of ["asset:read", "asset:manage"]) {
@@ -46,6 +53,8 @@ describe("Finance workspace routing and permissions", () => {
   });
 
   it("keeps valid deep links and falls back to the first allowed sub-route", () => {
+    expect(FINANCE_SUB_TABS.map((tab) => tab.slug)).not.toContain("bao-cao-tai-chinh");
+    expect(resolveFinanceSubTab("?sub=bao-cao-tai-chinh", ["so-quy"])).toBe("SỔ QUỸ");
     expect(resolveFinanceSubTab("?sub=nhac-no", ["cong-no", "nhac-no"])).toBe("NHẮC NỢ");
     expect(resolveFinanceSubTab("?sub=tuoi-no", ["cong-no", "tuoi-no", "nhac-no"])).toBe("TUỔI NỢ");
     expect(resolveFinanceSubTab("?sub=nhac-no", ["cong-no"])).toBe("CÔNG NỢ");

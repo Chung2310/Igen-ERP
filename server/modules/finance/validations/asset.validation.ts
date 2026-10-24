@@ -47,6 +47,8 @@ export function validateAssetCreation(input: any) {
     barcode: text(input?.barcode, "BARCODE_REQUIRED"),
     name: text(input?.name, "ASSET_NAME_REQUIRED"),
     group: text(input?.group, "ASSET_GROUP_REQUIRED"),
+    ...(optionalText(input?.supplierName) ? { supplierName: optionalText(input.supplierName) } : {}),
+    ...(optionalText(input?.department) ? { department: optionalText(input.department) } : {}),
     originalCost,
     salvageValue,
     ...(input?.purchaseDate ? { purchaseDate: isoDate(input.purchaseDate, "INVALID_DATE") } : {}),
@@ -60,7 +62,7 @@ export function validateAssetCreation(input: any) {
 
 export function validateAssetUpdate(input: any) {
   const patch: Record<string, unknown> = {};
-  for (const field of ["name", "group", "location", "custodianId", "custodianName"] as const) {
+  for (const field of ["name", "group", "location", "custodianId", "custodianName", "supplierName", "department"] as const) {
     if (input?.[field] !== undefined) patch[field] = optionalText(input[field]) ?? "";
   }
   if (input?.status !== undefined) {

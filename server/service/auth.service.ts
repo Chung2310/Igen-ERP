@@ -23,6 +23,7 @@ import { createCompanyAdminUser } from "../utils/company-admin-user";
 import { ensureDefaultPayrollPolicy } from "./payroll-policy-operations.service";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
+import { assertAccountUsable, assertPrivilegedSessionCurrent } from "../security/account-access";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
 export const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
 export const REGULAR_SESSION_REPLACED_EVENT = "auth:session-replaced";
@@ -42,21 +43,6 @@ function assertRegularSessionCurrent(user: IUser, sessionId?: string) {
 
 function generateTelegramLinkCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
-
-/**
- * Chặn đăng nhập/làm mới token cho tài khoản bị vô hiệu hoá hoặc thuộc doanh nghiệp không còn active.
- */
-async function assertAccountUsable(user: IUser): Promise<void> {
-  if (user.disabledAt) {
-    throw new Error("Tài khoản của bạn đã bị vô hiệu hoá.");
-  }
-  if (user.companyCode && user.companyCode !== "SYSTEM") {
-    const company = await CompanyModel.findOne({ code: user.companyCode }).select("lifecycleStatus").lean<{ lifecycleStatus?: string } | null>();
-    if (!company || (company.lifecycleStatus && company.lifecycleStatus !== "active")) {
-      throw new Error("Doanh nghiệp của bạn đang tạm ngưng hoạt động.");
-    }
-  }
 }
 
 export const authService = {
@@ -175,13 +161,8 @@ export const authService = {
 
       await assertAccountUsable(user);
 
-      if (isSuperAdminRole(user.role) && decoded.sid) {
-        const session = await SuperAdminSessionModel.findOne({ sessionId: decoded.sid });
-        const now = Date.now();
-        const idleExpired = session?.lastSeenAt && now - new Date(session.lastSeenAt).getTime() > 30 * 60_000;
-        if (!session || session.revokedAt || idleExpired || new Date(session.expiresAt).getTime() <= now || String(session.userId) !== String(user._id)) {
-          throw new Error("Phiên quản trị đặc quyền đã hết hạn hoặc bị thu hồi.");
-        }
+      if (isSuperAdminRole(user.role)) {
+        await assertPrivilegedSessionCurrent(String(user._id), decoded.sid);
       } else {
         assertRegularSessionCurrent(user, decoded.sid);
       }

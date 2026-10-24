@@ -1,5 +1,6 @@
 ﻿import { Router, Response } from "express";
 import { randomUUID } from "node:crypto";
+import { taskActivityUpdate, taskProgress } from "../service/kanban-task-progress";
 import mongoose from "mongoose";
 import { requireAuth, requirePermission, type AuthenticatedRequest } from "../middleware/auth";
 import { KanbanTaskModel } from "../model/kanban-task.model";
@@ -56,7 +57,7 @@ async function actorName(req: AuthenticatedRequest) {
 
 function toClient(item: any) {
   const plain = typeof item?.toObject === "function" ? item.toObject() : item;
-  return { ...plain, status: normalizeStatus(plain?.status) };
+  return { ...plain, status: normalizeStatus(plain?.status), progress: taskProgress(plain) };
 }
 
 async function validateRelations(companyCode: string, assigneeUid?: string, projectId?: string) {
@@ -300,6 +301,52 @@ kanbanRouter.post("/tasks", requirePermission("work:manage") as any, async (req:
   }
 });
 
+kanbanRouter.patch("/tasks/:id/activity", requirePermission("work:read") as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const scope: any = { _id: req.params.id, ...companyFilter(req) };
+    if (req.user?.branchId) scope.branchId = req.user.branchId;
+    const task = await KanbanTaskModel.findOne(scope).lean();
+    if (!task) throw httpError(404, "Không tìm thấy công việc.");
+    const uid = String(req.user!.id);
+    const manager = isManager(req.user?.role);
+    if (!manager && task.assigneeUid !== uid && task.creatorUid !== uid && !task.helpRequested && !task.helpers?.some(helper => helper.uid === uid)) throw httpError(403, "Bạn không có quyền truy cập công việc.");
+    if (!Number.isInteger(req.body.revision) || req.body.revision !== (task.revision || 0)) throw httpError(409, "Công việc đã thay đổi. Hãy tải lại trước khi cập nhật.");
+    if (req.body.action === "progress" && req.body.progress === 100 && (!task.description?.trim() || !Number(task.estTime))) {
+      throw httpError(400, "Hoàn thành công việc yêu cầu mô tả và số giờ dự tính.");
+    }
+    if (req.body.action === "progress" && req.body.progress === 100 && task.startTime && new Date(task.startTime).getTime() > Date.now()) {
+      throw httpError(400, "Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.");
+    }
+    let requestedHelperUid = "";
+    if (req.body.action === "help") {
+      if (req.body.helpers !== undefined) throw httpError(400, "Chỉ được chọn một nhân viên hỗ trợ.");
+      if (req.body.helper !== undefined) {
+        const helperUid = req.body.helper?.uid;
+        if (typeof helperUid !== "string" || !mongoose.isValidObjectId(helperUid)) throw httpError(400, "Nhân viên hỗ trợ không hợp lệ.");
+        const helper = await UserModel.findOne({ _id: helperUid, companyCode: task.companyCode }).select("_id branchId").lean();
+        if (!helper || (task.branchId && String(helper.branchId || "") !== String(task.branchId))) throw httpError(400, "Nhân viên hỗ trợ không thuộc phạm vi công việc.");
+        requestedHelperUid = helperUid;
+      }
+    }
+    const result = taskActivityUpdate(task, req.body, { uid, name: await actorName(req), manager });
+    const revisionFilter = task.revision ? { revision: task.revision } : { $or: [{ revision: 0 }, { revision: { $exists: false } }] };
+    const updated = await KanbanTaskModel.findOneAndUpdate({ ...scope, ...revisionFilter }, { $set: result.update, $push: { history: result.history }, $inc: { revision: 1 } }, { returnDocument: "after", runValidators: true });
+    if (!updated) throw httpError(409, "Công việc đã được cập nhật. Hãy tải lại.");
+    await syncProjectLifecycle(task.companyCode, [task.projectId]);
+    await kanbanAuditService.recordTaskMutation({ action: "updated", actorId: uid, companyCode: task.companyCode, correlationId: correlationId(req), before: task, task: toClient(updated) });
+    emitToCompany(task.companyCode, "kanban:task-updated", { id: String(task._id) });
+    if (req.body.action === "help") {
+      try {
+        const recipients = new Set([task.creatorUid, task.assigneeUid, ...(task.helpers || []).map(helper => helper.uid), requestedHelperUid]);
+        recipients.delete(uid);
+        recipients.delete("");
+        await Promise.all([...recipients].map(recipientUid => notificationService.createNotification({ recipientUid, companyCode: task.companyCode, type: "task", read: false, title: "Công việc cần trợ giúp", body: `${task.title}: ${result.history.action}`, action: { tab: "NHÂN SỰ", subTab: "Giao Việc" } })));
+      } catch (error) { console.error("Task help notification failed", error); }
+    }
+    return res.json({ status: "success", data: toClient(updated) });
+  } catch (error) { return handleError(res, error); }
+});
+
 kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filter = { _id: req.params.id, ...companyFilter(req) };
@@ -347,6 +394,12 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
       }
       if (!merged.endTime) update.endTime = new Date().toISOString();
       update.completedAt = update.endTime;
+    }
+    if (update.status === "Done") { update.progress = 100; update.helpRequested = false; }
+    else if (update.status && update.status !== "Archived") {
+      update.progress = update.status === "Not Started" ? 0 : Math.max(1, Math.min(99, taskProgress(task)));
+      update.completedAt = "";
+      update.endTime = "";
     }
 
     const changes = changesFor(task, update);

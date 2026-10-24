@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRetailProductFilter, matchesScannedUnit, normalizeRetailProductSearch } from "./retail-product.service";
+import { buildRetailCategoryPath, buildRetailProductFilter, matchesScannedUnit, normalizeRetailProductSearch } from "./retail-product.service";
+
+test("POS products include the official three-level category path", () => {
+  const categories = new Map([
+    ["ROOT", { code: "ROOT", name: "Điện thoại" }],
+    ["BRAND", { code: "BRAND", name: "Apple", parentCode: "ROOT" }],
+    ["MODEL", { code: "MODEL", name: "iPhone 16", parentCode: "BRAND" }],
+  ]);
+  assert.deepEqual(buildRetailCategoryPath("MODEL", categories), [
+    { code: "ROOT", name: "Điện thoại" },
+    { code: "BRAND", name: "Apple" },
+    { code: "MODEL", name: "iPhone 16" },
+  ]);
+});
 
 test("product lookup always keeps exact company and branch scope", () => {
   const filter = buildRetailProductFilter(

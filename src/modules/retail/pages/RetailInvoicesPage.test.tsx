@@ -38,7 +38,7 @@ describe("RetailInvoicesPage", () => {
     render(<RetailInvoicesPage />);
     expect(await screen.findByText(/Thanh toán một phần · Đã thanh toán 40\.000 ₫ · Còn nợ 60\.000 ₫/)).toBeTruthy();
     await userEvent.click(await screen.findByRole("button", { name: "Xem hóa đơn HD-01" }));
-    expect(await screen.findByText("Thu ngân A")).toBeTruthy();
+    expect(await screen.findByText("Thu ngân: Thu ngân A")).toBeTruthy();
     expect(screen.getAllByText("Chuyển khoản").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Còn nợ").length).toBeGreaterThan(0);
   });

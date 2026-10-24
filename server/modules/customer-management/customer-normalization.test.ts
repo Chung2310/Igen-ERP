@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatCustomerCode, normalizeCustomerInput, normalizePhone } from "./customer-normalization";
+import { formatCustomerCode, normalizeCustomerInput, normalizePhone, phoneLookupVariants } from "./customer-normalization";
 
 test("normalizes a company-wide customer identity", () => {
   assert.deepEqual(normalizeCustomerInput({
@@ -13,7 +13,7 @@ test("normalizes a company-wide customer identity", () => {
   }), {
     name: "Nguyễn Văn A",
     phone: "+84 901-234-567",
-    normalizedPhone: "84901234567",
+    normalizedPhone: "0901234567",
     email: "a@example.com",
     type: "regular",
     gender: "male",
@@ -53,6 +53,8 @@ test("rejects invalid enum and calendar date values", () => {
 });
 
 test("normalizes phone and formats a permanent customer code", () => {
-  assert.equal(normalizePhone("(+84) 901.234.567"), "84901234567");
+  assert.equal(normalizePhone("(+84) 901.234.567"), "0901234567");
+  assert.equal(normalizePhone("+84 (0) 901.234.567"), "0901234567");
+  assert.deepEqual(phoneLookupVariants("0901234567"), ["0901234567", "84901234567"]);
   assert.equal(formatCustomerCode(" igen ", 12), "KH-IGEN-000012");
 });

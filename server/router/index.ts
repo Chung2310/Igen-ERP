@@ -40,6 +40,7 @@ import { receivingRouter } from "../modules/inventory/receiving/router";
 import { warehouseRouter } from "../modules/inventory/warehouse/router";
 import { inventoryCountRouter } from "../modules/inventory/counting/router";
 import { serialUnitRouter } from "../modules/inventory/serials/router";
+import { inventoryTransferRouter } from "../modules/inventory/transfers/router";
 import { repairRouter } from "../modules/repair/router";
 import { repairFeedbackRoutes } from "../modules/repair/repair-feedback.routes";
 import { financeRouter } from "../modules/finance/router";
@@ -131,6 +132,7 @@ apiRouter.use("/inventory/receiving", requireAuth as any, requireModule("invento
 apiRouter.use("/inventory/warehouses", requireAuth as any, requireModule("inventory"), warehouseRouter);
 apiRouter.use("/inventory/counts", requireAuth as any, requireModule("inventory"), inventoryCountRouter);
 apiRouter.use("/inventory/serials", requireAuth as any, requireModule("inventory"), serialUnitRouter);
+apiRouter.use("/inventory/transfers", requireAuth as any, requireModule("inventory"), inventoryTransferRouter);
 apiRouter.use("/repair/feedback", publicApiRateLimiter, repairFeedbackRoutes);
 apiRouter.use("/repair", requireAuth as any, requireModule("repair"), repairRouter);
 apiRouter.use("/customers", requireAuth as any, requireModule("customer"), customerRouter);

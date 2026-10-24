@@ -1,7 +1,7 @@
 import { getAccessToken } from "../../../services/authService";
 import { parseApiErrorResponse } from "../../../services/apiClientError";
 
-export type FixedAssetStatus = "in_use" | "idle" | "disposed";
+export type FixedAssetStatus = "in_use" | "idle" | "repairing" | "lost" | "damaged" | "disposed";
 export type AssetDepreciationStatus = "planned" | "posted";
 export type AssetInventoryResult = "pending" | "present" | "damaged" | "missing" | "surplus";
 export type AssetInventorySessionStatus = "open" | "finalized";
@@ -27,6 +27,8 @@ export interface FixedAsset {
   purchaseDate?: string;
   inServiceDate: string;
   usefulLifeMonths: number;
+  supplierName?: string;
+  department?: string;
   location?: string;
   custodianId?: string;
   custodianName?: string;
@@ -41,6 +43,9 @@ export interface FixedAsset {
 
 export interface DepreciationScheduleLine { period: string; amount: number; accumulatedAfter: number; netBookValueAfter: number }
 export interface AssetDepreciation {
+  assetName?: string;
+  assetCode?: string;
+  originalCost?: number;
   _id: string;
   assetId: string;
   period: string;
@@ -96,6 +101,8 @@ export interface AssetCreateInput {
   purchaseDate?: string;
   inServiceDate: string;
   usefulLifeMonths: number;
+  supplierName?: string;
+  department?: string;
   location?: string;
   custodianId?: string;
   custodianName?: string;

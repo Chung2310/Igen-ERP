@@ -4,7 +4,9 @@ import jwt from "jsonwebtoken";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { attachMessengerScopes } from "./modules/marketing-suite/message/socket-scopes";
 import Redis from "ioredis";
+import { redisHost } from "./config/redis-host";
 import { UserModel } from "./model/user.model";
+import { assertAccountUsable, assertPrivilegedSessionCurrent } from "./security/account-access";
 import { ChatRoomModel } from "./model/chat-room.model";
 import { getJwtAccessSecret } from "./config/env";
 import { ddosConfig } from "./config/ddos";
@@ -61,7 +63,7 @@ function releaseSocketProtectionConnection(socket: Socket): void {
  * Cần sticky session (nginx ip_hash) khi chạy sau load balancer nhiều node.
  */
 async function attachRedisAdapter(server: SocketIOServer) {
-  const host = process.env.REDIS_HOST || "127.0.0.1";
+  const host = redisHost();
   const port = Number(process.env.REDIS_PORT) || 6379;
   const password = process.env.REDIS_PASSWORD || undefined;
 
@@ -177,6 +179,9 @@ export async function initSocketServer(httpServer: HTTPServer) {
       if (!user) {
         return next(new Error("Authentication error: User not found"));
       }
+      if (user.role !== decoded.role || user.companyCode !== decoded.companyCode) return next(new Error("Authentication error: Access changed"));
+      await assertAccountUsable(user);
+      if (user.role === "superadmin") await assertPrivilegedSessionCurrent(String(user._id), decoded.sid);
 
       if (user.role !== "superadmin" && (!decoded.sid || user.activeSessionId !== decoded.sid)) {
         return next(new Error("Authentication error: Session replaced"));
@@ -211,6 +216,15 @@ export async function initSocketServer(httpServer: HTTPServer) {
     const user = socket.data.user;
 
     socket.use(async (packet, next) => {
+      try {
+        const current = await UserModel.findById(user._id).lean();
+        if (!current || current.role !== user.role || current.companyCode !== user.companyCode || (current.role !== "superadmin" && (!socket.data.sessionId || current.activeSessionId !== socket.data.sessionId))) throw new Error("Session revoked");
+        await assertAccountUsable(current);
+        if (current.role === "superadmin") await assertPrivilegedSessionCurrent(String(current._id), socket.data.sessionId);
+      } catch {
+        socket.disconnect(true);
+        return next(new Error("Authentication error: Access revoked"));
+      }
       let decision;
       try {
         decision = await socketProtection.consumeEvent(user._id.toString(), socket.id);
@@ -423,6 +437,14 @@ export function broadcastEvent(eventName: string, data: any) {
   } else {
     console.warn("[Socket.IO] Server instance (io) not initialized.");
   }
+}
+
+export function disconnectUserSockets(userId: string) {
+  io?.in(`user:${userId}`).disconnectSockets(true);
+}
+
+export function disconnectCompanySockets(companyCode: string) {
+  io?.in(`company:${companyCode}`).disconnectSockets(true);
 }
 
 /** Internal emitter: callers must authorize account rooms before joining them. */

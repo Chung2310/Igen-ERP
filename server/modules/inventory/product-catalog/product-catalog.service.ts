@@ -487,7 +487,7 @@ export const ProductCatalogService = {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
     const filter: Record<string, unknown> = { companyCode };
-    for (const field of ["status", "productType", "templateCode", "categoryCode"] as const) {
+    for (const field of ["status", "productType", "templateCode", "categoryCode", "brandCode"] as const) {
       if (query[field]) {
         const value = String(query[field]).trim();
         filter[field] = field === "status" || field === "productType" ? value.toLowerCase() : value.toUpperCase();

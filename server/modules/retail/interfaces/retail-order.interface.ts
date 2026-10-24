@@ -7,9 +7,14 @@ export interface RetailOrderRefund { method: RetailPaymentMethod; amount: number
 export interface RetailOrderCustomerSnapshot { customerId: string; customerCode?: string; name: string; phone?: string }
 export interface RetailOrderBillingSnapshot { legalName: string; taxId: string; address: string; invoiceEmail: string; contactName?: string }
 export interface IRetailOrder {
+  createRequestKey?: string; createRequestFingerprint?: string; lastUpdateRequestKey?: string; lastUpdateRequestFingerprint?: string;
   orderCode?: string; paymentCode?: string; companyCode: string; branchId: string; shiftId?: string; customerId?: string; customerName?: string; customerPhone?: string; billingProfileId?: string; customerSnapshot?: RetailOrderCustomerSnapshot; billingSnapshot?: RetailOrderBillingSnapshot;
+  retailPartnerId?: string; retailPartnerSnapshot?: { partnerId: string; code: string; name: string };
+  note?: string; installment?: { partner: string; months: number; prepayPercent: number; upfrontAmount?: number; financedAmount?: number } | null;
+  couponCode?: string; couponSnapshot?: { id: string; code: string; name: string; amount: number }; manualOrderDiscount?: number;
+  pointsToRedeem?: number; pointsRedeemed?: number; pointsDiscount?: number;
   items: RetailOrderItem[]; subtotal: number; orderDiscount: number; taxRate: number; taxAmount: number; shippingFee: number; grandTotal: number; totalCost: number;
-  payments: RetailOrderPayment[]; refunds: RetailOrderRefund[]; paidAmount: number; refundedAmount: number; dueAmount: number; paymentStatus: RetailPaymentStatus; dueDate?: Date;
+  payments: RetailOrderPayment[]; refunds: RetailOrderRefund[]; paidAmount: number; refundedAmount: number; dueAmount: number; pendingTransferAmount?: number; paymentStatus: RetailPaymentStatus; dueDate?: Date;
   status: RetailOrderStatus; businessDate?: string; heldAt?: Date; heldSlot?: number; expiredBySystem?: boolean; confirmedAt?: Date; completedAt?: Date; cancelledAt?: Date; cancelReason?: string;
   salespersonId: string; salespersonName: string; createdBy: string; createdByName: string; stockApplied: boolean; stockRevertedAt?: Date; financeSettlementEventId?: string; version: number;
   createdAt?: Date; updatedAt?: Date;

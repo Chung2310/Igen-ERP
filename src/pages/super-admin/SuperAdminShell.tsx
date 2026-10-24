@@ -1,9 +1,11 @@
 import { superAdminRequest } from "../../services/superAdminRequest";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import React from "react";
+import { cn } from "../../modules/student-management/lib/utils";
 import { EnvironmentBanner } from "../../components/super-admin/EnvironmentBanner";
 import { superAdminAuthService } from "../../services/superAdminAuthService";
 import { DashboardTab } from "../../components/super-admin/DashboardTab";
+import { ActivityMonitorPage } from "./activity/ActivityMonitorPage";
 import { AuditTab } from "../../components/super-admin/AuditTab";
 import { SessionsTab } from "../../components/super-admin/SessionsTab";
 import { TenantListPage } from "./tenants/TenantListPage";
@@ -11,7 +13,7 @@ import { TenantDetailPage } from "./tenants/TenantDetailPage";
 import { UserManagementPanel } from "./users/UserManagementPanel";
 import { SuperAdminAccountsPage } from "./admins/SuperAdminAccountsPage";
 import AiSubscriptionsPage from "./subscriptions/AiSubscriptionsPage";
-import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X, ShieldCheck } from "lucide-react";
+import { Activity, LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X, ShieldCheck } from "lucide-react";
 import {
   clearPendingSuperAdminChallenge,
   savePendingSuperAdminChallenge,
@@ -23,7 +25,7 @@ export default function SuperAdminShell() {
     localStorage.getItem("accessToken") ? "authenticated" : "password"
   );
   
-  const [activeTab, setActiveTab] = React.useState<"overview" | "audit" | "sessions" | "tenants" | "users" | "admins" | "subscriptions">("overview");
+  const [activeTab, setActiveTab] = React.useState<"overview" | "activity" | "audit" | "sessions" | "tenants" | "users" | "admins" | "subscriptions">("overview");
   const [selectedTenantCode, setSelectedTenantCode] = React.useState<string | null>(null);
   const [challenge, setChallenge] = React.useState(pendingChallenge?.challengeId || "");
   const [email, setEmail] = React.useState("");
@@ -34,7 +36,21 @@ export default function SuperAdminShell() {
   const [environment, setEnvironment] = React.useState<"staging" | "production">("staging");
   const [error, setError] = React.useState("");
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const mobileNavRef = React.useRef<HTMLDialogElement>(null);
   const enrollmentHydrated = React.useRef(false);
+
+  React.useEffect(() => {
+    const dialog = mobileNavRef.current;
+    if (!dialog) return;
+    if (sidebarOpen && !dialog.open) dialog.showModal();
+    else if (!sidebarOpen && dialog.open) dialog.close();
+  }, [sidebarOpen, stage]);
+
+  React.useEffect(() => {
+    const closeDesktopDrawer = () => { if (window.innerWidth >= 1024) setSidebarOpen(false); };
+    window.addEventListener("resize", closeDesktopDrawer);
+    return () => window.removeEventListener("resize", closeDesktopDrawer);
+  }, []);
 
   React.useEffect(() => {
     clearPendingSuperAdminChallenge(sessionStorage);
@@ -133,6 +149,8 @@ export default function SuperAdminShell() {
 
   const renderActiveTab = () => {
     switch (activeTab) {
+      case "activity":
+        return <ActivityMonitorPage />;
       case "audit":
         return <AuditTab />;
       case "sessions":
@@ -157,6 +175,7 @@ export default function SuperAdminShell() {
 
   const navItems = [
     { id: "overview" as const, label: "Tổng quan hệ thống", icon: LayoutDashboard },
+    { id: "activity" as const, label: "Giám sát hoạt động", icon: Activity },
     { id: "audit" as const, label: "Nhật ký kiểm toán", icon: FileText },
     { id: "users" as const, label: "Quản trị tài khoản", icon: UsersRound },
     { id: "admins" as const, label: "Tài khoản Super Admin", icon: ShieldCheck },
@@ -184,14 +203,16 @@ export default function SuperAdminShell() {
           {navItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
+              type="button"
+              aria-current={activeTab === id ? "page" : undefined}
               onClick={() => handleNavClick(id)}
-              className={`w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
+              className={cn("w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all",
                 activeTab === id
                   ? "bg-cyan-500 text-slate-950 font-bold shadow-xs shadow-cyan-500/20"
                   : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
-              }`}
+              )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
               {label}
             </button>
           ))}
@@ -209,7 +230,7 @@ export default function SuperAdminShell() {
 
   if (stage === "authenticated") {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      <div className="min-h-dvh bg-slate-950 text-slate-100 flex flex-col font-sans">
         <EnvironmentBanner environment={environment} />
 
         {/* Mobile Top Navigation Bar */}
@@ -224,24 +245,23 @@ export default function SuperAdminShell() {
             onClick={() => setSidebarOpen(true)}
             className="rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 p-2 text-slate-300 transition-all"
             aria-label="Mở menu điều hướng"
+            aria-haspopup="dialog"
+            aria-expanded={sidebarOpen}
+            aria-controls="super-admin-mobile-nav"
           >
             <Menu className="h-5 w-5" />
           </button>
         </header>
 
-        {/* Mobile Slide-over Drawer Backdrop */}
-        {sidebarOpen && (
-          <div
-            className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
         {/* Mobile Slide-over Drawer */}
-        <aside
-          className={`lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 border-r border-white/10 p-5 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+        <dialog
+          id="super-admin-mobile-nav"
+          ref={mobileNavRef}
+          aria-label="Điều hướng Super Admin"
+          onCancel={() => setSidebarOpen(false)}
+          onClose={() => setSidebarOpen(false)}
+          className={cn("fixed inset-y-0 left-0 z-50 m-0 h-dvh max-h-dvh w-72 flex-col border-r border-white/10 bg-slate-900 p-5 text-slate-100 shadow-2xl backdrop:bg-black/60 lg:hidden", sidebarOpen ? "flex" : "hidden")}
+          style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         >
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -259,7 +279,7 @@ export default function SuperAdminShell() {
             </button>
           </div>
           <NavContent />
-        </aside>
+        </dialog>
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           {/* Desktop Sidebar */}
@@ -278,7 +298,7 @@ export default function SuperAdminShell() {
 
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white grid place-items-center p-6">
+    <main className="min-h-dvh bg-slate-950 text-white grid place-items-center p-6">
       <section className="w-full max-w-md rounded-3xl border border-white/10 bg-slate-900 p-8 shadow-2xl">
         <p className="text-xs font-bold tracking-[.3em] text-cyan-400 uppercase">Quản trị Tối cao iGen</p>
         <h1 className="mt-3 text-2xl font-black">Đăng nhập đặc quyền</h1>

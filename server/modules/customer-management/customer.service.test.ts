@@ -25,6 +25,12 @@ test("customer list defaults to active and escapes literal search", () => {
   assert.equal(filter.companyCode, "IGEN");
   assert.equal(filter.status, "active");
   assert.ok(String((filter.$or as any[])[0].customerCode).includes("A\\.\\+"));
+
+  const phoneFilter = buildCustomerListFilter(scope, { q: "+84 901-234-567" });
+  assert.ok((phoneFilter.$or as any[]).some((entry) => String(entry.normalizedPhone).includes("0901234567")));
+  assert.ok((phoneFilter.$or as any[]).some((entry) => String(entry.normalizedPhone).includes("84901234567")));
+  const nameFilter = buildCustomerListFilter(scope, { q: "iPhone 15" });
+  assert.equal((nameFilter.$or as any[]).filter((entry) => entry.normalizedPhone).length, 1);
 });
 
 test("customer list is company-wide and caps page size", async () => {

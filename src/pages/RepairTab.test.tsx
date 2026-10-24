@@ -2,6 +2,8 @@
 import { render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 
+vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ userProfile: { role: "admin", permissions: ["*"] } }) }));
+
 vi.mock("../components/inventory/WarrantyLookupSection", () => ({ default: () => <div>Tra cứu bảo hành</div> }));
 vi.mock("../modules/repair/RepairBoardPage", () => ({ default: () => <div>Phiếu sửa chữa</div> }));
 vi.mock("../modules/repair/RepairReportsPanel", () => ({ default: () => <div>Báo cáo</div> }));

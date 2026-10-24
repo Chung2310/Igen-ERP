@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as controllerModule from "../controllers/retail-invoice.controller";
 import { retailInvoiceRoutes } from "../routes/retail-invoice.routes";
+import { invoicePdfPageSize } from "./retail-invoice-pdf.service";
+
+test("invoice PDF uses the configured thermal paper width", () => {
+  assert.deepEqual(invoicePdfPageSize("58mm"), [164.41, 600]);
+  assert.deepEqual(invoicePdfPageSize("80mm"), [226.77, 600]);
+});
 
 test("invoice PDF controller uses authenticated branch scope and PDF headers", async () => {
   const createRetailInvoiceController = (controllerModule as any).createRetailInvoiceController;

@@ -7,6 +7,7 @@ import { resolveShift } from "../service/work-shift.service";
 import { UserModel } from "../model/user.model";
 import { CompanyModel } from "../model/company.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
+import { assertPayrollReconciliationReady } from "../service/payroll-reconciliation.service";
 import { PayrollAdjustmentModel } from "../model/payroll-adjustment.model";
 import { PayrollAuditModel } from "../model/payroll-audit.model";
 import { PayrollPaymentModel } from "../model/payroll-payment.model";
@@ -48,7 +49,7 @@ import {
   deletePayrollPolicy,
 } from "../service/payroll-policy-operations.service";
 import { runPayrollWorkflowAction } from "../service/payroll-run-workflow-operations.service";
-import { buildPayslip } from "../service/payroll-payslip.service";
+import { buildPayslip, publicationMatchesEffectivePayroll } from "../service/payroll-payslip.service";
 import { buildPayrollWorkbook, workbookBuffer } from "../service/payroll-export.service";
 import { calculatePayrollChecksum } from "../service/payroll-checksum.service";
 import {
@@ -128,6 +129,11 @@ const legacyRegularRunFilter = (req: AuthenticatedRequest) => ({
   type: "regular" as const,
 });
 const LEGACY_RUN_ORDER = { createdAt: 1 as const, _id: 1 as const };
+const validPayrollDate = (value: unknown) => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
 
 const runPayrollControllerStep = async (
   handler: (req: AuthenticatedRequest, res: Response) => Promise<unknown>,
@@ -173,18 +179,6 @@ const runWithEffectiveChecksum = (run: any, checksum: string) => ({
   ...run,
   activeRevisionChecksum: checksum,
 });
-const publicationMatchesEffectivePayroll = (
-  publicationChecksum: string,
-  run: any,
-  effective: any,
-) => publicationChecksum === effective.effectiveChecksum
-  || (
-    effective.legacyUnpinned === true
-    && (
-      publicationChecksum === effective.sourceRevisionChecksum
-      || (!run.activeRevisionId && publicationChecksum === "legacy")
-    )
-  );
 const paymentTransitionHandler = (action: PayrollPaymentAction) => async (req: AuthenticatedRequest, res: Response) => {
   const scope = operationalScope(req);
   if (!scope) return validationFailure(res, "Authenticated company and branch are required");
@@ -551,21 +545,23 @@ export const payrollController = {
     const profilesByEmployee = byEmployee(profiles as any[]);
     const dependentsByEmployee = byEmployee(dependents as any[]);
 
-    const adjustmentsMap = new Map<string, { allowances: number; bonuses: number; deductions: number; adjustments: number }>();
+    const adjustmentsMap = new Map<string, { allowances: number; bonuses: number; deductions: number; adjustments: number; advances: number }>();
     const periodInputMap = new Map((periodInputs as any[]).map((item:any)=>[String(item.employeeId),item]));
     for (const adj of adjustmentsData) {
+      if (adj.kind === "advance" && !["approved", "snapshotted"].includes(adj.status)) continue;
       const empId = String(adj.employeeId);
-      const cur = adjustmentsMap.get(empId) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+      const cur = adjustmentsMap.get(empId) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0, advances: 0 };
       if (adj.kind === "bonus") cur.bonuses += Number(adj.amount || 0);
       else if (adj.kind === "deduction") cur.deductions += Number(adj.amount || 0);
       else if (adj.kind === "allowance") cur.allowances += Number(adj.amount || 0);
+      else if (adj.kind === "advance") cur.advances += Number(adj.amount || 0);
       else cur.adjustments += Number(adj.amount || 0);
       adjustmentsMap.set(empId, cur);
     }
 
     const lines = rows.map((row) => {
       const workedMinutes = row.workedMinutes ?? ((row.workedDays || 0) * row.standardHours * 60) / row.standardDays;
-      const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+      const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0, advances: 0 };
       const periodInput:any=periodInputMap.get(String(row.employeeId));
       const sourceDays=(row.workedDays??(row.standardDays>0?workedMinutes/(row.standardHours*60/row.standardDays):0));
       const resolvedPeriod=resolvePayrollPeriodInputs({agreedSalary:row.monthlySalary,reconciledDays:sourceDays,reconciledHours:workedMinutes/60,allowance:empAdjustments.allowances,bonus:empAdjustments.bonuses,deduction:empAdjustments.deductions},periodInput,customVariables as any[]);
@@ -586,7 +582,7 @@ export const payrollController = {
         overtime: row.overtime,
         allowances: appliedAdjustments.allowances,
         bonuses: appliedAdjustments.bonuses,
-        deductions: appliedAdjustments.deductions,
+        deductions: appliedAdjustments.deductions + empAdjustments.advances,
         adjustments: appliedAdjustments.adjustments,
       });
       const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
@@ -598,6 +594,7 @@ export const payrollController = {
         taxableAllowances: appliedAdjustments.allowances,
         bonuses: appliedAdjustments.bonuses + (appliedAdjustments.adjustments > 0 ? appliedAdjustments.adjustments : 0),
         otherDeductions: appliedAdjustments.deductions + (appliedAdjustments.adjustments < 0 ? -appliedAdjustments.adjustments : 0),
+        advances: empAdjustments.advances,
         // Chưa khai báo mức đóng riêng thì lấy lương tháng; trần đóng vẫn được áp.
         insuranceSalary: effectiveSalary,
         participatesInsurance: profile?.participatesInsurance ?? true,
@@ -614,6 +611,7 @@ export const payrollController = {
           allowances: appliedAdjustments.allowances,
           bonuses: appliedAdjustments.bonuses,
           otherDeductions: appliedAdjustments.deductions,
+          advances: empAdjustments.advances,
           adjustments: appliedAdjustments.adjustments,
           gross: vietnam.income.totalIncome,
           deductions: vietnam.deductions.total,
@@ -796,12 +794,25 @@ export const payrollController = {
     }));
     return res.json({ status: "success", data: enriched });
   },  async createAdjustment(req: AuthenticatedRequest, res: Response) {
-    const { employeeId, kind, amount, reason } = req.body;
-    if (!employeeId || !kind || !Number.isFinite(amount) || amount < 0 || !String(reason || "").trim()) return res.status(400).json({ status: "error", message: "Du lieu dieu chinh khong hop le." });
-    const adjustment = await PayrollAdjustmentModel.create({ ...legacyPeriodScope(req), employeeId, kind, amount, reason, createdBy: req.user!.id });
+    const { employeeId, kind, amount, reason, advanceDetails } = req.body;
+    if (!employeeId || !["allowance", "bonus", "deduction", "correction", "advance"].includes(kind) || !Number.isFinite(amount) || amount < 0 || (kind === "advance" && amount === 0) || !String(reason || "").trim()) return res.status(400).json({ status: "error", message: "Dữ liệu điều chỉnh không hợp lệ." });
+    if (kind === "advance" && (!/^[a-f\d]{24}$/i.test(String(employeeId)) || !Number.isSafeInteger(amount) || String(reason).trim().length > 1000 || !advanceDetails || !validPayrollDate(advanceDetails.date) || !["transfer", "cash"].includes(advanceDetails.method) || String(advanceDetails.note || "").length > 500)) return res.status(400).json({ status: "error", message: "Thông tin phiếu tạm ứng không hợp lệ." });
+    if (kind === "advance") {
+      const scope = legacyPeriodScope(req);
+      const employee = await UserModel.findOne({ _id: employeeId, companyCode: scope.companyCode }).select("branchId").lean();
+      if (!employee || (employee.branchId && employee.branchId !== scope.branchId)) return res.status(404).json({ status: "error", message: "Nhân viên không thuộc chi nhánh này." });
+      const currentRun = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
+      if (currentRun && currentRun.status !== "draft") return res.status(409).json({ status: "error", message: "Chỉ tạo phiếu tạm ứng khi kỳ lương còn ở trạng thái chuẩn bị." });
+    }
+    const adjustment = await PayrollAdjustmentModel.create({ ...legacyPeriodScope(req), employeeId, kind, amount, reason: String(reason).trim(), ...(kind === "advance" ? { advanceDetails: { date: advanceDetails.date, method: advanceDetails.method, note: String(advanceDetails.note || "").trim() } } : {}), createdBy: req.user!.id });
     return res.status(201).json({ status: "success", data: adjustment });
   },
   async approveAdjustment(req: AuthenticatedRequest, res: Response) {
+    const pending = await PayrollAdjustmentModel.findOne({ _id: req.params.adjustmentId, ...legacyPeriodScope(req), status: "pending" }).select("kind").lean();
+    if (pending?.kind === "advance") {
+      const currentRun = await PayrollRunModel.findOne(legacyRegularRunFilter(req)).sort(LEGACY_RUN_ORDER).lean();
+      if (currentRun && currentRun.status !== "draft") return res.status(409).json({ status: "error", message: "Kỳ lương đã khóa; không thể duyệt phiếu tạm ứng." });
+    }
     const adjustment = await PayrollAdjustmentModel.findOneAndUpdate(
       { _id: req.params.adjustmentId, ...legacyPeriodScope(req), status: "pending" },
       { $set: { status: "approved", approvedBy: req.user!.id }, $inc: { version: 1 } },
@@ -835,19 +846,21 @@ export const payrollController = {
           }, new Map<string, T[]>());
           const profilesByEmployee = byEmployee(profiles as any[]);
           const dependentsByEmployee = byEmployee(dependents as any[]);
-          const adjustmentsMap = new Map<string, { allowances: number; bonuses: number; deductions: number; adjustments: number }>();
+          const adjustmentsMap = new Map<string, { allowances: number; bonuses: number; deductions: number; adjustments: number; advances: number }>();
           for (const adj of adjustmentsData) {
+            if (adj.kind === "advance" && !["approved", "snapshotted"].includes(adj.status)) continue;
             const empId = String(adj.employeeId);
-            const cur = adjustmentsMap.get(empId) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+            const cur = adjustmentsMap.get(empId) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0, advances: 0 };
             if (adj.kind === "bonus") cur.bonuses += Number(adj.amount || 0);
             else if (adj.kind === "deduction") cur.deductions += Number(adj.amount || 0);
             else if (adj.kind === "allowance") cur.allowances += Number(adj.amount || 0);
+            else if (adj.kind === "advance") cur.advances += Number(adj.amount || 0);
             else cur.adjustments += Number(adj.amount || 0);
             adjustmentsMap.set(empId, cur);
           }
           const lines = rows.map((row) => {
             const workedMinutes = row.workedMinutes ?? ((row.workedDays || 0) * row.standardHours * 60) / row.standardDays;
-            const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+            const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0, advances: 0 };
             const calculation = calculatePayroll({
               monthlySalary: row.monthlySalary,
               standardDays: row.standardDays,
@@ -858,7 +871,7 @@ export const payrollController = {
               overtime: row.overtime,
               allowances: empAdjustments.allowances,
               bonuses: empAdjustments.bonuses,
-              deductions: empAdjustments.deductions,
+              deductions: empAdjustments.deductions + empAdjustments.advances,
               adjustments: empAdjustments.adjustments,
             });
             const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
@@ -870,6 +883,7 @@ export const payrollController = {
               taxableAllowances: empAdjustments.allowances,
               bonuses: empAdjustments.bonuses + (empAdjustments.adjustments > 0 ? empAdjustments.adjustments : 0),
               otherDeductions: empAdjustments.deductions + (empAdjustments.adjustments < 0 ? -empAdjustments.adjustments : 0),
+              advances: empAdjustments.advances,
               insuranceSalary: row.monthlySalary,
               participatesInsurance: profile?.participatesInsurance ?? true,
               taxMethod: resolveTaxMethod(profile),
@@ -885,6 +899,7 @@ export const payrollController = {
                 allowances: empAdjustments.allowances,
                 bonuses: empAdjustments.bonuses,
                 otherDeductions: empAdjustments.deductions,
+                advances: empAdjustments.advances,
                 adjustments: empAdjustments.adjustments,
                 gross: vietnam.income.totalIncome,
                 deductions: vietnam.deductions.total,
@@ -962,19 +977,21 @@ export const payrollController = {
           }, new Map<string, T[]>());
           const profilesByEmployee = byEmployee(profiles as any[]);
           const dependentsByEmployee = byEmployee(dependents as any[]);
-          const adjustmentsMap = new Map<string, { allowances: number; bonuses: number; deductions: number; adjustments: number }>();
+          const adjustmentsMap = new Map<string, { allowances: number; bonuses: number; deductions: number; adjustments: number; advances: number }>();
           for (const adj of adjustmentsData) {
+            if (adj.kind === "advance" && !["approved", "snapshotted"].includes(adj.status)) continue;
             const empId = String(adj.employeeId);
-            const cur = adjustmentsMap.get(empId) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+            const cur = adjustmentsMap.get(empId) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0, advances: 0 };
             if (adj.kind === "bonus") cur.bonuses += Number(adj.amount || 0);
             else if (adj.kind === "deduction") cur.deductions += Number(adj.amount || 0);
             else if (adj.kind === "allowance") cur.allowances += Number(adj.amount || 0);
+            else if (adj.kind === "advance") cur.advances += Number(adj.amount || 0);
             else cur.adjustments += Number(adj.amount || 0);
             adjustmentsMap.set(empId, cur);
           }
           const lines = rows.map((row) => {
             const workedMinutes = row.workedMinutes ?? ((row.workedDays || 0) * row.standardHours * 60) / row.standardDays;
-            const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 };
+            const empAdjustments = adjustmentsMap.get(String(row.employeeId)) ?? { allowances: 0, bonuses: 0, deductions: 0, adjustments: 0, advances: 0 };
             const calculation = calculatePayroll({
               monthlySalary: row.monthlySalary,
               standardDays: row.standardDays,
@@ -985,7 +1002,7 @@ export const payrollController = {
               overtime: row.overtime,
               allowances: empAdjustments.allowances,
               bonuses: empAdjustments.bonuses,
-              deductions: empAdjustments.deductions,
+              deductions: empAdjustments.deductions + empAdjustments.advances,
               adjustments: empAdjustments.adjustments,
             });
             const profile = selectProfileForPeriod(profilesByEmployee.get(String(row.employeeId)) ?? [], period);
@@ -997,6 +1014,7 @@ export const payrollController = {
               taxableAllowances: empAdjustments.allowances,
               bonuses: empAdjustments.bonuses + (empAdjustments.adjustments > 0 ? empAdjustments.adjustments : 0),
               otherDeductions: empAdjustments.deductions + (empAdjustments.adjustments < 0 ? -empAdjustments.adjustments : 0),
+              advances: empAdjustments.advances,
               insuranceSalary: row.monthlySalary,
               participatesInsurance: profile?.participatesInsurance ?? true,
               taxMethod: resolveTaxMethod(profile),
@@ -1012,6 +1030,7 @@ export const payrollController = {
                 allowances: empAdjustments.allowances,
                 bonuses: empAdjustments.bonuses,
                 otherDeductions: empAdjustments.deductions,
+                advances: empAdjustments.advances,
                 adjustments: empAdjustments.adjustments,
                 gross: vietnam.income.totalIncome,
                 deductions: vietnam.deductions.total,
@@ -1066,6 +1085,7 @@ export const payrollController = {
     if (!current) return res.status(409).json({ status: "error", message: "Bang luong khong o trang thai cho duyet." });
     let effectiveSnapshot;
     try {
+      await assertPayrollReconciliationReady(scope, current);
       effectiveSnapshot = await createEffectivePayrollSnapshot(scope, current);
     } catch (error) {
       return operationFailure(res, error);
@@ -1097,6 +1117,7 @@ export const payrollController = {
     if (!current) return res.status(409).json({ status: "error", message: "Bang luong phai duoc duyet truoc khi chot." });
     let effectiveSnapshot = current.effectiveSnapshot;
     try {
+      await assertPayrollReconciliationReady(scope, current);
       if (!effectiveSnapshot) {
         effectiveSnapshot = await createEffectivePayrollSnapshot(scope, current);
       } else if (!await verifyEffectivePayrollSnapshot(scope, current)) {

@@ -1,0 +1,4 @@
+.task-needs-help {
+  border-color: var(--color-error) !important;
+  background-color: var(--color-error-container) !important;
+}

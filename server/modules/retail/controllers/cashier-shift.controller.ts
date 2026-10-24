@@ -18,5 +18,11 @@ export const cashierShiftController = {
   list: asyncHandler(async (req, res) => { const data = await CashierShiftService.list(scope(req), req.query); const manager = await hasEffectiveRetailCapability((req as any).user || {}, "manager"); res.json({ success: true, data: { ...data, items: data.items.map((shift) => serializeCashierShift(shift, manager)) } }); }),
   detail: asyncHandler(async (req, res) => { const data = await CashierShiftService.detail(scope(req), req.params.id); const manager = await hasEffectiveRetailCapability((req as any).user || {}, "manager"); res.json({ success: true, data: { ...data, shift: serializeCashierShift(data.shift, manager) } }); }),
   open: asyncHandler(async (req, res) => { res.status(201).json({ success: true, data: serializeCashierShift(await CashierShiftService.open(scope(req), req.body || {}, (req as any).user), false) }); }),
+  cashiers: asyncHandler(async (req, res) => { res.json({ success: true, data: await CashierShiftService.assignableCashiers(scope(req)) }); }),
+  openFor: asyncHandler(async (req, res) => { res.status(201).json({ success: true, data: await CashierShiftService.openFor(scope(req), req.body || {}, (req as any).user) }); }),
   close: asyncHandler(async (req, res) => { res.json({ success: true, data: await CashierShiftService.close(scope(req), req.params.id, req.body || {}, (req as any).user) }); }),
+  movement: asyncHandler(async (req, res) => { res.status(201).json({ success: true, data: await CashierShiftService.recordMovement(scope(req), req.params.id, req.body || {}, (req as any).user) }); }),
+  reconcile: asyncHandler(async (req, res) => { res.json({ success: true, data: await CashierShiftService.reconcile(scope(req), req.params.id, (req as any).user) }); }),
+  pause: asyncHandler(async (req, res) => { res.json({ success: true, data: await CashierShiftService.pause(scope(req), req.params.id, req.body || {}, (req as any).user) }); }),
+  resume: asyncHandler(async (req, res) => { res.json({ success: true, data: await CashierShiftService.resume(scope(req), req.params.id, req.body || {}, (req as any).user) }); }),
 };

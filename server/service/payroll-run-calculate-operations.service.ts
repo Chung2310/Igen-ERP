@@ -369,20 +369,17 @@ const ADJUSTMENT_BUCKET = {
   bonus: "bonuses",
   deduction: "deductions",
   correction: "adjustments",
+  advance: "advances",
 } as const;
 
 type AdjustmentTotals = Record<(typeof ADJUSTMENT_BUCKET)[keyof typeof ADJUSTMENT_BUCKET], number>;
 
-const emptyAdjustmentTotals = (): AdjustmentTotals => ({ allowances: 0, bonuses: 0, deductions: 0, adjustments: 0 });
+const emptyAdjustmentTotals = (): AdjustmentTotals => ({ allowances: 0, bonuses: 0, deductions: 0, adjustments: 0, advances: 0 });
 
-async function loadAdjustmentTotals(scope: PayrollOperationScope, periodKey: string) {
-  const rows: any[] = await PayrollAdjustmentModel.find({
-    ...scope,
-    periodKey,
-    status: { $in: ["pending", "approved", "snapshotted"] },
-  }).select("employeeId kind amount").lean();
+export function summarizePayrollAdjustmentRows(rows: Array<{ employeeId: unknown; kind: string; amount: number; status: string }>) {
   const totals = new Map<string, AdjustmentTotals>();
   for (const row of rows) {
+    if (row.kind === "advance" && !["approved", "snapshotted"].includes(row.status)) continue;
     const bucket = ADJUSTMENT_BUCKET[row.kind as keyof typeof ADJUSTMENT_BUCKET];
     if (!bucket) continue;
     const employeeId = String(row.employeeId);
@@ -391,6 +388,15 @@ async function loadAdjustmentTotals(scope: PayrollOperationScope, periodKey: str
     totals.set(employeeId, current);
   }
   return totals;
+}
+
+async function loadAdjustmentTotals(scope: PayrollOperationScope, periodKey: string) {
+  const rows: any[] = await PayrollAdjustmentModel.find({
+    ...scope,
+    periodKey,
+    status: { $in: ["pending", "approved", "snapshotted"] },
+  }).select("employeeId kind amount status").lean();
+  return summarizePayrollAdjustmentRows(rows);
 }
 
 export async function buildRunCalculationInputs(
@@ -483,6 +489,7 @@ export async function buildRunCalculationInputs(
       allowances: resolvedPeriod.values.allowance + library.totals.allowance,
       bonuses: resolvedPeriod.values.bonus + library.totals.bonus,
       deductions: resolvedPeriod.values.deduction + library.totals.deduction,
+      advances: employeeAdjustments.advances,
       adjustments: employeeAdjustments.adjustments + library.totals.adjustment,
       commission: commissions.get(employeeId) ?? 0,
       formulaApplications: library.applications,

@@ -1,8 +1,8 @@
 import { UserModel } from "../model/user.model";
-import { SuperAdminSessionModel } from "../model/super-admin-session.model";
 import { SuperAdminImpersonationModel } from "../model/super-admin-impersonation.model";
 import { auditService } from "../service/audit.service";
 import { PERMISSION_CODES, normalizeStoredPermissions } from "../config/permission-catalog";
+import { revokeAccountSessions } from "../security/revoke-account-sessions";
 
 const scoped = (tenantId: string) => tenantId === "SYSTEM" ? {} : { companyCode: tenantId };
 export function createUserAccessManagementService(deps: any) {
@@ -11,9 +11,20 @@ export function createUserAccessManagementService(deps: any) {
   return {
     async search({ tenantId, page = 1, limit = 20, q }: any) { const filter = { ...scoped(tenantId), ...(q ? { $or: [{ email: new RegExp(q, "i") }, { displayName: new RegExp(q, "i") }] } : {}) }; const total = await deps.users.count(filter); return { data: await deps.users.search(filter, { skip: (page - 1) * limit, limit }), total, page, limit }; },
     async detail(data: any) { return user(data); },
-    async update(data: any) { const value = await user(data); const allowed = ["role", "permissions", "status", "lockedAt", "displayName", "department", "jobTitle"]; for (const key of allowed) if (key in (data.patch || {})) (value as any)[key] = data.patch[key]; await value.save(); await audit("user.access.update", { actorId: data.actorId, userId: data.userId, tenantId: data.tenantId, correlationId: data.correlationId, changedFields: Object.keys(data.patch || {}).filter(key => allowed.includes(key)) }); return value; },
+    async update(data: any) {
+      const value = await user(data);
+      const allowed = ["role", "permissions", "status", "lockedAt", "displayName", "department", "jobTitle"];
+      const patch = data.patch || {};
+      const revoke = "role" in patch || "permissions" in patch || Boolean(patch.lockedAt);
+      for (const key of allowed) if (key in patch) value[key] = patch[key];
+      if (revoke) value.activeSessionId = "";
+      await value.save();
+      if (revoke) await deps.sessions.revokeAll(data.userId);
+      await audit("user.access.update", { actorId: data.actorId, userId: data.userId, tenantId: data.tenantId, correlationId: data.correlationId, changedFields: Object.keys(patch).filter(key => allowed.includes(key)) });
+      return value;
+    },
     async lock(data: any) { return this.update({ ...data, patch: { status: "offline", lockedAt: new Date() } }); },
-    async unlock(data: any) { return this.update({ ...data, patch: { lockedAt: undefined } }); },
+    async unlock(data: any) { return this.update({ ...data, patch: { lockedAt: null } }); },
     async revokeSessions(data: any) { await user(data); await deps.sessions.revokeAll(data.userId); await audit("security.session.revoke", data); return { revoked: true }; },
     async resetTwoFactor(data: any) { const value = await user(data); if (value.role !== "superadmin") throw new Error("2FA recovery is restricted to privileged accounts"); value.superAdminSecurity = { totpEnabled: false, recoveryCodeHashes: [], failedTotpAttempts: 0 }; await value.save?.(); await deps.sessions.revokeAll(data.userId); await audit("security.2fa.reset", data); return { reset: true }; },
     async assignRole(data: any) {
@@ -38,4 +49,4 @@ export function createUserAccessManagementService(deps: any) {
     async activeImpersonation(data: any) { const value = await user(data); return { active: await deps.impersonations.findActive(String(value._id)) }; },
   };
 }
-export const userAccessManagementService = createUserAccessManagementService({ users: { find: (id: string) => UserModel.findById(id), findOtherSuperAdmin: (userId: string) => UserModel.findOne({ role: "superadmin", _id: { $ne: userId } }).select("_id email").lean(), count: (q: any) => UserModel.countDocuments(q), search: (q: any, p: any) => UserModel.find(q).sort({ createdAt: -1 }).skip(p.skip).limit(p.limit) }, sessions: { revokeAll: (userId: string) => SuperAdminSessionModel.updateMany({ userId }, { $set: { revokedAt: new Date(), revokeReason: "administrative" } }) }, impersonations: { create: (doc: any) => SuperAdminImpersonationModel.create(doc), stop: (targetUserId: string) => SuperAdminImpersonationModel.updateMany({ targetUserId, stoppedAt: null }, { $set: { stoppedAt: new Date() } }), findActive: (targetUserId: string) => SuperAdminImpersonationModel.findOne({ targetUserId, stoppedAt: null, expiresAt: { $gt: new Date() } }).lean() }, audit: (event: any) => auditService.record(event) });
+export const userAccessManagementService = createUserAccessManagementService({ users: { find: (id: string) => UserModel.findById(id), findOtherSuperAdmin: (userId: string) => UserModel.findOne({ role: "superadmin", _id: { $ne: userId } }).select("_id email").lean(), count: (q: any) => UserModel.countDocuments(q), search: (q: any, p: any) => UserModel.find(q).sort({ createdAt: -1 }).skip(p.skip).limit(p.limit) }, sessions: { revokeAll: revokeAccountSessions }, impersonations: { create: (doc: any) => SuperAdminImpersonationModel.create(doc), stop: (targetUserId: string) => SuperAdminImpersonationModel.updateMany({ targetUserId, stoppedAt: null }, { $set: { stoppedAt: new Date() } }), findActive: (targetUserId: string) => SuperAdminImpersonationModel.findOne({ targetUserId, stoppedAt: null, expiresAt: { $gt: new Date() } }).lean() }, audit: (event: any) => auditService.record(event) });
