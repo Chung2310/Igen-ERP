@@ -11,7 +11,7 @@ import { assertMarketingAccountOwnership } from "./account-ownership";
 const PREFIXES = ["/marketing-campaigns", "/marketing-contents", "/omni-inbox", "/social-integrations", "/company-knowledge", "/company-telegram-order", "/company-sepay", "/company-cake-catalog", "/company-product-catalog", "/order-sheets", "/gemini", "/facebook", "/zalo", "/tiktok", "/tiktok-business", "/scheduler", "/video-caption-projects", "/bulk-create", "/canva", "/webhooks", "/marketing-media", "/marketing-wallet", "/marketing-settings"];
 export function isMarketingSuitePath(path: string) {
   if (path === "/webhooks" || path.startsWith("/webhooks/")) return /^\/webhooks\/(?:tiktok|sepay\/[^/]+)\/?$/.test(path);
-  if (["/elevenlabs"].some((prefix) => path === prefix || path.startsWith(prefix + "/"))) return true;
+  if (["/elevenlabs", "/marketing-subscription"].some((prefix) => path === prefix || path.startsWith(prefix + "/"))) return true;
   return PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix + "/"));
 }
 export async function companyModuleEnabled(companyCode: string, key: ModuleKey) {
@@ -50,6 +50,12 @@ async function authorizeSuiteRequest(req: AuthenticatedRequest, res: Response, n
   const companyCode = req.user?.companyCode?.trim().toUpperCase();
   if (!companyCode) return res.status(403).json({ status: "error", message: "Không xác định được doanh nghiệp." });
   const path = req.path;
+  if (path === "/marketing-subscription" || path.startsWith("/marketing-subscription/")) {
+    const enabled = await companyModuleEnabled(companyCode, "social-marketing")
+      || await companyModuleEnabled(companyCode, "omni-inbox") || await companyModuleEnabled(companyCode, "company-knowledge");
+    if (!enabled) return res.status(403).json({ status: "error", message: "Phân hệ chưa được kích hoạt cho doanh nghiệp của bạn." });
+    return requirePermission(["marketing:read", "omni-inbox:read", "company-knowledge:read", "social-integration:read"])(req, res, next);
+  }
   const personalAiSettings = /^\/marketing-settings\/auto-reply\/?$/.test(path);
   const campaignSettings = /^\/marketing-settings\/authors\/[^/]+\/?$/.test(path);
   const integrations = !personalAiSettings && !campaignSettings && /social-integrations|company-(?:telegram|sepay|cake|product)|marketing-settings|validate-token|validate-integration|save-integration|order-sheets|oauth|facebook\/config/.test(path);

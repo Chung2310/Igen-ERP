@@ -77,7 +77,7 @@ export function buildCampaignDriveImportPreview(
     mappedOrders: mappings.filter((mapping) => mapping.files.length > 0).length,
     missingOrders: mappings
       .filter((mapping) => mapping.files.length === 0)
-      .map(({ files: _files, ...mapping }) => mapping),
+      .map(({ orderId, slotId, title, scheduledAt, position }) => ({ orderId, slotId, title, scheduledAt, position })),
     unmatchedFiles: unmatchedFiles.sort(compareMediaFiles),
     mappings,
   };

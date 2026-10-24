@@ -13,13 +13,15 @@ import { geminiService } from "../../shared/service/gemini.service.ts";
 import { CampaignMatrixGeneratorService } from "./agents/campaign-matrix-generator.service.ts";
 import { CampaignOrchestratorService } from "./agents/campaign-orchestrator.service.ts";
 import { scanAndEnqueueDueSlots } from "./campaign-scheduler.service.ts";
-import { API_COSTS } from "../../shared/service/wallet.service.ts";
+import { aiSubscriptionService, attachAiUsageToCampaign } from "../../shared/service/ai-subscription.service";
+import { estimateCampaignAi } from "./campaign-ai-estimate";
 import { listGoogleDriveFolderFiles, getGoogleDriveDirectLink } from "./marketing-campaign-helper";
 import { assertCampaignDraftCanActivate } from "./marketing-campaign-activation.service.ts";
 import { syncUploadedSlotMedia } from "./campaign-uploaded-media.service";
-import { assertCampaignVideoReady } from "./agents/campaign-caption.service";
+import { assertCampaignMediaReady } from "./agents/campaign-media-readiness";
 import { nextCalendarDate, publicCampaignSlotScope, rememberPublicApprovalState, savePublicSlotDecision } from "./public-campaign-approval";
 import { withCampaignSlotEdit, syncCampaignSheetFields } from "./campaign-slot-edit";
+import { resolveFacebookCredentials, syncCampaignContentReady } from "./agents/campaign-utils";
 
 interface CreateCampaignInput {
   sourceBrief: string;
@@ -277,6 +279,8 @@ export const marketingCampaignService = {
     // New campaigns never bind Drive media before their content exists. Legacy
     // callers that still send "real" are migrated into the content-first order flow.
     const imageMode: "ai" | "order" = input.imageMode === "ai" ? "ai" : "order";
+    const aiEstimate = estimateCampaignAi(input);
+    await aiSubscriptionService.available(companyCode, aiEstimate.estimatedCalls);
     const researchReport = await geminiService.conductWebResearch(input.sourceBrief);
     const aiStrategy = await geminiService.generateScheduledCampaign({
       prompt: input.sourceBrief,
@@ -308,10 +312,6 @@ export const marketingCampaignService = {
         : aiStrategy.slots,
     };
 
-    const isBudget = input.qualityMode === "budget";
-    const pPlan = API_COSTS.CAMPAIGN_STRATEGY;
-    const pResearch = API_COSTS.CAMPAIGN_RESEARCH;
-
     // Zero-Click Content Strategy Matrix Generation (Background)
     const contentMatrix = await CampaignMatrixGeneratorService.generateMatrix(
       input.sourceBrief,
@@ -321,31 +321,7 @@ export const marketingCampaignService = {
     // Flatten all angles with their funnel tags
     const allAngles = contentMatrix.flatMap((p) => p.angles);
 
-    let totalResearchCost = 0;
-    const totalVisionCost = 0;
-    let totalContentCost = 0;
-    let totalMediaCost = 0;
-
-    strategy.slots.forEach((brief) => {
-      const type = brief.mediaType;
-      const requiresAiCopy = true;
-
-      if (requiresAiCopy) {
-        totalResearchCost += pResearch;
-      }
-      if (requiresAiCopy) {
-        totalContentCost += (isBudget ? API_COSTS.CAMPAIGN_CONTENT_BUDGET : API_COSTS.CAMPAIGN_CONTENT_PREMIUM) * Math.min(5, Math.max(2, input.candidateCount ?? 3)) * 2;
-      }
-
-      // Order mode receives media later, so it has no AI media or Vision estimate.
-      if (imageMode === "ai") {
-        if (type === "image") {
-          totalMediaCost += isBudget ? API_COSTS.CAMPAIGN_IMAGE_BUDGET : API_COSTS.CAMPAIGN_IMAGE_PREMIUM;
-        }
-      }
-    });
-
-    const estimatedCost = pPlan + totalResearchCost + totalVisionCost + totalContentCost + totalMediaCost;
+    const estimatedCost = aiEstimate.estimatedCalls;
 
     const campaign = await MarketingCampaignModel.create({
       companyCode,
@@ -380,8 +356,9 @@ export const marketingCampaignService = {
       apifySources: input.apifySources || ["google", "facebook", "tiktok"],
       contentMatrix,
       rules: input.rules || {},
-      statistics: { totalSlots: schedule.length, publishedSlots: 0, failedSlots: 0, estimatedCost, actualCost: 0 },
+      statistics: { totalSlots: schedule.length, publishedSlots: 0, failedSlots: 0, estimatedCost: 0, actualCost: 0, aiCallsEstimated: estimatedCost, aiCallsUsed: 0 },
     });
+    await attachAiUsageToCampaign(String(campaign._id));
 
     try {
       const slots = await MarketingCampaignSlotModel.insertMany(schedule.map((scheduledSlot, index) => {
@@ -463,16 +440,17 @@ export const marketingCampaignService = {
     const campaign = await MarketingCampaignModel.findById(campaignId);
     if (!campaign) return null;
 
-    const slots = await MarketingCampaignSlotModel.find({ campaignId: campaign._id }).select("status").lean();
+    const slots = await MarketingCampaignSlotModel.find({ campaignId: campaign._id, companyCode: campaign.companyCode }).select("status").lean();
     const totalSlots = slots.length;
     if (totalSlots === 0) return campaign;
 
     const publishedSlots = slots.filter((s) => s.status === "published").length;
-    const failedSlots = slots.filter((s) => s.status === "failed").length;
+    const terminalFailedSlots = slots.filter((s) => s.status === "failed").length;
+    const failedSlots = terminalFailedSlots + slots.filter((s) => s.status === "needs_attention").length;
     const cancelledSlots = slots.filter((s) => s.status === "cancelled").length;
     const skippedSlots = slots.filter((s) => s.status === "skipped").length;
 
-    const finishedSlotsCount = publishedSlots + failedSlots + cancelledSlots + skippedSlots;
+    const finishedSlotsCount = publishedSlots + terminalFailedSlots + cancelledSlots + skippedSlots;
 
     campaign.statistics.totalSlots = totalSlots;
     campaign.statistics.publishedSlots = publishedSlots;
@@ -777,20 +755,30 @@ export const marketingCampaignService = {
     if (!allowedStatuses.includes(slot.status)) {
       throw new Error(`Slot không thể được duyệt ở trạng thái này: ${slot.status}`);
     }
+    const campaign = await MarketingCampaignModel.findOne({ _id: campaignId, companyCode });
+    const content = slot.marketingContentId && await MarketingContentModel.findOne({
+      _id: slot.marketingContentId, companyCode, campaignId, campaignSlotId: slot._id,
+    });
+    if (!campaign || !content) throw new Error("Không tìm thấy nội dung bài đăng của slot chiến dịch.");
+    await assertCampaignMediaReady({ campaign, slot, content });
     if (slot.platform === "TikTok") {
       validateTikTokCampaignPublishOptions(tiktokPublishOptions);
       slot.tiktokPublishOptions = tiktokPublishOptions;
     }
 
     const now = new Date();
-    const approved = await MarketingCampaignSlotModel.findOneAndUpdate(
-      { _id: slot._id, campaignId, companyCode, status: slot.status, updatedAt: slot.updatedAt, $or: [{ lockExpiresAt: null }, { lockExpiresAt: { $lte: now } }] },
-      {
-        $set: { status: "ready_to_publish", approvedBy, approvedAt: now, ...(slot.platform === "TikTok" ? { tiktokPublishOptions } : {}) },
-        $push: { transitions: { from: slot.status, to: "ready_to_publish", reason: `Approved manually by ${approvedBy}`, at: now } },
-      },
-      { new: true }
-    );
+    const approved = await MarketingCampaignSlotModel.db.transaction(async (session) => {
+      const updated = await MarketingCampaignSlotModel.findOneAndUpdate(
+        { _id: slot._id, campaignId, companyCode, status: slot.status, updatedAt: slot.updatedAt, $or: [{ lockExpiresAt: null }, { lockExpiresAt: { $lte: now } }] },
+        {
+          $set: { status: "ready_to_publish", approvedBy, approvedAt: now, ...(slot.platform === "TikTok" ? { tiktokPublishOptions } : {}) },
+          $push: { transitions: { from: slot.status, to: "ready_to_publish", reason: `Approved manually by ${approvedBy}`, at: now } },
+        },
+        { new: true, session }
+      );
+      if (updated) await syncCampaignContentReady(updated, session);
+      return updated;
+    });
     if (!approved) throw Object.assign(new Error("Slot đang được xử lý ở nơi khác. Hãy tải lại trước khi duyệt."), { statusCode: 409 });
     return approved;
   },
@@ -857,7 +845,7 @@ export const marketingCampaignService = {
     return { approvedCount: optionsBySlot.length };
   },
 
-  async publishFacebookContent(companyCode: string, contentId: string, approvedBy: string): Promise<{ status: "published" | "processing"; postId?: string; postUrl?: string }> {
+  async publishFacebookContent(companyCode: string, contentId: string, approvedBy: string, requestedPageId?: string): Promise<{ status: "published" | "processing"; postId?: string; postUrl?: string }> {
     const content = await MarketingContentModel.findOne({ _id: contentId, companyCode });
     const slot = content?.campaignSlotId && await MarketingCampaignSlotModel.findOne({ _id: content.campaignSlotId, companyCode, campaignId: content.campaignId, marketingContentId: content._id, platform: "Facebook" });
     if (!content || !slot) throw Object.assign(new Error("Bài đăng không khớp với slot Facebook của Campaign."), { statusCode: 403 });
@@ -870,7 +858,8 @@ export const marketingCampaignService = {
     if (!campaign) throw Object.assign(new Error("Chiến dịch không ở trạng thái đang chạy."), { statusCode: 409 });
     if (slot.status === "publishing") return { status: "processing" };
     if (slot.lockExpiresAt && slot.lockExpiresAt > new Date()) throw Object.assign(new Error("Slot đang xử lý media. Vui lòng thử lại sau."), { statusCode: 409 });
-    await assertCampaignVideoReady({ campaign, slot, content });
+    if (requestedPageId) await resolveFacebookCredentials({ companyCode, createdBy: campaign.createdBy, integrationId: slot.integrationId, expectedPageId: requestedPageId });
+    await assertCampaignMediaReady({ campaign, slot, content });
     await this.publishNowSlot(companyCode, String(slot.campaignId), String(slot._id), approvedBy);
     const current = await MarketingContentModel.findOne({ _id: content._id, companyCode }).lean();
     return current?.status === "published" && current.facebookPostId
@@ -892,6 +881,12 @@ export const marketingCampaignService = {
     if (!allowedStatuses.includes(slot.status)) {
       throw new Error(`Slot không thể đăng ngay ở trạng thái này: ${slot.status}`);
     }
+    const campaign = await MarketingCampaignModel.findOne({ _id: campaignId, companyCode, status: "active" });
+    const content = slot.marketingContentId && await MarketingContentModel.findOne({
+      _id: slot.marketingContentId, companyCode, campaignId, campaignSlotId: slot._id,
+    });
+    if (!campaign || !content) throw new Error("Không tìm thấy nội dung bài đăng của slot chiến dịch.");
+    await assertCampaignMediaReady({ campaign, slot, content });
     if (slot.platform === "TikTok") {
       validateTikTokCampaignPublishOptions(tiktokPublishOptions);
       slot.tiktokPublishOptions = tiktokPublishOptions;

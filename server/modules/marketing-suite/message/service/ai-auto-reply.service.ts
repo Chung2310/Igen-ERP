@@ -7,7 +7,8 @@ import { FacebookAutoReplyJobModel } from "../model/facebook-auto-reply-job.mode
 import { enqueueFacebookReply, claimFacebookReply as claimFacebookAutoReplyJob, facebookReplyLease,
   markFacebookReplySending as markFacebookAutoReplyDeliveryStarted,
   facebookReplyOutcome, requireFacebookReplyText, FACEBOOK_REPLY_MAX_ATTEMPTS,
-  FACEBOOK_REPLY_LEASE_MS, FACEBOOK_REPLY_RETRY_BASE_MS } from "./facebook-auto-reply-queue";
+  FACEBOOK_REPLY_LEASE_MS, FACEBOOK_REPLY_RETRY_BASE_MS, FACEBOOK_INBOUND_DISPATCH_LEASE_MS } from "./facebook-auto-reply-queue";
+import { isFacebookReplyWindowOpen } from "./fb-messenger-error";
 import { reportFacebookReplyFailure } from "./facebook-reply-failure.service.ts";
 import { expireFacebookReplyJobs } from "./facebook-auto-reply-queue";
 import { claimFacebookFollowUp, renewFacebookFollowUp, isFacebookFollowUpCurrent,
@@ -29,6 +30,7 @@ import { prepareChatReplyContext, commitChatVisualContext, buildChatConversation
   describeChatVisualContext, type ChatSourceMessage } from "./chat-reply-context.service.ts";
 import { visualToImageObservation } from "./chat-visual-context";
 import { createChatAiTrace, describeChatAiTrace, withChatAiTrace } from "./chat-ai-trace";
+import { withAiUsage } from "../../shared/service/ai-subscription.service";
 
 // In-memory timeouts map to manage debouncing per conversation.
 // messageKey prevents polling/sync from pushing the same inbound message forever.
@@ -68,12 +70,46 @@ async function isFacebookAutoReplyLeaseActive(conversationId: string, messageId:
   return Boolean(await FacebookAutoReplyJobModel.exists(facebookReplyLease(conversationId, messageId, leaseToken)));
 }
 
+/** Recover the gap between persisting an inbound and creating its AI reply job. */
+async function recoverFacebookInboundDispatches(now: Date) {
+  const pending = await FBMessageModel.find({
+    direction: "inbound", autoReplyDispatchPending: true, autoReplyDispatchAfter: { $lte: now },
+  }).sort({ autoReplyDispatchAfter: 1 }).limit(50).lean();
+  for (const candidate of pending) {
+    const leaseUntil = new Date(Date.now() + FACEBOOK_INBOUND_DISPATCH_LEASE_MS);
+    const inbound = await FBMessageModel.findOneAndUpdate({
+      _id: candidate._id, autoReplyDispatchPending: true, autoReplyDispatchAfter: { $lte: now },
+    }, { $set: { autoReplyDispatchAfter: leaseUntil } }, { new: true }).lean();
+    if (!inbound) continue;
+    const lease = { _id: inbound._id, autoReplyDispatchPending: true, autoReplyDispatchAfter: leaseUntil };
+    try {
+      const conversation = await FBConversationModel.findOne({
+        _id: inbound.conversationId, pageId: inbound.recipientId,
+      }).select("pageId").lean();
+      const latest = await FBMessageModel.findOne({ conversationId: inbound.conversationId })
+        .sort({ timestamp: -1, createdAt: -1 }).select("messageId direction").lean();
+      // Never resurrect an older turn or send again after a custom/human reply.
+      if (conversation && latest?.messageId === inbound.messageId && latest.direction === "inbound" && isFacebookReplyWindowOpen(inbound.timestamp)) {
+        await aiAutoReplyService.triggerAutoReply("facebook", conversation.pageId,
+          String(inbound.conversationId), inbound.text || "", inbound.messageId, { propagateError: true });
+      }
+      await FBMessageModel.updateOne(lease, { $unset: { autoReplyDispatchPending: 1, autoReplyDispatchAfter: 1 } });
+    } catch (error) {
+      await FBMessageModel.updateOne(lease, {
+        $set: { autoReplyDispatchAfter: new Date(Date.now() + FACEBOOK_REPLY_RETRY_BASE_MS) },
+      }).catch(() => undefined);
+      console.error("[AI AutoReply] Facebook inbound dispatch recovery failed:", error);
+    }
+  }
+}
+
 async function recoverFacebookAutoReplyJobs() {
   if (facebookReplyWorkerRunning) return;
   facebookReplyWorkerRunning = true;
   try {
     await FacebookAutoReplyJobModel.init();
     const now = new Date();
+    await recoverFacebookInboundDispatches(now);
     await expireFacebookReplyJobs(now);
     const failures = await FacebookAutoReplyJobModel.find({ channel: "facebook", status: "failed",
       nextAttemptAt: { $lte: now } }).sort({ nextAttemptAt: 1 }).limit(50).lean();
@@ -537,7 +573,7 @@ export const aiAutoReplyService = {
   /**
    * Triggers the AI auto-reply process. Debounces incoming messages to wait for the customer to finish typing.
    */
-  async triggerAutoReply(channel: "facebook" | "zalo" | "tiktok", platformId: string, conversationId: string, incomingText: string, incomingMessageId?: string) {
+  async triggerAutoReply(channel: "facebook" | "zalo" | "tiktok", platformId: string, conversationId: string, incomingText: string, incomingMessageId?: string, options?: { propagateError?: boolean }) {
     try {
       const resolvedPlatformId = String(platformId).trim();
       const normalizedIncomingText = normalizeIncomingText(incomingText);
@@ -1003,7 +1039,7 @@ export const aiAutoReplyService = {
             const startedAt = Date.now();
             const companyCode = targetCompanyCode;
             const aiTrace = aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
-            const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse } = await withChatAiTrace(aiTrace, async () => {
+            const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
               const orderFlow = channel === "facebook" ? chatOrderFlowRegistry.resolve(companyCode) : undefined;
               const customerSession = orderFlow && await orderFlow.isEnabled(resolvedPlatformId)
                 ? await orderFlow.prepareSession({ companyCode, pageId: resolvedPlatformId, conversationId }, latestDbMessage.messageId) : undefined;
@@ -1107,7 +1143,7 @@ export const aiAutoReplyService = {
                 throw new Error("AI reply changed verified payment or order facts.");
               }
               return { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse };
-            }).finally(() => {
+            })).finally(() => {
               if (aiTrace) console.log("[AI AutoReply][AI_TRACE]", JSON.stringify({ conversationId, ...describeChatAiTrace(aiTrace) }));
             });
 
@@ -1368,6 +1404,7 @@ export const aiAutoReplyService = {
         } }).catch(() => undefined);
       }
       console.error("[AI AutoReply triggerAutoReply] ❌ LỖI HỆ THỐNG khi xử lý trigger:", error.message || error);
+      if (options?.propagateError) throw error;
     }
   },
 
@@ -1459,11 +1496,11 @@ export const aiAutoReplyService = {
             trainingKnowledge: owner.aiConfig.trainingKnowledge,
           });
 
-          const followUpRes = await geminiService.generateFollowUpMessage({
+          const followUpRes = await withAiUsage({ companyCode: owner.companyCode }, () => geminiService.generateFollowUpMessage({
             history,
             aiConfig: owner.aiConfig,
             ragContext: effectiveRagContext,
-          });
+          }));
           requireFacebookReplyText(followUpRes?.text);
 
           const sent = await fbMessengerService.sendReply(
@@ -1580,11 +1617,11 @@ export const aiAutoReplyService = {
             trainingKnowledge: owner.aiConfig.trainingKnowledge,
           });
 
-          const followUpRes = await geminiService.generateFollowUpMessage({
+          const followUpRes = await withAiUsage({ companyCode: owner.companyCode }, () => geminiService.generateFollowUpMessage({
             history,
             aiConfig: owner.aiConfig,
             ragContext: effectiveRagContext,
-          });
+          }));
 
           if (followUpRes?.text) {
             await zaloMessengerService.sendReply(

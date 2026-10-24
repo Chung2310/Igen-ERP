@@ -18,6 +18,7 @@ export interface IMarketingContent extends Document {
   audioRecordId?: string;
   videoProvider?: string;
   generatedAt: Date;
+  updatedAt?: Date;
   feedback?: string;
   scheduledDate?: string;
   scheduledTime?: string;

@@ -1,5 +1,5 @@
 import { getMarketingAppUrl } from "../../shared/runtime-settings";
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { facebookPostService } from "../../shared/service/facebook-post.service.ts";
 import { MarketingContentModel } from "../model/marketing-content.model.ts";
 import { UserModel } from "../../../../model/user.model.ts";
@@ -155,6 +155,9 @@ export const schedulerService = {
       } else if (payload.imageUrl) {
         mediaType = "image";
         mediaUrl = payload.imageUrl;
+      } else if (payload.mediaUrls?.length) {
+        mediaType = "image";
+        mediaUrl = payload.mediaUrls[0];
       }
 
       const appUrl = getMarketingAppUrl();
@@ -169,6 +172,7 @@ export const schedulerService = {
         content: payload.bodyText || "",
         mediaType,
         mediaUrl,
+        mediaUrls: payload.videoUrl ? [] : payload.mediaUrls || (payload.imageUrl ? [payload.imageUrl] : []),
         pageId: payload.integration.pageId,
         accessToken: payload.integration.pageAccessToken,
         callbackUrl,
@@ -180,6 +184,7 @@ export const schedulerService = {
         method: "POST",
         headers,
         body: JSON.stringify(n8nPayload),
+        signal: AbortSignal.timeout(30_000),
       });
 
       if (!response.ok) {
@@ -193,15 +198,32 @@ export const schedulerService = {
       const textData = await response.text();
       if (textData.trim()) {
         const contentType = response.headers.get("content-type") || "";
-        if (contentType.includes("application/json")) {
+        const firstCharacter = textData.trimStart()[0];
+        if (contentType.includes("application/json") || firstCharacter === "{" || firstCharacter === "[") {
           try {
             responseData = JSON.parse(textData);
-          } catch (err) {
-            responseData = { message: textData };
+          } catch {
+            throw new Error("n8n trả về JSON không hợp lệ; chưa thể xác nhận lịch đăng.");
           }
         } else {
           responseData = { message: textData };
         }
+      }
+
+      const envelopes: unknown[] = [responseData];
+      for (let checked = 0; envelopes.length; checked++) {
+        if (checked >= 20) throw new Error("Phản hồi n8n quá phức tạp; chưa thể xác nhận lịch đăng.");
+        const envelope = envelopes.shift();
+        if (Array.isArray(envelope)) {
+          if (envelope.length > 20) throw new Error("Phản hồi n8n vượt giới hạn; chưa thể xác nhận lịch đăng.");
+          envelopes.push(...envelope); continue;
+        }
+        if (!envelope || typeof envelope !== "object") continue;
+        const data = envelope as Record<string, unknown>;
+        if (data.success === false || ["failed", "failure", "error", "rejected"].includes(String(data.status || "").toLowerCase()) || data.error) {
+          throw new Error("n8n từ chối yêu cầu lên lịch. Vui lòng kiểm tra workflow trước khi thử lại.");
+        }
+        if (data.data) envelopes.push(data.data);
       }
 
       return {

@@ -91,6 +91,8 @@ const MarketingCampaignSchema = new Schema<IMarketingCampaign>(
       failedSlots: { type: Number, default: 0 },
       estimatedCost: { type: Number, default: 0 },
       actualCost: { type: Number, default: 0 },
+      aiCallsEstimated: { type: Number, default: 0 },
+      aiCallsUsed: { type: Number, default: 0 },
     },
   },
   { timestamps: true }

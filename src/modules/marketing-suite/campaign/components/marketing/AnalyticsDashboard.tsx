@@ -199,6 +199,7 @@ export default function AnalyticsDashboard() {
   }, [campaignId, platform, startDate, endDate]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset loading/validation before the existing filter request; keep its sequence-based stale-response guard.
     void loadData();
     return () => { requestSequence.current += 1; };
   }, [loadData]);
@@ -217,7 +218,7 @@ export default function AnalyticsDashboard() {
         { Chỉ_số: "Đăng thất bại", Giá_trị: data.overview.failedSlots },
         { Chỉ_số: "Đang chờ duyệt/xử lý", Giá_trị: data.overview.pendingApprovalSlots },
         { Chỉ_số: "Tỷ lệ thành công (%)", Giá_trị: `${data.overview.successRate}%` },
-        { Chỉ_số: "Tổng chi phí AI của bài viết (Credit)", Giá_trị: data.overview.totalAiCost },
+        { Chỉ_số: "Tổng lượt gọi AI của bài viết", Giá_trị: data.overview.totalAiCost },
         { Chỉ_số: "Lần thử lại trung bình / bài", Giá_trị: data.overview.avgAttemptCount },
         { Chỉ_số: "Tổng lượt Reach", Giá_trị: data.platformMetrics.totalReach },
         { Chỉ_số: "Tổng lượt Impressions", Giá_trị: data.platformMetrics.totalImpressions },
@@ -247,7 +248,7 @@ export default function AnalyticsDashboard() {
         "Content Pillar": item.pillar,
         "Tổng số bài": item.total,
         "Đã đăng thành công": item.published,
-        "Chi phí AI trung bình (USD)": item.avgCost,
+        "Lượt AI trung bình / bài": item.avgCost,
         "Lượt thích": item.likes,
         "Lượt xem": item.views,
       }));

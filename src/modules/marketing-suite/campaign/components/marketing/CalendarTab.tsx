@@ -82,6 +82,7 @@ export default function CalendarTab({ isUserRole, approvalCards }: CalendarTabPr
     const month = String(currentMonth + 1).padStart(2, "0");
     const startDate = `${currentYear}-${month}-01`;
     const endDate = `${currentYear}-${month}-${String(daysInMonth).padStart(2, "0")}`;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the loading indicator before the existing month request begins.
     setLoadingCalendar(true);
     marketingCampaignService.calendar(startDate, endDate)
       .then((result) => {
@@ -157,13 +158,12 @@ export default function CalendarTab({ isUserRole, approvalCards }: CalendarTabPr
     currentPage * EVENTS_PER_PAGE,
   );
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [currentMonth, currentYear, selectedDay]);
-
-  useEffect(() => {
-    setCurrentPage((page) => Math.min(page, totalPages));
-  }, [totalPages]);
+  const [previousPageScope, setPreviousPageScope] = useState({ currentMonth, currentYear, selectedDay, totalPages });
+  if (previousPageScope.currentMonth !== currentMonth || previousPageScope.currentYear !== currentYear || previousPageScope.selectedDay !== selectedDay || previousPageScope.totalPages !== totalPages) {
+    setPreviousPageScope({ currentMonth, currentYear, selectedDay, totalPages });
+    const filtersChanged = previousPageScope.currentMonth !== currentMonth || previousPageScope.currentYear !== currentYear || previousPageScope.selectedDay !== selectedDay;
+    setCurrentPage(page => filtersChanged ? 1 : Math.min(page, totalPages));
+  }
 
   const paginationControls = displayedEvents.length > EVENTS_PER_PAGE && (
     <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between gap-3">

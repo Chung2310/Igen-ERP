@@ -118,6 +118,9 @@ for (const [path, rawModel] of [
     if (path === "/marketing-contents") {
       const existing = await model.findOne({ _id: req.params.id, companyCode: req.user!.companyCode }).lean();
       if (!existing) return res.status(404).json({ status: "error", message: "Không tìm thấy dữ liệu." });
+      if (data.status === "scheduled" && existing.channel === "Facebook" && ["published", "processing", "failed"].includes(String(existing.status))) {
+        return res.status(409).json({ status: "error", message: "Kết quả đăng Facebook đã thay đổi. Hãy tải lại bài viết trước khi lên lịch." });
+      }
       await assertCampaignContentLinks(req.user!.companyCode!, data, existing);
       campaignContent = existing;
     }
@@ -130,8 +133,12 @@ for (const [path, rawModel] of [
         .some(key => key in data && data[key] !== existing[key])) data.facebookUserId = "";
     }
     const persist = async (session?: mongoose.ClientSession) => {
-      const saved = await model.findOneAndUpdate({ _id: req.params.id, companyCode: req.user!.companyCode }, { $set: data }, { returnDocument: "after", runValidators: true, session }).lean();
-      if (!saved) throw Object.assign(new Error("Không tìm thấy dữ liệu."), { statusCode: 404 });
+      const protectFacebookResult = data.status === "scheduled" && campaignContent?.channel === "Facebook";
+      const saved = await model.findOneAndUpdate({
+        _id: req.params.id, companyCode: req.user!.companyCode,
+        ...(protectFacebookResult ? { status: { $nin: ["published", "processing", "failed"] } } : {}),
+      }, { $set: data }, { returnDocument: "after", runValidators: true, session }).lean();
+      if (!saved) throw Object.assign(new Error(protectFacebookResult ? "Kết quả đăng Facebook đã thay đổi. Hãy tải lại bài viết trước khi lên lịch." : "Không tìm thấy dữ liệu."), { statusCode: protectFacebookResult ? 409 : 404 });
     };
     if (campaignContent) await syncCampaignContentMedia({ ...campaignContent, ...data }, data, persist);
     else await persist();

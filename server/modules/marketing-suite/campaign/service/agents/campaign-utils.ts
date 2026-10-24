@@ -1,8 +1,11 @@
 import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
+import mongoose, { type ClientSession } from "mongoose";
 import { MarketingCampaignModel } from "../../model/marketing-campaign.model.ts";
 import { MarketingCampaignSlotModel } from "../../model/marketing-campaign-slot.model.ts";
+import { MarketingContentModel } from "../../model/marketing-content.model";
+import type { IMarketingCampaignSlot, MarketingCampaignSlotStatus } from "../../interface/marketing-campaign-slot.interface";
 import { SocialIntegrationModel } from "../../../shared/model/social-integration.model.ts";
 import { UserModel } from "../../../../../model/user.model.ts";
 
@@ -60,7 +63,13 @@ export async function resolveFacebookCredentials(input: {
   companyCode: string;
   createdBy: string;
   integrationId?: unknown;
+  expectedPageId?: string;
 }) {
+  const assertSelectedPage = (pageId: string) => {
+    if (input.expectedPageId && input.expectedPageId !== pageId) {
+      throw Object.assign(new Error("Fanpage được chọn không khớp với slot. Vui lòng cập nhật Fanpage trong Campaign trước khi đăng."), { statusCode: 409 });
+    }
+  };
   // 1. If integrationId is provided, attempt lookup in SocialIntegrationModel
   if (input.integrationId) {
     const integration = await SocialIntegrationModel.findOne({
@@ -70,12 +79,14 @@ export async function resolveFacebookCredentials(input: {
       isConnected: true,
     }).lean();
     if (integration?.username && integration.accessToken) {
+      assertSelectedPage(integration.username);
       return {
         pageId: integration.username,
         accessToken: integration.accessToken,
         isMock: !!integration.isMock,
       };
     }
+    throw new Error("Fanpage đã chọn chưa có kết nối Facebook hợp lệ. Vui lòng kết nối lại đúng Fanpage.");
   }
 
   // 2. Fallback: Check creator user's personal Facebook connection
@@ -87,6 +98,7 @@ export async function resolveFacebookCredentials(input: {
     user.facebookIntegration.pageId &&
     user.facebookIntegration.pageAccessToken
   ) {
+    assertSelectedPage(user.facebookIntegration.pageId);
     return {
       pageId: user.facebookIntegration.pageId,
       accessToken: user.facebookIntegration.pageAccessToken,
@@ -94,39 +106,33 @@ export async function resolveFacebookCredentials(input: {
     };
   }
 
-  // 3. Fallback: Check ANY active company-wide Facebook integration in SocialIntegrationModel
-  const companyIntegration = await SocialIntegrationModel.findOne({
-    companyCode: input.companyCode,
-    platform: "Facebook",
-    isConnected: true,
-    username: { $exists: true, $ne: "" },
-    accessToken: { $exists: true, $ne: "" },
-  }).lean();
-  if (companyIntegration?.username && companyIntegration.accessToken) {
-    return {
-      pageId: companyIntegration.username,
-      accessToken: companyIntegration.accessToken,
-      isMock: !!companyIntegration.isMock,
-    };
-  }
+  throw new Error("Tác giả chưa kết nối Facebook Page. Vui lòng chọn đúng Fanpage cho chiến dịch.");
+}
 
-  // 4. Fallback: Check ANY user in the company with an active Facebook connection in UserModel
-  const anyConnectedUser = await UserModel.findOne({
-    companyCode: input.companyCode,
-    "facebookIntegration.isConnected": true,
-    "facebookIntegration.pageId": { $exists: true, $ne: "" },
-    "facebookIntegration.pageAccessToken": { $exists: true, $ne: "" },
-  }).select("facebookIntegration").lean();
+export async function syncCampaignContentFailure(
+  slot: Pick<IMarketingCampaignSlot, "_id" | "campaignId" | "companyCode" | "marketingContentId">,
+  message: string,
+  session: ClientSession,
+) {
+  if (!slot.marketingContentId) return;
+  await MarketingContentModel.updateOne({
+    _id: slot.marketingContentId, companyCode: slot.companyCode,
+    campaignId: String(slot.campaignId), campaignSlotId: slot._id,
+    // A provider callback remains authoritative once delivery has started.
+    status: { $nin: ["published", "processing"] },
+  }, { $set: { status: "failed", publishError: message } }, { session });
+}
 
-  if (anyConnectedUser?.facebookIntegration?.pageId && anyConnectedUser?.facebookIntegration?.pageAccessToken) {
-    return {
-      pageId: anyConnectedUser.facebookIntegration.pageId,
-      accessToken: anyConnectedUser.facebookIntegration.pageAccessToken,
-      isMock: !!anyConnectedUser.facebookIntegration.isMock,
-    };
-  }
-
-  throw new Error("Không tìm thấy kết nối Facebook Page (cá nhân hoặc doanh nghiệp) đang hoạt động.");
+export async function syncCampaignContentReady(
+  slot: Pick<IMarketingCampaignSlot, "_id" | "campaignId" | "companyCode" | "marketingContentId">,
+  session: ClientSession,
+) {
+  if (!slot.marketingContentId) return;
+  await MarketingContentModel.updateOne({
+    _id: slot.marketingContentId, companyCode: slot.companyCode,
+    campaignId: String(slot.campaignId), campaignSlotId: slot._id,
+    status: { $nin: ["published", "processing"] },
+  }, { $set: { status: "scheduled" }, $unset: { publishError: 1 } }, { session });
 }
 
 export async function releaseWithFailure(
@@ -134,39 +140,52 @@ export async function releaseWithFailure(
   lockId: string,
   stage: string,
   error: unknown
-): Promise<void> {
+): Promise<MarketingCampaignSlotStatus | undefined> {
   const message = error instanceof Error ? error.message : String(error);
-  const slot = await MarketingCampaignSlotModel.findOne({ _id: slotId, lockId })
-    .select("attemptCount status campaignId")
-    .lean();
-  if (!slot) return;
+  const session = await mongoose.startSession();
+  try {
+    return await session.withTransaction(async () => {
+      const slot = await MarketingCampaignSlotModel.findOne({ _id: slotId, lockId })
+        .select("attemptCount status campaignId companyCode marketingContentId")
+        .session(session)
+        .lean();
+      if (!slot) return;
 
-  const terminal = slot.attemptCount >= 2;
-  const targetStatus = terminal ? "needs_attention" : slot.status;
+      const budget = (error as { code?: string })?.code === "AI_SUBSCRIPTION_LIMIT";
+      const validation = (error as { code?: string })?.code === "CAMPAIGN_MEDIA_NOT_READY";
+      const terminal = budget || validation || slot.attemptCount >= 2;
+      const targetStatus = terminal ? "needs_attention" : slot.status;
 
-  const result = await MarketingCampaignSlotModel.updateOne(
-    { _id: slotId, lockId },
-    {
-      $set: {
-        status: targetStatus,
-        lockId: null,
-        lockedAt: null,
-        lockExpiresAt: null,
-        lastError: { type: terminal ? "terminal" : "provider", message, occurredAt: new Date() },
-      },
-      $inc: { attemptCount: 1 },
-      $push: {
-        transitions: {
-          from: slot.status,
-          to: targetStatus,
-          reason: `${stage}: ${message}`,
-          at: new Date(),
+      const result = await MarketingCampaignSlotModel.updateOne(
+        { _id: slotId, lockId },
+        {
+          $set: {
+            status: targetStatus,
+            lockId: null,
+            lockedAt: null,
+            lockExpiresAt: null,
+            lastError: { type: budget ? "budget" : validation ? "validation" : terminal ? "terminal" : "provider", message, occurredAt: new Date() },
+          },
+          $inc: { attemptCount: 1 },
+          $push: {
+            transitions: {
+              from: slot.status,
+              to: targetStatus,
+              reason: `${stage}: ${message}`,
+              at: new Date(),
+            },
+          },
         },
-      },
-    }
-  );
+        { session },
+      );
 
-  if (terminal && result.modifiedCount > 0) {
-    await MarketingCampaignModel.updateOne({ _id: slot.campaignId }, { $inc: { "statistics.failedSlots": 1 } });
+      if (terminal && result.modifiedCount > 0) {
+        await syncCampaignContentFailure(slot, message, session);
+        await MarketingCampaignModel.updateOne({ _id: slot.campaignId, companyCode: slot.companyCode }, { $inc: { "statistics.failedSlots": 1 } }, { session });
+      }
+      return result.modifiedCount > 0 ? targetStatus : undefined;
+    });
+  } finally {
+    await session.endSession();
   }
 }

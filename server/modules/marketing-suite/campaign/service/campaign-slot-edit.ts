@@ -6,19 +6,25 @@ import { CampaignSheetRowModel, CampaignSheetRevisionModel } from "../model/camp
 
 const conflict = () => Object.assign(new Error("Slot đã thay đổi hoặc đang được xử lý. Hãy tải lại trước khi lưu."), { statusCode: 409 });
 
-export async function syncCampaignSheetFields(companyCode: string, campaignId: string, slotId: string, updates: Record<string, unknown>, session: ClientSession) {
+export async function syncCampaignSheetFields(companyCode: string, campaignId: string, slotId: string, updates: Record<string, unknown>, session: ClientSession, actorId = "internal") {
   const row = await CampaignSheetRowModel.findOne({ companyCode, campaignId, slotId }).session(session);
   if (!row) return;
-  const changes = row.fields.filter((field) => ["title", "bodyText"].includes(field.key) && updates[field.key] !== undefined)
-    .map((field) => ({ slotId, fieldKey: field.key, before: field.value, after: updates[field.key] }));
+  const changes = Object.entries(updates)
+    .filter(([key, value]) => value !== undefined && (key === "scheduledAt" || (["title", "bodyText"].includes(key) && row.fields.some(field => field.key === key))))
+    .map(([key, value]) => ({ slotId, fieldKey: key, before: row.fields.find(field => field.key === key)?.value, after: value }));
   if (!changes.length) return;
   const fields = row.toObject().fields.map((field) => {
     const change = changes.find((item) => item.fieldKey === field.key);
-    return change ? { ...field, value: change.after, source: "user", updatedBy: "internal", updatedAt: new Date(), generationId: undefined, references: [] } : field;
+    return change ? { ...field, value: change.after, source: "user", updatedBy: actorId, updatedAt: new Date(), generationId: undefined, references: [] } : field;
   });
+  for (const change of changes) {
+    if (!fields.some(field => field.key === change.fieldKey)) {
+      fields.push({ key: change.fieldKey, value: change.after, source: "user", locked: false, updatedBy: actorId, updatedAt: new Date(), references: [] });
+    }
+  }
   const synced = await CampaignSheetRowModel.updateOne({ _id: row._id, companyCode, revision: row.revision }, { $set: { fields }, $inc: { revision: 1 } }, { session });
   if (!synced.matchedCount) throw conflict();
-  await CampaignSheetRevisionModel.create([{ companyCode, campaignId, actorType: "user", actorId: "internal", operation: "update_content", baseRevision: row.revision, changes }], { session });
+  await CampaignSheetRevisionModel.create([{ companyCode, campaignId, actorType: "user", actorId, operation: "update_content", baseRevision: row.revision, changes }], { session });
 }
 
 /** Serialize user edits with campaign workers; commit row/card/slot changes together. */

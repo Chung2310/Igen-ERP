@@ -41,11 +41,13 @@ export function ImageGenerationWorkspace(props: ImageGenerationProps) {
 function ScopedImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, initialImage, autoTrigger, imageLibraryKey }: ImageGenerationProps & { imageLibraryKey: string | null }) {
   const [activeCardId, setActiveCardId] = useState<string | undefined>(cardId);
 
-  useEffect(() => {
+  const [previousCardId, setPreviousCardId] = useState(cardId);
+  if (previousCardId !== cardId) {
+    setPreviousCardId(cardId);
     if (cardId) {
       setActiveCardId(cardId);
     }
-  }, [cardId]);
+  }
 
   const [simplePrompt, setSimplePrompt] = useState('');
   const [prompt, setPrompt] = useState(initialPrompt || '');
@@ -62,16 +64,18 @@ function ScopedImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, i
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  useEffect(() => {
+  const [previousInitialImage, setPreviousInitialImage] = useState(initialImage);
+  if (previousInitialImage !== initialImage) {
+    setPreviousInitialImage(initialImage);
     if (initialImage) {
       setInputImageUrls([initialImage]);
     }
-  }, [initialImage]);
+  }
 
   // States for processing
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
-  const [isPromptAnalyzed, setIsPromptAnalyzed] = useState(false);
+  const [isPromptAnalyzed, setIsPromptAnalyzed] = useState(Boolean(initialPrompt));
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [generatedMediaId, setGeneratedMediaId] = useState<string | undefined>();
@@ -92,18 +96,20 @@ function ScopedImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, i
   const generateProgress = useProgress(isGenerating, 12);
   const optimizeProgress = useProgress(isGeneratingPrompt, 4);
 
-  useEffect(() => {
+  const [previousInitialPrompt, setPreviousInitialPrompt] = useState(initialPrompt);
+  if (previousInitialPrompt !== initialPrompt) {
+    setPreviousInitialPrompt(initialPrompt);
     if (initialPrompt) {
       setPrompt(initialPrompt);
       setIsPromptAnalyzed(true);
     }
-  }, [initialPrompt]);
+  }
 
   useEffect(() => {
     loadHistory();
   }, []);
 
-  const loadHistory = async () => {
+  async function loadHistory() {
     setIsLoadingHistory(true);
     try {
       const response = await geminiApi.getMediaHistory("image");
@@ -114,7 +120,7 @@ function ScopedImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, i
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }
 
   const loadLibraryImages = async () => {
     setIsLoadingLibrary(true);
@@ -349,7 +355,7 @@ function ScopedImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, i
         setPrompt(JSON.stringify(result, null, 2));
       }
       if (result.isLocalFallback) {
-        toast.warning('Không kết nối được AI tối ưu prompt; đã dùng bản tối ưu cục bộ và không trừ credit.');
+      toast.warning('Không kết nối được AI tối ưu prompt; đã dùng bản tối ưu cục bộ.');
       } else {
         toast.success('Đã tối ưu hóa prompt bằng AI thành công!');
       }
@@ -428,6 +434,7 @@ function ScopedImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, i
     const cacheKey = `autotrigger_image_${activeCardId}`;
     if (autoTrigger && initialPrompt && !isGenerating && !generatedImageUrl && !sessionStorage.getItem(cacheKey)) {
       sessionStorage.setItem(cacheKey, 'true');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the session-idempotent auto-generation handoff and its immediate busy state.
       void handleGenerateImage();
     }
   }, [autoTrigger, initialPrompt, activeCardId]);

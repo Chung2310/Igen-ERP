@@ -103,6 +103,7 @@ export interface ICampaignAssetOrderAIJob extends Document {
   modelName: string;
   estimatedCost: number;
   actualCost: number;
+  usageUnit?: "ai_calls";
   idempotencyKey: string;
   results: ICampaignAssetOrderAIJobResult[];
   attemptCount: number;

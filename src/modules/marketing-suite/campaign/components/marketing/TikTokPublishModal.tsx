@@ -85,6 +85,7 @@ export default function TikTokPublishModal({
       preset = {};
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the legacy approval form, media validation and consent for the newly opened post/account.
     setCaption(initialCaption);
     setPrivacyLevel(preset.privacyLevel || "");
     setAllowComment(Boolean(preset.allowComment));

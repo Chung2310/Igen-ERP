@@ -67,6 +67,8 @@ export interface IMarketingCampaign extends Document {
     failedSlots: number;
     estimatedCost: number;
     actualCost: number;
+    aiCallsEstimated?: number;
+    aiCallsUsed?: number;
   };
   createdAt: Date;
   updatedAt: Date;

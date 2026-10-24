@@ -5,6 +5,7 @@ import path from "path";
 import { SpeechTranscriptionProvider } from "../../../../../shared/marketing-suite/video-caption.contract.ts";
 import { VideoCaptionError } from "./video-caption-error";
 import { resolveMediaBinary } from "./media-binary.service.ts";
+import { billAiCall, withAiUsage } from "./ai-subscription.service";
 
 const API_URL = "https://openrouter.ai/api/v1/audio/transcriptions";
 const MODEL = process.env.OPENROUTER_CAPTION_STT_MODEL?.trim() || "openai/whisper-large-v3";
@@ -144,6 +145,13 @@ class OpenRouterSpeechTranscriptionProvider implements SpeechTranscriptionProvid
   readonly name = "openrouter";
 
   async start(input: Parameters<SpeechTranscriptionProvider["start"]>[0]): ReturnType<SpeechTranscriptionProvider["start"]> {
+    const metadata = input.webhookMetadata;
+    return withAiUsage({ companyCode: metadata.companyCode, userId: metadata.userId || undefined,
+      campaignId: metadata.campaignId || undefined, slotId: metadata.slotId || undefined },
+    () => billAiCall("speech", MODEL, () => this.startUnmetered(input)));
+  }
+
+  private async startUnmetered(input: Parameters<SpeechTranscriptionProvider["start"]>[0]): ReturnType<SpeechTranscriptionProvider["start"]> {
     if (input.delivery !== "direct") throw new VideoCaptionError("OpenRouter STT hiện chỉ hỗ trợ xử lý trực tiếp trong luồng caption.", "OPENROUTER_STT_WEBHOOK_UNSUPPORTED", "provider", false, 422);
     const apiKey = process.env.OPENROUTER_API_KEY?.trim() || "";
     if (!apiKey) throw new VideoCaptionError("Chưa cấu hình OPENROUTER_API_KEY cho dịch vụ nhận diện giọng nói.", "OPENROUTER_STT_API_KEY_REQUIRED", "authentication", false, 422);
@@ -204,10 +212,12 @@ class OpenRouterSpeechTranscriptionProvider implements SpeechTranscriptionProvid
 }
 
 export function createSpeechTranscriptionProvider(_userId: string) {
+  void _userId;
   return new OpenRouterSpeechTranscriptionProvider();
 }
 
 export function getVideoCaptionTranscriptionDelivery(_durationMs?: number): "direct" | "webhook" {
+  void _durationMs;
   return "direct";
 }
 

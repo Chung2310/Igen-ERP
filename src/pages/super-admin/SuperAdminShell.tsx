@@ -10,6 +10,7 @@ import { TenantListPage } from "./tenants/TenantListPage";
 import { TenantDetailPage } from "./tenants/TenantDetailPage";
 import { UserManagementPanel } from "./users/UserManagementPanel";
 import { SuperAdminAccountsPage } from "./admins/SuperAdminAccountsPage";
+import AiSubscriptionsPage from "./subscriptions/AiSubscriptionsPage";
 import { LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X, ShieldCheck } from "lucide-react";
 import {
   clearPendingSuperAdminChallenge,
@@ -22,7 +23,7 @@ export default function SuperAdminShell() {
     localStorage.getItem("accessToken") ? "authenticated" : "password"
   );
   
-  const [activeTab, setActiveTab] = React.useState<"overview" | "audit" | "sessions" | "tenants" | "users" | "admins">("overview");
+  const [activeTab, setActiveTab] = React.useState<"overview" | "audit" | "sessions" | "tenants" | "users" | "admins" | "subscriptions">("overview");
   const [selectedTenantCode, setSelectedTenantCode] = React.useState<string | null>(null);
   const [challenge, setChallenge] = React.useState(pendingChallenge?.challengeId || "");
   const [email, setEmail] = React.useState("");
@@ -146,6 +147,8 @@ export default function SuperAdminShell() {
         return <UserManagementPanel tenantId="SYSTEM" />;
       case "admins":
         return <SuperAdminAccountsPage />;
+      case "subscriptions":
+        return <AiSubscriptionsPage />;
       case "overview":
       default:
         return <DashboardTab />;
@@ -158,6 +161,7 @@ export default function SuperAdminShell() {
     { id: "users" as const, label: "Quản trị tài khoản", icon: UsersRound },
     { id: "admins" as const, label: "Tài khoản Super Admin", icon: ShieldCheck },
     { id: "tenants" as const, label: "Quản lý doanh nghiệp", icon: Building2 },
+    { id: "subscriptions" as const, label: "Gói AI & Subscription", icon: FileText },
     { id: "sessions" as const, label: "Quản lý phiên làm việc", icon: Monitor },
   ];
 

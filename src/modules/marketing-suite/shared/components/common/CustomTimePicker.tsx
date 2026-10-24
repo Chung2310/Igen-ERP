@@ -17,9 +17,11 @@ export default function CustomTimePicker({ value, onChange, disabled }: CustomTi
 
   const [inputValue, setInputValue] = useState(timeString);
 
-  useEffect(() => {
+  const [previousTimeString, setPreviousTimeString] = useState(timeString);
+  if (previousTimeString !== timeString) {
+    setPreviousTimeString(timeString);
     setInputValue(timeString);
-  }, [timeString]);
+  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

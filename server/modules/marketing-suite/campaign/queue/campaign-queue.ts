@@ -156,7 +156,7 @@ async function runDirectFallback(slotId: string, type: 'prepare' | 'media' | 've
     }
 
     console.log(`[Campaign Queue Direct Fallback] Starting direct ${type} task for slot ${slotId}`);
-    await orchestratorFn(slotId, lockId);
+    await orchestratorFn.call(CampaignOrchestratorService, slotId, lockId);
 
     const campaignIsActive = await MarketingCampaignModel.exists({ _id: claimed.campaignId, companyCode: claimed.companyCode, status: "active" });
     if (campaignIsActive && (type === "prepare" || type === "media")) {

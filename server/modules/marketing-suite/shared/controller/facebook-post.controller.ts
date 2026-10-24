@@ -75,7 +75,7 @@ export const facebookPostController = {
       if (!card) return res.status(403).json({ status: "error", message: "Bạn không có quyền truy cập bài đăng này." });
       if (card.campaignSlotId) {
         const { marketingCampaignService } = await import("../../campaign/service/marketing-campaign.service");
-        const publication = await marketingCampaignService.publishFacebookContent(companyCode, String(card._id), String((req as any).user?.id || ""));
+        const publication = await marketingCampaignService.publishFacebookContent(companyCode, String(card._id), String((req as any).user?.id || ""), pageId);
         return res.status(200).json({ status: "success", data: { id: publication.postId, postUrl: publication.postUrl }, publication });
       }
       if (card.status === "published") {

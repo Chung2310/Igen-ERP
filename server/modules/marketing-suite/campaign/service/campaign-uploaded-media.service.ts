@@ -36,6 +36,10 @@ export async function assertCampaignContentLinks(companyCode: string, changes: R
   if (!existing?.campaignSlotId && ["processing", "published"].includes(String(existing?.status))) {
     throw error("Không thể gắn bài đang đăng hoặc đã đăng vào slot Campaign qua API sửa bài.", 409);
   }
+  if (["scheduledDate", "scheduledTime", "integrationId"].some(key => key in changes && String(changes[key] ?? "") !== String(existing?.[key] ?? ""))
+    || (changes.status === "scheduled" && existing?.status !== "scheduled")) {
+    throw error("Lịch và Fanpage của bài Campaign phải được cập nhật qua luồng lên lịch Campaign.", 409);
+  }
   const publicationFields = ["facebookPostId", "postUrl", "publishedAt", "publishError", "tiktokPostId", "tiktokPublishId", "tiktokShareUrl", "tiktokProvider", "tiktokLastWebhookEvent", "tiktokWebhookUpdatedAt"];
   if (publicationFields.some((key) => key in changes && String(changes[key] ?? "") !== String(existing?.[key] ?? ""))
     || ("status" in changes && changes.status !== existing?.status && (["processing", "published", "failed"].includes(String(changes.status)) || ["processing", "published"].includes(String(existing?.status))))) {

@@ -59,6 +59,7 @@ export interface IMarketingCampaignSlot extends Document {
   mediaSource?: MarketingCampaignSlotMediaSource;
   status: MarketingCampaignSlotStatus;
   attemptCount: number;
+  aiCallsUsed?: number;
   lockId?: string;
   lockedAt?: Date;
   lockExpiresAt?: Date;

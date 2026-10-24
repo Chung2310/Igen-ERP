@@ -15,6 +15,7 @@ const DETAIL_LIST_ITEMS_PER_PAGE = 8;
 
 export interface CampaignSlot {
   _id: string;
+  aiCallsUsed?: number;
   pillar: string;
   objective?: string;
   topicBrief: string;
@@ -169,24 +170,26 @@ export default function CampaignDetailModal({
   const [activeMainTab, setActiveMainTab] = useState<'published_links' | 'research' | 'overall_strategy' | 'content_pillar' | 'content_calendar' | 'asset_orders'>('content_calendar');
   const [publishedPage, setPublishedPage] = useState(1);
   const [researchEvidencePage, setResearchEvidencePage] = useState(1);
+  const campaignSlots = campaignDetail?.slots;
+  const campaignStatus = campaignDetail?.campaign.status;
 
   // Check if all slots in the campaign are 100% completed/published
   const isCampaignAllCompleted = React.useMemo(() => {
-    if (!campaignDetail?.slots || campaignDetail.slots.length === 0) return false;
-    const totalSlots = campaignDetail.slots.length;
-    const publishedSlotsCount = campaignDetail.slots.filter((s) => s.status === 'published').length;
-    return (totalSlots > 0 && publishedSlotsCount === totalSlots) || campaignDetail.campaign.status === 'completed';
-  }, [campaignDetail?.slots, campaignDetail?.campaign.status]);
+    if (!campaignSlots || campaignSlots.length === 0) return false;
+    const totalSlots = campaignSlots.length;
+    const publishedSlotsCount = campaignSlots.filter((s) => s.status === 'published').length;
+    return (totalSlots > 0 && publishedSlotsCount === totalSlots) || campaignStatus === 'completed';
+  }, [campaignSlots, campaignStatus]);
 
   // Filter slots that have published URLs
   const publishedSlotsList = React.useMemo(() => {
-    if (!campaignDetail?.slots) return [];
-    return campaignDetail.slots.filter(s => s.status === 'published' || s.publishedPostUrl);
-  }, [campaignDetail?.slots]);
+    if (!campaignSlots) return [];
+    return campaignSlots.filter(s => s.status === 'published' || s.publishedPostUrl);
+  }, [campaignSlots]);
 
   // 1. Gather all unique research evidence items from all slots in the campaign
   const allResearchEvidence = React.useMemo(() => {
-    if (!campaignDetail?.slots) return [];
+    if (!campaignSlots) return [];
     const seenUrls = new Set<string>();
     const list: Array<{
       source: 'google' | 'facebook' | 'tiktok';
@@ -198,7 +201,7 @@ export default function CampaignDetailModal({
       collectedAt: string;
       metrics?: { views?: number; likes?: number; comments?: number; shares?: number };
     }> = [];
-    for (const slot of campaignDetail.slots) {
+    for (const slot of campaignSlots) {
       if (slot.researchAnalysis?.evidence) {
         for (const ev of slot.researchAnalysis.evidence) {
           const url = ev.sourceUrl?.toLowerCase().trim();
@@ -210,7 +213,7 @@ export default function CampaignDetailModal({
       }
     }
     return list;
-  }, [campaignDetail?.slots]);
+  }, [campaignSlots]);
 
   const totalPublishedPages = Math.max(1, Math.ceil(publishedSlotsList.length / DETAIL_LIST_ITEMS_PER_PAGE));
   const totalResearchEvidencePages = Math.max(1, Math.ceil(allResearchEvidence.length / DETAIL_LIST_ITEMS_PER_PAGE));
@@ -225,14 +228,14 @@ export default function CampaignDetailModal({
 
   // 2. Parse the aggregated research summary & keywords from the slots
   const parsedEvidenceSummary = React.useMemo(() => {
-    if (!campaignDetail?.slots) return null;
+    if (!campaignSlots) return null;
     let summaryText = '';
     const keywordsSet = new Set<string>();
     const anglesList: string[] = [];
     const painPointsList: string[] = [];
     const factsList: string[] = [];
 
-    for (const slot of campaignDetail.slots) {
+    for (const slot of campaignSlots) {
       if (slot.researchAnalysis?.context) {
         try {
           const parsed = JSON.parse(slot.researchAnalysis.context);
@@ -275,26 +278,25 @@ export default function CampaignDetailModal({
       painPoints: painPointsList.slice(0, 8),
       facts: factsList.slice(0, 8),
     };
-  }, [campaignDetail?.slots]);
+  }, [campaignSlots]);
 
   // Derive current active slot detail from fresh api data if available
   const activeSlot = campaignDetail?.slots.find(s => s._id === selectedSlot?._id) || null;
 
-  // Reset active slot when campaign changes
-  useEffect(() => {
-    setSelectedSlot(null);
-    setActivationIssues([]);
-    setPublishedPage(1);
-    setResearchEvidencePage(1);
-  }, [campaignDetail?.campaign?._id]);
-
-  useEffect(() => {
-    setPublishedPage((page) => Math.min(page, totalPublishedPages));
-  }, [totalPublishedPages]);
-
-  useEffect(() => {
-    setResearchEvidencePage((page) => Math.min(page, totalResearchEvidencePages));
-  }, [totalResearchEvidencePages]);
+  const campaignId = campaignDetail?.campaign._id;
+  const [previousPageScope, setPreviousPageScope] = useState({ campaignId, totalPublishedPages, totalResearchEvidencePages });
+  if (previousPageScope.campaignId !== campaignId || previousPageScope.totalPublishedPages !== totalPublishedPages || previousPageScope.totalResearchEvidencePages !== totalResearchEvidencePages) {
+    setPreviousPageScope({ campaignId, totalPublishedPages, totalResearchEvidencePages });
+    if (previousPageScope.campaignId !== campaignId) {
+      setSelectedSlot(null);
+      setActivationIssues([]);
+      setPublishedPage(1);
+      setResearchEvidencePage(1);
+    } else {
+      if (previousPageScope.totalPublishedPages !== totalPublishedPages) setPublishedPage(page => Math.min(page, totalPublishedPages));
+      if (previousPageScope.totalResearchEvidencePages !== totalResearchEvidencePages) setResearchEvidencePage(page => Math.min(page, totalResearchEvidencePages));
+    }
+  }
 
   // Subscribe to real-time socket updates for campaign slots
   useEffect(() => {

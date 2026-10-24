@@ -20,6 +20,7 @@ export interface ContentApprovalCard {
   bodyText: string;
   outline?: string;
   imageUrl?: string;
+  mediaUrls?: string[];
   videoUrl?: string;
   mediaPrompt?: string;
   voiceScript?: string;

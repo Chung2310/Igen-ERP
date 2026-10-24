@@ -173,6 +173,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Retain the loading/reset sequence of the existing settings request on mount.
     fetchCompanyIntegrations();
     fetchCompanyUsers();
   }, []);

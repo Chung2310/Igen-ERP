@@ -124,7 +124,7 @@ export async function prepareChatReplyContext(input: {
       const chosen = references.length ? references : memory!.images.filter(image => Boolean(image.url))
         .map(image => ({ url: image.url, messageId: image.messageId }));
       const loaded = await prepareChatImages(chosen);
-      memoryImages = loaded.images.map(({ dataUrl: _dataUrl, ...image }) => image);
+      memoryImages = loaded.images.map(({ id, url, messageId, hash, width, height }) => ({ id, url, messageId, hash, width, height }));
       visualInput = { ...loaded, messageId: input.messageId, customerMessage: input.message, sourceMessageIds, sourceMessages,
         ...(sameImages || !references.length ? { previous: memory?.visual } : {}) };
     }

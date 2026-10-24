@@ -24,6 +24,7 @@ import { aiKnowledgeService } from "../../knowledge/service/ai-knowledge.service
 import type { KnowledgeDocumentType } from "../../knowledge/service/ai-knowledge.service.ts";
 import { openrouterChat } from "../../shared/service/openrouter.service.ts";
 import { walletService } from "../../shared/service/wallet.service.ts";
+import { withAiUsage } from "../../shared/service/ai-subscription.service";
 import {
   resolveMonthlyPrepareAt,
   zonedLocalTimeToUtc,
@@ -302,8 +303,8 @@ export const campaignContentSheetService = {
   },
 
   async getAICostEstimate(companyCode: string, campaignId: string) {
-    const campaign = await assertCampaign(companyCode, campaignId);
-    return campaign.qualityMode === "budget" ? 0.5 : 2.5;
+    await assertCampaign(companyCode, campaignId);
+    return 1;
   },
 
   async getSheet(companyCode: string, campaignId: string) {
@@ -826,7 +827,8 @@ export const campaignContentSheetService = {
       overwritePolicy?: "empty_only" | "suggest_only" | "replace_selected";
       instruction?: string;
       idempotencyKey: string;
-    }
+    },
+    usageIds?: string[]
   ) {
     const campaign = await assertCampaign(companyCode, campaignId);
     const slot = await MarketingCampaignSlotModel.findOne({ _id: input.slotId, campaignId, companyCode })
@@ -894,7 +896,7 @@ export const campaignContentSheetService = {
       const model = campaign.qualityMode === "budget"
         ? (process.env.CAMPAIGN_BUDGET_MODEL || "qwen/qwen-3.6-flash")
         : (process.env.CAMPAIGN_PREMIUM_MODEL || "google/gemini-3.5-flash");
-      const result = await openrouterChat({
+      const result = await withAiUsage({ companyCode, userId, campaignId, slotId: input.slotId, usageIds }, () => openrouterChat({
         model,
         temperature: 0.65,
         jsonMode: true,
@@ -923,7 +925,7 @@ export const campaignContentSheetService = {
             content: `CHIẾN DỊCH:\n${campaign.sourceBrief}\n\nDỮ LIỆU SLOT:\n${JSON.stringify(system)}\n\nDỮ LIỆU NGƯỜI DÙNG:\n${JSON.stringify(rowContext)}\n\nKHO TRI THỨC:\n${knowledge.contextText || "Không có"}\n\nTRƯỜNG CẦN TẠO:\n${allowedColumns.map((column) => `- ${column.key} (${column.label}): ${column.ai.instruction || "Điền phù hợp dữ liệu hiện có"}`).join("\n")}\n\nYÊU CẦU THÊM:\n${input.instruction || "Không có"}`,
           },
         ],
-      });
+      }));
       try {
         generatedFields = JSON.parse(result.text);
       } catch {
@@ -953,7 +955,7 @@ export const campaignContentSheetService = {
       confidence: Math.max(0, Math.min(1, Number(generatedFields[column.key]?.confidence || 0))),
       references: column.ai.allowedSources.includes("knowledge") ? references : [],
     }));
-    const estimatedCost = campaign.qualityMode === "budget" ? 0.5 : 2.5;
+    const estimatedCost = 1;
     const job = await CampaignSheetAIJobModel.create({
       companyCode,
       campaignId,
@@ -970,7 +972,8 @@ export const campaignContentSheetService = {
       progress: 100,
       modelName: campaign.qualityMode || "premium",
       estimatedCost,
-      actualCost: estimatedCost,
+      actualCost: allowedColumns.length > 0 ? 1 : 0,
+      usageUnit: "ai_calls",
       idempotencyKey: input.idempotencyKey,
       proposals: [{
         slotId: slot._id,
@@ -1110,7 +1113,7 @@ export const campaignContentSheetService = {
       idempotencyKey: input.idempotencyKey,
     }).lean();
     if (existing) return existing;
-    const unitCost = campaign.qualityMode === "budget" ? 0.5 : 2.5;
+    const unitCost = 1;
     const job = await CampaignSheetAIJobModel.create({
       companyCode,
       campaignId,
@@ -1128,6 +1131,7 @@ export const campaignContentSheetService = {
       modelName: campaign.qualityMode || "premium",
       estimatedCost: unitCost * slotIds.length,
       actualCost: 0,
+      usageUnit: "ai_calls",
       idempotencyKey: input.idempotencyKey,
       proposals: [],
       attemptCount: 0,
@@ -1161,7 +1165,7 @@ export const campaignContentSheetService = {
     return runLeasedCampaignAIJob(CampaignSheetAIJobModel, job, lockId, async () => {
     const campaign = await MarketingCampaignModel.findOne({ _id: job.campaignId, companyCode: job.companyCode }).lean();
     if (!campaign) throw httpError("Chiến dịch của AI job không còn tồn tại.", 404);
-    const unitCost = campaign.qualityMode === "budget" ? 0.5 : 2.5;
+    const unitCost = 1;
     const existingProposalSlots = new Set(job.proposals.map((proposal) => String(proposal.slotId)));
     const pendingSlotIds = job.targetSlotIds.filter((slotId) => !existingProposalSlots.has(String(slotId)));
     const batchSize = 2;
@@ -1179,6 +1183,7 @@ export const campaignContentSheetService = {
 
       const batch = pendingSlotIds.slice(index, index + batchSize);
       const batchResults = await Promise.all(batch.map(async (slotId) => {
+        const usageIds: string[] = [];
         try {
           const row = await getOrCreateRow(job.companyCode, String(job.campaignId), String(slotId));
           const parentKey = job.idempotencyKey.length > 174
@@ -1194,11 +1199,12 @@ export const campaignContentSheetService = {
               expectedRevision: row.revision,
               overwritePolicy: job.overwritePolicy,
               idempotencyKey: childKey,
-            }
+            },
+            usageIds
           );
           await walletService.deductBalance(
             job.createdBy,
-            Number(child.actualCost || unitCost),
+            Number(child.actualCost ?? unitCost),
             "Chi phí AI hàng loạt Campaign Content Sheet",
             `campaign-sheet-ai:${job.companyCode}:${childKey}`
           );
@@ -1211,7 +1217,7 @@ export const campaignContentSheetService = {
               status: "failed",
             },
             failed: child.proposals?.[0]?.fields?.length ? 0 : 1,
-            cost: Number(child.actualCost || unitCost),
+            cost: Number(child.actualCost ?? unitCost),
           };
         } catch (error) {
           return {
@@ -1223,7 +1229,7 @@ export const campaignContentSheetService = {
               status: "failed" as const,
             },
             failed: 1,
-            cost: 0,
+            cost: usageIds.length,
           };
         }
       }));

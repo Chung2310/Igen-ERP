@@ -63,6 +63,7 @@ export function FaqLearningSuggestionsPanel({
   }, [filterStatus]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the loading state while the existing status-filtered FAQ request starts.
     void loadCandidates();
   }, [loadCandidates]);
 

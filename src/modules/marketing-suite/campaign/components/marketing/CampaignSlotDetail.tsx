@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Loader2, AlertTriangle, RotateCcw, Check, Upload, Image, Video, Zap } from 'lucide-react';
 import { CampaignSlot } from './CampaignDetailModal';
 import { MarketingCampaignSummary, marketingCampaignService, type TikTokCampaignPublishOptions } from '../../services/marketingCampaignService';
@@ -78,8 +78,8 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
   const [retryingSlotId, setRetryingSlotId] = useState<string | null>(null);
   const [tiktokAction, setTiktokAction] = useState<'approve' | 'publish' | null>(null);
 
-  const [editTitle, setEditTitle] = useState('');
-  const [editBody, setEditBody] = useState('');
+  const [editTitle, setEditTitle] = useState(activeSlot.content?.title || '');
+  const [editBody, setEditBody] = useState(activeSlot.content?.bodyText || '');
   const [detailTab, setDetailTab] = useState<'preview' | 'edit'>('preview');
   const [aiLogTab, setAiLogTab] = useState<'research' | 'visual' | 'ops'>('research');
 
@@ -105,7 +105,9 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
     : null;
 
   // Sync edits when active slot changes
-  useEffect(() => {
+  const [previousEditSource, setPreviousEditSource] = useState({ id: activeSlot._id, content: activeSlot.content, title: activeSlot.content?.title, bodyText: activeSlot.content?.bodyText });
+  if (previousEditSource.id !== activeSlot._id || previousEditSource.content !== activeSlot.content || previousEditSource.title !== activeSlot.content?.title || previousEditSource.bodyText !== activeSlot.content?.bodyText) {
+    setPreviousEditSource({ id: activeSlot._id, content: activeSlot.content, title: activeSlot.content?.title, bodyText: activeSlot.content?.bodyText });
     if (activeSlot?.content) {
       setEditTitle(activeSlot.content.title || '');
       setEditBody(activeSlot.content.bodyText || '');
@@ -115,7 +117,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
     }
     setDetailTab('preview');
     setAiLogTab('research');
-  }, [activeSlot?._id, activeSlot?.content, activeSlot?.content?.title, activeSlot?.content?.bodyText]);
+  }
 
   // Handle Slot Approval
   const handleApproveSlot = async () => {
@@ -304,10 +306,11 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
   };
 
   // Parse evidence context safely if it is JSON
+  const researchContext = activeSlot.researchAnalysis?.context;
   const parsedEvidence = React.useMemo(() => {
-    if (!activeSlot?.researchAnalysis?.context) return null;
+    if (!researchContext) return null;
     try {
-      const parsed = JSON.parse(activeSlot.researchAnalysis.context);
+      const parsed = JSON.parse(researchContext);
       if (parsed && typeof parsed === 'object') {
         return parsed;
       }
@@ -315,7 +318,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
       // not JSON
     }
     return null;
-  }, [activeSlot?.researchAnalysis?.context]);
+  }, [researchContext]);
 
   const scheduledDate = new Date(activeSlot.scheduledAt);
   const dateFormatted = new Intl.DateTimeFormat('vi-VN', {
@@ -787,7 +790,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
               <span className="text-[10px] text-slate-450">Dữ liệu được dùng để tạo bài, chi phí và lỗi gần nhất</span>
             </div>
             <span className="rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[10px] font-bold text-indigo-700">
-              Chi phí: {((activeSlot.researchAnalysis?.cost || 0) + (activeSlot.visualAnalysis?.cost || 0)).toFixed(2)} Credit
+              Đã dùng: {activeSlot.aiCallsUsed ?? 0} lượt AI
             </span>
           </div>
 

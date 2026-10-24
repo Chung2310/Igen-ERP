@@ -3,6 +3,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import { AIKnowledgeChunkModel, AIKnowledgeDocumentModel } from "../model/ai-knowledge.model.ts";
 import { activeChunkSetIds, mapActiveKnowledgeChunks, knowledgeUsageFilter, allDocumentChunkSets } from "./knowledge-chunks";
+import { rankKnowledgeStream } from "./knowledge-context-ranking";
 import { AIReplyLogModel } from "../../message/model/ai-reply-log.model.ts";
 import { AIFaqCandidateModel } from "../model/ai-faq-candidate.model.ts";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model.ts";
@@ -12,7 +13,6 @@ import { buildChatKnowledgeQuery, isAcknowledgementToAssistantOffer, type ChatCo
 const EMBEDDING_DIMENSIONS = 96;
 const DEFAULT_TOP_K = 5;
 const MAX_CONTEXT_CHARS = 4500;
-const MAX_CHUNKS_TO_RANK = 1000;
 
 type ChannelScope = "facebook" | "zalo" | "tiktok" | "all";
 type PurposeScope =
@@ -1051,8 +1051,6 @@ export const aiKnowledgeService = {
     const maxContextChars = params.maxContextChars === undefined
       ? defaultContextChars : Math.max(400, Math.min(7500, params.maxContextChars));
 
-    let chunks: any[] = [];
-
     // INTENT ROUTER: Tự động phân tích câu hỏi để xác định danh mục ưu tiên (để boost điểm xếp hạng)
     const detectedDocumentTypes = detectRequiredDocumentTypes(params.query);
 
@@ -1077,12 +1075,6 @@ export const aiKnowledgeService = {
       documentId: { $in: activeChunkSetIds(permittedDocuments) },
     };
 
-    // Lấy toàn bộ chunk của doanh nghiệp trong phạm vi kênh/mục đích để chạy thuật toán xếp hạng ngữ nghĩa lai
-    chunks = await AIKnowledgeChunkModel.find(filter as any)
-      .sort({ updatedAt: -1 })
-      .limit(MAX_CHUNKS_TO_RANK)
-      .lean();
-
     const documents = await AIKnowledgeDocumentModel.find({
       _id: { $in: permittedDocumentIds },
       companyCode,
@@ -1091,33 +1083,25 @@ export const aiKnowledgeService = {
     })
       .select("_id chunkSetId sourceTitle sourceUrl pageScope pageIds documentType")
       .lean();
-    chunks = mapActiveKnowledgeChunks(chunks, documents);
     const documentMap = new Map(documents.map((doc) => [String(doc._id), doc]));
-
-    const ranked = buildRankedContextItems({
-      chunks,
-      documentMap,
-      normalizedQuery,
-      queryVector,
-      queryTokens,
-      pageId: params.pageId,
-      detectedDocumentTypes,
-    })
-      .filter((item) => item.score > 0.05)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
+    // A cursor includes older documents without loading the whole corpus into RAM.
+    const bestItems = await rankKnowledgeStream(
+      AIKnowledgeChunkModel.find(filter).sort({ updatedAt: -1 }).lean().cursor({ batchSize: 200 }),
+      batch => buildRankedContextItems({
+        chunks: mapActiveKnowledgeChunks(batch, documents),
+        documentMap,
+        normalizedQuery,
+        queryVector,
+        queryTokens,
+        pageId: params.pageId,
+        detectedDocumentTypes,
+      }), topK,
+    );
+    const ranked = bestItems.filter(item => item.score > 0.05);
 
     const fallbackRanked =
       ranked.length === 0
-        ? buildRankedContextItems({
-            chunks,
-            documentMap,
-            normalizedQuery,
-            queryVector,
-            queryTokens,
-            pageId: params.pageId,
-            detectedDocumentTypes,
-          })
+        ? bestItems
             .filter((item) =>
               strictDocumentTypes && params.documentTypes?.includes("scenario")
                 ? item.score >= 0

@@ -151,12 +151,6 @@ export function VoiceGenerationWorkspace({
 }: VoiceGenerationWorkspaceProps) {
    const [text, setText] = useState(initialText);
 
-   useEffect(() => {
-      if (initialText) {
-         setText(initialText);
-      }
-   }, [initialText]);
-
    // Custom states
    
    const [activeCardId, setActiveCardId] = useState<string | undefined>(cardId);
@@ -169,23 +163,14 @@ export function VoiceGenerationWorkspace({
    const [archiveTitle, setArchiveTitle] = useState(initialTitle || '');
    const [archiveDescription, setArchiveDescription] = useState(initialDescription || '');
 
-   useEffect(() => {
-      if (cardId) {
-         setActiveCardId(cardId);
-      }
-   }, [cardId]);
-
-   useEffect(() => {
-      if (initialTitle) {
-         setArchiveTitle(initialTitle);
-      }
-   }, [initialTitle]);
-
-   useEffect(() => {
-      if (initialDescription) {
-         setArchiveDescription(initialDescription);
-      }
-   }, [initialDescription]);
+   const [previousInput, setPreviousInput] = useState({ initialText, cardId, initialTitle, initialDescription });
+   if (previousInput.initialText !== initialText || previousInput.cardId !== cardId || previousInput.initialTitle !== initialTitle || previousInput.initialDescription !== initialDescription) {
+      setPreviousInput({ initialText, cardId, initialTitle, initialDescription });
+      if (previousInput.initialText !== initialText && initialText) setText(initialText);
+      if (previousInput.cardId !== cardId && cardId) setActiveCardId(cardId);
+      if (previousInput.initialTitle !== initialTitle && initialTitle) setArchiveTitle(initialTitle);
+      if (previousInput.initialDescription !== initialDescription && initialDescription) setArchiveDescription(initialDescription);
+   }
 
    useEffect(() => {
       console.log("VoiceGenerationWorkspace - activeCardId:", activeCardId, "initialTitle:", initialTitle, "initialDescription:", initialDescription);
@@ -329,7 +314,7 @@ export function VoiceGenerationWorkspace({
       loadVoiceSettings(voiceId);
    }, [voiceId]);
 
-   const loadHistory = async () => {
+   async function loadHistory() {
       try {
          setIsLoadingHistory(true);
          const data = await elevenlabsApi.getVoiceHistory();
@@ -339,9 +324,9 @@ export function VoiceGenerationWorkspace({
       } finally {
          setIsLoadingHistory(false);
       }
-   };
+   }
 
-   const loadCustomVoices = async () => {
+   async function loadCustomVoices() {
       try {
          const response = await elevenlabsApi.getVoices();
          if (response && response.voices) {
@@ -362,9 +347,9 @@ export function VoiceGenerationWorkspace({
       } catch (e) {
          console.error("Lỗi lấy danh sách giọng nói cá nhân:", e);
       }
-   };
+   }
 
-   const loadModels = async () => {
+   async function loadModels() {
       try {
          const response = await elevenlabsApi.getModels();
          if (response && response.models) {
@@ -373,9 +358,9 @@ export function VoiceGenerationWorkspace({
       } catch (e) {
          console.error("Lỗi lấy danh sách model ElevenLabs:", e);
       }
-   };
+   }
 
-   const loadVoiceSettings = async (targetVoiceId: string) => {
+   async function loadVoiceSettings(targetVoiceId: string) {
       if (!targetVoiceId) return;
       try {
          const settings = await elevenlabsApi.getVoiceSettings(targetVoiceId);
@@ -394,7 +379,7 @@ export function VoiceGenerationWorkspace({
          setSimilarityBoost(0.75);
          setUseSpeakerBoost(true);
       }
-   };
+   }
 
    const getVoiceDetails = (id: string) => {
       const standardVoice = availableVoices.find(v => v.voice_id === id);
@@ -652,6 +637,7 @@ const getSelectedVoice = () => {
        const cacheKey = `autotrigger_voice_${activeCardId}`;
        if (autoTrigger && text.trim() && !isGenerating && !audioUri && !sessionStorage.getItem(cacheKey)) {
           sessionStorage.setItem(cacheKey, 'true');
+           // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the session-idempotent generation handoff and its immediate busy state.
           void handleGenerate();
        }
     }, [autoTrigger, text, activeCardId]);

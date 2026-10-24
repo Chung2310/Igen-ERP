@@ -69,7 +69,7 @@ export class MarketingAnalyticsService {
               $sum: { $cond: [{ $eq: ["$status", "published"] }, 1, 0] },
             },
             failedSlots: {
-              $sum: { $cond: [{ $eq: ["$status", "failed"] }, 1, 0] },
+              $sum: { $cond: [{ $in: ["$status", ["failed", "needs_attention"]] }, 1, 0] },
             },
             pendingApprovalSlots: {
               $sum: {
@@ -79,15 +79,19 @@ export class MarketingAnalyticsService {
                       "$status",
                       [
                         "draft",
+                        "planned",
+                        "queued",
                         "generating",
                         "researching",
                         "writing",
                         "scoring",
+                        "awaiting_assets",
                         "generating_media",
                         "verifying",
                         "pending_approval",
                         "ready_to_publish",
                         "publishing",
+                        "retrying",
                       ],
                     ],
                   },
@@ -100,7 +104,7 @@ export class MarketingAnalyticsService {
               $sum: {
                 $ifNull: [
                   { $arrayElemAt: ["$walletCost.amount", 0] },
-                  { $add: [{ $ifNull: ["$researchAnalysis.cost", 0] }, { $ifNull: ["$visualAnalysis.cost", 0] }] },
+                  0,
                 ],
               },
             },
@@ -137,7 +141,7 @@ export class MarketingAnalyticsService {
               $sum: { $cond: [{ $eq: ["$status", "published"] }, 1, 0] },
             },
             failed: {
-              $sum: { $cond: [{ $eq: ["$status", "failed"] }, 1, 0] },
+              $sum: { $cond: [{ $in: ["$status", ["failed", "needs_attention"]] }, 1, 0] },
             },
           },
         },
@@ -216,7 +220,7 @@ export class MarketingAnalyticsService {
               $sum: { $cond: [{ $eq: ["$status", "published"] }, 1, 0] },
             },
             failed: {
-              $sum: { $cond: [{ $eq: ["$status", "failed"] }, 1, 0] },
+              $sum: { $cond: [{ $in: ["$status", ["failed", "needs_attention"]] }, 1, 0] },
             },
             slotIds: { $push: "$slotId" },
           },
@@ -290,6 +294,7 @@ export class MarketingAnalyticsService {
       // Aggregation 6: Thống kê theo Content Pillar
       MarketingCampaignSlotModel.aggregate([
         { $match: slotMatch },
+        campaignSlotCostLookup(),
         {
           $group: {
             _id: "$pillar",
@@ -299,10 +304,7 @@ export class MarketingAnalyticsService {
             },
             cost: {
               $sum: {
-                $add: [
-                  { $ifNull: ["$researchAnalysis.cost", 0] },
-                  { $ifNull: ["$visualAnalysis.cost", 0] },
-                ],
+                $ifNull: [{ $arrayElemAt: ["$walletCost.amount", 0] }, 0],
               },
             },
             slotIds: { $push: "$_id" },

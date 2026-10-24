@@ -15,6 +15,8 @@ import { enqueueCampaignAssetOrderAIJob } from "../queue/campaign-asset-order-ai
 import { enqueueBulkCreateJob } from "../../shared/queue/bulk-create-queue";
 import type { MarketingCampaignPlatform } from "../interface/marketing-campaign.interface.ts";
 import { tiktokService } from "../../shared/service/tiktok.service.ts";
+import { estimateCampaignAi } from "../service/campaign-ai-estimate";
+import { aiSubscriptionService } from "../../shared/service/ai-subscription.service";
 
 function getIdentity(req: AuthenticatedRequest) {
   const userId = req.user?.id;
@@ -81,6 +83,17 @@ export const marketingCampaignController = {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Publish worker thất bại.";
       return res.status(message.includes("token") ? 401 : 500).json({ status: "error", message });
+    }
+  },
+
+  async estimateAi(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const data = estimateCampaignAi(req.body);
+      const subscription = await aiSubscriptionService.available(companyCode, data.estimatedCalls);
+      return res.json({ status: "success", data: { ...data, remaining: subscription.remaining } });
+    } catch (error) {
+      return res.status(Number((error as { statusCode?: number }).statusCode) || 400).json({ status: "error", message: (error as Error).message });
     }
   },
 

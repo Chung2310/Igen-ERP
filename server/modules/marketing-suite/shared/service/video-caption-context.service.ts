@@ -10,6 +10,7 @@ import { VideoCaptionSegmentModel } from "../model/video-caption-segment.model.t
 import { aiKnowledgeService } from "../../knowledge/service/ai-knowledge.service.ts";
 import { openrouterChat } from "./openrouter.service.ts";
 import { VideoCaptionError } from "./video-caption-error";
+import { getAiUsageContext, withAiUsage } from "./ai-subscription.service";
 
 const CONTEXT_MODEL =
   process.env.VIDEO_CAPTION_CONTEXT_MODEL?.trim() ||
@@ -44,6 +45,9 @@ function safeJson<T>(value: string): T {
 
 function normalizeContextGenerationError(error: unknown) {
   if (error instanceof VideoCaptionError) return error;
+  if ((error as { code?: string })?.code === "AI_SUBSCRIPTION_LIMIT") {
+    return new VideoCaptionError((error as Error).message, "AI_SUBSCRIPTION_LIMIT", "budget", false, 402);
+  }
 
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();
@@ -62,7 +66,7 @@ function normalizeContextGenerationError(error: unknown) {
     normalized.includes("billing#prepay")
   ) {
     return new VideoCaptionError(
-      "Tài khoản AI đã hết credit. Hãy nạp credit cho OpenRouter rồi thử lại.",
+      "Dịch vụ AI đang tạm thời không khả dụng. Vui lòng liên hệ quản trị viên.",
       "AI_CONTEXT_CREDITS_EXHAUSTED",
       "budget",
       false,
@@ -84,7 +88,7 @@ function normalizeContextGenerationError(error: unknown) {
   }
   if (hasStatus(402)) {
     return new VideoCaptionError(
-      "OpenRouter không còn đủ credit để tạo chữ AI. Hãy nạp credit rồi thử lại.",
+      "Dịch vụ AI đang tạm thời không khả dụng. Vui lòng liên hệ quản trị viên.",
       "OPENROUTER_CONTEXT_CREDITS_EXHAUSTED",
       "budget",
       false,
@@ -443,6 +447,12 @@ export const videoCaptionContextService = {
   },
 
   async generate(project: IVideoCaptionProject, idempotencyKey: string) {
+    const usageContext = getAiUsageContext();
+    const campaignId = project.contextLinks?.campaignId ? String(project.contextLinks.campaignId) : undefined;
+    const slotId = project.contextLinks?.campaignSlotId ? String(project.contextLinks.campaignSlotId) : undefined;
+    if (usageContext?.companyCode !== project.companyCode || usageContext?.campaignId !== campaignId || usageContext?.slotId !== slotId) {
+      return withAiUsage({ companyCode: project.companyCode, userId: String(project.createdBy), campaignId, slotId }, () => this.generate(project, idempotencyKey));
+    }
     const durationMs = project.video.durationMs;
     if (!durationMs) {
       throw new VideoCaptionError(

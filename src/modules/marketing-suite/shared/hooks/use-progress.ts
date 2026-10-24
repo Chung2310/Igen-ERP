@@ -3,10 +3,14 @@ import { useState, useEffect, useRef } from 'react';
 export function useProgress(isLoading: boolean, estimatedDurationSeconds: number = 10) {
   const [progress, setProgress] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [previousRun, setPreviousRun] = useState({ isLoading, estimatedDurationSeconds });
+  if (previousRun.isLoading !== isLoading || previousRun.estimatedDurationSeconds !== estimatedDurationSeconds) {
+    setPreviousRun({ isLoading, estimatedDurationSeconds });
+    setProgress(0);
+  }
 
   useEffect(() => {
     if (isLoading) {
-      setProgress(0);
       const startTime = Date.now();
       const durationMs = estimatedDurationSeconds * 1000;
 
@@ -21,7 +25,6 @@ export function useProgress(isLoading: boolean, estimatedDurationSeconds: number
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-      setProgress(0);
     }
 
     return () => {

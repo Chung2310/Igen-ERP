@@ -84,8 +84,9 @@ export class MediaCreatorAgentService {
         console.log(`[MediaCreatorAgent] Generated image successfully: ${image.url}`);
         return image.url;
       } catch (err: unknown) {
+        if ((err as { code?: string })?.code === "AI_SUBSCRIPTION_LIMIT") throw err;
         const errorMsg = err instanceof Error ? err.message : String(err);
-        if (campaign.rules?.allowTextOnlyFallback || slot.platform === "Facebook") {
+        if (campaign.rules?.allowTextOnlyFallback && slot.platform === "Facebook") {
           console.warn(`[MediaCreatorAgent] Image generation failed. Attempting fallback to text-only...`, err);
           slot.mediaType = "text";
           await slot.save();

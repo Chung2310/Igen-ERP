@@ -29,12 +29,18 @@ export function KnowledgeCenterSummaryCard({
     }
   }, []);
 
-  useEffect(() => {
+  const [previousProvidedHealth, setPreviousProvidedHealth] = useState(providedHealth);
+  if (previousProvidedHealth !== providedHealth) {
+    setPreviousProvidedHealth(providedHealth);
     if (providedHealth) {
       setHealth(providedHealth);
       setLoading(false);
-      return;
     }
+  }
+
+  useEffect(() => {
+    if (providedHealth) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Keep the existing loading indicator when the summary must fetch its own health snapshot.
     void loadHealth();
   }, [loadHealth, providedHealth]);
 

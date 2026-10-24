@@ -4,6 +4,7 @@ import { campaignQueueService } from "../queue/campaign-queue";
 import { MarketingCampaignSlotStatus } from "../interface/marketing-campaign-slot.interface.ts";
 import type { MarketingCampaignPlatform } from "../interface/marketing-campaign.interface.ts";
 import { recoverCampaignSlots } from "./campaign-recovery.service";
+import { MetricsSyncService } from "../../shared/service/metrics-sync.service";
 import {
   formatDateInTimezone,
   resolveMonthlyPrepareAt,
@@ -375,11 +376,26 @@ export async function scanAndEnqueueDuePublishSlots(options?: {
 
 let schedulerInterval: NodeJS.Timeout | null = null;
 let scanRunning = false;
+let metricsSyncRunning = false;
+let lastMetricsSyncAt = 0;
+
+/** Metrics must not delay the time-sensitive publication scan. */
+export async function syncCampaignMetricsIfDue(now = Date.now()) {
+  if (metricsSyncRunning || (lastMetricsSyncAt && now - lastMetricsSyncAt < 15 * 60_000)) return;
+  metricsSyncRunning = true;
+  lastMetricsSyncAt = now;
+  try {
+    await MetricsSyncService.syncFacebookMetrics();
+  } finally {
+    metricsSyncRunning = false;
+  }
+}
 
 async function runCampaignScan() {
   if (scanRunning) return;
   scanRunning = true;
   try {
+    void syncCampaignMetricsIfDue().catch(error => console.error("[Campaign Scheduler] Metrics sync error:", error));
     await recoverCampaignSlots();
     await scanAndEnqueueDueSlots();
     await scanAndEnqueueDuePublishSlots();

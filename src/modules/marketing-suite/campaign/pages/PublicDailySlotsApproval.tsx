@@ -84,6 +84,7 @@ export default function PublicDailySlotsApproval() {
 
   useEffect(() => {
     if (!token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Keep invalid-link handling synchronous; no request is started without a token.
       setError('Mã xác thực (token) không hợp lệ hoặc thiếu trong đường dẫn.');
       setLoading(false);
       return;
@@ -110,10 +111,12 @@ export default function PublicDailySlotsApproval() {
 
   const activeSlot = slots.find(s => s._id === activeSlotId) || null;
 
-  useEffect(() => {
+  const [previousActiveSlotId, setPreviousActiveSlotId] = useState(activeSlotId);
+  if (previousActiveSlotId !== activeSlotId) {
+    setPreviousActiveSlotId(activeSlotId);
     setShowRejectForm(false);
     setRejectReason('');
-  }, [activeSlotId]);
+  }
 
   const handleApprove = async () => {
     if (!token || !activeSlot || isApproving || isRejecting) return;
@@ -221,7 +224,7 @@ export default function PublicDailySlotsApproval() {
               {slots.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 text-xs">Không có bài viết nào được lên lịch trong ngày này.</div>
               ) : (
-                slots.map((s, _idx) => {
+                slots.map((s) => {
                   const scheduledTime = new Date(s.scheduledAt);
                   const displayTime = new Intl.DateTimeFormat('vi-VN', {
                     timeZone: campaign?.timezone || 'Asia/Bangkok',

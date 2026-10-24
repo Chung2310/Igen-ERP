@@ -112,7 +112,9 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
     : (canUseLocalMockFacebookPage ? 'Fanpage Facebook giả lập (local)' : 'Chưa có Facebook Page được kết nối');
 
   // Cleanup customSchedule when date range changes
-  useEffect(() => {
+  const [previousDateRange, setPreviousDateRange] = useState({ startDate, endDate });
+  if (previousDateRange.startDate !== startDate || previousDateRange.endDate !== endDate) {
+    setPreviousDateRange({ startDate, endDate });
     const start = parseDateKey(startDate);
     const end = parseDateKey(endDate);
 
@@ -132,7 +134,7 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
       }
       return changed ? updated : prev;
     });
-  }, [startDate, endDate]);
+  }
 
   // File Upload states
   const [uploadedDocName, setUploadedDocName] = useState('');
@@ -208,7 +210,7 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
     return () => clearInterval(interval);
   }, [selectedCampaignId, campaignDetail]);
 
-  const loadCampaigns = async (page = 1) => {
+  async function loadCampaigns(page = 1) {
     setLoadingCampaigns(true);
     try {
       const result = await marketingCampaignService.list(page, CAMPAIGNS_PER_PAGE);
@@ -221,7 +223,7 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
     } finally {
       setLoadingCampaigns(false);
     }
-  };
+  }
 
   useEffect(() => {
     let active = true;
@@ -236,6 +238,7 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Retain the first selected account when asynchronous integration options arrive.
     setIntegrationIds((current) => {
       const next = { ...current };
       for (const platform of selectedPlatforms) {
@@ -479,6 +482,7 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
   // Load campaign details on selection
   useEffect(() => {
     if (!selectedCampaignId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear the old detail immediately when the modal selection is removed.
       setCampaignDetail(null);
       return;
     }
@@ -535,16 +539,18 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
   }, [allDatesInRange, customSchedule, postingTimes]);
 
   // Reset customSchedule page when dates range length changes
-  useEffect(() => {
+  const [previousScheduleDateCount, setPreviousScheduleDateCount] = useState(allDatesInRange.length);
+  if (previousScheduleDateCount !== allDatesInRange.length) {
+    setPreviousScheduleDateCount(allDatesInRange.length);
     setCustomSchedulePage(1);
-  }, [allDatesInRange.length]);
+  }
 
   const changePostsPerDay = (value: number) => {
     setPostsPerDay(value);
     setPostingTimes((current) => Array.from({ length: value }, (_, index) => current[index] || `${String(9 + index * 3).padStart(2, '0')}:00`));
   };
 
-  const handleCreateCampaign = async () => {
+  const handleCreateCampaign = async (confirmedInput?: Parameters<typeof marketingCampaignService.create>[0]) => {
     if (!creationMode) return toast.warning('Vui lòng chọn tạo một bài đăng hoặc chiến dịch nhiều bài.');
     if (!prompt.trim()) return toast.warning('Vui lòng nhập mục tiêu hoặc brief chiến dịch.');
     if (!dayCount || totalPosts > 450) return toast.warning('Chiến dịch phải có ngày hợp lệ và tối đa 450 bài.');
@@ -576,7 +582,7 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
       const brief = buildSourceBriefContext();
       const imagesParam = imageMode === 'order' ? undefined : (uploadedImageBase64 ? [uploadedImageBase64] : undefined);
 
-      const result = await marketingCampaignService.create({
+      const input: Parameters<typeof marketingCampaignService.create>[0] = {
         sourceBrief: brief,
         campaignType: isSinglePost ? 'single' : 'campaign',
         startDate,
@@ -596,7 +602,18 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
         images: imagesParam,
         customSchedule: Object.keys(customSchedule).length > 0 ? customSchedule : undefined,
         apifySources: apifySources.length > 0 ? apifySources : undefined,
-      });
+      };
+      if (!confirmedInput) {
+        const estimate = await marketingCampaignService.estimateAi(input);
+        setConfirmConfig({
+          isOpen: true, title: 'Xác nhận lượt AI dự kiến',
+          message: `${estimate.totalSlots} bài · dự kiến ${estimate.estimatedCalls} lượt AI.\n${estimate.planningCalls} lập kế hoạch + ${estimate.researchCalls} nghiên cứu + ${estimate.candidateCalls} tạo/chấm phương án + ${estimate.verificationCalls} kiểm duyệt + ${estimate.imageCalls} tạo ảnh + ${estimate.captionCalls} phụ đề.\n\nNếu cần thêm một vòng tạo/chấm phương án, dự kiến ${estimate.maximumCalls} lượt. Gói doanh nghiệp còn ${estimate.remaining} lượt.\n\nMỗi lần gọi thành công trừ 1 lượt; lần gọi lỗi không trừ. Không giữ trước toàn bộ lượt chiến dịch. Tác vụ theo lịch cần gói còn hiệu lực và còn lượt khi chạy. Chưa bao gồm chỉnh sửa hoặc bổ sung media sau này.`,
+          confirmText: 'Xác nhận tạo chiến dịch', cancelText: 'Quay lại', isDangerous: false,
+          onConfirm: () => { setConfirmConfig((current) => ({ ...current, isOpen: false })); void handleCreateCampaign(input); },
+        });
+        return;
+      }
+      const result = await marketingCampaignService.create(confirmedInput);
       setCampaigns((current) => [result.campaign, ...current]);
       if (!isSinglePost) setSelectedCampaignId(result.campaign._id);
       setPrompt('');
@@ -1385,7 +1402,7 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
           ) : (
             <button
               type="button"
-              onClick={handleCreateCampaign}
+              onClick={() => void handleCreateCampaign()}
               disabled={loading || !creationMode || !prompt.trim() || !dayCount || (!isSinglePost && totalPosts > 450) || (isTikTokCampaign && !integrationIds.TikTok && !canUseLocalMockTikTokAccount)}
               className="rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 transition cursor-pointer flex items-center gap-2 ml-auto"
             >
@@ -1626,7 +1643,7 @@ export default function CampaignPlannerTab({ userProfile }: CampaignPlannerTabPr
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs select-none">
           <div className="w-full max-w-sm rounded-2xl border border-slate-100 bg-white p-5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-sm font-extrabold text-slate-850">{confirmConfig.title || 'Xác nhận'}</h3>
-            <p className="mt-2 text-xs font-medium leading-relaxed text-slate-500">{confirmConfig.message}</p>
+            <p className="mt-2 whitespace-pre-line text-xs font-medium leading-relaxed text-slate-500">{confirmConfig.message}</p>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"

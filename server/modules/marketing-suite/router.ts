@@ -3,7 +3,9 @@ import { suiteAccess } from "./shared/access";
 import { suiteDataRouter } from "./shared/data.router";
 import { marketingSettingsRouter } from "./shared/settings.router";
 import { facebookOAuthRouter } from "./shared/facebook-oauth.router";
-import { walletRouter } from "../../router/wallet.router";
+import { subscriptionRouter } from "./shared/subscription.router";
+import { withAiUsage } from "./shared/service/ai-subscription.service";
+import type { AuthenticatedRequest } from "../../middleware/auth";
 import { tiktokController } from "./shared/controller/tiktok.controller";
 import { geminiRouter } from "./shared/router/gemini.router";
 import { elevenlabsRouter } from "./shared/router/elevenlabs.router";
@@ -27,10 +29,16 @@ import { companySepayRouter } from "./message/router/company-sepay.router";
 
 export const marketingSuiteRouter = Router();
 marketingSuiteRouter.use(suiteAccess);
+marketingSuiteRouter.use((request, _response, next) => {
+  const req = request as AuthenticatedRequest;
+  if (!req.user?.companyCode) return next();
+  return withAiUsage({ companyCode: req.user.companyCode, userId: req.user.id }, next);
+});
 marketingSuiteRouter.use(suiteDataRouter);
 marketingSuiteRouter.use(facebookOAuthRouter);
 marketingSuiteRouter.use("/marketing-settings", marketingSettingsRouter);
-marketingSuiteRouter.use("/marketing-wallet", walletRouter);
+marketingSuiteRouter.use("/marketing-subscription", subscriptionRouter);
+marketingSuiteRouter.use("/marketing-wallet", (_req, res) => res.status(410).json({ status: "error", message: "Marketing đã chuyển sang gói AI theo doanh nghiệp." }));
 marketingSuiteRouter.get("/webhooks/tiktok", (_req, res) => { res.json({ status: "ok" }); });
 marketingSuiteRouter.post("/webhooks/tiktok", tiktokController.receiveWebhook);
 marketingSuiteRouter.use("/gemini", geminiRouter);

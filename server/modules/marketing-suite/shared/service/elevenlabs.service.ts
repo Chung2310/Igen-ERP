@@ -3,6 +3,7 @@ import { AIMediaModel } from "../model/ai-media.model.ts";
 import { cloudinaryService } from "./cloudinary.service.ts";
 import { UserModel } from "../../../../model/user.model.ts";
 import { CompanyModel } from "../../../../model/company.model.ts";
+import { billAiCall } from "./ai-subscription.service";
 
 const ELEVENLABS_VOICE_MAP: Record<string, string> = {
   Sadaltager: "pNInz6obpgqjGQJe7v5C",
@@ -90,8 +91,10 @@ export const elevenlabsService = {
     try {
       const targetVoice = mode === "multi" ? speakerA || "Aoede" : voiceName || "Aoede";
       const mappedVoiceId = resolveElevenLabsVoiceId(targetVoice);
+      const buffer = await billAiCall("voice", modelName || "eleven_v3", async () => {
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${mappedVoiceId}`, {
         method: "POST",
+        signal: AbortSignal.timeout(120_000),
         headers: {
           "Content-Type": "application/json",
           "xi-api-key": apiKey.trim(),
@@ -113,7 +116,8 @@ export const elevenlabsService = {
       }
 
       const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+      return Buffer.from(arrayBuffer);
+      });
       cloudinaryUrl = await cloudinaryService.uploadMediaBuffer(buffer, "igen_erp/marketing/voice");
     } catch (err: any) {
       console.error("[elevenlabsService.generateVoice] Failed to generate voice via ElevenLabs API", err);
@@ -286,8 +290,10 @@ export const elevenlabsService = {
     }
 
     try {
+      const { generatedVoiceId, buffer } = await billAiCall("voice_preview", "elevenlabs", async () => {
       const response = await fetch("https://api.elevenlabs.io/v1/voice-generation/generate-voice", {
         method: "POST",
+        signal: AbortSignal.timeout(120_000),
         headers: {
           "Content-Type": "application/json",
           "xi-api-key": apiKey.trim(),
@@ -312,7 +318,8 @@ export const elevenlabsService = {
       }
 
       const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+      return { generatedVoiceId, buffer: Buffer.from(arrayBuffer) };
+      });
       const mediaUrl = await cloudinaryService.uploadMediaBuffer(buffer, "igen_erp/marketing/voice_previews");
       return { generatedVoiceId, url: mediaUrl };
     } catch (err: any) {

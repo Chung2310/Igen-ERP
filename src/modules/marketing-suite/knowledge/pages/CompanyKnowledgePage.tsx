@@ -301,6 +301,7 @@ export default function CompanyKnowledgePage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- The legacy loader resets request UI before asynchronously reading company knowledge.
     void loadData();
   }, [loadData]);
 

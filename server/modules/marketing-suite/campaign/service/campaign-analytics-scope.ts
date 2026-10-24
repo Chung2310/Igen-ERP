@@ -1,5 +1,5 @@
 import { MarketingCampaignModel } from "../model/marketing-campaign.model";
-import { TransactionModel } from "../../../../model/transaction.model";
+import { AiUsageModel } from "../../shared/model/ai-subscription.model";
 import { zonedLocalTimeToUtc } from "./marketing-campaign-schedule.service";
 import { nextCalendarDate } from "./public-campaign-approval";
 
@@ -25,27 +25,17 @@ export async function campaignAnalyticsDateScope(companyCode: string, filters: {
   return groups.length ? { $or: groups } : { _id: { $in: [] } };
 }
 
-/** Sum successful wallet entries, including every candidate and image operation. */
+/** Successful AI calls only; historical credit amounts are not usage units. */
 export function campaignSlotCostLookup() {
-  // Every namespace prefix ends in ':'. Use its range rather than scanning
-  // strings with indexOfBytes, so the idempotency-key index can serve the lookup.
-  const prefix = (parts: unknown[]) => ({ $and: [
-    { $gte: ["$idempotencyKey", { $concat: parts }] },
-    { $lt: ["$idempotencyKey", { $concat: [...parts.slice(0, -1), ";"] }] },
-  ] });
   return {
     $lookup: {
-      from: TransactionModel.collection.name,
+      from: AiUsageModel.collection.name,
       let: { slot: { $toString: "$_id" }, campaign: { $toString: "$campaignId" }, company: "$companyCode" },
       pipeline: [
-        { $match: { type: "payment", status: "success", idempotencyKey: { $type: "string" } } },
-        { $match: { $expr: { $or: [
-          prefix(["$$campaign", ":", "$$slot", ":"]),
-          prefix(["erp-candidate:", "$$company", ":", "$$slot", ":"]),
-          // Aggregation strings beginning with '$' are field references unless literal.
-          { $and: [prefix(["campaign-sheet-ai:", "$$company", ":"]), { $regexMatch: { input: "$idempotencyKey", regex: { $concat: [":", "$$slot", { $literal: "$" }] } } }] },
+        { $match: { status: "succeeded", $expr: { $and: [
+          { $eq: ["$companyCode", "$$company"] }, { $eq: ["$campaignId", "$$campaign"] }, { $eq: ["$slotId", "$$slot"] },
         ] } } },
-        { $group: { _id: null, amount: { $sum: "$amount" } } },
+        { $group: { _id: null, amount: { $sum: "$units" } } },
       ],
       as: "walletCost",
     },

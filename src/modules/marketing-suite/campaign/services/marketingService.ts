@@ -102,21 +102,24 @@ function sanitizeMarketingPayload<T extends object>(payload: T): T {
 }
 
 export const marketingService = {
-  async getCards(authorUid?: string): Promise<ContentApprovalCard[]> {
-    let url = "/api/v1/marketing-contents";
-    if (authorUid) {
-      url += `?authorUid=${encodeURIComponent(authorUid)}`;
+  async getCards(authorUid?: string, signal?: AbortSignal): Promise<ContentApprovalCard[]> {
+    const cards = new Map<string, ContentApprovalCard>();
+    const limit = 200;
+    let received = 0;
+    for (let page = 1; ; page++) {
+      const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+      if (authorUid) query.set("authorUid", authorUid);
+      const res = await fetch(`/api/v1/marketing-contents?${query}`, {
+        headers: { "Authorization": `Bearer ${getAccessToken()}` }, signal,
+      });
+      if (!res.ok) throw new Error("Không thể tải danh sách bài viết duyệt.");
+      const json = await res.json();
+      const items = ((json.data || []) as Record<string, unknown>[]).map(normalizeMarketingCard);
+      items.forEach(card => cards.set(card.id, card));
+      received += items.length;
+      if (!items.length || !Number.isFinite(json.total) || received >= json.total) break;
     }
-    const res = await fetch(url, {
-      headers: {
-        "Authorization": `Bearer ${getAccessToken()}`,
-      },
-    });
-    if (!res.ok) {
-      throw new Error("Không thể tải danh sách bài viết duyệt.");
-    }
-    const json = await res.json();
-    return ((json.data || []) as Record<string, unknown>[]).map(normalizeMarketingCard);
+    return [...cards.values()];
   },
 
   subscribeToContents(
@@ -125,13 +128,16 @@ export const marketingService = {
     currentUid?: string,
     currentRole?: string
   ): () => void {
-    const isUserRole = currentRole === 'user' || currentRole === 'manager';
     const authorUid = undefined; // Hiá»ƒn thá»‹ vá»›i táº¥t cáº£ nhÃ¢n viÃªn trong doanh nghiá»‡p, khÃ´ng lá»c theo tÃ¡c giáº£
-
-
+    let active = true;
+    let pending = false;
+    let controller: AbortController | undefined;
     const fetchCards = async () => {
+      if (!active || pending || document.visibilityState === "hidden") return;
+      pending = true;
+      controller = new AbortController();
       try {
-        let data = await this.getCards(authorUid);
+        let data = await this.getCards(authorUid, controller.signal);
 
         // Sáº¯p xáº¿p bÃ i má»›i lÃªn Ä‘áº§u (generatedAt giáº£m dáº§n)
         data.sort((a, b) => {
@@ -150,19 +156,28 @@ export const marketingService = {
           return card;
         });
 
-        onUpdate(data);
+        if (active) onUpdate(data);
       } catch (err) {
+        if (!active || controller.signal.aborted) return;
         if (onError) {
           onError(err);
         } else {
           console.error("Lá»—i táº£i danh sÃ¡ch bÃ i Ä‘Äƒng marketing:", err);
         }
-      }
+      } finally { pending = false; }
     };
 
     fetchCards();
-    const interval = setInterval(fetchCards, 5000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchCards, 30_000);
+    document.addEventListener("visibilitychange", fetchCards);
+    window.addEventListener("focus", fetchCards);
+    return () => {
+      active = false;
+      controller?.abort();
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", fetchCards);
+      window.removeEventListener("focus", fetchCards);
+    };
   },
 
   async updateCardStatus(id: string, newStatus: 'draft' | 'pending' | 'approved' | 'scheduled' | 'published'): Promise<void> {
@@ -267,6 +282,7 @@ export const marketingService = {
         title: cardData.title,
         bodyText: cardData.bodyText,
         imageUrl: cardData.imageUrl || '',
+        mediaUrls: cardData.mediaUrls || (cardData.imageUrl ? [cardData.imageUrl] : []),
         videoUrl: cardData.videoUrl || '',
         scheduledDate,
         scheduledTime,
@@ -285,18 +301,7 @@ export const marketingService = {
       throw new Error(resData.message || 'Lỗi không xác định từ máy chủ khi lên lịch.');
     }
 
-    // 4. Chá»‰ khi thÃ nh cÃ´ng háº¿t, má»›i lÆ°u thá»i gian Ä‘áº·t lá»‹ch, Ä‘á»•i status sang scheduled vÃ  lÆ°u facebookPostId
-    const fbPostId = resData.data?.id || resData.data?.data?.id || '';
-
-    await this.updateCard(id, {
-      status: 'scheduled',
-      scheduledDate,
-      scheduledTime,
-      integrationId,
-      ...(fbPostId ? { facebookPostId: fbPostId } : {})
-    });
-
-    console.log(`[iGen Schedule Service]: Đã lên lịch bài đăng ${id} thành công qua n8n! ID bài viết: ${fbPostId}`);
+    // The server persists both standalone and Campaign schedules before replying.
   },
 
   async deleteCard(id: string): Promise<void> {

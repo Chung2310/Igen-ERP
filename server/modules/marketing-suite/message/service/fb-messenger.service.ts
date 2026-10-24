@@ -5,6 +5,7 @@ import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai
 import { UserModel } from "../../../../model/user.model.ts";
 import { emitToMessengerAccount } from "../../shared/socket";
 import { aiAutoReplyService } from "./ai-auto-reply.service.ts";
+import { FACEBOOK_INBOUND_DISPATCH_LEASE_MS } from "./facebook-auto-reply-queue";
 import { facebookCommentService } from "./facebook-comment.service.ts";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model.ts";
 import { messengerOrderService } from "./messenger-order.service.ts";
@@ -627,6 +628,8 @@ export const fbMessengerService = {
             messageId,
             timestamp,
             status: "delivered",
+            autoReplyDispatchPending: true,
+            autoReplyDispatchAfter: new Date(Date.now() + FACEBOOK_INBOUND_DISPATCH_LEASE_MS),
           },
         },
         { upsert: true },
@@ -762,9 +765,16 @@ export const fbMessengerService = {
         `[FB Service processIncomingMessage] TRIGGER AI: conversationId=${conversationId}, ` +
         `pageId=${resolvedPageId}, textLength=${text.length}`
       );
-      aiAutoReplyService.triggerAutoReply("facebook", resolvedPageId, conversationId, text, messageId);
+      await aiAutoReplyService.triggerAutoReply("facebook", resolvedPageId, conversationId, text, messageId, { propagateError: true });
     };
-    void handleOrderMessage();
+    void handleOrderMessage().then(async () => {
+      // Clear only after a custom response or a durable AI dispatch succeeds.
+      await FBMessageModel.updateOne({ messageId, conversationId, autoReplyDispatchPending: true }, {
+        $unset: { autoReplyDispatchPending: 1, autoReplyDispatchAfter: 1 },
+      });
+    }).catch((error) => {
+      console.error(`[FB Service processIncomingMessage] Chờ worker khôi phục phản hồi messageId=${messageId}:`, error);
+    });
   },
 
   /**

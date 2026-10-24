@@ -9,6 +9,7 @@ export type TabType =
   | "OMNI INBOX"
   | "KHO TRI THỨC"
   | "TÍCH HỢP MARKETING"
+  | "GÓI AI & LƯỢT SỬ DỤNG"
   | "TỔNG QUAN"
   | "NHÂN SỰ"
   | "ĐỐI TÁC"

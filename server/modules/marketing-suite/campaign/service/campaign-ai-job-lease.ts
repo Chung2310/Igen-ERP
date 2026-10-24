@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Model } from "mongoose";
+import { withAiUsage } from "../../shared/service/ai-subscription.service";
 
 export async function runLeasedCampaignAIJob<T>(model: Model<any>, job: any, lockId: string, task: () => Promise<T>) {
   const scope = { _id: job._id, companyCode: job.companyCode, lockId, status: "processing" };
@@ -9,7 +10,7 @@ export async function runLeasedCampaignAIJob<T>(model: Model<any>, job: any, loc
   }, 30_000);
   heartbeat.unref();
   try {
-    return await task();
+    return await withAiUsage({ companyCode: job.companyCode, userId: String(job.createdBy), campaignId: String(job.campaignId) }, task);
   } catch (error) {
     const terminal = [400, 401, 402, 403, 404].includes(Number((error as { statusCode?: number })?.statusCode));
     await model.updateOne(scope, [{ $set: {

@@ -270,6 +270,7 @@ marketingCampaignRouter.post("/public/monthly/:token/bulk-action", marketingCamp
 marketingCampaignRouter.use(requireAuth as never, requirePermission("marketing:post") as never);
 marketingCampaignRouter.post("/preview-drive", marketingCampaignController.previewDrive as never);
 marketingCampaignRouter.get("/analytics", marketingCampaignController.getAnalytics as never);
+marketingCampaignRouter.post("/estimate-ai", validateRequest(createSchema), marketingCampaignController.estimateAi as never);
 marketingCampaignRouter.get("/calendar", validateRequest(calendarSchema), marketingCampaignController.calendar as never);
 marketingCampaignRouter.post("/", validateRequest(createSchema), marketingCampaignController.create as never);
 marketingCampaignRouter.get("/", marketingCampaignController.list as never);

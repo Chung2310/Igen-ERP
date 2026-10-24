@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useLayoutEffect, useState } from "react";
 import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare, ChevronDown, Facebook, Clock3, Plus } from "lucide-react";
 import { CustomerInbox, ChatMessage, AIChatConfig, ChatPagination } from "../../../shared/types/index";
 import { toast } from "../../../../../pages/Toast";
@@ -80,6 +80,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const latestInboundMessage = [...chatHistory].reverse().find((message) => message.sender === "user");
   const isFacebookReplyWindowExpired = activeCustomer?.channel === "facebook" && !!latestInboundMessage &&
+    // eslint-disable-next-line react-hooks/purity -- Legacy reply-window eligibility must use current wall-clock time on each render.
     Date.now() - latestInboundMessage.timestamp.getTime() > 24 * 60 * 60 * 1000;
 
   // Drag to scroll refs & state for the channel selector
@@ -171,6 +172,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
   useEffect(() => {
     if (!activeCustomer?.aiPausedUntil) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Initialize/reset the legacy timer display before subscribing to its one-second updates.
       setAICountdownText("");
       return;
     }
@@ -225,7 +227,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   }).key;
   const previousConfigScopeRef = useRef(configScopeKey);
   const currentConfigScopeRef = useRef(configScopeKey);
-  currentConfigScopeRef.current = configScopeKey;
+  useLayoutEffect(() => { currentConfigScopeRef.current = configScopeKey; }, [configScopeKey]);
   const localConfigRef = useRef(localConfig);
   const draftRevisionRef = useRef(0);
 
@@ -241,6 +243,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
     if (!localConfigDraftDirty) {
       localConfigRef.current = aiConfig;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Keep the legacy clean-draft synchronization and its revision/scope guards intact.
       setLocalConfig(aiConfig);
     }
   }, [aiConfig, configScopeKey, localConfigDraftDirty]);
@@ -287,15 +290,16 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   const testRequestIdRef = useRef(0);
   const testScopeRef = useRef("");
   const testScope = configScopeKey + ":" + (activeCustomer?.id || "");
-  testScopeRef.current = testScope;
+  useLayoutEffect(() => { testScopeRef.current = testScope; }, [testScope]);
+  const [testingAI, setTestingAI] = useState(false);
   useEffect(() => {
     testRequestIdRef.current += 1;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear test data immediately on account/customer changes while invalidating in-flight results.
     setTestReply(null);
     setTestImages([]);
     setReadingTestImages(false);
     setTestingAI(false);
   }, [testScope]);
-  const [testingAI, setTestingAI] = useState(false);
   const [aiReplyLogs, setAIReplyLogs] = useState<any[]>([]);
   const knowledgeDocuments = Array.isArray(knowledgeHealth?.documents) ? knowledgeHealth.documents : [];
   const detectedTopics = Array.isArray(knowledgeHealth?.detectedTopics) ? knowledgeHealth.detectedTopics : [];
@@ -625,6 +629,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
 
   useEffect(() => {
     if (showConfig) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Retain the existing panel-open loading sequence for the asynchronous health request.
       refreshAIHealth();
     }
   }, [showConfig]);
