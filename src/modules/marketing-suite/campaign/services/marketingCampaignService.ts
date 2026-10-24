@@ -1,4 +1,5 @@
 import { getAccessToken } from '../../shared/services/authService';
+import type { CampaignAiEstimate } from '../../../../../shared/marketing-suite/subscription';
 
 export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed' | 'cancelled' | 'failed';
 
@@ -72,6 +73,8 @@ export interface MarketingCampaignSummary {
     failedSlots: number;
     estimatedCost?: number;
     actualCost?: number;
+    aiCallsEstimated?: number;
+    aiCallsUsed?: number;
   };
   companyCode?: string;
   createdAt: string;
@@ -79,6 +82,7 @@ export interface MarketingCampaignSummary {
 
 export interface CampaignSlot {
   _id: string;
+  aiCallsUsed?: number;
   pillar: string;
   objective?: string;
   topicBrief: string;
@@ -263,6 +267,7 @@ export interface CampaignSheetAIJob {
   progress: number;
   estimatedCost: number;
   actualCost: number;
+  usageUnit?: 'ai_calls';
   errorMessage?: string;
   proposals: Array<{
     slotId: string;
@@ -383,6 +388,7 @@ export interface CampaignAssetOrderAIJob {
   progress: number;
   estimatedCost: number;
   actualCost: number;
+  usageUnit?: 'ai_calls';
   errorMessage?: string;
   results: Array<{
     orderId: string;
@@ -552,7 +558,34 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return result.data as T;
 }
 
+export interface CreateMarketingCampaignInput {
+  sourceBrief: string;
+  campaignType?: 'single' | 'campaign';
+  startDate: string;
+  endDate: string;
+  postsPerDay: number;
+  postingTimes: string[];
+  timezone: string;
+  platforms: Array<'Facebook' | 'TikTok'>;
+  integrationIds: Partial<Record<'Facebook' | 'TikTok', string>>;
+  candidateCount: number;
+  qualityMode?: 'premium' | 'budget';
+  publishMode?: 'auto' | 'manual';
+  imageMode?: 'ai' | 'real' | 'order';
+  publishNow?: boolean;
+  initialVideoUrl?: string;
+  googleDriveFolderUrl?: string;
+  mediaPolicy: 'text' | 'image' | 'video' | 'auto';
+  captionMode?: 'none' | 'speech' | 'context' | 'combined';
+  images?: string[];
+  customSchedule?: Record<string, string[]>;
+  apifySources?: string[];
+}
+
 export const marketingCampaignService = {
+  estimateAi(input: CreateMarketingCampaignInput): Promise<CampaignAiEstimate> {
+    return request<CampaignAiEstimate>('/api/v1/marketing-campaigns/estimate-ai', { method: 'POST', body: JSON.stringify(input) });
+  },
   list(page: number = 1, limit: number = 10) {
     return request<{ campaigns: MarketingCampaignSummary[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(
       `/api/v1/marketing-campaigns?page=${page}&limit=${limit}`
@@ -566,29 +599,7 @@ export const marketingCampaignService = {
     );
   },
 
-  create(input: {
-    sourceBrief: string;
-    campaignType?: 'single' | 'campaign';
-    startDate: string;
-    endDate: string;
-    postsPerDay: number;
-    postingTimes: string[];
-    timezone: string;
-    platforms: Array<'Facebook' | 'TikTok'>;
-    integrationIds: Partial<Record<'Facebook' | 'TikTok', string>>;
-    candidateCount: number;
-    qualityMode?: 'premium' | 'budget';
-    publishMode?: 'auto' | 'manual';
-    imageMode?: 'ai' | 'real' | 'order';
-    publishNow?: boolean;
-    initialVideoUrl?: string;
-    googleDriveFolderUrl?: string;
-    mediaPolicy: 'text' | 'image' | 'video' | 'auto';
-    captionMode?: 'none' | 'speech' | 'context' | 'combined';
-    images?: string[];
-    customSchedule?: Record<string, string[]>;
-    apifySources?: string[];
-  }) {
+  create(input: CreateMarketingCampaignInput) {
     return request<{
       campaign: MarketingCampaignSummary;
       preparation: { enqueued: number; deferred: number };

@@ -19,6 +19,7 @@ import {
   Wrench,
   ContactRound,
   GraduationCap,
+  Sparkles,
 } from "lucide-react";
 import { FilledMenu3DIcon, type FilledMenu3DIconShape, type Menu3DIconPalette } from "../components/FilledMenu3DIcon";
 import {
@@ -32,7 +33,7 @@ import {
 import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import { filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
+import { canViewAiSubscription, filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
 import { MARKETING_SUITE_MENU } from "../modules/marketing-suite/navigation";
 
 interface SidebarProps {
@@ -48,11 +49,12 @@ interface MenuItem {
   label: TabType;
   title: string;
   icon: React.ElementType;
-  group: "main" | "operations" | "marketing" | "tools" | "system";
+  group: "main" | "operations" | "marketing" | "subscription" | "tools" | "system";
   locked?: boolean;
 }
 
 const baseMenuItems: MenuItem[] = [
+  { label: "GÓI AI & LƯỢT SỬ DỤNG", title: "Gói AI & lượt sử dụng", icon: Sparkles, group: "subscription" },
   ...MARKETING_SUITE_MENU.map((item) => ({ ...item, group: "marketing" as const })),
   {
     label: "TỔNG QUAN",
@@ -132,6 +134,7 @@ const groupTitles: Record<MenuItem["group"], string> = {
   main: "Tổng quan",
   operations: "Vận hành",
   marketing: "Marketing",
+  subscription: "Gói dịch vụ",
   tools: "Công cụ",
   system: "Hệ thống",
 };
@@ -164,6 +167,7 @@ const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
   "MARKETING": "partners",
   "KHO TRI THỨC": "guide",
   "TÍCH HỢP MARKETING": "settings",
+  "GÓI AI & LƯỢT SỬ DỤNG": "shield",
   "QUẢN LÝ TÀI NGUYÊN": "folder",
   "TRÒ CHUYỆN": "chat",
   "QUẢN TRỊ USER": "shield",
@@ -195,7 +199,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
       const isPartnerAdmin =
         item.label === "ĐỐI TÁC" &&
         (userProfile?.role === "admin" || userProfile?.role === "superadmin");
-      const locked = requiredPerms
+      const locked = item.label === "GÓI AI & LƯỢT SỬ DỤNG" ? !canViewAiSubscription(userProfile) : requiredPerms
         ? !isPartnerAdmin && !requiredPerms.some((code) => hasPermission(code))
         : false;
       return { ...item, locked };
@@ -225,7 +229,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     group: "system",
   });
 
-  const groups: MenuItem["group"][] = ["main", "operations", "marketing", "tools", "system"];
+  const groups: MenuItem["group"][] = ["main", "operations", "marketing", "subscription", "tools", "system"];
 
   return (
     <>

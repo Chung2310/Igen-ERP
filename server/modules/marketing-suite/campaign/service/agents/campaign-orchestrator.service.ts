@@ -1,4 +1,6 @@
 import { createHash } from "crypto";
+import mongoose from "mongoose";
+import { getAiUsageContext, withAiUsage } from "../../../shared/service/ai-subscription.service";
 import { guardCampaignSlot } from "../../worker-access";
 import { MarketingCampaignModel } from "../../model/marketing-campaign.model.ts";
 import { MarketingCampaignSlotModel } from "../../model/marketing-campaign-slot.model.ts";
@@ -9,7 +11,7 @@ import { CandidateSelectionService as CopywriterAgentService } from "../candidat
 import { MediaCreatorAgentService } from "../../../shared/service/agents/media-creator-agent.service.ts";
 import { QcAgentService } from "../../../shared/service/agents/qc-agent.service.ts";
 import { PublisherAgentService } from "../../../shared/service/agents/publisher-agent.service.ts";
-import { releaseWithFailure } from "./campaign-utils";
+import { releaseWithFailure, syncCampaignContentFailure, syncCampaignContentReady } from "./campaign-utils";
 import { cloudinaryService } from "../../../shared/service/cloudinary.service.ts";
 import { API_COSTS, walletService } from "../../../shared/service/wallet.service.ts";
 import { VisualAnalystAgentService } from "../../../shared/service/agents/visual-analyst-agent.service.ts";
@@ -274,6 +276,11 @@ export class CampaignOrchestratorService {
    * Pipeline 1: Prepare Slot Content (Researcher Agent + Copywriter Agent)
    */
   public static async orchestratePrepare(slotId: string, lockId: string): Promise<void> {
+    if (getAiUsageContext()?.slotId !== slotId) {
+      const scope = await MarketingCampaignSlotModel.findById(slotId).select("companyCode campaignId").lean();
+      if (!scope) return;
+      return withAiUsage({ companyCode: scope.companyCode, campaignId: String(scope.campaignId), slotId }, () => this.orchestratePrepare(slotId, lockId));
+    }
     if (!await guardCampaignSlot(slotId, lockId)) return;
     const slot = await MarketingCampaignSlotModel.findOne({ _id: slotId, lockId, status: "generating" });
     if (!slot) return;
@@ -577,6 +584,11 @@ export class CampaignOrchestratorService {
    * Pipeline 2: Media Asset Rendering (Media Creator Agent)
    */
   public static async orchestrateMedia(slotId: string, lockId: string): Promise<void> {
+    if (getAiUsageContext()?.slotId !== slotId) {
+      const scope = await MarketingCampaignSlotModel.findById(slotId).select("companyCode campaignId").lean();
+      if (!scope) return;
+      return withAiUsage({ companyCode: scope.companyCode, campaignId: String(scope.campaignId), slotId }, () => this.orchestrateMedia(slotId, lockId));
+    }
     if (!await guardCampaignSlot(slotId, lockId)) return;
     const slot = await MarketingCampaignSlotModel.findOne({
       _id: slotId,
@@ -730,8 +742,8 @@ export class CampaignOrchestratorService {
       }
     } catch (error: unknown) {
       console.error(`[Orchestrator] Error during slot ${slotId} media phase:`, error);
-      await releaseWithFailure(slotId, lockId, "media", error);
-      emitSlotUpdate({ _id: slot._id, campaignId: slot.campaignId, companyCode: slot.companyCode, status: "failed" });
+      const status = await releaseWithFailure(slotId, lockId, "media", error);
+      if (status) emitSlotUpdate({ _id: slot._id, campaignId: slot.campaignId, companyCode: slot.companyCode, status });
     } finally {
       clearInterval(heartbeat);
     }
@@ -741,6 +753,11 @@ export class CampaignOrchestratorService {
    * Pipeline 3: Quality Control & Verifying (QC Agent)
    */
   public static async orchestrateVerify(slotId: string, lockId: string): Promise<void> {
+    if (getAiUsageContext()?.slotId !== slotId) {
+      const scope = await MarketingCampaignSlotModel.findById(slotId).select("companyCode campaignId").lean();
+      if (!scope) return;
+      return withAiUsage({ companyCode: scope.companyCode, campaignId: String(scope.campaignId), slotId }, () => this.orchestrateVerify(slotId, lockId));
+    }
     if (!await guardCampaignSlot(slotId, lockId)) return;
     const slot = await MarketingCampaignSlotModel.findOne({
       _id: slotId,
@@ -764,58 +781,80 @@ export class CampaignOrchestratorService {
       const qcResult = await QcAgentService.verify(slot, campaign);
 
       if (qcResult.passed) {
-        await MarketingCampaignSlotModel.updateOne(
-          { _id: slot._id, lockId },
-          {
-            $set: {
-              status: "ready_to_publish",
-              lockId: null,
-              lockedAt: null,
-              lockExpiresAt: null,
-              lastError: null,
-            },
-            $push: {
-              transitions: {
-                from: "verifying",
-                to: "ready_to_publish",
-                reason: `QC Agent đã duyệt bài viết (Score: ${qcResult.score}/10). Sẵn sàng đăng bài.`,
-                at: new Date(),
+        const session = await mongoose.startSession();
+        let changed = false;
+        try {
+          await session.withTransaction(async () => {
+            const result = await MarketingCampaignSlotModel.updateOne(
+              { _id: slot._id, lockId },
+              {
+                $set: {
+                  status: "ready_to_publish",
+                  lockId: null,
+                  lockedAt: null,
+                  lockExpiresAt: null,
+                  lastError: null,
+                },
+                $push: {
+                  transitions: {
+                    from: "verifying",
+                    to: "ready_to_publish",
+                    reason: `QC Agent đã duyệt bài viết (Score: ${qcResult.score}/10). Sẵn sàng đăng bài.`,
+                    at: new Date(),
+                  },
+                },
               },
-            },
-          }
-        );
+              { session },
+            );
+            changed = result.modifiedCount > 0;
+            if (changed) await syncCampaignContentReady(slot, session);
+          });
+        } finally {
+          await session.endSession();
+        }
         console.log(`[Orchestrator] Slot ${slotId} QC passed. Status transitioned to ready_to_publish.`);
-        emitSlotUpdate({ _id: slot._id, campaignId: slot.campaignId, companyCode: slot.companyCode, status: "ready_to_publish" });
+        if (changed) emitSlotUpdate({ _id: slot._id, campaignId: slot.campaignId, companyCode: slot.companyCode, status: "ready_to_publish" });
       } else {
         // Did not pass QC validation
-        const failureReason = qcResult.reasons.join("; ");
-        await MarketingCampaignSlotModel.updateOne(
-          { _id: slot._id, lockId },
-          {
-            $set: {
-              status: "needs_attention",
-              lockId: null,
-              lockedAt: null,
-              lockExpiresAt: null,
-              lastError: { type: "validation", message: failureReason, occurredAt: new Date() },
-            },
-            $push: {
-              transitions: {
-                from: "verifying",
-                to: "needs_attention",
-                reason: `QC Agent từ chối duyệt: ${failureReason}`,
-                at: new Date(),
+        const failureReason = qcResult.reasons.join("; ") || "Nội dung không đạt kiểm duyệt. Vui lòng kiểm tra và duyệt lại.";
+        const session = await mongoose.startSession();
+        let changed = false;
+        try {
+          await session.withTransaction(async () => {
+            const result = await MarketingCampaignSlotModel.updateOne(
+              { _id: slot._id, lockId },
+              {
+                $set: {
+                  status: "needs_attention",
+                  lockId: null,
+                  lockedAt: null,
+                  lockExpiresAt: null,
+                  lastError: { type: "validation", message: failureReason, occurredAt: new Date() },
+                },
+                $push: {
+                  transitions: {
+                    from: "verifying",
+                    to: "needs_attention",
+                    reason: `QC Agent từ chối duyệt: ${failureReason}`,
+                    at: new Date(),
+                  },
+                },
               },
-            },
-          }
-        );
+              { session },
+            );
+            changed = result.modifiedCount > 0;
+            if (changed) await syncCampaignContentFailure(slot, failureReason, session);
+          });
+        } finally {
+          await session.endSession();
+        }
         console.log(`[Orchestrator] Slot ${slotId} QC failed: ${failureReason}`);
-        emitSlotUpdate({ _id: slot._id, campaignId: slot.campaignId, companyCode: slot.companyCode, status: "needs_attention" });
+        if (changed) emitSlotUpdate({ _id: slot._id, campaignId: slot.campaignId, companyCode: slot.companyCode, status: "needs_attention" });
       }
     } catch (error: unknown) {
       console.error(`[Orchestrator] Error during slot ${slotId} verify phase:`, error);
-      await releaseWithFailure(slotId, lockId, "verify", error);
-      emitSlotUpdate({ _id: slot._id, campaignId: slot.campaignId, companyCode: slot.companyCode, status: "failed" });
+      const status = await releaseWithFailure(slotId, lockId, "verify", error);
+      if (status) emitSlotUpdate({ _id: slot._id, campaignId: slot.campaignId, companyCode: slot.companyCode, status });
     }
   }
 

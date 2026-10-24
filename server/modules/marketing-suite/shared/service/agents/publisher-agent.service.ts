@@ -6,7 +6,7 @@ import { tiktokService } from "../tiktok.service.ts";
 import { resolveFacebookCredentials } from "../../../campaign/service/agents/campaign-utils";
 import { marketingCampaignService } from "../../../campaign/service/marketing-campaign.service.ts";
 import { recordFacebookPublication } from "../../../campaign/service/facebook-publication.service";
-import { assertCampaignVideoReady } from "../../../campaign/service/agents/campaign-caption.service.ts";
+import { assertCampaignMediaReady } from "../../../campaign/service/agents/campaign-media-readiness";
 
 export class PublisherAgentService {
   public static async publish(
@@ -48,7 +48,7 @@ export class PublisherAgentService {
     }
 
     // 3. Final media/caption invariant before every platform publish.
-    await assertCampaignVideoReady({ campaign, slot, content });
+    await assertCampaignMediaReady({ campaign, slot, content });
 
     // 4. Platform specific publishing
     if (slot.platform === "TikTok") {

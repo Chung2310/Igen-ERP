@@ -172,6 +172,7 @@ export default function MarketingTab() {
       const options = getPublishingAccounts();
       if (options.length > 0) {
         if (!options.some(opt => opt.id === scheduleIntegrationId)) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- Keep a valid scheduling account after asynchronous account options change.
           setScheduleIntegrationId(options[0].id);
         }
       } else {
@@ -255,6 +256,7 @@ export default function MarketingTab() {
   // Load integrations dynamically when a card is selected for scheduling
   useEffect(() => {
     if (!schedulingCard) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear the previous card's accounts before the scheduling dialog is reused.
       setAvailableIntegrations([]);
       setScheduleIntegrationId("");
       return;

@@ -1,6 +1,7 @@
 import { lazy } from "react";
 import type { ComponentType, LazyExoticComponent } from "react";
 import type { TabType, UserProfile } from "../types";
+import { canViewAiSubscription } from "../config/modules";
 
 export type LazyPageComponent = LazyExoticComponent<ComponentType<any>>;
 
@@ -15,6 +16,7 @@ export const APP_ROUTES: AppRoute[] = [
   { tab: "OMNI INBOX", component: lazy(() => import("../modules/marketing-suite/message/pages/CRMTab")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "omni-inbox:read", "omni-inbox:manage"].includes(value))) },
   { tab: "KHO TRI THỨC", component: lazy(() => import("../modules/marketing-suite/knowledge/pages/CompanyKnowledgePage")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "company-knowledge:read", "company-knowledge:manage"].includes(value))) },
   { tab: "TÍCH HỢP MARKETING", component: lazy(() => import("../modules/marketing-suite/shared/pages/MarketingIntegrationsPage")), canAccess: (user) => Boolean(user.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key))) && (["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "social-integration:read", "social-integration:manage"].includes(value)))) },
+  { tab: "GÓI AI & LƯỢT SỬ DỤNG", component: lazy(() => import("../modules/marketing-suite/shared/pages/AiSubscriptionPage")), canAccess: canViewAiSubscription },
   {
     tab: "TỔNG QUAN",
     component: lazy(() => import("../pages/DashboardTab")),

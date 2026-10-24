@@ -362,7 +362,7 @@ export function BulkAiPanel({
               : 'Tạo thiết kế trên trang'}
         </button>
         <p className="mt-2 text-center text-[9px] text-slate-400">
-          Ctrl/⌘ + Enter để gửi · phí AI text 0,5 credit/lần
+            Ctrl/⌘ + Enter để gửi · Mỗi lần gọi AI thành công tính 1 lượt
         </p>
       </div>
     </section>

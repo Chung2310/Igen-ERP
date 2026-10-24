@@ -144,6 +144,7 @@ export interface ICampaignSheetAIJob extends Document {
   modelName: string;
   estimatedCost: number;
   actualCost: number;
+  usageUnit?: "ai_calls";
   idempotencyKey: string;
   proposals: ICampaignSheetAIProposal[];
   attemptCount: number;

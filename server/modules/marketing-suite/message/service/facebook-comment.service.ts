@@ -6,6 +6,7 @@ import { fbMessengerService } from "./fb-messenger.service.ts";
 import { AIReplyLogModel } from "../model/ai-reply-log.model.ts";
 import { FacebookCommentDeliveryModel } from "../model/facebook-comment-delivery.model";
 import { randomUUID } from "node:crypto";
+import { withAiUsage } from "../../shared/service/ai-subscription.service";
 
 const processingComments = new Set<string>();
 
@@ -64,11 +65,6 @@ export const facebookCommentService = {
 
         processingComments.add(commentIdVal);
         ownsLocalLock = true;
-        const existingLog = await AIReplyLogModel.findOne({ commentId: commentIdVal });
-        if (existingLog) {
-          return;
-        }
-
       }
 
       console.log(`[FB Comment Webhook] Nhận bình luận mới: pageId=${pageId}, commentId=${commentId}, message="${message}"`);
@@ -86,6 +82,12 @@ export const facebookCommentService = {
 
       // Kiểm tra xem cấu hình tự động trả lời bình luận có được bật riêng không
       if (!aiConfig.enabled || !aiConfig.commentReplyEnabled) {
+        return;
+      }
+
+      // Failed pre-send attempts may be retried. The durable delivery claim below
+      // still blocks sent/sending/unknown outcomes, including a failed private reply.
+      if (await AIReplyLogModel.findOne({ companyCode, channel: "facebook_comment", commentId, status: "sent" })) {
         return;
       }
 
@@ -138,7 +140,7 @@ export const facebookCommentService = {
       });
 
       // Gọi Gemini sinh câu trả lời dành riêng cho comment (bao gồm comment công khai và inbox riêng tư)
-      const aiResponse = await geminiService.chatComment(message, aiConfig, effectiveRagContext);
+      const aiResponse = await withAiUsage({ companyCode }, () => geminiService.chatComment(message, aiConfig, effectiveRagContext));
 
       if (!aiResponse || (!aiResponse.publicComment && !(aiResponse as any).text)) {
         await FacebookCommentDeliveryModel.updateOne(
@@ -187,6 +189,7 @@ export const facebookCommentService = {
       const commentUrl = `https://graph.facebook.com/v25.0/${commentId}/comments?access_token=${token}`;
       const commentResponse = await (globalThis as any).fetch(commentUrl, {
         method: "POST",
+        signal: AbortSignal.timeout(20_000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: publicComment }),
       });
@@ -211,6 +214,7 @@ export const facebookCommentService = {
           const inboxUrl = `https://graph.facebook.com/v25.0/me/messages?access_token=${token}`;
           const inboxResponse = await (globalThis as any).fetch(inboxUrl, {
             method: "POST",
+            signal: AbortSignal.timeout(20_000),
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               recipient: { comment_id: commentId },

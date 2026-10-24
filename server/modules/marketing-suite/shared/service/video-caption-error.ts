@@ -19,6 +19,9 @@ export class VideoCaptionError extends Error {
 export function classifyVideoCaptionError(
   error: unknown
 ): VideoCaptionClassifiedError {
+  if (error instanceof Error && "code" in error && error.code === "AI_SUBSCRIPTION_LIMIT") {
+    return { type: "budget", code: "AI_SUBSCRIPTION_LIMIT", message: error.message, retryable: false, occurredAt: new Date().toISOString() };
+  }
   if (error instanceof VideoCaptionError) {
     return {
       type: error.type,
@@ -42,5 +45,6 @@ export function classifyVideoCaptionError(
 }
 
 export function getVideoCaptionHttpStatus(error: unknown): number {
+  if (error instanceof Error && "code" in error && error.code === "AI_SUBSCRIPTION_LIMIT") return 402;
   return error instanceof VideoCaptionError ? error.statusCode : 500;
 }

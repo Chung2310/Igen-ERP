@@ -176,6 +176,7 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
   }, [campaignId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the sheet loading/reset sequence when switching campaigns, including unsaved-draft handling.
     void loadSheet();
   }, [loadSheet]);
 
@@ -769,7 +770,8 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
                 {runningJob.status === 'failed' ? 'AI job thất bại' : runningJob.status === 'cancelled' ? 'AI job đã hủy' : 'AI đang xử lý hàng loạt'}
               </p>
               <p className="mt-1 text-[10px] text-slate-500">
-                {runningJob.completedItems}/{runningJob.totalItems} dòng · {runningJob.failedItems} lỗi · dự kiến {runningJob.estimatedCost} credit
+                {runningJob.completedItems}/{runningJob.totalItems} dòng · {runningJob.failedItems} lỗi
+                {runningJob.usageUnit === 'ai_calls' && ` · dự kiến ${runningJob.estimatedCost} lượt AI`}
               </p>
             </div>
             <div className="flex gap-2">
@@ -1263,7 +1265,7 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
               )}
             </div>
             <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
-              <span className="text-[11px] text-slate-500">Chi phí: {aiJob.actualCost} credit</span>
+              <span className="text-[11px] text-slate-500">{aiJob.usageUnit === 'ai_calls' ? `Đã dùng: ${aiJob.actualCost} lượt AI` : 'Tác vụ từ cơ chế tính phí trước đây'}</span>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setAiJob(null)} className="rounded-lg px-4 py-2 text-xs font-bold text-slate-500">
                   Bỏ qua

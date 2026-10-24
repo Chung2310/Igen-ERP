@@ -1880,6 +1880,9 @@ export const videoCaptionService = {
             jobId: String(job._id),
             projectId: String(project._id),
             companyCode: project.companyCode,
+            userId: String(project.createdBy),
+            campaignId: project.contextLinks?.campaignId ? String(project.contextLinks.campaignId) : "",
+            slotId: project.contextLinks?.campaignSlotId ? String(project.contextLinks.campaignSlotId) : "",
           },
           delivery,
         });

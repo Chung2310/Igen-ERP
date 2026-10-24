@@ -25,6 +25,7 @@ const schedulePostSchema = {
       "any.required": "Nội dung bài viết không được để trống.",
     }),
     imageUrl: Joi.string().uri().optional().allow(""),
+    mediaUrls: Joi.array().items(Joi.string().uri({ scheme: ["https"] })).max(10).optional(),
     videoUrl: Joi.string().uri().optional().allow(""),
     scheduledDate: Joi.string().required().messages({
       "any.required": "Ngày lên lịch không được để trống.",

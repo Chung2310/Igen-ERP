@@ -74,6 +74,8 @@ export class CandidateSelectionService {
         });
       });
       const candidates = generated.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+      const quotaFailure = generated.find((result) => result.status === "rejected" && result.reason?.code === "AI_SUBSCRIPTION_LIMIT");
+      if (quotaFailure?.status === "rejected") throw quotaFailure.reason;
       providerErrors += generated.filter((result) => result.status === "rejected").length;
       const valid: typeof candidates = [];
       const acceptedBodies = recent.map((item) => item.bodyText);
@@ -103,6 +105,8 @@ export class CandidateSelectionService {
       });
       providerErrors += scored.filter((result) => result.status === "rejected").length;
       const ranked = scored.flatMap((result) => result.status === "fulfilled" ? [result.value] : []).sort((a, b) => b.score - a.score);
+      const scoreQuotaFailure = scored.find((result) => result.status === "rejected" && result.reason?.code === "AI_SUBSCRIPTION_LIMIT");
+      if (scoreQuotaFailure?.status === "rejected") throw scoreQuotaFailure.reason;
       const winner = ranked.find((candidate) => candidate.score >= campaign.minimumScore && !candidate.rejectionReasons.length);
       if (winner) {
         await MarketingCandidateModel.updateMany({ companyCode: slot.companyCode, slotId: slot._id }, { $set: { selected: false } });

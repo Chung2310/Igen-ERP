@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { CalendarClock, Loader2, Facebook, ExternalLink, AlertTriangle, RotateCcw, Check, Share2 } from 'lucide-react';
 import { CampaignSlot } from './CampaignDetailModal';
 import { MarketingCampaignSummary, marketingCampaignService } from '../../services/marketingCampaignService';
@@ -173,20 +173,21 @@ export const CampaignSlotsTable: React.FC<CampaignSlotsTableProps> = ({
   const [showTikTokBatchApproval, setShowTikTokBatchApproval] = useState(false);
   const [isBulkRetrying, setIsBulkRetrying] = useState(false);
   const [showCustomPrepare, setShowCustomPrepare] = useState(false);
-  const [customStartStr, setCustomStartStr] = useState('');
-  const [customEndStr, setCustomEndStr] = useState('');
+  const [customStartStr, setCustomStartStr] = useState(campaign?.startDate || '');
+  const [customEndStr, setCustomEndStr] = useState(campaign?.endDate || '');
   const [retryingSlotId, setRetryingSlotId] = useState<string | null>(null);
 
   // Reset pagination/selections and set default custom dates when campaign changes
-  useEffect(() => {
+  const [previousCampaign, setPreviousCampaign] = useState({ id: campaign?._id, startDate: campaign?.startDate, endDate: campaign?.endDate });
+  if (previousCampaign.id !== campaign?._id || previousCampaign.startDate !== campaign?.startDate || previousCampaign.endDate !== campaign?.endDate) {
+    setPreviousCampaign({ id: campaign?._id, startDate: campaign?.startDate, endDate: campaign?.endDate });
     setSlotPage(1);
     setSelectedSlotIds([]);
     if (campaign) {
       setCustomStartStr(campaign.startDate || '');
       setCustomEndStr(campaign.endDate || '');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign?._id, campaign?.startDate, campaign?.endDate]);
+  }
 
   const sortedSlots = useMemo(() => {
     return [...slots].sort(

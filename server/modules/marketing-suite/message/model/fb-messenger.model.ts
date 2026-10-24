@@ -52,6 +52,8 @@ export interface IFBMessage extends Document {
   timestamp: Date;
   status: "sent" | "delivered" | "read";
   createdAt: Date;
+  autoReplyDispatchPending?: boolean;
+  autoReplyDispatchAfter?: Date;
 }
 
 // Schema Cuộc hội thoại
@@ -120,6 +122,9 @@ const FBMessageSchema: Schema = new Schema(
     messageId: { type: String, required: true, unique: true },
     consultationSessionId: { type: String },
     senderType: { type: String, enum: ["human", "ai"] },
+    // Written atomically with webhook ingress; old/synced messages are excluded.
+    autoReplyDispatchPending: { type: Boolean },
+    autoReplyDispatchAfter: { type: Date },
     timestamp: { type: Date, required: true },
     status: { type: String, enum: ["sent", "delivered", "read"], default: "sent" },
   },
@@ -128,6 +133,9 @@ const FBMessageSchema: Schema = new Schema(
 
 FBMessageSchema.index({ conversationId: 1, timestamp: -1 });
 FBMessageSchema.index({ conversationId: 1, consultationSessionId: 1, timestamp: -1 });
+FBMessageSchema.index({ autoReplyDispatchPending: 1, autoReplyDispatchAfter: 1 }, {
+  partialFilterExpression: { autoReplyDispatchPending: true },
+});
 
 export const FBConversationModel = mongoose.model<IFBConversation>("FBConversation", FBConversationSchema);
 export const FBMessageModel = mongoose.model<IFBMessage>("FBMessage", FBMessageSchema);

@@ -53,9 +53,11 @@ export default function AssetOrderAIPreviewModal({
   const [isProcessingAll, setIsProcessingAll] = useState<'apply' | 'dismiss' | null>(null);
   const [visibleCount, setVisibleCount] = useState<number>(20);
 
-  React.useEffect(() => {
+  const [previousOrderCount, setPreviousOrderCount] = useState(orders.length);
+  if (previousOrderCount !== orders.length) {
+    setPreviousOrderCount(orders.length);
     setVisibleCount(20);
-  }, [orders.length]);
+  }
 
   const handleSidebarScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;

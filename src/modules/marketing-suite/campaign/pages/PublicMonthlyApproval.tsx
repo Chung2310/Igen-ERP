@@ -118,6 +118,7 @@ export default function PublicMonthlyApproval() {
 
   useEffect(() => {
     if (!token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Keep invalid-link handling synchronous; no request is started without a token.
       setError('Mã xác thực (token) không hợp lệ hoặc thiếu trong đường dẫn.');
       setLoading(false);
       return;
@@ -147,10 +148,12 @@ export default function PublicMonthlyApproval() {
 
   const activeSlot = slots.find(s => s._id === activeSlotId) || null;
 
-  useEffect(() => {
+  const [previousActiveSlotId, setPreviousActiveSlotId] = useState(activeSlotId);
+  if (previousActiveSlotId !== activeSlotId) {
+    setPreviousActiveSlotId(activeSlotId);
     setShowRejectForm(false);
     setRejectReason('');
-  }, [activeSlotId]);
+  }
 
 
   // Filter slots to show

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from "react";
 import { Zap, FileText, DollarSign, MessageSquare } from "lucide-react";
 import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, ChatPagination } from "../../shared/types/index";
 import { toast } from "../../../../pages/Toast";
@@ -216,6 +216,7 @@ export default function CRMTab() {
       const hasMatch = validPages.some(p => p.username === selectedFacebookPageId);
       if (!selectedFacebookPageId || !hasMatch) {
         const firstPage = validPages[0].username;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Keep Page fallback and its persisted selection synchronized with asynchronous account options.
         setSelectedFacebookPageId(firstPage);
         localStorage.setItem("crm_selected_fb_page_id", firstPage);
       }
@@ -231,6 +232,7 @@ export default function CRMTab() {
   useEffect(() => {
     if (zaloAccounts.length > 0) {
       if (!selectedZaloAccountId || !zaloAccounts.some(a => a.username === selectedZaloAccountId)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the legacy account fallback when external connection options change.
         setSelectedZaloAccountId(zaloAccounts[0].username);
       }
     } else if (selectedZaloAccountId) {
@@ -241,6 +243,7 @@ export default function CRMTab() {
   useEffect(() => {
     if (tiktokAccounts.length > 0) {
       if (!selectedTiktokAccountId || !tiktokAccounts.some(a => a.username === selectedTiktokAccountId)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the legacy account fallback when external connection options change.
         setSelectedTiktokAccountId(tiktokAccounts[0].username);
       }
     } else if (selectedTiktokAccountId) {
@@ -355,7 +358,7 @@ export default function CRMTab() {
     item.platform === replyScope.platform && item.username === replyScope.accountId
   );
   const currentReplyScopeRef = useRef(replyScope.key);
-  currentReplyScopeRef.current = replyScope.key;
+  useLayoutEffect(() => { currentReplyScopeRef.current = replyScope.key; }, [replyScope.key]);
 
   // Synchronize AI Config based on selected page/channel or fallback to userProfile
   useEffect(() => {
@@ -363,6 +366,7 @@ export default function CRMTab() {
 
     if (targetIntegration?.aiAutoReplyConfig) {
       const config = targetIntegration.aiAutoReplyConfig as unknown as AIChatConfig;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the existing account/user configuration precedence and normalization across Page changes.
       setAIConfig({
         enabled: config.enabled ?? true,
         commentReplyEnabled: config.commentReplyEnabled ?? true,
@@ -1049,6 +1053,7 @@ export default function CRMTab() {
     }
 
     // Tải và tự động chọn cuộc hội thoại đầu tiên khi mount, đổi page FB, hoặc đổi kết nối
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Begin the account-scoped subscription with its existing loading/reset and request-version guards.
     fetchOmniConversations(true, { syncFacebook: true, reset: true });
 
     const runFetch = () => {
@@ -1086,6 +1091,7 @@ export default function CRMTab() {
       }
     };
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the initial conversation loading sequence before polling/socket fallback takes over.
     loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true, accountId: activeCustomer.accountId }).catch((err) => {
       console.error("[FE CRMTab] Lỗi khi tải lịch sử tin nhắn ban đầu:", err);
     });
@@ -1108,9 +1114,11 @@ export default function CRMTab() {
   }, [subTab, activeCustomer?.id, activeCustomer?.channel, activeCustomer?.accountId]);
 
   // Xóa sách lịch sử chat cũ ngay khi chuyển khách hàng để tránh hiển thị nhầm lẫn
-  useEffect(() => {
+  const [previousHistoryScope, setPreviousHistoryScope] = useState({ id: activeCustomer?.id, channel: activeCustomer?.channel, accountId: activeCustomer?.accountId });
+  if (previousHistoryScope.id !== activeCustomer?.id || previousHistoryScope.channel !== activeCustomer?.channel || previousHistoryScope.accountId !== activeCustomer?.accountId) {
+    setPreviousHistoryScope({ id: activeCustomer?.id, channel: activeCustomer?.channel, accountId: activeCustomer?.accountId });
     setChatHistory([]);
-  }, [activeCustomer?.id, activeCustomer?.channel, activeCustomer?.accountId]);
+  }
 
   const handleSelectCustomer = (cust: CustomerInbox) => {
     if (isSameInboxIdentity(activeCustomerRef.current, cust)) {
@@ -1497,6 +1505,7 @@ export default function CRMTab() {
     if (!activeCustomer) return;
     const updatedActive = inboxCustomers.find(c => isSameInboxIdentity(c, activeCustomer));
     if (updatedActive && updatedActive !== activeCustomer) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Keep the selected conversation synchronized with socket/polling updates to the inbox list.
       setActiveCustomer(updatedActive);
     }
   }, [activeCustomer, inboxCustomers]);

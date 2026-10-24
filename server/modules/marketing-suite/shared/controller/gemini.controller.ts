@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, prefer-const */
 import { Request, Response } from "express";
-import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import mongoose from "mongoose";
 import { geminiService } from "../service/gemini.service.ts";
 import { AuthenticatedRequest } from "../middleware/auth";
@@ -24,24 +23,17 @@ import { createChatAiTrace, describeChatAiTrace, withChatAiTrace } from "../../m
 
 function handleGeminiError(res: Response, error: any, defaultMessage: string) {
   const rawMessage = String(error.message || "");
-  const normalizedMessage = rawMessage.toLowerCase();
-  const isWalletBalanceError =
-    normalizedMessage.includes("số dư ví không đủ") ||
-    normalizedMessage.includes("so du vi khong du") ||
-    normalizedMessage.includes("wallet balance");
+  const isSubscriptionLimit = error.code === "AI_SUBSCRIPTION_LIMIT";
   const details = rawMessage || String(error);
   const status = error.status || error.statusCode;
 
+  if (isSubscriptionLimit) {
+    return res.status(status || 402).json({ status: "error", code: error.code, message: rawMessage });
+  }
   if (status === 402) {
-    if (!isWalletBalanceError) {
-      return res.status(503).json({
-        status: "error",
-        message: "Dịch vụ AI đang tạm thời không khả dụng. Vui lòng thử lại sau.",
-      });
-    }
-    return res.status(402).json({
+    return res.status(503).json({
       status: "error",
-      message: rawMessage || "Số dư ví không đủ. Vui lòng nạp thêm tiền.",
+      message: "Dịch vụ AI đang tạm thời không khả dụng. Vui lòng thử lại sau.",
     });
   }
 
@@ -131,11 +123,8 @@ async function extractPdfTextWithModelFallback(pdfBase64: string): Promise<strin
   return result.text;
 }
 
-function getTextModelCost(aiConfig: any): number {
-  const model = String(aiConfig?.model || "").toLowerCase();
-  if (model.includes("pro")) return 10;
-  if (model.includes("lite")) return 1.5;
-  return 2.5; // Default flash
+function getTextModelCost(): number {
+  return 1;
 }
 
 function isProbablyHtml(text: string) {
@@ -599,7 +588,7 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
-      const cost = getTextModelCost({ ...aiConfig, model: AI_REPLY_PRIMARY_MODEL });
+      const cost = getTextModelCost();
       await walletService.checkBalance(userId, cost);
       const companyCode = (req as any).user?.companyCode;
       const effectiveRagContext = await aiKnowledgeService.prepareChatContext({
@@ -711,7 +700,7 @@ export const geminiController = {
       const preview = await prepareChatPreview({ userId, companyCode, channel, conversationId, platformId, withImages: images.length > 0 }, resolveAutoReplyOwner);
       const aiConfig = images.length ? { ...preview.aiConfig, imageReplyEnabled: true } : preview.aiConfig;
       const aiTrace = aiConfig.imageReplyEnabled ? createChatAiTrace() : undefined;
-      const cost = getTextModelCost({ ...aiConfig, model: AI_REPLY_PRIMARY_MODEL });
+      const cost = getTextModelCost();
       await walletService.checkBalance(userId, cost);
       const startedAt = Date.now();
       const preparedReplyContext = await prepareChatReplyContext({
@@ -996,8 +985,7 @@ export const geminiController = {
         return res.status(401).json({ status: "error", message: "Yêu cầu đăng nhập" });
       }
 
-      const model = String(modelName || process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image").toLowerCase();
-      const cost = model.includes("pro") ? 57 : 27.5;
+      const cost = 1;
 
       await walletService.checkBalance(userId, cost);
       const result = await geminiService.generateImage(prompt, {
@@ -1095,8 +1083,7 @@ export const geminiController = {
           return `mark ${index + 1} near x=${Math.min(...xs).toFixed(4)}-${Math.max(...xs).toFixed(4)}, y=${Math.min(...ys).toFixed(4)}-${Math.max(...ys).toFixed(4)}`;
         }).join("; ")}. Treat these locations as extra edit guidance and never render marks in the output.`
         : "";
-      const model = String(modelName || process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image").toLowerCase();
-      const cost = model.includes("pro") ? 57 : 27.5;
+      const cost = 1;
       await walletService.checkBalance(userId, cost);
 
       // A crop is a framing operation, not a coordinate to apply blindly to

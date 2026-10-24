@@ -84,6 +84,7 @@ export default function TikTokBatchApprovalModal({
       preset = {};
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore per-account preferences and require fresh consent whenever this legacy approval dialog opens.
     setPrivacyLevel(preset.privacyLevel || '');
     setAllowComment(Boolean(preset.allowComment));
     setAllowDuet(Boolean(preset.allowDuet));

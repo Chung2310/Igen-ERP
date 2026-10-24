@@ -1,4 +1,4 @@
-import type { TabType } from "../types";
+import type { TabType, UserProfile } from "../types";
 import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
@@ -100,7 +100,18 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "OMNI INBOX": ["omni-inbox:read", "omni-inbox:manage"],
   "KHO TRI THỨC": ["company-knowledge:read", "company-knowledge:manage"],
   "TÍCH HỢP MARKETING": ["social-integration:read", "social-integration:manage"],
+  "GÓI AI & LƯỢT SỬ DỤNG": ["marketing:read", "omni-inbox:read", "company-knowledge:read", "social-integration:read"],
 };
+
+export function isAiSubscriptionEnabled(enabledModules: string[] | undefined): boolean {
+  return Boolean(enabledModules?.some((key) => ["social-marketing", "omni-inbox", "company-knowledge"].includes(key)));
+}
+
+export function canViewAiSubscription(user: UserProfile | null | undefined): boolean {
+  return Boolean(user?.companyCode) && isAiSubscriptionEnabled(user?.enabledModules)
+    && (user?.role === "admin" || user?.role === "superadmin"
+      || Boolean(user?.permissions?.some((code) => code === "*" || MODULE_READ_PERMISSIONS["GÓI AI & LƯỢT SỬ DỤNG"]!.includes(code))));
+}
 
 /**
  * Cấu hình ẩn tạm các module ở tầng UI (global — áp dụng cho mọi người dùng).
@@ -144,6 +155,7 @@ export function isModuleEnabled(enabledModules: string[] | undefined, key: Modul
 export function filterEnabledTabs(tabs: TabType[], enabledModules: string[] | undefined, businessTypeInput?: unknown): TabType[] {
   const businessType = resolveBusinessType(businessTypeInput);
   return tabs.filter((tab) => {
+    if (tab === "GÓI AI & LƯỢT SỬ DỤNG") return isAiSubscriptionEnabled(enabledModules);
     const moduleKey = TAB_MODULE_MAP[tab];
     return !moduleKey || (isModuleEnabled(enabledModules, moduleKey) && isModuleAllowedForBusinessType(moduleKey, businessType));
   });
@@ -151,6 +163,7 @@ export function filterEnabledTabs(tabs: TabType[], enabledModules: string[] | un
 
 /** Resolve direct navigation to a disabled module without rendering restricted content. */
 export function resolveEnabledTab(tab: TabType, enabledModules: string[] | undefined, businessTypeInput?: unknown): TabType {
+  if (tab === "GÓI AI & LƯỢT SỬ DỤNG" && !isAiSubscriptionEnabled(enabledModules)) return "TỔNG QUAN";
   const moduleKey = TAB_MODULE_MAP[tab];
   const businessType = resolveBusinessType(businessTypeInput);
   return moduleKey && (!isModuleEnabled(enabledModules, moduleKey) || !isModuleAllowedForBusinessType(moduleKey, businessType)) ? "TỔNG QUAN" : tab;

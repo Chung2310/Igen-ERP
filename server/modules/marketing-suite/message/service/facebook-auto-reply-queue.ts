@@ -4,6 +4,7 @@ import { FacebookAutoReplyJobModel } from "../model/facebook-auto-reply-job.mode
 export const FACEBOOK_REPLY_MAX_ATTEMPTS = 8;
 export const FACEBOOK_REPLY_LEASE_MS = 300_000;
 export const FACEBOOK_REPLY_RETRY_BASE_MS = 30_000;
+export const FACEBOOK_INBOUND_DISPATCH_LEASE_MS = 5 * 60_000;
 
 export function requireFacebookReplyText(text: unknown) {
   if (typeof text !== "string" || !text.trim()) throw new Error("AI returned an empty Facebook reply.");

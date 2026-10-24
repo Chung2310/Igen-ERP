@@ -2,8 +2,8 @@ import { IMarketingCampaignSlot } from "../../../campaign/interface/marketing-ca
 import { IMarketingCampaign } from "../../../campaign/interface/marketing-campaign.interface.ts";
 import { MarketingContentModel } from "../../../campaign/model/marketing-content.model.ts";
 import { openrouterChat } from "../openrouter.service.ts";
-import { assertReachableMedia, loadAgentSkill, resolveFacebookCredentials } from "../../../campaign/service/agents/campaign-utils";
-import { assertCampaignVideoReady } from "../../../campaign/service/agents/campaign-caption.service.ts";
+import { loadAgentSkill, resolveFacebookCredentials } from "../../../campaign/service/agents/campaign-utils";
+import { assertCampaignMediaReady } from "../../../campaign/service/agents/campaign-media-readiness";
 import { tiktokService } from "../tiktok.service.ts";
 
 export class QcAgentService {
@@ -26,44 +26,15 @@ export class QcAgentService {
       reasons.push("Nội dung bài viết trống.");
     }
 
-    if (slot.mediaType === "image") {
-      if (!content.imageUrl) {
-        reasons.push("Hình ảnh bắt buộc chưa sẵn sàng.");
-      } else {
-        try {
-          await assertReachableMedia(content.imageUrl);
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          reasons.push(`Hình ảnh không truy cập được: ${msg}`);
-        }
-      }
-    }
-
-    if (slot.mediaType === "video" || slot.mediaType === "human-video") {
-      if (!content.videoUrl) {
-        reasons.push("Video bắt buộc chưa sẵn sàng.");
-      } else {
-        try {
-          await assertReachableMedia(content.videoUrl);
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          reasons.push(`Video không truy cập được: ${msg}`);
-        }
-      }
-    }
-
     try {
-      await assertCampaignVideoReady({ campaign, slot, content });
+      await assertCampaignMediaReady({ campaign, slot, content });
     } catch (err: unknown) {
+      if ((err as { code?: string })?.code === "AI_SUBSCRIPTION_LIMIT") throw err;
       reasons.push(
         err instanceof Error
           ? err.message
-          : "Video chiến dịch chưa sẵn sàng."
+          : "Media chiến dịch chưa sẵn sàng."
       );
-    }
-
-    if (slot.mediaType === "text" && ["image", "video"].includes(campaign.mediaPolicy) && !campaign.rules?.allowTextOnlyFallback) {
-      reasons.push("Chiến dịch yêu cầu đa phương tiện nhưng không cho phép bài viết text-only fallback.");
     }
 
     // 2. Integration / Credential Verification
@@ -173,6 +144,7 @@ ${content.bodyText}
       return { passed: true, score: audit.score, reasons: [] };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      if ((err as { code?: string })?.code === "AI_SUBSCRIPTION_LIMIT") throw err;
       console.warn(`[QcAgent] Editorial sweep failed: ${msg}. Defaulting to basic structural pass.`);
       // Fallback: If AI fails but structural check passed
       return { passed: false, score: 0, reasons: ["Không thể hoàn tất kiểm duyệt nội dung. Vui lòng thử lại."] };

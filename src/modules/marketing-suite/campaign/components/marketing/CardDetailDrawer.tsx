@@ -72,16 +72,19 @@ export default function CardDetailDrawer({
   const [uploadProgress, setUploadProgress] = useState(0);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
+  const [previousCardId, setPreviousCardId] = useState<string | undefined>();
+  if (previousCardId !== card?.id) {
+    setPreviousCardId(card?.id);
     if (card) {
       setEditedTitle(card.title || "");
       setEditedBodyText(card.bodyText || "");
       setEditedOutline(card.outline || "");
     }
-  }, [card?.id]);
+  }
 
   useEffect(() => {
     if (isOpen && card) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Restart the existing drawer animation for each open/card transition.
       setShouldAnimate(true);
       const timer = setTimeout(() => {
         setShouldAnimate(false);

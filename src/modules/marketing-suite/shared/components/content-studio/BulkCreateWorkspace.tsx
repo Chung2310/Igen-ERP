@@ -148,6 +148,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
   const editorViewportRef = useRef<HTMLDivElement>(null);
   const undoRef = useRef<EditorSnapshot[]>([]);
   const redoRef = useRef<EditorSnapshot[]>([]);
+  const [historyAvailability, setHistoryAvailability] = useState({ canUndo: false, canRedo: false });
   const [activeTool, setActiveTool] = useState<EditorTool>('background');
   const [aiHtmlMode, setAiHtmlMode] = useState(false);
   const [aiHistory, setAiHistory] = useState<BulkAiHistoryMessage[]>([]);
@@ -202,6 +203,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
     try {
       const stored = window.localStorage.getItem(aiHistoryStorageKey);
       const parsed = stored ? JSON.parse(stored) as BulkAiHistoryMessage[] : [];
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore the legacy per-design history before its paired persistence effect can write it back.
       setAiHistory(Array.isArray(parsed) ? parsed.slice(-20) : []);
     } catch {
       setAiHistory([]);
@@ -246,6 +248,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
   const [zoomMode, setZoomMode] = useState<'fit' | 'manual'>('fit');
   const [contextMenu, setContextMenu] = useState<{ visible: boolean; x: number; y: number; targetLayerId?: string } | null>(null);
   const copiedLayerRef = useRef<TemplateLayer | null>(null);
+  const [hasCopiedLayer, setHasCopiedLayer] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<BulkAsset[]>([]);
   const [uploadingAsset, setUploadingAsset] = useState(false);
   const [importingTemplate, setImportingTemplate] = useState(false);
@@ -381,7 +384,10 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
       setLoadingTemplates(false);
     }
   }, []);
-  useEffect(() => { void refreshLibrary(); }, [refreshLibrary]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Retain the initial library loading state while its request starts.
+    void refreshLibrary();
+  }, [refreshLibrary]);
   const loadMoreTemplates = useCallback(async () => {
     if (loadingTemplatesRef.current || !templatesHasMore) return;
     loadingTemplatesRef.current = true;
@@ -504,6 +510,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Keep manual zoom transitions consistent with the ResizeObserver-driven fit scale.
     if (zoomMode === 'fit') setZoomPercent(fitZoomPercent);
   }, [fitZoomPercent, zoomMode]);
 
@@ -519,6 +526,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
 
   useEffect(() => {
     const liveIds = new Set(layers.map((layer) => layer.id));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile selection after every legacy layer mutation without changing undo/redo semantics.
     setSelectedLayerIds((current) => {
       const next = current.filter((id) => liveIds.has(id));
       return next.length === current.length ? current : next;
@@ -546,6 +554,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
     setBackgroundSelected(false);
     toast.success('Đã tối ưu bố cục để nội dung dễ đọc hơn.');
   };
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- Keep the snapshot callback stable for the existing ref-backed undo/redo handlers.
   const createEditorSnapshot = useCallback((): EditorSnapshot => ({
     layers: layers.map((layer) => ({ ...layer })),
     rows: rows.map((row) => ({ ...row, values: { ...row.values } })),
@@ -567,6 +576,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
   const recordLayerHistory = useCallback(() => {
     undoRef.current = [...undoRef.current.slice(-29), createEditorSnapshot()];
     redoRef.current = [];
+    setHistoryAvailability({ canUndo: true, canRedo: false });
   }, [createEditorSnapshot]);
 
   const applyAiScene = useCallback((result: BulkAiSceneResult) => {
@@ -629,6 +639,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
     const previous = undoRef.current.pop();
     if (!previous) return;
     redoRef.current.push(createEditorSnapshot());
+    setHistoryAvailability({ canUndo: undoRef.current.length > 0, canRedo: true });
     restoreEditorSnapshot(previous);
     setSelectedLayerId('');
     setSelectedLayerIds([]);
@@ -638,6 +649,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
     const next = redoRef.current.pop();
     if (!next) return;
     undoRef.current.push(createEditorSnapshot());
+    setHistoryAvailability({ canUndo: true, canRedo: redoRef.current.length > 0 });
     restoreEditorSnapshot(next);
     setSelectedLayerId('');
     setSelectedLayerIds([]);
@@ -845,6 +857,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the connection/loading reset before the initial external Canva request.
     void refreshCanva();
   }, [refreshCanva]);
 
@@ -1012,6 +1025,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
     const selected = layers.find((l) => l.id === selectedLayerId);
     if (selected) {
       copiedLayerRef.current = { ...selected };
+      setHasCopiedLayer(true);
     }
   }, [layers, selectedLayerId]);
 
@@ -1495,6 +1509,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
     const version = autoSaveVersionRef.current;
     const designSession = designSessionRef.current;
     if (layers.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Keep the existing autosave status/version transition aligned with its debounced persistence timer.
       setAutoSaveStatus('idle');
       return;
     }
@@ -1710,6 +1725,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
 
   useEffect(() => {
     if (!initialCampaignId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the existing campaign-import setup before loading its asynchronously scoped context.
     setBulkTarget('campaign');
     setCampaignSetupStep('confirm_campaign');
     void (async () => {
@@ -1812,6 +1828,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
     setAiHistory([]);
     undoRef.current = [];
     redoRef.current = [];
+    setHistoryAvailability({ canUndo: false, canRedo: false });
     toast.success(`Đã mở mẫu “${template.name}”. Bạn có thể chỉnh sửa hoặc map dữ liệu ngay.`);
   };
 
@@ -1843,6 +1860,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
     setAiHistory([]);
     undoRef.current = [];
     redoRef.current = [];
+    setHistoryAvailability({ canUndo: false, canRedo: false });
   };
 
   const archiveTemplate = async (templateId: string) => {
@@ -2180,8 +2198,8 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
       <main className="relative flex min-w-0 flex-1 flex-col bg-[#f4f5f7]">
         <BulkWorkspaceHeader
           onClose={onClose}
-          canUndo={undoRef.current.length > 0}
-          canRedo={redoRef.current.length > 0}
+          canUndo={historyAvailability.canUndo}
+          canRedo={historyAvailability.canRedo}
           onUndo={undoLayers}
           onRedo={redoLayers}
           onCreateNew={createNewTemplate}
@@ -2352,7 +2370,7 @@ export function BulkCreateWorkspace({ onClose, initialCampaignId }: BulkCreateWo
           x={contextMenu.x}
           y={contextMenu.y}
           hasLayerSelected={!!selectedLayerId}
-          hasCopiedLayer={!!copiedLayerRef.current}
+          hasCopiedLayer={hasCopiedLayer}
           canvasSize={canvasSize}
           selectedLayer={selectedLayer}
           layers={layers}

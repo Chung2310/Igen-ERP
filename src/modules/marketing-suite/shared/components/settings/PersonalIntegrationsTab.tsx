@@ -60,6 +60,7 @@ export default function PersonalIntegrationsTab() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Initialize the legacy connection-status request without changing its loading behavior.
     void fetchTelegramStatus();
   }, []);
 

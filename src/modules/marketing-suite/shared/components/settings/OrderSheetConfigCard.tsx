@@ -26,9 +26,11 @@ export default function OrderSheetConfigCard({ integration, onSaved }: OrderShee
   const [serviceAccountEmail, setServiceAccountEmail] = useState("");
   const [busyAction, setBusyAction] = useState<"save" | "test" | "template" | "">("");
 
-  useEffect(() => {
+  const [previousConfig, setPreviousConfig] = useState(integration.orderSheetConfig);
+  if (previousConfig !== integration.orderSheetConfig) {
+    setPreviousConfig(integration.orderSheetConfig);
     setConfig({ ...DEFAULT_CONFIG, ...integration.orderSheetConfig });
-  }, [integration.orderSheetConfig]);
+  }
 
   useEffect(() => {
     let active = true;

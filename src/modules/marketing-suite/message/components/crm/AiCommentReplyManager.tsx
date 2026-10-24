@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../../shared/marketing-suite/ai-reply-models";
 import {
   MessageSquare, Zap, RefreshCw, Terminal, CheckCircle,
@@ -104,7 +104,7 @@ export function AiCommentReplyManager({
   const configDraftDirtyRef = useRef(false);
   const previousConfigScopeRef = useRef(configScopeKey);
   const currentConfigScopeRef = useRef(configScopeKey);
-  currentConfigScopeRef.current = configScopeKey;
+  useLayoutEffect(() => { currentConfigScopeRef.current = configScopeKey; }, [configScopeKey]);
   const draftRevisionRef = useRef(0);
 
   const setLocalConfigDraft = (config: React.SetStateAction<AIChatConfig>) => {
@@ -419,6 +419,7 @@ export function AiCommentReplyManager({
   useEffect(() => {
     if (activePlatform === "facebook" && !selectedFacebookPageId) return;
     if (activePlatform === "tiktok" && !selectedTiktokAccountId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear the previous Page's cache before its scoped log/health requests start.
     setPostDetails({}); // Clear cache on page switch
     void fetchLogs(1);
     void fetchAIHealth();

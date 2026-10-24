@@ -7,6 +7,7 @@
  */
 
 import { beginChatAiAttempt } from "../../message/service/chat-ai-trace";
+import { billAiCall } from "./ai-subscription.service";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -65,6 +66,10 @@ export interface OpenRouterChatParams {
  * Chat completions — text và/hoặc vision (base64 images).
  */
 export async function openrouterChat(params: OpenRouterChatParams): Promise<{ text: string }> {
+  return billAiCall("text", mapModelName(params.model), () => openrouterChatUnmetered(params));
+}
+
+async function openrouterChatUnmetered(params: OpenRouterChatParams): Promise<{ text: string }> {
   const {
     model,
     temperature = 0.7,
@@ -409,6 +414,10 @@ function sanitizePrompt(prompt: string): string {
  * Đây là cách chính thức theo OpenRouter SDK vì /images endpoint bị geo-block Vietnam
  */
 export async function openrouterGenerateImage(params: OpenRouterImageParams): Promise<{ url: string }> {
+  return billAiCall("image", params.model || process.env.OPENROUTER_IMAGE_MODEL || "default", () => openrouterGenerateImageUnmetered(params));
+}
+
+async function openrouterGenerateImageUnmetered(params: OpenRouterImageParams): Promise<{ url: string }> {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error("[OpenRouter] OPENROUTER_API_KEY chưa được cấu hình trong .env");
 

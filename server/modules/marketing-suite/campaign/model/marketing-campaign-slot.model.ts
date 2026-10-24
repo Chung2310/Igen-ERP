@@ -47,6 +47,7 @@ const MarketingCampaignSlotSchema = new Schema<IMarketingCampaignSlot>(
     approvedBy: { type: String },
     approvedAt: { type: Date },
     attemptCount: { type: Number, default: 0, min: 0 },
+    aiCallsUsed: { type: Number, default: 0, min: 0 },
     lockId: { type: String, index: true },
     lockedAt: { type: Date },
     lockExpiresAt: { type: Date, index: true },

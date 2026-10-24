@@ -51,6 +51,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab, 
     if (subTab === "LÊN Ý TƯỞNG AI") {
       const seen = localStorage.getItem("igen_ideation_guide_seen");
       if (!seen) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize the legacy guide with the persisted seen flag when its tab opens.
         setIsGuideOpen(true);
       }
     }
@@ -272,8 +273,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab, 
   const [autoPilotBackgroundRunning, setAutoPilotBackgroundRunning] = useState(false);
 
   // Auto-pilot scheduling & integrations configuration
-  const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const [autoScheduleDate, setAutoScheduleDate] = useState(tomorrowStr);
+  const [autoScheduleDate, setAutoScheduleDate] = useState(() => new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
   const [autoScheduleTime, setAutoScheduleTime] = useState("09:00");
   const [autoPublishMode, setAutoPublishMode] = useState<"scheduled" | "instant">("scheduled");
   const [autoPilotProgress, setAutoPilotProgress] = useState(0);
@@ -564,6 +564,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab, 
         initialMapping[p] = match._id || "";
       }
     });
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Add asynchronously loaded account defaults without replacing the user's existing selections.
     setSelectedIntegrations(prev => ({ ...initialMapping, ...prev }));
   }, [integrationsList]);
 
@@ -642,6 +643,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab, 
         "quan điểm độc đáo hơn",
         "chiến lược nội dung khác"
       ];
+      // eslint-disable-next-line react-hooks/purity -- Randomness is evaluated only by the pillar swap click handler.
       const randomVariant = variants[Math.floor(Math.random() * variants.length)];
 
       let apiTopic = `${topic} - tập trung vào ${randomVariant}`;
@@ -661,6 +663,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab, 
         const rawPillar = data.pillars[targetIdx];
 
         const newPillar = {
+          // eslint-disable-next-line react-hooks/purity -- The fallback ID is created after the click handler receives the API response.
           id: rawPillar.id || `pillar-swap-${Date.now()}`,
           title: rawPillar.title,
           ratio: rawPillar.ratio || (originalPillar ? originalPillar.ratio : "33% tỷ trọng"),
@@ -860,7 +863,7 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab, 
     } catch (err: any) {
       console.error(err);
       setConcepts([]);
-      toast.error(err.message || "Tự động hóa thất bại. Vui lòng kiểm tra lại cấu hình hoặc số dư ví.");
+      toast.error(err.message || "Tự động hóa thất bại. Vui lòng kiểm tra lại cấu hình hoặc hạn mức AI.");
     } finally {
       setLoadingAI(false);
       setAutoPilotBackgroundRunning(false);

@@ -109,12 +109,15 @@ export function PropertiesToolbar({
   const [fontMenuPosition, setFontMenuPosition] = useState({ left: 0, top: 0 });
   const selectedFont = selectedLayer?.fontFamily || 'DejaVu Sans';
 
-  useEffect(() => {
+  const selectedLayerKey = `${selectedLayer?.id || ''}:${selectedLayer?.type || ''}`;
+  const [previousLayerKey, setPreviousLayerKey] = useState(selectedLayerKey);
+  if (previousLayerKey !== selectedLayerKey) {
+    setPreviousLayerKey(selectedLayerKey);
     setAlignmentMenu(null);
     setColorMenu(null);
     setStyleMenuOpen(false);
     setFontMenuOpen(false);
-  }, [selectedLayer?.id, selectedLayer?.type]);
+  }
 
   useEffect(() => {
     if (!fontMenuOpen) return;

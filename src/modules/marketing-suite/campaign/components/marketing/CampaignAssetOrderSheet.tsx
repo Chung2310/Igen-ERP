@@ -86,6 +86,7 @@ export default function CampaignAssetOrderSheet({ campaignId }: CampaignAssetOrd
   }, [campaignId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Start the existing campaign-scoped request with its loading state intact.
     void loadOrders();
   }, [loadOrders]);
 

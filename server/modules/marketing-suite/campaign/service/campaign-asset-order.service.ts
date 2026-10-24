@@ -15,6 +15,7 @@ import { bulkCreateService } from "../../shared/service/bulk-create.service.ts";
 import { aiKnowledgeService } from "../../knowledge/service/ai-knowledge.service.ts";
 import { openrouterChat } from "../../shared/service/openrouter.service.ts";
 import { walletService } from "../../shared/service/wallet.service.ts";
+import { getAiUsageContext, withAiUsage } from "../../shared/service/ai-subscription.service";
 import { campaignQueueService } from "../queue/campaign-queue";
 import { broadcastEvent } from "../../shared/socket";
 import { getGoogleDriveDirectLink, getGoogleDriveFileMimeType, listGoogleDriveFolderFiles } from "./marketing-campaign-helper";
@@ -43,7 +44,6 @@ const MAX_BULK_IMAGES_PER_ORDER = 10;
 // job deliberately runs a small number of these batches concurrently.
 const AI_FILL_ALL_BATCH_SIZE = 2;
 const AI_FILL_ALL_BATCH_CONCURRENCY = 2;
-const AI_FILL_ALL_BILLING_BATCH_SIZE = 20;
 const AI_FILL_ALL_TIMEOUT_MS = 35_000;
 const AI_FILL_ALL_MAX_TOKENS = 1_800;
 const ASSET_ORDER_AI_MODEL = process.env.ASSET_ORDER_AI_MODEL || "qwen/qwen3.7-flash";
@@ -535,15 +535,15 @@ async function getDriveImportContext(companyCode: string, campaignId: string, go
 
 export const campaignAssetOrderService = {
   async getAiCost(companyCode: string, campaignId: string) {
-    const campaign = await assertCampaign(companyCode, campaignId);
-    return campaign.qualityMode === "budget" ? 0.5 : 2.5;
+    await assertCampaign(companyCode, campaignId);
+    return 1;
   },
 
   async getFillAllAiCost(companyCode: string, campaignId: string, orderIds?: string[]) {
     const requestedOrderIds = [...new Set(orderIds || [])]
       .filter((id) => mongoose.isValidObjectId(id))
       .map((id) => new mongoose.Types.ObjectId(id));
-    const [campaign, orderCount] = await Promise.all([
+    const [, orderCount] = await Promise.all([
       assertCampaign(companyCode, campaignId),
       requestedOrderIds.length
         ? CampaignAssetOrderModel.countDocuments({
@@ -559,8 +559,8 @@ export const campaignAssetOrderService = {
           status: { $nin: [...terminalSlotStatuses] },
         }),
     ]);
-    const batches = Math.ceil(orderCount / AI_FILL_ALL_BILLING_BATCH_SIZE);
-    const unitCost = campaign.qualityMode === "budget" ? 0.5 : 2.5;
+    const batches = Math.ceil(orderCount / AI_FILL_ALL_BATCH_SIZE);
+    const unitCost = 1;
     return { orderCount, batches, cost: batches * unitCost };
   },
 
@@ -599,7 +599,7 @@ export const campaignAssetOrderService = {
       throw httpError("Chưa có Order gắn với bài viết để AI điền.", 409, "NO_SLOT_ORDERS");
     }
 
-    const unitCost = campaign.qualityMode === "budget" ? 0.5 : 2.5;
+    const unitCost = 1;
     try {
       const job = await CampaignAssetOrderAIJobModel.create({
         companyCode,
@@ -610,7 +610,8 @@ export const campaignAssetOrderService = {
         targetOrderIds: orders.map((order) => order._id),
         totalItems: orders.length,
         modelName: ASSET_ORDER_AI_MODEL,
-        estimatedCost: Math.ceil(orders.length / AI_FILL_ALL_BILLING_BATCH_SIZE) * unitCost,
+        estimatedCost: Math.ceil(orders.length / AI_FILL_ALL_BATCH_SIZE) * unitCost,
+        usageUnit: "ai_calls",
         idempotencyKey: input.idempotencyKey,
       });
       return job.toObject();
@@ -702,9 +703,6 @@ export const campaignAssetOrderService = {
         { kind: "knowledge_chunk" as const, id: String(value.chunkId || ""), title, excerpt },
       ].filter((reference) => reference.id);
     });
-    const remainingRequestCount = Math.ceil(orders.length / AI_FILL_ALL_BATCH_SIZE);
-    const remainingBudget = Math.max(Number(job.estimatedCost || 0) - Number(job.actualCost || 0), 0);
-    const requestCost = remainingRequestCount > 0 ? remainingBudget / remainingRequestCount : 0;
 
     const batchStarts = Array.from(
       { length: Math.ceil(orders.length / AI_FILL_ALL_BATCH_SIZE) },
@@ -735,9 +733,9 @@ export const campaignAssetOrderService = {
         warnings: string[];
         status: "applied" | "skipped" | "conflict" | "failed";
       }> = [];
-      let providerCharged = false;
+      let aiCallsUsed = 0;
       try {
-        if (requestCost > 0) await walletService.checkBalance(job.createdBy, requestCost);
+        await walletService.checkBalance(job.createdBy, 1);
         const batchIds = new Set(batch.map((order) => String(order._id)));
         let generatedByOrderId: Map<string, Record<string, unknown>> | undefined;
         let providerModel = job.modelName;
@@ -817,6 +815,7 @@ export const campaignAssetOrderService = {
             },
           ],
         });
+        aiCallsUsed += 1;
         const parsed = JSON.parse(response.text) as { rows?: unknown };
         if (!Array.isArray(parsed.rows)) throw httpError("AI không trả về danh sách dòng Order.", 502, "INVALID_AI_RESPONSE");
         const responseRowsByOrderId = new Map<string, Record<string, unknown>>();
@@ -835,15 +834,6 @@ export const campaignAssetOrderService = {
           }
         }
         if (!generatedByOrderId) throw lastProviderError || httpError("AI returned no usable Order rows.", 502, "INVALID_AI_RESPONSE");
-        if (requestCost > 0) {
-          await walletService.deductBalance(
-            job.createdBy,
-            requestCost,
-            "Chi phí AI điền Order ảnh, video",
-            `asset-order-ai-job:${job.companyCode}:${job._id}:${start / AI_FILL_ALL_BATCH_SIZE}`
-          );
-          providerCharged = true;
-        }
 
         if (!await CampaignAssetOrderAIJobModel.exists({ _id: job._id, companyCode: job.companyCode, lockId, status: "processing" })) {
           cancellationObserved = true;
@@ -959,7 +949,7 @@ export const campaignAssetOrderService = {
             failedItems: failed,
             skippedItems: skipped,
             conflictedItems: conflicted,
-            actualCost: providerCharged ? requestCost : 0,
+            actualCost: aiCallsUsed,
           },
         }
       );
@@ -1770,7 +1760,7 @@ export const campaignAssetOrderService = {
     });
     const customFields = activeCustomFields(campaign);
     const model = ASSET_ORDER_AI_MODEL;
-    const response = await openrouterChat({
+    const response = await withAiUsage({ companyCode, campaignId, slotId: slot ? String(slot._id) : undefined, userId: getAiUsageContext()?.userId }, () => openrouterChat({
       model,
       temperature: 0.55,
       jsonMode: true,
@@ -1834,7 +1824,7 @@ export const campaignAssetOrderService = {
           content: `CHIẾN DỊCH:\n${campaign.sourceBrief}\n\nSLOT:\n${JSON.stringify(slot ? { pillar: slot.pillar, objective: slot.objective, topicBrief: slot.topicBrief, platform: slot.platform } : {})}\n\nCONTENT CUỐI CÙNG CỦA BÀI:\n${JSON.stringify(finalContent || {})}\n\nORDER HIỆN TẠI:\n${JSON.stringify({ title: order.title, contentGroup: order.contentGroup, shootingContent: order.shootingContent, productionRequirements: order.productionRequirements, quantitySuggestion: order.quantitySuggestion, usageChannels: "Facebook", format: order.format, aspectRatio: order.aspectRatio, headline: order.headline, subheadline: order.subheadline, cta: order.cta, visualBrief: order.visualBrief, assetRoles: order.assets.map((asset) => asset.role) })}\n\nKHO TRI THỨC ĐÚNG PAGE:\n${knowledge.contextText || "Không có"}\n\nYÊU CẦU THÊM:\n${input.instruction || "Không có"}`,
         },
       ],
-    });
+    }));
     let generated: {
       contentGroup?: unknown;
       shootingContent?: unknown;

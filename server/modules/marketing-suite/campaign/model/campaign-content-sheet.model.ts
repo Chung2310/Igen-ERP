@@ -160,6 +160,7 @@ const CampaignSheetAIJobSchema = new Schema<ICampaignSheetAIJob>(
     modelName: { type: String, default: "" },
     estimatedCost: { type: Number, default: 0 },
     actualCost: { type: Number, default: 0 },
+    usageUnit: { type: String, enum: ["ai_calls"] },
     idempotencyKey: { type: String, required: true },
     proposals: { type: [proposalSchema], default: [] },
     attemptCount: { type: Number, default: 0 },

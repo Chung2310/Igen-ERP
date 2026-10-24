@@ -63,6 +63,7 @@ export default function CampaignDriveImportPanel({
 
   useEffect(() => {
     if (sourceMode === 'bulk' && bulkEnabled && bulkJobs.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Start the legacy job-history request only when its source panel becomes active.
       void loadBulkJobs();
     }
   }, [sourceMode, bulkEnabled, bulkJobs.length, loadBulkJobs]);
@@ -77,6 +78,7 @@ export default function CampaignDriveImportPanel({
 
   useEffect(() => {
     if (!selectedBulkJobId || !selectedBulkJobIsComplete) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Remove a preview immediately when its selected job is no longer importable.
       setBulkPreview(null);
       return;
     }
