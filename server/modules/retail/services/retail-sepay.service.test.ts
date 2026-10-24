@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canonicalPaymentCode, extractPaymentCode, parseSePayTransactionDate, sePayTransactionKey } from "./retail-sepay.service";
+import { canonicalPaymentCode, extractPaymentCode, parseSePayTransactionDate, retailQrAmount, sePayTransactionKey } from "./retail-sepay.service";
+
+test("installment QR requests only the pending upfront transfer", () => {
+  assert.equal(retailQrAmount({ dueAmount: 900_000, pendingTransferAmount: 100_000 }), 100_000);
+  assert.equal(retailQrAmount({ dueAmount: 800_000, pendingTransferAmount: 0 }), 800_000);
+});
 
 test("canonicalizes retail order codes for bank transfer content", () => {
   assert.equal(canonicalPaymentCode("dh-hcm-202608-000001"), "DHHCM202608000001");

@@ -45,6 +45,10 @@ export function extractPaymentCode(payload: SePayPayload) {
   return candidates.map(canonicalPaymentCode).find((value) => value.length >= 6) || "";
 }
 
+export function retailQrAmount(order: { dueAmount: number; pendingTransferAmount?: number }) {
+  return Number(order.pendingTransferAmount) > 0 ? Number(order.pendingTransferAmount) : Number(order.dueAmount);
+}
+
 export async function buildRetailPaymentQr(scope: RetailBranchScope, orderId: string) {
   const [company, order] = await Promise.all([
     CompanyModel.findOne({ code: scope.companyCode }).select("vietqrConfig").lean(),
@@ -55,8 +59,9 @@ export async function buildRetailPaymentQr(scope: RetailBranchScope, orderId: st
   if (!config?.bankId || !config.accountNo) throw new Error("Doanh nghiệp chưa cấu hình tài khoản VietQR.");
   const paymentCode = order.paymentCode || retailPaymentCode(order.orderCode);
   if (!order.paymentCode) await RetailOrderModel.updateOne({ _id: order._id, ...scope }, { $set: { paymentCode } });
-  const params = new URLSearchParams({ acc: config.accountNo, bank: config.bankId, amount: String(order.dueAmount), des: paymentCode });
-  return { orderId: String(order._id), orderCode: order.orderCode, paymentCode, amount: order.dueAmount, paymentStatus: order.paymentStatus, accountNumber: config.accountNo, accountName: config.accountName, bankId: config.bankId, qrUrl: `https://vietqr.app/img?${params}` };
+  const amount = retailQrAmount(order);
+  const params = new URLSearchParams({ acc: config.accountNo, bank: config.bankId, amount: String(amount), des: paymentCode });
+  return { orderId: String(order._id), orderCode: order.orderCode, paymentCode, amount, paymentStatus: order.paymentStatus, accountNumber: config.accountNo, accountName: config.accountName, bankId: config.bankId, qrUrl: `https://vietqr.app/img?${params}` };
 }
 
 export async function processRetailSePayTransaction(payload: SePayPayload) {
@@ -86,12 +91,13 @@ export async function processRetailSePayTransaction(payload: SePayPayload) {
         result = { duplicate: false, appliedAmount: 0, status: "pending_review", reviewReason: "Không tìm thấy đơn còn nợ theo mã thanh toán." };
         return;
       }
-      const appliedAmount = Math.min(receivedAmount, Number(order.dueAmount));
+      const appliedAmount = Math.min(receivedAmount, Number(order.dueAmount), Number(order.pendingTransferAmount || order.dueAmount));
       const openShift = order.shiftId ? await CashierShiftModel.findOne({ _id: order.shiftId, companyCode: order.companyCode, branchId: order.branchId, status: "open", pausedAt: { $exists: false } }).session(session).lean() : null;
       const outsideShift = !openShift || paidAt < new Date(openShift.openedAt) || !isRetailShiftOperational(openShift, paidAt);
       const businessDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" }).format(paidAt);
       order.payments.push({ method: "transfer", amount: appliedAmount, reference: transactionId, paidAt, receivedBy: "sepay", receivedByName: "SePay webhook", shiftId: outsideShift ? "sepay-outside-shift" : String(order.shiftId), businessDate: outsideShift ? businessDate : String(order.businessDate || businessDate) });
       order.paidAmount += appliedAmount; order.dueAmount = order.grandTotal - order.paidAmount;
+      order.pendingTransferAmount = Math.max(0, Number(order.pendingTransferAmount || 0) - appliedAmount);
       order.paymentStatus = paymentStatusFor(order.paidAmount, order.grandTotal, order.refundedAmount);
       if (order.dueAmount === 0) { order.status = "completed"; order.completedAt = paidAt; }
       order.version += 1;

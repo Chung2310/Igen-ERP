@@ -1,14 +1,19 @@
 import { Router } from "express";
 import { Types } from "mongoose";
 import { requirePermission } from "../../../middleware/auth";
+import { ProductCatalogModel } from "../../../model/product-catalog.model";
+import { ProductVariantModel } from "../../../model/product-variant.model";
 import { SupplierModel } from "../../../model/supplier.model";
+import { CustomerModel } from "../../customer-management/models/customer.model";
 import { UserModel } from "../../../model/user.model";
 import { retailScopeFromRequest } from "../contracts";
 import { RETAIL_PARTNER_ROLES, RetailPartnerModel } from "../models/retail-partner.model";
+import { listRetailBasePolicies, listRetailProductCommissions, saveRetailBasePolicy, saveRetailProductCommissions } from "../services/retail-commission-policy.service";
 
 export const retailPartnerRoutes = Router();
-const read = requirePermission(["retail-partner:read", "retail-partner:manage"]) as any;
+const read = requirePermission(["retail-partner:read", "retail-partner:manage", "retail-partner-policy:manage"]) as any;
 const manage = requirePermission("retail-partner:manage") as any;
+const policyManage = requirePermission("retail-partner-policy:manage") as any;
 const picker = requirePermission(["retail:manage", "repair:manage", "retail-partner:read", "retail-partner:manage"]) as any;
 const self = requirePermission(["retail-partner-self:read", "retail-partner-self:manage"]) as any;
 
@@ -31,13 +36,16 @@ export function normalizeRetailPartnerInput(body: any) {
   const name = String(body?.name || "").trim();
   if (!/^[A-Z0-9][A-Z0-9_-]{0,59}$/.test(code)) throw bad("Mã đối tác chỉ gồm chữ, số, dấu gạch nối hoặc gạch dưới (tối đa 60 ký tự).");
   if (!name || name.length > 200) throw bad("Tên đối tác là bắt buộc và không quá 200 ký tự.");
-  if (!Array.isArray(body?.roles) || !body.roles.length || body.roles.some((role: unknown) => !RETAIL_PARTNER_ROLES.includes(role as any))) {
-    throw bad("Chọn ít nhất một vai trò đối tác hợp lệ.");
+  if (!Array.isArray(body?.roles) || body.roles.length !== 1 || body.roles.some((role: unknown) => !RETAIL_PARTNER_ROLES.includes(role as any))) {
+    throw bad("Chọn một vai trò đối tác hợp lệ.");
   }
-  const roles = [...new Set(body.roles)] as (typeof RETAIL_PARTNER_ROLES)[number][];
+  const roles = body.roles as (typeof RETAIL_PARTNER_ROLES)[number][];
   const supplierId = body.supplierId ? id(body.supplierId) : undefined;
   const userId = body.userId ? id(body.userId) : undefined;
+  const customerId = body.customerId ? id(body.customerId) : undefined;
   if (supplierId && !roles.includes("supplier")) throw bad("Liên kết nhà cung cấp cần vai trò nhà cung cấp.");
+  if (userId && !roles.includes("collaborator")) throw bad("Liên kết tài khoản cần vai trò cộng tác viên bán lẻ.");
+  if (customerId && !roles.includes("dealer")) throw bad("Liên kết khách hàng cần vai trò đại lý.");
   if (body.status !== undefined && !["active", "inactive"].includes(body.status)) throw bad("Trạng thái đối tác không hợp lệ.");
   return {
     code, name, roles,
@@ -45,20 +53,34 @@ export function normalizeRetailPartnerInput(body: any) {
     email: String(body.email || "").trim().toLowerCase().slice(0, 200),
     address: String(body.address || "").trim().slice(0, 500),
     status: (body.status || "active") as "active" | "inactive",
-    supplierId, userId,
+    supplierId, userId, customerId,
   };
 }
 
 async function validatedInput(req: any, existing?: any) {
   const input = normalizeRetailPartnerInput(req.body);
   const company = companyCode(req);
-  if (existing?.supplierId && input.supplierId && input.supplierId !== existing.supplierId) throw bad("Không được thay liên kết nhà cung cấp đã lưu.");
-  if (existing?.userId && input.userId && input.userId !== existing.userId) throw bad("Không được thay tài khoản đã liên kết.");
-  if (existing?.supplierId) input.supplierId = existing.supplierId;
-  if (existing?.userId) input.userId = existing.userId;
-  if (existing?.roles?.some((role: string) => !input.roles.includes(role as any))) throw bad("Không thể bỏ vai trò đã lưu; hãy ngừng hoạt động hồ sơ nếu cần.");
+  if (existing?.supplierId && input.roles.includes("supplier")) {
+    if (input.supplierId && input.supplierId !== existing.supplierId) throw bad("Không được thay liên kết nhà cung cấp đã lưu.");
+    input.supplierId = existing.supplierId;
+  } else if (!input.roles.includes("supplier")) {
+    input.supplierId = undefined;
+  }
+  if (existing?.userId && input.roles.includes("collaborator")) {
+    if (input.userId && input.userId !== existing.userId) throw bad("Không được thay tài khoản đã liên kết.");
+    input.userId = existing.userId;
+  } else if (!input.roles.includes("collaborator")) {
+    input.userId = undefined;
+  }
+  if (existing?.customerId && input.roles.includes("dealer")) {
+    if (input.customerId && input.customerId !== existing.customerId) throw bad("Không được thay khách hàng đã liên kết với đại lý.");
+    input.customerId = existing.customerId;
+  } else if (!input.roles.includes("dealer")) {
+    input.customerId = undefined;
+  }
   if (input.supplierId && !await SupplierModel.exists({ _id: input.supplierId, companyCode: company })) throw bad("Nhà cung cấp không thuộc công ty.");
   if (input.userId && !await UserModel.exists({ _id: input.userId, companyCode: company })) throw bad("Tài khoản không thuộc công ty.");
+  if (input.customerId && !await CustomerModel.exists({ _id: input.customerId, companyCode: company })) throw bad("Khách hàng không thuộc công ty.");
   return input;
 }
 
@@ -83,6 +105,30 @@ retailPartnerRoutes.get("/suppliers", manage, route(async (req) =>
 retailPartnerRoutes.get("/users", manage, route(async (req) =>
   UserModel.find({ companyCode: companyCode(req), isActive: { $ne: false } })
     .select("displayName email").sort({ displayName: 1 }).limit(1000).lean()));
+
+retailPartnerRoutes.get("/customers", manage, route(async (req) =>
+  CustomerModel.find({ companyCode: companyCode(req), status: "active" })
+    .select("customerCode name phone").sort({ name: 1 }).limit(1000).lean()));
+
+retailPartnerRoutes.get("/commission-policies", policyManage, route(async (req) => listRetailBasePolicies(companyCode(req))));
+retailPartnerRoutes.post("/commission-policies", policyManage, route(async (req) => saveRetailBasePolicy(companyCode(req), String(req.user.id), req.body || {}), true));
+retailPartnerRoutes.patch("/commission-policies/:id", policyManage, route(async (req) => saveRetailBasePolicy(companyCode(req), String(req.user.id), req.body || {}, id(req.params.id))));
+retailPartnerRoutes.get("/product-commissions", policyManage, route(async (req) => listRetailProductCommissions(companyCode(req))));
+retailPartnerRoutes.put("/product-commissions", policyManage, route(async (req) => saveRetailProductCommissions(companyCode(req), String(req.user.id), req.body || {})));
+
+retailPartnerRoutes.get("/policy-products", policyManage, route(async (req) => {
+  const company = companyCode(req);
+  const variants = await ProductVariantModel.find({ companyCode: company, status: "active" })
+    .select("productId sku displayName").sort({ sku: 1 }).limit(1000).lean();
+  const productIds = [...new Set(variants.map((variant) => String(variant.productId)))];
+  const products = await ProductCatalogModel.find({ companyCode: company, _id: { $in: productIds }, status: "active" })
+    .select("name").lean();
+  const byId = new Map(products.map((product) => [String(product._id), product.name]));
+  return variants.flatMap((variant) => {
+    const productName = byId.get(String(variant.productId));
+    return productName ? [{ _id: String(variant._id), sku: variant.sku, name: productName, variantName: variant.displayName || variant.sku }] : [];
+  });
+}));
 
 retailPartnerRoutes.get("/me", self, route(async (req) => {
   const partner = await RetailPartnerModel.findOne({ companyCode: companyCode(req), userId: String(req.user.id), status: "active" }).lean();

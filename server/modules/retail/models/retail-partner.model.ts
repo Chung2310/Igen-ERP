@@ -13,6 +13,7 @@ export interface RetailPartner {
   status: "active" | "inactive";
   userId?: string;
   supplierId?: string;
+  customerId?: string;
   createdBy: string;
   updatedBy: string;
 }
@@ -28,6 +29,7 @@ const schema = new Schema<RetailPartner>({
   status: { type: String, enum: ["active", "inactive"], default: "active", required: true },
   userId: String,
   supplierId: String,
+  customerId: String,
   createdBy: { type: String, required: true },
   updatedBy: { type: String, required: true },
 }, { timestamps: true });
@@ -35,6 +37,7 @@ const schema = new Schema<RetailPartner>({
 schema.index({ companyCode: 1, code: 1 }, { unique: true });
 schema.index({ companyCode: 1, userId: 1 }, { unique: true, partialFilterExpression: { userId: { $type: "string" } } });
 schema.index({ companyCode: 1, supplierId: 1 }, { unique: true, partialFilterExpression: { supplierId: { $type: "string" } } });
+schema.index({ companyCode: 1, customerId: 1 }, { unique: true, partialFilterExpression: { customerId: { $type: "string" } } });
 schema.index({ companyCode: 1, roles: 1, status: 1, name: 1 });
 
 export const RetailPartnerModel = model<RetailPartner>("RetailPartner", schema);

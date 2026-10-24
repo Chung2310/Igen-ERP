@@ -20,6 +20,13 @@ export const retailOrderController = {
       res.status(400).json({ success: false, error: error.message });
     }
   },
+  categories: async (req: Request, res: Response) => {
+    try {
+      res.json({ success: true, data: await RetailProductService.categories(scope(req)) });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  },
   idempotency: async (req: Request, res: Response) => {
     try {
       res.json({ success: true, data: await RetailOrderService.idempotency(scope(req), req.params.key) });

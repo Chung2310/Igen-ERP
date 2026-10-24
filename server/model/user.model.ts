@@ -137,6 +137,8 @@ const UserSchema = new Schema<IUser>({
   level: { type: Number },
   parentId: { type: String },
   status: { type: String, enum: ["online", "offline"], default: "offline" },
+  lockedAt: { type: Date, default: null },
+  disabledAt: { type: Date, default: null },
   isLeader: { type: Boolean, default: false },
   division: { type: String },
   companyCode: { type: String, index: true },

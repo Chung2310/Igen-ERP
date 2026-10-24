@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
-import { UserActivityEventModel, type UserActivityCategory } from "../model/user-activity-event.model";
+import { UserActivityEventModel, type IUserActivityEvent, type UserActivityCategory } from "../model/user-activity-event.model";
 
 const bounded = (value: unknown, max: number) => typeof value === "string" && value.trim() ? value.trim().slice(0, max) : undefined;
-const NOISY = [/\/health(?:\/|$)/, /\/users\/:userId\/activity$/, /\/telegram-link/, /\/socket/, /\/heartbeat/];
+const NOISY = [/\/health(?:\/|$)/, /\/users\/:(?:userId|id)\/activity$/, /\/super-admin\/activity(?:\/|$)/, /\/telegram-link/, /\/socket/, /\/heartbeat/];
 
 const moduleName = (route: string) => {
   const entries: Array<[RegExp, string, string]> = [
@@ -26,7 +26,9 @@ function deviceSummary(userAgent?: string) {
   return `${browser} trên ${os}`;
 }
 
-export function buildUserActivityFromRequest(req: Request & { user?: any }, statusCode: number, durationMs?: number) {
+type RequestActivityEvent = Omit<IUserActivityEvent, "eventId" | "expiresAt" | "occurredAt" | "userId" | "branchId"> & { userId: string; branchId?: string };
+
+export function buildUserActivityFromRequest(req: Request & { user?: any }, statusCode: number, durationMs?: number): RequestActivityEvent | null {
   const method = String(req.method || "").toUpperCase();
   const userId = req.user?.id || req.user?._id || req.user?.uid;
   if (!userId) return null;
@@ -42,11 +44,13 @@ export function buildUserActivityFromRequest(req: Request & { user?: any }, stat
       actionType: `auth.${authAction}`, category: "authentication" as const,
       result: statusCode >= 400 ? "failure" as const : "success" as const, method, route,
       description: authAction === "logout" ? "Đăng xuất khỏi hệ thống" : statusCode >= 400 ? "Đăng nhập thất bại" : "Đăng nhập vào hệ thống",
+      statusCode,
       ...(sourceIp ? { sourceIp } : {}), ...(userAgent ? { userAgent, deviceSummary: deviceSummary(userAgent) } : {}),
       ...(durationMs != null ? { durationMs } : {}),
     };
   }
-  const [label, moduleKey] = moduleName(route);
+  const modelName = typeof req.params?.modelName === "string" && /^[a-z][a-z\d-]{0,79}$/i.test(req.params.modelName) ? req.params.modelName : "";
+  const [label, moduleKey] = moduleName(modelName ? `${route}/${modelName}` : route);
   const isSearch = method === "GET" && Boolean(req.query && Object.keys(req.query).some((key) => /q|query|search|keyword/i.test(key)));
   const isExport = /export|download/i.test(route);
   const action = isSearch ? "search" : isExport ? "export" : method === "GET" ? "view" : method === "POST" ? "create" : method === "DELETE" ? "delete" : "update";
@@ -55,6 +59,8 @@ export function buildUserActivityFromRequest(req: Request & { user?: any }, stat
   const sourceIp = bounded(req.ip?.replace(/^::ffff:/, ""), 64);
   const userAgent = bounded(req.get?.("user-agent"), 512);
   const correlationId = bounded(req.get?.("x-correlation-id"), 128);
+  // Only retain database identifiers, never arbitrary params, query strings or bodies.
+  const entityId = Object.entries(req.params || {}).find(([key, value]) => /^(id|userId|orderId|branchId|studentId|taskId|productId)$/.test(key) && /^[a-f\d]{24}$/i.test(String(value)))?.[1];
   return {
     userId: String(userId), companyCode: String(req.user?.companyCode || "SYSTEM"),
     ...(req.user?.branchId ? { branchId: String(req.user.branchId) } : {}),
@@ -62,6 +68,7 @@ export function buildUserActivityFromRequest(req: Request & { user?: any }, stat
     method, route, description: `${verbs[action]} ${label}${statusCode >= 400 ? " không thành công" : ""}`,
     ...(sourceIp ? { sourceIp } : {}), ...(userAgent ? { userAgent, deviceSummary: deviceSummary(userAgent) } : {}),
     ...(correlationId ? { correlationId } : {}), ...(durationMs != null ? { durationMs } : {}),
+    statusCode, ...(entityId ? { entityId: String(entityId) } : {}),
   };
 }
 

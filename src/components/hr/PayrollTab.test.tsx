@@ -37,6 +37,7 @@ vi.mock("./payroll/PayrollFormulaLibrary", () => ({ PayrollFormulaLibrary: () =>
 vi.mock("./payroll/PayrollCustomVariableManager", () => ({ PayrollCustomVariableManager: () => <div>custom-variable-catalog</div> }));
 vi.mock("./payroll/PayrollReviewQueue", () => ({ PayrollReviewQueue: () => null }));
 vi.mock("./payroll/PayrollPayslipsPanel", () => ({ PayrollPayslipsPanel: () => null }));
+vi.mock("./payroll/PayrollPayslipReviewPanel", () => ({ PayrollPayslipReviewPanel: () => null }));
 vi.mock("./payroll/PayrollComplaintsPanel", () => ({ PayrollComplaintsPanel: () => null }));
 vi.mock("./payroll/PayrollPublicationSchedule", () => ({ PayrollPublicationSchedule: () => null }));
 vi.mock("./payroll/PayrollReopenModal", () => ({ PayrollReopenModal: () => null }));

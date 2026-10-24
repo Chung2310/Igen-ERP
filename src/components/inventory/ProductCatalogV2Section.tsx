@@ -159,6 +159,8 @@ export function ProductCatalogV2Section() {
   const [resources, setResources] = useState<Resources>({ categories: [], brands: [] });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedBrand, setSelectedBrand] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -171,7 +173,7 @@ export function ProductCatalogV2Section() {
     setLoading(true);
     try {
       const [productResult, categories, brands] = await Promise.all([
-        productCatalogService.listProducts({ q: query, status, page, limit: 10 }),
+        productCatalogService.listProducts({ q: query, status, categoryCode: selectedCategory || undefined, brandCode: selectedBrand || undefined, page, limit: 10 }),
         productCatalogService.listResources("categories"),
         productCatalogService.listResources("brands"),
       ]);
@@ -242,13 +244,16 @@ export function ProductCatalogV2Section() {
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-[#e4edf7] bg-[#f8fbff] p-3 sm:grid-cols-[minmax(0,1fr)_180px_auto] sm:p-4">
-        <label className="relative block">
+      <div className="grid gap-3 rounded-2xl border border-outline-variant bg-surface-container-low p-3 sm:grid-cols-2 lg:grid-cols-5 sm:p-4">
+        <label className="relative block sm:col-span-2 lg:col-span-1">
+          <span className="sr-only">Tìm sản phẩm</span>
           <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
           <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void applyFilter(); }} className={`${inputClassName()} pl-9`} placeholder="Tìm tên, mã sản phẩm hoặc từ khóa" />
         </label>
+        <StyledSelect ariaLabel="Lọc danh mục sản phẩm" value={selectedCategory} onChange={setSelectedCategory} options={[{ value: "", label: "Tất cả danh mục" }, ...resources.categories.map((item) => ({ value: item.code, label: item.name }))]} />
+        <StyledSelect ariaLabel="Lọc thương hiệu sản phẩm" value={selectedBrand} onChange={setSelectedBrand} options={[{ value: "", label: "Tất cả thương hiệu" }, ...resources.brands.map((item) => ({ value: item.code, label: item.name }))]} />
         <StyledSelect ariaLabel="Lọc trạng thái sản phẩm" value={status} onChange={setStatus} options={[{ value: "", label: "Tất cả trạng thái" }, ...labelOptions(statusLabels)]} className="h-[46px]" />
-        <button type="button" onClick={() => void applyFilter()} className="rounded-xl border border-[#bceaff] bg-white px-4 py-2.5 text-sm font-semibold text-[#007eb8] transition-colors hover:bg-[#e8f7ff]">Lọc</button>
+        <button type="button" onClick={() => void applyFilter()} className="min-h-11 rounded-xl border border-outline bg-surface-container-lowest px-4 text-sm font-semibold text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Lọc</button>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs text-slate-600">
@@ -261,9 +266,9 @@ export function ProductCatalogV2Section() {
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#bceaff] bg-[#e8f7ff] text-[#008acb]">
             <Box className="h-8 w-8" strokeWidth={1.5} />
           </div>
-          <p className="mt-4 text-base font-semibold text-slate-800">{query || status ? "Không tìm thấy sản phẩm phù hợp" : "Chưa có sản phẩm trong danh mục"}</p>
-          <p className="mt-1 text-sm text-slate-500">{query || status ? "Thử thay đổi từ khóa hoặc trạng thái để xem thêm sản phẩm." : "Tạo sản phẩm đầu tiên để bắt đầu quản lý danh mục dùng chung."}</p>
-          {!query && !status && <button type="button" onClick={() => setEditor("create")} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#00adfc] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#0098e0]"><PackagePlus className="h-4 w-4" />Tạo sản phẩm</button>}
+          <p className="mt-4 text-base font-semibold text-slate-800">{query || status || selectedCategory || selectedBrand ? "Không tìm thấy sản phẩm phù hợp" : "Chưa có sản phẩm trong danh mục"}</p>
+          <p className="mt-1 text-sm text-slate-500">{query || status || selectedCategory || selectedBrand ? "Thử thay đổi từ khóa hoặc bộ lọc để xem thêm sản phẩm." : "Tạo sản phẩm đầu tiên để bắt đầu quản lý danh mục dùng chung."}</p>
+          {!query && !status && !selectedCategory && !selectedBrand && <button type="button" onClick={() => setEditor("create")} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#00adfc] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#0098e0]"><PackagePlus className="h-4 w-4" />Tạo sản phẩm</button>}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-[#dce7f4] bg-white">

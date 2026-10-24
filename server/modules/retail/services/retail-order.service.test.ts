@@ -3,22 +3,53 @@ import test from "node:test";
 import {
   assertHeldDraftAccess,
   assertHeldDraftCapacity,
+  assertRetailPosSession,
   formatRetailDocumentCode,
   isHeldDraftExpired,
   normalizePayments,
   paymentStatusFor,
   requireRetailPaymentCustomer,
+  retailDraftRequestFingerprint,
+  retailOrderExtras,
+  retailInstallmentAmounts,
   serializeRetailOrder,
   buildRetailCustomerSnapshots,
 } from "./retail-order.service";
 import * as orderService from "./retail-order.service";
 import { readFileSync } from "node:fs";
 
+test("POS confirmation is bound to the active session and terminal", () => {
+  const shift = { _id: "shift-1", terminalId: "terminal-1" };
+  assert.doesNotThrow(() => assertRetailPosSession({ posSessionId: "shift-1", terminalId: "terminal-1" }, shift));
+  assert.throws(() => assertRetailPosSession({ posSessionId: "shift-2", terminalId: "terminal-1" }, shift), { code: "POS_SESSION_INVALID" });
+  assert.throws(() => assertRetailPosSession({ posSessionId: "shift-1", terminalId: "terminal-2" }, shift), { code: "POS_TERMINAL_CHANGED" });
+});
+
 test("retail payment confirmation requires a selected customer", () => {
   const error = "Vui lòng chọn khách hàng trước khi thanh toán.";
   assert.throws(() => requireRetailPaymentCustomer(undefined), new Error(error));
   assert.throws(() => requireRetailPaymentCustomer("   "), new Error(error));
   assert.doesNotThrow(() => requireRetailPaymentCustomer(" customer-1 "));
+});
+
+test("draft request fingerprints are stable and reject reuse with changed checkout content", () => {
+  const left = retailDraftRequestFingerprint({ items: [{ productId: "p1", quantity: 1 }], customerId: "c1", idempotencyKey: "key-a" });
+  const same = retailDraftRequestFingerprint({ customerId: "c1", items: [{ quantity: 1, productId: "p1" }], idempotencyKey: "key-b" });
+  const changed = retailDraftRequestFingerprint({ items: [{ productId: "p1", quantity: 2 }], customerId: "c1", idempotencyKey: "key-a" });
+  assert.equal(left, same);
+  assert.notEqual(left, changed);
+});
+
+test("retail sale preserves notes and validates installment collection", () => {
+  assert.deepEqual(retailOrderExtras({ note: "  Giao buổi chiều  ", installment: { partner: "HD Saison", months: 6, prepayPercent: 20 } }), {
+    note: "Giao buổi chiều", installment: { partner: "HD Saison", months: 6, prepayPercent: 20 },
+  });
+  assert.deepEqual(retailInstallmentAmounts(1_000_000, { prepayPercent: 20 }, 200_000), { upfrontAmount: 200_000, financedAmount: 800_000 });
+  assert.throws(() => retailInstallmentAmounts(1_000_000, { prepayPercent: 20 }, 100_000));
+  assert.deepEqual(retailInstallmentAmounts(1_000_000, { prepayPercent: 20 }, 100_000, 100_000), { upfrontAmount: 200_000, financedAmount: 800_000 });
+  assert.throws(() => retailInstallmentAmounts(1_000_000, { prepayPercent: 20 }, 100_000, 50_000));
+  assert.throws(() => retailOrderExtras({ installment: { partner: "", months: 0, prepayPercent: 120 } }));
+  assert.throws(() => retailOrderExtras({ note: "a".repeat(2001) }));
 });
 
 test("retail order snapshots customer and optional VAT profile", () => {
@@ -42,6 +73,7 @@ test("order debt ledger inputs use deterministic keys for the same transaction",
     type: "reversal", customerId: "c1", orderId: "o1", amount: 20_000, reason: "Hủy số dư công nợ của đơn", idempotencyKey: "retail-order:o1:debt-cancel",
   }]);
   assert.deepEqual(receivableEntriesForOrderChange("confirm", { _id: "o2", dueAmount: 0 }, 0), []);
+  assert.deepEqual(receivableEntriesForOrderChange("confirm", { _id: "o3", customerId: "c1", dueAmount: 900_000, pendingTransferAmount: 100_000 }, 0), [{ type: "charge", customerId: "c1", orderId: "o3", amount: 800_000, idempotencyKey: "retail-order:o3:debt-charge" }]);
 });
 
 test("new Retail order flow publishes Finance events instead of dual-writing the legacy ledger", () => {

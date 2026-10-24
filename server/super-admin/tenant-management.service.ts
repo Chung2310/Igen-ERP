@@ -60,7 +60,11 @@ export class TenantManagementService {
     if(!next[currentStatus].includes(target))throw Error(`Invalid lifecycle transition from ${currentStatus} to ${target}`);
     const now=new Date();
     const updated=needed(await this.tenants.update(c,{lifecycleStatus:target,lifecycleChangedAt:now}),c);
-    await UserModel.updateMany({companyCode:c},{$set:{disabledAt: target==="active" ? null : now}});
+    if (target !== "active") {
+      await UserModel.updateMany({ companyCode: c, role: { $ne: "superadmin" } }, { $set: { activeSessionId: "" } });
+      const { disconnectCompanySockets } = await import("../socket");
+      disconnectCompanySockets(c);
+    }
     return updated;
   }
 

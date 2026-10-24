@@ -9,6 +9,8 @@ export function buildRetailOrderInput(cart: RetailCartState): RetailOrderInput {
     orderDiscount: cart.orderDiscount,
     couponCode: cart.couponCode || undefined,
     pointsToRedeem: cart.pointsToRedeem || undefined,
+    ...(cart.note ? { note: cart.note } : {}),
+    ...(cart.installment ? { installment: cart.installment } : {}),
     taxRate: cart.taxRate,
     shippingFee: cart.shippingFee,
   };

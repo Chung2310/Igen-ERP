@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { HrDepartmentModel } from "../model/hr-department.model";
+import { SuperAdminSessionModel } from "../model/super-admin-session.model";
 import { UserModel } from "../model/user.model";
 import { hrDepartmentRouter } from "./hr-department.router";
 
@@ -36,9 +37,11 @@ describe("HR department API", () => {
   });
 
   beforeEach(async () => {
-    await Promise.all([HrDepartmentModel.deleteMany({}), UserModel.deleteMany({})]);
+    await Promise.all([HrDepartmentModel.deleteMany({}), SuperAdminSessionModel.deleteMany({}), UserModel.deleteMany({})]);
     const admin = await UserModel.create({ email: "admin@example.test", displayName: "Admin", role: "superadmin", companyCode: "SYSTEM" });
-    token = jwt.sign({ id: String(admin._id), email: admin.email, role: "superadmin", companyCode: "SYSTEM" }, process.env.JWT_ACCESS_SECRET!);
+    const sessionId = `hr-department-${new mongoose.Types.ObjectId()}`;
+    await SuperAdminSessionModel.create({ sessionId, userId: admin._id, deviceId: "hr-department-test", expiresAt: new Date(Date.now() + 60 * 60_000) });
+    token = jwt.sign({ id: String(admin._id), email: admin.email, role: "superadmin", companyCode: "SYSTEM", sid: sessionId }, process.env.JWT_ACCESS_SECRET!);
   });
 
   afterAll(async () => {
@@ -47,7 +50,7 @@ describe("HR department API", () => {
     await replSet?.stop();
   });
 
-  it("imports legacy departments and renames only employees in the selected company", async () => {
+  it("imports, renames, and deletes departments within the selected company", async () => {
     const employeeA = await UserModel.create({ email: "a@example.test", displayName: "A", companyCode: "A", department: "  Kinh  doanh  " });
     const employeeB = await UserModel.create({ email: "b@example.test", displayName: "B", companyCode: "B", department: "Kinh doanh" });
     const listed = await request("GET", "/hr/departments?companyCode=A");
@@ -59,7 +62,11 @@ describe("HR department API", () => {
     expect(renamed.status).toBe(200);
     expect((await UserModel.findById(employeeA._id))?.department).toBe("Bán hàng");
     expect((await UserModel.findById(employeeB._id))?.department).toBe("Kinh doanh");
-    expect((await request("DELETE", `/hr/departments/${id}?companyCode=A`)).status).toBe(409);
+    const deleted = await request("DELETE", `/hr/departments/${id}?companyCode=A`);
+    expect(deleted.status).toBe(200);
+    expect((await UserModel.findById(employeeA._id))?.department).toBe("");
+    expect((await UserModel.findById(employeeB._id))?.department).toBe("Kinh doanh");
+    expect(await HrDepartmentModel.findById(id)).toBeNull();
     expect((await request("PATCH", `/hr/departments/${id}?companyCode=B`, { companyCode: "B", name: "Sai công ty" })).status).toBe(404);
   });
 

@@ -4,10 +4,12 @@ import { useAuth } from "../../context/AuthContext";
 import { useBranch } from "../../context/BranchContext";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { customerApi } from "./customerApi";
-import CustomerDetailDrawer from "./components/CustomerDetailDrawer";
+import CustomerDetailPage from "./components/CustomerDetailPage";
+import CustomerRetailPoliciesPanel from "./components/CustomerRetailPoliciesPanel";
 import CustomerFormDialog from "./components/CustomerFormDialog";
 import CustomerList from "./components/CustomerList";
-import type { Customer, CustomerInput, CustomerStatus, CustomerType, PaginatedCustomers } from "./types";
+import { cn } from "../student-management/lib/utils";
+import type { BillingProfileInput, Customer, CustomerInput, CustomerStatus, CustomerType, PaginatedCustomers } from "./types";
 
 const emptyResult: PaginatedCustomers = { items: [], total: 0, page: 1, limit: 20 };
 
@@ -16,7 +18,10 @@ export default function CustomerWorkspace() {
   const { activeBranchId } = useBranch();
   const companyCode = userProfile?.companyCode?.trim().toUpperCase() || "";
   const permissions = userProfile?.permissions || [];
-  const canManage = userProfile?.role === "admin" || userProfile?.role === "superadmin" || permissions.includes("*") || permissions.includes("customer:manage");
+  const isAdmin = userProfile?.role === "admin" || userProfile?.role === "superadmin" || permissions.includes("*");
+  const canManage = isAdmin || permissions.includes("customer:manage");
+  const canRetailRead = isAdmin || permissions.includes("retail:manage");
+  const canManagePoints = isAdmin || permissions.includes("retail-points:manage");
   const [activeTab, setActiveTab] = React.useState<"list" | "settings">("list");
   const [query, setQuery] = React.useState("");
   const debouncedQuery = useDebouncedValue(query, 250);
@@ -27,6 +32,7 @@ export default function CustomerWorkspace() {
   const [selected, setSelected] = React.useState<Customer | null>(null);
   const [editing, setEditing] = React.useState<Customer | "new" | null>(null);
   const [error, setError] = React.useState("");
+  const [settingsMessage, setSettingsMessage] = React.useState("");
 
   // Settings state
   const [settings, setSettings] = React.useState<{ companyCode: string; customerTiers: Array<{ code: string; name: string; minSpend: number }> } | null>(null);
@@ -103,10 +109,11 @@ export default function CustomerWorkspace() {
     if (!settings || !companyCode) return;
     setSavingSettings(true);
     setError("");
+    setSettingsMessage("");
     try {
       const data = await customerApi.updateSettings({ customerTiers: settings.customerTiers }, companyCode);
       setSettings(data);
-      alert("Đã lưu cấu hình phân hạng khách hàng thành công!");
+      setSettingsMessage("Đã lưu cấu hình phân hạng khách hàng.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không lưu được cấu hình phân hạng.");
     } finally {
@@ -114,36 +121,80 @@ export default function CustomerWorkspace() {
     }
   };
 
+  const saveCustomer = async (target: Customer | "new", input: CustomerInput, billingProfile?: BillingProfileInput) => {
+    const saved = target === "new"
+      ? await customerApi.create(input, companyCode)
+      : await customerApi.update(target._id, input, target.version, companyCode);
+    let refreshed = saved;
+    let billingError = "";
+    if (billingProfile) {
+      try {
+        await customerApi.createBillingProfile(saved._id, billingProfile, companyCode);
+        refreshed = await customerApi.detail(saved._id, companyCode);
+      } catch (cause) {
+        billingError = cause instanceof Error ? cause.message : "Không lưu được hồ sơ VAT.";
+      }
+    }
+    setEditing(null);
+    setSelected(refreshed);
+    await load();
+    if (billingError) setError(`Đã lưu khách hàng nhưng chưa hoàn tất hồ sơ VAT: ${billingError}`);
+  };
+
+  if (selected) return <>
+    <CustomerDetailPage
+      customer={selected}
+      branchId={activeBranchId}
+      canManage={canManage}
+      canRetailRead={canRetailRead}
+      canManagePoints={canManagePoints}
+      actionError={error}
+      onBack={() => setSelected(null)}
+      onEdit={() => setEditing(selected)}
+      onBillingProfileCreated={async () => {
+        await load();
+        try { setSelected(await customerApi.detail(selected._id, companyCode)); }
+        catch (cause) { setError(cause instanceof Error ? cause.message : "Không làm mới được hồ sơ khách hàng."); }
+      }}
+      onToggleStatus={() => { setError(""); void customerApi
+        .setStatus(selected._id, selected.status === "active" ? "inactive" : "active", selected.version, companyCode)
+        .then((updated) => { setSelected(updated); void load(); })
+        .catch((cause) => setError(cause instanceof Error ? cause.message : "Không cập nhật được trạng thái.")); }}
+    />
+    {editing && editing !== "new" && <CustomerFormDialog
+      customer={editing}
+      onClose={() => setEditing(null)}
+      onSave={(input, billingProfile) => saveCustomer(editing, input, billingProfile)}
+    />}
+  </>;
+
   return (
-    <section className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-5 text-slate-800 sm:px-6 sm:py-6">
+    <section className="mx-auto w-full max-w-screen-2xl space-y-5 px-4 py-5 text-on-surface sm:px-6 sm:py-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <span className="mt-1 h-8 w-1 shrink-0 rounded-full bg-[#00adfc]" aria-hidden="true" />
+          <span className="mt-1 h-8 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
           <div>
-            <h1 className="text-[22px] font-semibold tracking-tight text-slate-900">Quản lý khách hàng</h1>
-            <p className="mt-1 text-sm text-slate-500">Hồ sơ khách hàng dùng chung trong toàn công ty.</p>
+            <h1 className="text-2xl font-semibold text-on-surface text-balance">Quản lý khách hàng</h1>
+            <p className="mt-1 text-sm text-on-surface-variant text-pretty">Hồ sơ khách hàng dùng chung trong toàn công ty.</p>
           </div>
         </div>
         {canManage && activeTab === "list" && (
           <button
             type="button"
             onClick={() => setEditing("new")}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#00ADFC] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0095d9]"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <Plus className="h-4 w-4" />Thêm khách hàng
           </button>
         )}
       </div>
 
-      <div className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+      <div className="flex gap-1 overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-1 shadow-sm">
         <button
           type="button"
           onClick={() => setActiveTab("list")}
-          className={`flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
-            activeTab === "list"
-              ? "bg-[#e8f7ff] text-[#007eb8]"
-              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-          }`}
+          aria-current={activeTab === "list" ? "page" : undefined}
+          className={cn("flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-primary", activeTab === "list" ? "bg-primary-container text-on-primary-container" : "text-on-surface-variant hover:bg-surface-container")}
         >
           <Users className="h-4 w-4" />
           Danh sách khách hàng
@@ -151,23 +202,21 @@ export default function CustomerWorkspace() {
         <button
           type="button"
           onClick={() => setActiveTab("settings")}
-          className={`flex shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
-            activeTab === "settings"
-              ? "bg-[#e8f7ff] text-[#007eb8]"
-              : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-          }`}
+          aria-current={activeTab === "settings" ? "page" : undefined}
+          className={cn("flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-primary", activeTab === "settings" ? "bg-primary-container text-on-primary-container" : "text-on-surface-variant hover:bg-surface-container")}
         >
           <Settings className="h-4 w-4" />
-          Cài đặt phân hạng
+          Cài đặt khách hàng
         </button>
       </div>
 
       {error && (
-        <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700 flex items-center gap-2 border border-red-200">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
+        <div role="alert" className="flex items-center gap-2 rounded-xl border border-error bg-error-container p-4 text-sm text-on-error-container">
+          <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </div>
       )}
+      {settingsMessage && activeTab === "settings" && <p role="status" className="rounded-xl border border-outline-variant bg-surface-container-low p-3 text-sm text-on-surface">{settingsMessage}</p>}
 
       {activeTab === "list" ? (
         <>
@@ -182,43 +231,20 @@ export default function CustomerWorkspace() {
             onPageChange={setPage}
             onOpen={(customer) => void openDetail(customer)}
           />
-          {selected && (
-            <CustomerDetailDrawer
-              customer={selected}
-              branchId={activeBranchId}
-              canManage={canManage}
-              onClose={() => setSelected(null)}
-              onEdit={() => setEditing(selected)}
-              onToggleStatus={() =>
-                void customerApi
-                  .setStatus(selected._id, selected.status === "active" ? "inactive" : "active", selected.version, companyCode)
-                  .then((updated) => {
-                    setSelected(updated);
-                    void load();
-                  })
-                  .catch((cause) => setError(cause instanceof Error ? cause.message : "Không cập nhật được trạng thái."))
-              }
-            />
-          )}
           {editing && (
             <CustomerFormDialog
               customer={editing === "new" ? undefined : editing}
               onClose={() => setEditing(null)}
-              onSave={async (input: CustomerInput) => {
-                const saved = editing === "new" ? await customerApi.create(input, companyCode) : await customerApi.update(editing._id, input, editing.version, companyCode);
-                setEditing(null);
-                setSelected(saved);
-                await load();
-              }}
+              onSave={(input, billingProfile) => saveCustomer(editing, input, billingProfile)}
             />
           )}
         </>
       ) : (
         <div className="space-y-5">
-          <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex flex-col gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold text-slate-900">Cấu hình phân cấp và mốc chi tiêu khách hàng</h2>
-              <p className="mt-1 text-sm leading-relaxed text-slate-500">
+              <h2 className="text-base font-semibold text-on-surface text-balance">Cấu hình phân cấp và mốc chi tiêu khách hàng</h2>
+              <p className="mt-1 text-sm leading-relaxed text-on-surface-variant text-pretty">
                 Các bậc xếp hạng sẽ được tự động áp dụng dựa trên tổng doanh số mua hàng tích lũy của khách hàng.
                 Mốc đầu tiên bắt đầu từ 0 chi tiêu. Các mốc tiếp theo phải có mức chi tiêu lớn hơn bậc trước đó.
               </p>
@@ -228,7 +254,7 @@ export default function CustomerWorkspace() {
                 <button
                   type="button"
                   onClick={handleAddTier}
-                  className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2 text-sm font-semibold text-[#007EB8] transition hover:bg-sky-100"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-outline-variant px-3.5 py-2 text-sm font-semibold text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary"
                 >
                   <Plus className="h-4 w-4" />
                   Thêm bậc
@@ -237,7 +263,7 @@ export default function CustomerWorkspace() {
                   type="button"
                   onClick={() => void saveSettings()}
                   disabled={savingSettings}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#00ADFC] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0095d9] disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"
                 >
                   <Save className="h-4 w-4" />
                   {savingSettings ? "Đang lưu..." : "Lưu cài đặt phân hạng"}
@@ -247,13 +273,13 @@ export default function CustomerWorkspace() {
           </div>
 
           {loadingSettings ? (
-            <div className="text-center py-12 text-slate-500">Đang tải cấu hình phân hạng...</div>
+            <div role="status" className="py-12 text-center text-on-surface-variant">Đang tải cấu hình phân hạng...</div>
           ) : settings ? (
             <div className="max-w-5xl space-y-4">
-              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-sm">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold text-slate-600">
+                    <tr className="border-b border-outline-variant bg-surface-container-low text-xs font-semibold text-on-surface-variant">
                       <th className="px-5 py-3">Mã hạng</th>
                       <th className="px-5 py-3">Tên hạng</th>
                       <th className="px-5 py-3">Chi tiêu tối thiểu (VNĐ)</th>
@@ -262,12 +288,12 @@ export default function CustomerWorkspace() {
                   </thead>
                   <tbody>
                     {settings.customerTiers.map((tier, index) => (
-                      <tr key={index} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition">
+                      <tr key={index} className="border-b border-outline-variant last:border-0 transition hover:bg-surface-container-low">
                         <td className="px-5 py-3">
                           <input
                             aria-label={`Mã hạng ${index + 1}`}
                             disabled={!canManage}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-slate-800 outline-none focus:border-[#00adfc] focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50"
+                            className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 font-mono text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:bg-surface-container-low"
                             value={tier.code}
                             onChange={(e) => handleUpdateTier(index, "code", e.target.value)}
                             placeholder="vd: standard, gold, vip"
@@ -277,7 +303,7 @@ export default function CustomerWorkspace() {
                           <input
                             aria-label={`Tên hạng ${index + 1}`}
                             disabled={!canManage}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 outline-none focus:border-[#00adfc] focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50"
+                            className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:bg-surface-container-low"
                             value={tier.name}
                             onChange={(e) => handleUpdateTier(index, "name", e.target.value)}
                             placeholder="Tên hiển thị"
@@ -290,7 +316,7 @@ export default function CustomerWorkspace() {
                             min="0"
                             step="1"
                             disabled={!canManage || index === 0}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-800 outline-none focus:border-[#00adfc] focus:ring-2 focus:ring-sky-100 disabled:bg-slate-50"
+                            className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 font-semibold tabular-nums text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:bg-surface-container-low"
                             value={tier.minSpend}
                             onChange={(e) => handleUpdateTier(index, "minSpend", Number(e.target.value))}
                           />
@@ -301,13 +327,13 @@ export default function CustomerWorkspace() {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveTier(index)}
-                                className="rounded-lg p-2 text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition"
+                                className="rounded-lg p-2 text-error hover:bg-error-container focus-visible:outline-2 focus-visible:outline-primary"
                                 title="Xóa phân hạng này"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="size-4" aria-hidden="true" />
                               </button>
                             ) : (
-                              <span className="text-xs text-slate-400 font-medium select-none pr-2">Mặc định</span>
+                              <span className="select-none pr-2 text-xs font-medium text-on-surface-variant">Mặc định</span>
                             )}
                           </td>
                         )}
@@ -319,8 +345,9 @@ export default function CustomerWorkspace() {
 
             </div>
           ) : (
-            <div className="text-slate-500 text-center py-12 border border-dashed rounded-2xl">Không tìm thấy dữ liệu cấu hình.</div>
+            <div className="rounded-2xl border border-dashed border-outline-variant py-12 text-center text-on-surface-variant">Không tìm thấy dữ liệu cấu hình.</div>
           )}
+          <CustomerRetailPoliciesPanel companyCode={companyCode} branchId={activeBranchId} canRead={canRetailRead} canManagePoints={canManagePoints} />
         </div>
       )}
     </section>

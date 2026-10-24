@@ -9,7 +9,6 @@ import {
   Settings,
   Shield,
   Users,
-  BookOpen,
   Lock,
   Handshake,
   BriefcaseBusiness,
@@ -174,7 +173,6 @@ const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
   "TRÒ CHUYỆN": "chat",
   "QUẢN TRỊ USER": "shield",
   "CÀI ĐẶT": "settings",
-  "HƯỚNG DẪN": "guide",
 };
 
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
@@ -219,13 +217,6 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     label: "CÀI ĐẶT",
     title: "Cài đặt hệ thống",
     icon: Settings,
-    group: "system",
-  });
-
-  menuItems.push({
-    label: "HƯỚNG DẪN",
-    title: "Hướng dẫn sử dụng",
-    icon: BookOpen,
     group: "system",
   });
 

@@ -31,13 +31,15 @@ export function InventoryTransfersSection() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [actionReason, setActionReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const requestAttempt = useRef<{ fingerprint: string; key: string } | null>(null);
 
   async function load() {
-    if (!companyCode || !activeBranchId || !canManage) return;
+    if (!companyCode || !activeBranchId) return;
     setLoading(true); setError("");
     try {
       const [warehouseResponse, transferResponse] = await Promise.all([
@@ -51,6 +53,14 @@ export function InventoryTransfersSection() {
     finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, [companyCode, activeBranchId, canManage]);
+  useEffect(() => {
+    if (!createOpen) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog.showModal();
+    return () => { if (dialog.open) dialog.close(); trigger?.focus(); };
+  }, [createOpen]);
   useEffect(() => {
     if (!fromWarehouseId) { setBalances([]); return; }
     let active = true;
@@ -76,7 +86,7 @@ export function InventoryTransfersSection() {
       requestAttempt.current = { fingerprint, key };
       await apiFetch("/inventory/transfers", { method: "POST", params: scope, body: JSON.stringify({ ...payload, idempotencyKey: key }) });
       requestAttempt.current = null;
-      setReason(""); setItems([{ variantId: "", quantity: 1, serialNumbers: "" }]); setMessage("Đã tạo phiếu điều chuyển. Kho nhận cần xác nhận."); await load();
+      setReason(""); setItems([{ variantId: "", quantity: 1, serialNumbers: "" }]); setMessage("Đã tạo phiếu điều chuyển. Kho nhận cần xác nhận."); setCreateOpen(false); await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không tạo được phiếu điều chuyển."); }
     finally { setBusy(false); }
   }
@@ -102,13 +112,14 @@ export function InventoryTransfersSection() {
     try { const response = await apiFetch<{ data: Reconciliation }>("/inventory/transfers/reconciliation", { params: { ...scope, warehouseId: fromWarehouseId } }); setReconciliation(response.data); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Không đối soát được kho."); }
   }
-  if (!canManage) return null;
   return <section className="space-y-6 text-on-surface" aria-labelledby="transfer-title">
-    <header><h2 id="transfer-title" className="text-balance text-xl font-semibold">Điều chuyển và đối soát kho</h2><p className="mt-1 text-pretty text-sm text-on-surface-variant">Phiếu chuyển nhiều SKU/IMEI, chờ kho nhận xác nhận.</p></header>
+    <header className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="transfer-title" className="text-balance text-xl font-semibold">Điều chuyển và đối soát kho</h2><p className="mt-1 text-pretty text-sm text-on-surface-variant">Phiếu chuyển nhiều SKU/IMEI, chờ kho nhận xác nhận.</p></div>{canManage && <button type="button" onClick={() => { setError(""); setCreateOpen(true); }} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary">Tạo phiếu điều chuyển</button>}</header>
     {error && <p role="alert" className="rounded-lg border border-error p-3 text-sm text-error">{error}</p>}
     {message && <p role="status" className="text-sm">{message}</p>}
-    <form onSubmit={(event) => void create(event)} className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
-      <h3 className="text-balance text-lg font-semibold">Tạo phiếu điều chuyển</h3>
+    {canManage && createOpen && <dialog ref={dialogRef} aria-labelledby="create-transfer-title" onCancel={(event) => { event.preventDefault(); if (!busy) setCreateOpen(false); }} className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-0 text-on-surface shadow-xl backdrop:bg-inverse-surface/50">
+    <form onSubmit={(event) => void create(event)} className="space-y-4 p-4 sm:p-6">
+      <div className="flex items-center justify-between gap-3"><h3 id="create-transfer-title" className="text-balance text-lg font-semibold">Tạo phiếu điều chuyển</h3><button type="button" onClick={() => setCreateOpen(false)} disabled={busy} aria-label="Đóng phiếu điều chuyển" className={actionClass}>Đóng</button></div>
+      {error && <p role="alert" className="rounded-lg border border-error p-3 text-pretty text-sm text-error">{error}</p>}
       <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">Kho gửi<select required value={fromWarehouseId} onChange={(event) => setFromWarehouseId(event.target.value)} className={field}><option value="">Chọn kho gửi</option>{sourceWarehouses.map((warehouse) => <option key={warehouse._id} value={warehouse._id}>{warehouse.name}</option>)}</select></label>
         <label className="text-sm">Kho nhận<select required value={toWarehouseId} onChange={(event) => setToWarehouseId(event.target.value)} className={field}><option value="">Chọn kho nhận</option>{destinationWarehouses.map((warehouse) => <option key={warehouse._id} value={warehouse._id}>{warehouseLabel(warehouse._id)}</option>)}</select></label></div>
       <div className="space-y-3">{items.map((item, index) => <div key={index} className="grid gap-3 rounded-lg border border-outline-variant p-3 sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)_auto] sm:items-end">
@@ -120,19 +131,19 @@ export function InventoryTransfersSection() {
       <button type="button" onClick={() => setItems((current) => [...current, { variantId: "", quantity: 1, serialNumbers: "" }])} className={actionClass}>Thêm dòng hàng</button>
       <label className="block text-sm">Lý do điều chuyển<input required maxLength={300} value={reason} onChange={(event) => setReason(event.target.value)} className={field} /></label>
       <button type="submit" disabled={busy || loading} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Tạo phiếu</button>
-    </form>
+    </form></dialog>}
     <div className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6"><h3 className="text-balance text-lg font-semibold">Phiếu điều chuyển</h3>
       {loading && <p role="status" className="text-sm text-on-surface-variant">Đang tải phiếu...</p>}
       <ul className="space-y-2">{transfers.map((transfer) => <li key={transfer._id} className="rounded-lg border border-outline-variant p-3 text-sm"><div className="flex flex-wrap items-center justify-between gap-2"><div><strong>{transfer.code}</strong> · {statusText[transfer.status]}<p className="text-pretty text-on-surface-variant">{warehouseLabel(transfer.fromWarehouseId)} → {warehouseLabel(transfer.toWarehouseId)} · {transfer.items.map((item) => `${item.sku} × ${item.quantity}`).join(", ")}</p></div><div className="flex flex-wrap gap-2">
-        {transfer.status === "in_transit" && transfer.toBranchId === activeBranchId && <button type="button" disabled={busy} onClick={() => void receive(transfer._id)} className={actionClass}>Xác nhận nhận</button>}
-        {transfer.status === "in_transit" && transfer.fromBranchId === activeBranchId && <button type="button" disabled={busy} onClick={() => { setPending({ id: transfer._id, action: "cancel" }); setConfirmOpen(false); setActionReason(""); }} className={actionClass}>Hủy phiếu</button>}
-        {transfer.status === "received" && transfer.toBranchId === activeBranchId && <button type="button" disabled={busy} onClick={() => { setPending({ id: transfer._id, action: "reverse" }); setConfirmOpen(false); setActionReason(""); }} className={actionClass}>Đảo phiếu</button>}
+        {canManage && transfer.status === "in_transit" && transfer.toBranchId === activeBranchId && <button type="button" disabled={busy} onClick={() => void receive(transfer._id)} className={actionClass}>Xác nhận nhận</button>}
+        {canManage && transfer.status === "in_transit" && transfer.fromBranchId === activeBranchId && <button type="button" disabled={busy} onClick={() => { setPending({ id: transfer._id, action: "cancel" }); setConfirmOpen(false); setActionReason(""); }} className={actionClass}>Hủy phiếu</button>}
+        {canManage && transfer.status === "received" && transfer.toBranchId === activeBranchId && <button type="button" disabled={busy} onClick={() => { setPending({ id: transfer._id, action: "reverse" }); setConfirmOpen(false); setActionReason(""); }} className={actionClass}>Đảo phiếu</button>}
       </div></div></li>)}</ul>
-      {!loading && !transfers.length && <p className="text-sm text-on-surface-variant">Chưa có phiếu. Tạo phiếu điều chuyển đầu tiên ở trên.</p>}
+      {!loading && !transfers.length && <p className="text-pretty text-sm text-on-surface-variant">{canManage ? "Chưa có phiếu. Chọn Tạo phiếu điều chuyển để bắt đầu." : "Chưa có phiếu điều chuyển trong chi nhánh này."}</p>}
     </div>
-    <div className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6"><h3 className="text-balance text-lg font-semibold">Đối soát kho gửi</h3><button type="button" disabled={!fromWarehouseId} onClick={() => void checkReconciliation()} className={actionClass}>Kiểm tra sổ kho, tồn và IMEI</button>
+    {canManage && <div className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6"><h3 className="text-balance text-lg font-semibold">Đối soát kho gửi</h3><button type="button" disabled={!fromWarehouseId} onClick={() => void checkReconciliation()} className={actionClass}>Kiểm tra sổ kho, tồn và IMEI</button>
       {reconciliation && <><p className="text-sm">Đã kiểm {reconciliation.checkedProducts} SKU · {reconciliation.differenceCount} chênh lệch.</p><ul className="space-y-1">{reconciliation.differences.map((difference) => <li key={difference.sku} className="rounded-lg border border-outline-variant p-2 text-sm">{difference.sku} · Tồn {difference.balanceQuantity} · Sổ {difference.ledgerQuantity}{difference.serialCount !== undefined ? ` · IMEI ${difference.serialCount}` : ""}</li>)}</ul>{!reconciliation.differences.length && <p className="text-sm text-on-surface-variant">Chưa phát hiện chênh lệch.</p>}</>}
-    </div>
+    </div>}
     <ConfirmDialog isOpen={confirmOpen} title={pending?.action === "cancel" ? "Hủy phiếu điều chuyển" : "Đảo phiếu điều chuyển"} description={`Lý do: ${actionReason.trim()}`} confirmLabel="Xác nhận" isSubmitting={busy} onClose={() => setConfirmOpen(false)} onConfirm={() => void confirmAction()} />
     {pending && <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4"><label className="block text-sm">Lý do {pending.action === "cancel" ? "hủy" : "đảo"} phiếu<input autoFocus required maxLength={300} value={actionReason} onChange={(event) => setActionReason(event.target.value)} className={field} /></label><div className="mt-3 flex gap-2"><button type="button" disabled={!actionReason.trim()} onClick={() => setConfirmOpen(true)} className={actionClass}>Tiếp tục</button><button type="button" onClick={() => setPending(null)} className={actionClass}>Bỏ qua</button></div></div>}
   </section>;

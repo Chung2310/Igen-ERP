@@ -1,4 +1,4 @@
-export const FIXED_ASSET_STATUSES = ["in_use", "idle", "disposed"] as const;
+export const FIXED_ASSET_STATUSES = ["in_use", "idle", "repairing", "lost", "damaged", "disposed"] as const;
 export type FixedAssetStatus = typeof FIXED_ASSET_STATUSES[number];
 
 export const ASSET_DEPRECIATION_STATUSES = ["planned", "posted"] as const;
@@ -34,6 +34,8 @@ export interface IFixedAsset {
   location?: string;
   custodianId?: string;
   custodianName?: string;
+  supplierName?: string;
+  department?: string;
   status: FixedAssetStatus;
   accumulatedDepreciation: number;
   netBookValue: number;

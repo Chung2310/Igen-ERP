@@ -25,6 +25,7 @@ import { WarehouseSection } from "../components/inventory/WarehouseSection";
 import { InventoryTransfersSection } from "../components/inventory/InventoryTransfersSection";
 import { ReceivingSection } from "../components/inventory/ReceivingSection";
 import { SerialRegistrySection } from "../components/inventory/SerialRegistrySection";
+import { cn } from "../modules/student-management/lib/utils";
 
 // Lazy-loaded subcomponents
 const AiForecastPanel = lazy(() =>
@@ -69,10 +70,36 @@ function getStockLogItems(log: StockLog) {
 
 export default function InventoryTab() {
   const subTabsRef = useRef<HTMLDivElement>(null);
-  const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -280 : 280, behavior: "smooth" });
+  const [tabScroll, setTabScroll] = useState({ left: false, right: false });
+  const scrollSubTabs = (direction: "left" | "right") => {
+    const nav = subTabsRef.current;
+    nav?.scrollBy({ left: (direction === "left" ? -1 : 1) * Math.max(240, nav.clientWidth * 0.75), behavior: "smooth" });
+  };
   const { user } = useAuth();
   const { activeBranchId, loading: branchLoading } = useBranch();
   const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "SẢN PHẨM");
+  useEffect(() => {
+    const nav = subTabsRef.current;
+    if (!nav) return;
+    const update = () => {
+      const maxScroll = Math.max(0, nav.scrollWidth - nav.clientWidth);
+      setTabScroll({ left: nav.scrollLeft > 1, right: nav.scrollLeft < maxScroll - 1 });
+    };
+    update();
+    nav.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(nav);
+    Array.from(nav.children).forEach((tab) => observer?.observe(tab));
+    return () => {
+      nav.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      observer?.disconnect();
+    };
+  }, []);
+  useEffect(() => {
+    subTabsRef.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [subTab]);
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
@@ -667,16 +694,17 @@ export default function InventoryTab() {
   return (
     <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-[#f8fbff]" id="inventory_tab_wrapper">
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
-      <div className="flex shrink-0 items-center justify-between border-b border-[#dce7f4] bg-white px-3 pt-2 pb-0 text-xs sm:px-5" id="inventory_tabs_switch">
+      <div className="mb-4 flex shrink-0 items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-3 pb-2 pt-2 text-xs sm:px-5" id="inventory_tabs_switch">
         <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" aria-label="Cuộn tab kho sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-          <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto select-none">
+          <button type="button" aria-label="Cuộn tab Kho và Sản phẩm sang trái" onClick={() => scrollSubTabs("left")} disabled={!tabScroll.left} className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40", !tabScroll.left && !tabScroll.right && "hidden")}><ChevronLeft className="size-4" aria-hidden="true" /></button>
+          <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto select-none scrollbar-none">
             {[
               { id: "SẢN PHẨM", label: "Sản phẩm", icon: Package },
               { id: "KHO HÀNG", label: "Kho hàng", icon: FolderTree },
               { id: "NHẬP HÀNG", label: "Nhập hàng", icon: ArrowDownRight },
               { id: "IMEI / SERIAL", label: "IMEI / Serial", icon: Package },
               { id: "XUẤT HÀNG", label: "Xuất hàng", icon: ArrowUpRight },
+              { id: "ĐIỀU CHUYỂN", label: "Điều chuyển", icon: ArrowLeftRight },
               { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ArrowLeftRight },
               { id: "DỰ BÁO", label: "Dự báo", icon: Sparkles },
             ].map((tab) => {
@@ -685,20 +713,22 @@ export default function InventoryTab() {
               return (
                 <button
                   key={tab.id}
+                  type="button"
+                  aria-current={isActive ? "page" : undefined}
                   onClick={() => setSubTab(tab.id as InventorySubTabType)}
-                  className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 rounded-xl ${
+                  className={`flex min-h-10 shrink-0 cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-primary ${
                     isActive
-                      ? "bg-[#00adfc] text-white shadow-sm"
-                      : "text-slate-600 hover:bg-[#e8f7ff] hover:text-[#007eb8]"
+                      ? "bg-primary text-on-primary shadow-sm"
+                      : "text-on-surface-variant hover:bg-surface hover:text-on-surface"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                  <Icon className="size-4" aria-hidden="true" />
                   <span>{tab.label}</span>
                 </button>
               );
             })}
           </div>
-          <button type="button" aria-label="Cuộn tab kho sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
+          <button type="button" aria-label="Cuộn tab Kho và Sản phẩm sang phải" onClick={() => scrollSubTabs("right")} disabled={!tabScroll.right} className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40", !tabScroll.left && !tabScroll.right && "hidden")}><ChevronRight className="size-4" aria-hidden="true" /></button>
         </div>
       </div>
 
@@ -709,12 +739,13 @@ export default function InventoryTab() {
           </div>
         )}
 
-        {subTab === "KHO HÀNG" && <><WarehouseSection onCreateOutbound={(warehouseId, sku) => {
+        {subTab === "KHO HÀNG" && <WarehouseSection onCreateOutbound={(warehouseId, sku) => {
           setOutboundPrefill({ warehouseId, sku, nonce: Date.now() });
           setSubTab("XUẤT HÀNG");
-        }} /><div className="mt-6"><InventoryTransfersSection /></div></>}
+        }} />}
+        {subTab === "ĐIỀU CHUYỂN" && <InventoryTransfersSection />}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
-        {subTab === "IMEI / SERIAL" && <SerialRegistrySection />}
+        {subTab === "IMEI / SERIAL" && <SerialRegistrySection onTransfers={() => setSubTab("ĐIỀU CHUYỂN")} />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
           <div className="space-y-6" id="product_classification_tab">

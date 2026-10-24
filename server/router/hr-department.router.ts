@@ -1,5 +1,6 @@
 import { Router, type Response } from "express";
 import Joi from "joi";
+import mongoose, { type ClientSession } from "mongoose";
 import { HrDepartmentModel } from "../model/hr-department.model";
 import { UserModel } from "../model/user.model";
 import { type AuthenticatedRequest, requireAuth, requirePermission } from "../middleware/auth";
@@ -37,8 +38,10 @@ async function metadata(body: any, companyCode: string) {
   if (body.isActive !== undefined) result.isActive = body.isActive;
   return result;
 }
-async function assignedUserIds(companyCode: string, normalizedName: string) {
-  const users = await UserModel.find({ companyCode, department: { $nin: [null, ""] } }).select("_id department").lean();
+async function assignedUserIds(companyCode: string, normalizedName: string, session?: ClientSession) {
+  const query = UserModel.find({ companyCode, department: { $nin: [null, ""] } }).select("_id department");
+  if (session) query.session(session);
+  const users = await query.lean();
   return users.filter(user => nameKey(String(user.department || "")) === normalizedName).map(user => user._id);
 }
 
@@ -54,7 +57,7 @@ function fail(res: Response, error: unknown, fallback: string) {
   return res.status(500).json({ message: fallback });
 }
 
-hrDepartmentRouter.get("/", requirePermission(["hr:read", "access:read"]) as any, validateRequest({ query: companyQuery }), async (req: AuthenticatedRequest, res) => {
+hrDepartmentRouter.get("/", requirePermission(["hr:read", "access:read", "hr:manage", "access:manage"]) as any, validateRequest({ query: companyQuery }), async (req: AuthenticatedRequest, res) => {
   const companyCode = company(req);
   if (!companyCode) return res.status(400).json({ message: "Vui lòng chọn doanh nghiệp." });
   try {
@@ -86,7 +89,7 @@ hrDepartmentRouter.get("/", requirePermission(["hr:read", "access:read"]) as any
   } catch (error) { return fail(res, error, "Không thể tải phòng ban."); }
 });
 
-hrDepartmentRouter.post("/", requirePermission("access:manage") as any, validateRequest({ body: nameBody }), async (req: AuthenticatedRequest, res) => {
+hrDepartmentRouter.post("/", requirePermission(["hr:manage", "access:manage"]) as any, validateRequest({ body: nameBody }), async (req: AuthenticatedRequest, res) => {
   const companyCode = company(req);
   if (!companyCode) return res.status(400).json({ message: "Vui lòng chọn doanh nghiệp." });
   const name = normalizeName(req.body.name);
@@ -96,7 +99,7 @@ hrDepartmentRouter.post("/", requirePermission("access:manage") as any, validate
   } catch (error) { return fail(res, error, "Không thể thêm phòng ban."); }
 });
 
-hrDepartmentRouter.patch("/:id", requirePermission("access:manage") as any, validateRequest({ params: idParams, query: companyQuery, body: nameBody }), async (req: AuthenticatedRequest, res) => {
+hrDepartmentRouter.patch("/:id", requirePermission(["hr:manage", "access:manage"]) as any, validateRequest({ params: idParams, query: companyQuery, body: nameBody }), async (req: AuthenticatedRequest, res) => {
   const companyCode = company(req);
   if (!companyCode) return res.status(400).json({ message: "Vui lòng chọn doanh nghiệp." });
   try {
@@ -134,15 +137,30 @@ hrDepartmentRouter.patch("/:id", requirePermission("access:manage") as any, vali
   } catch (error) { return fail(res, error, "Không thể đổi tên phòng ban."); }
 });
 
-hrDepartmentRouter.delete("/:id", requirePermission("access:manage") as any, validateRequest({ params: idParams, query: companyQuery }), async (req: AuthenticatedRequest, res) => {
+hrDepartmentRouter.delete("/:id", requirePermission(["hr:manage", "access:manage"]) as any, validateRequest({ params: idParams, query: companyQuery }), async (req: AuthenticatedRequest, res) => {
   const companyCode = company(req);
   if (!companyCode) return res.status(400).json({ message: "Vui lòng chọn doanh nghiệp." });
+  const session = await mongoose.startSession();
+  let notFound = false;
   try {
-    const department = await HrDepartmentModel.findOne({ _id: req.params.id, companyCode });
-    if (!department) return res.status(404).json({ message: "Không tìm thấy phòng ban." });
-    const assigned = await assignedUserIds(companyCode, department.normalizedName);
-    if (assigned.length) return res.status(409).json({ message: "Phòng ban đang có nhân sự. Vui lòng chuyển nhân sự sang phòng ban khác trước khi xóa." });
-    await department.deleteOne();
+    await session.withTransaction(async () => {
+      const department = await HrDepartmentModel.findOne({ _id: req.params.id, companyCode }).session(session);
+      if (!department) {
+        notFound = true;
+        return;
+      }
+      const assigned = await assignedUserIds(companyCode, department.normalizedName, session);
+      if (assigned.length) {
+        await UserModel.updateMany(
+          { _id: { $in: assigned }, companyCode },
+          { $set: { department: "" } },
+          { session },
+        );
+      }
+      await department.deleteOne({ session });
+    });
+    if (notFound) return res.status(404).json({ message: "Không tìm thấy phòng ban." });
     return res.json({ data: { id: req.params.id } });
   } catch (error) { return fail(res, error, "Không thể xóa phòng ban."); }
+  finally { await session.endSession(); }
 });

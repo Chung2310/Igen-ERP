@@ -14,7 +14,7 @@ const handle = (work: (req: any) => Promise<unknown>, created = false) => async 
   try { res.status(created ? 201 : 200).json({ success: true, data: await work(req) }); }
   catch (error) { next(error); }
 };
-inventoryTransferRouter.get("/warehouses", manage, handle((req) => WarehouseModel.find({ companyCode: scope(req).companyCode, isActive: true }).sort({ branchId: 1, name: 1 }).lean()));
+inventoryTransferRouter.get("/warehouses", read, handle((req) => WarehouseModel.find({ companyCode: scope(req).companyCode, isActive: true }).sort({ branchId: 1, name: 1 }).lean()));
 inventoryTransferRouter.get("/reconciliation", read, handle((req) => reconcileWarehouse(scope(req).companyCode, scope(req).branchId, String(req.query.warehouseId || ""))));
 inventoryTransferRouter.get("/", read, handle((req) => listInventoryTransfers(scope(req).companyCode, scope(req).branchId)));
 inventoryTransferRouter.post("/", manage, handle((req) => requestInventoryTransfer(scope(req), req.body || {}, actor(req)), true));

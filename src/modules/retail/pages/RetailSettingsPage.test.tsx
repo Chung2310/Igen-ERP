@@ -46,4 +46,14 @@ describe("RetailSettingsPage", () => {
       { companyCode: "ACME", branchId: "B1" },
     ));
   });
+
+  it("offers 58mm paper and opens a sample receipt for test printing", async () => {
+    render(<RetailSettingsPage />);
+    const paper = await screen.findByRole("combobox", { name: "Khổ giấy hóa đơn" }) as HTMLSelectElement;
+    expect(Array.from(paper.options, (option) => option.value)).toEqual(["58mm", "80mm", "A5", "A4"]);
+    fireEvent.change(paper, { target: { value: "58mm" } });
+    fireEvent.click(screen.getByRole("button", { name: "Xem trước và in thử" }));
+    expect(screen.getByText(/Khách hàng in thử/)).toBeTruthy();
+    expect(document.querySelector('[data-paper-size="58mm"]')).toBeTruthy();
+  });
 });

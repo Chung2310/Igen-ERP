@@ -8,47 +8,38 @@ const labels: Record<string, string> = {
 export default function RetailOfflineQueuePanel({
   items,
   onRetry,
-  onRemove,
 }: {
   items: RetailOfflineOrder[];
   onRetry(id: string): void;
-  onRemove(id: string): void;
 }) {
   if (!items.length) return null;
   return (
-    <section className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-      <h2 className="font-bold text-amber-900">
-        Đơn hàng offline ({items.length})
+    <section aria-labelledby="retail-offline-title" className="rounded-xl border border-tertiary/40 bg-tertiary-container p-3 text-on-tertiary-container">
+      <h2 id="retail-offline-title" className="font-bold">
+        Giao dịch chờ xử lý ({items.length})
       </h2>
       <div className="mt-2 space-y-2">
         {items.map((item) => (
-          <div key={item.id} className="rounded-lg bg-white p-2 text-sm">
+          <div key={item.id} className="rounded-lg bg-surface-container-lowest p-2 text-sm text-on-surface">
             <div className="flex justify-between">
-              <span>{labels[item.status]}</span>
+              <span aria-live="polite">{labels[item.status]}</span>
               <span>
                 {new Date(item.createdAt).toLocaleTimeString("vi-VN")}
               </span>
             </div>
             {item.lastError && (
-              <p className="mt-1 text-red-700">{item.lastError}</p>
+              <p role="alert" className="mt-1 text-error">{item.lastError}</p>
             )}
             <div className="mt-2 flex gap-3">
               {item.status === "failed" && (
                 <button
                   aria-label={`Thử lại ${item.id}`}
                   onClick={() => onRetry(item.id)}
-                  className="font-semibold text-cyan-700"
+                  className="min-h-10 rounded-lg px-2 font-semibold text-primary focus-visible:outline-2 focus-visible:outline-primary"
                 >
                   Thử lại
                 </button>
               )}
-              <button
-                aria-label={`Xóa ${item.id}`}
-                onClick={() => onRemove(item.id)}
-                className="text-slate-600"
-              >
-                Xóa
-              </button>
             </div>
           </div>
         ))}

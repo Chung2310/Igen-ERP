@@ -29,6 +29,7 @@ const GoodsReceiptSchema = new Schema<IGoodsReceipt>(
     supplierId: { type: String, required: true, trim: true, index: true },
     supplierName: { type: String, required: true, trim: true },
     status: { type: String, enum: ["draft", "pending", "receiving", "confirmed", "cancelled"], default: "draft", required: true, index: true },
+    financeTerms: { type: new Schema({ dueOn: { type: String, required: true }, paidAmount: { type: Number, required: true, min: 0 }, paymentMethod: String }, { _id: false }), default: undefined },
     receivedAt: { type: Date },
     items: { type: [GoodsReceiptItemSchema], default: [] },
     subtotal: { type: Number, required: true, min: 0, default: 0 },

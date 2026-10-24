@@ -11,7 +11,7 @@ export function buildPaymentSummary(total: number, payments: RetailPaymentInput[
   }
   if (collected > total) throw new Error("Tổng thanh toán vượt số tiền phải thu.");
   const due = total - collected;
-  if (!debt.customerId?.trim()) {
+  if (due > 0 && !debt.customerId?.trim()) {
     throw new Error("Vui lòng chọn khách hàng trước khi thanh toán.");
   }
   if (mode === "full" && due !== 0) throw new Error("Thanh toán đủ cần thu đủ tổng tiền đơn hàng.");

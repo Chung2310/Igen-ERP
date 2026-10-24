@@ -19,6 +19,8 @@ View your app in AI Studio: https://ai.studio/apps/c9f16f0c-380d-4f8a-bd87-6bcf8
 3. Run the app:
    `npm run dev`
 
+When running Node directly on your computer, run Redis on port `6379` or set `REDIS_HOST` to a reachable server. The hostname `redis` in `.env.example` is only available inside the Docker network; `npm run dev` on Windows maps it to `127.0.0.1`. The development watcher skips `tmp/` because local QA keeps a live Chrome profile there.
+
 ---
 
 ## 🚀 Hướng dẫn cấu hình CI/CD (GitHub Actions)

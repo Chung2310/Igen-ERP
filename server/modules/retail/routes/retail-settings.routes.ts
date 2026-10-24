@@ -4,5 +4,6 @@ import { retailSettingsController } from "../controllers/retail-settings.control
 import { RETAIL_MANAGER_PERMISSION, RETAIL_OPERATE_PERMISSION } from "../permissions";
 
 export const retailSettingsRoutes = Router();
-retailSettingsRoutes.get("/", requirePermission([RETAIL_OPERATE_PERMISSION, RETAIL_MANAGER_PERMISSION]) as any, retailSettingsController.get as any);
+retailSettingsRoutes.get("/", requirePermission(["retail:read", RETAIL_MANAGER_PERMISSION]) as any, retailSettingsController.get as any);
+retailSettingsRoutes.get("/print", requirePermission(["retail:read", RETAIL_OPERATE_PERMISSION, RETAIL_MANAGER_PERMISSION]) as any, retailSettingsController.printConfig as any);
 retailSettingsRoutes.put("/", requirePermission(RETAIL_MANAGER_PERMISSION) as any, retailSettingsController.update as any);

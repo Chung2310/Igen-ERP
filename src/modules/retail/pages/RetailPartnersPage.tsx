@@ -1,45 +1,63 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { CheckCircle2, Handshake, Package, Pencil, Percent, Search, Store, UsersRound, X } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { apiFetch } from "../../shared/lib/apiFetch";
+import { cn } from "../../student-management/lib/utils";
+import { ErpCard, ErpEmptyState, ErpLoadingState, ErpPrimaryButton, ErpStatCard, erpInputClass } from "../../student-management/components/Erp/ErpUI";
+import RetailCommissionPoliciesPanel from "../components/RetailCommissionPoliciesPanel";
+import RetailProductCommissionsPanel from "../components/RetailProductCommissionsPanel";
 import RetailPartnerStatement from "../components/RetailPartnerStatement";
 
-type PartnerRole = "collaborator" | "dealer" | "supplier";
-type Partner = {
+type RetailPartnerRole = "collaborator" | "dealer" | "supplier";
+type RetailPartner = {
   _id: string;
   code: string;
   name: string;
-  roles: PartnerRole[];
+  roles: RetailPartnerRole[];
   phone?: string;
   email?: string;
   address?: string;
   status: "active" | "inactive";
   supplierId?: string;
   userId?: string;
+  customerId?: string;
   supplier?: { name: string; code: string } | null;
 };
 type Supplier = { _id: string; code: string; name: string };
 type PartnerUser = { _id: string; displayName?: string; email: string };
-type Form = Omit<Partner, "_id" | "supplier">;
-const initialForm: Form = { code: "", name: "", roles: ["collaborator"], phone: "", email: "", address: "", status: "active", supplierId: "", userId: "" };
-const roleLabels: Record<PartnerRole, string> = { collaborator: "Cộng tác viên", dealer: "Đại lý", supplier: "Nhà cung cấp" };
-const fieldClass = "min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary";
+type PartnerCustomer = { _id: string; customerCode: string; name: string; phone: string };
+type Form = Omit<RetailPartner, "_id" | "supplier" | "roles"> & { role: RetailPartnerRole };
+const initialForm: Form = { code: "", name: "", role: "collaborator", phone: "", email: "", address: "", status: "active", supplierId: "", userId: "", customerId: "" };
+const roleLabels: Record<RetailPartnerRole, string> = { collaborator: "Cộng tác viên bán lẻ", dealer: "Đại lý", supplier: "Nhà cung cấp" };
+const fieldClass = erpInputClass(false);
+
+function getRetailPartnerRole(partner: RetailPartner): RetailPartnerRole {
+  if (partner.userId && partner.roles.includes("collaborator")) return "collaborator";
+  if (partner.supplierId && partner.roles.includes("supplier")) return "supplier";
+  return partner.roles[0] || "collaborator";
+}
 
 export default function RetailPartnersPage() {
   const { userProfile, hasPermission } = useAuth();
   const companyCode = userProfile?.companyCode;
   const canManage = userProfile?.role === "admin" || userProfile?.role === "superadmin" || hasPermission("retail-partner:manage");
-  const canRead = canManage || hasPermission("retail-partner:read");
-  const [partners, setPartners] = useState<Partner[]>([]);
+  const canManagePolicies = userProfile?.role === "admin" || userProfile?.role === "superadmin" || hasPermission("retail-partner-policy:manage");
+  const canRead = canManage || canManagePolicies || hasPermission("retail-partner:read");
+  const [partners, setPartners] = useState<RetailPartner[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [users, setUsers] = useState<PartnerUser[]>([]);
+  const [customers, setCustomers] = useState<PartnerCustomer[]>([]);
   const [form, setForm] = useState<Form>(initialForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"partners" | "policies" | "products">("partners");
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
   const [filter, setFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | RetailPartner["status"]>("all");
+  const formDialogRef = useRef<HTMLDialogElement>(null);
 
   async function load() {
     if (!companyCode) return;
@@ -47,16 +65,18 @@ export default function RetailPartnersPage() {
     setError("");
     try {
       if (canRead) {
-        const response = await apiFetch<{ data: Partner[] }>("/retail/partners", { params: { companyCode } });
+        const response = await apiFetch<{ data: RetailPartner[] }>("/retail/partners", { params: { companyCode } });
         setPartners(response.data);
         if (canManage) {
           const supplierResponse = await apiFetch<{ data: Supplier[] }>("/retail/partners/suppliers", { params: { companyCode } });
           setSuppliers(supplierResponse.data);
           const userResponse = await apiFetch<{ data: PartnerUser[] }>("/retail/partners/users", { params: { companyCode } });
           setUsers(userResponse.data);
+          const customerResponse = await apiFetch<{ data: PartnerCustomer[] }>("/retail/partners/customers", { params: { companyCode } });
+          setCustomers(customerResponse.data);
         }
       } else {
-        const response = await apiFetch<{ data: Partner }>("/retail/partners/me", { params: { companyCode } });
+        const response = await apiFetch<{ data: RetailPartner }>("/retail/partners/me", { params: { companyCode } });
         setPartners([response.data]);
       }
     } catch (cause) {
@@ -66,7 +86,14 @@ export default function RetailPartnersPage() {
     }
   }
 
-  useEffect(() => { void load(); }, [companyCode, canRead, canManage]);
+  useEffect(() => { void load(); }, [companyCode, canRead, canManage, canManagePolicies]);
+
+  useEffect(() => {
+    const dialog = formDialogRef.current;
+    if (!dialog) return;
+    if (showForm && canManage && !dialog.open) dialog.showModal();
+    else if ((!showForm || !canManage) && dialog.open) dialog.close();
+  }, [showForm, canManage]);
 
   function startCreate() {
     setEditingId(null);
@@ -75,31 +102,24 @@ export default function RetailPartnersPage() {
     setShowForm(true);
   }
 
-  function startEdit(partner: Partner) {
+  function startEdit(partner: RetailPartner) {
     setEditingId(partner._id);
-    setForm({ code: partner.code, name: partner.name, roles: partner.roles, phone: partner.phone || "", email: partner.email || "", address: partner.address || "", status: partner.status, supplierId: partner.supplierId || "", userId: partner.userId || "" });
+    setForm({ code: partner.code, name: partner.name, role: getRetailPartnerRole(partner), phone: partner.phone || "", email: partner.email || "", address: partner.address || "", status: partner.status, supplierId: partner.supplierId || "", userId: partner.userId || "", customerId: partner.customerId || "" });
     setFormError("");
     setShowForm(true);
-  }
-
-  function toggleRole(role: PartnerRole) {
-    setForm((current) => {
-      const roles = current.roles.includes(role) ? current.roles.filter((item) => item !== role) : [...current.roles, role];
-      return { ...current, roles, ...(role === "supplier" && !roles.includes("supplier") ? { supplierId: "" } : {}) };
-    });
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!companyCode || saving) return;
-    if (!form.roles.length) { setFormError("Chọn ít nhất một vai trò."); return; }
     setSaving(true);
     setFormError("");
     try {
+      const { role, ...details } = form;
       await apiFetch(`/retail/partners${editingId ? `/${editingId}` : ""}`, {
         method: editingId ? "PATCH" : "POST",
         params: { companyCode },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...details, supplierId: role === "supplier" ? form.supplierId : "", userId: role === "collaborator" ? form.userId : "", customerId: role === "dealer" ? form.customerId : "", roles: [role] }),
       });
       setShowForm(false);
       await load();
@@ -110,52 +130,185 @@ export default function RetailPartnersPage() {
     }
   }
 
-  const visible = partners.filter((partner) => `${partner.code} ${partner.name} ${partner.phone || ""}`.toLocaleLowerCase("vi").includes(filter.toLocaleLowerCase("vi")));
+  const visible = partners.filter((partner) => {
+    const matchesSearch = `${partner.code} ${partner.name} ${partner.phone || ""} ${partner.email || ""}`.toLocaleLowerCase("vi").includes(filter.toLocaleLowerCase("vi"));
+    return matchesSearch && (statusFilter === "all" || partner.status === statusFilter);
+  });
+  const stats = [
+    { name: "Tổng số đối tác", value: partners.length, icon: Handshake },
+    { name: "Đang hoạt động", value: partners.filter((partner) => partner.status === "active").length, icon: CheckCircle2 },
+    { name: "Cộng tác viên bán lẻ", value: partners.filter((partner) => getRetailPartnerRole(partner) === "collaborator").length, icon: UsersRound },
+    { name: "Đại lý / nhà cung cấp", value: partners.filter((partner) => getRetailPartnerRole(partner) !== "collaborator").length, icon: Store },
+  ];
+  const getLinkedUser = (partner: RetailPartner): PartnerUser | undefined => {
+    if (!partner.userId) return undefined;
+    return users.find((user) => user._id === partner.userId) || (partner.userId === userProfile?.uid
+      ? { _id: partner.userId, displayName: userProfile.displayName, email: userProfile.email }
+      : undefined);
+  };
+  const getLinkedCustomer = (partner: RetailPartner) => customers.find((customer) => customer._id === partner.customerId);
+  const editingPartner = partners.find((partner) => partner._id === editingId);
+  const isRemovingSupplierLink = Boolean(editingPartner?.supplierId && form.role !== "supplier");
+  const isRemovingUserLink = Boolean(editingPartner?.userId && form.role !== "collaborator");
+  const isRemovingCustomerLink = Boolean(editingPartner?.customerId && form.role !== "dealer");
+  const roleLinkHint = isRemovingSupplierLink || isRemovingUserLink || isRemovingCustomerLink
+    ? "Lưu thay đổi vai trò sẽ gỡ các liên kết không còn phù hợp."
+    : "";
 
   return (
-    <main className="h-full overflow-y-auto bg-surface p-4 text-on-surface sm:p-6">
-      <div className="mx-auto max-w-6xl space-y-5">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-balance text-2xl font-semibold">Đối tác bán lẻ</h1>
-            <p className="mt-1 text-pretty text-sm text-on-surface-variant">Hồ sơ cộng tác viên, đại lý và nhà cung cấp của công ty.</p>
+    <main className="h-full overflow-y-auto bg-white p-6">
+      <div className="space-y-6 text-left">
+        <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2.5">
+            <span aria-hidden="true" className="h-5 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
+            <div>
+              <h1 className="text-balance text-xl font-medium tracking-tight text-slate-900">Đối tác bán lẻ</h1>
+              <p className="mt-0.5 text-pretty text-xs font-medium text-slate-500">Hồ sơ cộng tác viên bán lẻ, đại lý và nhà cung cấp của công ty.</p>
+            </div>
           </div>
-          {canManage && <button type="button" onClick={startCreate} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thêm đối tác</button>}
+          {canManage && tab === "partners" && <ErpPrimaryButton type="button" onClick={startCreate} className="min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton>}
         </header>
 
-        {showForm && canManage && <form onSubmit={(event) => void save(event)} className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6" aria-busy={saving}>
-          <h2 className="text-balance text-lg font-semibold">{editingId ? "Chỉnh sửa đối tác" : "Thêm đối tác"}</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-1 text-sm font-medium">Mã đối tác <span aria-hidden="true">*</span><input className={fieldClass} required maxLength={60} value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} /></label>
-            <label className="space-y-1 text-sm font-medium">Tên đối tác <span aria-hidden="true">*</span><input className={fieldClass} required maxLength={200} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
-            <label className="space-y-1 text-sm font-medium">Số điện thoại<input className={fieldClass} type="tel" maxLength={30} value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
-            <label className="space-y-1 text-sm font-medium">Email<input className={fieldClass} type="email" maxLength={200} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-            <label className="space-y-1 text-sm font-medium sm:col-span-2">Địa chỉ<input className={fieldClass} maxLength={500} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
-          </div>
-          <fieldset className="space-y-2" aria-describedby={formError ? "retail-partner-form-error" : undefined}>
-            <legend className="text-sm font-medium">Vai trò <span aria-hidden="true">*</span></legend>
-            <div className="flex flex-wrap gap-4">{(Object.keys(roleLabels) as PartnerRole[]).map((role) => <label key={role} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={form.roles.includes(role)} onChange={() => toggleRole(role)} className="size-4 accent-primary" />{roleLabels[role]}</label>)}</div>
-          </fieldset>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {form.roles.includes("supplier") && <label className="space-y-1 text-sm font-medium">Nhà cung cấp trong kho<select className={fieldClass} value={form.supplierId || ""} onChange={(event) => setForm({ ...form, supplierId: event.target.value })}><option value="">Chưa liên kết</option>{suppliers.map((supplier) => <option key={supplier._id} value={supplier._id}>{supplier.name} ({supplier.code})</option>)}</select></label>}
-            {form.roles.includes("collaborator") && <label className="space-y-1 text-sm font-medium">Tài khoản xem sao kê<select className={fieldClass} value={form.userId || ""} onChange={(event) => setForm({ ...form, userId: event.target.value })} disabled={!!editingId && !!partners.find((item) => item._id === editingId)?.userId}><option value="">Chưa liên kết</option>{users.map((user) => <option key={user._id} value={user._id}>{user.displayName || user.email} ({user.email})</option>)}</select></label>}
-            {editingId && partners.find((item) => item._id === editingId)?.userId && <p className="text-pretty text-sm text-on-surface-variant sm:col-span-2">Tài khoản đã liên kết với đối tác này và không thể đổi.</p>}
-            <label className="space-y-1 text-sm font-medium">Trạng thái<select className={fieldClass} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as Form["status"] })}><option value="active">Đang hoạt động</option><option value="inactive">Ngừng hoạt động</option></select></label>
-          </div>
-          {formError && <p id="retail-partner-form-error" role="alert" className="text-sm text-error">{formError}</p>}
-          <div className="flex flex-wrap gap-3"><button type="submit" disabled={saving} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{saving ? "Đang lưu..." : "Lưu đối tác"}</button><button type="button" onClick={() => setShowForm(false)} className="min-h-11 rounded-lg border border-outline px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary">Hủy</button></div>
-        </form>}
+        {canRead && <nav aria-label="Quản lý đối tác bán lẻ" className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-outline-variant bg-surface p-1">
+          {([["partners", "Đối tác & hoa hồng", UsersRound], ["policies", "Chính sách", Percent], ["products", "Hoa hồng sản phẩm", Package]] as const).map(([key, label, Icon]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)} className={cn("flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary", tab === key ? "bg-surface-container-lowest text-primary shadow-xs" : "text-on-surface-variant hover:bg-surface-container-lowest hover:text-on-surface")}><Icon aria-hidden="true" className="size-4" />{label}</button>)}
+        </nav>}
 
-        {error && <div role="alert" className="rounded-lg border border-error bg-surface-container-lowest p-4 text-sm text-error">{error} <button type="button" onClick={() => void load()} className="ml-2 font-semibold underline focus-visible:outline-2 focus-visible:outline-primary">Thử lại</button></div>}
-        {!error && <section aria-label="Danh sách đối tác" className="space-y-3">
-          {canRead && <label className="block max-w-sm space-y-1 text-sm font-medium">Tìm đối tác<input className={fieldClass} type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Mã, tên hoặc số điện thoại" /></label>}
-          {loading ? <p role="status" className="text-sm text-on-surface-variant">Đang tải đối tác...</p> : visible.length ? <ul className="grid gap-3 md:grid-cols-2">{visible.map((partner) => <li key={partner._id} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-            <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate text-base font-semibold">{partner.name}</h2><p className="text-sm text-on-surface-variant">{partner.code}</p></div><span className="shrink-0 text-xs font-medium text-on-surface-variant">{partner.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}</span></div>
-            <p className="mt-3 text-pretty text-sm">{partner.roles.map((role) => roleLabels[role]).join(" · ")}</p>
-            {partner.supplier && <p className="mt-1 text-pretty text-sm text-on-surface-variant">NCC kho: {partner.supplier.name}</p>}
-            {partner.phone && <p className="mt-1 text-sm text-on-surface-variant">{partner.phone}</p>}
-            {canManage && <button type="button" onClick={() => startEdit(partner)} className="mt-3 min-h-11 text-sm font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-primary">Chỉnh sửa</button>}
-          </li>)}</ul> : <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-6 text-center"><p className="text-pretty text-sm text-on-surface-variant">{filter ? "Không tìm thấy đối tác phù hợp." : "Chưa có đối tác bán lẻ."}</p>{canManage && <button type="button" onClick={startCreate} className="mt-3 min-h-11 text-sm font-semibold text-primary underline focus-visible:outline-2 focus-visible:outline-primary">Thêm đối tác</button>}</div>}
+        {canManage && <dialog
+          ref={formDialogRef}
+          aria-labelledby="retail-partner-form-title"
+          aria-modal="true"
+          onClose={() => setShowForm(false)}
+          onCancel={(event) => { if (saving) event.preventDefault(); }}
+          className="m-auto max-h-[90dvh] w-[calc(100vw-2rem)] max-w-4xl overflow-y-auto rounded-2xl border border-slate-200/80 bg-white p-4 text-slate-900 shadow-2xl backdrop:bg-slate-950/60 sm:p-5"
+        >
+          <form onSubmit={(event) => void save(event)} className="space-y-4 text-left" aria-busy={saving}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
+                <h2 id="retail-partner-form-title" className="text-balance text-sm font-bold tracking-tight text-slate-900">{editingId ? "Cập nhật đối tác" : "Thêm đối tác mới"}</h2>
+              </div>
+              <button type="button" aria-label="Đóng biểu mẫu đối tác" onClick={() => setShowForm(false)} disabled={saving} className="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><X aria-hidden="true" className="size-4" /></button>
+            </div>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
+              <section className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1"><h3 className="text-balance text-xs font-bold text-slate-800">Thông tin đối tác</h3></div>
+                <label className="block space-y-1 text-xs font-semibold text-slate-900">Mã đối tác <span aria-hidden="true">*</span><input className={fieldClass} required maxLength={60} value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder="Nhập mã đối tác..." /></label>
+                <label className="block space-y-1 text-xs font-semibold text-slate-900">Tên đối tác <span aria-hidden="true">*</span><input className={fieldClass} required maxLength={200} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Nhập tên đối tác..." /></label>
+                <label className="block space-y-1 text-xs font-semibold text-slate-900">Số điện thoại<input className={fieldClass} type="tel" maxLength={30} value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Nhập số điện thoại..." /></label>
+                <label className="block space-y-1 text-xs font-semibold text-slate-900">Địa chỉ Email<input className={fieldClass} type="email" maxLength={200} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="Nhập địa chỉ email..." /></label>
+                <label className="block space-y-1 text-xs font-semibold text-slate-900">Địa chỉ<input className={fieldClass} maxLength={500} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} placeholder="Nhập địa chỉ..." /></label>
+                <label className="block space-y-1 text-xs font-semibold text-slate-900">Trạng thái hoạt động<select className={fieldClass} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as Form["status"] })}><option value="active">Đang hoạt động</option><option value="inactive">Ngưng hoạt động</option></select></label>
+              </section>
+              <section className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1"><h3 className="text-balance text-xs font-bold text-slate-800">Vai trò & liên kết</h3></div>
+                <fieldset className="space-y-2">
+                  <legend className="text-xs font-semibold text-slate-900">Vai trò <span aria-hidden="true">*</span></legend>
+                  <div className="grid gap-2">{(Object.keys(roleLabels) as RetailPartnerRole[]).map((role) => <label key={role} className={cn("flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border px-3 text-xs font-medium", form.role === role ? "border-[#00ADFC] bg-sky-50/50 text-slate-900" : "border-slate-200 bg-white text-slate-700")}><input type="radio" name="retail-partner-role" value={role} checked={form.role === role} onChange={() => setForm((current) => ({ ...current, role }))} className="size-4 accent-[#00ADFC]" />{roleLabels[role]}</label>)}</div>
+                </fieldset>
+                {roleLinkHint && <p className="text-xs text-amber-700" role="status">{roleLinkHint}</p>}
+                {form.role === "supplier" && <label className="block space-y-1 text-xs font-semibold text-slate-900">Nhà cung cấp trong kho<select className={fieldClass} value={form.supplierId || ""} onChange={(event) => setForm({ ...form, supplierId: event.target.value })} disabled={!!editingPartner?.supplierId}><option value="">Chưa liên kết</option>{suppliers.map((supplier) => <option key={supplier._id} value={supplier._id}>{supplier.name} ({supplier.code})</option>)}</select>{editingPartner?.supplierId && <span className="block text-[11px] font-normal text-slate-500">Nhà cung cấp đã liên kết không thể đổi.</span>}</label>}
+                {form.role === "dealer" && <label className="block space-y-1 text-xs font-semibold text-on-surface">Khách hàng liên kết công nợ<select className={fieldClass} value={form.customerId || ""} onChange={(event) => setForm({ ...form, customerId: event.target.value })} disabled={!!editingPartner?.customerId}><option value="">Chưa liên kết</option>{customers.map((customer) => <option key={customer._id} value={customer._id}>{customer.name} ({customer.customerCode})</option>)}</select>{editingPartner?.customerId && <span className="block text-xs font-normal text-on-surface-variant">Khách hàng đã liên kết với đại lý này và không thể đổi.</span>}</label>}
+                {form.role === "collaborator" && <label className="block space-y-1 text-xs font-semibold text-slate-900">Tài khoản xem sao kê<select className={fieldClass} value={form.userId || ""} onChange={(event) => setForm({ ...form, userId: event.target.value })} disabled={!!editingPartner?.userId}><option value="">Chưa liên kết</option>{users.map((user) => <option key={user._id} value={user._id}>{user.displayName || user.email} ({user.email})</option>)}</select>{editingPartner?.userId && <span className="block text-[11px] font-normal text-slate-500">Tài khoản đã liên kết với đối tác này và không thể đổi.</span>}</label>}
+              </section>
+            </div>
+            {formError && <p id="retail-partner-form-error" role="alert" className="text-xs font-medium text-rose-600">{formError}</p>}
+            <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-slate-100 pt-3">
+              <button type="button" onClick={() => setShowForm(false)} disabled={saving} className="min-h-9 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">Hủy</button>
+              <button type="submit" disabled={saving} className="min-h-9 rounded-xl bg-[#00ADFC] px-6 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#0095d9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Đang lưu..." : editingId ? "Cập nhật đối tác" : "Khai báo đối tác"}</button>
+            </div>
+          </form>
+        </dialog>}
+
+        {canRead && tab === "partners" && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat) => <ErpStatCard key={stat.name} name={stat.name} value={String(stat.value)} icon={stat.icon} />)}
+        </div>}
+
+        {error && <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-xs font-medium text-rose-700 sm:flex-row sm:items-center sm:justify-between">{error}<button type="button" onClick={() => void load()} className="shrink-0 font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thử lại</button></div>}
+
+        {canRead && tab === "policies" && (canManagePolicies ? <RetailCommissionPoliciesPanel companyCode={companyCode} partners={partners} /> : <ErpCard className="border-outline-variant p-5 text-pretty text-sm text-on-surface-variant">Tài khoản của bạn chưa có quyền cấu hình chính sách hoa hồng bán lẻ. Vui lòng liên hệ quản trị viên.</ErpCard>)}
+        {canRead && tab === "products" && (canManagePolicies ? <RetailProductCommissionsPanel companyCode={companyCode} /> : <ErpCard className="border-outline-variant p-5 text-pretty text-sm text-on-surface-variant">Tài khoản của bạn chưa có quyền cấu hình hoa hồng sản phẩm. Vui lòng liên hệ quản trị viên.</ErpCard>)}
+
+        {!error && tab === "partners" && <section aria-label="Danh sách đối tác" className="space-y-4">
+          {canRead && <div className="flex flex-col items-stretch justify-between gap-4 md:flex-row md:items-center">
+            <label className="relative flex-1 max-w-md">
+              <span className="sr-only">Tìm đối tác</span>
+              <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <input type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Tìm đối tác theo mã, tên, số điện thoại hoặc email..." className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-normal text-slate-800 shadow-xs outline-none transition-all placeholder:text-slate-400 focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/10" />
+            </label>
+            <div role="group" aria-label="Lọc theo trạng thái" className="flex shrink-0 gap-1 overflow-x-auto rounded-xl bg-slate-100/70 p-1">
+              {([ ["all", "Tất cả"], ["active", "Đang hoạt động"], ["inactive", "Ngừng hoạt động"] ] as const).map(([value, label]) => {
+                const active = statusFilter === value;
+                return <button key={value} type="button" aria-pressed={active} onClick={() => setStatusFilter(value)} className={cn("cursor-pointer whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary", active ? "bg-[#00ADFC] font-semibold text-white shadow-xs" : "font-medium text-slate-600 hover:bg-white/80 hover:text-slate-900")}>{label}</button>;
+              })}
+            </div>
+          </div>}
+
+          <ErpCard className="overflow-hidden border border-slate-200/80">
+            {loading ? <div role="status" aria-live="polite"><ErpLoadingState message="Đang tải danh sách đối tác..." /></div> : visible.length === 0 ? <>
+              <ErpEmptyState icon={Handshake} title={filter || statusFilter !== "all" ? "Không tìm thấy đối tác nào" : "Chưa có đối tác bán lẻ"} subtitle={filter || statusFilter !== "all" ? "Không có đối tác khớp với nội dung tìm kiếm hoặc trạng thái đã chọn." : "Khai báo đối tác để quản lý cộng tác viên, đại lý và nhà cung cấp bán lẻ."} />
+              {canManage && !(filter || statusFilter !== "all") && <div className="flex justify-center pb-8"><ErpPrimaryButton type="button" onClick={startCreate} className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton></div>}
+              {(filter || statusFilter !== "all") && <div className="flex justify-center pb-8"><button type="button" onClick={() => { setFilter(""); setStatusFilter("all"); }} className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xóa bộ lọc</button></div>}
+            </> : <>
+              <ul className="flex flex-col gap-3 bg-slate-50/50 p-4 md:hidden">
+                {visible.map((partner) => {
+                  const linkedUser = getLinkedUser(partner);
+                  const role = getRetailPartnerRole(partner);
+                  return <li key={partner._id} className="flex flex-col gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 text-left shadow-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-col"><span className="truncate text-sm font-semibold text-slate-900">{partner.name}</span><span className="mt-0.5 text-xs font-normal text-slate-500">Mã: {partner.code}</span></div>
+                    <span className={cn("shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold", partner.status === "active" ? "border-sky-100 bg-sky-50 text-[#007EB8]" : "border-slate-200 bg-slate-100 text-slate-600")}>{partner.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200/60 bg-slate-50 p-2.5 text-xs text-slate-700">
+                    <div className="flex min-w-0 flex-col gap-0.5"><span className="text-[11px] font-medium text-slate-500">Vai trò</span><span className="truncate text-xs font-semibold text-slate-900">{roleLabels[role]}</span></div>
+                    {role === "supplier" && <div className="flex min-w-0 flex-col gap-0.5 text-right"><span className="text-[11px] font-medium text-slate-500">Nhà cung cấp kho</span><span className="truncate text-xs font-semibold text-slate-900">{partner.supplier ? `${partner.supplier.name} (${partner.supplier.code})` : partner.supplierId ? "Đã liên kết kho" : "Chưa liên kết"}</span></div>}
+                    {role === "dealer" && <div className="flex min-w-0 flex-col gap-0.5 text-right"><span className="text-[11px] font-medium text-on-surface-variant">Khách hàng công nợ</span><span className="truncate text-xs font-semibold text-on-surface">{getLinkedCustomer(partner)?.name || (partner.customerId ? "Đã liên kết" : "Chưa liên kết")}</span></div>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex min-w-0 flex-col gap-0.5 rounded-xl border border-slate-200/50 bg-white p-2"><span className="text-[11px] font-medium text-slate-500">Điện thoại</span><span className="truncate font-semibold text-slate-900">{partner.phone || "Chưa cập nhật"}</span></div>
+                    <div className="flex min-w-0 flex-col gap-0.5 rounded-xl border border-slate-200/50 bg-white p-2"><span className="text-[11px] font-medium text-slate-500">Email</span><span className="truncate font-semibold text-slate-900">{partner.email || "Chưa cập nhật"}</span></div>
+                    <div className="col-span-2 flex min-w-0 flex-col gap-0.5 rounded-xl border border-slate-200/50 bg-white p-2"><span className="text-[11px] font-medium text-slate-500">Địa chỉ</span><span className="line-clamp-2 font-semibold text-slate-900">{partner.address || "Chưa cập nhật"}</span></div>
+                    {role === "collaborator" && <div className="col-span-2 flex min-w-0 flex-col gap-0.5 rounded-xl border border-slate-200/50 bg-white p-2"><span className="text-[11px] font-medium text-slate-500">Tài khoản xem sao kê</span><span className="truncate font-semibold text-slate-900">{linkedUser?.displayName || linkedUser?.email || (partner.userId ? "Đã liên kết tài khoản" : "Chưa liên kết")}</span>{linkedUser?.displayName && linkedUser.email && <span className="truncate text-[11px] text-slate-500">{linkedUser.email}</span>}</div>}
+                  </div>
+                  {canManage && <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
+                    {canManage && <button type="button" onClick={() => startEdit(partner)} aria-label={`Chỉnh sửa ${partner.name}`} className="flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Pencil aria-hidden="true" className="size-3.5 text-slate-500" />Chỉnh sửa</button>}
+                  </div>}
+                </li>;
+                })}
+              </ul>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-max text-left text-xs">
+                  <thead><tr className="border-b border-slate-200/80 bg-slate-50/70 text-xs font-semibold text-slate-600">
+                    <th scope="col" className="px-3.5 py-3 text-left font-semibold text-slate-700">Mã & tên đối tác</th>
+                    <th scope="col" className="px-3.5 py-3 text-left font-semibold text-slate-700">Vai trò</th>
+                    <th scope="col" className="px-3.5 py-3 text-left font-semibold text-slate-700">Liên hệ</th>
+                    <th scope="col" className="px-3.5 py-3 text-left font-semibold text-slate-700">Địa chỉ</th>
+                    <th scope="col" className="px-3.5 py-3 text-left font-semibold text-slate-700">Liên kết dữ liệu</th>
+                    <th scope="col" className="px-3.5 py-3 text-left font-semibold text-slate-700">Tài khoản sao kê</th>
+                    <th scope="col" className="px-3.5 py-3 text-center font-semibold text-slate-700">Trạng thái</th>
+                    {canManage && <th scope="col" className="px-3.5 py-3 text-center font-semibold text-slate-700">Hành động</th>}
+                  </tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {visible.map((partner) => {
+                      const linkedUser = getLinkedUser(partner);
+                      const role = getRetailPartnerRole(partner);
+                      return <tr key={partner._id} className="text-slate-700 transition-colors hover:bg-slate-50/60">
+                      <td className="px-3.5 py-3"><div className="text-xs font-semibold text-slate-900">{partner.name}</div><div className="mt-0.5 text-[11px] font-normal text-slate-500">{partner.code}</div></td>
+                      <td className="px-3.5 py-3"><span className="inline-block rounded-full border border-slate-200/60 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">{roleLabels[role]}</span></td>
+                      <td className="px-3.5 py-3"><div className="text-xs font-medium text-slate-800">{partner.phone || "Chưa có số điện thoại"}</div><div className="mt-0.5 text-[11px] font-normal text-slate-500">{partner.email || "Chưa có email"}</div></td>
+                      <td className="max-w-64 px-3.5 py-3 text-xs text-slate-600">{partner.address || "Chưa cập nhật"}</td>
+                      <td className="px-3.5 py-3 text-xs text-slate-600">{role === "supplier" ? partner.supplier ? `${partner.supplier.name} (${partner.supplier.code})` : partner.supplierId ? "Đã liên kết kho" : "Chưa liên kết" : role === "dealer" ? getLinkedCustomer(partner)?.name || (partner.customerId ? "Đã liên kết khách hàng" : "Chưa liên kết khách hàng") : "—"}</td>
+                      <td className="px-3.5 py-3">{role === "collaborator" ? <><div className="text-xs font-medium text-slate-800">{linkedUser?.displayName || linkedUser?.email || (partner.userId ? "Đã liên kết tài khoản" : "Chưa liên kết")}</div>{linkedUser?.displayName && linkedUser.email && <div className="mt-0.5 text-[11px] text-slate-500">{linkedUser.email}</div>}</> : <span className="text-slate-500">—</span>}</td>
+                      <td className="px-3.5 py-3 text-center"><span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-semibold", partner.status === "active" ? "border-sky-100 bg-sky-50 text-[#007EB8]" : "border-slate-200 bg-slate-100 text-slate-600")}>{partner.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}</span></td>
+                      {canManage && <td className="px-3.5 py-3 text-center"><div className="flex items-center justify-center gap-1">
+                        {canManage && <button type="button" onClick={() => startEdit(partner)} aria-label={`Chỉnh sửa ${partner.name}`} title={`Chỉnh sửa ${partner.name}`} className="min-h-9 min-w-9 rounded-lg p-1.5 text-slate-500 hover:bg-sky-50 hover:text-[#00ADFC] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Pencil aria-hidden="true" className="size-3.5" /></button>}
+                      </div></td>}
+                      </tr>;
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>}
+          </ErpCard>
         </section>}
         {!canRead && <RetailPartnerStatement />}
       </div>

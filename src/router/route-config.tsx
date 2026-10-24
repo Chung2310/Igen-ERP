@@ -91,7 +91,7 @@ export const APP_ROUTES: AppRoute[] = [
     canAccess: (userProfile) =>
       userProfile.role === "superadmin" || userProfile.role === "admin" ||
       Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) =>
-        ["retail-partner:read", "retail-partner:manage", "retail-partner-self:read"].includes(permission))),
+        ["retail-partner:read", "retail-partner:manage", "retail-partner-policy:manage", "retail-partner-self:read"].includes(permission))),
   },
   {
     tab: "TÀI CHÍNH",
@@ -126,11 +126,6 @@ export const APP_ROUTES: AppRoute[] = [
     tab: "CÀI ĐẶT",
     component: lazy(() => import("../pages/SettingsTab")),
   },
-  {
-    tab: "HƯỚNG DẪN",
-    component: lazy(() => import("../pages/GuideTab")),
-  },
-
 ];
 
 export const DEFAULT_APP_TAB: TabType = "TỔNG QUAN";

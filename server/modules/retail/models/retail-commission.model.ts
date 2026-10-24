@@ -9,10 +9,29 @@ const policy = new Schema({ companyCode: { type: String, required: true }, partn
 policy.index({ companyCode: 1, partnerId: 1, kind: 1, sku: 1 }, { unique: true });
 export const RetailCommissionPolicyModel = model("RetailCommissionPolicy", policy);
 
+const basePolicy = new Schema({
+  companyCode: { type: String, required: true }, partnerId: { type: String, default: "" },
+  effectiveAt: { type: Date, required: true },
+  config: {
+    phoneAmount: { type: Number, required: true }, accessoryBps: { type: Number, required: true }, repairBps: { type: Number, required: true },
+  },
+  createdBy: String, updatedBy: String,
+}, { timestamps: true });
+basePolicy.index({ companyCode: 1, partnerId: 1, effectiveAt: 1 }, { unique: true });
+export const RetailCommissionBasePolicyModel = model("RetailCommissionBasePolicy", basePolicy);
+
+const productCommission = new Schema({
+  companyCode: { type: String, required: true }, sku: { type: String, required: true },
+  rule: { type: Schema.Types.Mixed, default: null }, updatedBy: String,
+}, { timestamps: true });
+productCommission.index({ companyCode: 1, sku: 1 }, { unique: true });
+export const RetailProductCommissionModel = model("RetailProductCommission", productCommission);
+
 const ledger = new Schema({ companyCode: { type: String, required: true }, branchId: { type: String, required: true },
   partnerId: { type: String, required: true }, sourceKey: { type: String, required: true }, sourceType: { type: String, required: true },
   sourceId: { type: String, required: true }, sourceCode: String, businessDate: { type: String, required: true }, sku: String,
   amount: { type: Number, required: true }, baseAmount: { type: Number, required: true }, ratePercent: { type: Number, required: true },
+  rateType: { type: String, enum: ["amount", "percent"] }, rateValue: Number,
   policyId: String, reason: String, createdAt: { type: Date, default: Date.now },
 });
 ledger.index({ companyCode: 1, sourceKey: 1 }, { unique: true });

@@ -149,7 +149,7 @@ export const productCatalogService = {
     return data.url as string;
   },
 
-  async listProducts(params: { q?: string; status?: string; productType?: string; categoryCode?: string; page?: number; limit?: number } = {}) {
+  async listProducts(params: { q?: string; status?: string; productType?: string; categoryCode?: string; brandCode?: string; page?: number; limit?: number } = {}) {
     const result = await apiFetch<ApiEnvelope<ListResult<CatalogProduct>>>(`${root}/products`, { params });
     return result.data;
   },

@@ -10,6 +10,7 @@ vi.mock("../customerApi", () => ({ customerApi: { purchaseHistory: vi.fn() } }))
 const history = {
   summary: { orderCount: 2, totalPurchased: 150000, totalPaid: 120000, currentDebt: 30000, lastPurchaseAt: "2026-08-20T00:00:00.000Z" },
   items: [{ _id: "order123", orderCode: "SO-001", status: "confirmed", businessDate: "2026-08-20T00:00:00.000Z", grandTotal: 150000, paidAmount: 120000, dueAmount: 30000, itemCount: 3, salespersonName: "Minh" }],
+  devices: [{ _id: "serial1", productName: "iPhone 15", sku: "IP15-128", internalBarcode: "BC-001", serialNumber: "356000000000001", soldAt: "2026-08-20T00:00:00.000Z", orderCode: "SO-001", warrantyEndAt: "2027-08-20T00:00:00.000Z" }],
 };
 
 afterEach(cleanup);
@@ -36,17 +37,21 @@ describe("CustomerPurchaseHistoryPanel", () => {
     expect(screen.getByText("2")).toBeTruthy();
     expect(screen.getByText("Tổng đã mua")).toBeTruthy();
     expect(screen.getAllByText(/150\.000\s*₫/).length).toBeGreaterThan(0);
-    expect(screen.getByText("SO-001")).toBeTruthy();
+    expect(screen.getAllByText("SO-001")).toHaveLength(2);
     expect(screen.getByText(/Đã xác nhận/)).toBeTruthy();
     expect(screen.getByText(/3 sản phẩm/)).toBeTruthy();
     expect(screen.getByText(/Nhân viên: Minh/)).toBeTruthy();
+    expect(screen.getByText("Thiết bị đã mua")).toBeTruthy();
+    expect(screen.getByText("iPhone 15")).toBeTruthy();
+    expect(screen.getByText("356000000000001")).toBeTruthy();
+    expect(screen.getByText("Còn bảo hành")).toBeTruthy();
   });
 
   it("shows an empty state after a successful request", async () => {
-    vi.mocked(customerApi.purchaseHistory).mockResolvedValueOnce({ summary: { orderCount: 0, totalPurchased: 0, totalPaid: 0, currentDebt: 0 }, items: [] });
+    vi.mocked(customerApi.purchaseHistory).mockResolvedValueOnce({ summary: { orderCount: 0, totalPurchased: 0, totalPaid: 0, currentDebt: 0 }, items: [], devices: [] });
     render(<CustomerPurchaseHistoryPanel customerId="c1" companyCode="IGEN" branchId="B1" />);
 
-    expect(await screen.findByText("Khách hàng chưa có đơn mua tại chi nhánh này.")).toBeTruthy();
+    expect(await screen.findByText(/Chưa có đơn mua tại chi nhánh này/)).toBeTruthy();
   });
 
   it("shows the request error", async () => {

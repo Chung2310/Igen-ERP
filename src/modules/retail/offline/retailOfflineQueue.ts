@@ -108,12 +108,17 @@ export function createIndexedDbRetailOfflineQueue(
       value.onsuccess = () => resolve(value.result);
       value.onerror = () => reject(value.error);
     });
+  const transactionDone = (transaction: IDBTransaction) => new Promise<void>((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(transaction.error || new Error("Không lưu được giao dịch POS."));
+    transaction.onerror = () => reject(transaction.error || new Error("Không lưu được giao dịch POS."));
+  });
   return {
     async put(item) {
-      (await db)
-        .transaction("orders", "readwrite")
-        .objectStore("orders")
-        .put(item);
+      const transaction = (await db).transaction("orders", "readwrite");
+      const done = transactionDone(transaction);
+      transaction.objectStore("orders").put(item);
+      await done;
     },
     async list(scope) {
       const all = (await request(
@@ -127,6 +132,7 @@ export function createIndexedDbRetailOfflineQueue(
       const database = await db,
         transaction = database.transaction("orders", "readwrite"),
         store = transaction.objectStore("orders"),
+        done = transactionDone(transaction),
         all = (await request(store.getAll())) as RetailOfflineOrder[];
       const item = all
         .filter(
@@ -142,26 +148,30 @@ export function createIndexedDbRetailOfflineQueue(
         updatedAt: new Date().toISOString(),
       };
       store.put(claimed);
+      await done;
       return claimed;
     },
     async update(id, patch) {
       const database = await db,
         transaction = database.transaction("orders", "readwrite"),
         store = transaction.objectStore("orders"),
+        done = transactionDone(transaction),
         item = (await request(store.get(id))) as RetailOfflineOrder | undefined;
-      if (item)
+      if (item) {
         store.put({
           ...item,
           ...patch,
           idempotencyKey: item.idempotencyKey,
           updatedAt: new Date().toISOString(),
         });
+      }
+      await done;
     },
     async remove(id) {
-      (await db)
-        .transaction("orders", "readwrite")
-        .objectStore("orders")
-        .delete(id);
+      const transaction = (await db).transaction("orders", "readwrite");
+      const done = transactionDone(transaction);
+      transaction.objectStore("orders").delete(id);
+      await done;
     },
   };
 }

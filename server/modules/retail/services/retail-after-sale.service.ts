@@ -17,6 +17,10 @@ import { enqueueTierRefresh, processTierRefreshBySourceKey } from "./retail-cust
 
 const actorId = (a: any) => String(a.id || a.uid || ""); const actorName = (a: any) => String(a.displayName || a.email || "");
 const fail = (message: string, code = "AFTER_SALE_INVALID", status = 400) => Object.assign(new Error(message), { code, status });
+function escapeRegex(value: string) {
+  const specialCharacters = new Set(["\\", ".", "*", "+", "?", "^", "$", "{", "}", "(", ")", "|", "[", "]"]);
+  return [...value].map((character) => specialCharacters.has(character) ? String.fromCharCode(92) + character : character).join("");
+}
 
 export function selectedItems(order: any, input: any, used: Map<number, number>) {
   if (!Array.isArray(input.items) || !input.items.length) throw fail("Vui lòng chọn ít nhất một sản phẩm.");
@@ -47,7 +51,32 @@ async function restoreSerials(scope: RetailBranchScope, order: any, doc: any, ac
 }
 
 export const RetailAfterSaleService = {
-  async list(scope: RetailBranchScope, query: any) { const page = Math.max(1, Number(query.page) || 1), limit = Math.min(100, Math.max(1, Number(query.limit) || 20)), filter: any = { ...scope, ...(query.type ? { type: String(query.type) } : {}), ...(query.orderId ? { orderId: String(query.orderId) } : {}) }; const [items, total] = await Promise.all([RetailAfterSaleModel.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), RetailAfterSaleModel.countDocuments(filter)]); return { items, total, page, limit }; },
+  async list(scope: RetailBranchScope, query: any) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const search = String(query.q || "").trim().slice(0, 100);
+    const filter: any = {
+      ...scope,
+      ...(query.type ? { type: String(query.type) } : {}),
+      ...(query.orderId ? { orderId: String(query.orderId) } : {}),
+    };
+    if (search) {
+      const pattern = new RegExp(escapeRegex(search), "i");
+      filter.$or = [
+        { code: pattern },
+        { orderCode: pattern },
+        { customerName: pattern },
+        { customerPhone: pattern },
+        { "items.sku": pattern },
+        { "items.productName": pattern },
+      ];
+    }
+    const [items, total] = await Promise.all([
+      RetailAfterSaleModel.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      RetailAfterSaleModel.countDocuments(filter),
+    ]);
+    return { items, total, page, limit };
+  },
   async create(scope: RetailBranchScope, input: any, actor: any, shift: any) {
     if (!["return", "buyback"].includes(input.type)) throw fail("Loại chứng từ không hợp lệ."); const reason = String(input.reason || "").trim(); if (!reason) throw fail("Lý do là bắt buộc.");
     const paymentMethod = String(input.paymentMethod || "cash") as "cash" | "card" | "transfer" | "ewallet", idempotencyKey = String(input.idempotencyKey || "").trim(); if (!["cash", "card", "transfer", "ewallet"].includes(paymentMethod)) throw fail("Phương thức chi tiền không hợp lệ."); if (!idempotencyKey) throw fail("Thiếu khóa chống tạo trùng.");

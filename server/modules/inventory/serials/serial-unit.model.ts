@@ -33,6 +33,7 @@ const SerialUnitSchema = new Schema<ISerialUnit>({
 SerialUnitSchema.index({ companyCode: 1, normalizedSerialNumber: 1 }, { unique: true });
 SerialUnitSchema.index({ companyCode: 1, normalizedInternalBarcode: 1 }, { unique: true });
 SerialUnitSchema.index({ companyCode: 1, branchId: 1, status: 1 });
+SerialUnitSchema.index({ companyCode: 1, soldBranchId: 1, customerId: 1, status: 1, soldAt: -1 });
 SerialUnitSchema.index({ companyCode: 1, "customerWarranty.endAt": 1 });
 SerialUnitSchema.index({ companyCode: 1, "supplierWarranty.endAt": 1, status: 1 });
 

@@ -2,51 +2,104 @@ import React from "react";
 import { Save, X } from "lucide-react";
 import { VietnameseDatePicker } from "../../student-management/components/Batches/VietnameseDatePicker";
 import { RoadmapPicker } from "../../student-management/components/ui/RoadmapPicker";
-import type { Customer, CustomerInput } from "../types";
+import type { BillingProfileInput, Customer, CustomerInput } from "../types";
 
 const empty: CustomerInput = { name: "", phone: "", type: "regular", email: "", dateOfBirth: "", address: "", notes: "" };
-const inputClass = "mt-1.5 h-9 w-full rounded-xl border border-sky-100 bg-white px-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10";
+const emptyBilling: BillingProfileInput = { legalName: "", taxId: "", address: "", invoiceEmail: "", contactName: "" };
+const inputClass = "mt-1.5 h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal text-on-surface outline-none transition placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20";
 
-export default function CustomerFormDialog({ customer, onClose, onSave }: { customer?: Customer; onClose: () => void; onSave: (input: CustomerInput) => Promise<void> }) {
+export default function CustomerFormDialog({ customer, onClose, onSave }: { customer?: Customer; onClose: () => void; onSave: (input: CustomerInput, billingProfile?: BillingProfileInput) => Promise<void> }) {
+  const dialogRef = React.useRef<HTMLDialogElement>(null);
+  const returnFocusRef = React.useRef<HTMLElement | null>(null);
   const [form, setForm] = React.useState<CustomerInput>({ ...empty, ...customer, dateOfBirth: customer?.dateOfBirth?.slice(0, 10) || "" });
+  const [billing, setBilling] = React.useState<BillingProfileInput>(emptyBilling);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
+  const needsBilling = form.type === "vat" && customer?.type !== "vat";
+
+  React.useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const activeElement = document.activeElement;
+    returnFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null;
+    if (!dialog.open) {
+      if (typeof dialog.showModal === "function") dialog.showModal();
+      else dialog.setAttribute("open", "");
+    }
+    return () => {
+      if (dialog.open && typeof dialog.close === "function") dialog.close();
+      returnFocusRef.current?.focus();
+    };
+  }, []);
+
   const field = (key: keyof CustomerInput, label: string, type = "text") => (
-    <label className="block text-xs font-medium text-slate-700">
-      <span>{label}{(key === "name" || key === "phone") && <span className="ml-1 text-rose-500">*</span>}</span>
-      <input type={type} required={key === "name" || key === "phone"} value={String(form[key] || "")} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} className={inputClass} />
+    <label className="block text-xs font-medium text-on-surface-variant">
+      <span>{label}{(key === "name" || key === "phone") && <span className="ml-1 text-error">*</span>}</span>
+      <input
+        type={type}
+        name={key}
+        autoComplete={key === "name" ? "name" : key === "phone" ? "tel" : key === "email" ? "email" : "off"}
+        required={key === "name" || key === "phone"}
+        autoFocus={key === "name"}
+        value={String(form[key] || "")}
+        onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
+        className={inputClass}
+      />
     </label>
   );
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 sm:p-5">
-      <form onSubmit={(event) => { event.preventDefault(); setSaving(true); setError(""); void onSave(form).catch((cause) => setError(cause instanceof Error ? cause.message : "Không lưu được khách hàng.")).finally(() => setSaving(false)); }} className="flex max-h-[min(90vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.2)]" role="dialog" aria-modal="true" aria-labelledby="customer-form-title">
-        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-5 py-3.5 sm:px-6">
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="customer-form-title"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        const expandedTrigger = dialogRef.current?.querySelector<HTMLButtonElement>('[aria-expanded="true"]');
+        if (!expandedTrigger) return;
+        event.preventDefault();
+        event.stopPropagation();
+        expandedTrigger.click();
+        expandedTrigger.focus();
+      }}
+      onCancel={(event) => { event.preventDefault(); if (!saving) onClose(); }}
+      onClick={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}
+      className="fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center overflow-hidden border-0 bg-transparent px-[max(0.75rem,env(safe-area-inset-left))] py-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] text-on-surface backdrop:bg-black/55 sm:p-5"
+    >
+      <form onSubmit={(event) => { event.preventDefault(); setSaving(true); setError(""); void onSave(form, needsBilling ? { legalName: billing.legalName.trim(), taxId: billing.taxId.trim(), address: billing.address.trim(), invoiceEmail: billing.invoiceEmail.trim(), contactName: billing.contactName?.trim(), isDefault: true } : undefined).catch((cause) => setError(cause instanceof Error ? cause.message : "Không lưu được khách hàng.")).finally(() => setSaving(false)); }} aria-busy={saving} className="flex max-h-[min(90vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-xl">
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-outline-variant px-5 py-3.5 sm:px-6">
           <div className="flex items-center gap-3">
-            <span className="h-6 w-1 rounded-full bg-brand-primary" aria-hidden="true" />
-            <h2 id="customer-form-title" className="text-base font-medium text-slate-900">{customer ? "Sửa hồ sơ khách hàng" : "Thêm khách hàng"}</h2>
+            <span className="h-6 w-1 rounded-full bg-primary" aria-hidden="true" />
+            <h2 id="customer-form-title" className="text-base font-semibold text-on-surface text-balance">{customer ? "Sửa hồ sơ khách hàng" : "Thêm khách hàng"}</h2>
           </div>
-          <button type="button" aria-label="Đóng" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition hover:bg-rose-600"><X className="h-4 w-4" /></button>
+          <button type="button" aria-label="Đóng" disabled={saving} onClick={onClose} className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><X className="h-4 w-4" aria-hidden="true" /></button>
         </div>
         <div className="space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
           <div>
-            <h3 className="mb-3 text-sm font-medium text-slate-800">Thông tin cơ bản</h3>
+            <h3 className="mb-3 text-sm font-semibold text-on-surface text-balance">Thông tin cơ bản</h3>
             <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
               {field("name", "Họ và tên")}
-              {field("phone", "Số điện thoại")}
+              {field("phone", "Số điện thoại", "tel")}
               {field("email", "Email", "email")}
-              <label className="block text-xs font-medium text-slate-700"><span>Ngày sinh</span><div className="mt-1.5"><VietnameseDatePicker ariaLabel="Ngày sinh" value={form.dateOfBirth} onChange={(dateOfBirth) => setForm((current) => ({ ...current, dateOfBirth }))} selectionOnly /></div></label>
-              <label className="block text-xs font-medium text-slate-700"><span>Loại khách</span><div className="mt-1.5"><RoadmapPicker value={form.type} onChange={(type) => setForm((current) => ({ ...current, type: type as CustomerInput["type"] }))} placeholder="Chọn loại khách" allowClear={false} portal options={[{ value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} /></div></label>
+              <label className="block text-xs font-medium text-on-surface-variant"><span>Ngày sinh</span><div className="mt-1.5"><VietnameseDatePicker ariaLabel="Ngày sinh" value={form.dateOfBirth} onChange={(dateOfBirth) => setForm((current) => ({ ...current, dateOfBirth }))} selectionOnly portalTarget={() => dialogRef.current} /></div></label>
+              <label className="block text-xs font-medium text-on-surface-variant"><span>Loại khách</span><div className="mt-1.5"><RoadmapPicker value={form.type} onChange={(type) => setForm((current) => ({ ...current, type: type as CustomerInput["type"] }))} placeholder="Chọn loại khách" allowClear={false} options={[{ value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} /></div></label>
               {field("address", "Địa chỉ")}
             </div>
           </div>
-          <div className="border-t border-slate-100 pt-3"><h3 className="mb-3 text-sm font-medium text-slate-800">Thông tin bổ sung</h3>{field("notes", "Ghi chú")}</div>
-          {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+          {needsBilling && <section className="space-y-3 border-t border-outline-variant pt-3" aria-labelledby="customer-vat-form-title">
+            <div><h3 id="customer-vat-form-title" className="text-sm font-semibold text-on-surface text-balance">Thông tin xuất VAT</h3><p className="mt-1 text-xs text-on-surface-variant text-pretty">Hồ sơ VAT mặc định được dùng khi lập hóa đơn tại POS.</p></div>
+            <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+              {([
+                ["legalName", "Tên pháp nhân"], ["taxId", "Mã số thuế"], ["address", "Địa chỉ hóa đơn"], ["invoiceEmail", "Email nhận hóa đơn"], ["contactName", "Người liên hệ"],
+              ] as const).map(([key, label]) => <label key={key} className="block text-xs font-medium text-on-surface-variant">{label}{key !== "contactName" && <span aria-hidden="true"> *</span>}<input required={key !== "contactName"} type={key === "invoiceEmail" ? "email" : "text"} autoComplete={key === "invoiceEmail" ? "email" : "off"} value={billing[key] || ""} onChange={(event) => setBilling((current) => ({ ...current, [key]: event.target.value }))} className={inputClass} /></label>)}
+            </div>
+          </section>}
+          <div className="border-t border-outline-variant pt-3"><h3 className="mb-3 text-sm font-semibold text-on-surface text-balance">Thông tin bổ sung</h3>{field("notes", "Ghi chú")}</div>
+          {error && <p role="alert" className="rounded-lg border border-error bg-error-container px-3 py-2 text-sm text-on-error-container">{error}</p>}
         </div>
-        <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-slate-100 px-5 py-3 sm:px-6">
-          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-normal text-slate-600 transition hover:bg-slate-50">Hủy</button>
-          <button disabled={saving} className="inline-flex h-9 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-medium text-white transition hover:bg-sky-600 disabled:opacity-60"><Save className="h-4 w-4" />{saving ? "Đang lưu..." : "Lưu khách hàng"}</button>
+        <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-outline-variant px-5 py-3 sm:px-6">
+          <button type="button" disabled={saving} onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">Hủy</button>
+          <button type="submit" disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary transition hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"><Save className="h-4 w-4" aria-hidden="true" />{saving ? "Đang lưu..." : "Lưu khách hàng"}</button>
         </div>
       </form>
-    </div>
+    </dialog>
   );
 }

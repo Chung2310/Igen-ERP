@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { payrollReconciliationController } from "../controller/payroll-reconciliation.controller";
 import { payrollController } from "../controller/payroll.controller";
+import { payrollPayslipReviewController } from "../controller/payroll-payslip-review.controller";
 import { payrollFormulaController } from "../controller/payroll-formula.controller";
 import { payrollPeriodInputController } from "../controller/payroll-period-input.controller";
 import { payrollLineOverrideController } from "../controller/payroll-line-override.controller";
@@ -56,6 +57,10 @@ payrollRouter.get(
 );
 payrollRouter.post("/runs/:id/payslips/:employeeId/withdraw", requirePermission("payroll-payment:manage") as any, payrollController.withdrawPayslip as any);
 payrollRouter.get("/employee/me/payslips", payrollController.listEmployeePayslips as any);
+payrollRouter.get("/employee/me/payslip-review-requests", payrollPayslipReviewController.mine as any);
+payrollRouter.post("/employee/me/payslips/:id/review-requests", payrollPayslipReviewController.create as any);
+payrollRouter.get("/runs/:id/payslip-review-requests", requirePermission("payroll-period:read") as any, payrollPayslipReviewController.listRun as any);
+payrollRouter.post("/runs/:id/payslip-review-requests/:requestId/resolve", requirePermission("payroll-period:manage") as any, payrollPayslipReviewController.resolve as any);
 payrollRouter.post("/runs/:id/exports", requirePermission("payroll-payment:read") as any, payrollController.exportPayroll as any);
 payrollRouter.get("/runs/:id/payments", requirePermission("payroll-payment:read") as any, payrollController.listPayments as any);
 payrollRouter.post("/runs/:id/payments", requirePermission("payroll-payment:manage") as any, payrollController.createPayment as any);

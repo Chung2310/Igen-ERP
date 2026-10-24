@@ -14,4 +14,9 @@ describe("recruitment navigation", () => {
   it("defines a stable recruitment deep-link slug", () => {
     expect(HR_SUB_TAB_ROUTES).toContainEqual({ slug: "tuyen-dung", value: "TUYỂN DỤNG" });
   });
+
+  it("defines deep links for department and branch management", () => {
+    expect(HR_SUB_TAB_ROUTES).toContainEqual({ slug: "phong-ban", value: "PHÒNG BAN" });
+    expect(HR_SUB_TAB_ROUTES).toContainEqual({ slug: "chi-nhanh", value: "CHI NHÁNH" });
+  });
 });

@@ -29,13 +29,36 @@ import { claimSerialsForOrder, releaseSerialsForOrder } from "./retail-serial-or
 import { ensureDefaultWarehouse } from "../../inventory/warehouse/warehouse.service";
 import { accrueOrderCommission, reverseOrderCommission } from "./retail-commission.service";
 
+const canonicalRetailRequest = (value: any): any => Array.isArray(value) ? value.map(canonicalRetailRequest) : value && typeof value === "object"
+  ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalRetailRequest(value[key])])) : value;
+export function retailDraftRequestFingerprint(input: any) {
+  const { idempotencyKey: _idempotencyKey, ...payload } = input || {};
+  return JSON.stringify(canonicalRetailRequest(payload));
+}
+export function retailOrderExtras(input: any) {
+  const note = String(input?.note || "").trim();
+  if (note.length > 2000) throw retailError("Ghi chú tối đa 2000 ký tự.", "ORDER_NOTE_INVALID", 400);
+  if (!input?.installment) return { note, installment: null };
+  const partner = String(input.installment.partner || "").trim();
+  const months = Number(input.installment.months);
+  const prepayPercent = Number(input.installment.prepayPercent);
+  if (!partner || partner.length > 100 || !Number.isSafeInteger(months) || months < 1 || months > 60 || !Number.isFinite(prepayPercent) || prepayPercent < 0 || prepayPercent > 100) throw retailError("Thông tin trả góp không hợp lệ.", "INSTALLMENT_INVALID", 400);
+  return { note, installment: { partner, months, prepayPercent } };
+}
+export function retailInstallmentAmounts(total: number, installment: { prepayPercent: number } | null | undefined, collected: number, pendingTransferAmount = 0) {
+  if (!installment) return null;
+  const upfrontAmount = Math.round(total * installment.prepayPercent / 100);
+  if (!Number.isSafeInteger(pendingTransferAmount) || pendingTransferAmount < 0 || collected + pendingTransferAmount !== upfrontAmount) throw retailError("Số tiền thu phải khớp khoản trả trước đã chọn.", "INSTALLMENT_UPFRONT_MISMATCH", 400);
+  return { upfrontAmount, financedAmount: total - upfrontAmount };
+}
+
 export function receivableEntriesForOrderChange(action: "confirm" | "collect" | "cancel", order: any, collectedAmount: number): PostReceivableEntryInput[] {
   const orderId = String(order._id);
   const customerId = String(order.customerId || "");
   if (!customerId) return [];
-  if (action === "confirm" && order.dueAmount > 0) return [{ type: "charge", customerId, orderId, amount: order.dueAmount, idempotencyKey: `retail-order:${orderId}:debt-charge` }];
+  if (action === "confirm" && order.dueAmount - Number(order.pendingTransferAmount || 0) > 0) return [{ type: "charge", customerId, orderId, amount: order.dueAmount - Number(order.pendingTransferAmount || 0), idempotencyKey: `retail-order:${orderId}:debt-charge` }];
   if (action === "collect" && collectedAmount > 0) return [{ type: "payment", customerId, orderId, amount: collectedAmount, idempotencyKey: `retail-order:${orderId}:debt-payment:${collectedAmount}:${order.dueAmount}` }];
-  if (action === "cancel" && order.dueAmount > 0) return [{ type: "reversal", customerId, orderId, amount: order.dueAmount, reason: "Hủy số dư công nợ của đơn", idempotencyKey: `retail-order:${orderId}:debt-cancel` }];
+  if (action === "cancel" && order.dueAmount - Number(order.pendingTransferAmount || 0) > 0) return [{ type: "reversal", customerId, orderId, amount: order.dueAmount - Number(order.pendingTransferAmount || 0), reason: "Hủy số dư công nợ của đơn", idempotencyKey: `retail-order:${orderId}:debt-cancel` }];
   return [];
 }
 
@@ -132,6 +155,11 @@ const duplicate = (error: any) => error?.code === 11000;
 
 function retailError(message: string, code: string, status = 409) {
   return Object.assign(new Error(message), { code, status });
+}
+
+export function assertRetailPosSession(input: { posSessionId?: string; terminalId?: string }, shift: { _id?: unknown; terminalId?: string } | null) {
+  if (input.posSessionId && String(input.posSessionId) !== String(shift?._id || "")) throw retailError("Phiên POS đã thay đổi. Hãy tải lại quầy bán hàng.", "POS_SESSION_INVALID", 409);
+  if (input.terminalId && shift?.terminalId && String(input.terminalId) !== String(shift.terminalId)) throw retailError("Phiên POS đang mở trên máy khác. Hãy tiếp tục phiên trên máy này trước khi bán.", "POS_TERMINAL_CHANGED", 409);
 }
 
 export function assertHeldDraftCapacity(activeDrafts: number) {
@@ -251,33 +279,65 @@ export const RetailOrderService = {
   },
   async detail(scope: RetailBranchScope, id: string, actor?: any, canManage = false) { if (!Types.ObjectId.isValid(id)) throw new Error("Mã đơn không hợp lệ."); const order: any = await RetailOrderModel.findOne({ _id: id, ...scope }).lean(); if (!order) throw new Error("Không tìm thấy đơn hàng."); if (order.status === "draft" && actor) assertHeldDraftAccess(String(order.createdBy), actorId(actor), canManage); return order; },
   async createDraft(scope: RetailBranchScope, input: any, actor: any) {
+    const extras = retailOrderExtras(input);
     const currentBusinessDate = businessDateInVietnam(new Date());
     await expireHeldDrafts(scope, currentBusinessDate);
     const creator = actorId(actor);
+    const requestKey = String(input.idempotencyKey || "").trim();
+    const requestFingerprint = requestKey ? retailDraftRequestFingerprint(input) : undefined;
+    const findRequest = () => RetailOrderModel.findOne({ ...scope, createdBy: creator, createRequestKey: requestKey }).lean();
+    if (requestKey) {
+      const prior: any = await findRequest();
+      if (prior) {
+        if (prior.createRequestFingerprint !== requestFingerprint) throw retailError("Khóa yêu cầu tạo đơn đã được dùng với nội dung khác.", "IDEMPOTENCY_KEY_REUSED");
+        return prior;
+      }
+    }
     const used = await RetailOrderModel.find({ ...scope, status: "draft", createdBy: creator }).select("heldSlot").lean();
     assertHeldDraftCapacity(used.length);
     const occupied = new Set(used.map((item: any) => Number(item.heldSlot)));
     const [{ pricing, couponSnapshot, manualOrderDiscount, pointRedemption }, customerSnapshot, retailPartner] = await Promise.all([priceInput(scope, input), resolveOrderCustomerSnapshots(scope, input.customerId, input.billingProfileId), resolveRetailPartner(scope, input.retailPartnerId)]);
-    requireRetailPaymentCustomer(customerSnapshot?.customerId);
     for (let slot = 1; slot <= 5; slot += 1) {
       if (occupied.has(slot)) continue;
       try {
-        return await RetailOrderModel.create({ ...scope, items: pricing.lines, subtotal: pricing.subtotal, orderDiscount: pricing.orderDiscount, taxRate: pricing.taxRate, taxAmount: pricing.taxAmount, shippingFee: pricing.shippingFee, grandTotal: pricing.grandTotal, totalCost: pricing.totalCost, payments: [], refunds: [], paidAmount: 0, refundedAmount: 0, dueAmount: pricing.grandTotal, paymentStatus: "unpaid", status: "draft", businessDate: currentBusinessDate, heldAt: new Date(), heldSlot: slot, salespersonId: String(input.salespersonId || creator), salespersonName: String(input.salespersonName || actorName(actor)), createdBy: creator, createdByName: actorName(actor), stockApplied: false, version: 0, ...(customerSnapshot || {}), ...(retailPartner ? { retailPartnerId: retailPartner.partnerId } : {}), couponCode: couponSnapshot?.code, manualOrderDiscount, pointsRedeemed: pointRedemption.points, pointsDiscount: pointRedemption.amount, dueDate: input.dueDate });
+        return await RetailOrderModel.create({ ...scope, ...extras, ...(requestKey ? { createRequestKey: requestKey, createRequestFingerprint: requestFingerprint } : {}), items: pricing.lines, subtotal: pricing.subtotal, orderDiscount: pricing.orderDiscount, taxRate: pricing.taxRate, taxAmount: pricing.taxAmount, shippingFee: pricing.shippingFee, grandTotal: pricing.grandTotal, totalCost: pricing.totalCost, payments: [], refunds: [], paidAmount: 0, refundedAmount: 0, dueAmount: pricing.grandTotal, paymentStatus: "unpaid", status: "draft", businessDate: currentBusinessDate, heldAt: new Date(), heldSlot: slot, salespersonId: String(input.salespersonId || creator), salespersonName: String(input.salespersonName || actorName(actor)), createdBy: creator, createdByName: actorName(actor), stockApplied: false, version: 0, ...(customerSnapshot || {}), ...(retailPartner ? { retailPartnerId: retailPartner.partnerId } : {}), couponCode: couponSnapshot?.code, manualOrderDiscount, pointsRedeemed: pointRedemption.points, pointsDiscount: pointRedemption.amount, dueDate: input.dueDate });
       } catch (error) {
         if (!duplicate(error)) throw error;
+        if (requestKey) {
+          const prior: any = await findRequest();
+          if (prior) {
+            if (prior.createRequestFingerprint !== requestFingerprint) throw retailError("Khóa yêu cầu tạo đơn đã được dùng với nội dung khác.", "IDEMPOTENCY_KEY_REUSED");
+            return prior;
+          }
+        }
       }
     }
     throw retailError("Mỗi thu ngân chỉ được giữ tối đa 5 đơn.", "HELD_DRAFT_LIMIT");
   },
   async updateDraft(scope: RetailBranchScope, id: string, input: any, actor: any, canManage = false) {
+    const extras = retailOrderExtras(input);
     const currentBusinessDate = businessDateInVietnam(new Date());
     await expireHeldDrafts(scope, currentBusinessDate);
     const existing: any = await RetailOrderModel.findOne({ _id: id, ...scope, status: "draft" }).lean();
     if (!existing) throw retailError("Đơn hàng không thể chỉnh sửa hoặc đã hết hạn.", "HELD_DRAFT_EXPIRED");
     assertHeldDraftAccess(String(existing.createdBy), actorId(actor), canManage);
+    const requestKey = String(input.idempotencyKey || "").trim();
+    const requestFingerprint = requestKey ? retailDraftRequestFingerprint(input) : undefined;
+    if (requestKey && existing.lastUpdateRequestKey === requestKey) {
+      if (existing.lastUpdateRequestFingerprint !== requestFingerprint) throw retailError("Khóa yêu cầu sửa đơn đã được dùng với nội dung khác.", "IDEMPOTENCY_KEY_REUSED");
+      return existing;
+    }
     const expectedVersion = Number(input.version);
     if (!Number.isSafeInteger(expectedVersion)) throw retailError("Phiên bản đơn hàng là bắt buộc.", "ORDER_VERSION_CONFLICT");
-    const [{ pricing, couponSnapshot, manualOrderDiscount, pointRedemption }, customerSnapshot, retailPartner] = await Promise.all([priceInput(scope, input), resolveOrderCustomerSnapshots(scope, input.customerId, input.billingProfileId), resolveRetailPartner(scope, input.retailPartnerId)]); const order = await RetailOrderModel.findOneAndUpdate({ _id: id, ...scope, status: "draft", version: expectedVersion }, { $set: { items: pricing.lines, subtotal: pricing.subtotal, orderDiscount: pricing.orderDiscount, taxRate: pricing.taxRate, taxAmount: pricing.taxAmount, shippingFee: pricing.shippingFee, grandTotal: pricing.grandTotal, totalCost: pricing.totalCost, dueAmount: pricing.grandTotal, retailPartnerId: retailPartner?.partnerId, couponCode: couponSnapshot?.code, manualOrderDiscount, pointsRedeemed: pointRedemption.points, pointsDiscount: pointRedemption.amount, ...(customerSnapshot || { customerId: undefined, customerName: undefined, customerPhone: undefined, billingProfileId: undefined, customerSnapshot: undefined, billingSnapshot: undefined }), dueDate: input.dueDate }, $inc: { version: 1 } }, { returnDocument: 'after' }); if (!order) throw retailError("Đơn đã được thay đổi ở màn hình khác.", "ORDER_VERSION_CONFLICT"); return order;
+    const [{ pricing, couponSnapshot, manualOrderDiscount, pointRedemption }, customerSnapshot, retailPartner] = await Promise.all([priceInput(scope, input), resolveOrderCustomerSnapshots(scope, input.customerId, input.billingProfileId), resolveRetailPartner(scope, input.retailPartnerId)]); const order = await RetailOrderModel.findOneAndUpdate({ _id: id, ...scope, status: "draft", version: expectedVersion }, { $set: { ...extras, items: pricing.lines, subtotal: pricing.subtotal, orderDiscount: pricing.orderDiscount, taxRate: pricing.taxRate, taxAmount: pricing.taxAmount, shippingFee: pricing.shippingFee, grandTotal: pricing.grandTotal, totalCost: pricing.totalCost, dueAmount: pricing.grandTotal, retailPartnerId: retailPartner?.partnerId, couponCode: couponSnapshot?.code, manualOrderDiscount, pointsRedeemed: pointRedemption.points, pointsDiscount: pointRedemption.amount, ...(customerSnapshot || { customerId: undefined, customerName: undefined, customerPhone: undefined, billingProfileId: undefined, customerSnapshot: undefined, billingSnapshot: undefined }), dueDate: input.dueDate, ...(requestKey ? { lastUpdateRequestKey: requestKey, lastUpdateRequestFingerprint: requestFingerprint } : {}) }, $inc: { version: 1 } }, { returnDocument: 'after' }); if (!order) {
+      const prior: any = requestKey ? await RetailOrderModel.findOne({ _id: id, ...scope, lastUpdateRequestKey: requestKey }).lean() : null;
+      if (prior) {
+        if (prior.lastUpdateRequestFingerprint !== requestFingerprint) throw retailError("Khóa yêu cầu sửa đơn đã được dùng với nội dung khác.", "IDEMPOTENCY_KEY_REUSED");
+        return prior;
+      }
+      throw retailError("Đơn đã được thay đổi ở màn hình khác.", "ORDER_VERSION_CONFLICT");
+    }
+    return order;
   },
   async confirm(scope: RetailBranchScope, id: string, input: any, actor: any, shift: any, canManage = false) {
     const key = String(input.idempotencyKey || "").trim(); if (!key) throw new Error("Idempotency key là bắt buộc.");
@@ -289,14 +349,22 @@ export const RetailOrderService = {
       if (!order || !invoice) throw retailError("Khóa yêu cầu không thuộc chi nhánh hiện tại.", "IDEMPOTENCY_SCOPE_MISMATCH", 403);
       return { order, invoice };
     }
+    assertRetailPosSession(input, shift);
     const session = await mongoose.startSession(); let result: any;
     try { await session.withTransaction(async () => {
       await RetailIdempotencyModel.create([{ companyCode: scope.companyCode, branchId: scope.branchId, key, operation: "confirm-order", orderId: id, status: "processing" }], { session });
       const draft: any = await RetailOrderModel.findOne({ _id: id, ...scope, status: "draft" }).session(session); if (!draft) throw Object.assign(new Error("Đơn hàng không thể xác nhận."), { code: "ORDER_NOT_EDITABLE", status: 409 });
-      requireRetailPaymentCustomer(draft.customerId);
+      if (input.expectedVersion !== undefined && Number(input.expectedVersion) !== Number(draft.version)) throw retailError("Đơn đã thay đổi sau lần báo giá. Hãy kiểm tra lại giỏ hàng.", "ORDER_VERSION_CONFLICT", 409);
       assertHeldDraftAccess(String(draft.createdBy), actorId(actor), canManage);
       const { settings, pricing, couponSnapshot, pointRedemption } = await priceInput(scope, { ...draft.toObject(), pointsToRedeem: draft.pointsRedeemed }, session); if (Number(input.expectedGrandTotal) !== pricing.grandTotal) throw Object.assign(new Error("Tổng tiền đã thay đổi."), { code: "ORDER_TOTAL_MISMATCH", status: 409, details: { expected: Number(input.expectedGrandTotal), actual: pricing.grandTotal } });
       const normalized = normalizePayments(input.payments || [], pricing.grandTotal); const dueAmount = pricing.grandTotal - normalized.total;
+      const pendingTransferAmount = input.pendingTransfer === true ? Number(input.pendingTransferAmount ?? dueAmount) : 0;
+      if (!Number.isSafeInteger(pendingTransferAmount) || pendingTransferAmount < 0 || pendingTransferAmount > dueAmount || (input.pendingTransfer === true && pendingTransferAmount === 0) || (input.pendingTransfer !== true && Number(input.pendingTransferAmount || 0) !== 0)) throw retailError("Số tiền QR chờ thanh toán không hợp lệ.", "PENDING_TRANSFER_INVALID", 400);
+      if (!draft.installment && pendingTransferAmount > 0 && pendingTransferAmount !== dueAmount) throw retailError("Số tiền QR phải khớp phần còn lại của đơn.", "PENDING_TRANSFER_INVALID", 400);
+      if (draft.installment) {
+        Object.assign(draft.installment, retailInstallmentAmounts(pricing.grandTotal, draft.installment, normalized.total, pendingTransferAmount));
+      }
+      if (dueAmount - pendingTransferAmount > 0) requireRetailPaymentCustomer(draft.customerId);
       if (dueAmount > 0 && !draft.dueDate) throw new Error("Bán nợ cần khách hàng và hạn thanh toán.");
       const customerSnapshots = await resolveOrderCustomerSnapshots(scope, draft.customerId, draft.billingProfileId);
       const customer: any = customerSnapshots ? { name: customerSnapshots.customerName, phone: customerSnapshots.customerPhone } : null;
@@ -307,8 +375,8 @@ export const RetailOrderService = {
       if (pointRedemption.points) await postPoints({ ...scope, customerId: String(draft.customerId), sourceKey: `order:${draft._id}:redeem`, sourceId: String(draft._id), type: "redeem", points: -pointRedemption.points, reason: "Sử dụng điểm thanh toán", actorId: actorId(actor) }, session);
       await applyOrderStockOut(scope, String(draft._id), orderCode, pricing.lines, actorName(actor), settings.allowNegativeStock, session);
       const retailPartnerSnapshot = await resolveRetailPartner(scope, draft.retailPartnerId);
-      Object.assign(draft, { orderCode, shiftId: String(shift._id), businessDate: shift.businessDate, items: pricing.lines, ...pricing, ...(customerSnapshots || {}), customerName: customer?.name || draft.customerName, customerPhone: customer?.phone || draft.customerPhone, ...(retailPartnerSnapshot ? { retailPartnerSnapshot } : {}), ...(couponSnapshot ? { couponSnapshot: { id: couponSnapshot.id, code: couponSnapshot.code, name: couponSnapshot.name, amount: couponSnapshot.amount } } : {}), payments: normalized.payments.map((payment) => snapshotPayment(payment, shift, actor)), paidAmount: normalized.total, dueAmount, paymentStatus: paymentStatusFor(normalized.total, pricing.grandTotal, 0), status: dueAmount === 0 ? "completed" : "confirmed", stockApplied: true, confirmedAt: new Date(), completedAt: dueAmount === 0 ? new Date() : undefined, version: draft.version + 1 });
-      await claimSerialsForOrder(scope, draft.items as any, String(draft._id), String(draft.customerId), actorId(actor), session, actorName(actor), { businessDate: shift.businessDate, orderCode }); await draft.save({ session });
+      Object.assign(draft, { orderCode, shiftId: String(shift._id), businessDate: shift.businessDate, items: pricing.lines, ...pricing, ...(customerSnapshots || {}), customerName: customer?.name || draft.customerName, customerPhone: customer?.phone || draft.customerPhone, ...(retailPartnerSnapshot ? { retailPartnerSnapshot } : {}), ...(couponSnapshot ? { couponSnapshot: { id: couponSnapshot.id, code: couponSnapshot.code, name: couponSnapshot.name, amount: couponSnapshot.amount } } : {}), payments: normalized.payments.map((payment) => snapshotPayment(payment, shift, actor)), paidAmount: normalized.total, dueAmount, pendingTransferAmount, paymentStatus: paymentStatusFor(normalized.total, pricing.grandTotal, 0), status: dueAmount === 0 ? "completed" : "confirmed", stockApplied: true, confirmedAt: new Date(), completedAt: dueAmount === 0 ? new Date() : undefined, version: draft.version + 1 });
+      await claimSerialsForOrder(scope, draft.items as any, String(draft._id), String(draft.customerId || ""), actorId(actor), session, actorName(actor), { businessDate: shift.businessDate, orderCode }); await draft.save({ session });
       await earnOrderPoints(scope, draft, session);
       await accrueOrderCommission(scope, draft, session);
       await enqueueOrderTierRefresh(scope, "confirm", draft, session);
@@ -320,7 +388,7 @@ export const RetailOrderService = {
     return result;
   },
   async collect(scope: RetailBranchScope, id: string, input: any, actor: any, shift: any) {
-    const session = await mongoose.startSession(); let result: any; try { await session.withTransaction(async () => { const order: any = await RetailOrderModel.findOne({ _id: id, ...scope, status: "confirmed" }).session(session); if (!order) throw new Error("Đơn không thể thu thêm."); const normalized = normalizePayments(input.payments || [], order.dueAmount); const transactionKey = String(input.idempotencyKey || `v${order.version}:${normalized.total}:${order.dueAmount}`); order.payments.push(...normalized.payments.map((payment) => snapshotPayment(payment, shift, actor))); order.paidAmount += normalized.total; order.dueAmount = order.grandTotal - order.paidAmount; order.paymentStatus = paymentStatusFor(order.paidAmount, order.grandTotal, order.refundedAmount); if (order.dueAmount === 0) { order.status = "completed"; order.completedAt = new Date(); } order.version += 1; await order.save({ session }); await earnOrderPoints(scope, order, session); await accrueOrderCommission(scope, order, session); await publishRetailOrderEvent("paid", scope, order, actor, { session, amount: normalized.total, transactionKey }); result = order; }); } finally { await session.endSession(); } return result;
+    const session = await mongoose.startSession(); let result: any; try { await session.withTransaction(async () => { const order: any = await RetailOrderModel.findOne({ _id: id, ...scope, status: "confirmed" }).session(session); if (!order) throw new Error("Đơn không thể thu thêm."); const normalized = normalizePayments(input.payments || [], Math.max(0, order.dueAmount - Number(order.pendingTransferAmount || 0))); const transactionKey = String(input.idempotencyKey || `v${order.version}:${normalized.total}:${order.dueAmount}`); order.payments.push(...normalized.payments.map((payment) => snapshotPayment(payment, shift, actor))); order.paidAmount += normalized.total; order.dueAmount = order.grandTotal - order.paidAmount; order.paymentStatus = paymentStatusFor(order.paidAmount, order.grandTotal, order.refundedAmount); if (order.dueAmount === 0) { order.status = "completed"; order.completedAt = new Date(); } order.version += 1; await order.save({ session }); await earnOrderPoints(scope, order, session); await accrueOrderCommission(scope, order, session); await publishRetailOrderEvent("paid", scope, order, actor, { session, amount: normalized.total, transactionKey }); result = order; }); } finally { await session.endSession(); } return result;
   },
   async cancel(scope: RetailBranchScope, id: string, input: any, actor: any, shift: any | undefined, canManage: boolean) {
     const reason = String(input.reason || "").trim();
