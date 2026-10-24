@@ -17,6 +17,7 @@ export interface AiSubscriptionSummary {
   planName: string;
   priceVnd?: number | null;
   aiLimit: number;
+  carriedOver?: number;
   used: number;
   reserved: number;
   remaining: number;

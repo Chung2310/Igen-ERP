@@ -126,7 +126,7 @@ export default function AiPlanCatalog({ subscription, revision, companyName }: {
             ].map((text) => <li key={text} className="flex items-start gap-2"><Check className="ai-subscription-accent mt-1 h-4 w-4 shrink-0" aria-hidden="true" /><span>{text}</span></li>)}
           </ul>
           <button type="button" onClick={() => { setSelectedId(plan._id); setCopiedId(""); setCopyError(""); }} aria-expanded={selected} aria-controls="ai_plan_activation" className="ai-plan-action mt-auto inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors">
-            {selected ? "Đang chọn gói này" : samePlan ? "Gia hạn gói" : subscription && plan.aiLimit > subscription.aiLimit ? "Nâng cấp gói" : "Chọn gói này"}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+            {selected ? "Đang chọn gói này" : samePlan ? "Gia hạn gói" : subscription && plan.aiLimit > subscription.aiLimit - (subscription.carriedOver || 0) ? "Nâng cấp gói" : "Chọn gói này"}<ArrowRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </article>;
       })}
@@ -143,7 +143,7 @@ export default function AiPlanCatalog({ subscription, revision, companyName }: {
         <div>
           <h3 className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="ai-subscription-accent h-4 w-4" aria-hidden="true" />Gói đã chọn: {selectedPlan.name}</h3>
           <p className="ai-subscription-muted mt-2 text-sm leading-6">Để nâng cấp hoặc gia hạn, sao chép thông tin bên dưới và gửi cho Superadmin. Gói mới chỉ có hiệu lực sau khi được Superadmin cấp.</p>
-          <p className="ai-subscription-muted mt-2 text-sm leading-6">Gói mới bắt đầu ngay khi được cấp và thay thế kỳ hiện tại. Lượt còn lại của kỳ cũ không cộng dồn.</p>
+          <p className="ai-subscription-muted mt-2 text-sm leading-6">Gói mới bắt đầu ngay khi được cấp. Lượt chưa dùng của gói cũ còn hiệu lực được cộng vào gói mới.</p>
           <button type="button" onClick={() => { void copyRequest(); }} className="ai-subscription-refresh mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium">
             {copiedId === selectedPlan._id ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
             {copiedId === selectedPlan._id ? "Đã sao chép thông tin" : "Sao chép thông tin nâng cấp"}

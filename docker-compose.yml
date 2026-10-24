@@ -11,6 +11,7 @@ services:
       - .env
     volumes:
       - .env:/app/.env
+      - ai_settlement_journal:/app/server/cache/ai-settlements
     networks:
       - default_network
     dns:
@@ -28,6 +29,8 @@ services:
     restart: unless-stopped
     command: ["node", "dist-server/marketing-worker.cjs"]
     env_file: [.env]
+    volumes:
+      - ai_settlement_journal:/app/server/cache/ai-settlements
     environment:
       MARKETING_WORKERS_ENABLED: "true"
       MARKETING_WORKER_ROLE: ${MARKETING_WORKER_ROLE:-all}
@@ -37,6 +40,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  ai_settlement_journal:
 
 networks:
   default_network:

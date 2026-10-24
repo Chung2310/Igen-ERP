@@ -20,6 +20,7 @@ export interface SubscriptionPeriodRecord {
   companyCode: string; planId: Types.ObjectId; planName: string; aiLimit: number;
   priceVnd?: number | null;
   used: number; reserved: number; startsAt: Date; expiresAt: Date;
+  carriedOver?: number;
   status: "active" | "cancelled" | "replaced"; createdBy: string; createdAt: Date;
 }
 const periodSchema = new Schema<SubscriptionPeriodRecord>({
@@ -28,6 +29,7 @@ const periodSchema = new Schema<SubscriptionPeriodRecord>({
   planName: { type: String, required: true }, aiLimit: { type: Number, required: true, min: 1, validate: integer },
   priceVnd: { type: Number, default: null, min: 0, max: 1_000_000_000, validate: { validator: (value: number | null) => value == null || Number.isSafeInteger(value), message: "Giá phải là số nguyên VND." } },
   used: { type: Number, default: 0, min: 0 }, reserved: { type: Number, default: 0, min: 0 },
+  carriedOver: { type: Number, default: 0, min: 0, validate: integer },
   startsAt: { type: Date, required: true }, expiresAt: { type: Date, required: true },
   status: { type: String, enum: ["active", "cancelled", "replaced"], default: "active" },
   createdBy: { type: String, required: true },
@@ -40,6 +42,7 @@ export interface AiUsageRecord {
   requestKey: string; kind: string; model?: string; units: number;
   status: "reserved" | "succeeded" | "released"; campaignId?: string; slotId?: string;
   expiresAt: Date; completedAt?: Date; reason?: string; createdAt: Date;
+  providerOutcome?: "succeeded" | "failed";
 }
 const usageSchema = new Schema<AiUsageRecord>({
   companyCode: { type: String, required: true },
@@ -48,6 +51,7 @@ const usageSchema = new Schema<AiUsageRecord>({
   units: { type: Number, required: true, min: 1, validate: integer },
   status: { type: String, enum: ["reserved", "succeeded", "released"], default: "reserved" },
   campaignId: String, slotId: String, expiresAt: { type: Date, required: true }, completedAt: Date, reason: String,
+  providerOutcome: { type: String, enum: ["succeeded", "failed"] },
 }, { timestamps: true });
 usageSchema.index({ companyCode: 1, requestKey: 1 }, { unique: true });
 usageSchema.index({ companyCode: 1, status: 1, expiresAt: 1 });

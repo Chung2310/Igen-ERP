@@ -19,8 +19,10 @@ async function mutation(path: string, method: string, body: unknown) {
     pendingMutations.delete(fingerprint);
     return result;
   } catch (error) {
-    // Reuse the same key when a lost network response leaves the outcome unknown.
-    if (!(error instanceof TypeError)) pendingMutations.delete(fingerprint);
+    // Network failures, gateway errors and pending receipts can follow a committed mutation.
+    const status = (error as { status?: number })?.status;
+    const code = (error as { code?: string })?.code;
+    if (status && status >= 400 && status < 500 && status !== 408 && code !== "ADMIN_ACTION_PENDING") pendingMutations.delete(fingerprint);
     throw error;
   }
 }
@@ -31,8 +33,8 @@ export const aiSubscriptionAdminService = {
   async current(code: string): Promise<AiSubscriptionSummary | null> {
     return (await superAdminRequest(root + `/tenants/${encodeURIComponent(code)}/ai-subscription`)).subscription;
   },
-  assign: (code: string, planId: string, reason: string) => mutation(`/tenants/${encodeURIComponent(code)}/ai-subscription`, "POST", { planId, reason }),
-  cancel: (code: string, reason: string) => mutation(`/tenants/${encodeURIComponent(code)}/ai-subscription`, "DELETE", { reason }),
+  assign: (code: string, planId: string, reason: string, expectedSubscriptionId: string | null, planUpdatedAt: string) => mutation(`/tenants/${encodeURIComponent(code)}/ai-subscription`, "POST", { planId, reason, expectedSubscriptionId, planUpdatedAt }),
+  cancel: (code: string, reason: string, subscriptionId: string) => mutation(`/tenants/${encodeURIComponent(code)}/ai-subscription`, "DELETE", { reason, subscriptionId }),
 };
 
 export async function getCurrentAiSubscription(signal?: AbortSignal): Promise<AiSubscriptionSummary | null> {

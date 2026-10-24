@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { seedAiSubscriptionPlans } from "../server/modules/marketing-suite/shared/service/ai-subscription-seed";
 
 // Run: npx tsx tools/seed-ai-subscription-plans.ts
-// Only inserts missing plans; does not assign subscriptions or change existing plans.
+// Inserts missing plans and retires unpriced PLUS/PRO entries; does not change existing periods.
 async function main() {
   const uri = process.env.MONGODB_URI || "mongodb://mongodb/igen-erp";
   const separateAuth = process.env.MONGODB_USER && process.env.MONGODB_PASSWORD && !uri.replace(/^mongodb(?:\+srv)?:\/\//, "").includes("@");
@@ -16,7 +16,7 @@ async function main() {
       } : {}),
     });
     const inserted = await seedAiSubscriptionPlans();
-    console.log(`AI subscription seed: inserted ${inserted} plan(s); existing plans preserved.`);
+    console.log(`AI subscription seed: inserted ${inserted} plan(s); unpriced legacy plans retired; existing periods preserved.`);
   } finally {
     await mongoose.disconnect();
   }

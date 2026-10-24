@@ -161,6 +161,8 @@ export async function connectDB() {
     if (permissionReset.applied) {
       console.warn(`[Backend Database] Permission registry clean-break reset applied: ${permissionReset.rolesReset} role(s), ${permissionReset.usersReset} user(s). Administrators must configure permissions again.`);
     }
+    const { startSubscriptionRecovery } = await import("../modules/marketing-suite/shared/service/subscription-recovery");
+    startSubscriptionRecovery();
   } catch (error) {
     console.error("[Backend Database] Lỗi kết nối MongoDB:", error);
     process.exit(1);

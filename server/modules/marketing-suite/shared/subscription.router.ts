@@ -6,7 +6,7 @@ import { AiSubscriptionPlanModel, AiUsageModel } from "./model/ai-subscription.m
 export const subscriptionRouter = Router();
 subscriptionRouter.get("/plans", async (_req, res, next) => {
   try {
-    const plans = await AiSubscriptionPlanModel.find({ active: true })
+    const plans = await AiSubscriptionPlanModel.find({ active: true, priceVnd: { $gte: 0 } })
       .select("code name description durationDays aiLimit priceVnd active updatedAt")
       .sort({ aiLimit: 1, durationDays: 1, code: 1 }).lean();
     res.json({ status: "success", data: { plans } });

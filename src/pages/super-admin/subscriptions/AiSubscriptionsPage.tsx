@@ -122,7 +122,7 @@ export default function AiSubscriptionsPage() {
       </section>
 
       <section id="sa-ai-companies" hidden={view !== "companies"} aria-label="Cấp gói cho doanh nghiệp">
-        <SubscriptionAssignmentPanel plans={plans} plansLoading={loading} plansError={error} onCreatePlan={createPlan} />
+        <SubscriptionAssignmentPanel plans={plans} plansLoading={loading} plansError={error} onCreatePlan={createPlan} onPlansChanged={refresh} />
       </section>
 
       {editor && <SubscriptionPlanDialog key={editor.plan?._id || "new"} plan={editor.plan} onClose={() => setEditor(null)} onSaved={(name) => {
