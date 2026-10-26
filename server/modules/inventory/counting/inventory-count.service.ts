@@ -9,6 +9,8 @@ import { SerialUnitModel } from "../serials/serial-unit.model";
 import { SerialEventModel } from "../serials/serial-event.model";
 import { normalizeSerialNumber } from "../serials/serial-state";
 import { normalizeInternalBarcode } from "../serials/unit-barcode-validation";
+import { getWarehouse } from "../warehouse/warehouse.service";
+import { Types } from "mongoose";
 
 const isUnitTracked = (trackingMode?: string) => trackingMode === "serial" || trackingMode === "unit_barcode";
 
@@ -66,8 +68,10 @@ export async function getCount(scope: Scope, countId: string) {
 }
 
 export async function createCount(scope: Scope, warehouseId: string, actor: Actor, notes?: string) {
-  if (!code(warehouseId)) fail("Kho kiểm kê là bắt buộc.");
+  if (!scope.companyCode?.trim() || !scope.branchId?.trim() || !Types.ObjectId.isValid(warehouseId)) fail("Công ty, chi nhánh và kho kiểm kê hợp lệ là bắt buộc.");
+  if (!await getWarehouse(normalizedCompany(scope.companyCode), scope.branchId, warehouseId)) fail("Kho kiểm kê không thuộc chi nhánh hiện tại.", 404);
   const items = await countItems(scope, warehouseId);
+  if (!items.length) fail("Kho chưa có dữ liệu tồn để kiểm kê.");
   const countCode = "KK-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
   return InventoryCountModel.create({ companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId, warehouseId, countCode, status: "draft", items, notes: code(notes) || undefined, createdBy: nameOf(actor), version: 0 });
 }
@@ -163,6 +167,7 @@ export async function approveCount(scope: Scope, countId: string, actor: Actor) 
       const count: any = await InventoryCountModel.findOne({ _id: countId, companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId }).session(session);
       if (!count) fail("Không tìm thấy phiếu kiểm kê.", 404);
       assertCountTransition(count.status as InventoryCountStatus, "completed");
+      if (!count.items.length) fail("Phiếu kiểm kê phải có ít nhất một sản phẩm.");
       const filters = count.items.map((item: any) => ({ productId: item.productId, ...(item.variantId ? { variantId: item.variantId } : {}) }));
       const balances = await InventoryBalanceModel.find({ companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId, warehouseId: count.warehouseId, $or: filters }).session(session).lean();
       const balanceMap = new Map(balances.map((balance: any) => [String(balance.productId) + ":" + String(balance.variantId || ""), balance]));
@@ -192,11 +197,11 @@ export async function approveCount(scope: Scope, countId: string, actor: Actor) 
         const missing = (item.expectedUnits || []).filter((entry: any) => !scanned.has(String(entry.serialUnitId)));
         for (const entry of missing) {
           const updated = await SerialUnitModel.findOneAndUpdate(
-            { _id: entry.serialUnitId, companyCode: normalizedCompany(scope.companyCode), status: "in_stock" },
+            { _id: entry.serialUnitId, companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId, warehouseId: count.warehouseId, variantId: item.variantId, status: "in_stock" },
             { $set: { status: "lost", updatedBy: nameOf(actor) } },
             { returnDocument: 'after', session },
           );
-          if (!updated) continue;
+          if (!updated) fail("Trạng thái IMEI đã thay đổi sau khi bắt đầu kiểm kê.", 409);
           await SerialEventModel.create([{ companyCode: normalizedCompany(scope.companyCode), branchId: scope.branchId, serialUnitId: String(entry.serialUnitId), serialNumber: updated.serialNumber, eventType: "count_lost", fromStatus: "in_stock", toStatus: "lost", documentType: "inventory-count", documentId: String(count._id), reason: `Kiểm kê ${count.countCode} không tìm thấy máy`, actorId: code(actor.id), actorName: nameOf(actor) }], { session });
         }
       }

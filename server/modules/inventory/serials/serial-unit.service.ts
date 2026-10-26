@@ -1,6 +1,6 @@
 import type { ClientSession } from "mongoose";
 import { randomUUID } from "node:crypto";
-import { runInTransaction } from "../../../config/database";
+import { runInventoryTransaction } from "../../../integrations/shared/inventory-transaction";
 import { SerialEventModel } from "./serial-event.model";
 import { SerialUnitModel } from "./serial-unit.model";
 import type { ISerialUnit, SerialUnitStatus } from "./serial-unit.interface";
@@ -9,7 +9,10 @@ import { requestInventoryTransfer, receiveInventoryTransfer } from "../transfers
 import { generateInternalBarcode, normalizeInternalBarcode } from "./unit-barcode-validation";
 import { computeWarrantyEnd } from "./warranty-clock";
 import { ProductVariantModel } from "../../../model/product-variant.model";
-import { ensureDefaultWarehouse } from "../warehouse/warehouse.service";
+import { ensureDefaultWarehouse, getWarehouse } from "../warehouse/warehouse.service";
+import { Types } from "mongoose";
+import { writeStockMovement } from "../../../integrations/shared/stock-movement.service";
+import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
 
 export interface SerialScope { companyCode: string; branchId: string; warehouseId?: string }
 export interface SerialActor { id: string; name: string }
@@ -21,10 +24,35 @@ export interface RegisterSerialBatchInput extends Omit<RegisterSerialInput, "ser
 function scoped(scope: SerialScope) { return { companyCode: scope.companyCode, branchId: scope.branchId, ...(scope.warehouseId ? { warehouseId: scope.warehouseId } : {}) }; }
 
 export async function registerSerialUnit(scope: SerialScope, input: RegisterSerialInput, actor: SerialActor, session?: ClientSession) {
+  if (session) return saveRegisteredSerial(scope, input, actor, session);
+  return runInventoryTransaction((transactionSession) => saveRegisteredSerial(scope, input, actor, transactionSession));
+}
+
+async function saveRegisteredSerial(scope: SerialScope, input: RegisterSerialInput, actor: SerialActor, session?: ClientSession) {
+  if (!scope.companyCode?.trim() || !scope.branchId?.trim()) throw Object.assign(new Error("Vui lòng chọn công ty và chi nhánh."), { statusCode: 400 });
+  if (scope.warehouseId && input.warehouseId && scope.warehouseId !== input.warehouseId) throw Object.assign(new Error("Kho đăng ký không khớp phạm vi đã chọn."), { statusCode: 400 });
+  const warehouseId = scope.warehouseId || input.warehouseId;
+  const warehouse = warehouseId ? await getWarehouse(scope.companyCode, scope.branchId, warehouseId) : await ensureDefaultWarehouse(scope.companyCode, scope.branchId, session);
+  if (!warehouse) throw Object.assign(new Error("Kho không thuộc chi nhánh hiện tại."), { statusCode: 400 });
+  if (!Types.ObjectId.isValid(input.productId) || (input.variantId && !Types.ObjectId.isValid(input.variantId))) throw Object.assign(new Error("Sản phẩm/SKU đăng ký không hợp lệ."), { statusCode: 400 });
+  const variant = await ProductVariantModel.findOne({ companyCode: scope.companyCode, productId: input.productId,
+    sku: String(input.sku || "").trim().toUpperCase(), ...(input.variantId ? { _id: input.variantId } : {}),
+  }).session(session || null).lean();
+  if (!variant || !["serial", "unit_barcode"].includes(variant.trackingMode)) throw Object.assign(new Error("SKU không thuộc sản phẩm/công ty hoặc không quản lý từng đơn vị."), { statusCode: 400 });
+  const balanceFilter = { companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(warehouse._id), variantId: String(variant._id) };
+  const balance = await InventoryBalanceModel.findOne(balanceFilter).session(session || null).lean();
+  const registered = await SerialUnitModel.countDocuments({ ...balanceFilter, status: "in_stock" }).session(session || null);
+  if (!balance || registered >= Number(balance.quantity)) throw Object.assign(new Error("Số mã đơn vị vượt tồn kho đã nhập. Hãy xác nhận phiếu nhập kho trước khi đăng ký."), { statusCode: 409, code: "SERIAL_STOCK_NOT_RECEIVED" });
+  const locked = await InventoryBalanceModel.updateOne({ _id: balance._id, version: balance.version }, { $inc: { version: 1 } }, { session });
+  if (locked.modifiedCount !== 1) throw Object.assign(new Error("Tồn kho vừa thay đổi, vui lòng thử lại."), { statusCode: 409 });
   const normalizedSerialNumber = normalizeSerialNumber(input.serialNumber);
   const internalBarcode = input.internalBarcode || generateInternalBarcode(input.sku, new Date().toISOString().slice(0, 10).replace(/-/g, ""), Date.now() % 1000000);
   const normalizedInternalBarcode = normalizeInternalBarcode(internalBarcode);
-  const query = new SerialUnitModel({ ...scoped(scope), ...input, internalBarcode: internalBarcode.trim(), normalizedInternalBarcode, serialNumber: input.serialNumber.trim(), normalizedSerialNumber, status: "in_stock", createdBy: actor.id, updatedBy: actor.id });
+  const query = new SerialUnitModel({ ...scoped(scope), warehouseId: String(warehouse._id), productId: input.productId, variantId: String(variant._id),
+    sku: variant.sku, productName: input.productName, supplierWarranty: input.supplierWarranty,
+    internalBarcode: internalBarcode.trim(), normalizedInternalBarcode, serialNumber: input.serialNumber.trim(), normalizedSerialNumber,
+    currentDocumentType: input.documentType, currentDocumentId: input.documentId,
+    status: "in_stock", createdBy: actor.id, updatedBy: actor.id });
   if (session) query.$session(session);
   try {
     const saved = await query.save();
@@ -53,7 +81,7 @@ export async function registerSerialBatch(scope: SerialScope, input: RegisterSer
     for (let i = 0; i < normalized.length; i += 1) created.push(await registerSerialUnit(scope, { ...input, serialNumber: serialNumbers[i], internalBarcode: resolvedBarcodes[i] }, actor, session));
     return created;
   }
-  return runInTransaction(async (transactionSession) => {
+  return runInventoryTransaction(async (transactionSession) => {
     const created: any[] = [];
     for (let i = 0; i < normalized.length; i += 1) created.push(await registerSerialUnit(scope, { ...input, serialNumber: serialNumbers[i], internalBarcode: resolvedBarcodes[i] }, actor, transactionSession));
     return created;
@@ -86,10 +114,28 @@ export async function listSerialUnits(scope: SerialScope, filters: { serial?: st
 }
 
 export async function transitionSerialUnit(scope: SerialScope, id: string, input: TransitionSerialInput, actor: SerialActor, session?: ClientSession) {
+  const operationId = randomUUID();
+  if (session) return transitionSerialInSession(scope, id, input, actor, operationId, session);
+  return runInventoryTransaction((transactionSession) => transitionSerialInSession(scope, id, input, actor, operationId, transactionSession));
+}
+
+async function transitionSerialInSession(scope: SerialScope, id: string, input: TransitionSerialInput, actor: SerialActor, operationId: string, session?: ClientSession) {
   const query = SerialUnitModel.findOne({ _id: id, ...scoped(scope) }); if (session) query.session(session);
   const current = await query; if (!current) throw Object.assign(new Error("Không tìm thấy IMEI/serial."), { statusCode: 404 });
+  if ([current.status, input.toStatus].some((status) => ["sold", "returned", "in_transit"].includes(status))) {
+    throw Object.assign(new Error("Hãy dùng chứng từ bán/trả hàng hoặc điều chuyển để đổi trạng thái này."), { statusCode: 409 });
+  }
+  if (!input.reason?.trim()) throw Object.assign(new Error("Lý do thay đổi trạng thái là bắt buộc."), { statusCode: 400 });
   assertSerialTransition(current.status, input.toStatus);
   const fromStatus = current.status;
+  if ((fromStatus === "in_stock") !== (input.toStatus === "in_stock")) {
+    if (!current.warehouseId) throw Object.assign(new Error("Serial chưa có kho để điều chỉnh tồn."), { statusCode: 409 });
+    await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: current.warehouseId,
+      direction: input.toStatus === "in_stock" ? "in" : "out", purpose: "other", sourceType: "serial-status-adjustment",
+      sourceId: id, idempotencyKey: `serial:${id}:${operationId}`, operatorName: actor.name || actor.id, reason: input.reason, session,
+      items: [{ productId: current.productId, variantId: current.variantId, sku: current.sku, productName: current.productName, quantity: 1 }],
+    });
+  }
   current.status = input.toStatus; current.updatedBy = actor.id;
   current.currentDocumentType = input.documentType; current.currentDocumentId = input.documentId;
   if (session) current.$session(session);
@@ -100,12 +146,26 @@ export async function transitionSerialUnit(scope: SerialScope, id: string, input
   return current.toObject();
 }
 
-export function getSerialHistory(scope: SerialScope, id: string) { return SerialEventModel.find({ serialUnitId: id, ...scoped(scope) }).sort({ occurredAt: 1 }).lean(); }
+export async function getSerialUnit(scope: SerialScope, id: string) {
+  if (!Types.ObjectId.isValid(id)) throw Object.assign(new Error("Mã đơn vị không hợp lệ."), { statusCode: 400 });
+  const unit = await SerialUnitModel.findOne({ _id: id, companyCode: scope.companyCode,
+    $or: [{ branchId: scope.branchId, ...(scope.warehouseId ? { warehouseId: scope.warehouseId } : {}) },
+      { status: "in_transit", transferToBranchId: scope.branchId, ...(scope.warehouseId ? { transferToWarehouseId: scope.warehouseId } : {}) }],
+  }).lean();
+  if (!unit) throw Object.assign(new Error("Không tìm thấy IMEI/serial trong chi nhánh."), { statusCode: 404 });
+  return unit;
+}
+
+export async function getSerialHistory(scope: SerialScope, id: string) {
+  await getSerialUnit(scope, id);
+  return SerialEventModel.find({ serialUnitId: id, companyCode: scope.companyCode }).sort({ occurredAt: 1 }).lean();
+}
 
 export async function transferSerialUnit(scope: SerialScope, id: string, input: TransferSerialInput, actor: SerialActor, session?: ClientSession) {
   if (session) throw Object.assign(new Error("Điều chuyển tức thời không hỗ trợ giao dịch bên ngoài."), { statusCode: 400 });
   const toBranchId = String(input.toBranchId || "").trim();
   if (!toBranchId || !input.reason?.trim()) throw Object.assign(new Error("Chi nhánh nhận và lý do điều chuyển là bắt buộc."), { statusCode: 400 });
+  if (toBranchId !== scope.branchId) throw Object.assign(new Error("Điều chuyển khác chi nhánh phải tạo yêu cầu và được kho nhận xác nhận."), { statusCode: 409, code: "SERIAL_TRANSFER_RECEIPT_REQUIRED" });
   const unit = await SerialUnitModel.findOne({ _id: id, ...scoped(scope), status: "in_stock" }).lean();
   if (!unit?.variantId || !unit.warehouseId) throw Object.assign(new Error("IMEI chưa gắn SKU và kho hợp lệ để điều chuyển."), { statusCode: 409 });
   const toWarehouseId = input.toWarehouseId || String((await ensureDefaultWarehouse(scope.companyCode, toBranchId))?._id || "");

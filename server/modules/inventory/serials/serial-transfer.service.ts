@@ -3,6 +3,7 @@ import { SerialUnitModel } from "./serial-unit.model";
 import { randomUUID } from "node:crypto";
 import { requestInventoryTransfer, receiveInventoryTransfer, cancelInventoryTransfer } from "../transfers/transfer.service";
 import { ensureDefaultWarehouse } from "../warehouse/warehouse.service";
+import { runInventoryTransaction } from "../../../integrations/shared/inventory-transaction";
 
 type Scope = { companyCode: string; branchId: string; warehouseId?: string };
 type Actor = { id: string; name: string };
@@ -26,10 +27,8 @@ export async function acceptSerialTransfer(scope: Scope, id: string, input: { wa
     await receiveInventoryTransfer({ companyCode: scope.companyCode, branchId: scope.branchId }, pending.currentDocumentId, actor);
     return SerialUnitModel.findById(id).lean();
   }
-  const unit: any = await SerialUnitModel.findOneAndUpdate({ _id: id, companyCode: scope.companyCode, transferToBranchId: scope.branchId, status: "in_transit", currentDocumentType: "serial-transfer" }, { $set: { branchId: scope.branchId, warehouseId: input.warehouseId, status: "in_stock", currentDocumentType: "serial-transfer", currentDocumentId: id, updatedBy: actor.id }, $unset: { transferToBranchId: 1, transferToWarehouseId: 1 } }, { returnDocument: 'after' });
-  if (!unit) throw Object.assign(new Error("Không tìm thấy serial đang chờ nhận."), { statusCode: 409, code: "SERIAL_TRANSFER_NOT_PENDING" });
-  await SerialEventModel.create({ companyCode: scope.companyCode, branchId: scope.branchId, serialUnitId: String(unit._id), serialNumber: unit.serialNumber, eventType: "transfer_received", fromStatus: "in_transit", toStatus: "in_stock", documentType: "serial-transfer", documentId: String(unit._id), actorId: actor.id, actorName: actor.name });
-  return unit;
+  if (pending?.currentDocumentType === "serial-transfer") throw Object.assign(new Error("Phiếu chuyển serial cũ chưa có sổ kho. Hãy hủy và tạo lại phiếu điều chuyển để đồng bộ tồn."), { statusCode: 409, code: "LEGACY_SERIAL_TRANSFER_REQUIRES_REISSUE" });
+  throw Object.assign(new Error("Không tìm thấy serial đang chờ nhận."), { statusCode: 409, code: "SERIAL_TRANSFER_NOT_PENDING" });
 }
 
 export async function cancelSerialTransfer(scope: Scope, id: string, reason: string, actor: Actor) {
@@ -39,8 +38,10 @@ export async function cancelSerialTransfer(scope: Scope, id: string, reason: str
     await cancelInventoryTransfer({ companyCode: scope.companyCode, branchId: scope.branchId }, pending.currentDocumentId, reason, actor);
     return SerialUnitModel.findById(id).lean();
   }
-  const unit: any = await SerialUnitModel.findOneAndUpdate({ _id: id, companyCode: scope.companyCode, branchId: scope.branchId, ...(scope.warehouseId ? { warehouseId: scope.warehouseId } : {}), status: "in_transit", currentDocumentType: "serial-transfer" }, { $set: { status: "in_stock", updatedBy: actor.id } }, { returnDocument: 'after' });
-  if (!unit) throw Object.assign(new Error("Không tìm thấy serial đang chờ chuyển tại kho gửi."), { statusCode: 409, code: "SERIAL_TRANSFER_NOT_PENDING" });
-  await SerialEventModel.create({ companyCode: scope.companyCode, branchId: scope.branchId, serialUnitId: String(unit._id), serialNumber: unit.serialNumber, eventType: "transfer_cancelled", fromStatus: "in_transit", toStatus: "in_stock", documentType: "serial-transfer", documentId: String(unit._id), reason: reason.trim(), actorId: actor.id, actorName: actor.name });
-  return unit;
+  return runInventoryTransaction(async (session) => {
+    const unit: any = await SerialUnitModel.findOneAndUpdate({ _id: id, companyCode: scope.companyCode, branchId: scope.branchId, ...(scope.warehouseId ? { warehouseId: scope.warehouseId } : {}), status: "in_transit", currentDocumentType: "serial-transfer" }, { $set: { status: "in_stock", updatedBy: actor.id }, $unset: { transferToBranchId: 1, transferToWarehouseId: 1 } }, { returnDocument: 'after', session });
+    if (!unit) throw Object.assign(new Error("Không tìm thấy serial đang chờ chuyển tại kho gửi."), { statusCode: 409, code: "SERIAL_TRANSFER_NOT_PENDING" });
+    await SerialEventModel.create([{ companyCode: scope.companyCode, branchId: scope.branchId, serialUnitId: String(unit._id), serialNumber: unit.serialNumber, eventType: "transfer_cancelled", fromStatus: "in_transit", toStatus: "in_stock", documentType: "serial-transfer", documentId: String(unit._id), reason: reason.trim(), actorId: actor.id, actorName: actor.name }], { session });
+    return unit;
+  });
 }

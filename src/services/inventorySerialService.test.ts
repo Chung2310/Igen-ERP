@@ -11,6 +11,12 @@ describe("inventorySerialService", () => {
     expect(apiFetch).toHaveBeenCalledWith("/inventory/serials", { params: { status: "in_stock", sku: "SKU-1" } });
   });
 
+  it("loads POS sale serials through the POS endpoint with the selected scope", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ success: true, data: { items: [], total: 0, page: 1, limit: 100 } });
+    await inventorySerialService.list({ forSale: true, companyCode: "ACME", branchId: "branch-2", variantId: "v1", status: "in_stock" });
+    expect(apiFetch).toHaveBeenCalledWith("/retail/orders/serials", { params: expect.objectContaining({ companyCode: "ACME", branchId: "branch-2", variantId: "v1", forSale: true }) });
+  });
+
   it("imports a serial batch", async () => {
     vi.mocked(apiFetch).mockResolvedValue({ status: "success", data: [] });
     await inventorySerialService.importBatch({ productId: "p1", sku: "SKU-1", productName: "Phone", serialNumbers: ["IMEI-1"] });

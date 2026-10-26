@@ -16,6 +16,7 @@ export async function ensureDefaultWarehouse(companyCode: string, branchId: stri
   const branchQuery = BranchModel.findOne({ _id: branchId, companyCode: normalizedCompanyCode, isActive: true });
   if (session) branchQuery.session(session);
   const branch = await branchQuery.lean();
+  if (!branch) throw Object.assign(new Error("Chi nhánh không tồn tại hoặc đã ngừng hoạt động."), { statusCode: 400 });
   const branchCode = normalizeCompanyCode(String(branch?.code || branchId).replace(/[^A-Z0-9_-]/gi, "").slice(0, 24)) || "MAIN";
   const createQuery = WarehouseModel.findOneAndUpdate(
     { companyCode: normalizedCompanyCode, branchId, isDefault: true },
