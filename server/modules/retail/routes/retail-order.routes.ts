@@ -7,6 +7,7 @@ import { RETAIL_MANAGER_PERMISSION, RETAIL_OPERATE_PERMISSION } from "../permiss
 export const retailOrderRoutes = Router(); const operate = requirePermission([RETAIL_OPERATE_PERMISSION, RETAIL_MANAGER_PERMISSION]) as any;
 retailOrderRoutes.post("/quote", operate, retailOrderController.quote as any);
 retailOrderRoutes.get("/products", operate, retailOrderController.products as any);
+retailOrderRoutes.get("/categories", operate, retailOrderController.categories as any);
 retailOrderRoutes.get("/idempotency/:key", operate, retailOrderController.idempotency as any);
 retailOrderRoutes.get("/", operate, retailOrderController.list as any);
 retailOrderRoutes.post("/", operate, requireOpenShift as any, retailOrderController.create as any);

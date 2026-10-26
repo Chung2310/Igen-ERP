@@ -153,6 +153,7 @@ export interface IGoodsReceipt extends Document {
   supplierId: string;
   supplierName: string;
   status: GoodsReceiptStatus;
+  financeTerms?: { dueOn: string; paidAmount: number; paymentMethod?: string };
   receivedAt?: Date;
   items: IGoodsReceiptItem[];
   subtotal: number;

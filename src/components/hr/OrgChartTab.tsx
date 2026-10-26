@@ -1264,6 +1264,7 @@ export default function OrgChartTab({
       {isDepartmentManagerOpen && <HrDepartmentManager
         companyCode={departmentCompanyCode}
         departments={departments}
+        managers={usersList.map(user => ({ id: user.uid, name: user.displayName || user.email || user.uid }))}
         onClose={() => setIsDepartmentManagerOpen(false)}
         onChanged={async (refreshUsers = false) => {
           await refreshDepartments();

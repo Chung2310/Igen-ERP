@@ -15,6 +15,7 @@ export type DetailedCalculationInput = DetailedPayrollInput & {
   allowances: number;
   bonuses: number;
   deductions: number;
+  advances?: number;
   adjustments: number;
   commission?: number;
   formulaApplications?: PayrollLineSnapshot["formulaApplications"];
@@ -59,7 +60,7 @@ export function calculateDetailedPayroll(input: DetailedCalculationInput): {
       overtime: input.overtime.map((item) => ({ ...item, minutes: item.minutes * ratio })),
       allowances: input.allowances * ratio,
       bonuses: input.bonuses * ratio,
-      deductions: input.deductions * ratio,
+      deductions: (input.deductions + (input.advances ?? 0)) * ratio,
       adjustments: input.adjustments * ratio,
       commission: (input.commission ?? 0) * ratio,
     });
@@ -70,6 +71,7 @@ export function calculateDetailedPayroll(input: DetailedCalculationInput): {
       taxableAllowances: input.allowances * ratio,
       bonuses: (input.bonuses + (input.adjustments > 0 ? input.adjustments : 0)) * ratio,
       otherDeductions: (input.deductions + (input.adjustments < 0 ? -input.adjustments : 0)) * ratio,
+      advances: (input.advances ?? 0) * ratio,
       insuranceSalary: Math.round(input.vietnam.insuranceSalary * ratio),
       participatesInsurance: input.vietnam.participatesInsurance,
       taxMethod: input.vietnam.taxMethod,
@@ -82,13 +84,14 @@ export function calculateDetailedPayroll(input: DetailedCalculationInput): {
       allowances: Math.round(input.allowances * ratio),
       bonuses: Math.round(input.bonuses * ratio),
       otherDeductions: Math.round(input.deductions * ratio),
+      advances: Math.round((input.advances ?? 0) * ratio),
       adjustments: Math.round(input.adjustments * ratio),
     };
     return {
       employeeId: input.employeeId,
       calculation: vietnam
         ? { ...calculation, ...adjustmentEcho, commission: Math.round((input.commission ?? 0) * ratio), gross: vietnam.income.totalIncome, deductions: vietnam.deductions.total, net: vietnam.netPay, monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) }
-        : { ...calculation, ...adjustmentEcho, commission: Math.round((input.commission ?? 0) * ratio), deductions: Math.round(input.deductions * ratio), monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) },
+        : { ...calculation, ...adjustmentEcho, commission: Math.round((input.commission ?? 0) * ratio), deductions: Math.round((input.deductions + (input.advances ?? 0)) * ratio), monthlySalary: Math.round(segment.monthlySalary * ratio), workedMinutes: Math.round(input.workedMinutes * ratio) },
       ...(vietnam ? { vietnam } : {}),
       sourceIds: [segment.sourceId],
       effectiveSegments: [{ sourceId: segment.sourceId, start: segment.start, end: segment.end }],

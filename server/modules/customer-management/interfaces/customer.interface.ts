@@ -27,6 +27,9 @@ export interface ICustomer {
   tier?: ICustomerTierState;
   tierTotalSales?: number;
   tierUpdatedAt?: Date;
+  pointsBalance?: number;
+  totalPointsEarned?: number;
+  totalPointsRedeemed?: number;
   createdBy: string;
   createdByName: string;
   version: number;

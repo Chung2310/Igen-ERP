@@ -45,6 +45,8 @@ const schema = new Schema<IFixedAsset>({
   originalCost: { type: Number, required: true, min: 0 },
   salvageValue: { type: Number, required: true, min: 0, default: 0 },
   purchaseDate: Date,
+  supplierName: String,
+  department: String,
   inServiceDate: { type: Date, required: true },
   usefulLifeMonths: { type: Number, required: true, min: 1 },
   method: { type: String, enum: ["straight_line"], default: "straight_line", required: true },

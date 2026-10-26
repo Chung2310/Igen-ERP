@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Schema, Types, model } from "mongoose";
+import { Schema, Types, model, type PipelineStage } from "mongoose";
 
 export const USER_ACTIVITY_RETENTION_DAYS = 90;
 export const USER_ACTIVITY_CATEGORIES = ["authentication", "view", "search", "data", "communication", "configuration", "security", "business"] as const;
@@ -21,6 +21,8 @@ export interface IUserActivityEvent {
   deviceSummary?: string;
   correlationId?: string;
   durationMs?: number;
+  statusCode?: number;
+  entityId?: string;
   occurredAt: Date;
   expiresAt: Date;
 }
@@ -38,12 +40,15 @@ const schema = new Schema<IUserActivityEvent>({
   description: { type: String, required: true, immutable },
   sourceIp: { type: String, immutable }, userAgent: { type: String, immutable }, deviceSummary: { type: String, immutable },
   correlationId: { type: String, immutable }, durationMs: { type: Number, immutable },
+  statusCode: { type: Number, immutable }, entityId: { type: String, maxlength: 128, immutable },
   occurredAt: { type: Date, required: true, default: Date.now, immutable },
   expiresAt: { type: Date, required: true, immutable },
 }, { collection: "user_activity_events", timestamps: false, strict: true });
 
 schema.index({ userId: 1, occurredAt: -1 });
 schema.index({ companyCode: 1, userId: 1, occurredAt: -1 });
+schema.index({ occurredAt: -1, _id: -1 });
+schema.index({ companyCode: 1, occurredAt: -1, _id: -1 });
 schema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const RawUserActivityEventModel = model<IUserActivityEvent>("UserActivityEvent", schema);
@@ -63,4 +68,5 @@ export const UserActivityEventModel = Object.freeze({
   }), { ordered: false }),
   find: (filter: Record<string, unknown>, options: { skip: number; limit: number }) => RawUserActivityEventModel.find(filter).sort({ occurredAt: -1 }).skip(options.skip).limit(options.limit).lean().exec(),
   countDocuments: (filter: Record<string, unknown>) => RawUserActivityEventModel.countDocuments(filter).exec(),
+  aggregate: (pipeline: PipelineStage[]) => RawUserActivityEventModel.aggregate(pipeline).option({ maxTimeMS: 10_000 }).exec(),
 });

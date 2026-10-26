@@ -5,7 +5,10 @@ import util from "util";
 type LogLevel = "error" | "warn" | "info" | "http" | "debug";
 
 const logDir = path.join(process.cwd(), "logs");
-if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+const ENABLE_FILE_LOGGING =
+  process.env.ENABLE_FILE_LOGGING === "true" ||
+  (process.env.NODE_ENV !== "production" && process.env.ENABLE_FILE_LOGGING !== "false");
+const MAX_LOG_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
 const levelPriority: Record<LogLevel, number> = {
   error: 0,
@@ -95,7 +98,22 @@ function formatMessage(args: unknown[]): string {
 }
 
 function appendLog(filename: string, line: string): void {
-  fs.appendFileSync(path.join(logDir, filename), `${line}\n`, "utf8");
+  if (!ENABLE_FILE_LOGGING) return;
+  try {
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    const fullPath = path.join(logDir, filename);
+    if (fs.existsSync(fullPath)) {
+      const stats = fs.statSync(fullPath);
+      if (stats.size > MAX_LOG_SIZE_BYTES) {
+        const backupPath = `${fullPath}.1`;
+        if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
+        fs.renameSync(fullPath, backupPath);
+      }
+    }
+    fs.appendFileSync(fullPath, `${line}\n`, "utf8");
+  } catch {
+    // Không làm crash ứng dụng khi ghi log vào đĩa gặp sự cố
+  }
 }
 
 function write(level: LogLevel, args: unknown[]): void {

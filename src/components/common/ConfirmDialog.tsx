@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { AlertTriangle, Loader2, X } from "lucide-react";
 
 type ConfirmDialogProps = {
@@ -39,10 +39,21 @@ export function ConfirmDialog({
   title,
   tone = "danger",
 }: ConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusable = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || []);
+    focusable()[0]?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !isSubmitting) onClose();
+      if (event.key === "Tab") {
+        const controls = focusable();
+        if (!controls.length) { event.preventDefault(); return; }
+        const first = controls[0]; const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     const previousOverflow = document.body.style.overflow;
@@ -50,6 +61,7 @@ export function ConfirmDialog({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
     };
   }, [isOpen, isSubmitting, onClose]);
 
@@ -60,7 +72,7 @@ export function ConfirmDialog({
   if (appearance === "erp") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]" role="presentation">
-        <div className="w-full max-w-[480px] overflow-hidden rounded-2xl bg-white text-left shadow-[0_20px_60px_rgba(13,48,78,0.2)]" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description">
+        <div ref={dialogRef} className="w-full max-w-[480px] overflow-hidden rounded-2xl bg-white text-left shadow-[0_20px_60px_rgba(13,48,78,0.2)]" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description">
           <div className="flex items-center justify-between gap-3 bg-[#F7FBFF] px-5 py-4">
             <div className="flex min-w-0 items-center gap-3">
               <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${styles.accent}`} aria-hidden="true">
@@ -102,7 +114,7 @@ export function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-xs sm:items-center sm:p-4" role="presentation">
-      <div className="max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-t-3xl border border-gray-200/70 bg-white shadow-2xl sm:rounded-3xl" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+      <div ref={dialogRef} className="max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-t-3xl border border-gray-200/70 bg-white shadow-2xl sm:rounded-3xl" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
         <div className="flex items-start justify-between border-b border-gray-100 bg-gray-50 px-6 py-5">
           <div className="flex items-start gap-3">
             <span className={`mt-0.5 rounded-2xl p-2.5 ${styles.accent}`}>

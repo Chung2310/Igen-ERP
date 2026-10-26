@@ -1,4 +1,4 @@
-export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "Giao Việc" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH" | "PAYROLL" | "HỢP ĐỒNG" | "EMAIL CHÚC MỪNG" | "TUYỂN DỤNG";
+export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "Giao Việc" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH" | "PAYROLL" | "HỢP ĐỒNG" | "EMAIL CHÚC MỪNG" | "TUYỂN DỤNG" | "PHÒNG BAN" | "CHI NHÁNH";
 
 /** File/đường dẫn đính kèm vào task: ghi âm, hình ảnh, video, tài liệu, link… */
 export interface TaskAttachment {
@@ -139,6 +139,11 @@ export interface HRTask {
   actualTime?: number;
   completedAt?: string;
   revision?: number;
+  progress?: number;
+  progressNote?: string;
+  helpRequested?: boolean;
+  helpReason?: string;
+  helpers?: Array<{ uid: string; name: string }>;
   tags?: string[];
   linkNote?: string;
   attachments?: TaskAttachment[];

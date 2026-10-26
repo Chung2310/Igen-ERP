@@ -12,7 +12,21 @@ const optional = (value: unknown): string | undefined => {
 };
 
 export function normalizePhone(value: unknown): string {
-  return String(value ?? "").replace(/\D/g, "");
+  const digits = String(value ?? "").replace(/\D/g, "");
+  const countryPrefix = digits.startsWith("0084") ? "0084" : digits.startsWith("84") ? "84" : "";
+  if (!countryPrefix || digits.length < countryPrefix.length + 3) return digits;
+
+  const nationalNumber = digits.slice(countryPrefix.length);
+  return nationalNumber.startsWith("0") ? nationalNumber : `0${nationalNumber}`;
+}
+
+export function phoneLookupVariants(value: unknown): string[] {
+  const normalized = normalizePhone(value);
+  const variants = [normalized];
+  if (normalized.startsWith("0") && normalized.length > 1) {
+    variants.push(`84${normalized.slice(1)}`);
+  }
+  return [...new Set(variants)];
 }
 
 function normalizeDateOfBirth(value: unknown): Date | undefined {

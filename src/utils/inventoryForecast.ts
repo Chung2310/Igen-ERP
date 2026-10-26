@@ -10,6 +10,7 @@ import type { InventoryBalance } from "../services/inventoryReceivingService";
 
 const HISTORY_DAYS = 30;
 const FORECAST_DAYS = 30;
+const BACKTEST_DAYS = 14;
 
 type StockLogWithTimestamp = StockLog & {
   createdAtTimestamp?: { toDate?: () => Date; seconds?: number };
@@ -22,7 +23,7 @@ function normalizeStatus(status: string) {
 
 function isCompletedExportLog(log: StockLog) {
   const status = normalizeStatus(log.status);
-  return String(log.type).trim().toLowerCase() === "xuất" && (status === "hoàn thành" || status === "thành công");
+  return String(log.type).trim().toLowerCase() === "xuất" && log.purpose === "bán" && (status === "hoàn thành" || status === "thành công");
 }
 
 function startOfDay(date: Date) {
@@ -110,8 +111,7 @@ function buildSeries(
   return [...historySeries, ...forecastSeries];
 }
 
-export function buildInventoryForecast(products: ProductItem[], stockLogs: StockLog[]): InventoryForecastSummary {
-  const now = new Date();
+export function buildInventoryForecast(products: ProductItem[], stockLogs: StockLog[], now = new Date()): InventoryForecastSummary {
   const today = startOfDay(now);
   const historyStart = new Date(today);
   historyStart.setDate(today.getDate() - (HISTORY_DAYS - 1));
@@ -121,13 +121,16 @@ export function buildInventoryForecast(products: ProductItem[], stockLogs: Stock
     current.setDate(historyStart.getDate() + index);
     return formatKey(current);
   });
+  const evaluationStart = new Date(today);
+  evaluationStart.setDate(today.getDate() - HISTORY_DAYS - BACKTEST_DAYS);
+  const evaluationKeys = Array.from({ length: HISTORY_DAYS + BACKTEST_DAYS }, (_, index) => { const day = new Date(evaluationStart); day.setDate(evaluationStart.getDate() + index); return formatKey(day); });
 
   const productLookup = new Map(products.map((product) => [product.id, product]));
   const productBySku = new Map(products.map((product) => [product.sku, product]));
   const demandByProduct = new Map<string, Map<string, number>>();
 
   products.forEach((product) => {
-    demandByProduct.set(product.id, new Map(historyKeys.map((key) => [key, 0])));
+    demandByProduct.set(product.id, new Map(evaluationKeys.map((key) => [key, 0])));
   });
 
   stockLogs.forEach((log) => {
@@ -137,7 +140,7 @@ export function buildInventoryForecast(products: ProductItem[], stockLogs: Stock
     if (!parsedDate) return;
 
     const dayKey = formatKey(startOfDay(parsedDate));
-    if (!historyKeys.includes(dayKey)) return;
+    if (!evaluationKeys.includes(dayKey)) return;
 
     const items = (log.items?.length ? log.items : [{
       productId: "",
@@ -159,6 +162,14 @@ export function buildInventoryForecast(products: ProductItem[], stockLogs: Stock
 
   const items: InventoryForecastItem[] = products.map((product) => {
     const dailyDemand = demandByProduct.get(product.id) || new Map<string, number>();
+    const training = evaluationKeys.slice(0, HISTORY_DAYS).map((key) => dailyDemand.get(key) || 0);
+    const holdout = evaluationKeys.slice(HISTORY_DAYS).map((key) => dailyDemand.get(key) || 0);
+    const actual14Days = holdout.reduce((sum, value) => sum + value, 0);
+    const predicted14Days = Math.round(((training.slice(-7).reduce((sum, value) => sum + value, 0) / 7) * 0.65 + (training.reduce((sum, value) => sum + value, 0) / HISTORY_DAYS) * 0.35) * BACKTEST_DAYS);
+    const baseline14Days = Math.round(training.reduce((sum, value) => sum + value, 0) / HISTORY_DAYS * BACKTEST_DAYS);
+    const evaluated = training.filter((value) => value > 0).length >= 4 && actual14Days >= 4;
+    const errorPercent = evaluated ? Math.round(Math.abs(predicted14Days - actual14Days) / actual14Days * 100) : null;
+    const accepted = evaluated && errorPercent! <= 50 && Math.abs(predicted14Days - actual14Days) <= Math.max(1, Math.abs(baseline14Days - actual14Days) * 1.1);
     const demandValues = historyKeys.map((key) => dailyDemand.get(key) || 0);
     const last30DaysDemand = demandValues.reduce((sum, value) => sum + value, 0);
     const last7DaysDemand = demandValues.slice(-7).reduce((sum, value) => sum + value, 0);
@@ -192,12 +203,13 @@ export function buildInventoryForecast(products: ProductItem[], stockLogs: Stock
       suggestedReorderQty,
       overstockDays,
       riskLevel,
+      validation: { evaluated, accepted, actual14Days, predicted14Days, errorPercent },
       series: buildSeries(historyKeys, dailyDemand, weightedAverageDailyDemand, today),
     };
   });
 
   const warningItems = items
-    .filter((item) => item.currentStock <= item.minStockAlert || (item.daysOfCover !== null && item.daysOfCover <= 14))
+    .filter((item) => item.currentStock <= item.minStockAlert || (item.validation.accepted && item.daysOfCover !== null && item.daysOfCover <= 14))
     .sort((left, right) => {
       const riskOrder = { high: 0, medium: 1, low: 2 };
       const riskGap = riskOrder[left.riskLevel] - riskOrder[right.riskLevel];
@@ -211,7 +223,7 @@ export function buildInventoryForecast(products: ProductItem[], stockLogs: Stock
     .flatMap((item) => {
       const nextRecommendations: InventoryForecastRecommendation[] = [];
 
-      if (item.suggestedReorderQty > 0 && item.riskLevel !== "low") {
+      if (item.validation.accepted && item.suggestedReorderQty > 0 && item.riskLevel !== "low") {
         nextRecommendations.push({
           id: `${item.productId}-reorder`,
           sku: item.sku,
@@ -229,7 +241,7 @@ export function buildInventoryForecast(products: ProductItem[], stockLogs: Stock
         item.overstockDays !== null &&
         item.overstockDays > 15;
 
-      if (hasLowDemand || hasMeaningfulOverstock) {
+      if (item.validation.accepted && (hasLowDemand || hasMeaningfulOverstock)) {
         nextRecommendations.push({
           id: `${item.productId}-overstock`,
           sku: item.sku,
@@ -263,6 +275,7 @@ export function buildInventoryForecast(products: ProductItem[], stockLogs: Stock
     recommendations,
     warningItems,
     hasHistoricalDemand,
+    validatedSkuCount: items.filter((item) => item.validation.accepted).length,
   };
 }
 

@@ -525,7 +525,6 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       ],
                       "QUẢN LÝ TÀI NGUYÊN": [
                         { label: "Tài liệu cục bộ", subTab: "TÀI LIỆU KHÁC" },
-                        { label: "Google Drive", subTab: "GOOGLE DRIVE" },
                       ],
                       "QUẢN LÝ HỌC VIÊN": [
                         { label: "Tổng quan", subTab: "TỔNG QUAN" },

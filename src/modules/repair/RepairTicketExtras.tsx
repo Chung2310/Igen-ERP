@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { authService } from "../../services/authService";
 import { apiFetch } from "../shared/lib/apiFetch";
 import { repairExtras, repairService, type RepairNotification, type RepairPart, type RepairPartBilling, type RepairRatingCriteria, type RepairTicket } from "../../services/repairService";
+import RepairCarePanel from "./RepairCarePanel";
+import RepairPaymentSummary from "./RepairPaymentSummary";
 
 const money = (value: number) => Number(value || 0).toLocaleString("vi-VN");
 const date = (value?: string) => (value ? new Date(value).toLocaleString("vi-VN") : "—");
@@ -247,5 +249,7 @@ export default function RepairTicketExtras({ ticket, onChanged }: { ticket: Repa
     <PartsSection ticket={ticket} onChanged={onChanged} />
     <RatingSection ticket={ticket} />
     <NotificationsSection ticket={ticket} />
+    <RepairPaymentSummary ticket={ticket} />
+    <RepairCarePanel ticket={ticket} />
   </>;
 }

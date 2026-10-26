@@ -1,10 +1,11 @@
 import type { ClientSession } from "mongoose";
+import { randomUUID } from "node:crypto";
 import { runInTransaction } from "../../../config/database";
 import { SerialEventModel } from "./serial-event.model";
 import { SerialUnitModel } from "./serial-unit.model";
 import type { ISerialUnit, SerialUnitStatus } from "./serial-unit.interface";
 import { assertSerialTransition, normalizeSerialNumber } from "./serial-state";
-import { BranchModel } from "../../../model/branch.model";
+import { requestInventoryTransfer, receiveInventoryTransfer } from "../transfers/transfer.service";
 import { generateInternalBarcode, normalizeInternalBarcode } from "./unit-barcode-validation";
 import { computeWarrantyEnd } from "./warranty-clock";
 import { ProductVariantModel } from "../../../model/product-variant.model";
@@ -102,15 +103,17 @@ export async function transitionSerialUnit(scope: SerialScope, id: string, input
 export function getSerialHistory(scope: SerialScope, id: string) { return SerialEventModel.find({ serialUnitId: id, ...scoped(scope) }).sort({ occurredAt: 1 }).lean(); }
 
 export async function transferSerialUnit(scope: SerialScope, id: string, input: TransferSerialInput, actor: SerialActor, session?: ClientSession) {
+  if (session) throw Object.assign(new Error("Điều chuyển tức thời không hỗ trợ giao dịch bên ngoài."), { statusCode: 400 });
   const toBranchId = String(input.toBranchId || "").trim();
-  if (!toBranchId) throw Object.assign(new Error("Chi nhánh nhận là bắt buộc."), { statusCode: 400 });
-  const branchQuery = BranchModel.findOne({ _id: toBranchId, companyCode: scope.companyCode, isActive: true }); if (session) branchQuery.session(session);
-  if (!await branchQuery.lean()) throw Object.assign(new Error("Chi nhánh nhận không tồn tại hoặc đã ngừng hoạt động."), { statusCode: 404, code: "BRANCH_NOT_FOUND" });
-  const query = SerialUnitModel.findOne({ _id: id, ...scoped(scope), status: "in_stock" }); if (session) query.session(session);
-  const current = await query; if (!current) throw Object.assign(new Error("Chỉ được chuyển serial đang ở trạng thái tồn kho."), { statusCode: 409, code: "SERIAL_NOT_TRANSFERABLE" });
-  const fromBranchId = current.branchId; current.branchId = toBranchId; current.warehouseId = input.toWarehouseId; current.updatedBy = actor.id;
-  if (!current.branchId) throw Object.assign(new Error("Chi nhánh nhận là bắt buộc."), { statusCode: 400 });
-  if (session) current.$session(session); await current.save();
-  const event = new SerialEventModel({ companyCode: scope.companyCode, branchId: current.branchId, serialUnitId: String(current._id), serialNumber: current.serialNumber, eventType: "transferred", fromStatus: "in_stock", toStatus: "in_stock", documentType: input.documentType || "transfer", documentId: input.documentId, reason: `${fromBranchId} → ${current.branchId}: ${input.reason}`, actorId: actor.id, actorName: actor.name });
-  if (session) event.$session(session); await event.save(); return current.toObject();
+  if (!toBranchId || !input.reason?.trim()) throw Object.assign(new Error("Chi nhánh nhận và lý do điều chuyển là bắt buộc."), { statusCode: 400 });
+  const unit = await SerialUnitModel.findOne({ _id: id, ...scoped(scope), status: "in_stock" }).lean();
+  if (!unit?.variantId || !unit.warehouseId) throw Object.assign(new Error("IMEI chưa gắn SKU và kho hợp lệ để điều chuyển."), { statusCode: 409 });
+  const toWarehouseId = input.toWarehouseId || String((await ensureDefaultWarehouse(scope.companyCode, toBranchId))?._id || "");
+  const transfer = await requestInventoryTransfer({ companyCode: scope.companyCode, branchId: scope.branchId }, {
+    idempotencyKey: randomUUID(),
+    fromWarehouseId: unit.warehouseId, toWarehouseId, toBranchId, reason: input.reason.trim(),
+    items: [{ variantId: unit.variantId, quantity: 1, serialNumbers: [unit.serialNumber] }],
+  }, actor);
+  await receiveInventoryTransfer({ companyCode: scope.companyCode, branchId: toBranchId }, String(transfer._id), actor);
+  return SerialUnitModel.findById(id).lean();
 }

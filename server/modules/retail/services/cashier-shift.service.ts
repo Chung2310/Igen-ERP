@@ -6,6 +6,8 @@ import { getResolvedRetailSettings } from "./retail-settings.service";
 import { RetailOrderModel } from "../models/retail-order.model";
 import { resolveShift, scheduledAt, shiftWindow, vietnamWorkDate, weekdayOf } from "../../../service/work-shift.service";
 import { ConflictError, ValidationError } from "../../../errors/app-error";
+import { UserModel } from "../../../model/user.model";
+import { hasEffectiveRetailCapability } from "../permissions";
 
 type CashInputs = { openingFloat: number; cashCollected: number; cashRefunded: number; movementsIn: number; movementsOut: number };
 export function calculateExpectedCash(input: CashInputs) { return input.openingFloat + input.cashCollected + input.movementsIn - input.movementsOut - input.cashRefunded; }
@@ -125,7 +127,9 @@ const actorName = (actor: any) => String(actor.displayName || actor.email || "")
 export const CashierShiftService = {
   current: (scope: RetailBranchScope, actor: any) => CashierShiftModel.findOne({ ...scope, cashierId: actorId(actor), status: "open" }),
   async operational(scope: RetailBranchScope, actor: any, now = new Date()) {
-    return assertRetailShiftOperational(await CashierShiftModel.findOne({ ...scope, cashierId: actorId(actor), status: "open" }), now);
+    const shift = assertRetailShiftOperational(await CashierShiftModel.findOne({ ...scope, cashierId: actorId(actor), status: "open" }), now);
+    if (shift.pausedAt) throw new ConflictError("SHIFT_PAUSED", "Ca bán hàng đang tạm dừng. Vui lòng mở lại ca trước khi bán.");
+    return shift;
   },
   async list(scope: RetailBranchScope, query: any) {
     const page = Math.max(1, Number(query.page) || 1); const limit = Math.min(100, Math.max(1, Number(query.limit) || 20)); const filter: any = { ...scope };
@@ -135,11 +139,90 @@ export const CashierShiftService = {
   async detail(scope: RetailBranchScope, id: string) {
     if (!Types.ObjectId.isValid(id)) throw new Error("Mã ca không hợp lệ."); const shift = await CashierShiftModel.findOne({ _id: id, ...scope }).lean(); if (!shift) throw new Error("Không tìm thấy ca bán hàng."); const orders = await RetailOrderModel.find({ ...scope, $or: [{ shiftId: id }, { "payments.shiftId": id }, { "refunds.shiftId": id }] }).sort({ createdAt: -1 }).lean(); return { shift, orders };
   },
-  async open(scope: RetailBranchScope, input: any, actor: any) {
+  async open(scope: RetailBranchScope, input: any, actor: any, cashier: any = actor) {
     const openingFloat = parseOpeningFloat(input.openingFloat);
     const now = new Date(); const terminalId = String(input.terminalId || "").trim() || undefined;
-    const { businessDate, snapshot } = await resolveRetailShiftSchedule(scope.companyCode, actorId(actor), now);
-    return CashierShiftModel.create({ ...scope, terminalId, shiftCode: `CA-${scope.branchId}-${now.getTime()}`, cashierId: actorId(actor), cashierName: actorName(actor), openingFloat, openedAt: now, openedBy: actorId(actor), grossSales: 0, collectedAmount: 0, newDebtAmount: 0, refundedAmount: 0, netCollectedAmount: 0, methodTotals: [], expectedCash: openingFloat, status: "open", businessDate, ...snapshot });
+    if (terminalId && terminalId.length > 60) throw new ValidationError("SHIFT_TERMINAL_INVALID", "Mã quầy không quá 60 ký tự.");
+    const { businessDate, snapshot } = await resolveRetailShiftSchedule(scope.companyCode, actorId(cashier), now);
+    return CashierShiftModel.create({ ...scope, terminalId, shiftCode: `CA-${scope.branchId}-${now.getTime()}`, cashierId: actorId(cashier), cashierName: actorName(cashier), openingFloat, openedAt: now, openedBy: actorId(actor), grossSales: 0, collectedAmount: 0, newDebtAmount: 0, refundedAmount: 0, netCollectedAmount: 0, methodTotals: [], expectedCash: openingFloat, status: "open", businessDate, ...snapshot });
+  },
+  async assignableCashiers(scope: RetailBranchScope) {
+    return UserModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, isActive: { $ne: false } })
+      .select("displayName email role permissions").sort({ displayName: 1 }).limit(200).lean();
+  },
+  async openFor(scope: RetailBranchScope, input: any, actor: any) {
+    const cashierId = String(input.cashierId || "");
+    if (!Types.ObjectId.isValid(cashierId)) throw new ValidationError("SHIFT_CASHIER_INVALID", "Vui lòng chọn thu ngân hợp lệ.");
+    const cashier = await UserModel.findOne({ _id: cashierId, companyCode: scope.companyCode, branchId: scope.branchId, isActive: { $ne: false } })
+      .select("displayName email role permissions companyCode").lean();
+    if (!cashier || !await hasEffectiveRetailCapability({ ...cashier, id: String(cashier._id) }, "operate")) {
+      throw new ValidationError("SHIFT_CASHIER_INVALID", "Thu ngân không thuộc chi nhánh hoặc chưa có quyền bán lẻ.");
+    }
+    return this.open(scope, input, actor, { id: String(cashier._id), displayName: cashier.displayName, email: cashier.email });
+  },
+  async pause(scope: RetailBranchScope, id: string, input: any, actor: any) {
+    if (!Types.ObjectId.isValid(id)) throw new ValidationError("SHIFT_ID_INVALID", "Mã ca bán hàng không hợp lệ.");
+    const reason = String(input.reason || "").trim();
+    if (!reason || reason.length > 500) throw new ValidationError("SHIFT_PAUSE_REASON_INVALID", "Vui lòng nhập lý do tạm dừng không quá 500 ký tự.");
+    const shift = await CashierShiftModel.findOneAndUpdate(
+      { _id: id, ...scope, cashierId: actorId(actor), status: "open", pausedAt: { $exists: false } },
+      { $set: { pausedAt: new Date(), pausedBy: actorId(actor), pauseReason: reason } },
+      { returnDocument: "after" },
+    );
+    if (!shift) throw new ConflictError("SHIFT_NOT_ACTIVE", "Ca đã tạm dừng, đóng hoặc không thuộc thu ngân.");
+    return shift;
+  },
+  async resume(scope: RetailBranchScope, id: string, input: any, actor: any) {
+    if (!Types.ObjectId.isValid(id)) throw new ValidationError("SHIFT_ID_INVALID", "Mã ca bán hàng không hợp lệ.");
+    const current = await CashierShiftModel.findOne({ _id: id, ...scope, cashierId: actorId(actor), status: "open", pausedAt: { $exists: true } });
+    if (!current) throw new ConflictError("SHIFT_NOT_PAUSED", "Ca chưa tạm dừng, đã đóng hoặc không thuộc thu ngân.");
+    assertRetailShiftOperational(current);
+    const terminalId = String(input.terminalId ?? current.terminalId ?? "").trim();
+    if (terminalId.length > 60) throw new ValidationError("SHIFT_TERMINAL_INVALID", "Mã quầy không quá 60 ký tự.");
+    const changed = terminalId !== String(current.terminalId || "");
+    const shift = await CashierShiftModel.findOneAndUpdate(
+      { _id: id, ...scope, cashierId: actorId(actor), status: "open", pausedAt: current.pausedAt },
+      { $set: { terminalId: terminalId || undefined }, $unset: { pausedAt: 1, pausedBy: 1, pauseReason: 1 }, ...(changed ? { $push: { terminalHistory: { fromTerminalId: current.terminalId, toTerminalId: terminalId, changedAt: new Date(), changedBy: actorId(actor) } } } : {}) },
+      { returnDocument: "after" },
+    );
+    if (!shift) throw new ConflictError("SHIFT_CHANGED", "Ca đã thay đổi trên thiết bị khác.");
+    return shift;
+  },
+  async recordMovement(scope: RetailBranchScope, id: string, input: any, actor: any) {
+    if (!Types.ObjectId.isValid(id)) throw new ValidationError("SHIFT_ID_INVALID", "Mã ca bán hàng không hợp lệ.");
+    const type = String(input.type || "");
+    const amount = Number(input.amount);
+    const reason = String(input.reason || "").trim();
+    const idempotencyKey = String(input.idempotencyKey || "").trim();
+    if (type !== "in" && type !== "out") throw new ValidationError("SHIFT_MOVEMENT_TYPE_INVALID", "Chọn loại thu hoặc rút quỹ.");
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new ValidationError("SHIFT_MOVEMENT_AMOUNT_INVALID", "Số tiền thu/rút quỹ phải là số nguyên dương.");
+    if (!reason || reason.length > 500) throw new ValidationError("SHIFT_MOVEMENT_REASON_INVALID", "Vui lòng nhập lý do thu/rút quỹ không quá 500 ký tự.");
+    if (!idempotencyKey || idempotencyKey.length > 120) throw new ValidationError("SHIFT_MOVEMENT_KEY_INVALID", "Thiếu khóa chống ghi trùng thu/rút quỹ.");
+    const shift = await CashierShiftModel.findOneAndUpdate(
+      { _id: id, ...scope, cashierId: actorId(actor), status: "open", pausedAt: { $exists: false }, "cashMovements.idempotencyKey": { $ne: idempotencyKey } },
+      { $push: { cashMovements: { type, amount, reason, idempotencyKey, at: new Date(), by: actorId(actor), byName: actorName(actor) } } },
+      { returnDocument: "after" },
+    );
+    if (!shift) {
+      const prior = await CashierShiftModel.findOne({ _id: id, ...scope, cashierId: actorId(actor), "cashMovements.idempotencyKey": idempotencyKey });
+      const movement = (prior?.cashMovements as any[] | undefined)?.find((item) => item.idempotencyKey === idempotencyKey);
+      if (movement) {
+        if (movement.type !== type || movement.amount !== amount || movement.reason !== reason) throw new ConflictError("SHIFT_MOVEMENT_KEY_REUSED", "Khóa yêu cầu đã được dùng cho khoản thu/rút khác.");
+        return prior;
+      }
+      throw new ConflictError("SHIFT_NOT_OPEN", "Ca bán hàng không còn mở hoặc không thuộc thu ngân.");
+    }
+    return shift;
+  },
+  async reconcile(scope: RetailBranchScope, id: string, actor: any) {
+    if (!Types.ObjectId.isValid(id)) throw new ValidationError("SHIFT_ID_INVALID", "Mã ca bán hàng không hợp lệ.");
+    const shift = await CashierShiftModel.findOneAndUpdate(
+      { _id: id, ...scope, status: "closed", countedCash: { $exists: true }, varianceAmount: { $exists: true } },
+      { $set: { status: "reconciled", approvedBy: actorId(actor), approvedByName: actorName(actor), approvedAt: new Date() } },
+      { returnDocument: "after" },
+    );
+    if (!shift) throw new ConflictError("SHIFT_NOT_CLOSED", "Ca chưa đóng hoặc đã được đối soát.");
+    return shift;
   },
   async close(scope: RetailBranchScope, id: string, input: any, actor: any) {
     const countedCash = Number(input.countedCash); if (!Number.isSafeInteger(countedCash) || countedCash < 0) throw new Error("Tiền thực đếm không hợp lệ.");

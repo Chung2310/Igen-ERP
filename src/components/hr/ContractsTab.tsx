@@ -14,6 +14,7 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import { FilePreviewModal } from "../resource/FilePreviewModal";
 import { DateInput24 } from "../common/TimeInput24";
 import { HrFormSelect } from "./HrFormSelect";
+import { ContractSignaturePad } from "./ContractSignaturePad";
 import type { ResourceItem } from "../../types";
 
 type ContractStatus = "draft" | "active" | "expired" | "terminated";
@@ -35,8 +36,14 @@ type Contract = {
   signedImageMimeType?: string;
   signedImageSize?: number;
   signedImageResourceId?: string;
+  electronicSignatureUrl?: string;
+  electronicSignatureName?: string;
+  electronicSignatureMimeType?: string;
+  electronicSignatureSize?: number;
+  electronicSignatureResourceId?: string;
   note?: string;
 };
+type ContractExpiryAlert = { id: string; employeeName: string; endDate: string; daysRemaining: number };
 type Employee = {
   _id: string;
   displayName?: string;
@@ -122,6 +129,12 @@ const emptyContract = {
   signedImageSize: 0,
   signedImageResourceId: "",
   signedImageUploadToken: "",
+  electronicSignatureUrl: "",
+  electronicSignatureName: "",
+  electronicSignatureMimeType: "",
+  electronicSignatureSize: 0,
+  electronicSignatureResourceId: "",
+  electronicSignatureUploadToken: "",
   note: "",
 };
 const emptyExtension = {
@@ -168,6 +181,8 @@ export default function ContractsTab({
 }) {
   const [tab, setTab] = useState<"contracts" | "extensions">("contracts");
   const [contracts, setContracts] = useState<Contract[]>([]);
+  const [expiryAlerts, setExpiryAlerts] = useState<ContractExpiryAlert[]>([]);
+  const [expiryAlertTotal, setExpiryAlertTotal] = useState(0);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [extensions, setExtensions] = useState<Extension[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,7 +197,7 @@ export default function ContractsTab({
   const [extensionForm, setExtensionForm] = useState(emptyExtension);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<
-    "contract" | "signed" | "extension" | "extensionSigned" | null
+    "contract" | "signed" | "electronicSignature" | "extension" | "extensionSigned" | null
   >(null);
   const [previewItem, setPreviewItem] = useState<ResourceItem | null>(null);
   const suffix = `?companyCode=${encodeURIComponent(companyCode)}${branchId ? `&branchId=${encodeURIComponent(branchId)}` : ""}`;
@@ -201,6 +216,8 @@ export default function ContractsTab({
       const br = await b.json();
       if (!a.ok || !b.ok) throw new Error(ar.message || br.message);
       setContracts(ar.data?.contracts || []);
+      setExpiryAlerts(ar.data?.expiryAlerts || []);
+      setExpiryAlertTotal(ar.data?.expiryAlertTotal || 0);
       setEmployees(ar.data?.employees || []);
       setTotal(ar.data?.total || 0);
       setExtensions(br.data || []);
@@ -232,15 +249,6 @@ export default function ContractsTab({
       ),
     [employees, contracts],
   );
-  const expiringContracts = useMemo(
-    () =>
-      contracts
-        .filter(isExpiringSoon)
-        .sort(
-          (a, b) => daysUntilExpiry(a.endDate) - daysUntilExpiry(b.endDate),
-        ),
-    [contracts],
-  );
   const visibleEmployees = employees.filter((e) =>
     `${e.displayName || ""} ${e.email} ${e.department || ""}`
       .toLowerCase()
@@ -268,6 +276,12 @@ export default function ContractsTab({
             signedImageSize: contract.signedImageSize || 0,
             signedImageResourceId: contract.signedImageResourceId || "",
             signedImageUploadToken: "",
+            electronicSignatureUrl: contract.electronicSignatureUrl || "",
+            electronicSignatureName: contract.electronicSignatureName || "",
+            electronicSignatureMimeType: contract.electronicSignatureMimeType || "",
+            electronicSignatureSize: contract.electronicSignatureSize || 0,
+            electronicSignatureResourceId: contract.electronicSignatureResourceId || "",
+            electronicSignatureUploadToken: "",
             note: contract.note || "",
           }
         : emptyContract,
@@ -326,24 +340,28 @@ export default function ContractsTab({
   };
   const uploadContractFile = async (
     file: File,
-    target: "contract" | "signed",
+    target: "contract" | "signed" | "electronicSignature",
   ) => {
     const allowed =
-      target === "signed"
+      target !== "contract"
         ? file.type.startsWith("image/")
         : [
             "application/pdf",
             "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           ].includes(file.type);
-    if (!allowed)
-      return toast.error(
-        target === "signed"
+    if (!allowed) {
+      toast.error(
+        target !== "contract"
           ? "Ảnh đã ký phải là tệp hình ảnh."
           : "Hợp đồng chỉ hỗ trợ PDF, DOC hoặc DOCX.",
       );
-    if (file.size > 10 * 1024 * 1024)
-      return toast.error("Tệp tải lên không được vượt quá 10 MB.");
+      return false;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Tệp tải lên không được vượt quá 10 MB.");
+      return false;
+    }
     setUploading(target);
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
@@ -376,6 +394,16 @@ export default function ContractsTab({
               signedImageResourceId: "",
               signedImageUploadToken: data.data.uploadToken,
             }
+          : target === "electronicSignature"
+          ? {
+              ...current,
+              electronicSignatureUrl: data.data.url,
+              electronicSignatureName: file.name,
+              electronicSignatureMimeType: file.type,
+              electronicSignatureSize: file.size,
+              electronicSignatureResourceId: "",
+              electronicSignatureUploadToken: data.data.uploadToken,
+            }
           : {
               ...current,
               contractFileUrl: data.data.url,
@@ -387,8 +415,10 @@ export default function ContractsTab({
             },
       );
       toast.success(`Đã tải lên ${file.name}.`);
+      return true;
     } catch (e) {
       toast.error(getApiErrorMessage(e, "Không thể tải tệp hợp đồng."));
+      return false;
     } finally {
       setUploading(null);
     }
@@ -563,22 +593,22 @@ export default function ContractsTab({
           </div>
         ) : tab === "contracts" ? (
           <>
-            {expiringContracts.length > 0 && (
+            {expiryAlertTotal > 0 && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-amber-800">
                 <p className="text-xs font-medium">
-                  Có {expiringContracts.length} hợp đồng sắp hết hạn trong 20
+                  Có {expiryAlertTotal} hợp đồng sắp hết hạn trong 20
                   ngày tới
                 </p>
                 <p className="mt-1 text-[11px] text-amber-700">
-                  {expiringContracts
+                  {expiryAlerts
                     .slice(0, 5)
                     .map(
                       (contract) =>
-                        `${contract.employeeName} (${daysUntilExpiry(contract.endDate)} ngày)`,
+                        `${contract.employeeName} (${contract.daysRemaining} ngày)`,
                     )
                     .join(" · ")}
-                  {expiringContracts.length > 5
-                    ? ` · và ${expiringContracts.length - 5} hợp đồng khác`
+                  {expiryAlertTotal > 5
+                    ? ` · và ${expiryAlertTotal - 5} hợp đồng khác`
                     : ""}
                 </p>
               </div>
@@ -1011,6 +1041,13 @@ export default function ContractsTab({
                   Đã tải ảnh — xem ảnh
                 </a>
               )}
+            </div>
+            <div className="col-span-2">
+              <ContractSignaturePad
+                value={contractForm.electronicSignatureUrl}
+                saving={uploading === "electronicSignature"}
+                onSave={(file) => uploadContractFile(file, "electronicSignature")}
+              />
             </div>
             <label className="col-span-2 space-y-1.5 text-xs text-slate-600">
               Ghi chú

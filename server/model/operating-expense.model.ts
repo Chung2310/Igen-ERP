@@ -1,6 +1,7 @@
 import { Schema, model } from "mongoose";
 
 export interface IOperatingExpense {
+  idempotencyKey?: string;
   companyCode: string;
   branchId?: string;
   category: string;
@@ -14,6 +15,7 @@ export interface IOperatingExpense {
 }
 
 const OperatingExpenseSchema = new Schema<IOperatingExpense>({
+  idempotencyKey: { type: String },
   companyCode: { type: String, required: true, trim: true, index: true },
   branchId: { type: String, trim: true, index: true },
   category: { type: String, required: true, trim: true },
@@ -25,5 +27,6 @@ const OperatingExpenseSchema = new Schema<IOperatingExpense>({
 }, { timestamps: true });
 
 OperatingExpenseSchema.index({ companyCode: 1, branchId: 1, incurredOn: -1 });
+OperatingExpenseSchema.index({ companyCode: 1, branchId: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } });
 
 export const OperatingExpenseModel = model<IOperatingExpense>("OperatingExpense", OperatingExpenseSchema);

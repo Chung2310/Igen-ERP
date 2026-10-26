@@ -26,7 +26,7 @@ export interface Customer {
   updatedAt?: string;
 }
 
-export type CustomerInput = Pick<Customer, "name" | "phone"> & Partial<Pick<Customer, "type" | "email" | "dateOfBirth" | "gender" | "address" | "notes">>;
+export type CustomerInput = Pick<Customer, "name" | "phone"> & Partial<Pick<Customer, "type" | "email" | "dateOfBirth" | "gender" | "address" | "notes" | "source">>;
 export type CustomerListQuery = {
   companyCode?: string;
   q?: string;
@@ -59,9 +59,22 @@ export interface CustomerPurchaseHistoryItem {
   salespersonName?: string;
 }
 
+export interface CustomerPurchaseHistoryDevice {
+  _id: string;
+  productName: string;
+  sku?: string;
+  internalBarcode?: string;
+  serialNumber?: string;
+  soldAt?: string;
+  orderCode?: string;
+  warrantyStartAt?: string;
+  warrantyEndAt?: string;
+}
+
 export interface CustomerPurchaseHistory {
   summary: CustomerPurchaseHistorySummary;
   items: CustomerPurchaseHistoryItem[];
+  devices: CustomerPurchaseHistoryDevice[];
 }
 
 export type CustomerPurchaseHistoryScope = { companyCode: string; branchId: string };

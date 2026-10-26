@@ -37,6 +37,7 @@ export interface IPayrollRun extends Document {
   supplementalReason?: string;
   status: PayrollPeriodStatus;
   needsInputRefresh?: boolean;
+  reconciliationRequired?: boolean;
   lines: { employeeId: string; employeeName?: string; calculation: Record<string, number> }[];
   createdBy: string;
   approvedBy?: string;

@@ -9,6 +9,9 @@ import { publishRepairTicketEvent } from "./services/repair-events";
 import { assertSoldSerialForRepair } from "./repair-serial-validation";
 import { recordRepairSerialLifecycle } from "./services/repair-serial-lifecycle";
 import { requireSoldSerialForRepair } from "./repair-sold-serial.service";
+import { RetailPartnerModel } from "../retail/models/retail-partner.model";
+import { Types } from "mongoose";
+import { accrueRepairCommission } from "../retail/services/retail-commission.service";
 
 export type RepairScope = { companyCode: string; branchId: string };
 export type RepairActor = { id: string; name: string };
@@ -17,7 +20,15 @@ export async function createRepairTicket(scope: RepairScope, input: Omit<RepairT
   if (!input.customerId || !input.device?.name || !input.symptom) throw Object.assign(new Error("Khách hàng, thiết bị và mô tả lỗi là bắt buộc."), { statusCode: 400 });
   assertSoldSerialForRepair(input.device);
   await requireSoldSerialForRepair(scope, input.device);
-  const ticket = new RepairTicketModel({ ...input, ...scope, status: "received", statusHistory: [{ to: "received", at: new Date(), by: actor.id, byName: actor.name, customerNotified: false }], createdBy: actor.id, createdByName: actor.name });
+  let retailPartnerSnapshot: { partnerId: string; code: string; name: string } | undefined;
+  if (input.retailPartnerId) {
+    if (!Types.ObjectId.isValid(input.retailPartnerId)) throw Object.assign(new Error("Mã CTV bán lẻ không hợp lệ."), { statusCode: 400 });
+    const partner = await RetailPartnerModel.findOne({ _id: input.retailPartnerId, companyCode: scope.companyCode, roles: "collaborator", status: "active" }).select("code name").lean();
+    if (!partner) throw Object.assign(new Error("CTV bán lẻ không còn hoạt động hoặc không thuộc công ty."), { statusCode: 400 });
+    retailPartnerSnapshot = { partnerId: String(partner._id), code: partner.code, name: partner.name };
+  }
+  const { retailPartnerSnapshot: _untrustedSnapshot, ...safeInput } = input;
+  const ticket = new RepairTicketModel({ ...safeInput, ...scope, ...(retailPartnerSnapshot ? { retailPartnerSnapshot } : {}), status: "received", statusHistory: [{ to: "received", at: new Date(), by: actor.id, byName: actor.name, customerNotified: false }], createdBy: actor.id, createdByName: actor.name });
   if (session) ticket.$session(session);
   const saved = (await ticket.save()).toObject();
   await recordRepairSerialLifecycle(saved, "received", actor);
@@ -56,7 +67,7 @@ export async function transitionRepairTicket(scope: RepairScope, id: string, to:
   }
   if (to === "delivered") ticket.deliveredAt = new Date(); ticket.updatedBy = actor.id; if (session) ticket.$session(session); await ticket.save();
   const saved = ticket.toObject();
-  if (to === "delivered") await recordRepairSerialLifecycle(saved, "delivered", actor);
+  if (to === "delivered") { await recordRepairSerialLifecycle(saved, "delivered", actor); await accrueRepairCommission(scope, saved, session); }
   if (to === "done" || to === "delivered") afterRepairTicketEvent(saved, to, actor);
   return saved;
 }
@@ -76,7 +87,7 @@ export async function approveRepairQuote(scope: RepairScope, id: string, actor: 
 export async function deliverRepairTicket(scope: RepairScope, id: string, actor: RepairActor, _allowDebt = false) {
   const ticket: any = await RepairTicketModel.findOne({ _id: id, ...scope }); if (!ticket) throw Object.assign(new Error("Không tìm thấy phiếu sửa chữa."), { statusCode: 404 });
   assertRepairTransition(ticket.status, "delivered"); const dueAmount = Math.max(0, Number(ticket.totalAmount || 0) - Number(ticket.paidAmount || 0)); if (dueAmount > 0) throw Object.assign(new Error("Không thể giao máy khi phiếu còn công nợ."), { statusCode: 403, code: "REPAIR_DEBT_BLOCKED" });
-  ticket.status = "delivered"; ticket.deliveredAt = new Date(); ticket.statusHistory.push({ from: "done", to: "delivered", at: new Date(), by: actor.id, byName: actor.name, customerNotified: false }); await ticket.save(); return ticket.toObject();
+  ticket.status = "delivered"; ticket.deliveredAt = new Date(); ticket.statusHistory.push({ from: "done", to: "delivered", at: new Date(), by: actor.id, byName: actor.name, customerNotified: false }); await ticket.save(); await accrueRepairCommission(scope, ticket); return ticket.toObject();
 }
 
 export async function recordRepairPayment(scope: RepairScope, id: string, amount: number, actor: RepairActor) {

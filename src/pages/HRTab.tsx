@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { Activity, Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, Mail, UserSearch, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, Mail, UserSearch, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
@@ -8,28 +8,37 @@ import { toast } from "./Toast";
 import { getApiErrorMessage } from "../utils/errorMessage";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { HR_SUB_TAB_ROUTES } from "../router/subTabRoutes";
+import { cn } from "../modules/student-management/lib/utils";
 
 // Lazy-loaded subcomponents
 const OrgChartTab = lazy(() => import("../components/hr/OrgChartTab"));
 const KanbanTab = lazy(() => import("../components/hr/KanbanTab"));
 const TrainingTab = lazy(() => import("../components/hr/TrainingTab"));
 const WorkflowTab = lazy(() => import("../components/hr/WorkflowTab"));
-const CalendarTab = lazy(() => import("../components/hr/CalendarTab"));
+const HrScheduleTab = lazy(() => import("../components/hr/HrScheduleTab"));
 const PayrollTab = lazy(() => import("../components/hr/PayrollTab"));
 const ContractsTab = lazy(() => import("../components/hr/ContractsTab"));
 const CelebrationEmailTab = lazy(() => import("../components/hr/CelebrationEmailTab"));
 const EmployeePayslips = lazy(() => import("../components/hr/EmployeePayslips"));
 const RecruitmentTab = lazy(() => import("../components/hr/recruitment/RecruitmentTab"));
+const HrDepartmentTab = lazy(() => import("../components/hr/HrDepartmentTab"));
+const BranchManagementTab = lazy(() => import("../components/settings/BranchManagementTab"));
 const CELEBRATION_TAB = "EMAIL CHÚC MỪNG" as HRSubTabType;
 const RECRUITMENT_TAB = "TUYỂN DỤNG" as HRSubTabType;
+const DEPARTMENT_TAB = "PHÒNG BAN" as HRSubTabType;
+const BRANCH_TAB = "CHI NHÁNH" as HRSubTabType;
 
 export function canAccessRecruitment(role: string | undefined, hasPermission: (code: string) => boolean) {
   return role === "superadmin" || role === "admin" || hasPermission("recruitment:read") || hasPermission("recruitment:manage");
 }
 
 export default function HRTab() {
-  const subTabsRef = useRef<HTMLDivElement>(null);
-  const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -280 : 280, behavior: "smooth" });
+  const subTabsRef = useRef<HTMLElement>(null);
+  const [tabScroll, setTabScroll] = useState({ left: false, right: false });
+  const scrollSubTabs = (direction: "left" | "right") => {
+    const nav = subTabsRef.current;
+    nav?.scrollBy({ left: (direction === "left" ? -1 : 1) * Math.max(240, nav.clientWidth * 0.75), behavior: "smooth" });
+  };
   const { userProfile, hasPermission } = useAuth();
   const { activeBranchId } = useBranch();
   const isManager =
@@ -39,19 +48,43 @@ export default function HRTab() {
   // Custom roles (e.g. "hr") granted the timekeeping permissions via RolePermission
   // must also be able to view/manage everyone's attendance, not just their own -
   // scoped to CalendarTab only, so it doesn't leak "manager" rights into other HR tabs.
-  const isCompanyAdmin = userProfile?.role === "superadmin" || userProfile?.role === "admin";
   const hasContractPermissions = false;
   const canViewAllAttendance = (isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage") || hasPermission("payroll-period:manage")) && !hasContractPermissions;
   const canManageAttendance = (isManager || hasPermission("timekeeping:manage")) && !hasContractPermissions;
+  const canManageTimekeeping = userProfile?.role === "superadmin" || userProfile?.role === "admin" || hasPermission("timekeeping:manage");
+  const canManageCalendar = userProfile?.role === "superadmin" || userProfile?.role === "admin";
   const canEditAttendance = (canManageAttendance || hasPermission("payroll-period:manage")) && !hasContractPermissions;
   const canManageOrgChart = isManager || hasPermission("access:manage");
   const canManageKanban = isManager || hasPermission("work:manage");
   const isPayrollManager = userProfile?.role === "superadmin" || userProfile?.role === "admin";
   const canViewPayroll = isPayrollManager || hasPermission("payroll-period:read") || hasPermission("payroll-period:manage");
   const canManageCelebration = userProfile?.role === "admin" || hasPermission("settings:manage");
+  const canManageDepartments = userProfile?.role === "superadmin" || hasPermission("access:manage") || hasPermission("hr:manage");
+  const canViewDepartments = canManageDepartments || hasPermission("access:read") || hasPermission("hr:read");
+  const canManageBranches = userProfile?.role === "admin";
   const hasRecruitmentAccess = canAccessRecruitment(userProfile?.role, hasPermission);
   const canManageRecruitment =
     userProfile?.role === "admin" || userProfile?.role === "superadmin" || hasPermission("recruitment:manage");
+
+  useEffect(() => {
+    const nav = subTabsRef.current;
+    if (!nav) return;
+    const update = () => {
+      const maxScroll = Math.max(0, nav.scrollWidth - nav.clientWidth);
+      setTabScroll({ left: nav.scrollLeft > 1, right: nav.scrollLeft < maxScroll - 1 });
+    };
+    update();
+    nav.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(nav);
+    Array.from(nav.children).forEach((tab) => observer?.observe(tab));
+    return () => {
+      nav.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      observer?.disconnect();
+    };
+  }, [canViewDepartments, canManageBranches, canManageCelebration, hasRecruitmentAccess]);
 
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -59,7 +92,9 @@ export default function HRTab() {
 
   useEffect(() => {
     if (subTab === RECRUITMENT_TAB && !hasRecruitmentAccess) setSubTab("SƠ ĐỒ TỔ CHỨC");
-  }, [subTab, hasRecruitmentAccess, setSubTab]);
+    if (subTab === DEPARTMENT_TAB && !canViewDepartments) setSubTab("SƠ ĐỒ TỔ CHỨC");
+    if (subTab === BRANCH_TAB && !canManageBranches) setSubTab("SƠ ĐỒ TỔ CHỨC");
+  }, [subTab, hasRecruitmentAccess, canViewDepartments, canManageBranches, setSubTab]);
 
   // SaaS States
   const [companies, setCompanies] = useState<any[]>([]);
@@ -178,20 +213,22 @@ export default function HRTab() {
   }));
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-white max-h-[85vh] overflow-hidden" id="hr_tab_wrapper">
-      <h1 className="sr-only">Quản lý Nhân sự - {subTab}</h1>
+    <div className="flex min-h-0 flex-1 flex-col bg-surface max-h-[85vh] overflow-hidden" id="hr_tab_wrapper">
+      <h1 className="sr-only text-balance">Quản lý Nhân sự - {subTab}</h1>
 
       {/* Sub Tabs switcher navigation bar */}
-      <div className="flex shrink-0 flex-col items-stretch gap-3 border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5" id="hr_sub_tabs_bar">
+      <div className="mb-4 flex shrink-0 flex-col items-stretch gap-3 border-b border-outline-variant bg-surface-container-lowest px-3 pb-2 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5" id="hr_sub_tabs_bar">
         <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" aria-label="Cuộn tab HR sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-[#00ADFC] sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-          <div ref={subTabsRef} className="flex min-w-0 max-w-full flex-1 gap-1 overflow-x-auto select-none scrollbar-none -mb-px">
+          <button type="button" aria-label="Cuộn tab Nhân sự sang trái" onClick={() => scrollSubTabs("left")} disabled={!tabScroll.left} className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40", !tabScroll.left && !tabScroll.right && "hidden")}><ChevronLeft className="size-4" aria-hidden="true" /></button>
+          <nav ref={subTabsRef} aria-label="Mục Nhân sự" className="flex min-w-0 max-w-full flex-1 gap-1 overflow-x-auto select-none scrollbar-none">
             {[
               { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: FolderTree },
+              ...(canViewDepartments ? [{ id: DEPARTMENT_TAB, label: "Phòng ban", icon: Building2 }] : []),
+              ...(canManageBranches ? [{ id: BRANCH_TAB, label: "Chi nhánh", icon: MapPin }] : []),
               { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },
               { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
               { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
-              { id: "LỊCH", label: "Lịch làm việc", icon: Calendar },
+              { id: "LỊCH", label: "Lịch & Ca làm việc", icon: Calendar },
               { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: FileSignature },
               { id: "PAYROLL", label: "Bảng lương", icon: Briefcase },
               ...(canManageCelebration ? [{ id: CELEBRATION_TAB, label: "Email chúc mừng", icon: Mail }] : []),
@@ -202,31 +239,32 @@ export default function HRTab() {
               return (
                 <button
                   key={tab.id}
+                  type="button"
+                  aria-current={isActive ? "page" : undefined}
                   onClick={() => setSubTab(tab.id as HRSubTabType)}
-                  className={`flex items-center gap-2 px-3.5 py-2 font-semibold text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl normal-case ${
-                    isActive
-                      ? "bg-[#00ADFC] text-white font-bold shadow-xs active:bg-[#0095d9]"
-                      : "text-slate-600 hover:text-[#007EB8] hover:bg-[#E8F7FF]"
-                  }`}
+                  className={cn(
+                    "flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold normal-case transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                    isActive ? "bg-primary font-bold text-on-primary shadow-xs" : "text-on-surface-variant hover:bg-surface hover:text-primary",
+                  )}
                 >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
+                  <Icon className="size-4" aria-hidden="true" />
                   <span>{tab.label}</span>
                 </button>
               );
             })}
-          </div>
-          <button type="button" aria-label="Cuộn tab HR sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-[#00ADFC] sm:hidden"><ChevronRight className="h-4 w-4" /></button>
+          </nav>
+          <button type="button" aria-label="Cuộn tab Nhân sự sang phải" onClick={() => scrollSubTabs("right")} disabled={!tabScroll.right} className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40", !tabScroll.left && !tabScroll.right && "hidden")}><ChevronRight className="size-4" aria-hidden="true" /></button>
         </div>
 
         <div className="flex items-center gap-4 pb-2 sm:pb-0">
           {/* SaaS Multi-tenant Company Filter for Superadmin */}
           {userProfile?.role === "superadmin" && (
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-slate-400 shrink-0" />
+              <Building2 className="size-4 shrink-0 text-on-surface-variant" aria-hidden="true" />
               <select
                 value={selectedCompanyCode}
                 onChange={(e) => setSelectedCompanyCode(e.target.value)}
-                className="p-1.5 border border-slate-200/80 bg-white rounded-xl text-xs focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC] outline-none cursor-pointer font-medium max-w-[60vw] sm:max-w-none text-slate-800"
+                className="max-w-[60vw] cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest p-1.5 text-xs font-medium text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary sm:max-w-none"
               >
                 <option value="SYSTEM">Hệ thống (SYSTEM)</option>
                 {companies.map((c) => (
@@ -243,6 +281,16 @@ export default function HRTab() {
 
       {/* Conditional Rendering of Modular Tab Components */}
       <Suspense fallback={<TabLoader label="Đang tải dữ liệu nhân sự..." />}>
+        {subTab === DEPARTMENT_TAB && canViewDepartments && (
+          <HrDepartmentTab companyCode={selectedCompanyCode} fetchUsers={fetchUsers} canManage={canManageDepartments} />
+        )}
+
+        {subTab === BRANCH_TAB && canManageBranches && (
+          <div className="min-h-0 flex-1 overflow-y-auto bg-surface p-3 sm:p-5">
+            <BranchManagementTab />
+          </div>
+        )}
+
         {subTab === "SƠ ĐỒ TỔ CHỨC" && (
           <OrgChartTab
             userProfile={userProfile}
@@ -251,7 +299,7 @@ export default function HRTab() {
             employees={employees}
             fetchUsers={fetchUsers}
             isManager={canManageOrgChart}
-            canManageDepartments={userProfile?.role === "superadmin" || hasPermission("access:manage")}
+            canManageDepartments={canManageDepartments}
             companies={companies}
             courses={courses}
             fetchCourses={fetchCourses}
@@ -294,7 +342,7 @@ export default function HRTab() {
 
         {subTab === "PAYROLL" && (
           canViewPayroll ? (
-            <PayrollTab canManage={isPayrollManager || hasPermission("payroll-period:manage")} />
+            <PayrollTab canManage={isPayrollManager || hasPermission("payroll-period:manage")} canPublishPayslips={isPayrollManager || hasPermission("payroll-payment:manage")} canExportPayslips={isPayrollManager || hasPermission("payroll-payment:read") || hasPermission("payroll-payment:manage")} />
           ) : (
             <EmployeePayslips />
           )
@@ -303,15 +351,16 @@ export default function HRTab() {
         {subTab === RECRUITMENT_TAB && hasRecruitmentAccess && <RecruitmentTab key={activeBranchId} canManage={canManageRecruitment} />}
         {subTab === "HỢP ĐỒNG" && <ContractsTab canManage={canManageOrgChart} companyCode={selectedCompanyCode} branchId={activeBranchId || undefined} />}
         {subTab === "LỊCH" && (
-          <CalendarTab
+          <HrScheduleTab
             userProfile={userProfile}
             selectedCompanyCode={selectedCompanyCode}
             isManager={canViewAllAttendance}
-            canManage={canManageAttendance}
+            canManageAttendance={canManageAttendance}
             canEditAttendance={canEditAttendance}
             usersList={usersList}
             employees={employees}
-            canApproveLeave={canManageAttendance}
+            canManageTimekeeping={canManageTimekeeping}
+            canManageCalendar={canManageCalendar}
           />
         )}
       </Suspense>
@@ -321,9 +370,9 @@ export default function HRTab() {
 
 function TabLoader({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl bg-white border border-slate-200/80 p-6 text-center">
-      <div className="w-8 h-8 border-3 border-[#00ADFC] border-t-transparent rounded-full animate-spin" />
-      <span className="text-xs text-slate-500 font-semibold">{label}</span>
+    <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 text-center">
+      <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" aria-hidden="true" />
+      <span role="status" className="text-pretty text-xs font-semibold text-on-surface-variant">{label}</span>
     </div>
   );
 }

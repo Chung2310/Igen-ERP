@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductCatalogV2Section } from "./ProductCatalogV2Section";
 import { productCatalogService } from "../../services/productCatalogService";
 
@@ -20,6 +20,7 @@ const product = {
 };
 
 describe("ProductCatalogV2Section bulk SKU form", () => {
+  afterEach(cleanup);
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(productCatalogService.listProducts).mockResolvedValue({ items: [product], total: 1, page: 1, limit: 10 });
@@ -50,6 +51,20 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
       expect.objectContaining({ sku: "AO-DEN" }),
       expect.objectContaining({ sku: "AO-TRANG" }),
     ])));
+  });
+
+  it("filters the shared product list by category and brand", async () => {
+    vi.mocked(productCatalogService.listResources).mockImplementation(async (kind) => kind === "categories"
+      ? [{ _id: "category-1", code: "AO", name: "Áo", status: "active" }]
+      : [{ _id: "brand-1", code: "LOCAL", name: "Thương hiệu nội địa", status: "active" }]);
+    render(<ProductCatalogV2Section />);
+    await screen.findByText("Áo thun");
+    fireEvent.click(screen.getByRole("button", { name: "Lọc danh mục sản phẩm" }));
+    fireEvent.click(screen.getByRole("option", { name: "Áo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lọc thương hiệu sản phẩm" }));
+    fireEvent.click(screen.getByRole("option", { name: "Thương hiệu nội địa" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Lọc$/ }));
+    await waitFor(() => expect(productCatalogService.listProducts).toHaveBeenLastCalledWith(expect.objectContaining({ categoryCode: "AO", brandCode: "LOCAL" })));
   });
 
   it("keeps the product editor open beneath the SKU editor", async () => {

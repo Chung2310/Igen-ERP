@@ -465,7 +465,7 @@ export function ReceivingSection() {
 
 function ReceiptStatus({ status }: { status: GoodsReceipt["status"] }) { const details = { draft: ["Nháp", "bg-slate-100 text-slate-600"], pending: ["Chờ xác nhận", "bg-amber-50 text-amber-700"], receiving: ["Đang nhập kho", "bg-sky-50 text-sky-700"], confirmed: ["Hoàn thành", "bg-emerald-50 text-emerald-700"], cancelled: ["Đã hủy", "bg-rose-50 text-rose-700"] } as const; const [label, className] = details[status]; return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${className}`}>{label}</span>; }
 function ReceiptActions({ receipt, onView, onSubmit, onStart, onConfirm, onCancel }: { receipt: GoodsReceipt; onView: () => void; onSubmit: () => void; onStart: () => void; onConfirm: () => void; onCancel: () => void }) { return <span className="inline-flex gap-1"><button type="button" onClick={onView} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Xem chi tiết phiếu"><Eye className="h-4 w-4" /></button>{receipt.status === "draft" && <><button type="button" onClick={onSubmit} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-50" title="Gửi chờ xác nhận">Gửi</button><button type="button" onClick={onCancel} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "pending" && <><button type="button" onClick={onStart} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-sky-700 hover:bg-sky-50" title="Bắt đầu nhập kho">Nhập kho</button><button type="button" onClick={onCancel} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "receiving" && <button type="button" onClick={onConfirm} className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-2 text-xs font-medium text-white hover:bg-emerald-700" title="Hoàn thành nhập kho"><Check className="h-3.5 w-3.5" />Hoàn thành</button>}</span>; }
-function ReceiptDetailModal({ receipt, onClose }: { receipt: GoodsReceipt; onClose: () => void }) { return <Modal title={`Chi tiết phiếu nhập ${receipt.receiptCode}`} onClose={onClose} wide><div className="space-y-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{receipt.supplierName}</p><p className="mt-1 text-xs text-slate-500">Ngày tạo: {new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div><ReceiptStatus status={receipt.status} /></div><div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Sản phẩm</th><th className="px-4 py-3">SKU</th><th className="px-4 py-3 text-right">Số lượng</th><th className="px-4 py-3 text-right">BH NCC</th><th className="px-4 py-3 text-right">Đơn giá</th><th className="px-4 py-3 text-right">Thành tiền</th></tr></thead><tbody className="divide-y divide-slate-100">{receipt.items.map((item, index) => <tr key={`${item.variantId}-${index}`}><td className="px-4 py-3 font-medium text-slate-800">{item.productName}</td><td className="px-4 py-3 font-mono text-xs text-slate-600">{item.sku}</td><td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td><td className="px-4 py-3 text-right tabular-nums text-slate-600">{item.supplierWarrantyMonths ? `${item.supplierWarrantyMonths} tháng` : "—"}</td><td className="px-4 py-3 text-right tabular-nums">{money(item.unitCost)}</td><td className="px-4 py-3 text-right font-semibold tabular-nums">{money(item.lineTotal)}</td></tr>)}</tbody></table></div><div className="flex justify-end border-t border-slate-200 pt-4"><button type="button" onClick={onClose} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Đóng</button></div></div></Modal>; }
+function ReceiptDetailModal({ receipt, onClose }: { receipt: GoodsReceipt; onClose: () => void }) { return <Modal title={`Chi tiết phiếu nhập ${receipt.receiptCode}`} onClose={onClose} wide><div className="space-y-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{receipt.supplierName}</p><p className="mt-1 text-xs text-slate-500">Ngày tạo: {new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div><ReceiptStatus status={receipt.status} /></div><div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Sản phẩm</th><th className="px-4 py-3">SKU</th><th className="px-4 py-3 text-right">Số lượng</th><th className="px-4 py-3 text-right">BH NCC</th><th className="px-4 py-3 text-right">Đơn giá</th><th className="px-4 py-3 text-right">Thành tiền</th></tr></thead><tbody className="divide-y divide-slate-100">{receipt.items.map((item, index) => <tr key={`${item.variantId}-${index}`}><td className="px-4 py-3 font-medium text-slate-800">{item.productName}</td><td className="px-4 py-3 font-mono text-xs text-slate-600">{item.sku}</td><td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td><td className="px-4 py-3 text-right tabular-nums text-slate-600">{item.supplierWarrantyMonths ? `${item.supplierWarrantyMonths} tháng` : "—"}</td><td className="px-4 py-3 text-right tabular-nums">{money(item.unitCost)}</td><td className="px-4 py-3 text-right font-semibold tabular-nums">{money(item.lineTotal)}</td></tr>)}</tbody></table></div>{receipt.financeTerms && <div className="grid gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-sm text-on-surface sm:grid-cols-3"><p>Hạn trả: <strong>{receipt.financeTerms.dueOn}</strong></p><p>Đã trả: <strong className="tabular-nums">{money(receipt.financeTerms.paidAmount)} ₫</strong></p><p>Còn phải trả: <strong className="tabular-nums">{money(receipt.subtotal - receipt.financeTerms.paidAmount)} ₫</strong></p></div>}<div className="flex justify-end border-t border-slate-200 pt-4"><button type="button" onClick={onClose} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Đóng</button></div></div></Modal>; }
 
 function SearchableSelect({ options, value, onChange, onQueryChange, placeholder, disabled }: { options: { value: string; label: string }[]; value: string; onChange: (val: string) => void; onQueryChange?: (query: string) => void; placeholder: string; disabled?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -579,6 +579,9 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
   const [quantity, setQuantity] = useState("1");
   const [unitCost, setUnitCost] = useState("0");
   const [notes, setNotes] = useState("");
+  const [financeEnabled, setFinanceEnabled] = useState(Boolean(initialReceipt?.financeTerms));
+  const [financeTerms, setFinanceTerms] = useState(initialReceipt?.financeTerms || { dueOn: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()), paidAmount: 0, paymentMethod: "" });
+  const [financeError, setFinanceError] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -593,6 +596,8 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
       if (initialReceipt) {
         setSupplierId(initialReceipt.supplierId);
         setNotes(initialReceipt.notes || "");
+        setFinanceEnabled(Boolean(initialReceipt.financeTerms));
+        if (initialReceipt.financeTerms) setFinanceTerms(initialReceipt.financeTerms);
         setLines(initialReceipt.items.map((item, index) => {
           const line: DraftLine = { ...item, key: `${item.variantId}-${index}`, displayName: item.productName || item.sku };
           return unitTracked(line.trackingMode) ? normalizeUnits(line, Math.max(1, Math.round(line.quantity))) : line;
@@ -744,11 +749,17 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
         toast.error(`SKU ${invalidUnitLine.sku} phải có đủ mã vạch nội bộ duy nhất theo số lượng.`);
         return;
       }
+      if (financeEnabled && (!/^\d{4}-\d{2}-\d{2}$/.test(financeTerms.dueOn) || !Number.isSafeInteger(financeTerms.paidAmount) || financeTerms.paidAmount < 0 || financeTerms.paidAmount > total)) {
+        setFinanceError("Kiểm tra hạn trả và số đã thanh toán; số đã trả không được vượt tổng phiếu nhập.");
+        return;
+      }
+      setFinanceError("");
       setSaving(true);
     try {
       const payload = {
         supplierId,
         notes: notes.trim() || undefined,
+        financeTerms: financeEnabled ? financeTerms : null,
         items: lines.map(({ key: _key, displayName: _displayName, ...line }) => {
           // Không gửi unitDetails rỗng (hàng serial được phép không cấp mã nội bộ).
           const unitDetails = (line.unitDetails || []).filter((detail) => (detail.internalBarcode || "").trim());
@@ -770,6 +781,8 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
     <Modal title={initialReceipt ? `Sửa phiếu nhập ${initialReceipt.receiptCode}` : "Tạo phiếu nhập mới"} onClose={onClose} wide>
       <div className="-m-4 bg-[#F8FBFF] p-4">
         <div className="space-y-4 rounded-xl border border-[#DCE7F4] bg-white p-4">
+
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Nhà cung cấp</label>
             <StyledSelect ariaLabel="Nhà cung cấp" value={supplierId} onChange={setSupplierId} options={[{ value: "", label: "Chọn nhà cung cấp" }, ...suppliers.map((item) => ({ value: item._id, label: `${item.name} (${item.code})` }))]} className="h-11" />
@@ -897,6 +910,32 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
               </table>
             </div>
           </div>
+
+          <section className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4" aria-labelledby="receipt-finance-title">
+            <div>
+              <h3 id="receipt-finance-title" className="text-balance text-sm font-semibold text-on-surface">Công nợ nhà cung cấp</h3>
+              <p className="text-pretty text-sm text-on-surface-variant">Khi hoàn tất nhập kho, hệ thống ghi khoản phải trả theo giá trị phiếu trừ số đã thanh toán.</p>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-on-surface">
+              <input type="checkbox" checked={financeEnabled} onChange={(event) => { setFinanceEnabled(event.target.checked); setFinanceError(""); }} />
+              Theo dõi công nợ cho phiếu nhập này
+            </label>
+            {financeEnabled && <div className="grid gap-3 sm:grid-cols-3">
+              <label className="space-y-1 text-sm text-on-surface">Hạn thanh toán
+                <input type="date" required value={financeTerms.dueOn} aria-invalid={Boolean(financeError)} aria-describedby={financeError ? "receipt-finance-error" : undefined} onChange={(event) => { setFinanceTerms({ ...financeTerms, dueOn: event.target.value }); setFinanceError(""); }} className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-primary" />
+              </label>
+              <label className="space-y-1 text-sm text-on-surface">Đã thanh toán (₫)
+                <input type="number" min="0" max={total} step="1" required value={financeTerms.paidAmount} aria-invalid={Boolean(financeError)} aria-describedby={financeError ? "receipt-finance-error" : undefined} onChange={(event) => { setFinanceTerms({ ...financeTerms, paidAmount: Number(event.target.value) }); setFinanceError(""); }} className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-on-surface tabular-nums focus-visible:outline-2 focus-visible:outline-primary" />
+              </label>
+              <label className="space-y-1 text-sm text-on-surface">Phương thức đã trả
+                <select value={financeTerms.paymentMethod || ""} onChange={(event) => setFinanceTerms({ ...financeTerms, paymentMethod: event.target.value })} className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-primary">
+                  <option value="">Chưa xác định</option><option value="cash">Tiền mặt</option><option value="bank">Ngân hàng</option>
+                </select>
+              </label>
+              <p className="text-sm text-on-surface-variant sm:col-span-3">Còn phải trả: <strong className="tabular-nums text-on-surface">{money(total - financeTerms.paidAmount)} ₫</strong></p>
+            </div>}
+            {financeError && <p id="receipt-finance-error" role="alert" className="text-sm text-error">{financeError}</p>}
+          </section>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Ghi chú phiếu nhập</label>

@@ -22,7 +22,15 @@ export const FinanceRetailCompatibilityService = {
     const page = Number(query?.page || 1), limit = Number(query?.limit || 20);
     const listed: any = await ReceivableQueryService.list(scope, { ...query, customerId, page, limit });
     const details = await Promise.all((listed.items || []).map((item: any) => ReceivableQueryService.detail(scope, String(item._id))));
-    const items = details.flatMap((detail: any) => detail?.entries || []).sort((a: any, b: any) => new Date(b.createdAt).valueOf() - new Date(a.createdAt).valueOf());
+    let runningBalance = 0;
+    const items = details.flatMap((detail: any) => detail?.entries || [])
+      .sort((a: any, b: any) => new Date(a.createdAt).valueOf() - new Date(b.createdAt).valueOf() || String(a._id).localeCompare(String(b._id)))
+      .map((entry: any) => {
+        const signedAmount = Number(entry.amount || 0);
+        runningBalance += signedAmount;
+        return { ...entry, amount: Math.abs(signedAmount), signedAmount, runningBalance };
+      })
+      .reverse();
     return { items, total: items.length, page, limit, currentBalance: (listed.items || []).reduce((sum: number, item: any) => sum + Number(item.balance), 0) };
   },
   adjust(scope: any, input: any, actor: any) {

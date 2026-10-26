@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import WarrantyLookupSection from "../components/inventory/WarrantyLookupSection";
 import RepairBoardPage, { type RepairCreatePrefill } from "../modules/repair/RepairBoardPage";
 import RepairReportsPanel from "../modules/repair/RepairReportsPanel";
+import { useAuth } from "../context/AuthContext";
 import "./repair-theme.css";
 
 const TABS = [
@@ -12,6 +13,9 @@ const TABS = [
 type RepairView = (typeof TABS)[number]["key"];
 
 export default function RepairTab() {
+  const { userProfile } = useAuth();
+  const canManageWarranty = userProfile?.role === "admin" || userProfile?.role === "superadmin" || Boolean(userProfile?.permissions?.includes("retail:manage") || userProfile?.permissions?.includes("repair:manage") || userProfile?.permissions?.includes("*"));
+  const canCreateRepair = userProfile?.role === "admin" || userProfile?.role === "superadmin" || Boolean(userProfile?.permissions?.includes("repair:manage") || userProfile?.permissions?.includes("*"));
   const [view, setView] = useState<RepairView>("warranty");
   const [prefill, setPrefill] = useState<RepairCreatePrefill | null>(null);
   useEffect(() => {
@@ -23,7 +27,7 @@ export default function RepairTab() {
     <div className="repair-ui-tabs flex flex-wrap gap-2">
       {TABS.map((tab) => <button key={tab.key} type="button" onClick={() => setView(tab.key)} aria-current={view === tab.key ? "page" : undefined} className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${view === tab.key ? "bg-primary text-white" : "bg-white text-slate-600 hover:bg-primary-fixed hover:text-cyan-700"}`}>{tab.label}</button>)}
     </div>
-    {view === "warranty" && <WarrantyLookupSection />}
+    {view === "warranty" && <WarrantyLookupSection canManage={canManageWarranty} onCreateRepair={canCreateRepair ? (device) => { setPrefill(device); setView("repair"); } : undefined} />}
     {view === "repair" && <RepairBoardPage createPrefill={prefill} onCreatePrefillConsumed={() => setPrefill(null)} />}
     {view === "reports" && <RepairReportsPanel />}
   </div>;

@@ -34,11 +34,6 @@ interface Resource {
 
 type ResourceSubTabType = "TÀI LIỆU KHÁC" | "GOOGLE DRIVE";
 
-const SUB_TABS: Array<{ value: ResourceSubTabType; label: string; icon: React.ElementType }> = [
-  { value: "TÀI LIỆU KHÁC", label: "Tài liệu khác", icon: FileText },
-  { value: "GOOGLE DRIVE", label: "Google Drive", icon: HardDrive },
-];
-
 const GoogleDriveLogo = ({ className = "h-6 w-6" }) => (
   <svg className={className} viewBox="0 0 360 360" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M121 54.5L50.5 176.5L93.5 251L164 129L121 54.5Z" fill="#0066DA" />
@@ -1849,53 +1844,6 @@ export default function ResourceTab() {
         }
       }}
     >
-      {/* Horizontal Sub-tab Switcher */}
-      <div className="flex shrink-0 items-center gap-1 border-b border-[#dce7f4] bg-white px-3 pt-2 pb-0 text-xs select-none sm:px-5" id="resource_sub_tabs_bar">
-        <div className="flex min-w-0 max-w-full flex-1 gap-1 overflow-x-auto select-none scrollbar-none -mb-px">
-          {SUB_TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = subTab === tab.value;
-            return (
-              <button
-                key={tab.value}
-                onClick={() => {
-                  setCurrentPill("KHO_LUU_TRU");
-                  setViewingTrash(false);
-                  setSearchQuery("");
-                  setShowFilters(false);
-                  setFilterStartDate("");
-                  setFilterEndDate("");
-                  setFilterType("");
-                  if (tab.value === "TÀI LIỆU KHÁC") {
-                    setLocalFolderId(null);
-                    setExplorerKey((k) => k + 1);
-                  } else if (active && currentFolderId === "root") {
-                    void fetchResources();
-                  } else {
-                    setCurrentFolderId("root");
-                    setBreadcrumbs([]);
-                  }
-                  if (!active) setSubTab(tab.value);
-                }}
-                className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors ${
-                  active 
-                    ? "bg-[#00adfc] text-white shadow-sm"
-                    : "text-slate-600 hover:bg-[#e8f7ff] hover:text-[#007eb8]"
-                }`}
-                title={tab.label}
-              >
-                {tab.value === "GOOGLE DRIVE" ? (
-                  <GoogleDriveLogo className={`h-4.5 w-4.5 shrink-0 ${active ? "" : "opacity-60"}`} />
-                ) : (
-                  <Icon className={`h-4.5 w-4.5 shrink-0 ${active ? "text-white" : "text-slate-400"}`} strokeWidth={2} />
-                )}
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#f8fbff]">
         {/* Browser Tabs Bar - only render if > 1 tabs or current tab is a google-doc */}
@@ -2927,7 +2875,7 @@ export default function ResourceTab() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-800">{createFileDialog.title}</h3>
-                <p className="text-[10px] text-slate-400">Tạo tài nguyên trực tiếp trên Google Drive</p>
+                <p className="text-[10px] text-slate-400">Tạo tài nguyên trong kho tài liệu</p>
               </div>
             </div>
 
@@ -2945,7 +2893,7 @@ export default function ResourceTab() {
                   type="text"
                   value={newFileLink}
                   onChange={(e) => setNewFileLink(e.target.value)}
-                  placeholder="Dán đường dẫn link (General link hoặc Google Drive link)..."
+                  placeholder="Dán đường dẫn liên kết..."
                   className="w-full text-xs rounded-xl border border-slate-200 px-4 py-2.5 outline-hidden focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-semibold"
                 />
               )}

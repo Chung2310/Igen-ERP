@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
-import { erpInputClass } from '../Erp/ErpUI';
+import { cn } from '../../lib/utils';
 
 const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 const DATE_PATTERN = /^\d{2}\/\d{2}\/\d{4}$/;
@@ -33,9 +33,10 @@ interface VietnameseDatePickerProps {
   variant?: 'default' | 'filter';
   min?: string;
   max?: string;
+  portalTarget?: HTMLElement | null | (() => HTMLElement | null);
 }
 
-export function VietnameseDatePicker({ value, onChange, required, ariaLabel, selectionOnly = false, variant = 'default', min, max }: VietnameseDatePickerProps) {
+export function VietnameseDatePicker({ value, onChange, required, ariaLabel, selectionOnly = false, variant = 'default', min, max, portalTarget }: VietnameseDatePickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const [displayValue, setDisplayValue] = useState(() => toDisplayDate(value));
@@ -62,7 +63,11 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
       if (!inputRef.current?.contains(event.target as Node) && !calendarRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpen(false);
+        inputRef.current?.focus();
+      }
     };
     updatePosition();
     window.addEventListener('resize', updatePosition);
@@ -96,10 +101,11 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
   const today = new Date();
   const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const selected = toLocalDate(value);
+  const portalHost = typeof portalTarget === 'function' ? portalTarget() : portalTarget;
 
   return (
     <div className="relative">
-      {variant !== 'filter' && <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />}
+      {variant !== 'filter' && <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />}
       <input
         ref={inputRef}
         type="text"
@@ -132,35 +138,36 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
           setVisibleMonth(toLocalDate(value));
           setOpen(true);
         }}
-        className={variant === 'filter'
-          ? 'h-9 w-full cursor-pointer rounded-xl border border-sky-100 bg-white pl-3 pr-10 text-sm font-normal text-slate-800 outline-none placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10'
-          : `${erpInputClass(false)} cursor-pointer pl-9 pr-10`}
+        className={cn(
+          'h-9 w-full cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20',
+          variant === 'filter' ? 'pl-3 pr-10' : 'pl-9 pr-10',
+        )}
       />
-      <button type="button" onClick={() => { setVisibleMonth(toLocalDate(value)); setOpen((current) => !current); }} aria-label={`Chọn ${ariaLabel.toLowerCase()}`} aria-expanded={open} className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-slate-500 hover:text-brand-primary">
-        <CalendarDays className="h-4 w-4" />
+      <button type="button" onClick={() => { setVisibleMonth(toLocalDate(value)); setOpen((current) => !current); }} aria-label={`Chọn ${ariaLabel.toLowerCase()}`} aria-expanded={open} className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-on-surface-variant hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+        <CalendarDays className="h-4 w-4" aria-hidden="true" />
       </button>
       {open && createPortal(
-        <div ref={calendarRef} role="dialog" aria-label={`Lịch chọn ${ariaLabel.toLowerCase()}`} className="fixed z-[100] w-72 rounded-xl border border-sky-100 bg-white p-3 text-sm text-slate-700 shadow-xl" style={position}>
+        <div ref={calendarRef} role="dialog" aria-label={`Lịch chọn ${ariaLabel.toLowerCase()}`} className="fixed z-50 w-72 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface shadow-lg" style={position}>
           <div className="mb-3 flex items-center justify-between">
-            <button type="button" onClick={() => changeMonth(-1)} aria-label="Tháng trước" className="rounded-lg p-1.5 hover:bg-sky-50"><ChevronLeft className="h-4 w-4" /></button>
-            <span className="font-medium">Tháng {visibleMonth.getMonth() + 1}/{visibleMonth.getFullYear()}</span>
-            <button type="button" onClick={() => changeMonth(1)} aria-label="Tháng sau" className="rounded-lg p-1.5 hover:bg-sky-50"><ChevronRight className="h-4 w-4" /></button>
+            <button type="button" onClick={() => changeMonth(-1)} aria-label="Tháng trước" className="rounded-lg p-1.5 hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><ChevronLeft className="h-4 w-4" aria-hidden="true" /></button>
+            <span className="font-medium tabular-nums">Tháng {visibleMonth.getMonth() + 1}/{visibleMonth.getFullYear()}</span>
+            <button type="button" onClick={() => changeMonth(1)} aria-label="Tháng sau" className="rounded-lg p-1.5 hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><ChevronRight className="h-4 w-4" aria-hidden="true" /></button>
           </div>
           <div className="grid grid-cols-7 gap-1 text-center">
-            {WEEKDAYS.map((day) => <span key={day} className="py-1 text-xs text-slate-500">{day}</span>)}
+            {WEEKDAYS.map((day) => <span key={day} className="py-1 text-xs text-on-surface-variant">{day}</span>)}
             {dates.map((date) => {
               const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
               const isDisabled = Boolean((min && iso < min) || (max && iso > max));
               const isSelected = Boolean(value) && date.getTime() === selected.getTime();
               const isToday = date.toDateString() === today.toDateString();
-              return <button key={date.toISOString()} type="button" disabled={isDisabled} onClick={() => selectDate(date)} aria-label={`${date.getDate()} tháng ${date.getMonth() + 1} năm ${date.getFullYear()}`} aria-pressed={isSelected} className={`h-8 rounded-lg text-xs transition-colors disabled:cursor-not-allowed disabled:text-slate-300 ${isSelected ? 'bg-brand-primary text-white' : date.getMonth() === visibleMonth.getMonth() ? 'text-slate-700 hover:bg-sky-50' : 'text-slate-400 hover:bg-sky-50'} ${isToday && !isSelected ? 'ring-1 ring-brand-primary' : ''}`}>{date.getDate()}</button>;
+              return <button key={date.toISOString()} type="button" disabled={isDisabled} onClick={() => selectDate(date)} aria-label={`${date.getDate()} tháng ${date.getMonth() + 1} năm ${date.getFullYear()}`} aria-pressed={isSelected} className={cn('h-8 rounded-lg text-xs tabular-nums transition-colors disabled:cursor-not-allowed disabled:text-on-surface-variant/50 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary', isSelected ? 'bg-primary text-on-primary' : date.getMonth() === visibleMonth.getMonth() ? 'text-on-surface hover:bg-surface-container' : 'text-on-surface-variant hover:bg-surface-container', isToday && !isSelected && 'ring-1 ring-primary')}>{date.getDate()}</button>;
             })}
           </div>
-          <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-xs">
-            <button type="button" onClick={() => { onChange(''); setDisplayValue(''); inputRef.current?.setCustomValidity(''); setOpen(false); }} className="px-2 py-1 text-slate-500 hover:text-brand-primary">Xóa ngày</button>
-            <button type="button" disabled={Boolean((min && todayIso < min) || (max && todayIso > max))} onClick={() => selectDate(today)} className="px-2 py-1 text-brand-primary hover:underline disabled:cursor-not-allowed disabled:text-slate-300">Hôm nay</button>
+          <div className="mt-3 flex justify-between border-t border-outline-variant pt-2 text-xs">
+            <button type="button" onClick={() => { onChange(''); setDisplayValue(''); inputRef.current?.setCustomValidity(''); setOpen(false); }} className="px-2 py-1 text-on-surface-variant hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xóa ngày</button>
+            <button type="button" disabled={Boolean((min && todayIso < min) || (max && todayIso > max))} onClick={() => selectDate(today)} className="px-2 py-1 text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:text-on-surface-variant/50">Hôm nay</button>
           </div>
-        </div>, document.body
+        </div>, portalHost || document.body
       )}
     </div>
   );

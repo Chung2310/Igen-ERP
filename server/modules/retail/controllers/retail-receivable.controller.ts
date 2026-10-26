@@ -6,7 +6,13 @@ import { RetailReceivableReconciliationService } from "../services/retail-receiv
 import { createFinanceRetailAdapter, FinanceRetailCompatibilityService } from "../../finance/services/finance-retail-adapter";
 
 const scope = (req: Request) => requireRetailBranch(retailScopeFromRequest((req as any).user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId }));
-type Dependencies = { history: typeof LegacyQuery.history; adjust: typeof LegacyLedger.adjust; reverse: typeof LegacyLedger.reverse; reconcile?: typeof RetailReceivableReconciliationService.run; latestReconciliation?: typeof RetailReceivableReconciliationService.latest };
+type Dependencies = {
+  history: typeof LegacyQuery.history;
+  adjust: typeof LegacyLedger.adjust;
+  reverse: typeof LegacyLedger.reverse;
+  reconcile?: typeof RetailReceivableReconciliationService.run;
+  latestReconciliation?: typeof RetailReceivableReconciliationService.latest;
+};
 
 export function createRetailReceivableController(dependencies: Dependencies) {
   const run = (handler: (req: Request) => Promise<unknown>) => async (req: Request, res: Response, next: NextFunction) => {

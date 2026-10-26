@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
+import { KanbanTaskProgress } from "./KanbanTaskProgress";
 import {
   Briefcase,
   MapPin,
@@ -1945,6 +1946,15 @@ export default function KanbanTab({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2">
+            {selectedKanbanTask.id !== "new" && <KanbanTaskProgress
+              key={selectedKanbanTask.id}
+              task={tasks.find(task => task.id === selectedKanbanTask.id) || selectedKanbanTask}
+              uid={userProfile?.uid || userProfile?.id || ""}
+              manager={isManager}
+              employees={employees}
+              onReload={fetchTasks}
+              onSaved={updated => { setSelectedKanbanTask(updated); void fetchTasks(); void fetchProjects(); }}
+            />}
 
             {/* Editable Title Input */}
             <div className="mb-2">

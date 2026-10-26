@@ -16,7 +16,7 @@ export const DEFAULT_RETAIL_SETTINGS: RetailSettingsValues = Object.freeze({
   varianceReasonThreshold: 0,
   orderPrefix: "DH",
   invoicePrefix: "HD",
-  invoicePaperSize: "A4",
+  invoicePaperSize: "80mm",
   invoiceTemplate: "standard",
   debtReminders: { enabled: false, frequencyHours: 24, overdueDays: 0, recipientUserIds: [], recipientRoles: ["admin", "manager"], emailEnabled: false, maxAttempts: 3 },
 });
@@ -79,7 +79,7 @@ export function validateRetailSettingsInput(input: Partial<RetailSettingsValues>
   if (input.orderPrefix !== undefined) output.orderPrefix = prefix(input.orderPrefix, "orderPrefix");
   if (input.invoicePrefix !== undefined) output.invoicePrefix = prefix(input.invoicePrefix, "invoicePrefix");
   if (input.invoicePaperSize !== undefined) {
-    if (!["A4", "A5", "80mm"].includes(input.invoicePaperSize)) throw new Error("invoicePaperSize is invalid");
+    if (!["A4", "A5", "80mm", "58mm"].includes(input.invoicePaperSize)) throw new Error("invoicePaperSize is invalid");
     output.invoicePaperSize = input.invoicePaperSize;
   }
   if (input.invoiceTemplate !== undefined) {

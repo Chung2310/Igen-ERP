@@ -6,10 +6,14 @@ const mountedPaths = () => cashierShiftRoutes.stack
   .map((layer: any) => layer.route?.path)
   .filter(Boolean);
 
-test("cashier shift routes expose only opening and closing mutations", () => {
+test("cashier shift routes expose assignment, session control and reconciliation", () => {
   const paths = mountedPaths();
   assert.ok(paths.includes("/open"));
+  assert.ok(paths.includes("/cashiers"));
+  assert.ok(paths.includes("/open-for"));
   assert.ok(paths.includes("/:id/close"));
-  assert.equal(paths.includes("/:id/cash-movements"), false);
-  assert.equal(paths.includes("/:id/approve"), false);
+  assert.ok(paths.includes("/:id/pause"));
+  assert.ok(paths.includes("/:id/resume"));
+  assert.ok(paths.includes("/:id/movements"));
+  assert.ok(paths.includes("/:id/reconcile"));
 });

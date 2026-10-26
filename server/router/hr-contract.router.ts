@@ -40,8 +40,13 @@ const fileMetadata = {
   signedImageMimeType: Joi.string().allow("").max(200),
   signedImageSize: Joi.number().min(0),
   signedImageResourceId: Joi.string().hex().length(24).allow("", null),
+  electronicSignatureName: Joi.string().allow("").max(300),
+  electronicSignatureMimeType: Joi.string().allow("").max(200),
+  electronicSignatureSize: Joi.number().min(0),
+  electronicSignatureResourceId: Joi.string().hex().length(24).allow("", null),
   contractFileUploadToken: Joi.string().guid({ version: ["uuidv4"] }).allow("").optional(),
   signedImageUploadToken: Joi.string().guid({ version: ["uuidv4"] }).allow("").optional(),
+  electronicSignatureUploadToken: Joi.string().guid({ version: ["uuidv4"] }).allow("").optional(),
 };
 const contractBody = Joi.object({
   contractType: Joi.string().trim().max(100).required(),
@@ -53,6 +58,7 @@ const contractBody = Joi.object({
     .required(),
   contractFileUrl: url,
   signedImageUrl: url,
+  electronicSignatureUrl: url,
   ...fileMetadata,
   note: Joi.string().allow("").max(1000),
 });
@@ -64,6 +70,7 @@ const updateBody = Joi.object({
   status: Joi.string().valid("draft", "active", "expired", "terminated"),
   contractFileUrl: url,
   signedImageUrl: url,
+  electronicSignatureUrl: url,
   ...fileMetadata,
   note: Joi.string().allow("").max(1000),
 }).min(1);
@@ -99,7 +106,7 @@ hrContractRouter.post(
         .max(10 * 1024 * 1024)
         .required(),
       kind: Joi.string()
-        .valid("contract", "signed", "extension", "extensionSigned")
+        .valid("contract", "signed", "electronicSignature", "extension", "extensionSigned")
         .required(),
     }),
   }),
