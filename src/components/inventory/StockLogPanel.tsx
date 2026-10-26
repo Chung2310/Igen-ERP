@@ -348,7 +348,7 @@ export function StockLogPanel({
     setDraftLines((current) => current.map((line, lineIndex) => {
       if (lineIndex !== index) return line;
       const quantity = Math.max(0, Number(nextLine.quantity) || 0);
-      return { ...nextLine, unitIdentifiers: nextLine.unitIdentifiers?.slice(0, quantity) };
+      return { ...nextLine, unitIdentifiers: nextLine.unitIdentifiers?.slice(0, quantity), serialNumbers: nextLine.serialNumbers?.slice(0, quantity) };
     }));
   };
 
@@ -388,8 +388,11 @@ export function StockLogPanel({
       return;
     }
 
-    if (outboundOnly) {
-      const invalidLine = draftLines.find((line) => requiresUnitSelection(line) && (line.unitIdentifiers?.length || 0) !== Number(line.quantity));
+    if (outboundOnly && draftStatus === "Hoàn thành") {
+      const invalidLine = draftLines.find((line) => {
+        const identifiers = line.unitIdentifiers?.length ? line.unitIdentifiers : line.serialNumbers || [];
+        return requiresUnitSelection(line) && identifiers.length !== Number(line.quantity);
+      });
       if (invalidLine) {
         toast.error("Vui lòng chọn đủ mã đơn vị cho từng sản phẩm quản lý theo đơn vị.");
         return;
@@ -557,7 +560,7 @@ export function StockLogPanel({
                     <p className="mt-0.5 truncate text-sm text-slate-600">{previewText}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                       <span>{log.operatorName || "Chưa rõ người tạo"}</span><span>•</span><span>{new Date(log.createdAt).toLocaleString("vi-VN")}</span>
-                      {!readOnly && onUpdateStatus ? (
+                      {!readOnly && status !== "Hoàn thành" && onUpdateStatus ? (
                         <div className="w-36">
                           <StyledSelect
                             ariaLabel={`Trạng thái ${log.id}`}
@@ -594,7 +597,7 @@ export function StockLogPanel({
                     <span className="ml-1 text-sm font-semibold text-gray-400">sp</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {!readOnly && <button
+                    {!readOnly && status !== "Hoàn thành" && <button
                       type="button"
                       onClick={() => openEditModal(log)}
                       className="flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100"
@@ -614,7 +617,7 @@ export function StockLogPanel({
                       <Eye className="h-4 w-4" />
                       Xem chi tiết
                     </button>
-                    {!readOnly && onDeleteTransaction && (
+                    {!readOnly && status !== "Hoàn thành" && onDeleteTransaction && (
                       <button
                         type="button"
                         onClick={() => onDeleteTransaction(log.id)}
@@ -692,7 +695,12 @@ export function StockLogPanel({
                 {outboundOnly && (
                   <div className="space-y-1.5 md:col-span-2">
                     <span className="text-sm text-slate-600">Xuất từ kho</span>
-                    <StyledSelect ariaLabel="Xuất từ kho" value={sourceWarehouseId} onChange={setSourceWarehouseId} options={[{ value: "", label: "Chọn kho xuất" }, ...warehouses.map((warehouse) => ({ value: warehouse._id, label: `${warehouse.name}${warehouse.isDefault ? " (mặc định)" : ""}` }))]} />
+                    <StyledSelect ariaLabel="Xuất từ kho" value={sourceWarehouseId} onChange={(warehouseId) => {
+                      if (warehouseId === sourceWarehouseId) return;
+                      setSourceWarehouseId(warehouseId);
+                      setDraftLines((current) => current.map((line) => ({ ...line, unitIdentifiers: [], serialNumbers: [] })));
+                      setUnitItemsByLine({}); setUnitPickerItems([]); setUnitPickerIndex(null);
+                    }} options={[{ value: "", label: "Chọn kho xuất" }, ...warehouses.map((warehouse) => ({ value: warehouse._id, label: `${warehouse.name}${warehouse.isDefault ? " (mặc định)" : ""}` }))]} />
                     <span className="block text-xs text-slate-500">Chỉ hiển thị SKU còn tồn khả dụng tại kho đã chọn.</span>
                   </div>
                 )}
@@ -707,7 +715,7 @@ export function StockLogPanel({
                         setDraftCustomerId(undefined);
                         setDraftCustomerName("");
                       }}
-                      options={[{ value: "bán", label: "Bán hàng" }, { value: "nội bộ", label: "Sử dụng nội bộ" }, { value: "hủy", label: "Hủy / hàng hỏng" }, { value: "chuyển kho", label: "Điều chuyển kho / chi nhánh" }]}
+                      options={[{ value: "bán", label: "Bán hàng" }, { value: "nội bộ", label: "Sử dụng nội bộ" }, { value: "hủy", label: "Hủy / hàng hỏng" }]}
                     />
                   </div>
                 )}
@@ -793,11 +801,12 @@ export function StockLogPanel({
                           ariaLabel={`Sản phẩm dòng ${index + 1}`}
                           value={line.productId}
                           onChange={(productId) => {
+                            if (productId === line.productId) return;
                             const firstVariant = outboundOnly ? warehouseProductGroups.find((group) => group.productId === productId)?.variants[0] : undefined;
                             const firstSku = outboundOnly ? firstVariant?.sku || "" : undefined;
                             setDraftLines((current) => {
                               const duplicateIndex = outboundOnly ? current.findIndex((item, itemIndex) => itemIndex !== index && item.productId === productId && item.sku === firstSku) : -1;
-                              if (duplicateIndex < 0) return current.map((item, itemIndex) => itemIndex === index ? { ...item, productId, sku: firstSku, variantId: firstVariant?.variantId } : item);
+                              if (duplicateIndex < 0) return current.map((item, itemIndex) => itemIndex === index ? { ...item, productId, sku: firstSku, variantId: firstVariant?.variantId, unitIdentifiers: [], serialNumbers: [] } : item);
 
                               const increment = Math.max(1, Number(line.quantity) || 0);
                               return current
@@ -821,10 +830,11 @@ export function StockLogPanel({
                             value={line.sku || ""}
                             disabled={!line.productId}
                             onChange={(sku) => {
+                              if (sku === line.sku) return;
                               const variantId = (warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).find((variant) => variant.sku === sku)?.variantId;
                               setDraftLines((current) => {
                                 const duplicateIndex = current.findIndex((item, itemIndex) => itemIndex !== index && item.productId === line.productId && item.sku === sku);
-                                if (duplicateIndex < 0) return current.map((item, itemIndex) => itemIndex === index ? { ...item, sku, variantId } : item);
+                                if (duplicateIndex < 0) return current.map((item, itemIndex) => itemIndex === index ? { ...item, sku, variantId, unitIdentifiers: [], serialNumbers: [] } : item);
 
                                 const increment = Math.max(1, Number(line.quantity) || 0);
                                 return current

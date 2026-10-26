@@ -110,7 +110,8 @@ export default function InventoryTab() {
   const [searchCategory, setSearchCategory] = useState("");
   const [searchLog, setSearchLog] = useState("");
   const [stockLogExcelImporting, setStockLogExcelImporting] = useState(false);
-  const [outboundPrefill, setOutboundPrefill] = useState<{ warehouseId: string; sku: string; nonce: number } | null>(null);
+  const [outboundPrefill, setOutboundPrefill] = useState<{ branchId: string; warehouseId: string; sku: string; nonce: number } | null>(null);
+  const scopedOutboundPrefill = outboundPrefill?.branchId === activeBranchId ? outboundPrefill : null;
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -122,6 +123,10 @@ export default function InventoryTab() {
   const [categoryViewMode, setCategoryViewMode] = useState<"grid" | "list">("grid");
   const stockLogImportInputRef = useRef<HTMLInputElement | null>(null);
 
+  useEffect(() => {
+    setProducts([]); setCategories([]); setStockLogs([]); setOutboundPrefill(null);
+    setShowCategoryModal(false); setEditingCategoryId(null); setDeleteTarget(null);
+  }, [activeBranchId, user?.uid]);
 
   useEffect(() => {
     let unsubscribeCategories = () => { };
@@ -733,7 +738,7 @@ export default function InventoryTab() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-[#f8fbff] p-3 sm:p-6" id="inventory_tab_content">
+      <div key={`${user?.uid || ""}:${activeBranchId}`} className="flex-1 overflow-y-auto bg-[#f8fbff] p-3 sm:p-6" id="inventory_tab_content">
         {subTab === "SẢN PHẨM" && (
           <div className="space-y-6" id="product_catalog_menu">
             <ProductCatalogV2Section />
@@ -741,7 +746,7 @@ export default function InventoryTab() {
         )}
 
         {subTab === "KHO HÀNG" && <WarehouseSection onCreateOutbound={(warehouseId, sku) => {
-          setOutboundPrefill({ warehouseId, sku, nonce: Date.now() });
+          setOutboundPrefill({ branchId: activeBranchId, warehouseId, sku, nonce: Date.now() });
           setSubTab("XUẤT HÀNG");
         }} />}
         {subTab === "ĐIỀU CHUYỂN" && <InventoryTransfersSection />}
@@ -940,9 +945,9 @@ export default function InventoryTab() {
               onDeleteTransaction={handleDeleteTransaction}
               outboundOnly
               hideExcelActions
-              initialWarehouseId={outboundPrefill?.warehouseId}
-              initialSku={outboundPrefill?.sku}
-              openOnMountKey={outboundPrefill?.nonce}
+              initialWarehouseId={scopedOutboundPrefill?.warehouseId}
+              initialSku={scopedOutboundPrefill?.sku}
+              openOnMountKey={scopedOutboundPrefill?.nonce}
             />
           )}
           {subTab === "DỰ BÁO" && <AiForecastPanel forecast={forecastSummary} stockLogs={stockLogs} />}

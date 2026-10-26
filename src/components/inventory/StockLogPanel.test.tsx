@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StockLogPanel } from "./StockLogPanel";
 import { toast } from "../../pages/Toast";
@@ -52,6 +52,84 @@ it("loads saved IMEI when editing a pending outbound document", async () => {
     expect(inventorySerialService.list).toHaveBeenCalledWith(expect.objectContaining({ barcodes: ["BARCODE-SAVED"] }));
   });
 describe("StockLogPanel", () => {
+  async function editTrackedDraft(identifiers: string[] = [], serialNumbers = identifiers.length ? ["SER-OLD"] : []) {
+    const { inventoryReceivingService } = await import("../../services/inventoryReceivingService");
+    vi.mocked(inventoryReceivingService.listWarehouses).mockResolvedValue([
+      { _id: "w1", branchId: "branch", code: "MAIN", name: "Kho chính", kind: "storage", isDefault: true, isActive: true },
+      { _id: "w2", branchId: "branch", code: "OTHER", name: "Kho phụ", kind: "storage", isDefault: false, isActive: true },
+    ]);
+    vi.mocked(inventoryReceivingService.listBalances).mockResolvedValue([
+      { _id: "b1", warehouseId: "w1", productId: "p1", variantId: "serial", sku: "SERIAL", productName: "Sản phẩm", trackingMode: "serial", quantity: 5, reservedQuantity: 0, averageCost: 10 },
+      { _id: "b2", warehouseId: "w1", productId: "p1", variantId: "bulk", sku: "BULK", productName: "Sản phẩm", trackingMode: "quantity", quantity: 5, reservedQuantity: 0, averageCost: 10 },
+    ]);
+    const update = vi.fn(async () => undefined);
+    render(<StockLogPanel products={[]} searchLog="" setSearchLog={vi.fn()}
+      stockLogs={[{ id: "pending-tracked", warehouseId: "w1", type: "xuất", purpose: "nội bộ", title: "Xuất nội bộ", sku: "SERIAL", productName: "Sản phẩm", quantity: 1, operatorName: "Tester", createdAt: "2026-01-01", notes: "", status: "Đang chờ",
+        items: [{ productId: "p1", variantId: "serial", sku: "SERIAL", productName: "Sản phẩm", quantity: 1, unitIdentifiers: identifiers, serialNumbers }],
+      } as any]} onExportExcel={vi.fn()} onImportExcel={vi.fn()} onNavigateToCreateProduct={vi.fn()}
+      onCreateTransaction={vi.fn()} onUpdateTransaction={update} outboundOnly />);
+    fireEvent.click(await screen.findByRole("button", { name: /Sửa phiếu/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "SKU / biến thể dòng 1" }).textContent).toContain("SERIAL"));
+    return update;
+  }
+
+  it("saves an incomplete tracked draft without requiring unit assignment", async () => {
+    const update = await editTrackedDraft();
+    fireEvent.click(screen.getByRole("button", { name: "Cập nhật phiếu" }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "Đang chờ" })));
+  });
+
+  it("still requires unit assignment before completing a tracked outbound document", async () => {
+    const update = await editTrackedDraft();
+    fireEvent.click(screen.getByRole("button", { name: "Trạng thái phiếu" }));
+    fireEvent.click(screen.getByRole("option", { name: "Hoàn thành" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cập nhật phiếu" }));
+    expect(update).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("chọn đủ mã đơn vị"));
+  });
+
+  it("preserves serial-only identifiers when completing an older draft", async () => {
+    const update = await editTrackedDraft([], ["SER-OLD"]);
+    fireEvent.click(screen.getByRole("button", { name: "Trạng thái phiếu" }));
+    fireEvent.click(screen.getByRole("option", { name: "Hoàn thành" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cập nhật phiếu" }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "Hoàn thành", items: [expect.objectContaining({ serialNumbers: ["SER-OLD"] })] })));
+  });
+
+  it("clears old unit identifiers when switching a draft line to a quantity SKU", async () => {
+    const update = await editTrackedDraft(["UNIT-OLD"]);
+    fireEvent.click(screen.getByRole("button", { name: "SKU / biến thể dòng 1" }));
+    fireEvent.click(screen.getByRole("option", { name: /BULK/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Cập nhật phiếu" }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ items: [expect.objectContaining({ sku: "BULK", unitIdentifiers: [], serialNumbers: [] })] })));
+  });
+
+  it("clears unit selection when changing the source warehouse", async () => {
+    const update = await editTrackedDraft(["UNIT-OLD"]);
+    fireEvent.click(screen.getByRole("button", { name: "Xuất từ kho" }));
+    fireEvent.click(screen.getByRole("option", { name: "Kho phụ" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cập nhật phiếu" }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ warehouseId: "w2", items: [expect.objectContaining({ unitIdentifiers: [], serialNumbers: [] })] })));
+  });
+
+  it.each(["Hoàn thành", "Thành công"])("only offers read access for posted stock documents (%s)", (status) => {
+    render(<StockLogPanel products={[]} searchLog="" setSearchLog={vi.fn()}
+      stockLogs={[{ id: "posted", type: "xuất", sku: "PAPER", productName: "Giấy A4", quantity: 1,
+        operatorName: "Tester", createdAt: "2026-01-01", notes: "", status } as any]}
+      onExportExcel={vi.fn()} onImportExcel={vi.fn()} onNavigateToCreateProduct={vi.fn()}
+      onCreateTransaction={vi.fn()} onUpdateTransaction={vi.fn()} onUpdateStatus={vi.fn()} onDeleteTransaction={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /Xem chi tiết/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sửa phiếu" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Xóa" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Trạng thái posted" })).toBeNull();
+  });
+
+  it("keeps stock transfers in the receiving workflow instead of manual stock logs", async () => {
+    await editTrackedDraft();
+    fireEvent.click(screen.getByRole("button", { name: "Mục đích xuất kho" }));
+    expect(screen.queryByRole("option", { name: /Điều chuyển/ })).toBeNull();
+  });
+
   it("keeps quantity-only stock documents free of serial fields", async () => {
     render(<StockLogPanel products={[]} searchLog="" setSearchLog={vi.fn()}
       stockLogs={[{ id: "quantity-log", type: "xuất", title: "Xuất giấy", sku: "PAPER", productName: "Giấy A4", quantity: 2,
