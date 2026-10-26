@@ -138,6 +138,7 @@ export function StockLogPanel({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedLog, setSelectedLog] = useState<StockLog | null>(null);
+  const detailHasUnits = Boolean(selectedLog && getLogItems(selectedLog).some((item) => item.serialNumbers?.length || item.unitIdentifiers?.length));
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [draftType, setDraftType] = useState<"nhập" | "xuất">(outboundOnly ? "xuất" : "nhập");
   const [draftPurpose, setDraftPurpose] = useState<StockLogPurpose>("bán");
@@ -355,9 +356,15 @@ export function StockLogPanel({
     setDraftLines((current) => (current.length === 1 ? current : current.filter((_, lineIndex) => lineIndex !== index)));
   };
 
+  const requiresUnitSelection = (line: DraftLine) => {
+    const balance = warehouseBalances.find((item) => item.productId === line.productId && (line.variantId ? item.variantId === line.variantId : item.sku === line.sku));
+    if (balance?.trackingMode) return balance.trackingMode === "serial" || balance.trackingMode === "unit_barcode";
+    return Boolean(line.unitIdentifiers?.length || line.serialNumbers?.length);
+  };
+
   const openUnitPicker = async (index: number) => {
     const line = draftLines[index];
-    if (!line?.productId || !line.sku) return;
+    if (!line?.productId || !line.sku || !requiresUnitSelection(line)) return;
     setUnitPickerIndex(index);
     setUnitPickerQuery("");
     setUnitPickerLoading(true);
@@ -365,7 +372,7 @@ export function StockLogPanel({
       // Phiếu cũ lưu mã sản phẩm cha thay vì SKU biến thể; lọc theo mã đó sẽ không ra đơn vị nào,
       // nên khi SKU không thuộc danh sách biến thể của kho thì chỉ lọc theo sản phẩm để còn chọn lại được.
       const knownVariant = (warehouseProductGroups.find((group) => group.productId === line.productId)?.variants || []).some((variant) => variant.sku === line.sku);
-      const result = await inventorySerialService.list({ productId: line.productId, ...(knownVariant ? { sku: line.sku } : {}), status: "in_stock", barcodes: line.unitIdentifiers, limit: 100 });
+      const result = await inventorySerialService.list({ warehouseId: sourceWarehouseId, productId: line.productId, ...(knownVariant ? { sku: line.sku } : {}), status: "in_stock", barcodes: line.unitIdentifiers, limit: 100 });
       setUnitPickerItems(result.items);
       setUnitItemsByLine((current) => ({ ...current, [lineUnitKey(line)]: result.items }));
     } finally {
@@ -382,12 +389,9 @@ export function StockLogPanel({
     }
 
     if (outboundOnly) {
-      const invalidLine = draftLines.find((line, index) => {
-        const availableUnits = unitItemsByLine[index];
-        return availableUnits?.length > 0 && (line.unitIdentifiers?.length || 0) !== Number(line.quantity);
-      });
+      const invalidLine = draftLines.find((line) => requiresUnitSelection(line) && (line.unitIdentifiers?.length || 0) !== Number(line.quantity));
       if (invalidLine) {
-        toast.error("Vui lòng chọn đủ IMEI / mã vạch cho từng sản phẩm quản lý theo đơn vị.");
+        toast.error("Vui lòng chọn đủ mã đơn vị cho từng sản phẩm quản lý theo đơn vị.");
         return;
       }
     }
@@ -848,7 +852,7 @@ export function StockLogPanel({
                           placeholder={warehouseProductsLoading && outboundOnly ? "Đang tải tồn kho..." : "0"}
                           className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm"
                         />
-                        {outboundOnly && line.sku && <button type="button" onClick={() => void openUnitPicker(index)} className="mt-1 text-xs font-semibold text-cyan-700 hover:text-cyan-900">{line.unitIdentifiers?.length ? `Đã chọn ${line.unitIdentifiers.length} đơn vị` : "Chọn IMEI / mã vạch"}</button>}
+                        {outboundOnly && line.sku && requiresUnitSelection(line) && <button type="button" onClick={() => void openUnitPicker(index)} className="mt-1 text-xs font-semibold text-cyan-700 hover:text-cyan-900">{line.unitIdentifiers?.length ? `Đã chọn ${line.unitIdentifiers.length} đơn vị` : "Chọn đơn vị hàng"}</button>}
                       </label>
 
                       <button
@@ -878,9 +882,9 @@ export function StockLogPanel({
 
       {unitPickerIndex !== null && selectedLineForPicker && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]">
-          <div role="dialog" aria-modal="true" aria-label="Chọn IMEI / mã vạch" className="inventory-popup flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,65,99,0.18)]">
-            <div className="flex items-start justify-between border-b border-[#E7EFF7] px-5 py-4"><div><h3 className="border-l-[3px] border-[#00ADFC] pl-3 text-lg font-medium text-slate-900">Chọn IMEI / mã vạch</h3><p className="mt-1 pl-[15px] text-sm text-slate-500">Đã chọn {selectedUnitsForPicker.length} / {requiredUnitCount} đơn vị</p></div><button type="button" aria-label="Đóng chọn IMEI" onClick={() => setUnitPickerIndex(null)} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600"><X className="h-4 w-4" /></button></div>
-            <div className="space-y-3 overflow-y-auto p-5"><input value={unitPickerQuery} onChange={(event) => setUnitPickerQuery(event.target.value)} placeholder="Tìm IMEI hoặc mã vạch..." className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm" />{unitPickerLoading ? <p className="py-8 text-center text-sm text-slate-500">Đang tải đơn vị tồn kho...</p> : filteredPickerItems.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Không tìm thấy IMEI / mã vạch phù hợp.</p> : <div className="space-y-2">{filteredPickerItems.map((item) => { const value = item.normalizedInternalBarcode; const checked = selectedUnitsForPicker.includes(value); const disabled = !checked && selectedUnitsForPicker.length >= requiredUnitCount; return <label key={item._id} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${checked ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white"} ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-cyan-200"}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => updateDraftLine(unitPickerIndex, { ...selectedLineForPicker, unitIdentifiers: checked ? selectedUnitsForPicker.filter((unit) => unit !== value) : [...selectedUnitsForPicker, value] })} className="h-4 w-4 accent-cyan-700" /><span className="text-sm text-slate-800">{item.internalBarcode}{item.serialNumber ? ` · ${item.serialNumber}` : ""}</span></label>; })}</div>}</div>
+          <div role="dialog" aria-modal="true" aria-label="Chọn đơn vị hàng" className="inventory-popup flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,65,99,0.18)]">
+            <div className="flex items-start justify-between border-b border-[#E7EFF7] px-5 py-4"><div><h3 className="border-l-[3px] border-[#00ADFC] pl-3 text-lg font-medium text-slate-900">Chọn đơn vị hàng</h3><p className="mt-1 pl-[15px] text-sm text-slate-500">Đã chọn {selectedUnitsForPicker.length} / {requiredUnitCount} đơn vị</p></div><button type="button" aria-label="Đóng chọn đơn vị" onClick={() => setUnitPickerIndex(null)} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600"><X className="h-4 w-4" /></button></div>
+            <div className="space-y-3 overflow-y-auto p-5"><input value={unitPickerQuery} onChange={(event) => setUnitPickerQuery(event.target.value)} placeholder="Tìm số sê-ri hoặc mã đơn vị..." className="w-full rounded-lg border border-cyan-200 bg-white px-3 py-2 text-sm" />{unitPickerLoading ? <p className="py-8 text-center text-sm text-slate-500">Đang tải đơn vị tồn kho...</p> : filteredPickerItems.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">Không tìm thấy mã đơn vị phù hợp.</p> : <div className="space-y-2">{filteredPickerItems.map((item) => { const value = item.normalizedInternalBarcode; const checked = selectedUnitsForPicker.includes(value); const disabled = !checked && selectedUnitsForPicker.length >= requiredUnitCount; return <label key={item._id} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${checked ? "border-cyan-300 bg-cyan-50" : "border-slate-200 bg-white"} ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-cyan-200"}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => updateDraftLine(unitPickerIndex, { ...selectedLineForPicker, unitIdentifiers: checked ? selectedUnitsForPicker.filter((unit) => unit !== value) : [...selectedUnitsForPicker, value] })} className="h-4 w-4 accent-cyan-700" /><span className="text-sm text-slate-800">{item.internalBarcode}{item.serialNumber ? ` · ${item.serialNumber}` : ""}</span></label>; })}</div>}</div>
             <div className="flex justify-end gap-2 border-t border-[#E7EFF7] px-5 py-4"><button type="button" onClick={() => setUnitPickerIndex(null)} className="rounded-xl border border-[#DCE7F4] px-4 py-2.5 text-sm text-slate-700 hover:bg-[#F5FAFE]">Đóng</button><button type="button" disabled={selectedUnitsForPicker.length !== requiredUnitCount} onClick={() => setUnitPickerIndex(null)} className="rounded-xl bg-[#00ADFC] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#0097dc] disabled:cursor-not-allowed disabled:opacity-50">Xác nhận lựa chọn</button></div>
           </div>
         </div>
@@ -926,7 +930,7 @@ export function StockLogPanel({
                         <th className="px-4 py-3">Sản phẩm</th>
                         <th className="px-4 py-3">SKU</th>
                         <th className="px-4 py-3 text-right">SL xuất</th>
-                        <th className="px-4 py-3">IMEI / Serial</th>
+                        {detailHasUnits && <th className="px-4 py-3">Số sê-ri / Mã đơn vị</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E7EFF7] bg-white">
@@ -935,9 +939,9 @@ export function StockLogPanel({
                           <td className="px-4 py-3 text-slate-800">{item.productName}</td>
                           <td className="px-4 py-3 text-sm text-slate-600">{item.sku}</td>
                           <td className="px-4 py-3 text-right text-rose-600">{formatNumber(item.quantity)}</td>
-                          <td className="px-4 py-3 text-sm text-cyan-800">
+                          {detailHasUnits && <td className="px-4 py-3 text-sm text-cyan-800">
                             {item.serialNumbers?.length ? item.serialNumbers.join(", ") : item.unitIdentifiers?.length ? <span className="text-slate-600">Mã vạch nội bộ: {item.unitIdentifiers.join(", ")}</span> : <span className="text-slate-400">—</span>}
-                          </td>
+                          </td>}
                         </tr>
                       ))}
                     </tbody>
@@ -951,7 +955,7 @@ export function StockLogPanel({
                     <div>
                       <div className="font-bold text-slate-800">{item.productName}</div>
                       <div className="mt-1 text-xs text-gray-500">Mã sản phẩm: {item.sku}</div>
-                      {item.serialNumbers?.length ? <div className="mt-1 text-xs text-cyan-700">IMEI / serial: {item.serialNumbers.join(", ")}</div> : null}
+                      {item.serialNumbers?.length ? <div className="mt-1 text-xs text-cyan-700">Số sê-ri: {item.serialNumbers.join(", ")}</div> : null}
                       {item.unitIdentifiers?.length ? <div className="mt-1 text-xs text-slate-500">Mã vạch nội bộ: {item.unitIdentifiers.join(", ")}</div> : null}
                     </div>
                     <div className="text-lg font-bold text-emerald-600">+{formatNumber(item.quantity)}</div>

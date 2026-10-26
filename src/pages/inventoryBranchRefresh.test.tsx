@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   activeBranchId: "branch-a",
+  subTab: "DANH MỤC",
+  setSubTab: vi.fn(),
   subscribeCategories: vi.fn(() => vi.fn()),
   subscribeProducts: vi.fn(() => vi.fn()),
   subscribeStockLogs: vi.fn(() => vi.fn()),
@@ -20,7 +22,7 @@ vi.mock("../context/BranchContext", () => ({
 }));
 
 vi.mock("../hooks/useSubTabRouter", () => ({
-  useSubTabRouter: () => ["DANH MỤC", vi.fn()],
+  useSubTabRouter: () => [mocks.subTab, mocks.setSubTab],
 }));
 
 vi.mock("../services/inventoryCategoryService", () => ({
@@ -40,6 +42,7 @@ import InventoryTab from "./InventoryTab";
 describe("InventoryTab branch refresh", () => {
   beforeEach(() => {
     mocks.activeBranchId = "branch-a";
+    mocks.subTab = "DANH MỤC";
     vi.clearAllMocks();
   });
 
@@ -56,5 +59,11 @@ describe("InventoryTab branch refresh", () => {
     expect(mocks.subscribeCategories).toHaveBeenLastCalledWith("branch-b", expect.any(Function), expect.any(Function));
     expect(mocks.subscribeProducts).toHaveBeenLastCalledWith("branch-b", expect.any(Function), expect.any(Function));
     expect(mocks.subscribeStockLogs).toHaveBeenLastCalledWith("branch-b", expect.any(Function), expect.any(Function));
+  });
+
+  it("keeps the shared inventory navigation generic and redirects the old IMEI page", () => {
+    mocks.subTab = "IMEI / SERIAL";
+    render(<InventoryTab />);
+    expect(mocks.setSubTab).toHaveBeenCalledWith("KHO HÀNG");
   });
 });

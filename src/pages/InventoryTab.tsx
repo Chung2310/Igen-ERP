@@ -24,7 +24,6 @@ import { ProductCatalogV2Section } from "../components/inventory/ProductCatalogV
 import { WarehouseSection } from "../components/inventory/WarehouseSection";
 import { InventoryTransfersSection } from "../components/inventory/InventoryTransfersSection";
 import { ReceivingSection } from "../components/inventory/ReceivingSection";
-import { SerialRegistrySection } from "../components/inventory/SerialRegistrySection";
 import { cn } from "../modules/student-management/lib/utils";
 
 // Lazy-loaded subcomponents
@@ -78,6 +77,9 @@ export default function InventoryTab() {
   const { user } = useAuth();
   const { activeBranchId, loading: branchLoading } = useBranch();
   const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "SẢN PHẨM");
+  useEffect(() => {
+    if (subTab === "IMEI / SERIAL") setSubTab("KHO HÀNG");
+  }, [subTab, setSubTab]);
   useEffect(() => {
     const nav = subTabsRef.current;
     if (!nav) return;
@@ -702,7 +704,6 @@ export default function InventoryTab() {
               { id: "SẢN PHẨM", label: "Sản phẩm", icon: Package },
               { id: "KHO HÀNG", label: "Kho hàng", icon: FolderTree },
               { id: "NHẬP HÀNG", label: "Nhập hàng", icon: ArrowDownRight },
-              { id: "IMEI / SERIAL", label: "IMEI / Serial", icon: Package },
               { id: "XUẤT HÀNG", label: "Xuất hàng", icon: ArrowUpRight },
               { id: "ĐIỀU CHUYỂN", label: "Điều chuyển", icon: ArrowLeftRight },
               { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ArrowLeftRight },
@@ -745,7 +746,6 @@ export default function InventoryTab() {
         }} />}
         {subTab === "ĐIỀU CHUYỂN" && <InventoryTransfersSection />}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
-        {subTab === "IMEI / SERIAL" && <SerialRegistrySection onTransfers={() => setSubTab("ĐIỀU CHUYỂN")} />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
           <div className="space-y-6" id="product_classification_tab">

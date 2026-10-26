@@ -19,6 +19,7 @@ import { GoodsReceiptModel } from "../../model/goods-receipt.model";
 import { createReceipt, submitReceipt, startReceiving, confirmReceipt } from "./receiving/receiving.service";
 import { ProductModel } from "../../model/product.model";
 import { transferSerialUnit } from "./serials/serial-unit.service";
+import { warehouseController } from "./warehouse/warehouse.controller";
 
 const companyCode = "INVENTORYSAFETY";
 const branchId = new mongoose.Types.ObjectId().toString();
@@ -78,6 +79,15 @@ describe("inventory write safety", () => {
     expect((await balance(quantityVariantId, secondaryWarehouseId))?.quantity).toBe(3);
     expect((await balance(quantityVariantId))?.quantity).toBe(5);
     expect((await StockLogModel.findById(draft._id).lean())?.items[0].unitCost).toBe(30);
+  });
+
+  it("exposes SKU tracking mode with warehouse balances for generic forms", async () => {
+    let payload: any;
+    const response: any = { json: (body: any) => { payload = body; return response; }, status: () => response };
+    await warehouseController.balances({ user: scope, query: { warehouseId } } as any, response);
+    expect(payload.status).toBe("success");
+    expect(payload.data.find((item: any) => item.variantId === quantityVariantId).trackingMode).toBe("quantity");
+    expect(payload.data.find((item: any) => item.variantId === serialVariantId).trackingMode).toBe("serial");
   });
 
   it("rolls back stock and ledger if a tracked line has no unit identifiers", async () => {

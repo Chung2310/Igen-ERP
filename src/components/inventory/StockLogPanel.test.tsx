@@ -52,6 +52,19 @@ it("loads saved IMEI when editing a pending outbound document", async () => {
     expect(inventorySerialService.list).toHaveBeenCalledWith(expect.objectContaining({ barcodes: ["BARCODE-SAVED"] }));
   });
 describe("StockLogPanel", () => {
+  it("keeps quantity-only stock documents free of serial fields", async () => {
+    render(<StockLogPanel products={[]} searchLog="" setSearchLog={vi.fn()}
+      stockLogs={[{ id: "quantity-log", type: "xuất", title: "Xuất giấy", sku: "PAPER", productName: "Giấy A4", quantity: 2,
+        operatorName: "Tester", createdAt: "2026-01-01", notes: "", status: "Đang chờ",
+        items: [{ productId: "paper", sku: "PAPER", productName: "Giấy A4", quantity: 2 }],
+      }]}
+      onExportExcel={vi.fn()} onImportExcel={vi.fn()} onNavigateToCreateProduct={vi.fn()}
+      onCreateTransaction={vi.fn()} onUpdateTransaction={vi.fn()} outboundOnly />);
+    fireEvent.click(screen.getByRole("button", { name: /Xem chi tiết/ }));
+    expect(screen.queryByRole("columnheader", { name: /sê-ri|IMEI/i })).toBeNull();
+    expect(screen.getByRole("columnheader", { name: "SKU" })).toBeTruthy();
+  });
+
   it("hiển thị SKU và IMEI đã lưu trong chi tiết phiếu xuất", () => {
     render(
       <StockLogPanel
@@ -70,7 +83,7 @@ describe("StockLogPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /Xem chi tiết/ }));
 
     expect(screen.getByText("Hàng xuất")).toBeTruthy();
-    expect(screen.getByRole("columnheader", { name: "IMEI / Serial" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Số sê-ri / Mã đơn vị" })).toBeTruthy();
     expect(screen.getByText("SKU-1")).toBeTruthy();
     expect(screen.getByText("IMEI-1")).toBeTruthy();
   });
@@ -97,7 +110,7 @@ describe("StockLogPanel", () => {
 
     expect(screen.getByText("Hàng xuất")).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "SKU" })).toBeTruthy();
-    expect(screen.getByRole("columnheader", { name: "IMEI / Serial" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Số sê-ri / Mã đơn vị" })).toBeTruthy();
     expect(screen.getByText("SKU-1")).toBeTruthy();
     expect(screen.getByText("SKU-2")).toBeTruthy();
     expect(screen.getByText("IMEI-1")).toBeTruthy();
