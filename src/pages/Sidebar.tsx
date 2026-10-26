@@ -20,26 +20,24 @@ import {
   GraduationCap,
   Sparkles,
 } from "lucide-react";
-import {
-  BookOpenIcon,
-  BriefcaseIcon,
-  ChartBarIcon,
-  ChatCircleIcon,
-  CubeIcon,
-  FileTextIcon,
-  FolderIcon,
-  GearIcon,
-  HeadsetIcon,
-  MegaphoneIcon,
-  ShieldIcon,
-  ShoppingCartIcon,
-  SparkleIcon,
-  StudentIcon,
-  UsersIcon,
-  UsersThreeIcon,
-  WrenchIcon,
-  type Icon as PhosphorIcon,
-} from "@phosphor-icons/react";
+import { BookOpenIcon } from "@phosphor-icons/react/dist/csr/BookOpen";
+import { BriefcaseIcon } from "@phosphor-icons/react/dist/csr/Briefcase";
+import { ChartBarIcon } from "@phosphor-icons/react/dist/csr/ChartBar";
+import { ChatCircleIcon } from "@phosphor-icons/react/dist/csr/ChatCircle";
+import { CubeIcon } from "@phosphor-icons/react/dist/csr/Cube";
+import { FileTextIcon } from "@phosphor-icons/react/dist/csr/FileText";
+import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
+import { GearIcon } from "@phosphor-icons/react/dist/csr/Gear";
+import { HeadsetIcon } from "@phosphor-icons/react/dist/csr/Headset";
+import { MegaphoneIcon } from "@phosphor-icons/react/dist/csr/Megaphone";
+import { ShieldIcon } from "@phosphor-icons/react/dist/csr/Shield";
+import { ShoppingCartIcon } from "@phosphor-icons/react/dist/csr/ShoppingCart";
+import { SparkleIcon } from "@phosphor-icons/react/dist/csr/Sparkle";
+import { StudentIcon } from "@phosphor-icons/react/dist/csr/Student";
+import { UsersIcon } from "@phosphor-icons/react/dist/csr/Users";
+import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
+import { WrenchIcon } from "@phosphor-icons/react/dist/csr/Wrench";
+import type { Icon as PhosphorIcon } from "@phosphor-icons/react/lib";
 import {
   BRAND_FULL_LOGO_PATH,
   BRAND_LOGO_PATH,
