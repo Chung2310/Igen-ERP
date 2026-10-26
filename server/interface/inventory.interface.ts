@@ -130,12 +130,13 @@ export interface ISupplier extends Document {
 
 export interface IGoodsReceiptItem {
   productId: string;
-  variantId: string;
+  variantId?: string;
+  legacyProductId?: string;
   barcode?: string;
   sku: string;
   trackingMode?: "none" | "quantity" | "unit_barcode" | "lot" | "serial";
   serialNumbers?: string[];
-  unitDetails?: Array<{ internalBarcode: string; serialNumber?: string; imei1?: string; imei2?: string }>;
+  unitDetails?: Array<{ internalBarcode: string; barcodeAliases?: string[]; serialNumber?: string; imei1?: string; imei2?: string }>;
   productName: string;
   quantity: number;
   unitCost: number;
@@ -146,11 +147,18 @@ export interface IGoodsReceiptItem {
 }
 
 export interface IGoodsReceipt extends Document {
+  receiptKind?: "purchase" | "sales_return" | "buyback" | "sales_cancel";
+  sourceId?: string;
+  sourceCode?: string;
+  orderId?: string;
+  orderCode?: string;
+  customerId?: string;
+  customerName?: string;
   companyCode: string;
   branchId: string;
   warehouseId: string;
   receiptCode: string;
-  supplierId: string;
+  supplierId?: string;
   supplierName: string;
   status: GoodsReceiptStatus;
   financeTerms?: { dueOn: string; paidAmount: number; paymentMethod?: string };

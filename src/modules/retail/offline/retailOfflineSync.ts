@@ -1,3 +1,4 @@
+import { verifyConfirmation } from "./confirmationEvidence";
 import type {
   OfflineScope,
   RetailOfflineOrder,
@@ -5,13 +6,13 @@ import type {
 } from "./retailOfflineQueue";
 export interface RetailOfflineSyncResult {
   itemId: string;
-  status: "synced" | "failed";
+  status: "synced" | "failed" | "revoked";
   orderId?: string;
   invoiceId?: string;
   error?: string;
 }
 type Adapter = {
-  check(key: string): Promise<any>;
+  check(key: string, item: RetailOfflineOrder): Promise<any>;
   send(item: RetailOfflineOrder): Promise<any>;
 };
 export function isRetailNetworkFailure(error: unknown) {
@@ -34,9 +35,13 @@ export async function syncRetailOfflineQueue(
     (x) => x.status === "syncing",
   )) {
     let attempt: any;
-    try { attempt = await adapter.check(item.idempotencyKey); }
+    try { attempt = await adapter.check(item.idempotencyKey, item); }
     catch { continue; }
-    if (attempt?.status === "completed") {
+    if (attempt?.status === "revoked") {
+      await queue.update(item.id, { status: "revoked", lastError: undefined });
+      results.push({ itemId: item.id, status: "revoked" });
+    } else if (attempt?.status === "completed") {
+      try { verifyConfirmation(attempt, (item.payload as any)?.draftId); } catch { continue; }
       await queue.update(item.id, { status: "synced" });
       results.push({
         itemId: item.id,
@@ -44,13 +49,14 @@ export async function syncRetailOfflineQueue(
         orderId: attempt.order?._id,
         invoiceId: attempt.invoice?._id,
       });
-    } else await queue.update(item.id, { status: "pending" });
+    } else if (attempt?.status === "not_found") await queue.update(item.id, { status: "pending" });
   }
   for (;;) {
     const item = await queue.claimNext(scope);
     if (!item) break;
     try {
       const response = await adapter.send(item);
+      verifyConfirmation(response, (item.payload as any)?.draftId);
       await queue.update(item.id, { status: "synced", lastError: undefined });
       results.push({
         itemId: item.id,

@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { retailInvoicesApi } from "../api/retailInvoices.api";
 import RetailInvoicesPage from "./RetailInvoicesPageContent";
 
-vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { companyCode: "ACME", branchId: "B1" } }) }));
-vi.mock("../api/retailInvoices.api", () => ({ retailInvoicesApi: { list: vi.fn(), detail: vi.fn(), downloadPdf: vi.fn() } }));
+vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { companyCode: "ACME", branchId: "B1" }, userProfile: { permissions: ["retail:manage"] } }) }));
+vi.mock("../api/retailInvoices.api", () => ({ retailInvoicesApi: { list: vi.fn(), detail: vi.fn(), reprint: vi.fn(), downloadPdf: vi.fn() } }));
 
 const invoice: any = {
   _id: "i1", invoiceNo: "HD-01", orderId: "o1", orderCode: "DH-01", issuedAt: "2026-08-12T01:00:00Z", status: "issued",
@@ -19,6 +19,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(retailInvoicesApi.list).mockResolvedValue({ items: [invoice], total: 1, page: 1, limit: 20 });
   vi.mocked(retailInvoicesApi.detail).mockResolvedValue(invoice);
+  vi.mocked(retailInvoicesApi.reprint).mockResolvedValue(invoice);
   vi.mocked(retailInvoicesApi.downloadPdf).mockResolvedValue(undefined);
 });
 
@@ -28,8 +29,9 @@ describe("RetailInvoicesPage", () => {
     render(<RetailInvoicesPage />);
     await screen.findByText("HD-01");
     await userEvent.click(screen.getByRole("button", { name: "In lại hóa đơn HD-01" }));
-    await waitFor(() => expect(retailInvoicesApi.detail).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "B1" }, "i1"));
-    expect(print).toHaveBeenCalledOnce();
+    await waitFor(() => expect(retailInvoicesApi.reprint).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "B1" }, "i1"));
+    await waitFor(() => expect(print).toHaveBeenCalledOnce());
+    expect(retailInvoicesApi.detail).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Tải PDF hóa đơn HD-01" }));
     await waitFor(() => expect(retailInvoicesApi.downloadPdf).toHaveBeenCalledWith({ companyCode: "ACME", branchId: "B1" }, "i1"));
   });
@@ -38,7 +40,7 @@ describe("RetailInvoicesPage", () => {
     render(<RetailInvoicesPage />);
     expect(await screen.findByText(/Thanh toán một phần · Đã thanh toán 40\.000 ₫ · Còn nợ 60\.000 ₫/)).toBeTruthy();
     await userEvent.click(await screen.findByRole("button", { name: "Xem hóa đơn HD-01" }));
-    expect(await screen.findByText("Thu ngân: Thu ngân A")).toBeTruthy();
+    expect(await screen.findByText("Thu ngân A")).toBeTruthy();
     expect(screen.getAllByText("Chuyển khoản").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Còn nợ").length).toBeGreaterThan(0);
   });

@@ -42,16 +42,9 @@ describe("RetailWorkspace", () => {
     expect(await screen.findByText("Warranty page")).toBeTruthy();
   });
 
-  it("opens POS as a dedicated sales surface and returns to management", async () => {
+  it("opens the dedicated POS route from retail management", async () => {
     render(<RetailWorkspace />);
-    await userEvent.click(screen.getByRole("button", { name: "Bán hàng" }));
-    expect(await screen.findByText("POS page")).toBeTruthy();
-    expect(new URLSearchParams(window.location.search).get("pos")).toBe("1");
-    expect(screen.queryByRole("button", { name: "Đơn hàng" })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Rời POS" }));
-    expect(new URLSearchParams(window.location.search).get("pos")).toBeNull();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Đơn hàng" })).toBeTruthy());
-    expect(await screen.findByText("Orders page")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Mở quầy POS" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Mở quầy POS" }));
+    expect(window.location.pathname).toBe("/pos");
   });
 });

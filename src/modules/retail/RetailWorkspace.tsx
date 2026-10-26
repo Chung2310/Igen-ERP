@@ -1,107 +1,127 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { ChartColumn, FileText, ListOrdered, MonitorSmartphone, RotateCcw, Settings, ShieldCheck, Store, Wallet } from "lucide-react";
+import { lazy, Suspense, useState } from "react";
+import { ArrowUpRight, ChartColumn, Clock3, FileText, ListOrdered, RotateCcw, Settings, ShieldCheck, Store, Ticket } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
 import type { RepairCreatePrefill } from "../repair/RepairBoardPage";
 
 const SettingsPage = lazy(() => import("./pages/RetailSettingsPage"));
-const PosPage = lazy(() => import("./pages/RetailPosPage"));
+const CouponsPage = lazy(() => import("./pages/RetailCouponsPage"));
 const OrdersPage = lazy(() => import("./pages/RetailOrdersPageV2"));
 const ReturnsPage = lazy(() => import("./pages/RetailReturnsPage"));
-const ShiftsPage = lazy(() => import("./pages/RetailShiftsPage"));
 const InvoicesPage = lazy(() => import("./pages/RetailInvoicesPageContent"));
 const ReportsPage = lazy(() => import("./pages/RetailReportsPage"));
 const WarrantyLookupPage = lazy(() => import("./pages/WarrantyLookupPage"));
+const ShiftWorkspace = lazy(() => import("./pages/RetailShiftWorkspace"));
 const RepairBoardPage = lazy(() => import("../repair/RepairBoardPage"));
-const PromotionsPage = lazy(() => import("./pages/RetailPromotionsPage"));
 const FinancePage = lazy(() => import("./pages/RetailFinancePage"));
+const PromotionsPage = lazy(() => import("./pages/RetailPromotionsPage"));
 
-type RetailSubTab = "BẢO HÀNH" | "BÁN HÀNG" | "ĐƠN HÀNG" | "ĐỔI TRẢ" | "CA BÁN HÀNG" | "HÓA ĐƠN" | "BÁO CÁO" | "TÀI CHÍNH" | "ƯU ĐÃI" | "CÀI ĐẶT";
+type RetailSubTab = (typeof SUB_TABS)[number]["value"];
 
 const SUB_TABS = [
   { slug: "bao-hanh", value: "BẢO HÀNH" as const, label: "Bảo hành", icon: ShieldCheck },
-  { slug: "ban-hang", value: "BÁN HÀNG" as const, label: "Bán hàng", icon: Store },
+  { slug: "ban-hang", value: "BÁN HÀNG" as const, label: "Tổng quan", icon: Store },
   { slug: "don-hang", value: "ĐƠN HÀNG" as const, label: "Đơn hàng", icon: ListOrdered },
   { slug: "doi-tra", value: "ĐỔI TRẢ" as const, label: "Đổi trả", icon: RotateCcw },
-  { slug: "ca-ban-hang", value: "CA BÁN HÀNG" as const, label: "Ca bán hàng", icon: MonitorSmartphone },
   { slug: "hoa-don", value: "HÓA ĐƠN" as const, label: "Hóa đơn", icon: FileText },
   { slug: "bao-cao", value: "BÁO CÁO" as const, label: "Báo cáo", icon: ChartColumn },
-  { slug: "tai-chinh", value: "TÀI CHÍNH" as const, label: "Tài chính", icon: Wallet },
-  { slug: "uu-dai", value: "ƯU ĐÃI" as const, label: "Ưu đãi", icon: ShieldCheck },
+  { slug: "ca-pos", value: "CA POS" as const, label: "Ca POS", icon: Clock3 },
+  { slug: "tai-chinh", value: "TÀI CHÍNH" as const, label: "Tài chính", icon: ChartColumn },
+  { slug: "uu-dai", value: "ƯU ĐÃI" as const, label: "Ưu đãi và điểm", icon: Ticket },
   { slug: "cai-dat", value: "CÀI ĐẶT" as const, label: "Cài đặt", icon: Settings },
+  { slug: "ma-uu-dai", value: "MÃ ƯU ĐÃI" as const, label: "Mã ưu đãi", icon: Ticket },
 ];
 
 export default function RetailWorkspace() {
   const [repairPrefill, setRepairPrefill] = useState<RepairCreatePrefill | null>(null);
   const [repairVisible, setRepairVisible] = useState(false);
   const { userProfile } = useAuth();
-  const isAdmin = userProfile?.role === "admin" || userProfile?.role === "superadmin";
-  const canManageWarranty = isAdmin || Boolean(userProfile?.permissions?.includes("retail:manage") || userProfile?.permissions?.includes("repair:manage") || userProfile?.permissions?.includes("*"));
-  const canCreateRepair = isAdmin || Boolean(userProfile?.permissions?.includes("repair:manage") || userProfile?.permissions?.includes("*"));
+  const canCreateRepair = userProfile?.role === "admin" || userProfile?.role === "superadmin" || Boolean(userProfile?.permissions?.some(permission => ["*", "repair:manage"].includes(permission)));
+  const canManageWarranty = canCreateRepair || Boolean(userProfile?.permissions?.includes("retail:manage"));
+  const canOpenPos = userProfile?.role === "admin" || userProfile?.role === "superadmin" || Boolean(userProfile?.permissions?.some((permission) => ["*", "pos:manage", "retail:manage"].includes(permission)));
   const allowed = getAllowedRetailTabSlugs(
     userProfile?.role === "admin" || userProfile?.role === "superadmin" ? ["*"] : userProfile?.permissions || [],
   );
   const tabs: any = SUB_TABS.filter((tab) => allowed.includes(tab.slug as (typeof allowed)[number]));
-  const canOpenSettings = allowed.includes("cai-dat");
   const [activeTab, setActiveTab] = useSubTabRouter<RetailSubTab>(tabs, tabs[0]?.value || "BÁN HÀNG");
-  const [posOpen, setPosOpen] = useState(() => new URLSearchParams(window.location.search).get("pos") === "1" || activeTab === "BÁN HÀNG");
-  useEffect(() => {
-    const syncPosFromUrl = () => setPosOpen(new URLSearchParams(window.location.search).get("pos") === "1");
-    window.addEventListener("popstate", syncPosFromUrl);
-    return () => window.removeEventListener("popstate", syncPosFromUrl);
-  }, []);
-  const setPosVisible = (open: boolean) => {
-    const url = new URL(window.location.href);
-    if (open) url.searchParams.set("pos", "1"); else url.searchParams.delete("pos");
-    window.history.replaceState(null, "", url.toString());
-    setPosOpen(open);
+
+  const openPos = () => {
+    window.history.pushState(null, "", "/pos");
+    window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
   if (!tabs.length) {
-    return <div className="p-6 text-sm font-semibold text-on-surface">Bạn chưa được cấp quyền sử dụng chức năng này.</div>;
+    return <div className="p-6 text-sm font-semibold text-amber-800">Bạn chưa được cấp quyền sử dụng chức năng này.</div>;
   }
 
-  if (posOpen) {
-    return <Suspense fallback={<div role="status">Đang mở quầy bán hàng...</div>}><PosPage onLeavePos={() => { setPosVisible(false); setActiveTab("ĐƠN HÀNG"); }} onManageShift={() => { setPosVisible(false); setActiveTab("CA BÁN HÀNG"); }} onPrinterSettings={canOpenSettings ? () => { setPosVisible(false); setActiveTab("CÀI ĐẶT"); } : undefined} /></Suspense>;
-  }
+  const overviewSections = tabs.filter((tab: (typeof SUB_TABS)[number]) =>
+    ["don-hang", "doi-tra", "hoa-don", "bao-cao", "ca-pos"].includes(tab.slug),
+  );
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface">
-      <div className="flex gap-1 overflow-x-auto border-b border-outline-variant bg-surface-container-lowest px-4 pt-3">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.value;
-          return (
-            <button
-              key={tab.slug}
-              type="button"
-              aria-pressed={active}
-              onClick={() => { setActiveTab(tab.value); if (tab.value === "BÁN HÀNG") setPosVisible(true); }}
-              className={`flex shrink-0 items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-primary ${active ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface"}`}
-            >
-              <Icon className="size-4" aria-hidden="true" />
-              {tab.label}
-            </button>
-          );
-        })}
+    <div className="flex h-full min-h-0 flex-col bg-slate-50">
+      <div className="px-4 pt-3.5 sm:px-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">Quản lý bán hàng</h1>
+            <p className="text-sm text-slate-500">Theo dõi đơn hàng, đổi trả, hóa đơn, báo cáo và ca POS.</p>
+          </div>
+          {canOpenPos && <button type="button" onClick={openPos} className="inline-flex items-center gap-2 rounded-xl bg-[#0866f5] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0758d5]"><Store className="h-4 w-4" />Mở quầy POS<ArrowUpRight className="h-4 w-4" /></button>}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-xs">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.value;
+            return (
+              <button
+                key={tab.slug}
+                type="button"
+                onClick={() => setActiveTab(tab.value)}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer ${
+                  active
+                    ? "bg-cyan-600 text-white shadow-sm shadow-cyan-600/25"
+                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-        <Suspense fallback={<div role="status" className="text-sm text-on-surface-variant">Đang tải phân hệ bán lẻ...</div>}>
+        <Suspense fallback={<div className="text-sm text-slate-500">Đang tải phân hệ bán hàng...</div>}>
+          {activeTab === "BÁN HÀNG" && <section className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+              <h2 className="text-lg font-semibold text-slate-900">Tổng quan bán hàng</h2>
+              <p className="mt-1 text-sm text-slate-500">Chọn khu vực cần quản lý để xem dữ liệu và xử lý công việc.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {overviewSections.map((tab: (typeof SUB_TABS)[number]) => {
+                const Icon = tab.icon;
+                return <button key={tab.slug} type="button" onClick={() => setActiveTab(tab.value as RetailSubTab)} className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:border-blue-200 hover:shadow-sm">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#edf3ff] to-[#f5f0ff] text-[#0866f5]"><Icon className="h-5 w-5" /></span>
+                  <span className="min-w-0 flex-1 font-semibold text-slate-800">{tab.label}</span>
+                  <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-[#0866f5]" />
+                </button>;
+              })}
+            </div>
+          </section>}
           {activeTab === "ĐƠN HÀNG" && <OrdersPage />}
-          {activeTab === "ĐỔI TRẢ" && <ReturnsPage onOpenOrders={() => setActiveTab("ĐƠN HÀNG")} />}
-          {activeTab === "CA BÁN HÀNG" && <ShiftsPage />}
+          {activeTab === "ĐỔI TRẢ" && <ReturnsPage />}
           {activeTab === "HÓA ĐƠN" && <InvoicesPage />}
           {activeTab === "BÁO CÁO" && <ReportsPage />}
+          {activeTab === "CA POS" && <ShiftWorkspace />}
+          {activeTab === "CÀI ĐẶT" && <SettingsPage />}
+          {activeTab === "MÃ ƯU ĐÃI" && <CouponsPage />}
           {activeTab === "TÀI CHÍNH" && <FinancePage />}
           {activeTab === "ƯU ĐÃI" && <PromotionsPage />}
-          {activeTab === "CÀI ĐẶT" && <SettingsPage />}
-          {activeTab === "BẢO HÀNH" && (repairVisible ? (
-            <div className="space-y-4">
-              <button type="button" onClick={() => { setRepairVisible(false); setRepairPrefill(null); }} className="min-h-11 rounded-lg border border-outline px-4 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Quay lại tra cứu bảo hành</button>
-              <RepairBoardPage createPrefill={repairPrefill} onCreatePrefillConsumed={() => setRepairPrefill(null)} />
-            </div>
-          ) : <WarrantyLookupPage canManage={canManageWarranty} onCreateRepair={canCreateRepair ? (device) => { setRepairPrefill(device); setRepairVisible(true); } : undefined} />)}
+          {activeTab === "BẢO HÀNH" && (repairVisible ? <div className="space-y-4">
+            <button type="button" onClick={() => { setRepairVisible(false); setRepairPrefill(null); }} className="min-h-11 rounded-lg border border-outline px-4 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Quay lại tra cứu bảo hành</button>
+            <RepairBoardPage createPrefill={repairPrefill} onCreatePrefillConsumed={() => setRepairPrefill(null)} />
+          </div> : <WarrantyLookupPage canManage={canManageWarranty} onCreateRepair={canCreateRepair ? (device) => { setRepairPrefill(device); setRepairVisible(true); } : undefined} />)}
         </Suspense>
       </div>
     </div>

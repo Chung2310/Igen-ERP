@@ -3,21 +3,27 @@ export type CustomerType = "regular" | "vat";
 export type CustomerGender = "male" | "female" | "other";
 export type CustomerSource = "manual" | "pos" | "import";
 
-/** Hạng hiện tại, do module Bán lẻ tính lại tự động sau mỗi đơn. Không nhận từ client. */
+/** Hạng hiện tại, do hệ thống tính lại tự động dựa trên Lợi Nhuận Gộp hoặc Doanh số. */
 export interface ICustomerTierState {
   code: string;
   name: string;
-  minSpend: number;
+  minGrossProfit?: number;
+  minSpend?: number;
+  color?: string;
+  pointMultiplier?: number;
+  discountPercent?: number;
 }
 
 export interface ICustomer {
   companyCode: string;
+  branchId?: string;
   customerCode: string;
   type: CustomerType;
   name: string;
   phone: string;
   normalizedPhone: string;
   email?: string;
+  avatarUrl?: string;
   dateOfBirth?: Date;
   gender?: CustomerGender;
   address?: string;
@@ -25,11 +31,15 @@ export interface ICustomer {
   status: CustomerStatus;
   source: CustomerSource;
   tier?: ICustomerTierState;
-  tierTotalSales?: number;
+  tierGrossProfit?: number; // Tổng lợi nhuận gộp tích lũy trong kỳ
+  tierTotalSales?: number;  // Tổng chi tiêu / doanh thu tích lũy trong kỳ
   tierUpdatedAt?: Date;
-  pointsBalance?: number;
-  totalPointsEarned?: number;
-  totalPointsRedeemed?: number;
+
+  // Điểm thưởng (Loyalty Points)
+  pointsBalance?: number;      // Điểm khả dụng hiện có
+  totalPointsEarned?: number;   // Tổng điểm đã tích lũy
+  totalPointsRedeemed?: number; // Tổng điểm đã cấn trừ thanh toán
+
   createdBy: string;
   createdByName: string;
   version: number;
@@ -38,5 +48,5 @@ export interface ICustomer {
 }
 
 export type CustomerInput = Partial<Pick<ICustomer,
-  "type" | "name" | "phone" | "email" | "dateOfBirth" | "gender" | "address" | "notes" | "status" | "source"
+  "type" | "name" | "phone" | "email" | "avatarUrl" | "dateOfBirth" | "gender" | "address" | "notes" | "status" | "source"
 >> & { dateOfBirth?: Date | string };

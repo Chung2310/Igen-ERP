@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { customerApi } from "../../../customer-management/customerApi";
 import CustomerPicker from "./CustomerPicker";
 
-vi.mock("../../../customer-management/customerApi", () => ({ customerApi: { list: vi.fn(), create: vi.fn() } }));
+vi.mock("../../../customer-management/customerApi", () => ({ customerApi: { searchActive: vi.fn(), create: vi.fn() } }));
 
 const scope = { companyCode: "ACME", branchId: "B1" };
 const customer = {
@@ -27,7 +27,7 @@ afterEach(cleanup);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(customerApi.list).mockResolvedValue({ items: [customer], total: 1, page: 1, limit: 10 });
+  vi.mocked(customerApi.searchActive).mockResolvedValue([{ customerId: customer._id, customerCode: customer.customerCode, name: customer.name, phone: customer.phone, type: customer.type, status: customer.status }]);
 });
 
 describe("CustomerPicker", () => {
@@ -35,7 +35,7 @@ describe("CustomerPicker", () => {
     const onChange = vi.fn();
     render(<CustomerPicker scope={scope} value={null} onChange={onChange} />);
     await userEvent.type(screen.getByRole("combobox", { name: "Tìm khách hàng" }), "0901");
-    await waitFor(() => expect(customerApi.list).toHaveBeenCalledWith({ companyCode: "ACME", q: "0901", limit: 10, status: "active" }));
+    await waitFor(() => expect(customerApi.searchActive).toHaveBeenCalledWith({ companyCode: "ACME", q: "0901", limit: 10 }));
     await userEvent.click(await screen.findByRole("option", { name: /Nguyễn Văn A/ }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       _id: "c1",
@@ -55,7 +55,7 @@ describe("CustomerPicker", () => {
   });
 
   it("offers creation only after a successful search returns no customers", async () => {
-    vi.mocked(customerApi.list).mockResolvedValueOnce({ items: [], total: 0, page: 1, limit: 10 });
+    vi.mocked(customerApi.searchActive).mockResolvedValueOnce([]);
     render(<CustomerPicker scope={scope} value={null} onChange={vi.fn()} />);
 
     expect(screen.queryByRole("button", { name: "Tạo khách hàng mới" })).toBeNull();
@@ -64,7 +64,7 @@ describe("CustomerPicker", () => {
   });
 
   it("does not offer creation when customer search fails", async () => {
-    vi.mocked(customerApi.list).mockRejectedValueOnce(new Error("Mất kết nối"));
+    vi.mocked(customerApi.searchActive).mockRejectedValueOnce(new Error("Mất kết nối"));
     render(<CustomerPicker scope={scope} value={null} onChange={vi.fn()} />);
     await userEvent.type(screen.getByRole("combobox", { name: "Tìm khách hàng" }), "0909");
 
@@ -75,7 +75,7 @@ describe("CustomerPicker", () => {
   it("prefills the phone and selects the newly created customer", async () => {
     const onChange = vi.fn();
     const newCustomer = { ...customer, _id: "c2", customerCode: "KH-ACME-000002", name: "Khách mới", phone: "0909", type: "vat" as const };
-    vi.mocked(customerApi.list).mockResolvedValueOnce({ items: [], total: 0, page: 1, limit: 10 });
+    vi.mocked(customerApi.searchActive).mockResolvedValueOnce([]);
     vi.mocked(customerApi.create).mockResolvedValueOnce(newCustomer as any);
     render(<CustomerPicker scope={scope} value={null} onChange={onChange} />);
 

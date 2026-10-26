@@ -1,5 +1,5 @@
 import React from "react";
-import { Download, RefreshCw } from "lucide-react";
+import { ChartColumn, Download, RefreshCw, Store } from "lucide-react";
 import { retailReportsApi } from "../api/retailReports.api";
 import RetailKpiGrid from "../components/reports/RetailKpiGrid";
 import RetailReportFilters from "../components/reports/RetailReportFilters";
@@ -7,12 +7,19 @@ import RetailReportTables from "../components/reports/RetailReportTables";
 import RetailSalesCharts from "../components/reports/RetailSalesCharts";
 import { validateRetailReportRange } from "../components/reports/retailReportRange";
 import { useRetailScope } from "../hooks/useRetailScope";
+import { useBranchOptional } from "../../../context/BranchContext";
 import type { RetailReport, RetailReportFilters as RetailReportFilterValue } from "../types";
 
 const REPORT_PRESET_PARAM = "reportPreset";
 const REPORT_FROM_PARAM = "reportFrom";
 const REPORT_TO_PARAM = "reportTo";
-const DIMENSION_PARAMS = { salespersonId: "reportSalesperson", productId: "reportProduct", sku: "reportSku", category: "reportCategory", brand: "reportBrand" } as const;
+const DIMENSION_PARAMS = {
+  salespersonId: "reportSalesperson",
+  productId: "reportProduct",
+  sku: "reportSku",
+  category: "reportCategory",
+  brand: "reportBrand",
+} as const;
 
 function readFiltersFromUrl(): RetailReportFilterValue {
   const params = new URLSearchParams(window.location.search);
@@ -76,24 +83,56 @@ function filterKey(filters: RetailReportFilterValue): string {
 
 function RetailReportsSkeleton() {
   return (
-    <div role="status" aria-label="Đang tải báo cáo" className="space-y-4" aria-live="polite">
+    <div role="status" aria-label="Đang tải báo cáo" className="space-y-5" aria-live="polite">
       <span className="sr-only">Đang tải báo cáo...</span>
-      <div className="grid animate-pulse gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        {Array.from({ length: 6 }, (_, index) => <div key={index} className="h-32 rounded-2xl border border-slate-200 bg-white"><div className="m-4 h-4 w-24 rounded bg-slate-100" /><div className="mx-4 mt-8 h-7 w-32 rounded bg-slate-100" /></div>)}
+      <div className="grid animate-pulse gap-3.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        {Array.from({ length: 6 }, (_, index) => (
+          <div key={index} className="h-32 rounded-3xl border border-slate-200/80 bg-white p-4">
+            <div className="h-9 w-9 rounded-2xl bg-slate-100 mb-3" />
+            <div className="h-3 w-20 rounded bg-slate-100 mb-2" />
+            <div className="h-6 w-28 rounded bg-slate-100" />
+          </div>
+        ))}
       </div>
-      <div className="grid animate-pulse gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-        <div className="h-80 rounded-2xl border border-slate-200 bg-white p-5"><div className="h-full rounded-xl bg-slate-100" /></div>
-        <div className="h-80 rounded-2xl border border-slate-200 bg-white p-5"><div className="h-full rounded-xl bg-slate-100" /></div>
+      <div className="grid animate-pulse gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <div className="h-80 rounded-3xl border border-slate-200/80 bg-white p-6">
+          <div className="h-6 w-44 rounded-lg bg-slate-100 mb-4" />
+          <div className="h-56 rounded-2xl bg-slate-100" />
+        </div>
+        <div className="h-80 rounded-3xl border border-slate-200/80 bg-white p-6">
+          <div className="h-6 w-36 rounded-lg bg-slate-100 mb-4" />
+          <div className="h-56 rounded-2xl bg-slate-100" />
+        </div>
       </div>
       <div className="space-y-4 animate-pulse">
-        {Array.from({ length: 3 }, (_, index) => <div key={index} className="h-56 rounded-2xl border border-slate-200 bg-white p-5"><div className="h-5 w-40 rounded bg-slate-100" /><div className="mt-6 h-32 rounded-xl bg-slate-100" /></div>)}
+        {Array.from({ length: 3 }, (_, index) => (
+          <div key={index} className="h-56 rounded-3xl border border-slate-200/80 bg-white p-6">
+            <div className="h-5 w-40 rounded-lg bg-slate-100 mb-4" />
+            <div className="h-32 rounded-2xl bg-slate-100" />
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
 export default function RetailReportsPage() {
-  const { scope } = useRetailScope();
+  const { scope: workingScope, userProfile, branchName: scopeBranchName, activeBranch: scopeBranch } = useRetailScope() as any;
+  const branchContext = useBranchOptional();
+  const canSelectBranches = userProfile?.role === "admin" || userProfile?.role === "superadmin";
+  const [reportBranch, setReportBranch] = React.useState<{ workingKey: string; id: string } | null>(null);
+  const workingKey = workingScope ? workingScope.companyCode + ":" + workingScope.branchId : "";
+  const selectedBranch = canSelectBranches && reportBranch?.workingKey === workingKey ? reportBranch.id : workingScope?.branchId;
+  const scope = workingScope ? { ...workingScope, branchId: selectedBranch } : null;
+  const branchOptions = branchContext?.branches?.length ? branchContext.branches : workingScope ? [{ _id: workingScope.branchId, name: scopeBranchName || workingScope.branchId }] : [];
+  const activeBranch =
+    scopeBranch ||
+    branchContext?.activeBranch ||
+    branchContext?.branches?.find((b) => b._id === scope?.branchId);
+  const rawBranchName = branchOptions.find(branch => branch._id === selectedBranch)?.name || activeBranch?.name || scopeBranchName;
+  const branchDisplayName = selectedBranch === "all" ? "Tất cả chi nhánh" : rawBranchName
+    ? (rawBranchName.toLowerCase().startsWith("chi nhánh") ? rawBranchName : `Chi nhánh: ${rawBranchName}`)
+    : (scope ? (/^[0-9a-fA-F]{24}$/.test(scope.branchId) ? "Chi nhánh hiện tại" : `Chi nhánh: ${scope.branchId}`) : "");
   const [filters, setFilters] = React.useState<RetailReportFilterValue>(readFiltersFromUrl);
   const [report, setReport] = React.useState<RetailReport | null>(null);
   const [reportScopeKey, setReportScopeKey] = React.useState("");
@@ -154,7 +193,8 @@ export default function RetailReportsPage() {
     summaryLoadingRef.current = true;
     setLoading(true);
     setLoadError(null);
-    void retailReportsApi.summary(scope, filters)
+    void retailReportsApi
+      .summary(scope, filters)
       .then((nextReport) => {
         if (requestSequence.current !== requestId) return;
         setReport(nextReport);
@@ -162,7 +202,10 @@ export default function RetailReportsPage() {
       })
       .catch((cause) => {
         if (requestSequence.current !== requestId) return;
-        setLoadError({ scopeKey: requestedScopeKey, message: errorMessage(cause, "Không tải được báo cáo bán lẻ.") });
+        setLoadError({
+          scopeKey: requestedScopeKey,
+          message: errorMessage(cause, "Không tải được báo cáo bán hàng."),
+        });
       })
       .finally(() => {
         if (requestSequence.current === requestId) {
@@ -192,7 +235,12 @@ export default function RetailReportsPage() {
     try {
       await retailReportsApi.export(scope, filters, controller.signal);
     } catch (cause) {
-      if (exportSequence.current !== requestId || exportContextKeyRef.current !== requestedContextKey || controller.signal.aborted) return;
+      if (
+        exportSequence.current !== requestId ||
+        exportContextKeyRef.current !== requestedContextKey ||
+        controller.signal.aborted
+      )
+        return;
       setExportError(errorMessage(cause, "Không xuất được báo cáo Excel."));
     } finally {
       if (exportSequence.current === requestId && exportContextKeyRef.current === requestedContextKey) {
@@ -203,67 +251,134 @@ export default function RetailReportsPage() {
   };
 
   if (!scope) {
-    return <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-800">Vui lòng chọn chi nhánh để xem báo cáo.</div>;
+    return (
+      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-amber-200 bg-amber-50/70 p-12 text-center text-amber-800">
+        <Store className="mb-3 h-10 w-10 text-amber-500" />
+        <p className="font-bold text-sm">Vui lòng chọn chi nhánh để xem báo cáo.</p>
+      </div>
+    );
   }
 
   return (
-    <section className="space-y-4" aria-busy={loading}>
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Báo cáo bán lẻ</h1>
-          <p className="text-sm text-slate-500">Doanh thu, thanh toán, ca bán hàng và công nợ của chi nhánh hiện tại.</p>
+    <section className="space-y-3.5" aria-busy={loading}>
+      {/* Top Header Card with integrated Branch Selector */}
+      <header className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white shadow-xs">
+            <ChartColumn className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900">Báo cáo bán hàng</h1>
+              {branchDisplayName && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50/80 px-2 py-0.5 text-xs font-semibold text-cyan-800">
+                  <Store className="h-3 w-3" />
+                  {branchDisplayName}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Branch selector inline */}
+            <select
+              id="report-branch"
+              aria-label="Chi nhánh báo cáo"
+              value={selectedBranch || ""}
+              disabled={!canSelectBranches || branchContext?.loading}
+              onChange={event => setReportBranch({ workingKey, id: event.target.value })}
+              className="text-xs font-medium text-slate-800 outline-none cursor-pointer disabled:opacity-50"
+            >
+              {canSelectBranches && <option value="all">Tất cả chi nhánh</option>}
+              {branchOptions.map(branch => <option key={branch._id} value={branch._id}>{branch.name}</option>)}
+            </select>
+
           <button
             type="button"
             aria-label="Tải lại báo cáo"
             disabled={loading}
             onClick={() => setReloadToken((value) => value + 1)}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
           >
-            <RefreshCw aria-hidden="true" className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Tải lại
+            <RefreshCw
+              aria-hidden="true"
+              className={`h-3.5 w-3.5 ${loading ? "animate-spin text-cyan-600" : ""}`}
+            />
+            <span>Tải lại</span>
           </button>
           <button
             type="button"
             disabled={exporting}
             onClick={() => void exportReport()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-3.5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs transition hover:from-cyan-500 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
           >
-            <Download aria-hidden="true" className="h-4 w-4" />
-            {exporting ? "Đang xuất..." : "Xuất Excel"}
+            <Download aria-hidden="true" className="h-3.5 w-3.5" />
+            <span>{exporting ? "Đang xuất..." : "Xuất Excel"}</span>
           </button>
         </div>
       </header>
 
-      <RetailReportFilters filters={filters} currentRange={visibleReport?.range} today={vietnamToday()} onChange={changeFilters} />
+      {/* Date & Dimension Filter Bar */}
+      <RetailReportFilters
+        filters={filters}
+        currentRange={visibleReport?.range}
+        today={vietnamToday()}
+        onChange={changeFilters}
+      />
 
+      {/* Load Error Alert */}
       {visibleLoadError && (
-        <div role="alert" className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 sm:flex-row sm:items-center sm:justify-between">
-          <span>{visibleLoadError}</span>
-          <button type="button" onClick={() => setReloadToken((value) => value + 1)} className="shrink-0 rounded-lg bg-white px-3 py-1.5 font-bold text-red-700 shadow-sm ring-1 ring-red-200 hover:bg-red-100">
+        <div
+          role="alert"
+          className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span className="font-semibold">{visibleLoadError}</span>
+          <button
+            type="button"
+            onClick={() => setReloadToken((value) => value + 1)}
+            className="shrink-0 rounded-xl bg-white px-3.5 py-1.5 font-bold text-red-700 shadow-xs border border-red-200 hover:bg-red-50 cursor-pointer"
+          >
             Thử tải lại
           </button>
         </div>
       )}
 
-      {exportError && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">{exportError}</div>}
+      {/* Export Error Alert */}
+      {exportError && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-800"
+        >
+          {exportError}
+        </div>
+      )}
 
+      {/* Skeleton Loading State */}
       {!visibleReport && !visibleLoadError && <RetailReportsSkeleton />}
 
+      {/* Empty / Error State */}
       {!visibleReport && visibleLoadError && (
-        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-12 text-center text-sm text-slate-500">
+        <div className="rounded-3xl border border-slate-200/80 bg-white px-5 py-16 text-center text-xs text-slate-500">
           Chưa thể hiển thị dữ liệu báo cáo. Hãy thử tải lại.
         </div>
       )}
 
+      {/* Main Report Dashboard Content */}
       {visibleReport && (
-        <>
-          {loading && <p role="status" className="text-xs font-semibold text-cyan-700">Đang cập nhật dữ liệu...</p>}
+        <div className="space-y-5">
+          {loading && (
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-cyan-600 animate-ping" />
+              <p role="status" className="text-xs font-bold text-cyan-700">
+                Đang cập nhật dữ liệu...
+              </p>
+            </div>
+          )}
           <RetailKpiGrid report={visibleReport} />
           <RetailSalesCharts report={visibleReport} />
           <RetailReportTables report={visibleReport} />
-        </>
+        </div>
       )}
     </section>
   );

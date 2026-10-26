@@ -14,7 +14,9 @@ export function RetailShiftApprovalPanel({ scope, shifts, onReconciled }: { scop
     setBusyId(id);
     setError("");
     try {
-      await retailShiftsApi.reconcile(scope, id);
+      const shift = shifts.find(row => row._id === id);
+      if (shift?.countedCash == null) throw new Error("Missing counted cash");
+      await retailShiftsApi.reconcile(scope, id, { countedCash: shift.countedCash, varianceReason: shift.varianceReason });
       setSelectedId(null);
       onReconciled();
     } catch (cause) {

@@ -16,13 +16,14 @@ describe("retail order input", () => {
       quote: null, quoteDirty: true,
     };
     expect(buildRetailOrderInput(cart)).toEqual({
+      note: "", installment: null,
       items: [{ productId: "p1", quantity: 2, discount: { type: "percent", value: 10 } }],
       customerId: "c1", billingProfileId: "bp1", orderDiscount: { type: "amount", value: 5_000 }, taxRate: 8, shippingFee: 20_000,
     });
   });
 
   it("omits customer id for walk-in sales", () => {
-    const cart: RetailCartState = { lines: [], customer: null, billingProfile: null, orderDiscount: { type: "amount", value: 0 }, couponCode: "", pointsToRedeem: 0, taxRate: 0, shippingFee: 0, quote: null, quoteDirty: false };
-    expect((inputModule as any).buildRetailOrderInput(cart)).toEqual({ items: [], orderDiscount: { type: "amount", value: 0 }, taxRate: 0, shippingFee: 0 });
+    const cart: RetailCartState = { lines: [], customer: null, billingProfile: null, orderDiscount: { type: "amount", value: 0 }, taxRate: 0, shippingFee: 0, quote: null, quoteDirty: false };
+    expect((inputModule as any).buildRetailOrderInput(cart)).toEqual({ note: "", installment: null, items: [], orderDiscount: { type: "amount", value: 0 }, taxRate: 0, shippingFee: 0 });
   });
 });

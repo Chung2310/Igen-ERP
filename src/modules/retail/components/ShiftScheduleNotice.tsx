@@ -15,6 +15,11 @@ const HEADLINE: Record<ShiftScheduleDetails["reason"], string> = {
   before_shift: "Chưa đến giờ làm việc của bạn",
   after_shift: "Đã hết giờ làm việc của bạn",
 };
+const EMPLOYEE_HEADLINE: Record<ShiftScheduleDetails["reason"], string> = {
+  non_working_day: "Hôm nay không nằm trong lịch làm việc của nhân viên",
+  before_shift: "Chưa đến giờ làm việc của nhân viên",
+  after_shift: "Đã hết giờ làm việc của nhân viên",
+};
 
 const clock = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", hour12: false });
 const time = (value?: string) => (value ? clock.format(new Date(value)) : undefined);
@@ -31,7 +36,7 @@ function scheduleDetails(error: unknown): ShiftScheduleDetails | null {
  * khi biết ca nào đang áp dụng và khung giờ ra sao. Vì vậy hiển thị ngay trong khối mở ca
  * dưới dạng hướng dẫn, không dùng popup và không đổ nguyên văn thông báo của máy chủ.
  */
-export function ShiftScheduleNotice({ error }: { error: unknown }) {
+export function ShiftScheduleNotice({ error, subject = "you" }: { error: unknown; subject?: "you" | "employee" }) {
   if (!error) return null;
   const details = scheduleDetails(error);
 
@@ -47,11 +52,11 @@ export function ShiftScheduleNotice({ error }: { error: unknown }) {
   const end = time(details.scheduledEndAt);
   return (
     <div role="alert" className="mt-4 rounded-xl border border-amber-300 bg-white p-4 text-left">
-      <p className="text-sm font-bold text-amber-900">{HEADLINE[details.reason]}</p>
+      <p className="text-sm font-bold text-amber-900">{subject === "employee" ? EMPLOYEE_HEADLINE[details.reason] : HEADLINE[details.reason]}</p>
       <dl className="mt-3 space-y-1.5 text-sm text-slate-700">
         <div className="flex justify-between gap-3">
           <dt className="text-slate-500">Ca áp dụng</dt>
-          <dd className="font-semibold">{details.workShiftName} ({details.workShiftCode})</dd>
+          <dd className="font-semibold">{details.workShiftName}</dd>
         </div>
         {start && end && (
           <div className="flex justify-between gap-3">
@@ -62,7 +67,7 @@ export function ShiftScheduleNotice({ error }: { error: unknown }) {
       </dl>
       <p className="mt-3 text-sm text-slate-600">
         {details.reason === "before_shift" && start
-          ? `Bạn có thể mở ca bán hàng từ ${start}.`
+          ? subject === "employee" ? `Nhân viên có thể mở ca bán hàng từ ${start}.` : `Bạn có thể mở ca bán hàng từ ${start}.`
           : "Liên hệ quản lý nếu lịch làm việc này chưa đúng."}
       </p>
     </div>

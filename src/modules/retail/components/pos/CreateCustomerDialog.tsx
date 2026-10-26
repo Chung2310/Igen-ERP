@@ -1,8 +1,9 @@
-﻿import React from "react";
-import { X } from "lucide-react";
+import React from "react";
+import { UserPlus, X } from "lucide-react";
 import { customerApi } from "../../../customer-management/customerApi";
 import type { RetailCustomer, RetailScope } from "../../types";
 import { getApiErrorMessage } from "../../../../utils/errorMessage";
+import "./createCustomerDialog.css";
 
 type CustomerForm = {
   type: "regular" | "vat";
@@ -23,7 +24,8 @@ type VatForm = {
 
 type Props = {
   scope: RetailScope;
-  initialPhone: string;
+  initialPhone?: string;
+  initialName?: string;
   onClose: () => void;
   onCreated: (customer: RetailCustomer) => void;
 };
@@ -44,11 +46,11 @@ const vatLabels: Record<keyof VatForm, string> = {
   contactName: "Người liên hệ",
 };
 
-export default function CreateCustomerDialog({ scope, initialPhone, onClose, onCreated }: Props) {
+export default function CreateCustomerDialog({ scope, initialPhone = "", initialName = "", onClose, onCreated }: Props) {
   const dialogRef = React.useRef<HTMLDialogElement>(null);
   const returnFocusRef = React.useRef<HTMLElement | null>(null);
   const [form, setForm] = React.useState<CustomerForm>({
-    name: "",
+    name: initialName.trim(),
     phone: initialPhone.trim(),
     email: "",
     address: "",
@@ -63,8 +65,9 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
     contactName: "",
   });
   const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState("");
+  const submitting = React.useRef(false);
   const [createdCustomer, setCreatedCustomer] = React.useState<Awaited<ReturnType<typeof customerApi.create>> | null>(null);
+  const [error, setError] = React.useState("");
 
   React.useEffect(() => {
     const dialog = dialogRef.current;
@@ -81,6 +84,7 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (submitting.current) return;
     const input = Object.fromEntries(
       Object.entries(form).map(([key, value]) => [key, value?.trim() || ""]),
     ) as CustomerForm;
@@ -91,37 +95,54 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
       setError("Vui lòng nhập tên khách hàng.");
       return;
     }
-    if (!input.phone) {
-      setError("Vui lòng nhập số điện thoại khách hàng.");
-      return;
-    }
     if (input.type === "vat" && (!normalizedVat.legalName || !normalizedVat.taxId || !normalizedVat.address || !normalizedVat.invoiceEmail)) {
       setError("Vui lòng nhập đầy đủ thông tin xuất VAT.");
       return;
     }
+    if (input.type === "vat" && !/^\d{10}(?:\d{3})?$/.test(normalizedVat.taxId.replace(/-/g, ""))) {
+      setError("Mã số thuế không hợp lệ.");
+      return;
+    }
+    if (input.type === "vat" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedVat.invoiceEmail)) {
+      setError("Email nhận hóa đơn không hợp lệ.");
+      return;
+    }
+    if (!input.phone) {
+      setError("Vui lòng nhập số điện thoại khách hàng.");
+      return;
+    }
+    submitting.current = true;
     setSaving(true);
     setError("");
     let created = createdCustomer;
     try {
-      if (!created) {
-        created = await customerApi.create({ ...input, source: "pos" }, scope.companyCode);
-        setCreatedCustomer(created);
-      }
+      created = created || await customerApi.create({ ...input, source: "pos" }, scope.companyCode);
+      setCreatedCustomer(created);
       if (input.type === "vat") {
-        await customerApi.createBillingProfile(created._id, {
+        const profileInput = {
           legalName: normalizedVat.legalName,
           taxId: normalizedVat.taxId,
           address: normalizedVat.address,
           invoiceEmail: normalizedVat.invoiceEmail,
           ...(normalizedVat.contactName ? { contactName: normalizedVat.contactName } : {}),
           isDefault: true,
-        }, scope.companyCode);
+        };
+        // A failed response may follow a committed profile. Reconcile before retrying.
+        const profiles = createdCustomer ? await customerApi.billingProfiles(created._id, scope.companyCode) : [];
+        const alreadyCreated = profiles.some((profile) => profile.status === "active"
+          && profile.legalName === normalizedVat.legalName
+          && profile.taxId.replace(/-/g, "") === normalizedVat.taxId.replace(/-/g, "")
+          && profile.address === normalizedVat.address
+          && profile.invoiceEmail.toLowerCase() === normalizedVat.invoiceEmail.toLowerCase()
+          && (profile.contactName || "") === normalizedVat.contactName);
+        if (!alreadyCreated) await customerApi.createBillingProfile(created._id, profileInput, scope.companyCode);
       }
       onCreated({ _id: created._id, customerCode: created.customerCode, companyCode: created.companyCode, type: created.type, name: created.name, phone: created.phone, email: created.email, address: created.address, notes: created.notes });
     } catch (cause) {
       const message = getApiErrorMessage(cause, "Không tạo được khách hàng.");
       setError(created && input.type === "vat" ? `Đã tạo khách hàng nhưng chưa lưu được hồ sơ VAT: ${message} Bạn có thể thử lưu lại.` : message);
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
   };
@@ -145,7 +166,7 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
           <span>Loại khách hàng</span>
           <select
             aria-label="Loại khách hàng"
-            disabled={Boolean(createdCustomer)}
+            disabled={saving || Boolean(createdCustomer)}
             value={form.type}
             onChange={(event) => setForm((value) => ({ ...value, type: event.target.value as "regular" | "vat" }))}
             className="mt-1 min-h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
@@ -160,7 +181,7 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
             <input
               aria-label={labels[key]}
               aria-required={key === "name" || key === "phone"}
-              disabled={Boolean(createdCustomer)}
+              disabled={saving || Boolean(createdCustomer)}
               autoFocus={key === "name"}
               value={form[key] || ""}
               onChange={(event) => setForm((value) => ({ ...value, [key]: event.target.value }))}
@@ -182,6 +203,7 @@ export default function CreateCustomerDialog({ scope, initialPhone, onClose, onC
                   aria-required={key !== "contactName"}
                   aria-invalid={Boolean(error && createdCustomer)}
                   aria-describedby={error && createdCustomer ? "retail-create-customer-error" : undefined}
+                  disabled={saving}
                   value={vatForm[key]}
                   onChange={(event) => setVatForm((value) => ({ ...value, [key]: event.target.value }))}
                   className="mt-1 min-h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-on-surface focus-visible:outline-2 focus-visible:outline-primary"

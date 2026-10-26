@@ -1,15 +1,34 @@
-﻿import { RetailOrderModel } from "./models/retail-order.model";
+import { RetailOrderModel } from "./models/retail-order.model";
 import { SerialUnitModel } from "../inventory/serials/serial-unit.model";
 import { snapshotCoverage } from "../inventory/serials/warranty-clock";
 
 export type RetailScope = { companyCode: string; branchId?: string };
 export type RetailBranchScope = { companyCode: string; branchId: string };
 
+import { getCustomerContact } from "../customer-management/contracts";
+
 export async function lookupSoldDevice(scope: RetailScope, code: string, at = new Date()) {
   const normalized = String(code || "").trim().toUpperCase();
-  const unit: any = await SerialUnitModel.findOne({ companyCode: scope.companyCode, status: "sold", $or: [{ normalizedSerialNumber: normalized }, { normalizedInternalBarcode: normalized }] }).lean();
+  const unit: any = await SerialUnitModel.findOne({ companyCode: scope.companyCode, status: "sold", $or: [{ normalizedSerialNumber: normalized }, { normalizedInternalBarcode: normalized }, { normalizedBarcodeAliases: normalized }, { normalizedImeis: normalized }] }).lean();
   if (!unit) return { found: false as const };
-  return { found: true as const, serialUnit: unit, coverage: snapshotCoverage(unit, at), sold: { soldAt: unit.soldAt, orderId: unit.soldOrderId, orderCode: unit.soldOrderCode, branchId: unit.soldBranchId, customerId: unit.customerId } };
+  const customer = unit.customerId ? await getCustomerContact({ companyCode: scope.companyCode }, String(unit.customerId), { includeInactive: true }).catch(() => null) : null;
+  const isHex = (id?: unknown) => typeof id === "string" && /^[0-9a-fA-F]{24}$/.test(id.trim());
+  const friendlyCustId = customer?.customerCode || (unit.customerId && !isHex(unit.customerId) ? String(unit.customerId) : undefined);
+  return {
+    found: true as const,
+    serialUnit: unit,
+    coverage: snapshotCoverage(unit, at),
+    sold: {
+      soldAt: unit.soldAt,
+      orderId: unit.soldOrderId,
+      orderCode: unit.soldOrderCode,
+      branchId: unit.soldBranchId,
+      customerId: friendlyCustId || (customer?.phone ? `KH-${customer.phone}` : String(unit.customerId || "")),
+      customerCode: customer?.customerCode,
+      customerName: customer?.name,
+      customerPhone: customer?.phone,
+    }
+  };
 }
 
 type RetailActor = {

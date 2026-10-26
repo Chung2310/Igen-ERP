@@ -1,5 +1,5 @@
 import type { RetailScope } from "../types";
-export type RetailOfflineStatus = "pending" | "syncing" | "failed" | "synced";
+export type RetailOfflineStatus = "pending" | "syncing" | "failed" | "synced" | "revoked";
 export interface RetailOfflineOrder {
   id: string;
   companyCode: string;
@@ -70,6 +70,7 @@ export function createMemoryRetailOfflineQueue(): RetailOfflineQueue {
     },
     async update(id, patch) {
       const item = items.get(id);
+      if (!item) throw new Error("Không tìm thấy yêu cầu thanh toán đã lưu.");
       if (item)
         items.set(id, {
           ...item,
@@ -108,70 +109,47 @@ export function createIndexedDbRetailOfflineQueue(
       value.onsuccess = () => resolve(value.result);
       value.onerror = () => reject(value.error);
     });
-  const transactionDone = (transaction: IDBTransaction) => new Promise<void>((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onabort = () => reject(transaction.error || new Error("Không lưu được giao dịch POS."));
-    transaction.onerror = () => reject(transaction.error || new Error("Không lưu được giao dịch POS."));
-  });
-  return {
-    async put(item) {
-      const transaction = (await db).transaction("orders", "readwrite");
-      const done = transactionDone(transaction);
-      transaction.objectStore("orders").put(item);
+  const transaction = async <T>(mode: IDBTransactionMode, work: (store: IDBObjectStore) => Promise<T>): Promise<T> => {
+    const tx = (await db).transaction("orders", mode);
+    const done = new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error || new Error("Không lưu được yêu cầu thanh toán."));
+      tx.onerror = () => reject(tx.error || new Error("Lỗi lưu yêu cầu thanh toán."));
+    });
+    void done.catch(() => undefined);
+    try {
+      const result = await work(tx.objectStore("orders"));
       await done;
-    },
+      return result;
+    } catch (error) {
+      try { tx.abort(); } catch { /* transaction already finished */ }
+      await done.catch(() => undefined);
+      throw error;
+    }
+  };
+  return {
+    async put(item) { await transaction("readwrite", async store => { await request(store.put(item)); }); },
     async list(scope) {
-      const all = (await request(
-        (await db).transaction("orders").objectStore("orders").getAll(),
-      )) as RetailOfflineOrder[];
-      return all
-        .filter((x) => matches(x, scope))
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      const all = await transaction("readonly", store => request(store.getAll())) as RetailOfflineOrder[];
+      return all.filter(x => matches(x, scope)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     },
     async claimNext(scope) {
-      const database = await db,
-        transaction = database.transaction("orders", "readwrite"),
-        store = transaction.objectStore("orders"),
-        done = transactionDone(transaction),
-        all = (await request(store.getAll())) as RetailOfflineOrder[];
-      const item = all
-        .filter(
-          (x) =>
-            matches(x, scope) && x.status === "pending",
-        )
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
-      if (!item) return null;
-      const claimed = {
-        ...item,
-        status: "syncing" as const,
-        attempts: item.attempts + 1,
-        updatedAt: new Date().toISOString(),
-      };
-      store.put(claimed);
-      await done;
-      return claimed;
+      return transaction("readwrite", async store => {
+        const all = await request(store.getAll()) as RetailOfflineOrder[];
+        const item = all.filter(x => matches(x, scope) && x.status === "pending").sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+        if (!item) return null;
+        const claimed = { ...item, status: "syncing" as const, attempts: item.attempts + 1, updatedAt: new Date().toISOString() };
+        await request(store.put(claimed));
+        return claimed;
+      });
     },
     async update(id, patch) {
-      const database = await db,
-        transaction = database.transaction("orders", "readwrite"),
-        store = transaction.objectStore("orders"),
-        done = transactionDone(transaction),
-        item = (await request(store.get(id))) as RetailOfflineOrder | undefined;
-      if (item) {
-        store.put({
-          ...item,
-          ...patch,
-          idempotencyKey: item.idempotencyKey,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-      await done;
+      await transaction("readwrite", async store => {
+        const item = await request(store.get(id)) as RetailOfflineOrder | undefined;
+        if (!item) throw new Error("Không tìm thấy yêu cầu thanh toán đã lưu.");
+        await request(store.put({ ...item, ...patch, id: item.id, companyCode: item.companyCode, branchId: item.branchId, userId: item.userId, idempotencyKey: item.idempotencyKey, updatedAt: new Date().toISOString() }));
+      });
     },
-    async remove(id) {
-      const transaction = (await db).transaction("orders", "readwrite");
-      const done = transactionDone(transaction);
-      transaction.objectStore("orders").delete(id);
-      await done;
-    },
+    async remove(id) { await transaction("readwrite", async store => { await request(store.delete(id)); }); },
   };
 }
