@@ -173,6 +173,7 @@ export function CartPanel({
 
               {line.product.trackingMode === "serial" && (
                 <SerialPicker
+                  scope={scope}
                   productId={line.product.productId || (line.product.variantId ? "" : line.product._id)}
                   variantId={line.product.variantId}
                   quantity={line.quantity}
@@ -189,6 +190,7 @@ export function CartPanel({
 
               {line.product.trackingMode === "unit_barcode" && (
                 <UnitBarcodePicker
+                  scope={scope}
                   productId={line.product.productId || (line.product.variantId ? "" : line.product._id)}
                   variantId={line.product.variantId}
                   quantity={line.quantity}

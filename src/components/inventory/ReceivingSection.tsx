@@ -30,7 +30,7 @@ import "./inventory-ui.css";
 
 type DraftLine = GoodsReceiptItem & { key: string; displayName: string };
 
-/** SKU theo dõi tới từng đơn vị thì phiếu phải tách ra mỗi đơn vị một dòng để gán IMEI/mã vạch nội bộ riêng. */
+/** SKU theo dõi tới từng đơn vị thì phiếu phải tách ra mỗi đơn vị một dòng để gán số sê-ri/mã đơn vị riêng. */
 const unitTracked = (trackingMode?: GoodsReceiptItem["trackingMode"]) => trackingMode === "serial" || trackingMode === "unit_barcode";
 
 const unitCount = (line: DraftLine) => Math.max(0, Math.ceil(line.quantity) || 0);
@@ -465,7 +465,7 @@ export function ReceivingSection() {
 
 function ReceiptStatus({ status }: { status: GoodsReceipt["status"] }) { const details = { draft: ["Nháp", "bg-slate-100 text-slate-600"], pending: ["Chờ xác nhận", "bg-amber-50 text-amber-700"], receiving: ["Đang nhập kho", "bg-sky-50 text-sky-700"], confirmed: ["Hoàn thành", "bg-emerald-50 text-emerald-700"], cancelled: ["Đã hủy", "bg-rose-50 text-rose-700"] } as const; const [label, className] = details[status]; return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${className}`}>{label}</span>; }
 function ReceiptActions({ receipt, onView, onSubmit, onStart, onConfirm, onCancel }: { receipt: GoodsReceipt; onView: () => void; onSubmit: () => void; onStart: () => void; onConfirm: () => void; onCancel: () => void }) { return <span className="inline-flex gap-1"><button type="button" onClick={onView} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Xem chi tiết phiếu"><Eye className="h-4 w-4" /></button>{receipt.status === "draft" && <><button type="button" onClick={onSubmit} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-50" title="Gửi chờ xác nhận">Gửi</button><button type="button" onClick={onCancel} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "pending" && <><button type="button" onClick={onStart} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-sky-700 hover:bg-sky-50" title="Bắt đầu nhập kho">Nhập kho</button><button type="button" onClick={onCancel} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "receiving" && <button type="button" onClick={onConfirm} className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-2 text-xs font-medium text-white hover:bg-emerald-700" title="Hoàn thành nhập kho"><Check className="h-3.5 w-3.5" />Hoàn thành</button>}</span>; }
-function ReceiptDetailModal({ receipt, onClose }: { receipt: GoodsReceipt; onClose: () => void }) { return <Modal title={`Chi tiết phiếu nhập ${receipt.receiptCode}`} onClose={onClose} wide><div className="space-y-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{receipt.supplierName}</p><p className="mt-1 text-xs text-slate-500">Ngày tạo: {new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div><ReceiptStatus status={receipt.status} /></div><div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Sản phẩm</th><th className="px-4 py-3">SKU</th><th className="px-4 py-3 text-right">Số lượng</th><th className="px-4 py-3 text-right">BH NCC</th><th className="px-4 py-3 text-right">Đơn giá</th><th className="px-4 py-3 text-right">Thành tiền</th></tr></thead><tbody className="divide-y divide-slate-100">{receipt.items.map((item, index) => <tr key={`${item.variantId}-${index}`}><td className="px-4 py-3 font-medium text-slate-800">{item.productName}</td><td className="px-4 py-3 font-mono text-xs text-slate-600">{item.sku}</td><td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td><td className="px-4 py-3 text-right tabular-nums text-slate-600">{item.supplierWarrantyMonths ? `${item.supplierWarrantyMonths} tháng` : "—"}</td><td className="px-4 py-3 text-right tabular-nums">{money(item.unitCost)}</td><td className="px-4 py-3 text-right font-semibold tabular-nums">{money(item.lineTotal)}</td></tr>)}</tbody></table></div>{receipt.financeTerms && <div className="grid gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-sm text-on-surface sm:grid-cols-3"><p>Hạn trả: <strong>{receipt.financeTerms.dueOn}</strong></p><p>Đã trả: <strong className="tabular-nums">{money(receipt.financeTerms.paidAmount)} ₫</strong></p><p>Còn phải trả: <strong className="tabular-nums">{money(receipt.subtotal - receipt.financeTerms.paidAmount)} ₫</strong></p></div>}<div className="flex justify-end border-t border-slate-200 pt-4"><button type="button" onClick={onClose} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Đóng</button></div></div></Modal>; }
+function ReceiptDetailModal({ receipt, onClose }: { receipt: GoodsReceipt; onClose: () => void }) { const hasWarranty = receipt.items.some((item) => Number(item.supplierWarrantyMonths) > 0); return <Modal title={`Chi tiết phiếu nhập ${receipt.receiptCode}`} onClose={onClose} wide><div className="space-y-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{receipt.supplierName}</p><p className="mt-1 text-xs text-slate-500">Ngày tạo: {new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div><ReceiptStatus status={receipt.status} /></div><div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Sản phẩm</th><th className="px-4 py-3">SKU</th><th className="px-4 py-3 text-right">Số lượng</th>{hasWarranty && <th className="px-4 py-3 text-right">Bảo hành</th>}<th className="px-4 py-3 text-right">Đơn giá</th><th className="px-4 py-3 text-right">Thành tiền</th></tr></thead><tbody className="divide-y divide-slate-100">{receipt.items.map((item, index) => <tr key={`${item.variantId}-${index}`}><td className="px-4 py-3 font-medium text-slate-800">{item.productName}</td><td className="px-4 py-3 font-mono text-xs text-slate-600">{item.sku}</td><td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td>{hasWarranty && <td className="px-4 py-3 text-right tabular-nums text-slate-600">{item.supplierWarrantyMonths ? `${item.supplierWarrantyMonths} tháng` : "—"}</td>}<td className="px-4 py-3 text-right tabular-nums">{money(item.unitCost)}</td><td className="px-4 py-3 text-right font-semibold tabular-nums">{money(item.lineTotal)}</td></tr>)}</tbody></table></div>{receipt.financeTerms && <div className="grid gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-sm text-on-surface sm:grid-cols-3"><p>Hạn trả: <strong>{receipt.financeTerms.dueOn}</strong></p><p>Đã trả: <strong className="tabular-nums">{money(receipt.financeTerms.paidAmount)} ₫</strong></p><p>Còn phải trả: <strong className="tabular-nums">{money(receipt.subtotal - receipt.financeTerms.paidAmount)} ₫</strong></p></div>}<div className="flex justify-end border-t border-slate-200 pt-4"><button type="button" onClick={onClose} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Đóng</button></div></div></Modal>; }
 
 function SearchableSelect({ options, value, onChange, onQueryChange, placeholder, disabled }: { options: { value: string; label: string }[]; value: string; onChange: (val: string) => void; onQueryChange?: (query: string) => void; placeholder: string; disabled?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -583,6 +583,9 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
   const [financeTerms, setFinanceTerms] = useState(initialReceipt?.financeTerms || { dueOn: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()), paidAmount: 0, paymentMethod: "" });
   const [financeError, setFinanceError] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([]);
+  const [showWarranty, setShowWarranty] = useState(Boolean(initialReceipt?.items.some((item) => Number(item.supplierWarrantyMonths) > 0)));
+  const hasUnitLines = lines.some((line) => unitTracked(line.trackingMode));
+  const receiptColumnCount = 6 + Number(hasUnitLines) + Number(showWarranty);
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -646,6 +649,7 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
       return;
     }
     const draft: DraftLine = { key: `${variant._id}-${Date.now()}`, productId, variantId, sku: variant.sku, productName: product.name, displayName: variant.displayName || variant.sku, quantity: parsedQuantity, unitCost: parsedCost, trackingMode: variant.trackingMode, supplierWarrantyMonths: variant.supplierWarrantyMonths };
+    if (Number(variant.supplierWarrantyMonths) > 0) setShowWarranty(true);
     // Hàng theo dõi từng đơn vị chỉ nhận số nguyên vì mỗi đơn vị là một dòng riêng.
     const nextLine = unitTracked(draft.trackingMode) ? normalizeUnits(draft, Math.max(1, Math.round(parsedQuantity))) : draft;
     setLines((current) => [...current, nextLine]);
@@ -827,7 +831,7 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-semibold text-slate-900">Danh sách nhập ({lines.length} dòng)</h4>
+              <h4 className="text-sm font-semibold text-slate-900">Danh sách nhập ({lines.length} dòng)</h4><label className="flex items-center gap-2 text-sm text-on-surface-variant"><input type="checkbox" checked={showWarranty} onChange={(event) => setShowWarranty(event.target.checked)} />Thông tin bảo hành</label>
             </div>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="w-full text-left text-sm">
@@ -836,15 +840,15 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                     <th className="px-4 py-3 font-medium">Sản phẩm</th>
                     <th className="px-4 py-3 font-medium">SKU</th>
                     <th className="px-4 py-3 text-right font-medium">Số lượng</th>
-                    <th className="px-4 py-3 font-medium">IMEI / serial · Mã vạch nội bộ</th>
-                    <th className="px-4 py-3 text-right font-medium">BH NCC (tháng)</th>
+                    {hasUnitLines && <th className="px-4 py-3 font-medium">Mã đơn vị</th>}
+                    {showWarranty && <th className="px-4 py-3 text-right font-medium">Bảo hành (tháng)</th>}
                     <th className="px-4 py-3 text-right font-medium">Đơn giá</th>
                     <th className="px-4 py-3 text-right font-medium">Thành tiền</th>
                     <th className="px-4 py-3 text-right font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {lines.length === 0 ? <tr><td colSpan={8} className="px-4 py-5 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => unitTracked(line.trackingMode) ? (
+                  {lines.length === 0 ? <tr><td colSpan={receiptColumnCount} className="px-4 py-5 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => unitTracked(line.trackingMode) ? (
                     <Fragment key={line.key}>
                       <tr className="bg-slate-50/60">
                         <td className="px-4 py-3">
@@ -856,15 +860,12 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                         <td className="px-4 py-3 text-right tabular-nums text-sm font-semibold text-slate-800">{unitCount(line)}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700">{line.trackingMode === "serial" ? "Theo IMEI/sê-ri" : "Theo mã vạch từng đơn vị"}</span>
+                            <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700">{line.trackingMode === "serial" ? "Theo số sê-ri" : "Theo mã vạch từng đơn vị"}</span>
                             <button type="button" onClick={() => generateUnitBarcodes(line)} className="text-xs font-medium text-cyan-700 hover:text-cyan-900">Sinh mã nội bộ tự động</button>
-                            <label className="flex items-center gap-1 text-[11px] text-slate-500">
-                              BH NCC
-                              <input value={line.supplierWarrantyMonths ?? ""} onChange={(event) => updateWarrantyMonths(line.key, event.target.value)} placeholder="0" className="w-14 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-right tabular-nums text-xs text-slate-700 outline-none focus:border-cyan-600" aria-label={`Bảo hành nhà cung cấp ${line.sku} (tháng)`} />
-                              tháng
-                            </label>
+
                           </div>
                         </td>
+                        {showWarranty && <td className="px-4 py-3 text-right"><input value={line.supplierWarrantyMonths ?? ""} onChange={(event) => updateWarrantyMonths(line.key, event.target.value)} placeholder="0" className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Bảo hành nhà cung cấp ${line.sku} (tháng)`} /></td>}
                         <td className="px-4 py-3 text-right"><input type="text" inputMode="numeric" value={money(line.unitCost)} onChange={(event) => updateLine(line.key, "unitCost", event.target.value)} className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Đơn giá ${line.sku}`} /></td>
                         <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{money(line.quantity * line.unitCost)}</td>
                         <td className="px-4 py-3 text-right"><button type="button" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Xóa cả dòng"><Trash2 className="h-4 w-4" /></button></td>
@@ -875,18 +876,18 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                           <td className="px-4 py-2 text-right tabular-nums text-xs text-slate-400">1</td>
                           <td className="px-4 py-2">
                             <div className="flex flex-wrap gap-2">
-                              {line.trackingMode === "serial" && <input value={line.serialNumbers?.[index] || ""} onChange={(event) => updateSerialAt(line.key, index, event.target.value)} placeholder={`IMEI/serial ${index + 1}`} className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`IMEI serial ${line.sku} đơn vị ${index + 1}`} />}
+                              {line.trackingMode === "serial" && <input value={line.serialNumbers?.[index] || ""} onChange={(event) => updateSerialAt(line.key, index, event.target.value)} placeholder={`Số sê-ri ${index + 1}`} className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Số sê-ri ${line.sku} đơn vị ${index + 1}`} />}
                               <input value={line.unitDetails?.[index]?.internalBarcode || ""} onChange={(event) => updateUnitBarcodeAt(line.key, index, event.target.value)} placeholder={`Mã vạch nội bộ ${index + 1}`} className="w-44 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1.5 text-xs outline-none focus:border-cyan-600" aria-label={`Mã vạch nội bộ ${line.sku} đơn vị ${index + 1}`} />
                             </div>
                           </td>
-                        <td className="px-4 py-2" />
+                        {showWarranty && <td className="px-4 py-2" />}
                         <td className="px-4 py-2" />
                         <td className="px-4 py-2" />
                           <td className="px-4 py-2 text-right"><button type="button" onClick={() => removeUnitAt(line.key, index)} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-300 hover:bg-rose-50 hover:text-rose-600" title={`Xóa đơn vị #${index + 1}`}><Trash2 className="h-3.5 w-3.5" /></button></td>
                         </tr>
                       ))}
                       <tr>
-                        <td colSpan={8} className="px-4 pb-3 pl-8"><button type="button" onClick={() => addUnit(line.key)} className="inline-flex items-center gap-1 rounded-md border border-dashed border-cyan-300 px-2.5 py-1 text-xs font-medium text-cyan-700 hover:bg-cyan-50">+ Thêm đơn vị</button></td>
+                        <td colSpan={receiptColumnCount} className="px-4 pb-3 pl-8"><button type="button" onClick={() => addUnit(line.key)} className="inline-flex items-center gap-1 rounded-md border border-dashed border-cyan-300 px-2.5 py-1 text-xs font-medium text-cyan-700 hover:bg-cyan-50">+ Thêm đơn vị</button></td>
                       </tr>
                     </Fragment>
                   ) : (
@@ -897,8 +898,8 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.key, "quantity", event.target.value)} className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Số lượng ${line.sku}`} /></td>
-                      <td className="px-4 py-3"><span className="text-xs text-slate-400">{line.trackingMode === "lot" ? "Theo lô" : "Không áp dụng"}</span></td>
-                      <td className="px-4 py-3 text-right"><input value={line.supplierWarrantyMonths ?? ""} onChange={(event) => updateWarrantyMonths(line.key, event.target.value)} placeholder="0" className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Bảo hành nhà cung cấp ${line.sku} (tháng)`} /></td>
+                      {hasUnitLines && <td className="px-4 py-3"><span className="text-xs text-slate-400">{line.trackingMode === "lot" ? "Theo lô" : "Không áp dụng"}</span></td>}
+                      {showWarranty && <td className="px-4 py-3 text-right"><input value={line.supplierWarrantyMonths ?? ""} onChange={(event) => updateWarrantyMonths(line.key, event.target.value)} placeholder="0" className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Bảo hành nhà cung cấp ${line.sku} (tháng)`} /></td>}
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="numeric" value={money(line.unitCost)} onChange={(event) => updateLine(line.key, "unitCost", event.target.value)} className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Đơn giá ${line.sku}`} /></td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{money(line.quantity * line.unitCost)}</td>
                       <td className="px-4 py-3 text-right">

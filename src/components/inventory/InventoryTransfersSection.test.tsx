@@ -42,4 +42,26 @@ describe("inventory transfer surface", () => {
     fireEvent.click(screen.getByRole("button", { name: "Đóng phiếu điều chuyển" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Tạo phiếu điều chuyển" })).toBeNull());
   });
+
+  it("shows serial or unit-code fields only for the selected tracking mode", async () => {
+    mocks.canManage = true;
+    mocks.listBalances.mockResolvedValue([
+      { _id: "b1", variantId: "bulk", sku: "BULK", quantity: 5, reservedQuantity: 0, trackingMode: "quantity" },
+      { _id: "b2", variantId: "serial", sku: "DEVICE", quantity: 5, reservedQuantity: 0, trackingMode: "serial" },
+      { _id: "b3", variantId: "unit", sku: "SUPPLY", quantity: 5, reservedQuantity: 0, trackingMode: "unit_barcode" },
+    ]);
+    render(<InventoryTransfersSection />);
+    await screen.findByText("DC-01");
+    fireEvent.click(screen.getByRole("button", { name: "Tạo phiếu điều chuyển" }));
+    await screen.findByRole("option", { name: /BULK/ });
+    const sku = screen.getByRole("combobox", { name: "SKU" });
+    fireEvent.change(sku, { target: { value: "bulk" } });
+    expect(screen.queryByRole("textbox", { name: /sê-ri|đơn vị/i })).toBeNull();
+    fireEvent.change(sku, { target: { value: "serial" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Số sê-ri của hàng chuyển" }), { target: { value: "SER-1" } });
+    fireEvent.change(sku, { target: { value: "unit" } });
+    expect((screen.getByRole("textbox", { name: "Mã đơn vị của hàng chuyển" }) as HTMLTextAreaElement).value).toBe("");
+    fireEvent.change(sku, { target: { value: "bulk" } });
+    expect(screen.queryByRole("textbox", { name: /sê-ri|đơn vị/i })).toBeNull();
+  });
 });

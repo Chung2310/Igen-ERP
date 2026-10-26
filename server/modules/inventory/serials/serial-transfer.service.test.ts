@@ -32,6 +32,12 @@ test("nhận serial theo phiếu nhận trọn vẹn", async () => {
   expect(findOneAndUpdate).not.toHaveBeenCalled();
 });
 
+test("legacy serial-only transfers cannot receive into an arbitrary warehouse without a stock document", async () => {
+  findOne.mockReturnValue({ lean: async () => ({ _id: "s1", status: "in_transit", currentDocumentType: "serial-transfer" }) });
+  await expect(acceptSerialTransfer({ companyCode: "c1", branchId: "to" }, "s1", { warehouseId: "foreign-warehouse" }, { id: "u2", name: "Receiver" })).rejects.toMatchObject({ code: "LEGACY_SERIAL_TRANSFER_REQUIRES_REISSUE" });
+  expect(findOneAndUpdate).not.toHaveBeenCalled();
+});
+
 test("hủy serial theo phiếu hoàn trọn tồn gửi", async () => {
   await cancelSerialTransfer({ companyCode: "c1", branchId: "from", warehouseId: "w1" }, "s1", "Sai kho nhận", { id: "u1", name: "Sender" });
   expect(cancelInventoryTransfer).toHaveBeenCalledWith({ companyCode: "c1", branchId: "from" }, "t1", "Sai kho nhận", { id: "u1", name: "Sender" });

@@ -1,6 +1,6 @@
 ﻿// @vitest-environment jsdom
 import React from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { customerApi } from "../../../customer-management/customerApi";
@@ -26,7 +26,7 @@ const created = {
 afterEach(cleanup);
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   vi.mocked(customerApi.create).mockResolvedValue(created as any);
   vi.mocked(customerApi.billingProfiles).mockResolvedValue([]);
   vi.mocked(customerApi.createBillingProfile).mockResolvedValue({
@@ -48,7 +48,7 @@ beforeEach(() => {
 
 describe("CreateCustomerDialog", () => {
   async function fillVat(taxId = "0312345678", email = "invoice@example.com") {
-    await userEvent.type(screen.getByRole("textbox", { name: "Số điện thoại" }), "0909123456");
+    fireEvent.change(screen.getByRole("textbox", { name: "Số điện thoại" }), { target: { value: "0909123456" } });
     await userEvent.selectOptions(screen.getByRole("combobox"), "vat");
     for (const [label, value] of [
       ["Tên khách hàng", "Cong ty A"],
@@ -56,7 +56,7 @@ describe("CreateCustomerDialog", () => {
       ["Mã số thuế", taxId],
       ["Địa chỉ hóa đơn", "1 Nguyen Hue"],
       ["Email nhận hóa đơn", email],
-    ]) await userEvent.type(screen.getByRole("textbox", { name: label }), value);
+    ]) fireEvent.change(screen.getByRole("textbox", { name: label }), { target: { value } });
   }
 
   it.each([false, true])("retries VAT without duplicating the customer or an already saved profile (saved=%s)", async (saved) => {
