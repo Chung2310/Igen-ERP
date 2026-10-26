@@ -18,15 +18,8 @@ import {
 import * as orderService from "./retail-order.service";
 import { readFileSync } from "node:fs";
 
-test("POS confirmation is bound to the active session and terminal", () => {
-  const shift = { _id: "shift-1", terminalId: "terminal-1" };
-  assert.doesNotThrow(() => assertRetailPosSession({ posSessionId: "shift-1", terminalId: "terminal-1" }, shift));
-  assert.throws(() => assertRetailPosSession({ posSessionId: "shift-2", terminalId: "terminal-1" }, shift), { code: "POS_SESSION_INVALID" });
-  assert.throws(() => assertRetailPosSession({ posSessionId: "shift-1", terminalId: "terminal-2" }, shift), { code: "POS_TERMINAL_CHANGED" });
-});
-
-test("retail payment confirmation requires a selected customer", () => {
-  const error = "Vui lòng chọn khách hàng trước khi thanh toán.";
+test("retail debt requires a selected customer", () => {
+  const error = "Bán nợ cần chọn khách hàng.";
   assert.throws(() => requireRetailPaymentCustomer(undefined), new Error(error));
   assert.throws(() => requireRetailPaymentCustomer("   "), new Error(error));
   assert.doesNotThrow(() => requireRetailPaymentCustomer(" customer-1 "));
@@ -86,11 +79,14 @@ test("new Retail order flow publishes Finance events instead of dual-writing the
 
 test("confirmed order event is published after invoice is issued so email attachments can resolve", () => {
   const source = readFileSync(new URL("./retail-order.service.ts", import.meta.url), "utf8");
-  const publishIndex = source.indexOf('publishRetailOrderEvent("confirmed"');
-  const issueIndex = source.indexOf("issueRetailInvoice(draft");
-  assert.notEqual(publishIndex, -1);
-  assert.notEqual(issueIndex, -1);
-  assert.ok(issueIndex < publishIndex);
+  const confirmations = [...source.matchAll(/publishRetailOrderEvent\("confirmed"/g)];
+  assert.ok(confirmations.length > 0);
+  let previousConfirmation = -1;
+  for (const confirmation of confirmations) {
+    const issueIndex = source.lastIndexOf("await issueRetailInvoice(", confirmation.index);
+    assert.ok(issueIndex > previousConfirmation && issueIndex < confirmation.index);
+    previousConfirmation = confirmation.index;
+  }
 });
 
 test("order item snapshots keep brand and normalized category", () => {

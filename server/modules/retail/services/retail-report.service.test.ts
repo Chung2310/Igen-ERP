@@ -4,10 +4,14 @@ import test from "node:test";
 import { createRetailReportController } from "../controllers/retail-report.controller";
 import { retailRouter } from "../router";
 import { retailReportRoutes } from "../routes/retail-report.routes";
+import { analyticsService } from "../../../service/analytics.service";
+import { RetailOrderModel } from "../models/retail-order.model";
+import { CashierShiftModel } from "../models/cashier-shift.model";
 import {
   buildRetailReportOrderPipeline,
   buildRetailReportShiftPipeline,
   createRetailReportService,
+  RetailReportService,
 } from "./retail-report.service";
 
 test("report repository pipelines start with an inclusive company and branch date match", () => {
@@ -106,7 +110,7 @@ test("controller ignores body scope and derives includeProfit from the manager c
     },
   });
 
-  for (const permissions of [[], ["retail:manage"]]) {
+  for (const permissions of [["retail:read"], ["retail:manage"]]) {
     const req: any = {
       user: { id: permissions[0], role: "user", companyCode: "ACME", branchId: "branch-1", permissions },
       query: { from: "2026-08-10", to: "2026-08-10", includeProfit: "true" },
@@ -146,17 +150,43 @@ test("controller forwards async report errors to the API error middleware", asyn
   assert.equal(res.body, undefined);
 });
 
-test("summary route is mounted and guarded by the existing operate and manager permissions", () => {
+test("summary route requires retail read or manager permission instead of POS access", () => {
   const route = retailReportRoutes.stack.find((layer: any) => layer.route?.path === "/summary") as any;
   assert.ok(route?.route?.methods?.get);
-  assert.equal(route.route.stack.length, 2, "GET summary must have the operate gate before its controller");
+  assert.equal(route.route.stack.length, 2, "GET summary must have the report gate before its controller");
 
   const routeSource = readFileSync(new URL("../routes/retail-report.routes.ts", import.meta.url), "utf8");
   assert.match(
     routeSource,
-    /requirePermission\(\[RETAIL_OPERATE_PERMISSION,\s*RETAIL_MANAGER_PERMISSION\]\)/,
+    /requirePermission\(\["retail:read",\s*RETAIL_MANAGER_PERMISSION\]\)/,
   );
 
   const mountedPath = retailRouter.stack.find((layer: any) => layer.regexp?.test?.("/retail/reports"));
   assert.ok(mountedPath, "retail router must mount /retail/reports behind the existing parent guards");
+});
+
+test("analytics reconciliation uses the same Vietnam business day as the retail report", async () => {
+  const originalOrders = RetailOrderModel.aggregate;
+  const originalShifts = CashierShiftModel.aggregate;
+  const originalAnalytics = analyticsService.getCombinedRevenue;
+  const scope = { companyCode: "ACME", branchId: "branch-1" };
+  let seen: unknown;
+  RetailOrderModel.aggregate = (async () => []) as any;
+  CashierShiftModel.aggregate = (async () => []) as any;
+  analyticsService.getCombinedRevenue = (async (actualScope, range) => {
+    seen = { scope: actualScope, from: range.from.toISOString(), to: range.to.toISOString() };
+    return { goodsTotal: 0 };
+  }) as typeof originalAnalytics;
+  try {
+    await RetailReportService.summary(scope, { from: "2026-08-10", to: "2026-08-10" }, false);
+    assert.deepEqual(seen, {
+      scope,
+      from: "2026-08-09T17:00:00.000Z",
+      to: "2026-08-10T16:59:59.999Z",
+    });
+  } finally {
+    RetailOrderModel.aggregate = originalOrders;
+    CashierShiftModel.aggregate = originalShifts;
+    analyticsService.getCombinedRevenue = originalAnalytics;
+  }
 });

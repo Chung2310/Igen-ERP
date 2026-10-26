@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { couponDiscount, normalizeCouponCode, validateCouponInput } from "./retail-coupon.service";
-import { birthdayWindow } from "./retail-coupon-automation.service";
+import { birthdayWindow } from "./retail-birthday-coupon.service";
 
 describe("mã ưu đãi bán lẻ", () => {
   it("giới hạn số tiền giảm theo đơn, trần mã và thời hạn", () => {
@@ -18,7 +18,7 @@ describe("mã ưu đãi bán lẻ", () => {
   });
 
   it("phát mã sinh nhật 29/2 vào 28/2 của năm không nhuận", () => {
-    const window = birthdayWindow(new Date("2000-02-29T05:00:00Z"), 2027, 30);
+    const window = birthdayWindow(new Date("2000-02-29T05:00:00Z"), new Date("2027-02-28T05:00:00Z"), 30);
     expect(window.startsAt.toISOString()).toBe("2027-02-27T17:00:00.000Z");
     expect(+window.endsAt - +window.startsAt).toBe(30 * 86400000);
   });

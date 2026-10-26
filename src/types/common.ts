@@ -35,7 +35,7 @@ export interface UserProfile {
   email: string;
   displayName: string;
   photoURL?: string;
-  role: "user" | "teacher" | "manager" | "branch_owner" | "admin" | "superadmin";
+  role: string;
   permissions?: string[];
   createdAt: any;
   birthDate?: string;

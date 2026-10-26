@@ -19,7 +19,7 @@ export function RetailShiftAssignmentPanel({ scope, onOpened }: { scope: RetailS
     let active = true;
     setLoading(true);
     void retailShiftsApi.cashiers(scope)
-      .then((items) => { if (active) setCashiers(items); })
+      .then((items) => { if (active) setCashiers(items.map(item => ({ _id: item.id, displayName: item.name, email: "" }))); })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Không tải được danh sách thu ngân."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };

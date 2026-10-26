@@ -17,6 +17,18 @@ export const retailInvoicesApi = {
     const response = await apiFetch<{ success: true; data: RetailInvoice }>(`/retail/invoices/${id}`, { params: params(scope) });
     return response.data;
   },
+  async registerPosPrint(scope: RetailScope, id: string) {
+    const response = await apiFetch<{ success: true; data: RetailInvoice }>(`/retail/invoices/${id}/pos-print`, { method: "POST", params: params(scope) });
+    return response.data;
+  },
+  async registerSePayPaymentPrint(scope: RetailScope, id: string, transactionKey: string) {
+    const response = await apiFetch<{ success: true; data: { invoice: RetailInvoice; alreadyPrinted: boolean } }>(`/retail/invoices/${id}/payment-print`, { method: "POST", params: params(scope), body: JSON.stringify({ transactionKey }) });
+    return response.data;
+  },
+  async reprint(scope: RetailScope, id: string) {
+    const response = await apiFetch<{ success: true; data: RetailInvoice }>(`/retail/invoices/${id}/reprint`, { method: "POST", params: params(scope) });
+    return response.data;
+  },
   async downloadPdf(scope: RetailScope, id: string, signal?: AbortSignal): Promise<void> {
     const query = new URLSearchParams(params(scope));
     const response = await fetch(`/api/v1/retail/invoices/${encodeURIComponent(id)}/pdf?${query.toString()}`, { headers: { Authorization: `Bearer ${getAccessToken()}` }, signal });

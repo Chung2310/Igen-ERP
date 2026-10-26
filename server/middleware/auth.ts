@@ -51,6 +51,7 @@ function shouldSkipRoutineAuthLog(method: string, url: string) {
 export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   superadmin: ["*"],
   admin: ["dashboard:manage", "people:manage", "relationship:manage", "hr:manage", "timekeeping:manage", "payroll-period:manage", "payroll-policy:manage", "payroll-payment:manage", "finance-wallet:manage", "finance-receivable:manage", "asset:manage", "labor-partner:manage", "labor-partner-policy:manage", "labor-partner-settlement:manage", "labor-partner-payout:manage", "work:manage", "inventory:manage", "retail:manage", "resource:manage", "chat:manage", "recruitment:manage", "settings:manage", "access:manage"],
+  pos_cashier: ["pos:manage"],
   branch_owner: [
     "dashboard:read", "access:manage", "hr:read", "timekeeping:manage", "people:manage", "resource:read", "chat:read", "work:manage"
   ],
@@ -84,7 +85,8 @@ export const DEFAULT_ROLE_LEVELS: Record<string, number> = {
   branch_owner: 2,
   manager: 3,
   user: 4,
-  teacher: 4
+  teacher: 4,
+  pos_cashier: 5,
 };
 
 /**

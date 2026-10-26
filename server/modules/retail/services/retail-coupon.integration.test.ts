@@ -21,7 +21,7 @@ describe("khóa lượt dùng mã ưu đãi", () => {
     const snapshot = await resolveCoupon(scope, "SALE10", 100_000);
     expect(snapshot.amount).toBe(10_000);
     const session = await mongoose.startSession();
-    try { await session.withTransaction(async () => { await consumeCoupon(scope, snapshot, undefined, session); }); }
+    try { await session.withTransaction(async () => { await consumeCoupon(scope, snapshot, session, undefined); }); }
     finally { await session.endSession(); }
     expect((await RetailCouponModel.findOne({ ...scope, code: "SALE10" }).lean())?.usedCount).toBe(1);
     await expect(resolveCoupon(scope, "SALE10", 100_000)).rejects.toThrow();

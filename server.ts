@@ -16,6 +16,7 @@ import { startRetailDebtReminderScheduler } from "./server/modules/retail/servic
 import { startRetailReminderRetryScheduler } from "./server/modules/retail/services/retail-reminder-retry.service";
 import { startRetailCustomerTierScheduler } from "./server/modules/retail/services/retail-customer-tier.service";
 import { startRetailCouponAutomationScheduler } from "./server/modules/retail/services/retail-coupon-automation.service";
+import { startRetailPosSessionScheduler } from "./server/modules/retail/services/retail-pos-session-scheduler.service";
 import { startMonthlyKpiScheduler } from "./server/service/kanban-monthly-kpi-scheduler.service";
 import { startPayrollPublicationScheduler } from "./server/service/payroll-publication-scheduler.service";
 import { startDomainEventWorker } from "./server/integrations/shared/domain-event-worker";
@@ -236,6 +237,7 @@ async function startServer() {
   startRetailReminderRetryScheduler();
   startRetailCustomerTierScheduler();
   startRetailCouponAutomationScheduler();
+  startRetailPosSessionScheduler();
   startMonthlyKpiScheduler();
   startPayrollPublicationScheduler();
 

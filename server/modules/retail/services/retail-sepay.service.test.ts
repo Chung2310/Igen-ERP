@@ -26,3 +26,16 @@ test("parses SePay Vietnam local timestamps without corrupting ISO timestamps", 
   assert.equal(parseSePayTransactionDate("2026-08-22 12:00:00").toISOString(), "2026-08-22T05:00:00.000Z");
   assert.equal(parseSePayTransactionDate("2026-08-22T05:00:00Z").toISOString(), "2026-08-22T05:00:00.000Z");
 });
+
+test("extracts the payment code after common bank transfer descriptions", () => {
+  assert.equal(extractPaymentCode({ content: "CHUYEN KHOAN AKMP1234567890ABCDEF1234567890" }), "AKMP1234567890ABCDEF1234567890");
+  assert.equal(extractPaymentCode({ description: "CHUYEN TIEN DH-HCM-202608-000001" }), "DHHCM202608000001");
+  assert.equal(extractPaymentCode({ content: "CHUYEN KHOAN", description: "Thanh toan AKMDHHCM202608000001" }), "AKMDHHCM202608000001");
+  assert.equal(extractPaymentCode({ content: "CHUYEN KHOAN KHONG CO MA DON" }), "");
+});
+
+test("keeps the supplied timezone when a SePay timestamp uses a space separator", () => {
+  assert.equal(parseSePayTransactionDate("2026-08-22 12:00:00+07:00").toISOString(), "2026-08-22T05:00:00.000Z");
+  assert.equal(parseSePayTransactionDate("2026-08-22 05:00:00Z").toISOString(), "2026-08-22T05:00:00.000Z");
+  assert.throws(() => parseSePayTransactionDate("not-a-date"), /không hợp lệ/);
+});

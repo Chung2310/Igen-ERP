@@ -42,11 +42,11 @@ export default function RetailPromotionsPage() {
     setLoading(true); setError("");
     try {
       const [couponResponse, programResponse, policyResponse] = await Promise.all([
-        apiFetch<{ data: Coupon[] }>("/retail/coupons", { params: scope }),
+        apiFetch<{ data: { items: Coupon[] } }>("/retail/coupons", { params: scope }),
         apiFetch<{ data: Program[] }>("/retail/coupons/automations", { params: scope }),
         apiFetch<{ data: Policy }>("/retail/points/policy", { params: scope }),
       ]);
-      setCoupons(couponResponse.data); setPrograms(programResponse.data); setPolicy(policyResponse.data);
+      setCoupons(couponResponse.data.items); setPrograms(programResponse.data.map((program: any) => ({ ...program, trigger: program.trigger === "order_total" ? "purchase" : program.trigger, sendEmail: program.deliveryChannels?.includes("email") || false }))); setPolicy(policyResponse.data);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không tải được chương trình ưu đãi."); }
     finally { setLoading(false); }
   }
@@ -78,7 +78,7 @@ export default function RetailPromotionsPage() {
     event.preventDefault(); setBusy(true); setError(""); setMessage("");
     try {
       const current = programs.find((program) => program._id === programId);
-      const payload = { ...programForm, maxDiscount: programForm.maxDiscount === "" ? undefined : Number(programForm.maxDiscount), version: current?.version };
+      const payload = { ...programForm, trigger: programForm.trigger === "purchase" ? "order_total" : "birthday", deliveryChannels: programForm.sendEmail ? ["email"] : [], maxDiscount: programForm.maxDiscount === "" ? undefined : Number(programForm.maxDiscount), version: current?.version };
       await apiFetch(`/retail/coupons/automations${programId ? `/${programId}` : ""}`, { method: programId ? "PUT" : "POST", params: scope, body: JSON.stringify(payload) });
       setProgramForm(initialProgram); setProgramId(""); setMessage("Đã lưu chương trình tặng mã."); await load();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không lưu được chương trình."); }

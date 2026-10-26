@@ -23,6 +23,12 @@ import { resolveEnabledTab } from "./config/modules";
 
 const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
+const subscribeToPathname = (onChange: () => void) => {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+};
+const getPathnameSnapshot = () => window.location.pathname;
+
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
@@ -36,11 +42,15 @@ const PublicRepairFeedbackPage = lazy(() => import("./modules/repair/pages/Publi
 const PublicSlotApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicSlotApproval"));
 const PublicDailySlotsApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicDailySlotsApproval"));
 const PublicMonthlyApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicMonthlyApproval"));
+const RetailPosEntry = lazy(() => import("./modules/retail/pages/RetailPosEntry"));
 
 function AppContent() {
-  const { user, userProfile, loading } = useAuth();
+  const { user, userProfile, loading, logout } = useAuth();
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
-  const currentPath = normalizePublicPath(window.location.pathname);
+  const pathname = React.useSyncExternalStore(subscribeToPathname, getPathnameSnapshot, getPathnameSnapshot);
+  const requestedPath = normalizePublicPath(pathname);
+  const isPosOnly = userProfile?.role === "pos_cashier";
+  const currentPath = isPosOnly ? "/pos" : requestedPath;
   const isLandingPage = currentPath === "/" || currentPath === "/landing" || currentPath === "/landing.html";
   const isLandingGuestPage = isLandingPage && !(user && userProfile);
   const isPrivacyPage = currentPath === "/privacy-policy" || currentPath === "/privacy-policy.html";
@@ -52,10 +62,11 @@ function AppContent() {
   const approvalPath = currentPath.replace(/\.html$/, "");
   const isCampaignApprovalPage = ["/approve-post", "/approve-posts-day", "/approve-posts-month"].includes(approvalPath);
   const isPublicPage = isLandingGuestPage || isLegalPublicPage || isSubmitProofPage || isPublicRegisterPage || isCampaignApprovalPage;
+  const isPosRoute = currentPath === "/pos" || isPosOnly;
 
   const { activeTab, setActiveTab } = useTabRouter({
 
-    enabled: !isPublicPage && !loading && Boolean(user && userProfile),
+    enabled: !isPublicPage && !isPosRoute && !loading && Boolean(user && userProfile),
   });
   // Giảng viên chỉ làm việc tại Lớp học. Nếu gõ/thăm lại URL Nhân sự cũ,
   // chuyển thẳng về Quản lý học viên thay vì để trang HR gọi API không có quyền.
@@ -63,6 +74,13 @@ function AppContent() {
     ? "QUẢN LÝ HỌC VIÊN" as TabType
     : activeTab;
   const resolvedActiveTab = resolveEnabledTab(teacherSafeTab, userProfile?.enabledModules, userProfile?.businessType);
+
+  React.useEffect(() => {
+    if (isPosOnly && requestedPath !== "/pos") {
+      window.history.replaceState(null, "", "/pos");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
+  }, [isPosOnly, requestedPath]);
 
   React.useEffect(() => {
     if (resolvedActiveTab !== activeTab) setActiveTab(resolvedActiveTab);
@@ -224,6 +242,24 @@ function AppContent() {
           <AuthPage />
         </Suspense>
       </>
+    );
+  }
+
+  if (isPosRoute) {
+    const canAccessPos = userProfile.role === "admin" || userProfile.role === "superadmin" || Boolean(userProfile.permissions?.some((permission) => ["*", "pos:manage", "retail:manage"].includes(permission)));
+    return canAccessPos ? (
+      <>
+        <SEOHead meta={{ ...getSeoForTab("BÁN LẺ"), path: "/pos" }} />
+        <Suspense fallback={<AuthLoader />}><RetailPosEntry /></Suspense>
+      </>
+    ) : (
+      <main className="flex min-h-dvh items-center justify-center bg-slate-50 p-6 text-center text-slate-700">
+        <div className="max-w-md space-y-3">
+          <p className="font-semibold">Vai trò thu ngân chưa được cấp quyền sử dụng quầy POS.</p>
+          <p className="text-sm text-slate-500">Liên hệ quản trị viên để kiểm tra quyền “Quản lý quầy POS”.</p>
+          <button type="button" onClick={() => void logout()} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-100">Đăng xuất</button>
+        </div>
+      </main>
     );
   }
 
