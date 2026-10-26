@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Sliders, Bell, MapPin, Clock, Calendar, Users, GraduationCap } from "lucide-react";
+import { Sliders, Bell, MapPin, GraduationCap } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { useAuth } from "../../context/AuthContext";
-import EmployeeWorkHoursTab from "./EmployeeWorkHoursTab";
-import CompanyWorkCalendarTab from "./CompanyWorkCalendarTab";
 import StudentManagementErpSettings from "./StudentManagementErpSettings";
 import CompanySmtpSettingsTab from "./CompanySmtpSettingsTab";
 import CompanyPaymentSettingsTab from "./CompanyPaymentSettingsTab";
-import WorkShiftsTab from "./WorkShiftsTab";
 
 export default function ErpConfigTab() {
   const { userProfile, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<"general" | "workHours" | "workCalendar" | "workShifts" | "companyModules" >("general");
+  const [activeTab, setActiveTab] = useState<"general" | "companyModules" >("general");
 
   // States for timekeeping location setup
   const [addressName, setAddressName] = useState("");
@@ -145,14 +142,6 @@ export default function ErpConfigTab() {
         <div className="flex gap-1.5 overflow-x-auto border-b border-slate-100 pb-3 no-scrollbar">
           <button
             type="button"
-            onClick={() => setActiveTab("workShifts")}
-            className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${activeTab === "workShifts" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"}`}
-          >
-            <Clock className="h-3.5 w-3.5" />
-            Ca làm việc
-          </button>
-          <button
-            type="button"
             onClick={() => setActiveTab("general")}
             className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${
               activeTab === "general" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"
@@ -160,24 +149,6 @@ export default function ErpConfigTab() {
           >
             <Sliders className="h-3.5 w-3.5" />
             Cấu hình chung
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("workCalendar")}
-            className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${activeTab === "workCalendar" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"}`}
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            Lịch nghỉ lễ
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("workHours")}
-            className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${
-              activeTab === "workHours" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"
-            }`}
-          >
-            <Users className="h-3.5 w-3.5" />
-            Giờ làm việc nhân viên
           </button>
           {canManageCompanyModules && (
             <button type="button" onClick={() => setActiveTab("companyModules")}
@@ -189,9 +160,6 @@ export default function ErpConfigTab() {
         </div>
       )}
 
-      {activeTab === "workHours" && canManageLocation && <EmployeeWorkHoursTab />}
-      {activeTab === "workCalendar" && canManageLocation && <CompanyWorkCalendarTab />}
-      {activeTab === "workShifts" && canManageLocation && <WorkShiftsTab />}
 
       {/* Preferences Section */}
       {activeTab === "companyModules" && canManageCompanyModules && (
