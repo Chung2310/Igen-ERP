@@ -27,20 +27,7 @@ import { HrFormSelect } from "./HrFormSelect";
 const emojiIconPattern = /[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u;
 
 function TrainingBookIcon({ className = "h-6 w-6" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="m5 22 19-1.8 3 1.6v4.1L8 27.8l-3-1.6V22Z" fill="#7954D9" stroke="#5737AD" strokeWidth=".8" strokeLinejoin="round" />
-      <path d="m8 23.4 19-1.6v3.2L8 26.7v-3.3Z" fill="#FFF9EF" />
-      <path d="m5 22 19-1.8 3 1.6L8 23.4 5 22Z" fill="#A98AF8" />
-      <path d="m6 15.3 19-1.8 3 1.6v4.1L9 21l-3-1.6v-4.1Z" fill="#F58449" stroke="#CB5B2E" strokeWidth=".8" strokeLinejoin="round" />
-      <path d="m9 16.7 19-1.6v3.2L9 20v-3.3Z" fill="#FFF9EF" />
-      <path d="m6 15.3 19-1.8 3 1.6-19 1.6-3-1.4Z" fill="#FFB667" />
-      <path d="m4 8.6 19-1.8 3 1.6v4.1L7 14.3l-3-1.6V8.6Z" fill="#00A9B7" stroke="#087D95" strokeWidth=".8" strokeLinejoin="round" />
-      <path d="m7 10 19-1.6v3.2L7 13.2V10Z" fill="#FFF9EF" />
-      <path d="m4 8.6 19-1.8 3 1.6L7 10 4 8.6Z" fill="#5CE2D1" />
-      <path d="m9.4 11.3 13.5-1.2M11.4 18 24 16.9M10.4 24.7l13.6-1.2" stroke="#CFD4DE" strokeWidth=".65" strokeLinecap="round" />
-    </svg>
-  );
+  return <BookOpen className={`${className} text-primary`} strokeWidth={1.75} aria-hidden="true" />;
 }
 
 function TrainingProgressIcon({ className = "h-5 w-5" }: { className?: string }) {
