@@ -22,8 +22,7 @@ vi.mock("./pages/RetailReturnsPage", () => ({ default: () => <div>Returns page</
 vi.mock("./pages/RetailShiftsPage", () => ({ default: () => <div>Shifts page</div> }));
 vi.mock("./pages/RetailInvoicesPageContent", () => ({ default: () => <div>Invoices page</div> }));
 vi.mock("./pages/RetailReportsPage", () => ({ default: () => <div>Reports page</div> }));
-vi.mock("./pages/WarrantyLookupPage", () => ({ default: ({ onCreateRepair }: { onCreateRepair?: (prefill: unknown) => void }) => <div>Warranty page{onCreateRepair && <button type="button" onClick={() => onCreateRepair({ productName: "Điện thoại", coverage: { customer: { covered: true }, supplier: { covered: false }, costBearer: "shop", checkedAt: "2026-01-01" } })}>Tạo phiếu sửa chữa/bảo hành</button>}</div> }));
-vi.mock("../repair/RepairBoardPage", () => ({ default: ({ createPrefill }: { createPrefill?: { productName?: string } | null }) => <div>Repair board {createPrefill?.productName}</div> }));
+vi.mock("./pages/OrderWarrantyPage", () => ({ default: () => <div>Order warranty page</div> }));
 
 describe("RetailWorkspace", () => {
   it("does not render the retail customer management tab", () => {
@@ -33,13 +32,10 @@ describe("RetailWorkspace", () => {
     expect(screen.getByRole("button", { name: "Đổi trả" })).toBeTruthy();
   });
 
-  it("opens a repair ticket from retail warranty lookup", async () => {
+  it("uses order warranty in ERP sales", async () => {
     render(<RetailWorkspace />);
-    await userEvent.click(screen.getByRole("button", { name: "Bảo hành" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Tạo phiếu sửa chữa/bảo hành" }));
-    expect(await screen.findByText("Repair board Điện thoại")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Quay lại tra cứu bảo hành" }));
-    expect(await screen.findByText("Warranty page")).toBeTruthy();
+    expect(await screen.findByText("Order warranty page")).toBeTruthy();
+    expect(screen.queryByText(/IMEI/)).toBeNull();
   });
 
   it("opens the dedicated POS route from retail management", async () => {
