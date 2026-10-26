@@ -20,7 +20,26 @@ import {
   GraduationCap,
   Sparkles,
 } from "lucide-react";
-import { FilledMenu3DIcon, type FilledMenu3DIconShape, type Menu3DIconPalette } from "../components/FilledMenu3DIcon";
+import {
+  BookOpenIcon,
+  BriefcaseIcon,
+  ChartBarIcon,
+  ChatCircleIcon,
+  CubeIcon,
+  FileTextIcon,
+  FolderIcon,
+  GearIcon,
+  HeadsetIcon,
+  MegaphoneIcon,
+  ShieldIcon,
+  ShoppingCartIcon,
+  SparkleIcon,
+  StudentIcon,
+  UsersIcon,
+  UsersThreeIcon,
+  WrenchIcon,
+  type Icon as PhosphorIcon,
+} from "@phosphor-icons/react";
 import {
   BRAND_FULL_LOGO_PATH,
   BRAND_LOGO_PATH,
@@ -144,40 +163,28 @@ const groupTitles: Record<MenuItem["group"], string> = {
   system: "Hệ thống",
 };
 
-const brandIconPalette: Menu3DIconPalette = {
-  light: "#86DCFF",
-  dark: "#16ACE7",
-  edge: "#087EB8",
-};
-
-const softBrandIconPalette: Menu3DIconPalette = {
-  light: "#AFE7FA",
-  dark: "#56B9DD",
-  edge: "#2587AD",
-};
-
-const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
-  "TỔNG QUAN": "overview",
-  "NHÂN SỰ": "people",
-  "ĐỐI TÁC": "partners",
-  "KHO & SẢN PHẨM": "warehouse",
-  "SỬA CHỮA & BẢO HÀNH": "repair",
-  "QUẢN LÝ HỌC VIÊN": "student",
-  "QUẢN LÝ LAO ĐỘNG": "work",
-  "QUẢN LÝ KHÁCH HÀNG": "customer",
-  "BÁN LẺ": "retail",
-  "ĐỐI TÁC BÁN LẺ": "partners",
-  "TÀI CHÍNH": "finance",
-  "CHIẾN DỊCH NỘI DUNG": "marketing",
-  "OMNI INBOX": "chat",
-  "MARKETING": "partners",
-  "KHO TRI THỨC": "guide",
-  "TÍCH HỢP MARKETING": "settings",
-  "GÓI AI & LƯỢT SỬ DỤNG": "shield",
-  "QUẢN LÝ TÀI NGUYÊN": "folder",
-  "TRÒ CHUYỆN": "chat",
-  "QUẢN TRỊ USER": "shield",
-  "CÀI ĐẶT": "settings",
+const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
+  "TỔNG QUAN": ChartBarIcon,
+  "NHÂN SỰ": UsersIcon,
+  "ĐỐI TÁC": UsersThreeIcon,
+  "KHO & SẢN PHẨM": CubeIcon,
+  "SỬA CHỮA & BẢO HÀNH": WrenchIcon,
+  "QUẢN LÝ HỌC VIÊN": StudentIcon,
+  "QUẢN LÝ LAO ĐỘNG": BriefcaseIcon,
+  "QUẢN LÝ KHÁCH HÀNG": HeadsetIcon,
+  "BÁN LẺ": ShoppingCartIcon,
+  "ĐỐI TÁC BÁN LẺ": UsersThreeIcon,
+  "TÀI CHÍNH": FileTextIcon,
+  "CHIẾN DỊCH NỘI DUNG": MegaphoneIcon,
+  "OMNI INBOX": ChatCircleIcon,
+  "MARKETING": UsersThreeIcon,
+  "KHO TRI THỨC": BookOpenIcon,
+  "TÍCH HỢP MARKETING": GearIcon,
+  "GÓI AI & LƯỢT SỬ DỤNG": SparkleIcon,
+  "QUẢN LÝ TÀI NGUYÊN": FolderIcon,
+  "TRÒ CHUYỆN": ChatCircleIcon,
+  "QUẢN TRỊ USER": ShieldIcon,
+  "CÀI ĐẶT": GearIcon,
 };
 
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
@@ -291,7 +298,11 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                     className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 ${isCollapsed ? "justify-center" : "justify-between"} ${itemsInGroup.some((item) => item.label === activeTab) ? "text-slate-900" : "text-slate-600"}`}
                   >
                     <span className="flex items-center gap-3">
-                      <FilledMenu3DIcon shape="marketing" palette={brandIconPalette} className="h-6 w-6" />
+                      <MegaphoneIcon
+                        size={24}
+                        weight={itemsInGroup.some((item) => item.label === activeTab) ? "fill" : "regular"}
+                        className="shrink-0 text-[#00ADFC]"
+                      />
                       {!isCollapsed && <span>Marketing</span>}
                     </span>
                     {!isCollapsed && <ChevronDown className={`h-4 w-4 transition-transform ${isMarketingExpanded ? "" : "-rotate-90"}`} />}
@@ -312,12 +323,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                 >
                 {itemsInGroup.map((item) => {
                   const isActive = activeTab === item.label;
-                  const Icon = item.icon;
-                  const iconShape = menuIconShapes[item.label];
-                  const iconPalette = isActive || groupKey === "main" || groupKey === "operations" || groupKey === "marketing"
-                    ? brandIconPalette
-                    : softBrandIconPalette;
-
+                  const Icon = menuIcons[item.label] ?? item.icon;
                   return (
                     <button
                       key={item.label}
@@ -345,11 +351,11 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-                        {iconShape ? (
-                          <FilledMenu3DIcon shape={iconShape} palette={iconPalette} className="h-6 w-6" />
-                        ) : (
-                          <Icon className={`h-5 w-5 shrink-0 transition-colors ${item.locked ? "text-slate-300" : isActive ? "text-[#00ADFC]" : "text-slate-400 group-hover:text-slate-600"}`} />
-                        )}
+                        <Icon
+                          size={24}
+                          weight={isActive ? "fill" : "regular"}
+                          className={`h-6 w-6 shrink-0 transition-colors ${item.locked ? "text-slate-300" : "text-[#00ADFC]"}`}
+                        />
                         {!isCollapsed ? (
                           <span className="truncate">{item.title}</span>
                         ) : null}
