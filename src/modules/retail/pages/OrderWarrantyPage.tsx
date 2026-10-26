@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { Search } from "lucide-react";
+import { StyledSelect } from "../../../components/common/StyledSelect";
+import { cn } from "../../student-management/lib/utils";
 import { orderWarrantyService, type OrderWarrantyResult, type OrderWarrantyStatus } from "../../../services/orderWarrantyService";
 import { useRetailScope } from "../hooks/useRetailScope";
 
@@ -7,7 +10,7 @@ const statusLabels: Record<OrderWarrantyStatus, string> = {
   pending: "Chưa bắt đầu", none: "Không áp dụng", unrecorded: "Chưa ghi nhận",
 };
 const dateLabel = (value?: string) => value ? new Date(value).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
-const controlClass = "min-h-11 rounded-lg border border-outline bg-surface-container-lowest px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+const controlClass = "h-11 w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal leading-5 text-on-surface placeholder:text-on-surface/60 hover:border-primary focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary focus-visible:ring-0";
 const buttonClass = "min-h-11 rounded-lg border border-outline px-4 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50";
 
 function OrderWarrantyContent({ companyCode, branchId }: { companyCode: string; branchId: string }) {
@@ -32,22 +35,22 @@ function OrderWarrantyContent({ companyCode, branchId }: { companyCode: string; 
       <h2 className="text-balance text-xl font-semibold">Bảo hành theo đơn hàng</h2>
       <p className="mt-1 text-pretty text-sm text-on-surface-variant">Tra cứu sản phẩm đã bán theo đơn hàng, hóa đơn hoặc khách hàng. Thời hạn được ghi nhận theo chính sách tại lúc bán.</p>
     </header>
-    <form onSubmit={event => { event.preventDefault(); setFilters(previous => ({ ...previous, q: search.trim(), page: 1 })); }} className="flex flex-wrap items-end gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-      <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">Tìm bảo hành
-        <input className={controlClass} value={search} maxLength={200} onChange={event => setSearch(event.target.value)} placeholder="Mã đơn, hóa đơn, khách hàng, số điện thoại, sản phẩm hoặc SKU" />
+    <form onSubmit={event => { event.preventDefault(); setFilters(previous => ({ ...previous, q: search.trim(), page: 1 })); }} className="grid grid-cols-1 items-end gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:grid-cols-2 xl:flex">
+      <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-on-surface sm:col-span-2 xl:flex-1">Tìm bảo hành
+        <span className="relative block">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface/60" />
+          <input className={cn(controlClass, "pl-10")} value={search} maxLength={200} onChange={event => setSearch(event.target.value)} placeholder="Mã đơn, hóa đơn, khách hàng, số điện thoại, sản phẩm hoặc SKU" />
+        </span>
       </label>
-      <label className="flex flex-col gap-1 text-sm">Trạng thái
-        <select className={controlClass} value={filters.status} onChange={event => setFilters(previous => ({ ...previous, status: event.target.value as typeof previous.status, page: 1 }))}>
-          <option value="all">Mọi trạng thái</option>
-          {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-sm">Ngưỡng sắp hết hạn
-        <select className={controlClass} value={filters.days} onChange={event => setFilters(previous => ({ ...previous, days: Number(event.target.value), page: 1 }))}>
-          {[7, 30, 60, 90].map(days => <option key={days} value={days}>{days} ngày</option>)}
-        </select>
-      </label>
-      <button type="submit" className="min-h-11 rounded-lg bg-primary px-4 font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Tra cứu</button>
+      <div className="flex min-w-0 flex-col gap-1.5 xl:w-48 xl:shrink-0">
+        <span aria-hidden="true" className="text-sm font-medium text-on-surface">Trạng thái</span>
+        <StyledSelect ariaLabel="Trạng thái" className={controlClass} value={filters.status} onChange={status => setFilters(previous => ({ ...previous, status: status as typeof previous.status, page: 1 }))} options={[{ value: "all", label: "Mọi trạng thái" }, ...Object.entries(statusLabels).map(([value, label]) => ({ value, label }))]} />
+      </div>
+      <div className="flex min-w-0 flex-col gap-1.5 xl:w-48 xl:shrink-0">
+        <span aria-hidden="true" className="text-sm font-medium text-on-surface">Ngưỡng sắp hết hạn</span>
+        <StyledSelect ariaLabel="Ngưỡng sắp hết hạn" className={controlClass} value={String(filters.days)} onChange={days => setFilters(previous => ({ ...previous, days: Number(days), page: 1 }))} options={[7, 30, 60, 90].map(days => ({ value: String(days), label: `${days} ngày` }))} />
+      </div>
+      <button type="submit" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-5 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:col-span-2"><Search aria-hidden="true" className="size-4" />Tra cứu</button>
     </form>
     {error && <div role="alert" className="space-y-2 rounded-xl border border-outline p-4"><p>{error}</p><button type="button" className={buttonClass} onClick={() => setReload(value => value + 1)}>Thử lại</button></div>}
     <div aria-busy={loading} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">

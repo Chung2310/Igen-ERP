@@ -18,8 +18,13 @@ it("looks up sold products by order or customer without an identifier requiremen
   fireEvent.change(screen.getByRole("textbox", { name: "Tìm bảo hành" }), { target: { value: "DH1" } });
   fireEvent.click(screen.getByRole("button", { name: "Tra cứu" }));
   await waitFor(() => expect(orderWarrantyService.list).toHaveBeenLastCalledWith(expect.objectContaining({ q: "DH1", branchId: "MAIN", page: 1 }), expect.any(AbortSignal)));
-  fireEvent.change(screen.getByRole("combobox", { name: "Trạng thái" }), { target: { value: "expired" } });
+  fireEvent.click(screen.getByRole("button", { name: "Trạng thái" }));
+  fireEvent.click(screen.getByRole("option", { name: "Hết bảo hành" }));
   await waitFor(() => expect(orderWarrantyService.list).toHaveBeenLastCalledWith(expect.objectContaining({ status: "expired" }), expect.any(AbortSignal)));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Trạng thái" }));
+  fireEvent.keyDown(screen.getByRole("button", { name: "Ngưỡng sắp hết hạn" }), { key: "ArrowDown" });
+  fireEvent.click(screen.getByRole("option", { name: "60 ngày" }));
+  await waitFor(() => expect(orderWarrantyService.list).toHaveBeenLastCalledWith(expect.objectContaining({ days: 60 }), expect.any(AbortSignal)));
 });
 
 it("clears old branch rows and ignores a late response after changing branches", async () => {
