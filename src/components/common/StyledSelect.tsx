@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
+import { cn } from "../../modules/student-management/lib/utils";
 
 export type StyledSelectOption = {
   value: string;
@@ -131,7 +132,7 @@ export function StyledSelect({
             openMenu();
           }
         }}
-        className={`flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-[#DCE7F4] bg-white px-3 text-left text-sm font-normal text-slate-700 outline-none transition-colors hover:border-[#B8DFF3] focus-visible:ring-2 focus-visible:ring-[#00ADFC]/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60 ${className}`}
+        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-[#DCE7F4] bg-white px-3 text-left text-sm font-normal text-slate-700 outline-none transition-colors hover:border-[#B8DFF3] focus-visible:ring-2 focus-visible:ring-[#00ADFC]/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60", className)}
       >
         <span className={`min-w-0 truncate ${selectedOption ? "" : "text-slate-400"}`}>
           {selectedOption?.label ?? placeholder}

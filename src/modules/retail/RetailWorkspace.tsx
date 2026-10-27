@@ -1,9 +1,8 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense } from "react";
 import { ArrowUpRight, ChartColumn, Clock3, FileText, ListOrdered, RotateCcw, Settings, ShieldCheck, Store, Ticket } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
-import type { RepairCreatePrefill } from "../repair/RepairBoardPage";
 
 const SettingsPage = lazy(() => import("./pages/RetailSettingsPage"));
 const CouponsPage = lazy(() => import("./pages/RetailCouponsPage"));
@@ -11,9 +10,8 @@ const OrdersPage = lazy(() => import("./pages/RetailOrdersPageV2"));
 const ReturnsPage = lazy(() => import("./pages/RetailReturnsPage"));
 const InvoicesPage = lazy(() => import("./pages/RetailInvoicesPageContent"));
 const ReportsPage = lazy(() => import("./pages/RetailReportsPage"));
-const WarrantyLookupPage = lazy(() => import("./pages/WarrantyLookupPage"));
+const OrderWarrantyPage = lazy(() => import("./pages/OrderWarrantyPage"));
 const ShiftWorkspace = lazy(() => import("./pages/RetailShiftWorkspace"));
-const RepairBoardPage = lazy(() => import("../repair/RepairBoardPage"));
 const FinancePage = lazy(() => import("./pages/RetailFinancePage"));
 const PromotionsPage = lazy(() => import("./pages/RetailPromotionsPage"));
 
@@ -34,11 +32,7 @@ const SUB_TABS = [
 ];
 
 export default function RetailWorkspace() {
-  const [repairPrefill, setRepairPrefill] = useState<RepairCreatePrefill | null>(null);
-  const [repairVisible, setRepairVisible] = useState(false);
   const { userProfile } = useAuth();
-  const canCreateRepair = userProfile?.role === "admin" || userProfile?.role === "superadmin" || Boolean(userProfile?.permissions?.some(permission => ["*", "repair:manage"].includes(permission)));
-  const canManageWarranty = canCreateRepair || Boolean(userProfile?.permissions?.includes("retail:manage"));
   const canOpenPos = userProfile?.role === "admin" || userProfile?.role === "superadmin" || Boolean(userProfile?.permissions?.some((permission) => ["*", "pos:manage", "retail:manage"].includes(permission)));
   const allowed = getAllowedRetailTabSlugs(
     userProfile?.role === "admin" || userProfile?.role === "superadmin" ? ["*"] : userProfile?.permissions || [],
@@ -118,10 +112,7 @@ export default function RetailWorkspace() {
           {activeTab === "MÃ ƯU ĐÃI" && <CouponsPage />}
           {activeTab === "TÀI CHÍNH" && <FinancePage />}
           {activeTab === "ƯU ĐÃI" && <PromotionsPage />}
-          {activeTab === "BẢO HÀNH" && (repairVisible ? <div className="space-y-4">
-            <button type="button" onClick={() => { setRepairVisible(false); setRepairPrefill(null); }} className="min-h-11 rounded-lg border border-outline px-4 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Quay lại tra cứu bảo hành</button>
-            <RepairBoardPage createPrefill={repairPrefill} onCreatePrefillConsumed={() => setRepairPrefill(null)} />
-          </div> : <WarrantyLookupPage canManage={canManageWarranty} onCreateRepair={canCreateRepair ? (device) => { setRepairPrefill(device); setRepairVisible(true); } : undefined} />)}
+          {activeTab === "BẢO HÀNH" && <OrderWarrantyPage />}
         </Suspense>
       </div>
     </div>

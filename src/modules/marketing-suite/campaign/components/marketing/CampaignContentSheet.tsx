@@ -17,7 +17,7 @@ import {
   Unlock,
   X,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
   CampaignSheetAIJob,
   CampaignSheetColumn,
@@ -27,6 +27,8 @@ import {
   marketingCampaignService,
 } from '../../services/marketingCampaignService';
 import { toast } from '../../../../../pages/Toast';
+import SheetDatePicker from './SheetDatePicker';
+import { MarketingDialog } from '../../../shared/components/common/MarketingDialog';
 
 interface CampaignContentSheetProps {
   campaignId: string;
@@ -121,6 +123,7 @@ function createIdempotencyKey() {
 }
 
 export default function CampaignContentSheet({ campaignId }: CampaignContentSheetProps) {
+  const dialogId = useId();
   const [data, setData] = useState<CampaignSheetData | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingCell, setSavingCell] = useState('');
@@ -685,31 +688,34 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
             className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-xs outline-none focus:border-teal-400"
           />
         </label>
-        <select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-teal-400"
-        >
-          <option value="">Mọi trạng thái</option>
-          {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
-        </select>
+        <div className="relative">
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-3 pr-9 text-xs text-slate-700 outline-none transition hover:border-sky-300 focus:ring-4 focus:ring-sky-100"
+          >
+            <option value="">Mọi trạng thái</option>
+            {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-sky-600" />
+        </div>
         <div className="relative">
           <button
             type="button"
             onClick={() => setShowColumnSettings((current) => !current)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-sky-300 hover:bg-sky-50 focus:outline-none focus:ring-4 focus:ring-sky-100"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
             Cột hiển thị
           </button>
           {showColumnSettings && (
-            <div className="absolute right-0 top-11 z-50 max-h-80 w-64 overflow-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+            <div className="absolute right-0 top-11 z-50 max-h-80 w-64 overflow-auto rounded-2xl border border-sky-100 bg-white p-2 shadow-2xl shadow-slate-900/15">
               {orderColumns.map((column) => (
                 <button
                   key={column.id}
                   type="button"
                   onClick={() => void setColumnHidden(column, !column.display.hidden)}
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-slate-700 transition hover:bg-sky-50 focus:outline-none focus:bg-sky-50"
                 >
                     <span className="truncate">{displayColumnLabel(column)}</span>
                   {column.display.hidden
@@ -926,7 +932,7 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
                                     else void saveCell(row, column, event.target.value);
                                   }}
                                   title={column.key === 'platform' ? 'Changing to TikTok automatically selects video media.' : undefined}
-                                  className="w-full appearance-none rounded-md border border-transparent bg-transparent px-2 py-1.5 pr-6 text-xs outline-none hover:border-slate-200 focus:border-teal-400 focus:bg-white"
+                                  className="w-full appearance-none rounded-md border border-transparent bg-transparent px-2 py-1.5 pr-6 text-xs outline-none hover:border-sky-200 focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
                                 >
                                   <option value="">—</option>
                                   {selectOptions.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -953,7 +959,7 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
                                 onChange={(event) => setDrafts((current) => ({ ...current, [key]: event.target.value }))}
                                 onPaste={(event) => void pasteCells(event, row, column)}
                                 onBlur={() => void saveCell(row, column, value)}
-                                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-xs text-slate-700 outline-none hover:border-slate-200 focus:border-teal-400 focus:bg-white"
+                                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-xs text-slate-700 outline-none hover:border-sky-200 focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100"
                               />
                             )}
 
@@ -999,11 +1005,11 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
       </div>
 
       {showAddColumn && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4">
+        <MarketingDialog open={Boolean(showAddColumn)} onClose={() => setShowAddColumn(false)} labelledBy={dialogId + "-add-column-title"} className="backdrop:bg-slate-950/45">
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900">Thêm trường dữ liệu</h3>
+                <h3 id={dialogId + "-add-column-title"} className="text-sm font-extrabold text-slate-900">Thêm trường dữ liệu</h3>
                 <p className="mt-0.5 text-[11px] text-slate-500">Trường mới xuất hiện cho mọi bài trong chiến dịch.</p>
               </div>
               <button type="button" onClick={() => setShowAddColumn(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
@@ -1022,13 +1028,16 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
               </label>
               <label className="block text-xs font-bold text-slate-700">
                 Loại dữ liệu
-                <select
-                  value={columnForm.dataType}
-                  onChange={(event) => setColumnForm((current) => ({ ...current, dataType: event.target.value as CampaignSheetDataType }))}
-                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal"
-                >
-                  {DATA_TYPES.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
-                </select>
+                <span className="relative mt-1.5 block">
+                  <select
+                    value={columnForm.dataType}
+                    onChange={(event) => setColumnForm((current) => ({ ...current, dataType: event.target.value as CampaignSheetDataType }))}
+                    className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm font-normal text-slate-800 outline-none transition hover:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                  >
+                    {DATA_TYPES.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-600" />
+                </span>
               </label>
               <label className="block text-xs font-bold text-slate-700">
                 Hướng dẫn cho AI
@@ -1084,15 +1093,15 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
               </button>
             </div>
           </div>
-        </div>
+        </MarketingDialog>
       )}
 
       {showAddRow && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4">
+        <MarketingDialog open={Boolean(showAddRow)} onClose={() => setShowAddRow(false)} labelledBy={dialogId + "-add-row-title"} className="backdrop:bg-slate-950/45">
           <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900">Thêm bài viết vào Sheet</h3>
+                <h3 id={dialogId + "-add-row-title"} className="text-sm font-extrabold text-slate-900">Thêm bài viết vào Sheet</h3>
                 <p className="mt-0.5 text-[11px] text-slate-500">Bài mới được tạo ở trạng thái lên lịch và dùng chung với Content Calendar.</p>
               </div>
               <button type="button" onClick={() => setShowAddRow(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
@@ -1100,57 +1109,62 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
               </button>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2">
-              <label className="text-xs font-bold text-slate-700">
-                Ngày đăng
-                <input
-                  type="date"
+              <div className="text-xs font-bold text-slate-700">
+                <span>Ngày đăng</span>
+                <SheetDatePicker
                   min={data.campaign.startDate}
                   max={data.campaign.endDate}
                   value={rowForm.date}
-                  onChange={(event) => setRowForm((current) => ({ ...current, date: event.target.value }))}
-                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal"
+                  onChange={(date) => setRowForm((current) => ({ ...current, date }))}
                 />
-              </label>
+              </div>
               <label className="text-xs font-bold text-slate-700">
                 Giờ đăng
                 <input
                   type="time"
                   value={rowForm.time}
                   onChange={(event) => setRowForm((current) => ({ ...current, time: event.target.value }))}
-                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal"
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-normal text-slate-800 outline-none transition hover:border-sky-300 focus:ring-4 focus:ring-sky-100"
                 />
               </label>
               <label className="text-xs font-bold text-slate-700">
                 Nền tảng
+                <span className="relative mt-1.5 block">
                 <select
                   value={rowForm.platform}
                   onChange={(event) => {
                     const platform = event.target.value as 'Facebook' | 'TikTok';
                     setRowForm((current) => ({ ...current, platform, mediaType: platform === 'TikTok' ? 'video' : current.mediaType, mediaSource: platform === 'TikTok' && current.mediaSource === 'none' ? 'drive' : current.mediaSource }));
                   }}
-                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal"
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm font-normal text-slate-800 outline-none transition hover:border-sky-300 focus:ring-4 focus:ring-sky-100"
                 >
                   {data.campaign.platforms.map((platform) => <option key={platform} value={platform}>{platform}</option>)}
                 </select>
+                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-600" />
+                </span>
               </label>
               <label className="text-xs font-bold text-slate-700">
                 Loại media
+                <span className="relative mt-1.5 block">
                 <select
                   value={rowForm.mediaType}
                   onChange={(event) => setRowForm((current) => ({ ...current, mediaType: event.target.value as typeof current.mediaType, mediaSource: event.target.value === 'text' ? 'none' : current.mediaSource === 'none' || (event.target.value === 'video' && current.mediaSource === 'ai') ? 'drive' : current.mediaSource }))}
-                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal"
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm font-normal text-slate-800 outline-none transition hover:border-sky-300 focus:ring-4 focus:ring-sky-100"
                 >
                   {rowForm.platform === 'Facebook' && <option value="text">Chỉ văn bản</option>}
                   <option value="image">Hình ảnh</option>
                   <option value="video">Video</option>
                 </select>
+                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-600" />
+                </span>
               </label>
               <label className="text-xs font-bold text-slate-700">
                 Media source
+                <span className="relative mt-1.5 block">
                 <select
                   value={rowForm.mediaSource}
                   onChange={(event) => setRowForm((current) => ({ ...current, mediaSource: event.target.value as typeof current.mediaSource }))}
-                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal"
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm font-normal text-slate-800 outline-none transition hover:border-sky-300 focus:ring-4 focus:ring-sky-100"
                 >
                   {rowForm.mediaType === 'text' ? (
                     <option value="none">No media</option>
@@ -1163,19 +1177,24 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
                     </>
                   )}
                 </select>
+                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-600" />
+                </span>
               </label>
 
               <label className="text-xs font-bold text-slate-700">
                 Funnel
+                <span className="relative mt-1.5 block">
                 <select
                   value={rowForm.funnelStage}
                   onChange={(event) => setRowForm((current) => ({ ...current, funnelStage: event.target.value as typeof current.funnelStage }))}
-                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-normal"
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm font-normal text-slate-800 outline-none transition hover:border-sky-300 focus:ring-4 focus:ring-sky-100"
                 >
                   <option value="TOFU">TOFU</option>
                   <option value="MOFU">MOFU</option>
                   <option value="BOFU">BOFU</option>
                 </select>
+                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-sky-600" />
+                </span>
               </label>
               <label className="text-xs font-bold text-slate-700">
                 Content Pillar
@@ -1218,15 +1237,15 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
               </button>
             </div>
           </div>
-        </div>
+        </MarketingDialog>
       )}
 
       {aiJob && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/50 p-4">
+        <MarketingDialog open={Boolean(aiJob)} onClose={() => setAiJob(null)} labelledBy={dialogId + "-ai-preview-title"} className="backdrop:bg-slate-950/45">
           <div className="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-violet-100 bg-violet-50 px-5 py-4">
               <div>
-                <h3 className="flex items-center gap-2 text-sm font-extrabold text-violet-900">
+                <h3 id={dialogId + "-ai-preview-title"} className="flex items-center gap-2 text-sm font-extrabold text-violet-900">
                   <Sparkles className="h-4 w-4" /> Đề xuất từ AI
                 </h3>
                 <p className="mt-0.5 text-[11px] text-violet-700">Kiểm tra trước khi áp dụng vào Content Sheet.</p>
@@ -1282,7 +1301,7 @@ export default function CampaignContentSheet({ campaignId }: CampaignContentShee
               </div>
             </div>
           </div>
-        </div>
+        </MarketingDialog>
       )}
     </div>
   );

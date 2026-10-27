@@ -1,9 +1,16 @@
 import type { Request, Response } from "express";
-import { retailScopeFromRequest } from "../contracts";
+import { retailScopeFromRequest, requireRetailBranch } from "../contracts";
 import { lookupWarranty, listExpiringWarranty, listWarrantyGapRisk, updateWarranty } from "../services/warranty-lookup.service";
 import { getEffectivePermissions } from "../../../middleware/auth";
+import { listOrderWarranties } from "../services/order-warranty.service";
 
 export const retailWarrantyController = {
+  orders: async (req: Request, res: Response) => {
+    try {
+      const scope = requireRetailBranch(retailScopeFromRequest((req as any).user || {}, req.query));
+      return res.json({ success: true, data: await listOrderWarranties(scope, req.query) });
+    } catch (error: any) { return res.status(Number(error.status || error.statusCode) || 500).json({ success: false, message: error.message }); }
+  },
   lookup: async (req: Request, res: Response) => {
     const user = (req as any).user || {};
     const scope = retailScopeFromRequest(user, { companyCode: req.query.companyCode, branchId: req.query.branchId });

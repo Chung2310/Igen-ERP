@@ -1,4 +1,4 @@
-﻿import type { ClientSession } from "mongoose";
+import { isValidObjectId, type ClientSession } from "mongoose";
 import { SerialUnitModel } from "../../inventory/serials/serial-unit.model";
 import { SerialEventModel } from "../../inventory/serials/serial-event.model";
 import { normalizeSerialNumber } from "../../inventory/serials/serial-state";
@@ -12,12 +12,14 @@ import { ensureDefaultWarehouse } from "../../inventory/warehouse/warehouse.serv
 import { loadRetailStockSource } from "./retail-stock-source";
 import { GoodsReceiptModel } from "../../../model/goods-receipt.model";
 
-export function applyClaimedSerialToOrderItem(item: { internalBarcodes?: string[]; soldAt?: Date; customerWarrantyStartAt?: Date; customerWarrantyEndAt?: Date }, claimed: { internalBarcode?: string }, soldAt: Date, customerMonths: number) {
+export function applyClaimedSerialToOrderItem(item: { internalBarcodes?: string[]; soldAt?: Date; customerWarrantyMonths?: number; customerWarrantyStartAt?: Date; customerWarrantyEndAt?: Date }, claimed: { internalBarcode?: string }, soldAt: Date, customerMonths: number) {
   const internalBarcodes = claimed.internalBarcode ? [...new Set([...(item.internalBarcodes || []), claimed.internalBarcode])] : item.internalBarcodes;
   Object.assign(item, {
     soldAt,
+    customerWarrantyMonths: customerMonths,
     ...(internalBarcodes ? { internalBarcodes } : {}),
-    ...(customerMonths > 0 ? { customerWarrantyStartAt: soldAt, customerWarrantyEndAt: computeWarrantyEnd(soldAt, customerMonths) } : {}),
+    customerWarrantyStartAt: customerMonths > 0 ? soldAt : undefined,
+    customerWarrantyEndAt: customerMonths > 0 ? computeWarrantyEnd(soldAt, customerMonths) : undefined,
   });
 }
 
@@ -28,16 +30,23 @@ export async function claimSerialsForOrder(scope: RetailBranchScope, items: Arra
   const businessDate = orderContext?.businessDate || order?.businessDate;
   const orderCode = orderContext?.orderCode || order?.orderCode;
   const soldAt = businessDate ? new Date(`${businessDate}T00:00:00.000Z`) : new Date();
+  const variantIds = [...new Set(items.map(item => item.variantId || item.productId).filter(id => isValidObjectId(id)))];
+  const variants = await ProductVariantModel.find({ companyCode: scope.companyCode, _id: { $in: variantIds } }).session(session).lean();
+  const variantMap = new Map(variants.map(variant => [String(variant._id), variant]));
+  const products = await ProductCatalogModel.find({ companyCode: scope.companyCode, _id: { $in: [...new Set(variants.map(variant => variant.productId).filter(id => isValidObjectId(id)))] } }).select("warrantyMonths").session(session).lean();
+  const productMap = new Map(products.map(product => [String(product._id), product]));
   for (const item of items) {
+    const variant = variantMap.get(item.variantId || item.productId);
+    const product = variant ? productMap.get(String(variant.productId)) : undefined;
+    const customerMonths = resolveCustomerWarrantyMonths(product?.warrantyMonths, variant?.warrantyMonths);
+    // Snapshot the promise for every sold line, including quantity-only goods.
+    applyClaimedSerialToOrderItem(item, {}, soldAt, customerMonths);
     if (!["serial", "unit_barcode"].includes(item.trackingMode || "")) continue;
     const serialNumbers = item.serialNumbers || [];
     const internalBarcodes = item.internalBarcodes || [];
     if (item.trackingMode === "serial" && !serialNumbers.length) throw Object.assign(new Error("Sản phẩm quản lý IMEI/serial phải chọn mã trước khi bán."), { statusCode: 400, code: "SERIAL_REQUIRED" });
     if (item.trackingMode === "unit_barcode" && !internalBarcodes.length) throw Object.assign(new Error("Sản phẩm quản lý mã vạch phải chọn mã trước khi bán."), { statusCode: 400, code: "BARCODE_REQUIRED" });
     if (new Set(serialNumbers.map((value) => normalizeSerialNumber(value))).size !== serialNumbers.length) throw Object.assign(new Error("IMEI/serial trong đơn không được trùng."), { statusCode: 400, code: "SERIAL_DUPLICATE" });
-    const variant: any = item.variantId ? await ProductVariantModel.findOne({ _id: item.variantId, companyCode: scope.companyCode }).session(session).lean() : null;
-    const product: any = variant?.productId ? await ProductCatalogModel.findOne({ _id: variant.productId, companyCode: scope.companyCode }).select("warrantyMonths").session(session).lean() : null;
-    const customerMonths = resolveCustomerWarrantyMonths(product?.warrantyMonths, variant?.warrantyMonths);
     const identifiers = item.trackingMode === "serial"
       ? serialNumbers.map((value) => ({ value, normalized: normalizeSerialNumber(value), filter: { normalizedSerialNumber: normalizeSerialNumber(value) } }))
       : internalBarcodes.map((value) => ({ value, normalized: normalizeInternalBarcode(value), filter: { $or: [{ normalizedInternalBarcode: normalizeInternalBarcode(value) }, { normalizedBarcodeAliases: normalizeInternalBarcode(value) }] } }));
