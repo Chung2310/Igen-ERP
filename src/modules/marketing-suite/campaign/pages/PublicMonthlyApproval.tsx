@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Check, X, Loader2, Facebook, Calendar, AlertCircle, MessageSquare, Clock, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, X, Loader2, Facebook, Calendar, AlertCircle, MessageSquare, Clock, ChevronDown, ChevronRight, Building2, Target, Ruler, Heart, Zap, Music2, Globe2, ThumbsUp, Share2 } from 'lucide-react';
 import { marketingCampaignService, CampaignSlot, MarketingContent, MarketingCampaignSummary } from '../services/marketingCampaignService';
 import { BRAND_LOGO_PATH, BRAND_NAME } from '../../shared/config/brand';
+import '../../shared/marketing-workspace.css';
 
 const TikTokIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
@@ -323,10 +324,10 @@ export default function PublicMonthlyApproval() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f6f8fd] text-slate-800 flex flex-col items-center justify-center font-sans">
+      <div className="marketing-workspace min-h-screen bg-[#f6f8fd] text-slate-800 flex flex-col items-center justify-center font-sans">
         <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-4" />
         <p className="text-sm font-semibold tracking-wider text-slate-500 animate-pulse uppercase">
-          ĐANG TẢI BÀI VIẾT THEO THÁNG...
+          Đang tải bài viết theo tháng...
         </p>
       </div>
     );
@@ -334,7 +335,7 @@ export default function PublicMonthlyApproval() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#f6f8fd] text-slate-800 flex items-center justify-center p-4 font-sans">
+      <div className="marketing-workspace min-h-screen bg-[#f6f8fd] text-slate-800 flex items-center justify-center p-4 font-sans">
         <div className="max-w-md w-full bg-white border border-slate-200/80 rounded-2xl p-6 text-center shadow-xl">
           <AlertCircle className="h-14 w-14 text-rose-500 mx-auto mb-4" />
           <h2 className="text-lg font-bold text-slate-900 mb-2">Đã xảy ra lỗi</h2>
@@ -360,14 +361,14 @@ export default function PublicMonthlyApproval() {
   const totalRejected = slots.filter(s => s.status === 'needs_attention').length;
 
   return (
-    <div className="min-h-screen bg-[#f6f8fd] text-slate-800 flex flex-col font-sans h-screen overflow-hidden">
+    <div className="marketing-workspace min-h-screen bg-[#f6f8fd] text-slate-800 flex flex-col font-sans h-screen overflow-hidden">
       {/* Top Header */}
       <header className="border-b border-slate-200 bg-white/85 backdrop-blur-md px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 select-none shrink-0 shadow-sm z-10">
         <div className="flex items-center gap-3">
           <img src={BRAND_LOGO_PATH} alt={BRAND_NAME} className="h-9 w-9 rounded-xl border border-slate-200/60 object-cover shadow-md" />
           <div>
             <h1 className="text-sm font-black tracking-wide text-slate-900 uppercase">{BRAND_NAME}</h1>
-            <p className="text-[10px] text-slate-500 font-bold tracking-wider">CỔNG DUYỆT BÀI ĐĂNG THEO THÁNG</p>
+            <p className="text-[10px] text-slate-500 font-bold tracking-wider">Cổng duyệt bài đăng theo tháng</p>
           </div>
         </div>
         
@@ -553,7 +554,7 @@ export default function PublicMonthlyApproval() {
                                       {isTikTok ? (
                                         <TikTokIcon className="h-2.5 w-2.5 text-slate-800" />
                                       ) : (
-                                        <Facebook size={10} className="text-blue-600 fill-blue-500/10" />
+                                        <Facebook size={10} className="text-[#1877f2] fill-[#1877f2]/10" />
                                       )}
                                       {s.platform || 'Facebook'}
                                     </span>
@@ -565,13 +566,13 @@ export default function PublicMonthlyApproval() {
                                   {/* Badges row */}
                                   <div className="flex items-center gap-1 flex-wrap pt-0.5">
                                     <span className="text-[8px] font-bold text-indigo-755 bg-indigo-50 border border-indigo-100 px-1 py-0.2 rounded shrink-0">
-                                      🏢 {s.pillar?.slice(0, 15)}
+                                      <Building2 size={12} className="mr-1 inline" />{s.pillar?.slice(0, 15)}
                                     </span>
                                     {(() => {
                                       const funnel = getFunnelStage(s.objective || '');
                                       return (
                                         <span className={`text-[8px] font-bold px-1 py-0.2 rounded border shrink-0 ${funnel.color}`}>
-                                          🎯 {funnel.label?.split(':')[0]}
+                                          <Target size={12} className="mr-1 inline" />{funnel.label?.split(':')[0]}
                                         </span>
                                       );
                                     })()}
@@ -636,15 +637,15 @@ export default function PublicMonthlyApproval() {
                         <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-rose-500 text-white rounded-full text-[8px] px-1 font-bold shadow-md">+</span>
                       </div>
                       <div className="flex flex-col items-center">
-                        <span className="text-xl">❤️</span>
+                        <Heart size={22} fill="currentColor" />
                         <span className="text-[9px] font-bold">0</span>
                       </div>
                       <div className="flex flex-col items-center">
-                        <span className="text-xl">💬</span>
+                        <MessageSquare size={22} fill="currentColor" />
                         <span className="text-[9px] font-bold">0</span>
                       </div>
                       <div className="flex flex-col items-center">
-                        <span className="text-xl">⚡</span>
+                        <Zap size={22} fill="currentColor" />
                         <span className="text-[9px] font-bold">0</span>
                       </div>
                     </div>
@@ -655,7 +656,7 @@ export default function PublicMonthlyApproval() {
                         {activeSlot.content?.bodyText}
                       </p>
                       <div className="flex items-center gap-1 mt-2 text-[9px] text-slate-350">
-                        <span>🎵</span>
+                        <Music2 size={12} />
                         <span className="truncate font-mono">Âm thanh nguyên bản - iGen Studio AI</span>
                       </div>
                     </div>
@@ -678,7 +679,7 @@ export default function PublicMonthlyApproval() {
                             {new Intl.DateTimeFormat('vi-VN', {
                               timeZone: campaign?.timezone || 'Asia/Bangkok',
                               hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit'
-                            }).format(new Date(activeSlot.scheduledAt))} · 🌐
+                            }).format(new Date(activeSlot.scheduledAt))} · <Globe2 size={11} />
                           </span>
                         </div>
                       </div>
@@ -703,7 +704,7 @@ export default function PublicMonthlyApproval() {
 
                     <div className="px-3 py-2 flex items-center justify-between border-b border-slate-100 text-[9px] text-slate-455 font-semibold">
                       <div className="flex items-center gap-1">
-                        <span className="flex items-center justify-center h-4 w-4 rounded-full bg-blue-600 text-white text-[7px] font-bold">👍</span>
+                        <span className="flex items-center justify-center h-4 w-4 rounded-full bg-blue-600 text-white"><ThumbsUp size={10} /></span>
                         <span>0 thích</span>
                       </div>
                       <div className="flex gap-1.5">
@@ -713,9 +714,9 @@ export default function PublicMonthlyApproval() {
                     </div>
 
                     <div className="px-1 py-0.5 grid grid-cols-3 gap-0.5 text-slate-500 font-bold text-[9px]">
-                      <button type="button" className="py-2 hover:bg-slate-50 rounded flex items-center justify-center gap-1 transition cursor-pointer">👍 Thích</button>
-                      <button type="button" className="py-2 hover:bg-slate-50 rounded flex items-center justify-center gap-1 transition cursor-pointer">💬 Bình luận</button>
-                      <button type="button" className="py-2 hover:bg-slate-50 rounded flex items-center justify-center gap-1 transition cursor-pointer">➡️ Chia sẻ</button>
+                      <button type="button" className="py-2 hover:bg-slate-50 rounded flex items-center justify-center gap-1 transition cursor-pointer"><ThumbsUp size={12} />Thích</button>
+                      <button type="button" className="py-2 hover:bg-slate-50 rounded flex items-center justify-center gap-1 transition cursor-pointer"><MessageSquare size={12} />Bình luận</button>
+                      <button type="button" className="py-2 hover:bg-slate-50 rounded flex items-center justify-center gap-1 transition cursor-pointer"><Share2 size={12} />Chia sẻ</button>
                     </div>
                   </div>
                 )}
@@ -738,7 +739,7 @@ export default function PublicMonthlyApproval() {
                     <div>
                       <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider font-mono mb-1">Trụ cột nội dung (Pillar)</span>
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-[10px] text-indigo-755 font-bold leading-normal whitespace-normal break-words">
-                        🏢 {activeSlot.pillar}
+                        <Building2 size={12} className="mr-1 inline" />{activeSlot.pillar}
                       </span>
                     </div>
 
@@ -748,7 +749,7 @@ export default function PublicMonthlyApproval() {
                         const funnel = getFunnelStage(activeSlot.objective || '');
                         return (
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold ${funnel.color}`}>
-                            🎯 {funnel.label}
+                            <Target size={12} className="mr-1 inline" />{funnel.label}
                           </span>
                         );
                       })()}
@@ -758,7 +759,7 @@ export default function PublicMonthlyApproval() {
                       <div>
                         <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-wider font-mono mb-1">Góc sáng tạo (Creative Angle)</span>
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-50 border border-purple-100 text-[10px] text-purple-755 font-bold leading-normal whitespace-normal break-words">
-                          📐 {activeSlot.variant}
+                          <Ruler size={12} className="mr-1 inline" />{activeSlot.variant}
                         </span>
                       </div>
                     )}

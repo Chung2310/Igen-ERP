@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, AlertTriangle, Info, XCircle, X, Wallet } from 'lucide-react';
 import { getApiErrorMessage } from "../utils/errorMessage";
+import { cn } from "../modules/student-management/lib/utils";
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -16,6 +17,7 @@ const TOAST_EVENT = 'igen-toast-trigger';
 /**
  * Trình phát sự kiện Toast thông minh sử dụng CustomEvent
  */
+// eslint-disable-next-line react-refresh/only-export-components -- Keep the existing shared toast event API alongside its renderer.
 export const toast = {
   success: (message: string, duration = 4000) => {
     window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { message, type: 'success', duration } }));
@@ -34,15 +36,39 @@ export const toast = {
 /**
  * Hộp chứa Toast hiển thị ở góc màn hình
  */
-export function ToastContainer() {
+export function ToastContainer({ dialogRef }: { dialogRef?: React.RefObject<HTMLDialogElement | null> } = {}) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const pendingDialogToasts = useRef(new Map<string, ToastItem & { expiresAt: number }>());
 
   useEffect(() => {
+    const pending = pendingDialogToasts.current;
+    const scope = dialogRef?.current;
+    const previousScopeMarker = scope?.getAttribute('data-dialog-toast-scope');
+    scope?.setAttribute('data-dialog-toast-scope', 'true');
     const handleToastEvent = (e: Event) => {
+      const focusedDialog = document.activeElement?.closest<HTMLDialogElement>('dialog:modal');
+      const activeDialog = focusedDialog || Array.from(document.querySelectorAll<HTMLDialogElement>('dialog:modal')).at(-1);
+      // Window is itself the event target; its older global listener may run
+      // before a scoped listener. Leave marked dialogs to their own renderer.
+      if (!dialogRef && activeDialog?.hasAttribute('data-dialog-toast-scope')) return;
+      if (dialogRef) {
+        const dialog = dialogRef.current;
+        if (!dialog?.open || activeDialog !== dialog) return;
+        // Route feedback into the browser's active modal layer before the
+        // global listener sees it, keeping the notification visible and unique.
+        e.stopImmediatePropagation();
+      }
       const customEvent = e as CustomEvent<{ message: string; type: ToastType; duration?: number }>;
       const { message, type, duration = 4000 } = customEvent.detail;
       
       const newId = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      if (dialogRef) {
+        if (message.includes("Phân hệ chưa được kích hoạt") && localStorage.getItem("hide_module_disabled_toast") === "true") return;
+        if (Array.from(pending.values()).some((item) => item.message === message)) return;
+        // Record synchronously: closing a form and emitting success may be
+        // batched before this container gets another render.
+        pending.set(newId, { id: newId, message, type, duration, expiresAt: Date.now() + duration });
+      }
 
       setToasts((prev) => {
         if (message.includes("Phân hệ chưa được kích hoạt") && localStorage.getItem("hide_module_disabled_toast") === "true") {
@@ -62,27 +88,46 @@ export function ToastContainer() {
 
         // Tự động đóng sau khoảng thời gian duration
         setTimeout(() => {
-          removeToast(newId);
+          pending.delete(newId);
+          setToasts((current) => current.filter((item) => item.id !== newId));
         }, duration);
 
         return [...prev, newToast];
       });
     };
 
-    window.addEventListener(TOAST_EVENT, handleToastEvent);
+    window.addEventListener(TOAST_EVENT, handleToastEvent, Boolean(dialogRef));
     return () => {
-      window.removeEventListener(TOAST_EVENT, handleToastEvent);
+      window.removeEventListener(TOAST_EVENT, handleToastEvent, Boolean(dialogRef));
+      if (scope) {
+        if (previousScopeMarker == null) scope.removeAttribute('data-dialog-toast-scope');
+        else scope.setAttribute('data-dialog-toast-scope', previousScopeMarker);
+      }
+      if (!dialogRef || pending.size === 0) return;
+      const remaining = Array.from(pending.values());
+      pending.clear();
+      // A closing modal hands feedback to its parent or the global renderer.
+      // Preserve the original expiry rather than restarting its lifetime.
+      queueMicrotask(() => {
+        remaining.forEach(({ message, type, expiresAt }) => {
+          const duration = expiresAt - Date.now();
+          if (duration > 0) window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { message, type, duration } }));
+        });
+      });
     };
-  }, []);
+  }, [dialogRef]);
 
   const removeToast = (id: string) => {
+    pendingDialogToasts.current.delete(id);
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-6 right-6 z-100 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+    <div className={cn("fixed flex flex-col gap-3 pointer-events-none", dialogRef
+      ? "inset-x-3 top-3 z-200 sm:inset-x-auto sm:right-6 sm:top-6 sm:w-full sm:max-w-sm"
+      : "top-6 right-6 z-100 max-w-sm w-full")}>
       {toasts.map((t) => {
         let bgColor = 'bg-white';
         let borderColor = 'border-slate-200';
@@ -155,6 +200,8 @@ export function ToastContainer() {
               )}
             </div>
             <button
+              type="button"
+              aria-label="Đóng thông báo"
               onClick={() => removeToast(t.id)}
               className="text-slate-400 hover:text-slate-650 transition-colors cursor-pointer shrink-0"
             >

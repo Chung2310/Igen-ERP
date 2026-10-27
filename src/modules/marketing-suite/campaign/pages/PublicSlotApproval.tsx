@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Check, X, Loader2, Facebook, Calendar, AlertCircle, MessageSquare } from 'lucide-react';
+import { Check, X, Loader2, Facebook, Calendar, AlertCircle, MessageSquare, Building2, Target, Ruler, Heart, Zap, Music2, Globe2, ThumbsUp, Share2 } from 'lucide-react';
 import { marketingCampaignService, CampaignSlot, MarketingContent, MarketingCampaignSummary } from '../services/marketingCampaignService';
 import { BRAND_LOGO_PATH, BRAND_NAME } from '../../shared/config/brand';
+import '../../shared/marketing-workspace.css';
 
 // Custom SVG icon for TikTok
 const TikTokIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -119,10 +120,10 @@ export default function PublicSlotApproval() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f6f8fd] text-slate-800 flex flex-col items-center justify-center font-sans">
+      <div className="marketing-workspace min-h-screen bg-[#f6f8fd] text-slate-800 flex flex-col items-center justify-center font-sans">
         <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-4" />
         <p className="text-sm font-semibold tracking-wider text-slate-500 animate-pulse">
-          ĐANG TẢI NỘI DUNG BÀI VIẾT...
+          Đang tải nội dung bài viết...
         </p>
       </div>
     );
@@ -130,7 +131,7 @@ export default function PublicSlotApproval() {
 
   if (error && !actionSuccess) {
     return (
-      <div className="min-h-screen bg-[#f6f8fd] text-slate-800 flex items-center justify-center p-4 font-sans">
+      <div className="marketing-workspace min-h-screen bg-[#f6f8fd] text-slate-800 flex items-center justify-center p-4 font-sans">
         <div className="max-w-md w-full bg-white border border-slate-200/80 rounded-2xl p-6 text-center shadow-xl">
           <AlertCircle className="h-14 w-14 text-rose-500 mx-auto mb-4" />
           <h2 className="text-lg font-bold text-slate-900 mb-2">Đã xảy ra lỗi</h2>
@@ -145,7 +146,7 @@ export default function PublicSlotApproval() {
 
   if (actionSuccess) {
     return (
-      <div className="min-h-screen bg-[#f6f8fd] text-slate-800 flex items-center justify-center p-4 font-sans">
+      <div className="marketing-workspace min-h-screen bg-[#f6f8fd] text-slate-800 flex items-center justify-center p-4 font-sans">
         <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-xl">
           {actionSuccess === 'approved' ? (
             <>
@@ -184,14 +185,14 @@ export default function PublicSlotApproval() {
   const isPending = slot?.status === 'pending_approval';
 
   return (
-    <div className="min-h-screen bg-[#f6f8fd] text-slate-800 flex flex-col font-sans">
+    <div className="marketing-workspace min-h-screen bg-[#f6f8fd] text-slate-800 flex flex-col font-sans">
       {/* Top Banner */}
       <header className="border-b border-slate-200 bg-white/85 backdrop-blur-md px-6 py-4 flex items-center justify-between select-none">
         <div className="flex items-center gap-3">
           <img src={BRAND_LOGO_PATH} alt={BRAND_NAME} className="h-9 w-9 rounded-xl border border-slate-200/60 object-cover shadow-md" />
           <div>
             <h1 className="text-sm font-black tracking-wide text-slate-900 uppercase">{BRAND_NAME}</h1>
-            <p className="text-[10px] text-slate-500 font-bold tracking-wider">CỔNG PHÊ DUYỆT BÀI ĐĂNG NGOÀI HỆ THỐNG</p>
+            <p className="text-[10px] text-slate-500 font-bold tracking-wider">Cổng phê duyệt bài đăng ngoài hệ thống</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -239,7 +240,7 @@ export default function PublicSlotApproval() {
                     </>
                   ) : (
                     <>
-                      <Facebook size={13} className="text-blue-550 fill-blue-500/10" />
+                      <Facebook size={13} className="text-[#1877f2] fill-[#1877f2]/10" />
                       Facebook
                     </>
                   )}
@@ -248,7 +249,7 @@ export default function PublicSlotApproval() {
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">Pillar:</span>
                 <span className="font-bold text-indigo-755 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded text-[10px]">
-                  🏢 {slot?.pillar}
+                  <Building2 size={12} className="mr-1 inline" />{slot?.pillar}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -257,7 +258,7 @@ export default function PublicSlotApproval() {
                   const funnel = getFunnelStage(slot?.objective || '');
                   return (
                     <span className={`font-bold px-2 py-0.5 rounded text-[10px] border ${funnel.color}`}>
-                      🎯 {funnel.label}
+                      <Target size={12} className="mr-1 inline" />{funnel.label}
                     </span>
                   );
                 })()}
@@ -266,7 +267,7 @@ export default function PublicSlotApproval() {
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500 font-medium">Góc tiếp cận:</span>
                   <span className="font-bold text-purple-755 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded text-[10px]">
-                    📐 {slot.variant}
+                    <Ruler size={12} className="mr-1 inline" />{slot.variant}
                   </span>
                 </div>
               )}
@@ -392,15 +393,15 @@ export default function PublicSlotApproval() {
                   <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-rose-500 text-white rounded-full text-[9px] px-1 font-bold shadow-md">+</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-2xl">❤️</span>
+                  <Heart size={25} fill="currentColor" />
                   <span className="text-[10px] font-bold mt-0.5">0</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-2xl">💬</span>
+                  <MessageSquare size={25} fill="currentColor" />
                   <span className="text-[10px] font-bold mt-0.5">0</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-2xl">⚡</span>
+                  <Zap size={25} fill="currentColor" />
                   <span className="text-[10px] font-bold mt-0.5">0</span>
                 </div>
               </div>
@@ -412,7 +413,7 @@ export default function PublicSlotApproval() {
                   {content?.bodyText}
                 </p>
                 <div className="flex items-center gap-1.5 mt-2.5 text-[10px] text-slate-350">
-                  <span>🎵</span>
+                  <Music2 size={13} />
                   <span className="truncate font-mono">Âm thanh nguyên bản - iGen Studio AI</span>
                 </div>
               </div>
@@ -434,7 +435,7 @@ export default function PublicSlotApproval() {
                       {campaign?.title || 'Trang Facebook'}
                     </span>
                     <span className="flex items-center gap-1 text-[10px] text-slate-400 font-semibold mt-0.5">
-                      {displayTime} · 🌐
+                      {displayTime} · <Globe2 size={12} />
                     </span>
                   </div>
                 </div>
@@ -462,7 +463,7 @@ export default function PublicSlotApproval() {
               {/* FB Mock Statistics */}
               <div className="px-4 py-2.5 flex items-center justify-between border-b border-slate-100 text-[10px] text-slate-450 font-semibold select-none">
                 <div className="flex items-center gap-1.5">
-                  <span className="flex items-center justify-center h-4.5 w-4.5 rounded-full bg-blue-600 text-white text-[8px] font-bold shadow-xs">👍</span>
+                  <span className="flex items-center justify-center h-4.5 w-4.5 rounded-full bg-blue-600 text-white shadow-xs"><ThumbsUp size={11} /></span>
                   <span>0 lượt thích</span>
                 </div>
                 <div className="flex gap-2">
@@ -474,13 +475,13 @@ export default function PublicSlotApproval() {
               {/* FB Action Buttons Mock */}
               <div className="px-1 py-1 grid grid-cols-3 gap-1 text-slate-500 font-bold text-[10px] select-none">
                 <button type="button" className="py-2.5 hover:bg-slate-50 rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer">
-                  👍 Thích
+                  <ThumbsUp size={13} />Thích
                 </button>
                 <button type="button" className="py-2.5 hover:bg-slate-50 rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer">
-                  💬 Bình luận
+                  <MessageSquare size={13} />Bình luận
                 </button>
                 <button type="button" className="py-2.5 hover:bg-slate-50 rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer">
-                  ➡️ Chia sẻ
+                  <Share2 size={13} />Chia sẻ
                 </button>
               </div>
             </div>
