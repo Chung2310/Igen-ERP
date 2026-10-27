@@ -3,6 +3,7 @@ import { apiFetch } from "../modules/shared/lib/apiFetch";
 export type RepairStatus = "received" | "diagnosing" | "quoted" | "approved" | "repairing" | "waiting_parts" | "waiting_supplier" | "done" | "delivered" | "cancelled" | "returned";
 export interface RepairTicket { _id: string; ticketCode: string; status: RepairStatus; customerId: string; customerName: string; customerPhone: string; retailPartnerId?: string; retailPartnerSnapshot?: { partnerId: string; code: string; name: string }; device: { productId?: string; name: string; serialNumber?: string; imei?: string; condition: string; accessories: string[] }; coverage: { customer: { covered: boolean; startAt?: string; endAt?: string; daysLeft?: number }; supplier: { covered: boolean; startAt?: string; endAt?: string; daysLeft?: number; supplierName?: string }; costBearer: string; checkedAt: string }; symptom: string; diagnosis?: string; laborFee: number; partCost: number; discountAmount: number; totalAmount: number; paidAmount: number; dueAmount: number; paymentStatus: string; quotedAmount?: number; receivedAt: string; promisedAt?: string; completedAt?: string; deliveredAt?: string; statusHistory?: Array<{ from?: string; to: string; at: string; byName: string; note?: string; customerNotified?: boolean; technicianName?: string }>; partRevenue?: number; technicianId?: string; technicianName?: string; assignedAt?: string }
 type Envelope<T> = { success: boolean; data: T };
+export interface RepairTicket { ticketType?: 'service' | 'warranty'; subjectType?: 'product' | 'equipment' | 'service'; intakeSource?: 'external' | 'company_sale'; customerCode?: string; warrantyEvidence?: { reference: string; endAt: string; verifiedBy: string; verifiedAt: string } }
 const root = "/repair/tickets";
 export const repairService = {
   async list(params: Record<string, string | number | undefined> = {}) { return (await apiFetch<Envelope<{ items: RepairTicket[]; total: number; page: number; limit: number }>>(root, { params })).data; },
@@ -36,6 +37,7 @@ export const repairService = {
 };
 
 export type RepairPartBilling = "customer" | "warranty_shop" | "warranty_supplier";
+export interface RepairPart { unitCode?: string }
 export interface RepairPart { _id: string; sku: string; productName: string; quantity: number; unitCost: number; unitPrice: number; lineTotal: number; billing: RepairPartBilling; chargeable: boolean; manual?: boolean; status: string; issuedAt: string; issuedByName: string; returnReason?: string }
 export interface RepairNotification { _id: string; event: string; channel?: string; recipient?: string; status: "sent" | "failed" | "skipped"; reason?: string; sentAt: string }
 export interface RepairRevenueRow { key: string; branchId?: string; ticketCount: number; warrantyTicketCount: number; laborRevenue: number; partRevenue: number; revenue: number; collected: number; outstanding: number; technicianName?: string; partCost?: number; warrantyPartCost?: number; grossProfit?: number }

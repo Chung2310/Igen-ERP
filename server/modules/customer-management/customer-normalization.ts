@@ -52,6 +52,10 @@ export function normalizeCustomerInput(input: CustomerInput | Record<string, unk
 
   const type = String(input.type ?? "regular") as CustomerType;
   if (!CUSTOMER_TYPES.has(type)) throw new CustomerError("CUSTOMER_TYPE_INVALID", "Loại khách hàng không hợp lệ.");
+  const customerKind = optional(input.customerKind);
+  if (customerKind && !["individual", "business"].includes(customerKind)) throw new CustomerError("CUSTOMER_KIND_INVALID", "Chọn khách hàng cá nhân hoặc doanh nghiệp.");
+  const contactName = String(input.contactName ?? "").trim();
+  if (contactName.length > 200) throw new CustomerError("CUSTOMER_CONTACT_INVALID", "Tên người liên hệ tối đa 200 ký tự.");
 
   const genderText = optional(input.gender);
   const gender = genderText as CustomerGender | undefined;
@@ -73,6 +77,8 @@ export function normalizeCustomerInput(input: CustomerInput | Record<string, unk
     name,
     phone,
     normalizedPhone,
+    ...(customerKind ? { customerKind: customerKind as "individual" | "business" } : {}),
+    ...(input.contactName !== undefined ? { contactName } : {}),
     ...(email ? { email } : {}),
     ...(dateOfBirth ? { dateOfBirth } : {}),
     ...(gender ? { gender } : {}),

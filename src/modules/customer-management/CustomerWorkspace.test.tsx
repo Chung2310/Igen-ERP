@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { customerApi } from "./customerApi";
 import { retailCustomerApi } from "./retailCustomerApi";
@@ -52,6 +52,37 @@ describe("CustomerWorkspace purchase history", () => {
 });
 
 describe("CustomerWorkspace", () => {
+  it("clears the previous branch's customer and open form when scope changes", async () => {
+    const view = render(<CustomerWorkspace />);
+    await screen.findByText("Nguyễn Văn An");
+    fireEvent.click(screen.getByRole("button", { name: "Chi tiết Nguyễn Văn An" }));
+    await screen.findByRole("heading", { name: "Nguyễn Văn An" });
+    fireEvent.click(screen.getByRole("button", { name: "Sửa hồ sơ" }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+
+    activeBranchId = "b2";
+    view.rerender(<CustomerWorkspace />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Nguyễn Văn An" })).toBeNull();
+    await screen.findByRole("button", { name: "Chi tiết Nguyễn Văn An" });
+    fireEvent.click(screen.getByRole("button", { name: "Chi tiết Nguyễn Văn An" }));
+    await waitFor(() => expect(customerApi.purchaseHistory).toHaveBeenLastCalledWith("c1", { companyCode: "IGEN", branchId: "b2" }));
+  });
+
+  it("ignores an older customer list response after the filter changes", async () => {
+    let resolveOld!: (value: Awaited<ReturnType<typeof customerApi.list>>) => void;
+    vi.mocked(customerApi.list).mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve; }));
+    const inactive = { ...customer, _id: "c2", name: "Khách ngừng giao dịch", status: "inactive" as const };
+    vi.mocked(customerApi.list).mockResolvedValue({ items: [inactive], total: 1, page: 1, limit: 20 });
+    render(<CustomerWorkspace />);
+    await waitFor(() => expect(customerApi.list).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText("Trạng thái"), { target: { value: "inactive" } });
+    await screen.findByText(inactive.name);
+    await act(async () => { resolveOld({ items: [customer], total: 1, page: 1, limit: 20 }); });
+    expect(screen.getByText(inactive.name)).toBeTruthy();
+    expect(screen.queryByText(customer.name)).toBeNull();
+  });
+
   it("loads company-wide active customers and offers management actions", async () => {
     render(<CustomerWorkspace />);
     expect(await screen.findByText("Nguyễn Văn An")).toBeTruthy();
@@ -121,8 +152,8 @@ describe("CustomerWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Thêm khách hàng" }));
     fireEvent.change(screen.getByRole("textbox", { name: /Họ và tên/ }), { target: { value: "Công ty An" } });
     fireEvent.change(screen.getByRole("textbox", { name: /Số điện thoại/ }), { target: { value: "0901000002" } });
-    fireEvent.click(screen.getByRole("button", { name: "Loại khách" }));
-    fireEvent.click(within(screen.getByRole("listbox", { name: "Chọn loại khách" })).getByRole("option", { name: "Khách xuất VAT" }));
+    fireEvent.click(screen.getByRole("button", { name: "Chế độ hóa đơn" }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Chọn chế độ hóa đơn" })).getByRole("option", { name: "Khách xuất VAT" }));
     fireEvent.change(screen.getByRole("textbox", { name: /Tên pháp nhân/ }), { target: { value: "Công ty An" } });
     fireEvent.change(screen.getByRole("textbox", { name: /Mã số thuế/ }), { target: { value: "0123456789" } });
     fireEvent.change(screen.getByRole("textbox", { name: /Địa chỉ hóa đơn/ }), { target: { value: "Hà Nội" } });

@@ -14,6 +14,14 @@ import type { BillingProfileInput, Customer, CustomerInput, CustomerStatus, Cust
 const emptyResult: PaginatedCustomers = { items: [], total: 0, page: 1, limit: 20 };
 
 export default function CustomerWorkspace() {
+  const { user, userProfile } = useAuth();
+  const { activeBranchId } = useBranch();
+  const companyCode = userProfile?.companyCode || '';
+  if (!companyCode) return <p role="status" className="text-sm text-on-surface-variant">Chọn doanh nghiệp để quản lý khách hàng.</p>;
+  return <CustomerWorkspaceContent key={`${companyCode}:${activeBranchId}:${user?.uid || userProfile?.email || ''}`} />;
+}
+
+function CustomerWorkspaceContent() {
   const { userProfile } = useAuth();
   const { activeBranchId } = useBranch();
   const companyCode = userProfile?.companyCode?.trim().toUpperCase() || "";
@@ -32,6 +40,8 @@ export default function CustomerWorkspace() {
   const [selected, setSelected] = React.useState<Customer | null>(null);
   const [editing, setEditing] = React.useState<Customer | "new" | null>(null);
   const [error, setError] = React.useState("");
+  const listRequest = React.useRef(0);
+  const detailRequest = React.useRef(0);
   const [settingsMessage, setSettingsMessage] = React.useState("");
 
   // Settings state
@@ -41,10 +51,14 @@ export default function CustomerWorkspace() {
 
   const load = React.useCallback(async () => {
     if (!companyCode) return;
+    const requestId = ++listRequest.current;
     try {
-      setResult(await customerApi.list({ companyCode, q: debouncedQuery, status, type: type || undefined, page, limit: 20 }));
+      const nextResult = await customerApi.list({ companyCode, q: debouncedQuery, status, type: type || undefined, page, limit: 20 });
+      if (requestId !== listRequest.current) return;
+      setResult(nextResult);
       setError("");
     } catch (cause) {
+      if (requestId !== listRequest.current) return;
       setError(cause instanceof Error ? cause.message : "Không tải được danh sách khách hàng.");
     }
   }, [companyCode, debouncedQuery, status, type, page]);
@@ -72,8 +86,9 @@ export default function CustomerWorkspace() {
   }, [activeTab, load, loadSettings]);
 
   const openDetail = async (customer: Customer) => {
-    try { setSelected(await customerApi.detail(customer._id, companyCode)); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Không tải được hồ sơ khách hàng."); }
+    const requestId = ++detailRequest.current;
+    try { const detail = await customerApi.detail(customer._id, companyCode); if (requestId === detailRequest.current) setSelected(detail); }
+    catch (cause) { if (requestId === detailRequest.current) setError(cause instanceof Error ? cause.message : "Không tải được hồ sơ khách hàng."); }
   };
 
   const handleUpdateTier = (index: number, field: "code" | "name" | "minSpend", value: any) => {
@@ -149,7 +164,7 @@ export default function CustomerWorkspace() {
       canRetailRead={canRetailRead}
       canManagePoints={canManagePoints}
       actionError={error}
-      onBack={() => setSelected(null)}
+      onBack={() => { detailRequest.current++; setSelected(null); }}
       onEdit={() => setEditing(selected)}
       onBillingProfileCreated={async () => {
         await load();

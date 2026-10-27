@@ -84,6 +84,7 @@ export function createCustomerService(repository: CustomerRepository) {
       try {
         return await repository.create({
           ...values,
+          customerKind: values.customerKind || "individual",
           source: values.source || "manual",
           companyCode: scope.companyCode,
           customerCode: formatCustomerCode(scope.companyCode, sequence),

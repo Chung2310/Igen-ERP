@@ -1,6 +1,6 @@
 import { Document } from "mongoose";
 
-export type WarehouseKind = "selling" | "central" | "defective" | "warranty" | "other";
+export type WarehouseKind = "selling" | "central" | "defective" | "warranty" | "other" | "transit";
 export type InventoryMovementDirection = "in" | "out";
 export type InventoryMovementPurpose = "sale" | "cancel" | "purchase" | "sales-return" | "supplier-return" | "transfer" | "count" | "count_adjustment" | "opening" | "other";
 export type SupplierStatus = "active" | "inactive";

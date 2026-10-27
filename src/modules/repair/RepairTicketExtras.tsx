@@ -4,6 +4,7 @@ import { apiFetch } from "../shared/lib/apiFetch";
 import { repairExtras, repairService, type RepairNotification, type RepairPart, type RepairPartBilling, type RepairRatingCriteria, type RepairTicket } from "../../services/repairService";
 import RepairCarePanel from "./RepairCarePanel";
 import RepairPaymentSummary from "./RepairPaymentSummary";
+import GeneralRepairMaterials from './GeneralRepairMaterials';
 
 const money = (value: number) => Number(value || 0).toLocaleString("vi-VN");
 const date = (value?: string) => (value ? new Date(value).toLocaleString("vi-VN") : "—");
@@ -175,19 +176,19 @@ function PartsSection({ ticket, onChanged }: { ticket: RepairTicket; onChanged: 
     }
   };
 
-  return <Section title="Thiết bị thay thế (xuất từ kho)">
+  return <Section title={ticket.intakeSource ? 'Vật tư sử dụng' : 'Thiết bị thay thế (xuất từ kho)'}>
     {parts.length ? <div className="overflow-x-auto"><table className="w-full text-xs">
       <thead><tr className="text-left text-slate-500"><th className="py-1">Linh kiện</th><th>SL</th><th>Diện chi phí</th><th className="text-right">Khách trả</th><th>Trạng thái</th><th></th></tr></thead>
       <tbody>{parts.map((part) => <tr key={part._id} className="border-t">
         <td className="py-1"><b>{part.productName}</b>{part.manual && <span className="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700">Thủ công</span>}<div className="text-slate-400">{part.sku}</div></td>
-        <td>{part.quantity}</td>
+        <td>{part.quantity}{ticket.intakeSource && part.unitCode ? ` ${part.unitCode}` : ''}</td>
         <td><span className={`rounded px-2 py-0.5 ${part.chargeable ? "bg-slate-100" : "bg-emerald-50 text-emerald-700"}`}>{BILLING_LABEL[part.billing] || part.billing}</span></td>
         <td className="text-right">{part.chargeable ? money(part.lineTotal) : "0"}</td>
         <td>{part.status === "issued" ? "Đã xuất" : part.status === "returned" ? "Đã hoàn" : "Đã huỷ"}</td>
         <td>{part.status === "issued" && <button type="button" disabled={busyId === part._id} onClick={() => void returnPart(part)} className="rounded border px-2 py-1 text-[11px] text-rose-700 disabled:opacity-50">Hoàn</button>}</td>
       </tr>)}</tbody>
     </table></div> : <p className="text-xs text-slate-500">Chưa xuất linh kiện nào cho phiếu này.</p>}
-    {canIssue ? <IssuePartForm ticket={ticket} onIssued={() => { void load(); onChanged(); }} /> : <p className="mt-2 text-[11px] text-slate-400">Chỉ xuất được thiết bị thay thế khi phiếu đã được duyệt hoặc đang sửa.</p>}
+    {canIssue ? (ticket.intakeSource ? <GeneralRepairMaterials ticket={ticket} onIssued={() => { void load(); onChanged(); }} /> : <IssuePartForm ticket={ticket} onIssued={() => { void load(); onChanged(); }} />) : <p className="mt-2 text-[11px] text-slate-400">Chỉ xuất được thiết bị thay thế khi phiếu đã được duyệt hoặc đang sửa.</p>}
   </Section>;
 }
 

@@ -23,6 +23,8 @@ import { ViewToggle } from "../components/inventory/ViewToggle";
 import { ProductCatalogV2Section } from "../components/inventory/ProductCatalogV2Section";
 import { WarehouseSection } from "../components/inventory/WarehouseSection";
 import { InventoryTransfersSection } from "../components/inventory/InventoryTransfersSection";
+import { InventoryReconciliationSection } from "../components/inventory/InventoryReconciliationSection";
+import { StockLogReversalControl } from "../components/inventory/StockLogReversalControl";
 import { ReceivingSection } from "../components/inventory/ReceivingSection";
 import { cn } from "../modules/student-management/lib/utils";
 
@@ -711,6 +713,7 @@ export default function InventoryTab() {
               { id: "NHẬP HÀNG", label: "Nhập hàng", icon: ArrowDownRight },
               { id: "XUẤT HÀNG", label: "Xuất hàng", icon: ArrowUpRight },
               { id: "ĐIỀU CHUYỂN", label: "Điều chuyển", icon: ArrowLeftRight },
+              { id: "ĐỐI SOÁT TỒN KHO", label: "Đối soát tồn kho", icon: CheckCircle },
               { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ArrowLeftRight },
               { id: "DỰ BÁO", label: "Dự báo", icon: Sparkles },
             ].map((tab) => {
@@ -750,6 +753,7 @@ export default function InventoryTab() {
           setSubTab("XUẤT HÀNG");
         }} />}
         {subTab === "ĐIỀU CHUYỂN" && <InventoryTransfersSection />}
+        {subTab === "ĐỐI SOÁT TỒN KHO" && <InventoryReconciliationSection />}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
@@ -944,6 +948,7 @@ export default function InventoryTab() {
               onUpdateStatus={handleQuickUpdateTransactionStatus}
               onDeleteTransaction={handleDeleteTransaction}
               outboundOnly
+              renderReversal={(log) => <StockLogReversalControl log={log} />}
               hideExcelActions
               initialWarehouseId={scopedOutboundPrefill?.warehouseId}
               initialSku={scopedOutboundPrefill?.sku}

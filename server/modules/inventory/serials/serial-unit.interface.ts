@@ -1,4 +1,4 @@
-export type SerialUnitStatus = "in_stock" | "in_transit" | "sold" | "returned" | "defective" | "repairing" | "scrapped" | "lost";
+export type SerialUnitStatus = "in_stock" | "in_transit" | "internal_use" | "sold" | "returned" | "defective" | "repairing" | "scrapped" | "lost";
 export interface SupplierWarranty { supplierId: string; supplierName: string; receiptId: string; receiptCode: string; months: number; startAt: Date; startSource: "receipt" | "manual"; endAt: Date }
 export interface CustomerWarranty { months: number; startAt: Date; endAt: Date; source: "variant" | "manual" | "inherited"; inheritedFromSerialUnitId?: string }
 
@@ -24,6 +24,7 @@ export interface ISerialUnit {
   status: SerialUnitStatus;
   currentDocumentType?: string;
   currentDocumentId?: string;
+  internalUse?: { recipientName: string; issuedAt: Date; stockLogId: string; unitCost: number };
   customerId?: string;
   supplierWarranty?: SupplierWarranty;
   customerWarranty?: CustomerWarranty;

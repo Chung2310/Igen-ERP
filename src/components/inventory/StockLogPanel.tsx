@@ -64,6 +64,7 @@ type StockLogPanelProps = {
   initialWarehouseId?: string;
   initialSku?: string;
   openOnMountKey?: number;
+  renderReversal?: (log: StockLog) => React.ReactNode;
 };
 
 function formatNumber(value: number) {
@@ -95,7 +96,7 @@ function getTypeKey(type: StockLog["type"]) {
   return String(type).toLowerCase().startsWith("x") ? "outbound" : "inbound";
 }
 
-function getLogItems(log: StockLog): Array<{ productId?: string; variantId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }> {
+function getLogItems(log: StockLog): Array<{ productId?: string; variantId?: string; sku: string; productName: string; quantity: number; unitCode?: string; unitIdentifiers?: string[]; serialNumbers?: string[] }> {
   const typedLog = log as StockLog & {
     items?: Array<{ productId?: string; variantId?: string; sku: string; productName: string; quantity: number; unitIdentifiers?: string[]; serialNumbers?: string[] }>;
   };
@@ -134,6 +135,7 @@ export function StockLogPanel({
   initialWarehouseId,
   initialSku,
   openOnMountKey,
+  renderReversal,
 }: StockLogPanelProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -429,7 +431,7 @@ export function StockLogPanel({
       type: draftType,
       purpose: draftType === "xuất" ? draftPurpose : undefined,
       customerId: draftType === "xuất" && draftPurpose === "bán" ? draftCustomerId : undefined,
-      customerName: draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "chuyển kho") ? draftCustomerName.trim() : undefined,
+      customerName: draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "nội bộ") ? draftCustomerName.trim() : undefined,
       title: draftTitle.trim(),
       operatorName: draftOperator.trim(),
       notes: draftNotes.trim(),
@@ -542,6 +544,8 @@ export function StockLogPanel({
           ) : filteredLogs.map((log) => {
             const items = getLogItems(log);
             const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+            const units = new Set(items.map((item) => item.unitCode || 'đơn vị'));
+            const mixedUnits = units.size > 1;
             const previewText = items.map((item) => item.productName).join(", ");
             const isInbound = log.type === "nhập";
             const status = getLogStatus(log);
@@ -592,11 +596,12 @@ export function StockLogPanel({
 
                 <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
                   <div className={`text-right text-xl font-medium ${isInbound ? "text-emerald-600" : "text-rose-600"}`}>
-                    {isInbound ? "+" : "-"}
-                    {formatNumber(totalQuantity)}
-                    <span className="ml-1 text-sm font-semibold text-gray-400">sp</span>
+                    {!mixedUnits && (isInbound ? "+" : "-")}
+                    {formatNumber(mixedUnits ? items.length : totalQuantity)}
+                    <span className="ml-1 text-sm font-semibold text-gray-400">{mixedUnits ? 'dòng hàng' : [...units][0]}</span>
                   </div>
                   <div className="flex items-center gap-2">
+                    {!readOnly && renderReversal?.(log)}
                     {!readOnly && status !== "Hoàn thành" && <button
                       type="button"
                       onClick={() => openEditModal(log)}
@@ -719,9 +724,9 @@ export function StockLogPanel({
                     />
                   </div>
                 )}
-                {draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "chuyển kho") && (
+                {draftType === "xuất" && (draftPurpose === "bán" || draftPurpose === "nội bộ") && (
                   <label className="space-y-1.5 md:col-span-2">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{draftPurpose === "chuyển kho" ? "Kho / chi nhánh nhận" : "Khách hàng"}</span>
+                    <span className="text-sm text-on-surface-variant">{draftPurpose === "nội bộ" ? "Người / bộ phận nhận hàng" : "Khách hàng"}</span>
                     {draftPurpose === "bán" ? (
                       <StockOutCustomerPicker
                         customerId={draftCustomerId}
@@ -736,7 +741,8 @@ export function StockLogPanel({
                         type="text"
                         value={draftCustomerName}
                         onChange={(event) => setDraftCustomerName(event.target.value)}
-                        placeholder="Ví dụ: Kho trung tâm hoặc Chi nhánh Quận 1"
+                        required
+                        placeholder="Ví dụ: Bộ phận vận hành"
                         className="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15"
                       />
                     )}

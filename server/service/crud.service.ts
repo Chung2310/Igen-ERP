@@ -21,6 +21,7 @@ import { ProductVariantModel } from "../model/product-variant.model";
 import { SerialUnitModel } from "../modules/inventory/serials/serial-unit.model";
 import { SerialEventModel } from "../modules/inventory/serials/serial-event.model";
 import { runInventoryTransaction } from "../integrations/shared/inventory-transaction";
+import { WarehouseModel } from "../model/warehouse.model";
 
 type InventoryTransaction = { session?: mongoose.ClientSession };
 const completedStockLog = (status: unknown) => status === "Hoàn thành" || status === "Thành công";
@@ -32,6 +33,9 @@ async function updateStockLogSerials(companyCode: string, branchId: string, ware
     const variant = item.variantId ? await ProductVariantModel.findOne({ _id: item.variantId, companyCode }).session(session || null).lean() : null;
     const identifiers = item.unitIdentifiers?.length ? item.unitIdentifiers : item.serialNumbers || [];
     const tracked = variant?.trackingMode === "serial" || variant?.trackingMode === "unit_barcode";
+    if (tracked && log.type === "nhập") throw Object.assign(new Error("Hàng theo từng đơn vị cần nhập bằng phiếu nhập hàng hoặc chứng từ hoàn trả."), { statusCode: 400 });
+    if (!tracked && identifiers.length) throw Object.assign(new Error("SKU quản lý số lượng không nhận danh sách sê-ri/mã đơn vị."), { statusCode: 400 });
+    if (tracked && log.type === "xuất" && log.purpose === "nội bộ" && !String(log.customerName || "").trim()) throw Object.assign(new Error("Vui lòng nhập người hoặc bộ phận nhận hàng nội bộ."), { statusCode: 400 });
     if (!tracked && !identifiers.length) continue;
     const normalized = identifiers.map((value: unknown) => String(value).trim().toUpperCase());
     if (!Number.isSafeInteger(item.quantity) || normalized.length !== item.quantity || new Set(normalized).size !== normalized.length) {
@@ -48,7 +52,8 @@ async function updateStockLogSerials(companyCode: string, branchId: string, ware
         throw Object.assign(new Error(`IMEI ${unit.serialNumber} đã thay đổi trạng thái hoặc bị chọn trùng.`), { statusCode: 409 });
       }
       usedUnits.add(String(unit._id));
-      unit.status = log.type === "xuất" ? (log.purpose === "hủy" ? "scrapped" : "sold") : "in_stock";
+      unit.status = log.type === "xuất" ? (log.purpose === "hủy" ? "scrapped" : log.purpose === "nội bộ" ? "internal_use" : "sold") : "in_stock";
+      if (unit.status === "internal_use") unit.internalUse = { recipientName: String(log.customerName).trim(), issuedAt: new Date(), stockLogId: String(log._id), unitCost: Number(item.unitCost || 0) };
       unit.updatedBy = log.operatorName;
       unit.currentDocumentType = "manual-stock-log";
       unit.currentDocumentId = String(log._id);
@@ -223,6 +228,8 @@ async function prepareStockLogPayload(
       sku: (typeof item.sku === "string" && item.sku.trim()) || product.sku,
       productName: product.name || item.productName,
       category: product.category || item.category || "Chưa phân loại",
+      trackingMode: variant?.trackingMode || 'quantity',
+      unitCode: variant?.unitCode || product.unit || undefined,
       quantity,
       ...(Array.isArray(item.unitIdentifiers) && item.unitIdentifiers.length > 0
         ? { unitIdentifiers: [...new Set(item.unitIdentifiers.map((value: unknown) => String(value).trim()).filter(Boolean))] }
@@ -236,6 +243,9 @@ async function prepareStockLogPayload(
     };
   });
 
+  if (["refType", "refId", "reversalId", "reversalOf", "reversedAt", "createdById"].some((key) => Object.hasOwn(data, key))) throw Object.assign(new Error("Không được thay đổi liên kết chứng từ nguồn của phiếu kho."), { statusCode: 400 });
+  if (data.warehouseId && !await WarehouseModel.exists({ _id: data.warehouseId, companyCode, branchId, isActive: true, kind: { $ne: "transit" } })) throw Object.assign(new Error("Chọn kho đang hoạt động trong chi nhánh. Hàng vận chuyển chỉ xử lý qua phiếu điều chuyển."), { statusCode: 400 });
+  if (type === "xuất" && data.purpose === "chuyển kho") throw Object.assign(new Error("Hãy lập phiếu tại Điều chuyển để ghi nhận đầy đủ kho gửi và kho nhận."), { statusCode: 400 });
   return { ...data, purpose: type === "xuất" ? data.purpose : undefined, items };
 }
 

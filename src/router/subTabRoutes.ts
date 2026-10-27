@@ -37,6 +37,7 @@ export const INVENTORY_SUB_TAB_ROUTES: SubTabRouteMap<InventorySubTabType> = [
   { slug: "nhap-hang", value: "NHẬP HÀNG" },
   { slug: "xuat-hang", value: "XUẤT HÀNG" },
   { slug: "dieu-chuyen", value: "ĐIỀU CHUYỂN" },
+  { slug: "doi-soat-ton-kho", value: "ĐỐI SOÁT TỒN KHO" },
   { slug: "giao-dich-kho", value: "GIAO DỊCH KHO" },
   { slug: "du-bao", value: "DỰ BÁO" },
   { slug: "imei-serial", value: "IMEI / SERIAL" },

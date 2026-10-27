@@ -6,6 +6,8 @@ const CustomerSchema = new Schema<ICustomer>({
   branchId: { type: String, trim: true, index: true },
   customerCode: { type: String, required: true, trim: true },
   type: { type: String, enum: ["regular", "vat"], default: "regular", required: true },
+  customerKind: { type: String, enum: ["individual", "business"] },
+  contactName: { type: String, trim: true, maxlength: 200 },
   name: { type: String, required: true, trim: true },
   phone: { type: String, required: true, trim: true },
   normalizedPhone: { type: String, required: true, trim: true },
