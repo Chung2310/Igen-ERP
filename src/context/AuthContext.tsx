@@ -87,11 +87,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!userProfile) return;
-    const shouldLoadStudentSettings = userProfile.businessType === "education"
-      || (userProfile.businessType === undefined && checkModule(userProfile.enabledModules, "student"));
+    const shouldLoadStudentSettings = checkModule(userProfile.enabledModules, "student");
     if (!shouldLoadStudentSettings) return;
     void ensureEntityPresetLoaded();
-  }, [userProfile?.uid, userProfile?.companyCode, userProfile?.businessType, userProfile?.enabledModules]);
+  }, [userProfile?.uid, userProfile?.companyCode, userProfile?.enabledModules]);
   useEffect(() => {
     if (!userProfile?.companyCode) return;
     const companyCode = userProfile.companyCode.trim().toUpperCase();

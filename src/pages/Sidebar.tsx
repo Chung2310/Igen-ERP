@@ -85,8 +85,14 @@ const baseMenuItems: MenuItem[] = [
     group: "operations",
   },
   {
+    label: "ĐỐI TÁC LAO ĐỘNG",
+    title: "Đối tác lao động",
+    icon: Handshake,
+    group: "operations",
+  },
+  {
     label: "ĐỐI TÁC",
-    title: "Đối tác",
+    title: "Đối tác học viên",
     icon: Handshake,
     group: "operations",
   },
@@ -165,6 +171,7 @@ const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
   "TỔNG QUAN": ChartBarIcon,
   "NHÂN SỰ": UsersIcon,
   "ĐỐI TÁC": UsersThreeIcon,
+  "ĐỐI TÁC LAO ĐỘNG": UsersThreeIcon,
   "KHO & SẢN PHẨM": CubeIcon,
   "SỬA CHỮA & BẢO HÀNH": WrenchIcon,
   "QUẢN LÝ HỌC VIÊN": StudentIcon,
@@ -207,7 +214,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     .map((item) => {
       const requiredPerms = MODULE_READ_PERMISSIONS[item.label];
       const isPartnerAdmin =
-        item.label === "ĐỐI TÁC" &&
+        ["ĐỐI TÁC", "ĐỐI TÁC LAO ĐỘNG"].includes(item.label) &&
         (userProfile?.role === "admin" || userProfile?.role === "superadmin");
       const locked = item.label === "GÓI AI & LƯỢT SỬ DỤNG" ? !canViewAiSubscription(userProfile) : requiredPerms
         ? !isPartnerAdmin && !requiredPerms.some((code) => hasPermission(code))

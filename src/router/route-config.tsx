@@ -33,6 +33,12 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../pages/HRTab")),
   },
   {
+    tab: "ĐỐI TÁC LAO ĐỘNG",
+    component: lazy(() => import("../pages/WorkerPartnersTab")),
+    canAccess: (userProfile) => userProfile.role === "superadmin" || userProfile.role === "admin" ||
+      Boolean(userProfile.permissions?.some((permission) => ["*", "labor-partner:read", "labor-partner:manage"].includes(permission))),
+  },
+  {
     tab: "ĐỐI TÁC",
     component: lazy(() => import("../pages/PartnersTab")),
     canAccess: (userProfile) =>
@@ -41,9 +47,7 @@ export const APP_ROUTES: AppRoute[] = [
       Boolean(
         userProfile.permissions?.includes("*") ||
         userProfile.permissions?.some((permission) =>
-          userProfile.businessType === "labor"
-            ? ["labor-partner:read", "labor-partner:manage"].includes(permission)
-            : ["relationship:read", "relationship:manage"].includes(permission),
+           ["relationship:read", "relationship:manage"].includes(permission),
         ),
       ),
   },

@@ -32,7 +32,7 @@ export default function ErpConfigTab() {
     userProfile?.role === "superadmin" ||
     userProfile?.role === "admin" ||
     hasPermission("timekeeping:manage");
-  // Loại hình doanh nghiệp chỉ SuperAdmin sửa được; doanh nghiệp chỉ xem (chỉ-đọc)
+  // Doanh nghiệp xem các module đã được kích hoạt.
   const canViewStudentSettings =
     userProfile?.role === "superadmin" || userProfile?.role === "admin";
   const canManageSmtp = hasPermission("settings:manage");
