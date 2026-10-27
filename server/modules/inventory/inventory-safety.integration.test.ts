@@ -98,10 +98,10 @@ describe("inventory write safety", () => {
   });
 
   it("issues the selected serial once and prevents edits/deletion of posted logs", async () => {
-    const input = logInput({ items: [{ productId, variantId: serialVariantId, sku: "SERIAL", quantity: 1, unitIdentifiers: ["BC-IMEI-1"] }] });
+    const input = logInput({ customerName: 'Bộ phận vận hành', items: [{ productId, variantId: serialVariantId, sku: "SERIAL", quantity: 1, unitIdentifiers: ["BC-IMEI-1"] }] });
     const posted: any = await crudService.create("stock-logs", input, companyCode, branchId);
     expect((await balance(serialVariantId))?.quantity).toBe(1);
-    expect((await SerialUnitModel.findOne({ serialNumber: "IMEI-1" }).lean())?.status).toBe("sold");
+    expect(await SerialUnitModel.findOne({ serialNumber: "IMEI-1" }).lean()).toMatchObject({ status: 'internal_use', internalUse: { recipientName: 'Bộ phận vận hành', unitCost: 50 } });
     await expect(crudService.create("stock-logs", input, companyCode, branchId)).rejects.toMatchObject({ statusCode: 409 });
     await expect(crudService.update("stock-logs", String(posted._id), { status: "Đang chờ" }, companyCode, "admin", branchId)).rejects.toMatchObject({ statusCode: 409 });
     await expect(crudService.delete("stock-logs", String(posted._id), companyCode, "admin", branchId)).rejects.toMatchObject({ statusCode: 409 });

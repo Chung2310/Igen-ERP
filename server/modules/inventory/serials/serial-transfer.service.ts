@@ -4,9 +4,19 @@ import { randomUUID } from "node:crypto";
 import { requestInventoryTransfer, receiveInventoryTransfer, cancelInventoryTransfer } from "../transfers/transfer.service";
 import { ensureDefaultWarehouse } from "../warehouse/warehouse.service";
 import { runInventoryTransaction } from "../../../integrations/shared/inventory-transaction";
+import { InventoryTransferModel } from "../transfers/transfer.model";
 
 type Scope = { companyCode: string; branchId: string; warehouseId?: string };
 type Actor = { id: string; name: string };
+
+async function singleUnitDocument(scope: Scope, id: string, documentId: string, receiving: boolean) {
+  const transfer = await InventoryTransferModel.findOne({ _id: documentId, companyCode: scope.companyCode, [receiving ? "toBranchId" : "fromBranchId"]: scope.branchId }).lean();
+  if (!transfer || transfer.items.length !== 1 || transfer.items[0].quantity !== 1 || transfer.items[0].serialUnitIds.length !== 1 || transfer.items[0].serialUnitIds[0] !== id) {
+    throw Object.assign(new Error("Hãy nhận hoặc hủy nguyên phiếu tại mục Điều chuyển. Thao tác trên một đơn vị không được xử lý các hàng khác trong phiếu."), { statusCode: 409, code: "TRANSFER_DOCUMENT_REQUIRED" });
+  }
+  if (scope.warehouseId && scope.warehouseId !== (receiving ? transfer.toWarehouseId : transfer.fromWarehouseId)) throw Object.assign(new Error("Kho không khớp chứng từ điều chuyển."), { statusCode: 409 });
+  return transfer;
+}
 
 export async function requestSerialTransfer(scope: Scope, id: string, input: { toBranchId: string; toWarehouseId?: string; reason: string }, actor: Actor) {
   if (!input.toBranchId || !input.reason?.trim()) throw Object.assign(new Error("Chi nhánh nhận và lý do chuyển là bắt buộc."), { statusCode: 400 });
@@ -24,6 +34,8 @@ export async function requestSerialTransfer(scope: Scope, id: string, input: { t
 export async function acceptSerialTransfer(scope: Scope, id: string, input: { warehouseId?: string }, actor: Actor) {
   const pending = await SerialUnitModel.findOne({ _id: id, companyCode: scope.companyCode, transferToBranchId: scope.branchId, status: "in_transit" }).lean();
   if (pending?.currentDocumentType === "inventory-transfer" && pending.currentDocumentId) {
+    const transfer = await singleUnitDocument(scope, id, pending.currentDocumentId, true);
+    if (input.warehouseId && input.warehouseId !== transfer.toWarehouseId) throw Object.assign(new Error("Kho nhận phải khớp chứng từ điều chuyển."), { statusCode: 409 });
     await receiveInventoryTransfer({ companyCode: scope.companyCode, branchId: scope.branchId }, pending.currentDocumentId, actor);
     return SerialUnitModel.findById(id).lean();
   }
@@ -33,8 +45,9 @@ export async function acceptSerialTransfer(scope: Scope, id: string, input: { wa
 
 export async function cancelSerialTransfer(scope: Scope, id: string, reason: string, actor: Actor) {
   if (!reason.trim()) throw Object.assign(new Error("Lý do hủy chuyển kho là bắt buộc."), { statusCode: 400 });
-  const pending = await SerialUnitModel.findOne({ _id: id, companyCode: scope.companyCode, branchId: scope.branchId, ...(scope.warehouseId ? { warehouseId: scope.warehouseId } : {}), status: "in_transit" }).lean();
+  const pending = await SerialUnitModel.findOne({ _id: id, companyCode: scope.companyCode, branchId: scope.branchId, status: "in_transit" }).lean();
   if (pending?.currentDocumentType === "inventory-transfer" && pending.currentDocumentId) {
+    await singleUnitDocument(scope, id, pending.currentDocumentId, false);
     await cancelInventoryTransfer({ companyCode: scope.companyCode, branchId: scope.branchId }, pending.currentDocumentId, reason, actor);
     return SerialUnitModel.findById(id).lean();
   }

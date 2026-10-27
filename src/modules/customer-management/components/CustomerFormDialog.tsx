@@ -4,14 +4,14 @@ import { VietnameseDatePicker } from "../../student-management/components/Batche
 import { RoadmapPicker } from "../../student-management/components/ui/RoadmapPicker";
 import type { BillingProfileInput, Customer, CustomerInput } from "../types";
 
-const empty: CustomerInput = { name: "", phone: "", type: "regular", email: "", dateOfBirth: "", address: "", notes: "" };
+const empty: CustomerInput = { name: "", phone: "", customerKind: "individual", contactName: "", type: "regular", email: "", dateOfBirth: "", address: "", notes: "" };
 const emptyBilling: BillingProfileInput = { legalName: "", taxId: "", address: "", invoiceEmail: "", contactName: "" };
 const inputClass = "mt-1.5 h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal text-on-surface outline-none transition placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20";
 
 export default function CustomerFormDialog({ customer, onClose, onSave }: { customer?: Customer; onClose: () => void; onSave: (input: CustomerInput, billingProfile?: BillingProfileInput) => Promise<void> }) {
   const dialogRef = React.useRef<HTMLDialogElement>(null);
   const returnFocusRef = React.useRef<HTMLElement | null>(null);
-  const [form, setForm] = React.useState<CustomerInput>({ ...empty, ...customer, dateOfBirth: customer?.dateOfBirth?.slice(0, 10) || "" });
+  const [form, setForm] = React.useState<CustomerInput>({ ...empty, ...customer, customerKind: customer ? customer.customerKind : 'individual', dateOfBirth: customer?.dateOfBirth?.slice(0, 10) || "" });
   const [billing, setBilling] = React.useState<BillingProfileInput>(emptyBilling);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -38,7 +38,7 @@ export default function CustomerFormDialog({ customer, onClose, onSave }: { cust
       <input
         type={type}
         name={key}
-        autoComplete={key === "name" ? "name" : key === "phone" ? "tel" : key === "email" ? "email" : "off"}
+        autoComplete={key === "name" ? (form.customerKind === 'business' ? 'organization' : 'name') : key === "phone" ? "tel" : key === "email" ? "email" : "off"}
         required={key === "name" || key === "phone"}
         autoFocus={key === "name"}
         value={String(form[key] || "")}
@@ -62,7 +62,7 @@ export default function CustomerFormDialog({ customer, onClose, onSave }: { cust
       }}
       onCancel={(event) => { event.preventDefault(); if (!saving) onClose(); }}
       onClick={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}
-      className="fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center overflow-hidden border-0 bg-transparent px-[max(0.75rem,env(safe-area-inset-left))] py-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] text-on-surface backdrop:bg-black/55 sm:p-5"
+      className="fixed inset-0 z-50 m-0 flex h-full max-h-none w-full max-w-none items-center justify-center overflow-hidden border-0 bg-transparent px-[max(0.75rem,env(safe-area-inset-left))] py-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] text-on-surface backdrop:bg-black/55 sm:p-5 [--color-on-surface-variant:var(--color-slate-600)]"
     >
       <form onSubmit={(event) => { event.preventDefault(); setSaving(true); setError(""); void onSave(form, needsBilling ? { legalName: billing.legalName.trim(), taxId: billing.taxId.trim(), address: billing.address.trim(), invoiceEmail: billing.invoiceEmail.trim(), contactName: billing.contactName?.trim(), isDefault: true } : undefined).catch((cause) => setError(cause instanceof Error ? cause.message : "Không lưu được khách hàng.")).finally(() => setSaving(false)); }} aria-busy={saving} className="flex max-h-[min(90vh,760px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-xl">
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-outline-variant px-5 py-3.5 sm:px-6">
@@ -76,11 +76,13 @@ export default function CustomerFormDialog({ customer, onClose, onSave }: { cust
           <div>
             <h3 className="mb-3 text-sm font-semibold text-on-surface text-balance">Thông tin cơ bản</h3>
             <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
-              {field("name", "Họ và tên")}
+              <label className="block text-xs font-medium text-on-surface-variant">Đối tượng khách hàng<select value={form.customerKind || ''} onChange={(event) => setForm((current) => ({ ...current, customerKind: event.target.value as CustomerInput['customerKind'] }))} className={inputClass}><option value="" disabled>Chưa phân loại</option><option value="individual">Cá nhân</option><option value="business">Doanh nghiệp / tổ chức</option></select></label>
+              {field("name", form.customerKind === 'business' ? "Tên doanh nghiệp / tổ chức" : "Họ và tên")}
+              {form.customerKind === 'business' && field("contactName", "Người liên hệ")}
               {field("phone", "Số điện thoại", "tel")}
               {field("email", "Email", "email")}
-              <label className="block text-xs font-medium text-on-surface-variant"><span>Ngày sinh</span><div className="mt-1.5"><VietnameseDatePicker ariaLabel="Ngày sinh" value={form.dateOfBirth} onChange={(dateOfBirth) => setForm((current) => ({ ...current, dateOfBirth }))} selectionOnly portalTarget={() => dialogRef.current} /></div></label>
-              <label className="block text-xs font-medium text-on-surface-variant"><span>Loại khách</span><div className="mt-1.5"><RoadmapPicker value={form.type} onChange={(type) => setForm((current) => ({ ...current, type: type as CustomerInput["type"] }))} placeholder="Chọn loại khách" allowClear={false} options={[{ value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} /></div></label>
+              {form.customerKind !== 'business' && <label className="block text-xs font-medium text-on-surface-variant"><span>Ngày sinh</span><div className="mt-1.5"><VietnameseDatePicker ariaLabel="Ngày sinh" value={form.dateOfBirth} onChange={(dateOfBirth) => setForm((current) => ({ ...current, dateOfBirth }))} selectionOnly portalTarget={() => dialogRef.current} /></div></label>}
+              <label className="block text-xs font-medium text-on-surface-variant"><span>Chế độ hóa đơn</span><div className="mt-1.5"><RoadmapPicker value={form.type} onChange={(type) => setForm((current) => ({ ...current, type: type as CustomerInput["type"] }))} placeholder="Chọn chế độ hóa đơn" allowClear={false} options={[{ value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} /></div></label>
               {field("address", "Địa chỉ")}
             </div>
           </div>

@@ -7,6 +7,8 @@ const requestInventoryTransfer = vi.fn();
 const receiveInventoryTransfer = vi.fn();
 const cancelInventoryTransfer = vi.fn();
 const eventCreate = vi.fn();
+const findTransfer = vi.fn();
+vi.mock("../transfers/transfer.model", () => ({ InventoryTransferModel: { findOne: findTransfer } }));
 vi.mock("./serial-unit.model", () => ({ SerialUnitModel: { findOne, findById, findOneAndUpdate } }));
 vi.mock("./serial-event.model", () => ({ SerialEventModel: { create: eventCreate } }));
 vi.mock("../transfers/transfer.service", () => ({ requestInventoryTransfer, receiveInventoryTransfer, cancelInventoryTransfer }));
@@ -15,6 +17,8 @@ const { acceptSerialTransfer, cancelSerialTransfer, requestSerialTransfer } = aw
 
 beforeEach(() => {
   findOne.mockReset(); findById.mockReset(); findOneAndUpdate.mockReset(); requestInventoryTransfer.mockReset(); receiveInventoryTransfer.mockReset(); cancelInventoryTransfer.mockReset(); eventCreate.mockReset();
+  findTransfer.mockReset();
+  findTransfer.mockReturnValue({ lean: async () => ({ fromWarehouseId: "w1", toWarehouseId: "w2", items: [{ quantity: 1, serialUnitIds: ["s1"] }] }) });
   findOne.mockReturnValue({ lean: async () => ({ _id: "s1", variantId: "v1", warehouseId: "w1", serialNumber: "IMEI-1", currentDocumentType: "inventory-transfer", currentDocumentId: "t1" }) });
   findById.mockReturnValue({ lean: async () => ({ _id: "s1", status: "in_transit" }) });
 });
@@ -42,4 +46,16 @@ test("hủy serial theo phiếu hoàn trọn tồn gửi", async () => {
   await cancelSerialTransfer({ companyCode: "c1", branchId: "from", warehouseId: "w1" }, "s1", "Sai kho nhận", { id: "u1", name: "Sender" });
   expect(cancelInventoryTransfer).toHaveBeenCalledWith({ companyCode: "c1", branchId: "from" }, "t1", "Sai kho nhận", { id: "u1", name: "Sender" });
   expect(findOneAndUpdate).not.toHaveBeenCalled();
+});
+
+test("không nhận hoặc hủy cả phiếu nhiều hàng qua nút của một serial", async () => {
+  findTransfer.mockReturnValue({ lean: async () => ({ items: [{ quantity: 2, serialUnitIds: ["s1", "s2"] }] }) });
+  await expect(acceptSerialTransfer({ companyCode: "c1", branchId: "to" }, "s1", {}, { id: "u2", name: "Receiver" })).rejects.toMatchObject({ code: "TRANSFER_DOCUMENT_REQUIRED" });
+  await expect(cancelSerialTransfer({ companyCode: "c1", branchId: "from" }, "s1", "Sai kho", { id: "u1", name: "Sender" })).rejects.toMatchObject({ code: "TRANSFER_DOCUMENT_REQUIRED" });
+  expect(receiveInventoryTransfer).not.toHaveBeenCalled(); expect(cancelInventoryTransfer).not.toHaveBeenCalled();
+});
+
+test("nút nhận serial không được đổi kho nhận của phiếu", async () => {
+  await expect(acceptSerialTransfer({ companyCode: "c1", branchId: "to" }, "s1", { warehouseId: "other" }, { id: "u2", name: "Receiver" })).rejects.toThrow(/Kho nhận/);
+  expect(receiveInventoryTransfer).not.toHaveBeenCalled();
 });

@@ -16,7 +16,17 @@ describe("phiếu điều chuyển kho", () => {
     expect(() => validateTransferRequest({ ...base, items: [{ variantId, quantity: 1 }, { variantId, quantity: 1 }] })).toThrow();
     expect(() => validateTransferRequest({ ...base, items: [{ variantId, quantity: 2, serialNumbers: ["123", " 123 "] }] })).toThrow();
   });
-  it("chặn số lượng không nguyên", () => {
-    expect(() => validateTransferRequest({ ...base, items: [{ variantId, quantity: 1.5 }] })).toThrow();
+  it("chấp nhận số lượng lẻ của hàng cân/đong và chặn số lượng không dương", () => {
+    expect(validateTransferRequest({ ...base, items: [{ variantId, quantity: 1.5 }] }).items[0].quantity).toBe(1.5);
+    expect(() => validateTransferRequest({ ...base, items: [{ variantId, quantity: 0 }] })).toThrow();
+  });
+  it("trả lỗi nhập liệu có mã 400 khi dòng hàng hoặc danh sách định danh sai định dạng", () => {
+    for (const item of [null, [], { variantId, quantity: 1, serialNumbers: {} }, { variantId, quantity: 1, serialNumbers: [""] }]) {
+      try { validateTransferRequest({ ...base, items: [item] }); throw new Error('Đã nhận dữ liệu sai'); }
+      catch (error) { expect(error).toHaveProperty('status', 400); }
+    }
+  });
+  it("không cho lặp cùng SKU bằng hai cách viết ObjectId hoa/thường", () => {
+    expect(() => validateTransferRequest({ ...base, items: [{ variantId, quantity: 1 }, { variantId: variantId.toUpperCase(), quantity: 1 }] })).toThrow();
   });
 });

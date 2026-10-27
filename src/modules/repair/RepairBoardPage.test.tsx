@@ -2,6 +2,8 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
+vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ userProfile: { role: 'admin', companyCode: 'QA' }, hasPermission: () => true }) }));
+vi.mock('../../context/BranchContext', () => ({ useBranch: () => ({ activeBranchId: 'branch-a' }) }));
 
 vi.mock("../../services/repairService", async () => {
   const actual = await vi.importActual<typeof import("../../services/repairService")>("../../services/repairService");
@@ -12,7 +14,7 @@ vi.mock("../../services/authService", () => ({
   authService: { getColleagues: vi.fn(async () => [{ uid: "tech-1", displayName: "Nguyễn Văn Kỹ Thuật" }]) },
 }));
 
-vi.mock("./RepairTicketExtras", () => ({ default: () => null }));
+vi.mock("./RepairTicketExtras", () => ({ default: ({ onChanged }: { onChanged: () => void }) => <button type="button" onClick={onChanged}>Cập nhật vật tư kiểm thử</button> }));
 
 import RepairBoardPage from "./RepairBoardPage";
 import { repairService, type RepairTicket } from "../../services/repairService";
@@ -230,4 +232,14 @@ test("offers payment only for a completed ticket awaiting delivery", async () =>
   await userEvent.setup().click(await screen.findByText("REP-001"));
 
   expect(screen.getByRole("button", { name: "Ghi nhận thanh toán" })).not.toBeNull();
+});
+
+test('refreshes amounts in the open ticket after a material change', async () => {
+  const before = { ...ticket, status: 'approved' as const, totalAmount: 0, dueAmount: 0 };
+  const after = { ...before, totalAmount: 1250, dueAmount: 1250, partRevenue: 1250 };
+  vi.mocked(repairService.board).mockReset().mockResolvedValueOnce({ approved: [before] } as Awaited<ReturnType<typeof repairService.board>>).mockResolvedValueOnce({ approved: [after] } as Awaited<ReturnType<typeof repairService.board>>);
+  render(<RepairBoardPage />);
+  const user = userEvent.setup(); await user.click(await screen.findByText('REP-001'));
+  const dialog = screen.getByRole('dialog'); await user.click(within(dialog).getByRole('button', { name: 'Cập nhật vật tư kiểm thử' }));
+  await waitFor(() => expect(within(dialog).getAllByText('1.250').length).toBeGreaterThan(0));
 });

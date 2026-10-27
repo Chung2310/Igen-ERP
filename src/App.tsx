@@ -17,7 +17,6 @@ import { NotificationToastContainer } from "./components/notification/Notificati
 import { browserNotificationService } from "./services/browserNotificationService";
 import { pushService } from "./services/pushService";
 import { setFaviconBadge } from "./utils/faviconBadge";
-import SuperAdminShell from "./pages/super-admin/SuperAdminShell";
 import { isSuperAdminPath } from "./router/superAdminRoute";
 import { resolveEnabledTab } from "./config/modules";
 
@@ -30,6 +29,7 @@ const subscribeToPathname = (onChange: () => void) => {
 const getPathnameSnapshot = () => window.location.pathname;
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const SuperAdminShell = lazy(() => import("./pages/super-admin/SuperAdminShell"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const UserDataDeletion = lazy(() => import("./pages/UserDataDeletion"));
@@ -403,7 +403,7 @@ export default function App() {
   }
 
   if (isSuperAdminPath(window.location.pathname)) {
-    return <><SuperAdminShell /><ToastContainer /></>;
+    return <AppErrorBoundary><Suspense fallback={<AuthLoader />}><SuperAdminShell /></Suspense><ToastContainer /></AppErrorBoundary>;
   }
 
   return (

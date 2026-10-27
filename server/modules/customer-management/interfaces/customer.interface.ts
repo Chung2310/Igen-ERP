@@ -15,6 +15,8 @@ export interface ICustomerTierState {
 }
 
 export interface ICustomer {
+  customerKind?: "individual" | "business";
+  contactName?: string;
   companyCode: string;
   branchId?: string;
   customerCode: string;
@@ -48,5 +50,5 @@ export interface ICustomer {
 }
 
 export type CustomerInput = Partial<Pick<ICustomer,
-  "type" | "name" | "phone" | "email" | "avatarUrl" | "dateOfBirth" | "gender" | "address" | "notes" | "status" | "source"
+  "type" | "customerKind" | "contactName" | "name" | "phone" | "email" | "avatarUrl" | "dateOfBirth" | "gender" | "address" | "notes" | "status" | "source"
 >> & { dateOfBirth?: Date | string };

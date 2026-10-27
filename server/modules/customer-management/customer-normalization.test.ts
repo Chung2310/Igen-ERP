@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { formatCustomerCode, normalizeCustomerInput, normalizePhone, phoneLookupVariants } from "./customer-normalization";
 
+test('customer kind is independent of VAT and keeps business contact information', () => {
+  const business = normalizeCustomerInput({ name: 'Doanh nghiệp', phone: '0901000001', customerKind: 'business', contactName: '  Người liên hệ  ', type: 'regular' });
+  assert.equal(business.customerKind, 'business'); assert.equal(business.contactName, 'Người liên hệ'); assert.equal(business.type, 'regular');
+  assert.equal(normalizeCustomerInput({ name: 'Cá nhân', phone: '0901000002', customerKind: 'individual', type: 'vat' }).customerKind, 'individual');
+  assert.throws(() => normalizeCustomerInput({ name: 'A', phone: '0901', customerKind: 'vat' }), /cá nhân hoặc doanh nghiệp/);
+});
+
 test("normalizes a company-wide customer identity", () => {
   assert.deepEqual(normalizeCustomerInput({
     name: "  Nguyễn Văn A ",

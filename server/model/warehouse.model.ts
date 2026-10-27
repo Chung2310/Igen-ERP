@@ -7,7 +7,7 @@ const WarehouseSchema = new Schema<IWarehouse>(
     branchId: { type: String, required: true, trim: true, index: true },
     code: { type: String, required: true, trim: true, uppercase: true },
     name: { type: String, required: true, trim: true },
-    kind: { type: String, enum: ["selling", "central", "defective", "warranty", "other"], default: "selling", required: true },
+    kind: { type: String, enum: ["selling", "central", "defective", "warranty", "other", "transit"], default: "selling", required: true },
     isDefault: { type: Boolean, default: false, index: true },
     isActive: { type: Boolean, default: true, index: true },
   },

@@ -64,4 +64,34 @@ describe("inventory transfer surface", () => {
     fireEvent.change(sku, { target: { value: "bulk" } });
     expect(screen.queryByRole("textbox", { name: /sê-ri|đơn vị/i })).toBeNull();
   });
+  it("clears selected lines and conflicting destination when the source warehouse changes", async () => {
+    mocks.canManage = true;
+    mocks.apiFetch.mockImplementation(async (path: string) => ({ data: path.endsWith('/warehouses') ? [{ _id: "w1", branchId: "hn", name: "Kho Hà Nội" }, { _id: "w3", branchId: "hn", name: "Kho vật tư" }] : [] }));
+    mocks.listBalances.mockResolvedValue([{ _id: "b1", variantId: "bulk", sku: "BULK", quantity: 5, reservedQuantity: 0, trackingMode: "quantity" }]);
+    render(<InventoryTransfersSection />);
+    await waitFor(() => expect(mocks.listBalances).toHaveBeenCalledWith('w1'));
+    fireEvent.click(screen.getByRole("button", { name: "Tạo phiếu điều chuyển" }));
+    await screen.findByRole("option", { name: /BULK/ });
+    fireEvent.change(screen.getByRole("combobox", { name: "SKU" }), { target: { value: "bulk" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Kho nhận" }), { target: { value: "w3" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Kho gửi" }), { target: { value: "w3" } });
+    await waitFor(() => expect(mocks.listBalances).toHaveBeenCalledWith('w3'));
+    await waitFor(() => expect((screen.getByRole("combobox", { name: "SKU" }) as HTMLSelectElement).value).toBe(''));
+    expect((screen.getByRole("combobox", { name: "Kho nhận" }) as HTMLSelectElement).value).toBe('');
+  });
+
+  it("closes confirmation on a failed cancellation so the error remains visible", async () => {
+    mocks.canManage = true;
+    render(<InventoryTransfersSection />);
+    await screen.findByText('DC-01');
+    fireEvent.click(screen.getByRole('button', { name: 'Hủy phiếu' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Lý do hủy phiếu' }), { target: { value: 'Sai kho' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp tục' }));
+    expect(screen.getByRole('dialog', { name: 'Hủy phiếu điều chuyển' })).toBeTruthy();
+    mocks.apiFetch.mockRejectedValueOnce(new Error('Phiếu đã được kho nhận xử lý.'));
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận' }));
+    await screen.findByRole('alert');
+    expect(screen.queryByRole('dialog', { name: 'Hủy phiếu điều chuyển' })).toBeNull();
+    expect(screen.getByRole('alert').textContent).toBe('Phiếu đã được kho nhận xử lý.');
+  });
 });

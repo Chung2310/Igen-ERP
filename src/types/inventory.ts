@@ -1,4 +1,4 @@
-export type InventorySubTabType = "SẢN PHẨM" | "KHO HÀNG" | "NHẬP HÀNG" | "XUẤT HÀNG" | "ĐIỀU CHUYỂN" | "GIAO DỊCH KHO" | "DỰ BÁO" | "IMEI / SERIAL" | "PHÂN LOẠI SẢN PHẨM" | "DANH MỤC" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
+export type InventorySubTabType = "SẢN PHẨM" | "KHO HÀNG" | "NHẬP HÀNG" | "XUẤT HÀNG" | "ĐIỀU CHUYỂN" | "ĐỐI SOÁT TỒN KHO" | "GIAO DỊCH KHO" | "DỰ BÁO" | "IMEI / SERIAL" | "PHÂN LOẠI SẢN PHẨM" | "DANH MỤC" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
 
 export interface ProductItem {
   id: string;
@@ -27,6 +27,7 @@ export interface ProductCategory {
 }
 
 export interface StockLogItem {
+  unitCode?: string;
   productId: string;
   variantId?: string;
   sku: string;

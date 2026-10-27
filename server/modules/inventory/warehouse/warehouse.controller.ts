@@ -3,6 +3,7 @@ import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
 import { listWarehouses } from "./warehouse.service";
+import { WarehouseModel } from "../../../model/warehouse.model";
 
 function company(req: Request) { return String((req as any).user?.companyCode || "").trim().toUpperCase(); }
 function branch(req: Request) { return String((req as any).user?.branchId || "").trim(); }
@@ -21,18 +22,19 @@ export const warehouseController = {
       const companyCode = company(req); const branchId = branch(req);
       if (!companyCode || !branchId) throw Object.assign(new Error("Vui lòng chọn công ty và chi nhánh."), { statusCode: 400 });
       const warehouseId = String(req.query.warehouseId || "").trim();
-      const items = await InventoryBalanceModel.find({ companyCode, branchId, ...(warehouseId ? { warehouseId } : {}) }).sort({ sku: 1 }).lean();
+      const physicalWarehouses = await WarehouseModel.find({ companyCode, branchId, kind: { $ne: "transit" }, ...(warehouseId ? { _id: warehouseId } : {}) }).select("_id").lean();
+      const items = await InventoryBalanceModel.find({ companyCode, branchId, warehouseId: { $in: physicalWarehouses.map((warehouse) => String(warehouse._id)) } }).sort({ sku: 1 }).lean();
       const productIds = [...new Set(items.map((i) => i.productId))];
       const [products, variants] = await Promise.all([
         ProductCatalogModel.find({ _id: { $in: productIds }, companyCode }).select("name mediaIds").lean(),
-        ProductVariantModel.find({ _id: { $in: items.map((item) => item.variantId).filter(Boolean) }, companyCode }).select("mediaIds displayName trackingMode").lean(),
+        ProductVariantModel.find({ _id: { $in: items.map((item) => item.variantId).filter(Boolean) }, companyCode }).select("mediaIds displayName trackingMode unitCode").lean(),
       ]);
       const productMap = new Map(products.map((product: any) => [String(product._id), product]));
       const variantMap = new Map(variants.map((variant: any) => [String(variant._id), variant]));
       const enrichedItems = items.map((item) => {
         const product: any = productMap.get(item.productId);
         const variant: any = item.variantId ? variantMap.get(item.variantId) : undefined;
-        return { ...item, productName: product?.name || "Sản phẩm không xác định", productMediaUrl: product?.mediaIds?.[0], variantMediaUrl: variant?.mediaIds?.[0], variantName: variant?.displayName, trackingMode: variant?.trackingMode || "quantity" };
+        return { ...item, productName: product?.name || "Sản phẩm không xác định", productMediaUrl: product?.mediaIds?.[0], variantMediaUrl: variant?.mediaIds?.[0], variantName: variant?.displayName, trackingMode: variant?.trackingMode || "quantity", unitCode: variant?.unitCode };
       });
       return res.json({ status: "success", data: enrichedItems });
     } catch (problem) { return error(res, problem); }

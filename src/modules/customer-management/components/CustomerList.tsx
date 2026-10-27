@@ -33,7 +33,7 @@ export default function CustomerList(props: Props) {
                 <td className="px-4 py-4"><p className="font-semibold text-slate-900">{customer.name}</p><p className="mt-0.5 text-xs text-slate-500">{customer.email || "—"}</p></td>
                 <td className="px-4 py-4 tabular-nums">{customer.phone}</td>
                 <td className="px-4 py-4">{customer.tier ? <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">{customer.tier.name}</span> : <span className="text-xs text-slate-400">Chưa xếp hạng</span>}</td>
-                <td className="px-4 py-4">{customer.type === "vat" ? "Xuất VAT" : "Khách thường"}</td>
+                <td className="px-4 py-4"><p>{customer.customerKind === 'business' ? 'Doanh nghiệp / tổ chức' : customer.customerKind === 'individual' ? 'Cá nhân' : 'Chưa phân loại'}</p><p className="mt-1 text-xs text-slate-500">{customer.type === "vat" ? "Xuất VAT" : "Thông thường"}</p></td>
                 <td className="px-4 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${customer.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{customer.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}</span></td>
                 <td className="px-4 py-4 text-right"><button type="button" aria-label={`Chi tiết ${customer.name}`} onClick={() => props.onOpen(customer)} className="rounded-lg px-3 py-1.5 font-semibold text-[#007eb8] transition hover:bg-sky-50">Chi tiết</button></td>
               </tr>
