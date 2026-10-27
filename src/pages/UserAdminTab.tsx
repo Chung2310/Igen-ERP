@@ -304,6 +304,7 @@ export default function UserAdminTab() {
     const defaultRoles = [
       { role: "user", displayName: "USER (Nhân viên)", level: 4 },
       { role: "teacher", displayName: getRoleDisplayName("teacher"), level: 4 },
+      { role: "pos_cashier", displayName: getRoleDisplayName("pos_cashier"), level: 5 },
       { role: "manager", displayName: "MANAGER (Quản lý)", level: 3 },
       { role: "branch_owner", displayName: "BRANCH OWNER", level: 2 }
     ];
@@ -321,7 +322,7 @@ export default function UserAdminTab() {
 
     // Merge with custom roles
     const customRoles = rolePermissionsList
-      .filter(rp => !["user", "teacher", "manager", "branch_owner", "admin", "superadmin"].includes(rp.role))
+      .filter(rp => !["user", "teacher", "pos_cashier", "manager", "branch_owner", "admin", "superadmin"].includes(rp.role))
       .map(rp => ({
         role: rp.role,
         displayName: getRoleDisplayName(rp.role, rp.displayName),
@@ -388,7 +389,7 @@ export default function UserAdminTab() {
     safeUserPage * USERS_PER_PAGE
   );
 
-  const handleRoleChange = async (targetUid: string, targetName: string, newRole: "user" | "teacher" | "manager" | "admin" | "superadmin") => {
+  const handleRoleChange = async (targetUid: string, targetName: string, newRole: string) => {
     if (targetUid === userProfile?.uid) {
       toast.warning("Bạn không thể tự thay đổi vai trò của chính mình!");
       return;
@@ -402,14 +403,14 @@ export default function UserAdminTab() {
 
     try {
       await authService.updateUserRole(targetUid, newRole);
-      toast.success(`Đã cập nhật quyền hạn cho "${targetName}" thành ${newRole.toUpperCase()}!`);
+      toast.success(`Đã cập nhật quyền hạn cho "${targetName}" thành ${newRole.toUpperCase()}. Người dùng cần đăng nhập lại.`);
       // Cập nhật lại list ở client
       setUsersList((prev) =>
         prev.map((u) => {
           if (u.uid === targetUid) {
-            const dept = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : (newRole === "teacher" ? "Đào tạo" : "Nhân viên"));
-            const div = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : (newRole === "teacher" ? "Đào tạo" : "Nhân viên"));
-            const title = newRole === "admin" ? "CEO" : (newRole === "manager" ? "Quản lý phòng ban" : (newRole === "teacher" ? "Giảng viên" : "Nhân viên"));
+            const dept = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : (newRole === "teacher" ? "Đào tạo" : (newRole === "pos_cashier" ? "Bán lẻ" : "Nhân viên")));
+            const div = newRole === "admin" || newRole === "superadmin" ? "Ban Giám đốc" : (newRole === "manager" ? "Quản lý" : (newRole === "teacher" ? "Đào tạo" : (newRole === "pos_cashier" ? "Bán lẻ" : "Nhân viên")));
+            const title = newRole === "admin" ? "CEO" : (newRole === "manager" ? "Quản lý phòng ban" : (newRole === "teacher" ? "Giảng viên" : (newRole === "pos_cashier" ? "Nhân viên bán hàng POS" : "Nhân viên")));
             return { ...u, role: newRole, department: dept, division: div, jobTitle: title };
           }
           return u;
@@ -546,6 +547,10 @@ export default function UserAdminTab() {
       toast.warning("Chủ doanh nghiệp không được phép tạo tài khoản có vai trò Admin!");
       return;
     }
+    if (userRole === "pos_cashier" && (userCompanyCode === "SYSTEM" || !userBranchId)) {
+      toast.warning("Nhân viên bán hàng POS cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
+      return;
+    }
 
     setSubmittingUser(true);
     try {
@@ -579,7 +584,9 @@ export default function UserAdminTab() {
           branchId: userBranchId || null,
         });
 
-        toast.success(`Đã cập nhật tài khoản "${userDisplayName}".`);
+        toast.success(editingUser.role !== userRole
+          ? `Đã cập nhật tài khoản "${userDisplayName}". Người dùng cần đăng nhập lại để áp dụng vai trò mới.`
+          : `Đã cập nhật tài khoản "${userDisplayName}".`);
       } else {
         await authService.registerUserForCompany(
           userDisplayName,
@@ -827,18 +834,20 @@ export default function UserAdminTab() {
                     "chat:read",
                     "finance-receivable:read"
                   ],
-                  teacher: ["people:read", "people:manage"]
+                  teacher: ["people:read", "people:manage"],
+                  pos_cashier: ["pos:manage"]
                 };
 
                 const defaultRolesList = [
                   { role: "admin", displayName: getRoleDisplayName("admin"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.admin },
                   { role: "manager", displayName: getRoleDisplayName("manager"), level: 3, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.manager },
                   { role: "branch_owner", displayName: getRoleDisplayName("branch_owner"), level: 2, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.branch_owner },
+                  { role: "pos_cashier", displayName: getRoleDisplayName("pos_cashier"), level: 5, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.pos_cashier },
                   { role: "teacher", displayName: getRoleDisplayName("teacher"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.teacher },
                   { role: "user", displayName: getRoleDisplayName("user"), level: 4, isDefault: true, permissions: DEFAULT_ROLE_PERMISSIONS.user }
                 ];
                 
-                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "teacher", "user"].includes(rp.role));
+                const customRolesList = rolePermissionsList.filter(rp => !["superadmin", "admin", "manager", "branch_owner", "teacher", "user", "pos_cashier"].includes(rp.role));
                 
                 const rolesToDisplay = [
                   ...defaultRolesList.map(dr => {

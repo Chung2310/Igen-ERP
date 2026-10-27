@@ -20,6 +20,7 @@ export default function RetailPointsInput({ scope, customerId, value, onChange }
     if (!customerId) { setAccount(null); return; }
     let active = true;
     setError("");
+    setAccount(null);
     void apiFetch<{ data: Account }>(`/retail/points/customers/${customerId}`, { params: scope })
       .then((response) => { if (active) setAccount(response.data); })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Không tải được số dư điểm."); });

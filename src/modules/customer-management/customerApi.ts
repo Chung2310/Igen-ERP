@@ -6,6 +6,10 @@ export const customerApi = {
     const response = await apiFetch<{ success: true; data: PaginatedCustomers }>("/customers", { params: query });
     return response.data;
   },
+  async searchActive(query: Pick<CustomerListQuery, "companyCode" | "q" | "limit">) {
+    const response = await apiFetch<{ success: true; data: Array<{ customerId: string; customerCode: string; name: string; phone: string; type: Customer["type"]; status: CustomerStatus; tier?: { code: string; name: string } }> }>("/customers/search", { params: query });
+    return response.data;
+  },
   async detail(id: string, companyCode?: string) {
     const response = await apiFetch<{ success: true; data: Customer }>(`/customers/${id}`, { params: { companyCode } });
     return response.data;

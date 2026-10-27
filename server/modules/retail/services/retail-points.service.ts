@@ -58,6 +58,7 @@ export async function postPoints(input: Omit<RetailPointLedger, "balanceBefore" 
   if (!customer) throw invalid("Không tìm thấy khách hàng.", 404);
   const balanceBefore = Number(customer.pointsBalance || 0);
   const balanceAfter = balanceBefore + input.points;
+  if (input.type === "redeem" && balanceAfter < 0) throw invalid("Khách không đủ điểm để sử dụng.", 409);
   if (!Number.isSafeInteger(balanceAfter)) throw invalid("Số dư điểm vượt giới hạn.");
   const balanceFilter = customer.pointsBalance === undefined ? { pointsBalance: { $exists: false } } : { pointsBalance: balanceBefore };
   const updated = await CustomerModel.updateOne({ _id: input.customerId, companyCode: input.companyCode, ...balanceFilter }, {

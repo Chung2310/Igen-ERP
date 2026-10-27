@@ -20,6 +20,46 @@ import { writeStockMovement } from "../integrations/shared/stock-movement.servic
 import { ProductVariantModel } from "../model/product-variant.model";
 import { SerialUnitModel } from "../modules/inventory/serials/serial-unit.model";
 import { SerialEventModel } from "../modules/inventory/serials/serial-event.model";
+import { runInventoryTransaction } from "../integrations/shared/inventory-transaction";
+
+type InventoryTransaction = { session?: mongoose.ClientSession };
+const completedStockLog = (status: unknown) => status === "Hoàn thành" || status === "Thành công";
+const stockLogLocked = () => Object.assign(new Error("Phiếu kho đã hoàn thành không được sửa hoặc xóa. Hãy tạo chứng từ điều chỉnh."), { statusCode: 409 });
+
+async function updateStockLogSerials(companyCode: string, branchId: string, warehouseId: string, log: any, session?: mongoose.ClientSession) {
+  const usedUnits = new Set<string>();
+  for (const item of log.items || []) {
+    const variant = item.variantId ? await ProductVariantModel.findOne({ _id: item.variantId, companyCode }).session(session || null).lean() : null;
+    const identifiers = item.unitIdentifiers?.length ? item.unitIdentifiers : item.serialNumbers || [];
+    const tracked = variant?.trackingMode === "serial" || variant?.trackingMode === "unit_barcode";
+    if (!tracked && !identifiers.length) continue;
+    const normalized = identifiers.map((value: unknown) => String(value).trim().toUpperCase());
+    if (!Number.isSafeInteger(item.quantity) || normalized.length !== item.quantity || new Set(normalized).size !== normalized.length) {
+      throw Object.assign(new Error(`SKU ${item.sku} phải chọn đúng số IMEI/mã đơn vị.`), { statusCode: 400 });
+    }
+    const units = await SerialUnitModel.find({ companyCode, branchId, warehouseId, productId: item.productId,
+      ...(item.variantId ? { variantId: item.variantId } : { sku: item.sku }),
+      $or: [{ normalizedSerialNumber: { $in: normalized } }, { normalizedInternalBarcode: { $in: normalized } }],
+    }).session(session || null);
+    if (units.length !== item.quantity) throw Object.assign(new Error(`IMEI của ${item.sku} không thuộc SKU/kho đã chọn.`), { statusCode: 409 });
+    for (const unit of units) {
+      const fromStatus = unit.status;
+      if (usedUnits.has(String(unit._id)) || (log.type === "xuất" ? fromStatus !== "in_stock" : !["returned", "lost"].includes(fromStatus))) {
+        throw Object.assign(new Error(`IMEI ${unit.serialNumber} đã thay đổi trạng thái hoặc bị chọn trùng.`), { statusCode: 409 });
+      }
+      usedUnits.add(String(unit._id));
+      unit.status = log.type === "xuất" ? (log.purpose === "hủy" ? "scrapped" : "sold") : "in_stock";
+      unit.updatedBy = log.operatorName;
+      unit.currentDocumentType = "manual-stock-log";
+      unit.currentDocumentId = String(log._id);
+      await unit.save({ session });
+      await SerialEventModel.create([{ companyCode, branchId, serialUnitId: String(unit._id), serialNumber: unit.serialNumber,
+        eventType: log.type === "xuất" ? "issued" : "received", fromStatus, toStatus: unit.status,
+        documentType: "manual-stock-log", documentId: String(log._id), actorId: "SYSTEM", actorName: log.operatorName,
+      }], { session });
+    }
+  }
+}
 
 function sanitizeInventoryPayload(modelName: string, payload: any) {
   if (!payload || typeof payload !== "object") {
@@ -75,7 +115,13 @@ async function prepareStockLogPayload(
   branchId: string,
   existingItems: any[] = [],
 ) {
+  if (Object.keys(data || {}).some((key) => key.startsWith("$") || key.includes("."))) {
+    throw Object.assign(new Error("Dữ liệu phiếu kho không hợp lệ."), { statusCode: 400 });
+  }
   const type = data?.type;
+  if (type === "xuất" && data?.purpose === "chuyển kho" && completedStockLog(data?.status ?? "Thành công")) {
+    throw Object.assign(new Error("Vui lòng tạo phiếu điều chuyển ở mục Chuyển kho để kho nhận xác nhận."), { statusCode: 409 });
+  }
   if (type === "xuất" && !STOCK_LOG_PURPOSES.has(data?.purpose)) {
     const error: Error & { statusCode?: number } = new Error("Phiếu xuất kho phải chọn mục đích xuất.");
     error.statusCode = 400;
@@ -86,24 +132,35 @@ async function prepareStockLogPayload(
   if (rawItems.length === 0) return { ...data, purpose: type === "xuất" ? data.purpose : undefined };
 
   const productIds = rawItems.map((item: any) => item?.productId).filter(Boolean);
+  if (productIds.length !== rawItems.length || productIds.some((id: unknown) => !mongoose.isObjectIdOrHexString(id))) {
+    throw Object.assign(new Error("Sản phẩm trong phiếu không hợp lệ."), { statusCode: 400 });
+  }
   const products = await ProductModel.find({
     _id: { $in: productIds },
     companyCode,
     branchId,
   }).select("sku name price costPrice category").lean();
   const productsById = new Map(products.map((product: any) => [String(product._id), product]));
+  const legacyProductIds = new Set(products.map((product: any) => String(product._id)));
 
   // SKU biến thể là thứ duy nhất định danh đúng dòng tồn kho. Nếu client không gửi
   // variantId thì tự resolve từ SKU (ProductVariant có unique index companyCode+sku),
   // nếu không writeStockMovement sẽ tra nhầm dòng InventoryBalance của biến thể khác.
   const variantSkus = rawItems
-    .filter((item: any) => !(typeof item?.variantId === "string" && item.variantId.trim()))
     .map((item: any) => String(item?.sku || "").trim().toUpperCase())
     .filter(Boolean);
   const variantIdBySku = new Map<string, string>();
-  if (variantSkus.length > 0) {
-    const variants = await ProductVariantModel.find({ companyCode, sku: { $in: [...new Set<string>(variantSkus)] } }).select("sku").lean();
-    for (const variant of variants) variantIdBySku.set(String(variant.sku).toUpperCase(), String(variant._id));
+  const variantsById = new Map<string, any>();
+  const explicitVariantIds = rawItems.map((item: any) => item.variantId).filter(Boolean);
+  if (explicitVariantIds.some((id: unknown) => !mongoose.isObjectIdOrHexString(id))) {
+    throw Object.assign(new Error("SKU trong phiếu không hợp lệ."), { statusCode: 400 });
+  }
+  if (variantSkus.length > 0 || explicitVariantIds.length > 0) {
+    const variants = await ProductVariantModel.find({ companyCode, $or: [{ sku: { $in: [...new Set<string>(variantSkus)] } }, { _id: { $in: explicitVariantIds } }] }).select("sku productId").lean();
+    for (const variant of variants) {
+      variantIdBySku.set(String(variant.sku).toUpperCase(), String(variant._id));
+      variantsById.set(String(variant._id), variant);
+    }
   }
 
   const missingProductIds = productIds.filter(id => !productsById.has(String(id)));
@@ -125,22 +182,19 @@ async function prepareStockLogPayload(
   }
 
   const items = rawItems.map((item: any) => {
-    let product = productsById.get(String(item?.productId));
-    if (!product && item?.sku) {
-      product = {
-        _id: item.productId,
-        sku: item.sku,
-        name: item.productName || item.sku,
-        price: item.unitPrice || 0,
-        costPrice: item.unitCost || 0,
-        category: item.category || "Chưa phân loại",
-      };
-    }
-
+    const product = productsById.get(String(item?.productId));
     if (!product) {
       const error: Error & { statusCode?: number } = new Error("Sản phẩm trong phiếu không thuộc chi nhánh hiện tại.");
       error.statusCode = 400;
       throw error;
+    }
+    const resolvedVariantId = String(item.variantId || variantIdBySku.get(String(item.sku || "").trim().toUpperCase()) || "");
+    const variant = variantsById.get(resolvedVariantId);
+    if ((!legacyProductIds.has(String(product._id)) && !variant)
+      || (resolvedVariantId && (!variant || String(variant.productId) !== String(product._id)))
+      || (variant && item.sku && variant.sku !== String(item.sku).trim().toUpperCase())
+      || (!variant && item.sku && String(product.sku).trim().toUpperCase() !== String(item.sku).trim().toUpperCase())) {
+      throw Object.assign(new Error("SKU không thuộc sản phẩm/công ty trong phiếu."), { statusCode: 400 });
     }
     const quantity = Number(item.quantity);
     if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -159,6 +213,7 @@ async function prepareStockLogPayload(
 
     return {
       productId: String(product._id),
+      ...(legacyProductIds.has(String(product._id)) ? { legacyProductId: String(product._id) } : {}),
       ...(() => {
         const explicit = typeof item.variantId === "string" && item.variantId.trim() ? item.variantId.trim() : "";
         const resolved = explicit || variantIdBySku.get(String(item?.sku || "").trim().toUpperCase()) || "";
@@ -426,7 +481,11 @@ export const crudService = {
     data: any,
     companyCode: string,
     branchId?: string,
+    transaction?: InventoryTransaction,
   ) {
+    if (modelName === "stock-logs" && !transaction) {
+      return runInventoryTransaction((session) => crudService.create(modelName, data, companyCode, branchId, { session }));
+    }
     const model = MODEL_MAPPING[modelName];
     if (!model) {
       throw new Error(`Model '${modelName}' không được hỗ trợ.`);
@@ -441,13 +500,13 @@ export const crudService = {
       : data;
 
     if (modelName === "stock-logs") {
-      const isCompleted = preparedData.status === "Hoàn thành" || preparedData.status === "Thành công";
+      const isCompleted = completedStockLog(preparedData.status ?? "Thành công");
       if (isCompleted) {
         const sourceId = new mongoose.Types.ObjectId().toString();
         preparedData._id = sourceId;
         preparedData.idempotencyKey = preparedData.idempotencyKey || new mongoose.Types.ObjectId().toString();
 
-        await writeStockMovement({
+        const movement = await writeStockMovement({
           companyCode,
           branchId: inventoryBranch!,
           direction: preparedData.type === "nhập" ? "in" : "out",
@@ -462,6 +521,7 @@ export const crudService = {
           items: preparedData.items.map((item: any) => ({
             productId: item.productId,
             variantId: item.variantId,
+            legacyProductId: item.legacyProductId,
             sku: item.sku,
             productName: item.productName,
             quantity: item.quantity,
@@ -473,43 +533,12 @@ export const crudService = {
           warehouseId: preparedData.warehouseId || data.warehouseId,
           reason: preparedData.notes,
           writeLegacyStockLog: false,
+          session: transaction?.session,
         });
+        preparedData.warehouseId = movement.warehouseId;
+        preparedData.items.forEach((item: any, index: number) => { item.unitCost = movement.entries[index].unitCost; });
 
-        // Cập nhật trạng thái IMEI/Serial và tạo sự kiện lịch sử tương ứng
-        const direction = preparedData.type === "nhập" ? "in" : "out";
-        const toStatus = direction === "out" ? "sold" : "in_stock";
-        const eventType = direction === "out" ? "sold" : "received";
-
-        for (const item of preparedData.items) {
-          if (Array.isArray(item.unitIdentifiers) && item.unitIdentifiers.length > 0) {
-            const units = await SerialUnitModel.find({
-              companyCode,
-              branchId: inventoryBranch,
-              $or: [{ serialNumber: { $in: item.unitIdentifiers } }, { normalizedInternalBarcode: { $in: item.unitIdentifiers.map((value: string) => String(value).trim().toUpperCase()) } }],
-            });
-
-            for (const unit of units) {
-              const fromStatus = unit.status;
-              unit.status = toStatus;
-              unit.updatedBy = preparedData.operatorName || "SYSTEM";
-              await unit.save();
-
-              await SerialEventModel.create({
-                companyCode,
-                branchId: inventoryBranch,
-                serialUnitId: String(unit._id),
-                serialNumber: unit.serialNumber,
-                eventType,
-                fromStatus,
-                toStatus,
-                documentType: "manual-stock-log",
-                documentId: sourceId,
-                actorId: "SYSTEM",
-                actorName: preparedData.operatorName || "Hệ thống",
-              });
-            }
-          }
-        }
+        await updateStockLogSerials(companyCode, inventoryBranch!, movement.warehouseId, preparedData, transaction?.session);
       }
     }
 
@@ -525,7 +554,7 @@ export const crudService = {
     }
 
     const newItem = new model(payload);
-    await newItem.save();
+    await newItem.save({ session: transaction?.session });
 
     if (modelName === "products" && newItem) {
       const stock = Number(newItem.stock || 0);
@@ -569,7 +598,11 @@ export const crudService = {
     companyCode: string,
     userRole: string,
     branchId?: string,
+    transaction?: InventoryTransaction,
   ) {
+    if (modelName === "stock-logs" && !transaction) {
+      return runInventoryTransaction((session) => crudService.update(modelName, id, data, companyCode, userRole, branchId, { session }));
+    }
     const model = MODEL_MAPPING[modelName];
     if (!model) {
       throw new Error(`Model '${modelName}' không được hỗ trợ.`);
@@ -590,20 +623,26 @@ export const crudService = {
     const { companyCode: _cCode, branchId: _branchId, ownerId: _ownerId, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
     let preparedUpdatePayload = rawUpdatePayload;
     if (modelName === "stock-logs") {
-      const existingLog = await StockLogModel.findOne(query).select("items type purpose status title operatorName notes idempotencyKey").lean();
+      const existingLog = await StockLogModel.findOne(query).session(transaction?.session || null).lean();
+      if (!existingLog) throw Object.assign(new Error("Không tìm thấy phiếu kho trong chi nhánh."), { statusCode: 404 });
+      if (completedStockLog(existingLog.status)) {
+        if (Object.keys(rawUpdatePayload).some((key) => key !== "notes")) throw stockLogLocked();
+        const updated = await StockLogModel.findOneAndUpdate({ ...query, status: existingLog.status }, { $set: { notes: rawUpdatePayload.notes } }, { returnDocument: "after", session: transaction?.session, runValidators: true });
+        if (!updated) throw stockLogLocked();
+        return sanitizeCrudResult(modelName, updated);
+      }
       preparedUpdatePayload = await prepareStockLogPayload(
-        { ...rawUpdatePayload, type: rawUpdatePayload.type ?? existingLog?.type, purpose: rawUpdatePayload.purpose ?? existingLog?.purpose },
+        { items: existingLog.items, status: existingLog.status, warehouseId: existingLog.warehouseId, title: existingLog.title, operatorName: existingLog.operatorName, notes: existingLog.notes, ...rawUpdatePayload, idempotencyKey: existingLog.idempotencyKey, type: rawUpdatePayload.type ?? existingLog.type, purpose: rawUpdatePayload.purpose ?? existingLog.purpose },
         companyCode,
         inventoryBranch!,
         existingLog?.items || [],
       );
 
-      const wasCompleted = existingLog && (existingLog.status === "Hoàn thành" || existingLog.status === "Thành công");
       const isCompleted = preparedUpdatePayload.status === "Hoàn thành" || preparedUpdatePayload.status === "Thành công";
-      if (isCompleted && !wasCompleted && existingLog) {
+      if (isCompleted) {
         preparedUpdatePayload.idempotencyKey = existingLog.idempotencyKey || new mongoose.Types.ObjectId().toString();
 
-        await writeStockMovement({
+        const movement = await writeStockMovement({
           companyCode,
           branchId: inventoryBranch!,
           direction: (preparedUpdatePayload.type || existingLog.type) === "nhập" ? "in" : "out",
@@ -618,6 +657,7 @@ export const crudService = {
           items: (preparedUpdatePayload.items || existingLog.items || []).map((item: any) => ({
             productId: item.productId,
             variantId: item.variantId,
+            legacyProductId: item.legacyProductId,
             sku: item.sku,
             productName: item.productName,
             quantity: item.quantity,
@@ -629,44 +669,12 @@ export const crudService = {
           warehouseId: preparedUpdatePayload.warehouseId || data.warehouseId,
           reason: preparedUpdatePayload.notes || existingLog.notes,
           writeLegacyStockLog: false,
+          session: transaction?.session,
         });
+        preparedUpdatePayload.warehouseId = movement.warehouseId;
+        preparedUpdatePayload.items.forEach((item: any, index: number) => { item.unitCost = movement.entries[index].unitCost; });
 
-        // Cập nhật trạng thái IMEI/Serial và tạo sự kiện lịch sử tương ứng
-        const direction = (preparedUpdatePayload.type || existingLog.type) === "nhập" ? "in" : "out";
-        const toStatus = direction === "out" ? "sold" : "in_stock";
-        const eventType = direction === "out" ? "sold" : "received";
-
-        const items = preparedUpdatePayload.items || existingLog.items || [];
-        for (const item of items) {
-          if (Array.isArray(item.unitIdentifiers) && item.unitIdentifiers.length > 0) {
-            const units = await SerialUnitModel.find({
-              companyCode,
-              branchId: inventoryBranch,
-              $or: [{ serialNumber: { $in: item.unitIdentifiers } }, { normalizedInternalBarcode: { $in: item.unitIdentifiers.map((value: string) => String(value).trim().toUpperCase()) } }],
-            });
-
-            for (const unit of units) {
-              const fromStatus = unit.status;
-              unit.status = toStatus;
-              unit.updatedBy = preparedUpdatePayload.operatorName || existingLog.operatorName || "SYSTEM";
-              await unit.save();
-
-              await SerialEventModel.create({
-                companyCode,
-                branchId: inventoryBranch,
-                serialUnitId: String(unit._id),
-                serialNumber: unit.serialNumber,
-                eventType,
-                fromStatus,
-                toStatus,
-                documentType: "manual-stock-log",
-                documentId: existingLog._id.toString(),
-                actorId: "SYSTEM",
-                actorName: preparedUpdatePayload.operatorName || existingLog.operatorName || "Hệ thống",
-              });
-            }
-          }
-        }
+        await updateStockLogSerials(companyCode, inventoryBranch!, movement.warehouseId, { ...existingLog, ...preparedUpdatePayload }, transaction?.session);
       }
     }
     const updatePayload = sanitizeInventoryPayload(modelName, preparedUpdatePayload);
@@ -686,7 +694,7 @@ export const crudService = {
       }
     }
 
-    const updatedItem = await model.findOneAndUpdate(query, updatePayload, { returnDocument: 'after' });
+    const updatedItem = await model.findOneAndUpdate(query, updatePayload, { returnDocument: 'after', session: transaction?.session, runValidators: true });
     if (!updatedItem) {
       throw new Error("Khong tim thay tai nguyen hoac ban khong co quyen chinh sua.");
     }
@@ -728,6 +736,11 @@ export const crudService = {
     if (inventoryBranch) query.branchId = inventoryBranch;
     if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
+    if (modelName === "stock-logs") {
+      const log = await StockLogModel.findOne(query).lean();
+      if (log && completedStockLog(log.status)) throw stockLogLocked();
+      query.status = { $nin: ["Hoàn thành", "Thành công"] };
+    }
     const deletedItem = await model.findOneAndDelete(query);
     if (!deletedItem) {
       throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền xóa.");

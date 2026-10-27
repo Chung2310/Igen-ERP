@@ -4,8 +4,10 @@ export function useRetailFullscreen() {
   const [fullscreen, setFullscreen] = useState(false);
   const ownsFullscreen = useRef(false);
   const pending = useRef(false);
-
+  const requested = useRef(false);
+  const mounted = useRef(true);
   const exit = useCallback(async () => {
+    requested.current = false;
     setFullscreen(false);
     if (ownsFullscreen.current && document.fullscreenElement) {
       try { await document.exitFullscreen(); } catch { /* Browser may already have exited. */ }
@@ -14,20 +16,23 @@ export function useRetailFullscreen() {
   }, []);
 
   useEffect(() => {
-    const onFullscreenChange = () => {
+    mounted.current = true;
+    const changed = () => {
       if (!document.fullscreenElement) {
+        requested.current = false;
         ownsFullscreen.current = false;
         setFullscreen(false);
       }
     };
-    const onKeyDown = (event: KeyboardEvent) => {
+    const keydown = (event: KeyboardEvent) => {
       if (event.key === "Escape") void exit();
     };
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("fullscreenchange", changed);
+    document.addEventListener("keydown", keydown);
     return () => {
-      document.removeEventListener("fullscreenchange", onFullscreenChange);
-      document.removeEventListener("keydown", onKeyDown);
+      mounted.current = false;
+      document.removeEventListener("fullscreenchange", changed);
+      document.removeEventListener("keydown", keydown);
       if (ownsFullscreen.current && document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
       ownsFullscreen.current = false;
     };
@@ -35,23 +40,20 @@ export function useRetailFullscreen() {
 
   const toggleFullscreen = async () => {
     if (pending.current) return;
-    pending.current = true;
-    try {
-      if (fullscreen) {
-        await exit();
-        return;
-      }
-      setFullscreen(true);
-      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+    if (fullscreen) return exit();
+    requested.current = true;
+    setFullscreen(true);
+    // Fullscreen the document so dialogs and dropdowns rendered in portals stay visible.
+    // The POS also fills the viewport when the browser does not support this API.
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      pending.current = true;
+      try {
         await document.documentElement.requestFullscreen();
-        ownsFullscreen.current = true;
-      }
-    } catch {
-      // The POS still fills the available viewport through its layout classes.
-    } finally {
-      pending.current = false;
+        if (mounted.current && requested.current) ownsFullscreen.current = true;
+        else if (document.fullscreenElement === document.documentElement) await document.exitFullscreen();
+      } catch { /* Keep the viewport-filling layout if native fullscreen is unavailable. */ }
+      finally { pending.current = false; }
     }
   };
-
   return { fullscreen, toggleFullscreen };
 }

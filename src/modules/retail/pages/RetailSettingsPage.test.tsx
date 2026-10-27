@@ -12,7 +12,7 @@ vi.mock("../../../context/AuthContext", () => ({
   useAuth: () => ({ userProfile: { companyCode: "ACME", permissions: ["retail:manage"] } }),
 }));
 vi.mock("../api/retailSettings.api", () => ({
-  retailSettingsApi: { get: vi.fn(), update: vi.fn() },
+  retailSettingsApi: { get: vi.fn(), update: vi.fn(), printConfig: vi.fn() },
 }));
 
 const settings = {
@@ -29,6 +29,7 @@ const settings = {
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(retailSettingsApi.printConfig).mockResolvedValue({ storeName: "Igen", invoicePaperSize: "58mm" } as any);
   vi.mocked(retailSettingsApi.get).mockResolvedValue(settings);
   vi.mocked(retailSettingsApi.update).mockResolvedValue({ ...settings, allowNegativeStock: true });
 });
@@ -52,8 +53,9 @@ describe("RetailSettingsPage", () => {
     const paper = await screen.findByRole("combobox", { name: "Khổ giấy hóa đơn" }) as HTMLSelectElement;
     expect(Array.from(paper.options, (option) => option.value)).toEqual(["58mm", "80mm", "A5", "A4"]);
     fireEvent.change(paper, { target: { value: "58mm" } });
-    fireEvent.click(screen.getByRole("button", { name: "Xem trước và in thử" }));
-    expect(screen.getByText(/Khách hàng in thử/)).toBeTruthy();
-    expect(document.querySelector('[data-paper-size="58mm"]')).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "In thử hóa đơn" }));
+    expect((await screen.findAllByText(/Khách hàng in thử/)).length).toBeGreaterThan(0);
+    const receipt = screen.getByRole("dialog", { name: "In thử hóa đơn" }).querySelector("article") as HTMLElement;
+    expect(receipt.style.width).toBe("58mm");
   });
 });

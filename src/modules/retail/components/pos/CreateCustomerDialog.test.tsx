@@ -1,13 +1,13 @@
 ﻿// @vitest-environment jsdom
 import React from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { customerApi } from "../../../customer-management/customerApi";
 import CreateCustomerDialog from "./CreateCustomerDialog";
 
 vi.mock("../../../customer-management/customerApi", () => ({
-  customerApi: { create: vi.fn(), createBillingProfile: vi.fn() },
+  customerApi: { create: vi.fn(), createBillingProfile: vi.fn(), billingProfiles: vi.fn() },
 }));
 
 const scope = { companyCode: "ACME", branchId: "B1" };
@@ -26,8 +26,9 @@ const created = {
 afterEach(cleanup);
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   vi.mocked(customerApi.create).mockResolvedValue(created as any);
+  vi.mocked(customerApi.billingProfiles).mockResolvedValue([]);
   vi.mocked(customerApi.createBillingProfile).mockResolvedValue({
     profile: {
       _id: "bp1",
@@ -46,6 +47,49 @@ beforeEach(() => {
 });
 
 describe("CreateCustomerDialog", () => {
+  async function fillVat(taxId = "0312345678", email = "invoice@example.com") {
+    fireEvent.change(screen.getByRole("textbox", { name: "Số điện thoại" }), { target: { value: "0909123456" } });
+    await userEvent.selectOptions(screen.getByRole("combobox"), "vat");
+    for (const [label, value] of [
+      ["Tên khách hàng", "Cong ty A"],
+      ["Tên pháp nhân", "Cong ty A"],
+      ["Mã số thuế", taxId],
+      ["Địa chỉ hóa đơn", "1 Nguyen Hue"],
+      ["Email nhận hóa đơn", email],
+    ]) fireEvent.change(screen.getByRole("textbox", { name: label }), { target: { value } });
+  }
+
+  it.each([false, true])("retries VAT without duplicating the customer or an already saved profile (saved=%s)", async (saved) => {
+    const onCreated = vi.fn();
+    vi.mocked(customerApi.createBillingProfile).mockRejectedValueOnce(new Error("Không lưu được hồ sơ VAT."));
+    vi.mocked(customerApi.billingProfiles).mockResolvedValue(saved ? [{
+      _id: "bp1", customerId: "c2", legalName: "Cong ty A", taxId: "0312345678",
+      address: "1 Nguyen Hue", invoiceEmail: "invoice@example.com", isDefault: true, status: "active", version: 0,
+    }] : []);
+    render(<CreateCustomerDialog scope={scope} onClose={vi.fn()} onCreated={onCreated} />);
+    await fillVat();
+    await userEvent.click(screen.getByRole("button", { name: "Lưu khách hàng" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Không lưu được hồ sơ VAT.");
+    expect(onCreated).not.toHaveBeenCalled();
+    expect((screen.getByRole("textbox", { name: "Tên khách hàng" }) as HTMLInputElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: "Lưu hồ sơ VAT" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledOnce());
+    expect(customerApi.create).toHaveBeenCalledOnce();
+    expect(customerApi.billingProfiles).toHaveBeenCalledWith("c2", "ACME");
+    expect(customerApi.createBillingProfile).toHaveBeenCalledTimes(saved ? 1 : 2);
+  });
+
+  it.each([
+    ["123", "invoice@example.com", "Mã số thuế không hợp lệ."],
+    ["0312345678", "bad-email", "Email nhận hóa đơn không hợp lệ."],
+  ])("validates VAT before creating a customer (%s, %s)", async (taxId, email, message) => {
+    render(<CreateCustomerDialog scope={scope} onClose={vi.fn()} onCreated={vi.fn()} />);
+    await fillVat(taxId, email);
+    await userEvent.click(screen.getByRole("button", { name: "Lưu khách hàng" }));
+    expect((await screen.findByRole("alert")).textContent).toContain(message);
+    expect(customerApi.create).not.toHaveBeenCalled();
+  });
+
   it("prefills the searched phone and creates a customer with trimmed full details", async () => {
     const onCreated = vi.fn();
     render(<CreateCustomerDialog scope={scope} initialPhone=" 0909123456 " onClose={vi.fn()} onCreated={onCreated} />);
@@ -102,9 +146,9 @@ describe("CreateCustomerDialog", () => {
 
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Loại khách hàng" }), "vat");
 
-    const dialog = screen.getByRole("dialog", { name: "Tạo khách hàng mới" });
-    expect(dialog.querySelector("form")?.className).toContain("max-h-[calc(100vh-2rem)]");
-    expect(dialog.querySelector("form")?.className).toContain("overflow-y-auto");
+    const dialog = screen.getByRole("dialog", { name: "Tạo khách hàng mới" }).querySelector("form")!;
+    expect(dialog.className).toContain("max-h-[calc(100vh-2rem)]");
+    expect(dialog.className).toContain("overflow-y-auto");
 
     const cancelButton = screen.getByRole("button", { name: "Hủy" });
     const actions = cancelButton.parentElement;

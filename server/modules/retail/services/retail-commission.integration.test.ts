@@ -4,6 +4,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { RetailPartnerModel } from "../models/retail-partner.model";
 import { RetailCommissionAccountModel, RetailCommissionBasePolicyModel, RetailCommissionLedgerModel, RetailCommissionPayoutModel, RetailCommissionPolicyModel, RetailProductCommissionModel } from "../models/retail-commission.model";
 import { accrueOrderCommission, payPartnerCommission, reverseOrderCommission } from "./retail-commission.service";
+import { resolveCollaborator, snapshotRetail, reconcileCommission } from "./retail-collaborator-adapter";
+import { RetailOrderModel } from "../models/retail-order.model";
+import { RetailAfterSaleModel } from "../models/retail-after-sale.model";
+import { RetailSePayTransactionModel } from "../models/retail-sepay-transaction.model";
+import { CompanyModel } from "../../../model/company.model";
+import { buildRetailPaymentQr, processRetailSePayTransaction } from "./retail-sepay.service";
 
 let replSet: MongoMemoryReplSet;
 const scope = { companyCode: "COMMISSIONTEST", branchId: "b1" };
@@ -13,11 +19,65 @@ const order = { _id: new mongoose.Types.ObjectId(), retailPartnerId: partnerId, 
 describe("hoa hồng CTV bán lẻ", () => {
   beforeAll(async () => { replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); await mongoose.connect(replSet.getUri()); });
   beforeEach(async () => {
-    await Promise.all([RetailPartnerModel.deleteMany({}), RetailCommissionPolicyModel.deleteMany({}), RetailCommissionBasePolicyModel.deleteMany({}), RetailProductCommissionModel.deleteMany({}), RetailCommissionLedgerModel.deleteMany({}), RetailCommissionAccountModel.deleteMany({}), RetailCommissionPayoutModel.deleteMany({})]);
+    await Promise.all([RetailPartnerModel.deleteMany({}), RetailCommissionPolicyModel.deleteMany({}), RetailCommissionBasePolicyModel.deleteMany({}), RetailProductCommissionModel.deleteMany({}), RetailCommissionLedgerModel.deleteMany({}), RetailCommissionAccountModel.deleteMany({}), RetailCommissionPayoutModel.deleteMany({}), RetailOrderModel.deleteMany({}), RetailAfterSaleModel.deleteMany({}), RetailSePayTransactionModel.deleteMany({}), CompanyModel.deleteMany({})]);
     await RetailPartnerModel.create({ _id: partnerId, companyCode: scope.companyCode, code: "CTV1", name: "CTV", roles: ["collaborator"], status: "active", createdBy: "test", updatedBy: "test" });
     await RetailCommissionPolicyModel.create({ companyCode: scope.companyCode, partnerId, kind: "sale", sku: "PHONE", ratePercent: 10, active: true, updatedBy: "test" });
   });
   afterAll(async () => { await mongoose.disconnect(); await replSet.stop(); });
+
+  const posOrder = (overrides: Record<string, unknown> = {}) => ({
+    ...order, ...scope, _id: new mongoose.Types.ObjectId(), collaboratorId: partnerId,
+    createdBy: "cashier-1", createdByName: "Cashier", salespersonId: "cashier-1", salespersonName: "Cashier",
+    items: [{ productId: "p1", sku: "PHONE", productName: "Phone", unit: "unit", quantity: 2, unitPrice: 50_000, unitCost: 25_000, discountAmount: 0, lineTotal: 100_000 }],
+    taxRate: 0, taxAmount: 0, shippingFee: 0, grandTotal: 100_000, totalCost: 50_000,
+    payments: [], refunds: [], paidAmount: 100_000, dueAmount: 0, refundedAmount: 0,
+    paymentStatus: "paid", stockApplied: true, version: 1, ...overrides,
+  });
+
+  it("resolves ERP collaborators only inside their company and while active", async () => {
+    expect(String((await resolveCollaborator(scope.companyCode, partnerId))?._id)).toBe(partnerId);
+    await expect(resolveCollaborator("OTHER", partnerId)).rejects.toThrow();
+    await RetailPartnerModel.updateOne({ _id: partnerId }, { $set: { status: "inactive" } });
+    await expect(resolveCollaborator(scope.companyCode, partnerId)).rejects.toThrow();
+    expect(await resolveCollaborator(scope.companyCode, undefined)).toBeUndefined();
+  });
+
+  it("the POS adapter accrues once and reverses returns and cancellation without losing ERP commissions", async () => {
+    const row = posOrder();
+    const snapshot = await snapshotRetail(row);
+    expect(snapshot).toMatchObject({ partnerId });
+    expect(row.retailPartnerId).toBe(partnerId);
+    await RetailOrderModel.collection.insertOne({ ...row, commissionSnapshot: snapshot } as any);
+    await reconcileCommission("retail", String(row._id), "OTHER");
+    expect(await RetailCommissionLedgerModel.countDocuments({})).toBe(0);
+    await reconcileCommission("retail", String(row._id), scope.companyCode);
+    await reconcileCommission("retail", String(row._id), scope.companyCode);
+    expect((await RetailCommissionAccountModel.findOne({ partnerId }).lean())?.balance).toBe(10_000);
+    await RetailAfterSaleModel.collection.insertOne({ ...scope, orderId: String(row._id), type: "return", items: [{ orderLineIndex: 0, quantity: 1 }] });
+    await reconcileCommission("retail", String(row._id), scope.companyCode);
+    await reconcileCommission("retail", String(row._id), scope.companyCode);
+    expect((await RetailCommissionAccountModel.findOne({ partnerId }).lean())?.balance).toBe(5_000);
+    await RetailOrderModel.updateOne({ _id: row._id }, { $set: { status: "cancelled" } });
+    await reconcileCommission("retail", String(row._id), scope.companyCode);
+    await reconcileCommission("retail", String(row._id), scope.companyCode);
+    expect((await RetailCommissionAccountModel.findOne({ partnerId }).lean())?.balance).toBe(0);
+    expect(await RetailCommissionLedgerModel.countDocuments({})).toBe(3);
+  });
+
+  it("posts ERP commissions once when a SePay payment completes a POS order", async () => {
+    await CompanyModel.collection.insertOne({ code: scope.companyCode, vietqrConfig: { accountNo: "123456789", bankId: "970422" } });
+    const paymentCode = "AKMP1234567890ABCDEF1234567890";
+    const row = posOrder({ status: "confirmed", paymentStatus: "unpaid", paidAmount: 0, dueAmount: 100_000, pendingTransferAmount: 100_000, paymentCode });
+    await RetailOrderModel.collection.insertOne(row as any);
+    await expect(buildRetailPaymentQr(scope.companyCode, scope.branchId, String(row._id), { actorId: "cashier-2", canManage: false })).rejects.toMatchObject({ status: 403 });
+    expect((await buildRetailPaymentQr(scope.companyCode, scope.branchId, String(row._id), { actorId: "cashier-1", canManage: false })).amount).toBe(100_000);
+    expect((await buildRetailPaymentQr(scope.companyCode, scope.branchId, String(row._id), { actorId: "manager", canManage: true })).amount).toBe(100_000);
+    const payload = { id: "commission-payment-1", transferType: "in", transferAmount: 100_000, accountNumber: "123456789", code: paymentCode };
+    expect(await processRetailSePayTransaction(payload)).toMatchObject({ paymentStatus: "paid" });
+    expect(await processRetailSePayTransaction(payload)).toMatchObject({ duplicate: true });
+    expect((await RetailCommissionAccountModel.findOne({ partnerId }).lean())?.balance).toBe(10_000);
+    expect(await RetailCommissionLedgerModel.countDocuments({})).toBe(1);
+  });
 
   it("accrues, reverses and pays once under retries", async () => {
     await accrueOrderCommission(scope, order);

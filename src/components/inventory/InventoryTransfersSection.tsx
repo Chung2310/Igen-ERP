@@ -71,7 +71,9 @@ export function InventoryTransfersSection() {
   const sourceWarehouses = warehouses.filter((warehouse) => warehouse.branchId === activeBranchId);
   const destinationWarehouses = warehouses.filter((warehouse) => warehouse._id !== fromWarehouseId);
   const warehouseLabel = (id: string) => { const warehouse = warehouses.find((item) => item._id === id); const branch = branches.find((item) => item._id === warehouse?.branchId); return warehouse ? `${warehouse.name} · ${branch?.name || warehouse.branchId}` : id; };
-  const updateLine = (index: number, patch: Partial<TransferItem>) => setItems((current) => current.map((item, position) => position === index ? { ...item, ...patch } : item));
+  const lineTrackingMode = (item: TransferItem) => balances.find((balance) => balance.variantId === item.variantId)?.trackingMode;
+  const tracksUnits = (item: TransferItem) => ["serial", "unit_barcode"].includes(lineTrackingMode(item) || "");
+  const updateLine = (index: number, patch: Partial<TransferItem>) => setItems((current) => current.map((item, position) => position === index ? { ...item, ...patch, ...(patch.variantId !== undefined ? { serialNumbers: "" } : {}) } : item));
   async function create(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setMessage("");
     try {
@@ -79,7 +81,7 @@ export function InventoryTransfersSection() {
       const destination = warehouses.find((warehouse) => warehouse._id === toWarehouseId);
       if (!destination) throw new Error("Kho nhận không hợp lệ.");
       const payload = { fromWarehouseId, toWarehouseId, toBranchId: destination.branchId, reason, items: items.map((item) => ({
-        variantId: item.variantId, quantity: item.quantity, serialNumbers: item.serialNumbers.split(/[\n,;]+/).map((value) => value.trim()).filter(Boolean),
+        variantId: item.variantId, quantity: item.quantity, serialNumbers: tracksUnits(item) ? item.serialNumbers.split(/[\n,;]+/).map((value) => value.trim()).filter(Boolean) : [],
       })) };
       const fingerprint = JSON.stringify({ scope, payload });
       const key = requestAttempt.current?.fingerprint === fingerprint ? requestAttempt.current.key : crypto.randomUUID();
@@ -113,7 +115,7 @@ export function InventoryTransfersSection() {
     catch (cause) { setError(cause instanceof Error ? cause.message : "Không đối soát được kho."); }
   }
   return <section className="space-y-6 text-on-surface" aria-labelledby="transfer-title">
-    <header className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="transfer-title" className="text-balance text-xl font-semibold">Điều chuyển và đối soát kho</h2><p className="mt-1 text-pretty text-sm text-on-surface-variant">Phiếu chuyển nhiều SKU/IMEI, chờ kho nhận xác nhận.</p></div>{canManage && <button type="button" onClick={() => { setError(""); setCreateOpen(true); }} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary">Tạo phiếu điều chuyển</button>}</header>
+    <header className="flex flex-wrap items-start justify-between gap-3"><div><h2 id="transfer-title" className="text-balance text-xl font-semibold">Điều chuyển và đối soát kho</h2><p className="mt-1 text-pretty text-sm text-on-surface-variant">Chuyển hàng giữa các kho và xác nhận nhận hàng.</p></div>{canManage && <button type="button" onClick={() => { setError(""); setCreateOpen(true); }} className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary">Tạo phiếu điều chuyển</button>}</header>
     {error && <p role="alert" className="rounded-lg border border-error p-3 text-sm text-error">{error}</p>}
     {message && <p role="status" className="text-sm">{message}</p>}
     {canManage && createOpen && <dialog ref={dialogRef} aria-labelledby="create-transfer-title" onCancel={(event) => { event.preventDefault(); if (!busy) setCreateOpen(false); }} className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-0 text-on-surface shadow-xl backdrop:bg-inverse-surface/50">
@@ -122,10 +124,10 @@ export function InventoryTransfersSection() {
       {error && <p role="alert" className="rounded-lg border border-error p-3 text-pretty text-sm text-error">{error}</p>}
       <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm">Kho gửi<select required value={fromWarehouseId} onChange={(event) => setFromWarehouseId(event.target.value)} className={field}><option value="">Chọn kho gửi</option>{sourceWarehouses.map((warehouse) => <option key={warehouse._id} value={warehouse._id}>{warehouse.name}</option>)}</select></label>
         <label className="text-sm">Kho nhận<select required value={toWarehouseId} onChange={(event) => setToWarehouseId(event.target.value)} className={field}><option value="">Chọn kho nhận</option>{destinationWarehouses.map((warehouse) => <option key={warehouse._id} value={warehouse._id}>{warehouseLabel(warehouse._id)}</option>)}</select></label></div>
-      <div className="space-y-3">{items.map((item, index) => <div key={index} className="grid gap-3 rounded-lg border border-outline-variant p-3 sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)_auto] sm:items-end">
+      <div className="space-y-3">{items.map((item, index) => <div key={index} className={`grid gap-3 rounded-lg border border-outline-variant p-3 sm:items-end ${tracksUnits(item) ? "sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1fr)_auto]" : "sm:grid-cols-[minmax(0,1fr)_7rem_auto]"}`}>
         <label className="text-sm">SKU<select required value={item.variantId} onChange={(event) => updateLine(index, { variantId: event.target.value })} className={field}><option value="">Chọn SKU</option>{balances.map((balance) => <option key={balance._id} value={balance.variantId}>{balance.sku} · Còn {balance.quantity - balance.reservedQuantity}</option>)}</select></label>
         <label className="text-sm">Số lượng<input required type="number" min={1} step={1} value={item.quantity} onChange={(event) => updateLine(index, { quantity: Number(event.target.value) })} className={field} /></label>
-        <label className="text-sm">IMEI nếu hàng quản lý từng máy<textarea rows={2} value={item.serialNumbers} onChange={(event) => updateLine(index, { serialNumbers: event.target.value })} placeholder="Mỗi IMEI một dòng" className={field} /></label>
+        {tracksUnits(item) && <label className="text-sm">{lineTrackingMode(item) === "serial" ? "Số sê-ri của hàng chuyển" : "Mã đơn vị của hàng chuyển"}<textarea required rows={2} value={item.serialNumbers} onChange={(event) => updateLine(index, { serialNumbers: event.target.value })} placeholder="Mỗi mã một dòng" className={field} /></label>}
         <button type="button" disabled={items.length === 1} onClick={() => setItems((current) => current.filter((_, position) => position !== index))} className={actionClass}>Xóa dòng</button>
       </div>)}</div>
       <button type="button" onClick={() => setItems((current) => [...current, { variantId: "", quantity: 1, serialNumbers: "" }])} className={actionClass}>Thêm dòng hàng</button>
@@ -141,8 +143,8 @@ export function InventoryTransfersSection() {
       </div></div></li>)}</ul>
       {!loading && !transfers.length && <p className="text-pretty text-sm text-on-surface-variant">{canManage ? "Chưa có phiếu. Chọn Tạo phiếu điều chuyển để bắt đầu." : "Chưa có phiếu điều chuyển trong chi nhánh này."}</p>}
     </div>
-    {canManage && <div className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6"><h3 className="text-balance text-lg font-semibold">Đối soát kho gửi</h3><button type="button" disabled={!fromWarehouseId} onClick={() => void checkReconciliation()} className={actionClass}>Kiểm tra sổ kho, tồn và IMEI</button>
-      {reconciliation && <><p className="text-sm">Đã kiểm {reconciliation.checkedProducts} SKU · {reconciliation.differenceCount} chênh lệch.</p><ul className="space-y-1">{reconciliation.differences.map((difference) => <li key={difference.sku} className="rounded-lg border border-outline-variant p-2 text-sm">{difference.sku} · Tồn {difference.balanceQuantity} · Sổ {difference.ledgerQuantity}{difference.serialCount !== undefined ? ` · IMEI ${difference.serialCount}` : ""}</li>)}</ul>{!reconciliation.differences.length && <p className="text-sm text-on-surface-variant">Chưa phát hiện chênh lệch.</p>}</>}
+    {canManage && <div className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6"><h3 className="text-balance text-lg font-semibold">Đối soát kho gửi</h3><button type="button" disabled={!fromWarehouseId} onClick={() => void checkReconciliation()} className={actionClass}>Kiểm tra tồn và sổ kho</button>
+      {reconciliation && <><p className="text-sm">Đã kiểm {reconciliation.checkedProducts} SKU · {reconciliation.differenceCount} chênh lệch.</p><ul className="space-y-1">{reconciliation.differences.map((difference) => <li key={difference.sku} className="rounded-lg border border-outline-variant p-2 text-sm">{difference.sku} · Tồn {difference.balanceQuantity} · Sổ {difference.ledgerQuantity}{difference.serialCount !== undefined ? ` · Số đơn vị ${difference.serialCount}` : ""}</li>)}</ul>{!reconciliation.differences.length && <p className="text-sm text-on-surface-variant">Chưa phát hiện chênh lệch.</p>}</>}
     </div>}
     <ConfirmDialog isOpen={confirmOpen} title={pending?.action === "cancel" ? "Hủy phiếu điều chuyển" : "Đảo phiếu điều chuyển"} description={`Lý do: ${actionReason.trim()}`} confirmLabel="Xác nhận" isSubmitting={busy} onClose={() => setConfirmOpen(false)} onConfirm={() => void confirmAction()} />
     {pending && <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4"><label className="block text-sm">Lý do {pending.action === "cancel" ? "hủy" : "đảo"} phiếu<input autoFocus required maxLength={300} value={actionReason} onChange={(event) => setActionReason(event.target.value)} className={field} /></label><div className="mt-3 flex gap-2"><button type="button" disabled={!actionReason.trim()} onClick={() => setConfirmOpen(true)} className={actionClass}>Tiếp tục</button><button type="button" onClick={() => setPending(null)} className={actionClass}>Bỏ qua</button></div></div>}

@@ -258,15 +258,20 @@ export function UserFormModal({
             </div>
 
             {/* Người quản lý trực tiếp */}
+            {userRole === "pos_cashier" && userCompanyCode === "SYSTEM" && (
+              <p className="text-xs text-amber-700">Vai trò thu ngân POS chỉ dùng trong một doanh nghiệp có chi nhánh.</p>
+            )}
+
             {userCompanyCode && userCompanyCode !== "SYSTEM" && (
               <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Chi nhánh</label>
-                <select aria-label="Chi nhánh" disabled={lockBranch} value={userBranchId} onChange={(e) => setUserBranchId(e.target.value)} className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none disabled:bg-gray-50">
-                  <option value="">Không gán chi nhánh</option>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Chi nhánh{userRole === "pos_cashier" ? " *" : ""}</label>
+                <select aria-label="Chi nhánh" required={userRole === "pos_cashier"} disabled={lockBranch} value={userBranchId} onChange={(e) => setUserBranchId(e.target.value)} className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none disabled:bg-gray-50">
+                  <option value="">{userRole === "pos_cashier" ? "Chọn chi nhánh (bắt buộc)" : "Không gán chi nhánh"}</option>
                   {branches.filter((branch) => branch.companyCode === userCompanyCode && branch.isActive).map((branch) => (
                     <option key={branch._id} value={branch._id}>{branch.name} ({branch.code})</option>
                   ))}
                 </select>
+                {userRole === "pos_cashier" && <p className="text-[10px] text-gray-500">Thu ngân chỉ mở ca và bán hàng trong chi nhánh được gán.</p>}
               </div>
             )}
 

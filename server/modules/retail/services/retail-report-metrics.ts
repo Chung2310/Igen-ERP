@@ -2,6 +2,8 @@ import type { RetailPaymentMethod } from "../interfaces/cashier-shift.interface"
 
 type RetailReportOrder = {
   orderCode?: string;
+  createdBy?: string;
+  createdByName?: string;
   shiftId?: unknown;
   businessDate?: string;
   status: string;
@@ -9,6 +11,7 @@ type RetailReportOrder = {
   totalCost: number;
   refundedAmount: number;
   dueAmount: number;
+  pendingTransferAmount?: number;
   payments?: Array<{ method: RetailPaymentMethod; amount: number; tenderedAmount?: number; changeAmount?: number }>;
   customerId?: unknown;
   customerName?: string;
@@ -119,6 +122,7 @@ const vietnamDateFormatter = new Intl.DateTimeFormat("en-CA", {
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 const isActive = (order: RetailReportOrder) => order.status === "confirmed" || order.status === "completed";
 const collectedFor = (order: RetailReportOrder) => sum((order.payments || []).map((payment) => payment.amount));
+const debtFor = (order: RetailReportOrder) => Math.max(0, order.dueAmount - Number(order.pendingTransferAmount || 0));
 
 function vietnamBusinessDate(value: Date | string | undefined): string | undefined {
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
@@ -183,10 +187,11 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
   const cashierMap = new Map<string, RetailReportModel["cashiers"][number] & { activeGrossSales: number }>();
   for (const order of orders) {
     const shift = shiftById.get(String(order.shiftId ?? ""));
-    if (!shift) continue;
-    const row = cashierMap.get(shift.cashierId) || {
-      cashierId: shift.cashierId,
-      cashierName: shift.cashierName,
+    const cashierId = shift?.cashierId || order.createdBy;
+    if (!cashierId) continue;
+    const row = cashierMap.get(cashierId) || {
+      cashierId,
+      cashierName: shift?.cashierName || order.createdByName || cashierId,
       orderCount: 0,
       grossSales: 0,
       refunds: 0,
@@ -202,22 +207,23 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
       row.activeGrossSales += order.grandTotal;
       row.averageOrderValue = row.activeGrossSales / row.orderCount;
     }
-    cashierMap.set(shift.cashierId, row);
+    cashierMap.set(cashierId, row);
   }
   const cashiers = [...cashierMap.values()]
     .map(({ activeGrossSales: _activeGrossSales, ...row }) => row)
     .sort((left, right) => right.netSales - left.netSales || left.cashierName.localeCompare(right.cashierName));
 
-  const debtOrders = activeOrders.filter((order) => order.dueAmount > 0);
+  const debtOrders = activeOrders.filter((order) => debtFor(order) > 0);
   const debtCustomers = new Map<string, RetailReportModel["debt"]["customers"][number]>();
   let overdueDebt = 0;
   let dueTodayDebt = 0;
   let upcomingDebt = 0;
   for (const order of debtOrders) {
     const dueDate = vietnamBusinessDate(order.dueDate);
-    if (dueDate && dueDate < input.today) overdueDebt += order.dueAmount;
-    else if (dueDate === input.today) dueTodayDebt += order.dueAmount;
-    else if (dueDate && dueDate > input.today) upcomingDebt += order.dueAmount;
+    const debtAmount = debtFor(order);
+    if (dueDate && dueDate < input.today) overdueDebt += debtAmount;
+    else if (dueDate === input.today) dueTodayDebt += debtAmount;
+    else if (dueDate && dueDate > input.today) upcomingDebt += debtAmount;
 
     const customerId = String(order.customerId ?? "");
     const customer = debtCustomers.get(customerId) || {
@@ -228,9 +234,9 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
       overdueDebt: 0,
       orderCount: 0,
     };
-    customer.totalDebt += order.dueAmount;
+    customer.totalDebt += debtAmount;
     customer.orderCount += 1;
-    if (dueDate && dueDate < input.today) customer.overdueDebt += order.dueAmount;
+    if (dueDate && dueDate < input.today) customer.overdueDebt += debtAmount;
     if (dueDate && (!customer.nearestDueDate || dueDate < customer.nearestDueDate)) customer.nearestDueDate = dueDate;
     debtCustomers.set(customerId, customer);
   }
@@ -244,7 +250,7 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
       orderCount: activeOrders.length,
       averageOrderValue: activeOrders.length ? activeGrossSales / activeOrders.length : 0,
       collectedAmount: sum(orders.map(collectedFor)),
-      dueAmount: sum(debtOrders.map((order) => order.dueAmount)),
+      dueAmount: sum(debtOrders.map(debtFor)),
       totalCost,
       grossProfit,
       grossMarginPercent: netSales ? (grossProfit / netSales) * 100 : 0,
@@ -265,7 +271,7 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
       ...(shift.varianceAmount === undefined ? {} : { varianceAmount: shift.varianceAmount }),
     })),
     debt: {
-      totalDebt: sum(debtOrders.map((order) => order.dueAmount)),
+      totalDebt: sum(debtOrders.map(debtFor)),
       overdueDebt,
       dueTodayDebt,
       upcomingDebt,

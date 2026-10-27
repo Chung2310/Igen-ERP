@@ -38,14 +38,14 @@ export function CompanyModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
-        <div className="relative flex items-center justify-between bg-slate-900 p-6 text-white">
+      <div role="dialog" aria-modal="true" aria-labelledby="company-modal-title" className="flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+        <div className="relative flex shrink-0 items-center justify-between bg-slate-900 p-6 text-white">
           <div className="flex items-center gap-2.5">
             <div className="rounded-xl bg-indigo-600 p-2 shadow-lg shadow-indigo-500/20">
               <Building2 className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h3 className="font-sans text-sm font-bold uppercase tracking-wider">
+              <h3 id="company-modal-title" className="font-sans text-sm font-bold uppercase tracking-wider">
                 {isEdit ? "Chỉnh sửa doanh nghiệp" : "Đăng ký doanh nghiệp"}
               </h3>
               <p className="mt-0.5 font-mono text-[10px] text-slate-300">
@@ -53,12 +53,12 @@ export function CompanyModal({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <button type="button" aria-label="Đóng" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4 overflow-y-auto p-6">
+        <form onSubmit={onSubmit} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 space-y-1.5 text-left">
               <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500">Tên doanh nghiệp *</label>

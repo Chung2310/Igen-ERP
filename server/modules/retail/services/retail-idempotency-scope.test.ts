@@ -23,13 +23,13 @@ describe("tra cứu khóa yêu cầu POS", () => {
 
   it("chặn dùng lại khóa xác nhận cho đơn khác", async () => {
     vi.spyOn(RetailIdempotencyModel, "findOne").mockReturnValue({ lean: async () => ({ status: "completed", operation: "confirm-order", orderId: "another-order" }) } as any);
-    await expect(RetailOrderService.confirm(scope, "current-order", { idempotencyKey: "reused" }, {}, {})).rejects.toMatchObject({ code: "IDEMPOTENCY_KEY_REUSED" });
+    await expect(RetailOrderService.confirm(scope, "current-order", { idempotencyKey: "reused", expectedVersion: 1, expectedGrandTotal: 100, payments: [] }, {}, {})).rejects.toMatchObject({ code: "ORDER_IDEMPOTENCY_CONFLICT" });
   });
 
   it("chặn trả chứng từ xác nhận thuộc chi nhánh khác", async () => {
     vi.spyOn(RetailIdempotencyModel, "findOne").mockReturnValue({ lean: async () => ({ status: "completed", operation: "confirm-order", orderId: "current-order", invoiceId: "invoice-b" }) } as any);
     vi.spyOn(RetailOrderModel, "findOne").mockReturnValue({ lean: async () => null } as any);
     vi.spyOn(RetailInvoiceModel, "findOne").mockReturnValue({ lean: async () => null } as any);
-    await expect(RetailOrderService.confirm(scope, "current-order", { idempotencyKey: "other-branch" }, {}, {})).rejects.toMatchObject({ code: "IDEMPOTENCY_SCOPE_MISMATCH", status: 403 });
+    await expect(RetailOrderService.confirm(scope, "current-order", { idempotencyKey: "other-branch", expectedVersion: 1, expectedGrandTotal: 100, payments: [] }, {}, {})).rejects.toMatchObject({ code: "ORDER_IDEMPOTENCY_CONFLICT", status: 409 });
   });
 });

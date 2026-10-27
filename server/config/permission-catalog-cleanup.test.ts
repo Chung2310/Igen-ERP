@@ -12,7 +12,7 @@ const EXPECTED_FEATURES = [
   "access", "asset", "chat", "company-knowledge", "customer", "dashboard", "finance-receivable", "finance-wallet", "hr",
   "inventory", "labor-partner", "labor-partner-payout", "labor-partner-policy",
   "labor-partner-settlement", "marketing", "omni-inbox", "payroll-payment", "payroll-period", "payroll-policy",
-  "people", "recruitment", "relationship", "repair", "resource", "retail",
+  "people", "pos", "recruitment", "relationship", "repair", "resource", "retail",
   "settings", "social-integration", "timekeeping", "work",
 ];
 

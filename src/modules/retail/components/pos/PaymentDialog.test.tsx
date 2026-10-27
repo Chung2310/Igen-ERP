@@ -8,13 +8,14 @@ import PaymentDialog from "./PaymentDialog";
 afterEach(cleanup);
 
 describe("PaymentDialog", () => {
-  it("allows a walk-in customer to pay the full amount", async () => {
+  it("accepts a fully paid walk-in sale without a customer", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<PaymentDialog total={500_000} busy={false} onClose={vi.fn()} onSubmit={onSubmit} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Xác nhận thanh toán" }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith([{ method: "cash", amount: 500_000, tenderedAmount: 500_000 }], undefined));
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("defaults to full payment and exposes three explicit modes", () => {
@@ -22,9 +23,9 @@ describe("PaymentDialog", () => {
     expect(screen.getByRole("button", { name: "Thanh toán đủ" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "Thanh toán một phần" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Ghi nợ toàn bộ" })).toBeTruthy();
-    expect((screen.getByRole("textbox", { name: "Số tiền thu" }) as HTMLInputElement).value).toBe("500.000");
+    expect(screen.queryByRole("textbox", { name: "Số tiền thu" })).toBeNull();
+    expect((screen.getByRole("textbox", { name: "Tiền khách đưa" }) as HTMLInputElement).value).toBe("500.000");
     expect(screen.getByText("Nguồn tiền 1")).toBeTruthy();
-    expect(screen.getByText("Khoản được ghi nhận vào đơn.")).toBeTruthy();
     expect(screen.getByText("Dùng để tính tiền trả lại.")).toBeTruthy();
   });
 
@@ -33,18 +34,18 @@ describe("PaymentDialog", () => {
     render(<PaymentDialog total={1_000_000} busy={false} customerId="c1" installment={{ partner: "HD Saison", months: 6, prepayPercent: 20 }} onClose={vi.fn()} onSubmit={onSubmit} />);
     expect((screen.getByRole("textbox", { name: "Số tiền thu" }) as HTMLInputElement).value).toBe("200.000");
     expect(screen.queryByRole("button", { name: "Thanh toán đủ" })).toBeNull();
-    await userEvent.type(screen.getByLabelText("Hạn thanh toán công nợ"), "2026-09-30");
+    await userEvent.type(screen.getByLabelText("Hạn đối tác thanh toán"), "2026-09-30");
     await userEvent.click(screen.getByRole("button", { name: "Xác nhận thanh toán" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith([{ method: "cash", amount: 200_000, tenderedAmount: 200_000 }], "2026-09-30"));
   });
 
   it("allows installment upfront payment by QR while keeping the financed balance", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<PaymentDialog total={1_000_000} busy={false} customerId="c1" installment={{ partner: "HD Saison", months: 6, prepayPercent: 20 }} transferAsPending onClose={vi.fn()} onSubmit={onSubmit} />);
+    render(<PaymentDialog total={1_000_000} busy={false} customerId="c1" installment={{ partner: "HD Saison", months: 6, prepayPercent: 20 }} onClose={vi.fn()} onSubmit={onSubmit} />);
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Phương thức thanh toán" }), "transfer");
-    expect(screen.getByText("Khoản đối tác tài trợ: 800.000 ₫")).toBeTruthy();
-    await userEvent.type(screen.getByLabelText("Hạn thanh toán công nợ"), "2026-09-30");
-    await userEvent.click(screen.getByRole("button", { name: "Tạo QR thanh toán" }));
+    expect(screen.getByText("Khoản đối tác tài trợ")).toBeTruthy();
+    await userEvent.type(screen.getByLabelText("Hạn đối tác thanh toán"), "2026-09-30");
+    await userEvent.click(screen.getByRole("button", { name: "Xác nhận thanh toán" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith([expect.objectContaining({ method: "transfer", amount: 200_000 })], "2026-09-30"));
   });
 
@@ -88,7 +89,8 @@ describe("PaymentDialog", () => {
     render(<PaymentDialog total={500_000} busy={false} customerId="c1" onClose={vi.fn()} onSubmit={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: "Ghi nợ toàn bộ" }));
     await userEvent.click(screen.getByRole("button", { name: "Thanh toán đủ" }));
-    expect((screen.getByRole("textbox", { name: "Số tiền thu" }) as HTMLInputElement).value).toBe("500.000");
+    expect(screen.queryByRole("textbox", { name: "Số tiền thu" })).toBeNull();
+    expect((screen.getByRole("textbox", { name: "Tiền khách đưa" }) as HTMLInputElement).value).toBe("500.000");
   });
 
   it("labels non-cash references and uses overflow-safe responsive layouts", async () => {

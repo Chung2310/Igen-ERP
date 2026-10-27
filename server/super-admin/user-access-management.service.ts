@@ -1,6 +1,8 @@
 import { UserModel } from "../model/user.model";
+import { BranchModel } from "../model/branch.model";
 import { SuperAdminImpersonationModel } from "../model/super-admin-impersonation.model";
 import { auditService } from "../service/audit.service";
+import { emitToUserSession } from "../socket";
 import { PERMISSION_CODES, normalizeStoredPermissions } from "../config/permission-catalog";
 import { revokeAccountSessions } from "../security/revoke-account-sessions";
 
@@ -16,10 +18,12 @@ export function createUserAccessManagementService(deps: any) {
       const allowed = ["role", "permissions", "status", "lockedAt", "displayName", "department", "jobTitle"];
       const patch = data.patch || {};
       const revoke = "role" in patch || "permissions" in patch || Boolean(patch.lockedAt);
+      const previousSessionId = revoke ? value.activeSessionId : "";
       for (const key of allowed) if (key in patch) value[key] = patch[key];
       if (revoke) value.activeSessionId = "";
       await value.save();
       if (revoke) await deps.sessions.revokeAll(data.userId);
+      if (previousSessionId) emitToUserSession(previousSessionId, "auth:session-replaced", { code: "SESSION_REPLACED" });
       await audit("user.access.update", { actorId: data.actorId, userId: data.userId, tenantId: data.tenantId, correlationId: data.correlationId, changedFields: Object.keys(patch).filter(key => allowed.includes(key)) });
       return value;
     },
@@ -34,6 +38,13 @@ export function createUserAccessManagementService(deps: any) {
       if (invalid.length) throw new Error(`Unknown permission codes: ${invalid.join(", ")}`);
       const current = await user(data);
       if (current.role === "superadmin") throw new Error("The sole Super Admin role cannot be changed");
+      if (data.role === "pos_cashier") {
+        if (!current.companyCode || current.companyCode === "SYSTEM" || !current.branchId) {
+          throw new Error("POS cashiers must be assigned to an active company branch");
+        }
+        const activeBranch = await BranchModel.findOne({ _id: current.branchId, companyCode: current.companyCode, isActive: true }).select("_id").lean();
+        if (!activeBranch) throw new Error("POS cashiers must be assigned to an active company branch");
+      }
       return this.update({ ...data, patch: { role: data.role, permissions: normalizeStoredPermissions(permissions) } });
     },
     async startImpersonation(data: any) {

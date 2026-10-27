@@ -4,11 +4,13 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { retailOrdersApi } from "../api/retailOrders.api";
+import { retailShiftsApi } from "../api/retailShifts.api";
 import type { RetailOrder } from "../types";
 import RetailOrdersPage from "./RetailOrdersPage";
 
 vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { companyCode: "ACME", branchId: "B1" }, userProfile: { uid: "u1" } }) }));
 vi.mock("../api/retailOrders.api", () => ({ retailOrdersApi: { list: vi.fn(), detail: vi.fn(), collect: vi.fn(), cancel: vi.fn() } }));
+vi.mock("../api/retailShifts.api", () => ({ retailShiftsApi: { list: vi.fn() } }));
 
 const outstandingOrder = (customerId?: string): RetailOrder => ({
   _id: "o1", orderCode: "DH-01", status: "confirmed", paymentStatus: "partial", customerName: "Nguyễn Văn A", items: [], subtotal: 500_000,
@@ -16,8 +18,16 @@ const outstandingOrder = (customerId?: string): RetailOrder => ({
   ...(customerId ? { customerId } : {}),
 });
 
-afterEach(cleanup);
-beforeEach(() => vi.clearAllMocks());
+afterEach(() => { cleanup(); delete (navigator as any).locks; });
+beforeEach(() => {
+  vi.clearAllMocks();
+  localStorage.clear();
+  sessionStorage.clear();
+  Object.defineProperty(navigator, "locks", { configurable: true, value: {
+    request: vi.fn(async (_name, _options, work) => work({ name: _name })),
+  } });
+  vi.mocked(retailShiftsApi.list).mockResolvedValue({ items: [{ _id: "507f1f77bcf86cd799439011", cashierName: "Thu ngân", businessDate: "2026-08-13", status: "open" }] as any, total: 1, page: 1, limit: 100 });
+});
 
 async function openOutstandingOrder(order: ReturnType<typeof outstandingOrder>) {
   vi.mocked(retailOrdersApi.list).mockResolvedValue({ items: [order], total: 1, page: 1, limit: 20 });
@@ -34,12 +44,15 @@ describe("RetailOrdersPage", () => {
     await openOutstandingOrder(order);
 
     await userEvent.click(screen.getByRole("button", { name: "Thu công nợ" }));
+    await screen.findByRole("option", { name: "Thu ngân · 2026-08-13" });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Phiên thu hoặc hoàn tiền" }), "507f1f77bcf86cd799439011");
     await userEvent.click(await screen.findByRole("button", { name: "Xác nhận thanh toán" }));
 
-    expect(screen.queryByRole("alert")).toBeNull();
     await waitFor(() => expect(retailOrdersApi.collect).toHaveBeenCalledWith(
       { companyCode: "ACME", branchId: "B1" }, "o1", [{ method: "cash", amount: 500_000, tenderedAmount: 500_000 }],
+      { cashSessionId: "507f1f77bcf86cd799439011", idempotencyKey: expect.any(String), expectedVersion: 1 },
     ));
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("blocks collection for a legacy outstanding order without a customer", async () => {

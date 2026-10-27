@@ -18,7 +18,7 @@ export interface UserProfile {
   email: string;
   displayName: string;
   photoURL?: string;
-  role: "user" | "teacher" | "branch_owner" | "manager" | "admin" | "superadmin";
+  role: string;
   createdAt: string | Date;
   facebookIntegration?: FacebookIntegration | null;
   tiktokIntegration?: TikTokIntegration | null;

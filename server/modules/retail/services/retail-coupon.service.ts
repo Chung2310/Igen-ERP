@@ -1,124 +1,155 @@
-import { Types, type ClientSession } from "mongoose";
-import { CustomerModel } from "../../customer-management/models/customer.model";
-import { getCustomerTiers } from "../../customer-management/contracts";
+import { assertCouponRewardSource } from "./retail-coupon-eligibility";
+import type { ClientSession } from "mongoose";
+import { Types } from "mongoose";
 import type { RetailBranchScope } from "../contracts";
 import { RetailCouponModel } from "../models/retail-coupon.model";
-import { RetailOrderModel } from "../models/retail-order.model";
 
-const invalid = (message: string, status = 400) => Object.assign(new Error(message), { status });
+import { getPromotionCustomer, getCustomerTierForPromotion, getCustomerTiers } from "../../customer-management/contracts";
+
 export function normalizeCouponCode(value: unknown) {
-  const code = String(value || "").trim().toUpperCase();
-  if (!/^[A-Z0-9_-]{3,32}$/.test(code)) throw invalid("Mã ưu đãi gồm 3–32 chữ cái, chữ số, dấu gạch ngang hoặc gạch dưới.");
+  if (typeof value !== "string") throw new Error("Mã ưu đãi không hợp lệ.");
+  const code = value.trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{3,32}$/.test(code)) throw new Error("Mã gồm 3–32 chữ cái, chữ số, dấu gạch ngang hoặc gạch dưới.");
   return code;
 }
-const money = (value: unknown, name: string, positive = false) => {
-  const amount = Number(value);
-  if (!Number.isSafeInteger(amount) || amount < (positive ? 1 : 0)) throw invalid(`${name} phải là số nguyên ${positive ? "dương" : "không âm"}.`);
-  return amount;
-};
+function money(value: unknown, label: string, positive = false) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < (positive ? 1 : 0)) throw new Error(`${label} phải là số nguyên ${positive ? "dương" : "không âm"}.`);
+  return value;
+}
 export function validateCouponInput(input: any) {
+  const customerId = input.customerId == null ? null : input.customerId;
+  if (customerId !== null && (typeof customerId !== "string" || !Types.ObjectId.isValid(customerId))) throw new Error("Khách hàng nhận mã không hợp lệ.");
+  if (customerId && input.usageLimit != null && input.usageLimit !== 1) throw new Error("Mã dành riêng cho khách chỉ được dùng một lần.");
+  const tiers = input.customerTierCodes === undefined ? [] : input.customerTierCodes;
+  if (!Array.isArray(tiers) || tiers.length > 10 || tiers.some((code) => typeof code !== "string" || !/^[a-z0-9-]{1,30}$/.test(code))) throw new Error("Danh sách hạng khách hàng không hợp lệ.");
+  const customerTierCodes = [...new Set<string>(tiers)];
   const code = normalizeCouponCode(input.code);
-  const name = String(input.name || "").trim();
-  if (!name || name.length > 120) throw invalid("Tên ưu đãi phải có từ 1 đến 120 ký tự.");
-  if (!["amount", "percent"].includes(input.discountType)) throw invalid("Loại giảm giá không hợp lệ.");
-  const value = input.discountType === "amount" ? money(input.value, "Số tiền giảm", true) : Number(input.value);
-  if (input.discountType === "percent" && (!Number.isFinite(value) || value <= 0 || value > 100 || Math.round(value * 100) !== value * 100)) throw invalid("Phần trăm giảm phải từ 0 đến 100, tối đa 2 chữ số thập phân.");
-  const startsAt = new Date(input.startsAt);
-  const endsAt = new Date(input.endsAt);
-  if (!Number.isFinite(+startsAt) || !Number.isFinite(+endsAt) || endsAt <= startsAt) throw invalid("Thời gian kết thúc phải sau thời gian bắt đầu.");
-  const customerId = input.customerId ? String(input.customerId) : undefined;
-  if (customerId && !Types.ObjectId.isValid(customerId)) throw invalid("Khách hàng nhận mã không hợp lệ.");
-  const customerTierCodes = input.customerTierCodes ?? [];
-  if (!Array.isArray(customerTierCodes) || customerTierCodes.length > 10 || customerTierCodes.some((code) => typeof code !== "string" || !/^[a-z0-9-]{1,30}$/.test(code))) throw invalid("Danh sách hạng khách hàng không hợp lệ.");
-  const usageLimit = input.usageLimit == null || input.usageLimit === "" ? undefined : money(input.usageLimit, "Giới hạn lượt dùng", true);
-  if (customerId && usageLimit !== undefined && usageLimit !== 1) throw invalid("Mã dành riêng cho khách chỉ được dùng một lần.");
-  return {
-    code, name, discountType: input.discountType as "amount" | "percent", value,
+  const name = typeof input.name === "string" ? input.name.trim() : "";
+  if (!name || name.length > 120) throw new Error("Tên ưu đãi phải có từ 1 đến 120 ký tự.");
+  if (!["amount", "percent"].includes(input.discountType)) throw new Error("Loại giảm giá không hợp lệ.");
+  const value = input.discountType === "amount" ? money(input.value, "Số tiền giảm", true) : input.value;
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || (input.discountType === "percent" && (value > 100 || Math.abs(value * 100 - Math.round(value * 100)) > 1e-8))) throw new Error("Phần trăm giảm phải lớn hơn 0, không quá 100 và tối đa 2 chữ số thập phân.");
+  const startsAt = typeof input.startsAt === "string" ? new Date(input.startsAt) : new Date(NaN);
+  const endsAt = typeof input.endsAt === "string" ? new Date(input.endsAt) : new Date(NaN);
+  if (!Number.isFinite(+startsAt) || !Number.isFinite(+endsAt) || endsAt <= startsAt) throw new Error("Thời gian kết thúc phải sau thời gian bắt đầu.");
+  if (typeof input.active !== "boolean") throw new Error("Trạng thái ưu đãi không hợp lệ.");
+  return { code, name, customerId, customerTierCodes, discountType: input.discountType as "amount" | "percent", value, startsAt, endsAt, active: input.active,
     minSubtotal: money(input.minSubtotal ?? 0, "Đơn tối thiểu"),
-    maxDiscount: input.maxDiscount == null || input.maxDiscount === "" ? undefined : money(input.maxDiscount, "Giảm tối đa", true),
-    usageLimit: customerId ? 1 : usageLimit,
-    startsAt, endsAt, active: input.active !== false, customerId,
-    customerTierCodes: [...new Set<string>(customerTierCodes)],
-  };
+    maxDiscount: input.maxDiscount == null ? null : money(input.maxDiscount, "Giảm tối đa", true),
+    usageLimit: customerId ? 1 : input.usageLimit == null ? null : money(input.usageLimit, "Giới hạn lượt dùng", true) };
 }
 export function couponDiscount(coupon: any, subtotal: number, now = new Date()) {
   money(subtotal, "Giá trị đơn");
-  if (!coupon.active) throw invalid("Mã ưu đãi đang tạm dừng.", 409);
-  if (now < new Date(coupon.startsAt)) throw invalid("Mã ưu đãi chưa đến thời gian áp dụng.", 409);
-  if (now >= new Date(coupon.endsAt)) throw invalid("Mã ưu đãi đã hết hạn.", 409);
-  if (coupon.usageLimit !== undefined && coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) throw invalid("Mã ưu đãi đã hết lượt dùng.", 409);
-  if (subtotal < coupon.minSubtotal) throw invalid(`Đơn tối thiểu để dùng mã là ${coupon.minSubtotal.toLocaleString("vi-VN")} ₫.`, 409);
-  const calculated = coupon.discountType === "percent" ? Math.round(subtotal * coupon.value / 100) : coupon.value;
-  return Math.min(subtotal, calculated, coupon.maxDiscount ?? subtotal);
+  if (!coupon.active) throw new Error("Mã ưu đãi đang tạm dừng.");
+  if (now < new Date(coupon.startsAt)) throw new Error("Mã ưu đãi chưa đến thời gian áp dụng.");
+  if (now >= new Date(coupon.endsAt)) throw new Error("Mã ưu đãi đã hết hạn.");
+  if (coupon.usageLimit != null && coupon.usedCount >= coupon.usageLimit) throw new Error("Mã ưu đãi đã hết lượt dùng.");
+  if (subtotal < coupon.minSubtotal) throw new Error(`Đơn tối thiểu để dùng mã là ${coupon.minSubtotal.toLocaleString("vi-VN")} ₫.`);
+  const amount = coupon.discountType === "percent" ? Math.round(subtotal * coupon.value / 100) : coupon.value;
+  return Math.min(subtotal, amount, coupon.maxDiscount ?? subtotal);
 }
-export async function sourceEligible(scope: RetailBranchScope, coupon: any, session?: ClientSession) {
-  if (!coupon.sourceOrderId) return;
-  const order = await RetailOrderModel.findOne({ _id: coupon.sourceOrderId, ...scope, customerId: coupon.customerId }).session(session ?? null).lean();
-  if (!order || order.status !== "completed" || order.paymentStatus !== "paid" || order.dueAmount !== 0 ||
-    Number(order.grandTotal) - Number(order.refundedAmount || 0) < Number(coupon.triggerThreshold || 0)) {
-    throw invalid("Đơn hàng được tặng mã đã hủy, hoàn tiền hoặc không còn đủ điều kiện.", 409);
-  }
+async function validateConfiguredTiers(companyCode: string, codes: string[]) {
+  if (!codes.length) return;
+  const tiers = await getCustomerTiers(companyCode);
+  if (codes.some((code) => !tiers.some((tier) => tier.code === code))) throw new Error("Hạng khách hàng đã chọn không còn tồn tại trong cài đặt khách hàng.");
 }
-export async function resolveCoupon(scope: RetailBranchScope, code: string, subtotal: number, customerId?: string, session?: ClientSession) {
+export async function resolveCoupon(scope: RetailBranchScope, code: unknown, subtotal: number, session?: ClientSession, customerId?: unknown) {
   const coupon = await RetailCouponModel.findOne({ ...scope, code: normalizeCouponCode(code) }).session(session ?? null).lean();
-  if (!coupon) throw invalid("Không tìm thấy mã ưu đãi tại chi nhánh này.", 404);
-  if (coupon.customerId && coupon.customerId !== customerId) throw invalid("Mã ưu đãi chỉ dành cho khách hàng được tặng mã.", 403);
-  if (coupon.customerTierCodes.length || coupon.customerId) {
-    if (!customerId) throw invalid("Vui lòng chọn khách hàng để sử dụng mã ưu đãi.");
-    const customer = await CustomerModel.findOne({ _id: customerId, companyCode: scope.companyCode, status: "active" }).session(session ?? null).lean();
-    if (!customer) throw invalid("Khách hàng không tồn tại hoặc đã ngừng hoạt động.");
-    if (coupon.customerTierCodes.length && !coupon.customerTierCodes.includes(customer.tier?.code || "")) throw invalid("Hạng khách hàng không thuộc đối tượng áp dụng mã.", 403);
+  if (!coupon) throw new Error("Không tìm thấy mã ưu đãi tại chi nhánh này.");
+  if (coupon.customerId) {
+    if (String(customerId || "") !== coupon.customerId) throw new Error("Mã ưu đãi này chỉ dành cho khách hàng được tặng mã.");
+    if (!await getPromotionCustomer(scope.companyCode, customerId, session)) throw new Error("Khách hàng nhận mã không tồn tại hoặc đã ngừng hoạt động.");
   }
-  await sourceEligible(scope, coupon, session);
-  return { id: String(coupon._id), code: coupon.code, name: coupon.name, amount: couponDiscount(coupon, subtotal), version: coupon.version };
+  await assertCouponRewardSource(scope, coupon, session);
+  const amount = couponDiscount(coupon, subtotal);
+  if (coupon.customerTierCodes?.length) {
+    if (!customerId) throw new Error("Vui lòng chọn khách hàng để sử dụng mã ưu đãi theo hạng.");
+    await validateConfiguredTiers(scope.companyCode, coupon.customerTierCodes);
+    const tierCode = await getCustomerTierForPromotion(scope.companyCode, customerId, session);
+    if (!tierCode || !coupon.customerTierCodes.includes(tierCode)) throw new Error("Hạng khách hàng không thuộc đối tượng áp dụng mã ưu đãi này.");
+  }
+  return { id: String(coupon._id), code: coupon.code, name: coupon.name, amount, version: coupon.version };
 }
-export async function consumeCoupon(scope: RetailBranchScope, snapshot: { id: string; version: number }, customerId: string | undefined, session: ClientSession) {
+export async function consumeCoupon(scope: RetailBranchScope, snapshot: { id: string; version: number }, session: ClientSession, customerId?: string) {
   const coupon = await RetailCouponModel.findOne({ _id: snapshot.id, ...scope }).session(session).lean();
-  if (!coupon) throw invalid("Mã ưu đãi không còn tồn tại.", 409);
-  await sourceEligible(scope, coupon, session);
+  await assertCouponRewardSource(scope, coupon, session);
   const now = new Date();
-  const result = await RetailCouponModel.updateOne({
-    _id: snapshot.id, ...scope, version: snapshot.version, active: true,
+  const result = await RetailCouponModel.updateOne({ _id: snapshot.id, ...scope, version: snapshot.version, active: true,
     startsAt: { $lte: now }, endsAt: { $gt: now },
-    customerId: coupon.customerId ? customerId : { $exists: false },
-    $or: [{ usageLimit: { $exists: false } }, { $expr: { $lt: ["$usedCount", "$usageLimit"] } }],
+    customerId: { $in: [null, ...(customerId ? [customerId] : [])] },
+    $or: [{ usageLimit: null }, { $expr: { $lt: ["$usedCount", "$usageLimit"] } }],
   }, { $inc: { usedCount: 1 } }, { session });
-  if (result.modifiedCount !== 1) throw invalid("Mã ưu đãi đã thay đổi hoặc hết lượt. Vui lòng kiểm tra lại đơn.", 409);
+  if (result.modifiedCount !== 1) throw new Error("Mã ưu đãi đã thay đổi hoặc hết lượt. Vui lòng kiểm tra lại đơn.");
 }
 export async function releaseCoupon(scope: RetailBranchScope, id: string, session: ClientSession) {
-  await RetailCouponModel.updateOne({ _id: id, ...scope, usedCount: { $gt: 0 } }, { $inc: { usedCount: -1 } }, { session });
+  await RetailCouponModel.updateOne({ _id: id, ...scope, customerId: null, usedCount: { $gt: 0 } }, { $inc: { usedCount: -1 } }, { session });
 }
-export const RetailCouponService = {
-  async list(scope: RetailBranchScope) { return RetailCouponModel.find(scope).sort({ createdAt: -1 }).limit(200).lean(); },
-  async available(scope: RetailBranchScope, customerId: string) {
+export const retailCouponService = {
+  async selectable(scope: RetailBranchScope, customerId?: unknown) {
+    const customer = customerId ? await getPromotionCustomer(scope.companyCode, customerId) : null;
+    if (customerId && !customer) throw new Error("Khách hàng không tồn tại hoặc đã ngừng hoạt động.");
     const now = new Date();
-    const [customer, coupons] = await Promise.all([
-      customerId && Types.ObjectId.isValid(customerId) ? CustomerModel.findOne({ _id: customerId, companyCode: scope.companyCode, status: "active" }).select("tier").lean() : null,
-      RetailCouponModel.find({ ...scope, active: true, startsAt: { $lte: now }, endsAt: { $gt: now },
-        $or: [{ customerId }, { customerId: { $exists: false } }] }).sort({ endsAt: 1 }).limit(100).lean(),
-    ]);
-    const eligible = await Promise.all(coupons.map(async (coupon) => {
-      if (coupon.usageLimit != null && coupon.usedCount >= coupon.usageLimit) return false;
-      if (coupon.customerId && !customer) return false;
-      if (coupon.customerTierCodes.length && (!customer || !coupon.customerTierCodes.includes(customer.tier?.code || ""))) return false;
-      try { await sourceEligible(scope, coupon); return true; } catch { return false; }
-    }));
-    return coupons.filter((_, index) => eligible[index]);
+    const coupons = await RetailCouponModel.find({
+      ...scope,
+      active: true,
+      startsAt: { $lte: now },
+      endsAt: { $gt: now },
+      customerId: { $in: [null, ...(customer ? [String(customer._id)] : [])] },
+    }).sort({ endsAt: 1 }).lean();
+    const available = [];
+    for (const coupon of coupons) {
+      if (coupon.usageLimit != null && coupon.usedCount >= coupon.usageLimit) continue;
+      if (coupon.customerTierCodes?.length && (!customer?.tier?.code || !coupon.customerTierCodes.includes(customer.tier.code))) continue;
+      try {
+        await assertCouponRewardSource(scope, coupon);
+        available.push({
+          _id: coupon._id, code: coupon.code, name: coupon.name,
+          discountType: coupon.discountType, value: coupon.value,
+          minSubtotal: coupon.minSubtotal, maxDiscount: coupon.maxDiscount,
+          customerId: coupon.customerId, customerTierCodes: coupon.customerTierCodes,
+        });
+      } catch (error) { if ((error as { code?: string }).code !== "COUPON_SOURCE_INELIGIBLE") throw error; }
+    }
+    return available;
   },
-  async create(scope: RetailBranchScope, input: any, actorId: string) {
-    const values = validateCouponInput(input);
-    if (values.customerId && !await CustomerModel.exists({ _id: values.customerId, companyCode: scope.companyCode, status: "active" })) throw invalid("Khách hàng nhận mã không tồn tại hoặc đã ngừng hoạt động.");
-    const tiers = await getCustomerTiers(scope.companyCode);
-    if (values.customerTierCodes.some((code) => !tiers.some((tier) => tier.code === code))) throw invalid("Hạng khách hàng đã chọn không tồn tại.");
-    return RetailCouponModel.create({ ...scope, ...values, source: "manual", usedCount: 0, version: 0, createdBy: actorId, updatedBy: actorId });
+  async available(scope: RetailBranchScope, customerId: unknown) {
+    const customer = await getPromotionCustomer(scope.companyCode, customerId);
+    if (!customer) throw new Error("Khách hàng không tồn tại hoặc đã ngừng hoạt động.");
+    const now = new Date();
+    const coupons = await RetailCouponModel.find({ ...scope, customerId: String(customer._id), active: true,
+      startsAt: { $lte: now }, endsAt: { $gt: now }, usedCount: 0,
+      $or: [{ customerTierCodes: { $size: 0 } }, { customerTierCodes: customer.tier?.code }],
+    }).sort({ endsAt: 1 }).limit(50).lean();
+    const available = [];
+    for (const coupon of coupons) {
+      try { await assertCouponRewardSource(scope, coupon); available.push(coupon); }
+      catch (error) { if ((error as { code?: string }).code !== "COUPON_SOURCE_INELIGIBLE") throw error; }
+    }
+    return available;
   },
-  async update(scope: RetailBranchScope, id: string, input: any, actorId: string) {
-    if (!Types.ObjectId.isValid(id) || !Number.isSafeInteger(input.version)) throw invalid("Phiên bản mã ưu đãi không hợp lệ.");
+  async tiers(scope: RetailBranchScope) {
+    return (await getCustomerTiers(scope.companyCode)).map(({ code, name }) => ({ code, name }));
+  },
+  async list(scope: RetailBranchScope, pageInput: unknown = 1) {
+    const page = Math.max(1, Math.floor(Number(pageInput) || 1));
+    const [items, total] = await Promise.all([RetailCouponModel.find(scope).sort({ createdAt: -1 }).skip((page - 1) * 20).limit(20).lean(), RetailCouponModel.countDocuments(scope)]);
+    return { items, total, page, limit: 20 };
+  },
+  async create(scope: RetailBranchScope, input: any, actor: string) {
     const values = validateCouponInput(input);
-    const current = await RetailCouponModel.findOne({ _id: id, ...scope, version: input.version }).lean();
-    if (!current) throw invalid("Mã ưu đãi đã thay đổi hoặc không tồn tại.", 409);
-    if (current.source !== "manual" || current.code !== values.code || current.customerId !== values.customerId) throw invalid("Không đổi mã hoặc khách hàng nhận sau khi tạo.", 409);
-    if (values.usageLimit !== undefined && values.usageLimit < current.usedCount) throw invalid("Giới hạn mới thấp hơn số lượt đã dùng.");
-    return RetailCouponModel.findOneAndUpdate({ _id: id, ...scope, version: input.version }, { $set: { ...values, updatedBy: actorId }, $inc: { version: 1 } }, { returnDocument: "after" });
+    await validateConfiguredTiers(scope.companyCode, values.customerTierCodes);
+    const customer = values.customerId ? await getPromotionCustomer(scope.companyCode, values.customerId) : null;
+    if (values.customerId && !customer) throw new Error("Khách hàng nhận mã không tồn tại hoặc đã ngừng hoạt động.");
+    return RetailCouponModel.create({ ...values, ...scope, customerName: customer?.name, customerCode: customer?.customerCode, createdBy: actor, updatedBy: actor });
+  },
+  async update(scope: RetailBranchScope, id: string, input: any, actor: string) {
+    if (!Types.ObjectId.isValid(id) || !Number.isSafeInteger(input.version) || input.version < 0) throw new Error("Phiên bản mã ưu đãi không hợp lệ.");
+    const values = validateCouponInput(input);
+    await validateConfiguredTiers(scope.companyCode, values.customerTierCodes);
+    const result = await RetailCouponModel.findOneAndUpdate({ _id: id, ...scope, code: values.code, customerId: values.customerId, version: input.version,
+      ...(values.usageLimit == null ? {} : { usedCount: { $lte: values.usageLimit } }),
+    }, { $set: { ...values, updatedBy: actor }, $inc: { version: 1 } }, { returnDocument: "after" });
+    if (!result) throw Object.assign(new Error("Mã đã thay đổi, không tồn tại hoặc giới hạn mới thấp hơn số lượt đã dùng. Không được đổi mã hoặc khách hàng nhận mã sau khi tạo."), { status: 409 });
+    return result;
   },
 };

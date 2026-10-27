@@ -25,14 +25,14 @@ export const warehouseController = {
       const productIds = [...new Set(items.map((i) => i.productId))];
       const [products, variants] = await Promise.all([
         ProductCatalogModel.find({ _id: { $in: productIds }, companyCode }).select("name mediaIds").lean(),
-        ProductVariantModel.find({ _id: { $in: items.map((item) => item.variantId).filter(Boolean) }, companyCode }).select("mediaIds displayName").lean(),
+        ProductVariantModel.find({ _id: { $in: items.map((item) => item.variantId).filter(Boolean) }, companyCode }).select("mediaIds displayName trackingMode").lean(),
       ]);
       const productMap = new Map(products.map((product: any) => [String(product._id), product]));
       const variantMap = new Map(variants.map((variant: any) => [String(variant._id), variant]));
       const enrichedItems = items.map((item) => {
         const product: any = productMap.get(item.productId);
         const variant: any = item.variantId ? variantMap.get(item.variantId) : undefined;
-        return { ...item, productName: product?.name || "Sản phẩm không xác định", productMediaUrl: product?.mediaIds?.[0], variantMediaUrl: variant?.mediaIds?.[0], variantName: variant?.displayName };
+        return { ...item, productName: product?.name || "Sản phẩm không xác định", productMediaUrl: product?.mediaIds?.[0], variantMediaUrl: variant?.mediaIds?.[0], variantName: variant?.displayName, trackingMode: variant?.trackingMode || "quantity" };
       });
       return res.json({ status: "success", data: enrichedItems });
     } catch (problem) { return error(res, problem); }

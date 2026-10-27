@@ -216,7 +216,7 @@ export const authService = {
   },
 
   // Cập nhật vai trò người dùng
-  async updateUserRole(uid: string, newRole: "user" | "teacher" | "manager" | "admin" | "superadmin"): Promise<void> {
+  async updateUserRole(uid: string, newRole: string): Promise<void> {
     const res = await fetch(`/api/v1/auth/users/${uid}`, {
       method: "PATCH",
       headers: {

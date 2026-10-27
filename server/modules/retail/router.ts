@@ -1,4 +1,7 @@
 import { Router } from "express";
+import { requireAuth } from "../../middleware/auth";
+import { requireModule } from "../../middleware/require-module";
+import { retailCouponRoutes } from "./routes/retail-coupon.routes";
 import { retailSettingsRoutes } from "./routes/retail-settings.routes";
 import { cashierShiftRoutes } from "./routes/cashier-shift.routes";
 import { retailOrderRoutes } from "./routes/retail-order.routes";
@@ -10,13 +13,14 @@ import { registerRetailFinanceSettlementConsumer } from "./consumers/finance-set
 import { retailWarrantyRoutes } from "./routes/retail-warranty.routes";
 import { retailAfterSaleRoutes } from "./routes/retail-after-sale.routes";
 import { retailPartnerRoutes } from "./routes/retail-partner.routes";
-import { requireModule } from "../../middleware/require-module";
 import { retailPaymentReviewRoutes } from "./routes/retail-payment-review.routes";
-import { retailCouponRoutes } from "./routes/retail-coupon.routes";
 import { retailPointsRoutes } from "./routes/retail-points.routes";
 import { retailFinanceRoutes } from "./routes/retail-finance.routes";
 
 export const retailRouter = Router();
+// Scope these guards to retail because this router is mounted at the API root.
+retailRouter.use("/retail", requireAuth as any, requireModule("retail"));
+retailRouter.use("/retail/coupons", retailCouponRoutes);
 registerRetailFinanceSettlementConsumer();
 retailRouter.use("/retail/settings", retailSettingsRoutes);
 retailRouter.use("/retail/shifts", cashierShiftRoutes);
@@ -29,6 +33,5 @@ retailRouter.use("/retail/warranty", retailWarrantyRoutes);
 retailRouter.use("/retail/after-sales", retailAfterSaleRoutes);
 retailRouter.use("/retail/partners", requireModule("retail-partner"), retailPartnerRoutes);
 retailRouter.use("/retail/payment-review", retailPaymentReviewRoutes);
-retailRouter.use("/retail/coupons", retailCouponRoutes);
 retailRouter.use("/retail/points", retailPointsRoutes);
 retailRouter.use("/retail/finance", retailFinanceRoutes);
