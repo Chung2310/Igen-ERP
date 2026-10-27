@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   Building2, Plus, Save, Terminal, Key, Eye, EyeOff, Lock,
-  Trash2, FileEdit, CheckCircle, Copy, Globe, RefreshCw, X, Search, Bot, Landmark
+  Trash2, FileEdit, CheckCircle, Copy, Globe, RefreshCw, X, Search, Bot, Landmark, Music2
 } from "lucide-react";
 import { toast } from "../../../../../pages/Toast";
 import { socialIntegrationService, SocialIntegration } from "../../services/socialIntegrationService";
@@ -347,7 +347,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
         return nextIntegrations;
       });
-      toast.success(`✅ Đã kết nối thành công ${count} Fanpage! Đang cập nhật danh sách...`);
+      toast.success(`Đã kết nối thành công ${count} Fanpage! Đang cập nhật danh sách...`);
     }
     // Backend đã upsert tất cả pages vào DB trong oauthCallback
     // Chỉ cần gọi lại API để lấy danh sách mới nhất và cập nhật UI
@@ -371,7 +371,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
         isConnected: true,
         createdBy: userProfile?.email || "system",
       });
-      toast.success(`✅ Đã kết nối Fanpage "${page.name}" thành công!`);
+      toast.success(`Đã kết nối Fanpage "${page.name}" thành công!`);
       fetchCompanyIntegrations();
     } catch (err: any) {
       console.error("Lỗi lưu Fanpage Facebook:", err);
@@ -714,18 +714,19 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
-        <div className="mb-5 flex flex-col items-start justify-between gap-4 border-b border-slate-100 pb-5 md:flex-row md:items-center">
+      <TelegramOrderConfigCard userProfile={userProfile} />
+      <SepayConfigCard userProfile={userProfile} />
+      <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-gray-100 pb-4">
           <div className="text-left">
-            <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800">
+            <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
               <Building2 className="h-5 w-5 text-indigo-650" />
               Mạng xã hội Doanh nghiệp
             </h3>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+            <p className="text-xs text-gray-500 mt-1">
               Quản lý các tài khoản mạng xã hội dùng chung của công ty. Các bài viết tự động đăng tải sẽ lấy cấu hình tại đây.
             </p>
-            <p className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-slate-500">
-              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
               Đây là khu vực dùng chung theo doanh nghiệp. Nếu sửa hoặc xóa tại đây, mọi tài khoản cùng company sẽ bị ảnh hưởng.
             </p>
           </div>
@@ -739,10 +740,10 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
           )}
         </div>
 
-        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
           {/* Left: Form to Add/Edit Integration */}
-          <div ref={integrationFormRef} tabIndex={-1} className="integration-form min-w-0 space-y-5 rounded-xl bg-slate-50 p-4 sm:p-5">
-            <h4 className="text-left text-sm font-semibold text-slate-800">
+          <div ref={integrationFormRef} tabIndex={-1} className="xl:col-span-2 bg-gray-50/50 border border-gray-150 rounded-2xl p-5 space-y-4">
+            <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider text-left">
               {editingIntegrationId ? "Chỉnh sửa tài khoản" : "Thêm tài khoản liên kết"}
             </h4>
 
@@ -918,7 +919,12 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                 <>
                   {compPlatform === "TikTok" && !editingIntegrationId && (
                     <div className="space-y-4 pt-2">
-                      <div className="rounded-xl border border-slate-200 bg-white p-4 text-left text-slate-800">
+                      {/* Premium TikTok Branded Connect Card */}
+                      <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-950 to-black p-5 text-left text-white shadow-xl relative overflow-hidden">
+                        {/* Background glowing decorations */}
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+
                         <div className="flex flex-col gap-4">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
@@ -928,11 +934,11 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                                 </svg>
                               </div>
                               <div>
-                                <h4 className="text-sm font-semibold text-slate-800">TikTok OAuth</h4>
-                                <span className="text-xs font-medium text-slate-500">Production API · Đã duyệt</span>
+                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-200">TikTok OAuth</h4>
+                                <span className="text-[9px] bg-emerald-500/15 text-emerald-300 px-1.5 py-0.5 rounded-md font-medium border border-emerald-400/25">Production API · Đã duyệt</span>
                               </div>
                             </div>
-                            <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                            <p className="text-[10px] leading-relaxed text-slate-400 mt-2">
                               Kết nối tài khoản TikTok thật qua Production API để tự động liên kết kênh và đồng bộ trạng thái đăng bài.
                             </p>
                           </div>
@@ -941,16 +947,16 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                             type="button"
                             onClick={() => handleTikTokOAuth()}
                             disabled={connectingTikTokOAuth || !canStartCompanyTikTokOAuth}
-                            className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-slate-100 text-slate-950 px-4 py-2.5 text-xs font-black transition-all shadow-lg active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer w-full border border-slate-300"
                           >
-                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                            <svg className="h-3.5 w-3.5 text-black" viewBox="0 0 24 24" fill="currentColor">
                               <path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.89-.6-4.09-1.51-.71-.53-1.3-1.22-1.77-1.97v7.08c0 1.28-.21 2.6-.9 3.67-.84 1.37-2.28 2.37-3.86 2.66-1.49.27-3.11.14-4.5-.48-1.57-.71-2.77-2.15-3.23-3.78-.54-1.87-.22-3.99.88-5.6 1.11-1.64 2.99-2.58 4.96-2.55.07 1.34.02 2.69.04 4.04-1.21-.05-2.5.47-3.14 1.5-.47.74-.52 1.69-.32 2.53.25.96.99 1.76 1.91 2.1 1 .37 2.16.21 3-.38.77-.54 1.16-1.45 1.15-2.39V.02z" />
                             </svg>
                             <span>{connectingTikTokOAuth ? "Đang kết nối..." : "Kết nối TikTok"}</span>
                           </button>
                         </div>
 
-                        <p className="mt-3 border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-500">
+                        <p className="text-[9px] text-slate-500 mt-3 border-t border-slate-900 pt-2 leading-relaxed">
                           * Hệ thống tự động đồng bộ <b>Tên hiển thị</b>, <b>Username</b> và <b>Access Token</b> từ tài khoản sau khi đăng nhập thành công. Không cần nhập thủ công.
                         </p>
                       </div>
@@ -1207,35 +1213,27 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
           </div>
 
           {/* Right: List of Connected Accounts */}
-          <div className="min-w-0 space-y-4">
-            <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 text-left">
+          <div className="xl:col-span-3 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5 text-left">
               <div>
-                <h4 className="text-sm font-semibold text-slate-800">Tài khoản mạng xã hội</h4>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                  {loadingIntegrations || loadingUsers
-                    ? "Đang tải danh sách tài khoản..."
-                    : `${companyIntegrations.length} tài khoản doanh nghiệp · ${memberIntegrations.length} tài khoản cá nhân`}
+                <h4 className="text-sm font-bold text-gray-800">Tài khoản mạng xã hội</h4>
+                <p className="mt-1 text-sm text-gray-600">
+                  {companyIntegrations.length} tài khoản doanh nghiệp · {memberIntegrations.length} tài khoản cá nhân
                 </p>
               </div>
-              <div className="divide-y divide-slate-100">
-                {["Facebook", "TikTok", "Zalo"].map((platform) => (
-                  <div key={platform} className="flex items-center justify-between gap-3 py-3 text-sm">
-                    <span className="text-slate-700">{platform}</span>
-                    <span className="text-xs text-slate-500">
-                      {loadingIntegrations
-                        ? "Đang tải..."
-                        : `${companyIntegrations.filter((account) => account.platform === platform && account.isConnected).length} đã kết nối`}
-                    </span>
-                  </div>
-                ))}
-              </div>
               <button type="button" onClick={() => { setAccountSearch(""); setShowAccounts(true); }}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
                 <Globe className="h-4 w-4" /> Xem danh sách tài khoản
               </button>
             </div>
-            <IntegrationSection title="Kiểm tra kết nối Zalo" description="Mở khi cần kiểm tra tài khoản hoặc lỗi kết nối." icon={Terminal}>
+            <div className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4 text-left">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-sky-900">Zalo Debug</h4>
+                  <p className="mt-1 text-[11px] leading-relaxed text-sky-800/80">
+                    Kiểm tra OA ID đang resolve, token đang lấy từ user hay company, và refresh token có sẵn hay không.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={handleRunZaloDiagnostics}
@@ -1249,7 +1247,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
               {zaloDiagnostics && (
                 <div className="mt-3 space-y-3">
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
                     <div className="rounded-xl border border-sky-200 bg-white px-3 py-2">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-sky-400">Resolved OA ID</p>
                       <p className="mt-1 break-all font-mono text-[11px] text-slate-700">{zaloDiagnostics.resolvedOaId || "none"}</p>
@@ -1279,10 +1277,16 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                   </div>
                 </div>
               )}
-            </IntegrationSection>
+            </div>
 
-            <IntegrationSection title="Kiểm tra kết nối Facebook" description="Mở khi cần kiểm tra Fanpage hoặc lỗi kết nối." icon={Terminal}>
+            <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 text-left">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900">Facebook Debug</h4>
+                  <p className="mt-1 text-[11px] leading-relaxed text-blue-800/80">
+                    Dùng mục này để kiểm tra pageId đang resolve, token có tìm thấy không, và các conversation pageId gần đây.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={handleRunFacebookDiagnostics}
@@ -1296,7 +1300,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
               {facebookDiagnostics && (
                 <div className="mt-3 space-y-3">
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
                     <div className="rounded-xl border border-blue-200 bg-white px-3 py-2">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Resolved Page ID</p>
                       <p className="mt-1 break-all font-mono text-[11px] text-slate-700">{facebookDiagnostics.resolvedPageId || "none"}</p>
@@ -1320,7 +1324,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                   </div>
                 </div>
               )}
-            </IntegrationSection>
+            </div>
 
             <dialog ref={accountsDialogRef} aria-labelledby="company-accounts-title"
               onCancel={() => setShowAccounts(false)}
@@ -1386,9 +1390,9 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         {/* Platform Icon */}
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 font-bold text-sm ${item.platform === "TikTok" ? "bg-black" : item.platform === "Facebook" ? "bg-blue-600" : "bg-[#0068ff]"
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 font-bold text-sm ${item.platform === "TikTok" ? "bg-black" : item.platform === "Facebook" ? "bg-[#1877f2]" : "bg-[#0068ff]"
                           }`}>
-                          {item.platform === "TikTok" ? "♪" : item.platform === "Facebook" ? "F" : "Z"}
+                          {item.platform === "TikTok" ? <Music2 size={19} /> : item.platform === "Facebook" ? "F" : "Z"}
                         </div>
                         <div className="text-left min-w-0 flex-1">
                           <h5 className="text-sm font-bold text-gray-800 break-words" title={item.displayName}>
@@ -1545,9 +1549,9 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                     >
                       <div className="flex items-start justify-between gap-2 min-w-0">
                         <div className="flex gap-2.5 min-w-0">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 font-bold text-xs ${item.platform === "TikTok" ? "bg-black" : item.platform === "Facebook" ? "bg-blue-600" : "bg-[#0068ff]"
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0 font-bold text-xs ${item.platform === "TikTok" ? "bg-black" : item.platform === "Facebook" ? "bg-[#1877f2]" : "bg-[#0068ff]"
                             }`}>
-                            {item.platform === "TikTok" ? "♪" : item.platform === "Facebook" ? "F" : "Z"}
+                            {item.platform === "TikTok" ? <Music2 size={16} /> : item.platform === "Facebook" ? "F" : "Z"}
                           </div>
                           <div className="text-left min-w-0">
                             <h5 className="text-sm font-bold text-gray-800 break-words" title={item.displayName}>
@@ -1583,18 +1587,6 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
           </div>
         </div>
       </div>
-      <section className="space-y-3" aria-labelledby="marketing-order-settings-title">
-        <div>
-          <h2 id="marketing-order-settings-title" className="text-sm font-semibold text-slate-800">Thiết lập đơn hàng</h2>
-          <p className="mt-1 text-sm text-slate-500">Mở từng mục để cấu hình nhận thông báo và xác nhận thanh toán.</p>
-        </div>
-        <IntegrationSection title="SePay · Thanh toán & tiền cọc" description="Webhook, tài khoản nhận tiền và mã QR thanh toán." icon={Landmark}>
-          <SepayConfigCard userProfile={userProfile} />
-        </IntegrationSection>
-        <IntegrationSection title="Telegram · Thông báo đơn hàng" description="Bot và nhóm nhận thông báo của doanh nghiệp." icon={Bot}>
-          <TelegramOrderConfigCard userProfile={userProfile} />
-        </IntegrationSection>
-      </section>
     </div>
   );
 }

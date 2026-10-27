@@ -1,1 +1,1 @@
-export { default } from "../../modules/retail/pages/WarrantyLookupPage";
+export { default } from "../../modules/retail/pages/OrderWarrantyPage";

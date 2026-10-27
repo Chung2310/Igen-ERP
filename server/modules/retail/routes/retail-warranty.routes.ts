@@ -3,6 +3,7 @@ import { requirePermission } from "../../../middleware/auth";
 import { retailWarrantyController } from "../controllers/retail-warranty.controller";
 
 export const retailWarrantyRoutes = Router();
+retailWarrantyRoutes.get("/orders", requirePermission(["retail:read", "retail:manage", "repair:read", "repair:manage"]) as any, retailWarrantyController.orders as any);
 retailWarrantyRoutes.get("/lookup/:code", requirePermission(["retail:read", "retail:manage", "pos:manage", "repair:read", "repair:manage"]) as any, retailWarrantyController.lookup as any);
 retailWarrantyRoutes.get("/expiring", requirePermission(["retail:manage", "repair:manage"]) as any, retailWarrantyController.expiring as any);
 retailWarrantyRoutes.get("/gap-risk", requirePermission(["retail:manage", "repair:manage"]) as any, retailWarrantyController.gapRisk as any);

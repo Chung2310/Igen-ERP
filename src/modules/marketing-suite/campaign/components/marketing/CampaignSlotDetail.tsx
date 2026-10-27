@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Loader2, AlertTriangle, RotateCcw, Check, Upload, Image, Video, Zap } from 'lucide-react';
+import { X, Loader2, AlertTriangle, RotateCcw, Check, Upload, Image, Video, Zap, Lightbulb, Music2, Globe2, ThumbsUp, MessageCircle, Share2, Megaphone, Eye, Settings2, Clock3, CircleCheck, Facebook } from 'lucide-react';
 import { CampaignSlot } from './CampaignDetailModal';
 import { MarketingCampaignSummary, marketingCampaignService, type TikTokCampaignPublishOptions } from '../../services/marketingCampaignService';
 import { toast } from '../../../../../pages/Toast';
@@ -328,7 +328,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
 
   return (
     <div className="w-full lg:w-[450px] lg:shrink-0 border border-slate-200 rounded-2xl bg-slate-50/20 p-5 flex flex-col space-y-4 max-h-[75vh] overflow-y-auto transition-all duration-300">
-      <div className="flex items-center justify-between border-b border-slate-150 pb-3">
+      <div className="flex items-center justify-between border-b border-sky-100 pb-3">
         <div>
           <h4 className="text-sm font-bold text-slate-800">{activeSlot.platform === 'TikTok' ? 'Xem trước & duyệt video TikTok' : 'Duyệt & Biên tập nội dung'}</h4>
           <p className="text-[10px] text-slate-400 font-semibold font-mono mt-0.5">
@@ -428,7 +428,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
           return (
             <div className="border-t border-slate-100 pt-2 flex flex-col gap-1 text-[10px] text-slate-500 font-sans leading-relaxed">
               <span className="flex items-center gap-1 font-semibold text-slate-600">
-                💡 Cần gửi link duyệt nhanh?
+                <Lightbulb size={12} />Cần gửi link duyệt nhanh?
               </span>
               <div className="flex gap-2 mt-1">
                 <button
@@ -471,11 +471,11 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
       {activeSlot.status === 'needs_attention' && activeSlot.errorMessage && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 leading-relaxed font-sans shadow-2xs">
           <div className="flex items-center gap-1.5 font-bold mb-1 select-none">
-            <span>⚠️ Yêu cầu sửa đổi / Từ chối bài đăng:</span>
+            <AlertTriangle size={14} /><span>Yêu cầu sửa đổi / Từ chối bài đăng:</span>
           </div>
           <p className="whitespace-pre-wrap font-medium">{activeSlot.errorMessage}</p>
-          <p className="mt-2 text-[10px] text-amber-600 font-semibold select-none">
-            💡 Bạn có thể chỉnh sửa nội dung hoặc thay ảnh bên dưới rồi bấm <b>Duyệt</b> để áp dụng, hoặc bấm <b>Thử lại</b> để AI chạy lại bài đăng.
+          <p className="mt-2 flex items-start gap-1 text-[10px] text-amber-600 font-semibold select-none">
+            <Lightbulb size={12} className="shrink-0" /><span>Bạn có thể chỉnh sửa nội dung hoặc thay ảnh bên dưới rồi bấm <b>Duyệt</b> để áp dụng, hoặc bấm <b>Thử lại</b> để AI chạy lại bài đăng.</span>
           </p>
         </div>
       )}
@@ -487,8 +487,8 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
             <span>Lỗi thực thi / đăng bài:</span>
           </div>
           <p className="whitespace-pre-wrap font-mono text-[11px] bg-white/60 p-2 rounded border border-red-100/50 mt-1 max-h-24 overflow-y-auto">{activeSlot.errorMessage}</p>
-          <p className="mt-2 text-[10px] text-red-500 font-semibold select-none">
-            💡 Bạn có thể chỉnh sửa nội dung/hình ảnh để tự sửa lỗi rồi bấm <b>Duyệt</b>, hoặc bấm <b>Thử lại</b> để thực hiện lại.
+          <p className="mt-2 flex items-start gap-1 text-[10px] text-red-500 font-semibold select-none">
+            <Lightbulb size={12} className="shrink-0" /><span>Bạn có thể chỉnh sửa nội dung/hình ảnh để tự sửa lỗi rồi bấm <b>Duyệt</b>, hoặc bấm <b>Thử lại</b> để thực hiện lại.</span>
           </p>
         </div>
       )}
@@ -529,7 +529,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                   <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-sm">
                     <div className="flex items-center justify-between border-b border-white/10 px-3.5 py-2.5 text-white">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#ff2c55] text-[10px] font-black">♪</span>
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#ff2c55]"><Music2 size={14} /></span>
                         <span className="text-xs font-bold">Video TikTok</span>
                       </div>
                       <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-slate-200">Bản xem trước</span>
@@ -584,7 +584,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                       </span>
                       <span className="flex items-center gap-1 text-[10px] text-slate-400 select-none">
                         {dateFormatted}
-                        &nbsp;·&nbsp;🌐
+                        <span aria-hidden="true">·</span><Globe2 size={12} />
                       </span>
                     </div>
                   </div>
@@ -611,7 +611,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                   {/* FB Stats Mock */}
                   <div className="px-3.5 py-2 flex items-center justify-between border-b border-slate-100 text-[10px] text-slate-400 select-none">
                     <div className="flex items-center gap-1">
-                      <span className="flex items-center justify-center h-4 w-4 rounded-full bg-blue-600 text-white text-[8px] font-bold">👍</span>
+                      <span className="flex items-center justify-center h-4 w-4 rounded-full bg-blue-600 text-white"><ThumbsUp size={10} /></span>
                       <span>0</span>
                     </div>
                     <div className="flex gap-2">
@@ -623,20 +623,20 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                   {/* FB Action Buttons Mock */}
                   <div className="px-1 py-1 grid grid-cols-3 gap-1 text-slate-500 font-bold text-[10px] select-none">
                     <button type="button" className="py-2 hover:bg-slate-50 rounded flex items-center justify-center gap-1.5 transition cursor-pointer">
-                      👍 Thích
+                      <ThumbsUp size={13} />Thích
                     </button>
                     <button type="button" className="py-2 hover:bg-slate-50 rounded flex items-center justify-center gap-1.5 transition cursor-pointer">
-                      💬 Bình luận
+                      <MessageCircle size={13} />Bình luận
                     </button>
                     <button type="button" className="py-2 hover:bg-slate-50 rounded flex items-center justify-center gap-1.5 transition cursor-pointer">
-                      ➡️ Chia sẻ
+                      <Share2 size={13} />Chia sẻ
                     </button>
                   </div>
                 </div>
               )}
 
               <div className="rounded-xl bg-indigo-50/50 border border-indigo-100/50 p-3.5 text-[11px] text-slate-600 leading-relaxed flex gap-2">
-                <span>📢</span>
+                <Megaphone size={16} className="shrink-0" />
                 <span>Đây là giao diện xem trước bài đăng thực tế của bạn trên mạng xã hội.</span>
               </div>
             </div>
@@ -664,7 +664,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                   {isReplacingImage && (
                     <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center space-y-1.5">
                       <Loader2 size={20} className="animate-spin text-indigo-600" />
-                      <span className="text-[10px] font-bold text-slate-500 font-mono">ĐANG TẢI ẢNH LÊN...</span>
+                      <span className="text-[10px] font-bold text-slate-500 font-mono">Đang tải ảnh lên...</span>
                     </div>
                   )}
                 </div>
@@ -726,7 +726,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
               </div>
 
               {/* AI Prompts and Outline Info */}
-              <div className="pt-3 border-t border-slate-150 space-y-2.5 bg-slate-50/50 p-3 rounded-xl">
+              <div className="pt-3 border-t border-sky-100 space-y-2.5 bg-slate-50/50 p-3 rounded-xl">
                 {activeSlot.content.mediaPrompt && (
                   <div>
                     <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono">Ý tưởng hình ảnh (Media Prompt)</span>
@@ -775,7 +775,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center bg-white border border-slate-150 rounded-2xl p-5 shadow-2xs">
+        <div className="flex flex-col items-center justify-center py-16 text-center bg-white border border-sky-100 rounded-2xl p-5 shadow-2xs">
           <Image size={24} className="text-slate-355 mb-2 animate-pulse" />
           <span className="text-[11px] text-slate-500 font-bold">Chưa tạo nội dung chi tiết</span>
           <p className="text-[10px] text-slate-450 mt-1 max-w-[220px] leading-relaxed">Hệ thống sẽ tự động sinh nội dung hoàn chỉnh gần thời điểm đăng bài.</p>
@@ -805,7 +805,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                   : 'border-transparent text-slate-400 hover:text-slate-655'
               }`}
             >
-              🌐 Nghiên cứu Web
+              <Globe2 size={14} className="inline" /> Nghiên cứu Web
             </button>
             <button
               type="button"
@@ -816,7 +816,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                   : 'border-transparent text-slate-400 hover:text-slate-655'
               }`}
             >
-              👁️ Ảnh
+              <Eye size={14} className="inline" /> Ảnh
             </button>
             <button
               type="button"
@@ -827,7 +827,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                   : 'border-transparent text-slate-400 hover:text-slate-655'
               }`}
             >
-              ⚙️ Vận hành
+              <Settings2 size={14} className="inline" /> Vận hành
             </button>
           </div>
 
@@ -836,7 +836,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
             {aiLogTab === 'research' && (
               <div className="space-y-3.5">
                 {parsedEvidence ? (
-                  <div className="rounded-xl border border-teal-150 bg-white p-3.5 text-xs text-slate-700 leading-relaxed shadow-3xs space-y-3">
+                  <div className="rounded-xl border border-teal-200 bg-white p-3.5 text-xs text-slate-700 leading-relaxed shadow-3xs space-y-3">
                     <div>
                       <span className="block text-[10px] font-bold text-teal-600 uppercase tracking-wide mb-1.5 font-mono">Bối cảnh tổng hợp từ web:</span>
                       <div className="bg-teal-50/30 p-2.5 rounded-lg border border-teal-50">
@@ -888,10 +888,10 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                   <div className="space-y-2">
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Tài liệu tham khảo thu thập ({activeSlot.researchAnalysis.evidence.length}):</span>
                     {activeSlot.researchAnalysis.evidence.map((ev, idx) => (
-                      <div key={idx} className="rounded-xl border border-slate-150 bg-white p-3 space-y-1.5 shadow-3xs text-xs">
+                      <div key={idx} className="rounded-xl border border-sky-100 bg-white p-3 space-y-1.5 shadow-3xs text-xs">
                         <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
                           <span className="font-bold text-slate-800 truncate flex items-center gap-1 max-w-[200px]" title={ev.title || ev.sourceUrl}>
-                            {ev.source === 'facebook' ? '🔵' : ev.source === 'tiktok' ? '⚫' : '🔴'} {ev.title || 'Bài viết tham khảo'}
+                            {ev.source === 'facebook' ? <Facebook size={13} className="shrink-0 text-blue-600" /> : ev.source === 'tiktok' ? <Music2 size={13} className="shrink-0 text-slate-900" /> : <Globe2 size={13} className="shrink-0 text-red-600" />} {ev.title || 'Bài viết tham khảo'}
                           </span>
                           <a href={ev.sourceUrl} target="_blank" rel="noreferrer" className="text-[10px] text-indigo-650 hover:underline shrink-0 font-bold">
                             Chi tiết &rarr;
@@ -908,7 +908,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
             {aiLogTab === 'visual' && (
               <div className="space-y-3">
                 {activeSlot.visualAnalysis ? (
-                  <div className="rounded-xl border border-violet-150 bg-white p-4 shadow-3xs text-xs space-y-3.5">
+                  <div className="rounded-xl border border-violet-200 bg-white p-4 shadow-3xs text-xs space-y-3.5">
                     {activeSlot.visualAnalysis.summary && (
                       <div>
                         <strong className="block text-[10px] font-bold text-violet-650 uppercase tracking-wide mb-1 font-mono">Ý tưởng mô tả:</strong>
@@ -931,7 +931,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
 
                     {activeSlot.visualAnalysis.cautions && activeSlot.visualAnalysis.cautions.length > 0 && (
                       <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-[11px]">
-                        <strong className="block text-[10px] font-extrabold text-amber-700 uppercase tracking-wide mb-1.5">⚠️ Lưu ý & Cần tránh:</strong>
+                        <strong className="mb-1.5 flex items-center gap-1 text-[10px] font-extrabold text-amber-700 uppercase tracking-wide"><AlertTriangle size={12} />Lưu ý & Cần tránh:</strong>
                         <ul className="list-disc pl-4 space-y-1 text-amber-900 font-medium">
                           {activeSlot.visualAnalysis.cautions.map((caution, idx) => (
                             <li key={idx}>{caution}</li>
@@ -953,7 +953,7 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                   {activeSlot.ingestedMedia && activeSlot.ingestedMedia.length > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {activeSlot.ingestedMedia.map((media, idx) => (
-                        <div key={idx} className="relative group aspect-square rounded-lg border border-slate-150 bg-slate-950 overflow-hidden flex items-center justify-center">
+                        <div key={idx} className="relative group aspect-square rounded-lg border border-sky-100 bg-slate-950 overflow-hidden flex items-center justify-center">
                           <img src={media.url} alt={`Ingested Media ${idx + 1}`} className="w-full h-full object-cover" />
                           <a 
                             href={media.url} 
@@ -975,17 +975,17 @@ export const CampaignSlotDetail: React.FC<CampaignSlotDetailProps> = ({
                   <div className="rounded-xl border border-red-155 bg-red-50/50 p-4">
                     <div className="flex items-center gap-1.5 text-red-755 font-bold text-xs border-b border-red-100 pb-2 mb-2">
                       <AlertTriangle size={14} className="shrink-0" />
-                      <span>LỖI GẦN NHẤT</span>
+                      <span>Lỗi gần nhất</span>
                     </div>
                     <p className="text-[10px] font-bold text-red-800 font-mono">Type: {activeSlot.lastError.type}</p>
                     <p className="mt-1.5 text-[11px] leading-relaxed text-red-755 font-medium">{activeSlot.lastError.message}</p>
-                    <p className="mt-2 text-[9px] text-red-450 font-semibold select-none">
-                      🕒 Xảy ra lúc: {new Date(activeSlot.lastError.occurredAt).toLocaleString('vi-VN')}
+                    <p className="mt-2 flex items-center gap-1 text-[9px] text-red-450 font-semibold select-none">
+                      <Clock3 size={11} />Xảy ra lúc: {new Date(activeSlot.lastError.occurredAt).toLocaleString('vi-VN')}
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-emerald-150 bg-emerald-50/30 p-3 text-xs text-emerald-700 font-medium flex items-center gap-1.5">
-                    <span>🟢</span>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-3 text-xs text-emerald-700 font-medium flex items-center gap-1.5">
+                    <CircleCheck size={14} />
                     <span>Không ghi nhận lỗi vận hành nào tại thời điểm này.</span>
                   </div>
                 )}

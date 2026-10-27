@@ -15,6 +15,7 @@ import { RetailPointPolicyModel } from "../models/retail-point-policy.model";
 import { RetailPointLedgerModel } from "../models/retail-point-ledger.model";
 import { RetailOrderService } from "./retail-order.service";
 import { businessDateInVietnam } from "./cashier-shift.service";
+import { listOrderWarranties } from "./order-warranty.service";
 import { processRetailSePayTransaction } from "./retail-sepay.service";
 
 vi.mock("./retail-customer-tier.service", async (original) => ({
@@ -79,6 +80,20 @@ describe("POS points through pricing, orders and payments", () => {
     expect(String(retry.order._id)).toBe(String(result.order._id));
     expect(await balance()).toBe(88);
     expect(await RetailPointLedgerModel.countDocuments({})).toBe(2);
+  });
+
+  it("snapshots warranty for quantity goods at confirmation and keeps the sold policy", async () => {
+    await ProductCatalogModel.updateOne({ _id: productId }, { $set: { warrantyMonths: 12 } });
+    const draft = await RetailOrderService.createDraft(scope, { ...input(), idempotencyKey: "draft-warranty" }, actor);
+    const result = await RetailOrderService.confirm(scope, String(draft._id), { expectedVersion: 0, expectedGrandTotal: 80_000, idempotencyKey: "confirm-warranty", payments: [{ method: "cash", amount: 80_000, tenderedAmount: 80_000 }] }, actor, undefined, true);
+    expect(result.order.items[0]).toMatchObject({ customerWarrantyMonths: 12, trackingMode: "quantity" });
+    expect(result.order.items[0].customerWarrantyStartAt).toBeInstanceOf(Date);
+    expect(result.order.items[0].customerWarrantyEndAt).toBeInstanceOf(Date);
+    await ProductCatalogModel.updateOne({ _id: productId }, { $set: { warrantyMonths: 24 } });
+    const warranties = await listOrderWarranties(scope);
+    expect(warranties.total).toBe(1);
+    expect(warranties.items[0]).toMatchObject({ orderId: String(result.order._id), warrantyMonths: 12, quantity: 1 });
+    expect(warranties.items[0].warrantyEndAt).toEqual(result.order.items[0].customerWarrantyEndAt);
   });
 
   it("keeps the draft and stock unchanged when the customer's points were spent elsewhere", async () => {

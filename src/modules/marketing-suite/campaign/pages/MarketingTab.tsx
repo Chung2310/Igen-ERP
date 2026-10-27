@@ -10,6 +10,7 @@ import {
   Sparkles,
   BarChart3,
 } from "lucide-react";
+import "../../shared/marketing-workspace.css";
 import { MarketingSubTabType, ContentApprovalCard } from "../../shared/types/index";
 import { buildFaithfulMediaPrompt, marketingService, extractDraftContent, sanitizeVoiceScript, stripVoiceOutlineSections } from "../services/marketingService";
 import { toast } from "../../../../pages/Toast";
@@ -47,9 +48,9 @@ export default function MarketingTab() {
   }, []);
   const isUserRole = userProfile?.role === "user" || userProfile?.role === "manager";
   const MARKETING_SUB_TAB_ROUTES = [
-    { slug: "tao-chien-dich", value: "TẠO CHIẾN DỊCH" as MarketingSubTabType },
-    { slug: "lich-dang", value: "LỊCH ĐĂNG CONTENT" as MarketingSubTabType },
-    { slug: "bao-cao", value: "BÁO CÁO" as MarketingSubTabType },
+    { slug: "tao-chien-dich", value: "TẠO CHIẾN DỊCH" as MarketingSubTabType, label: "Tạo chiến dịch" },
+    { slug: "lich-dang", value: "LỊCH ĐĂNG CONTENT" as MarketingSubTabType, label: "Lịch đăng content" },
+    { slug: "bao-cao", value: "BÁO CÁO" as MarketingSubTabType, label: "Báo cáo" },
   ] as const;
   const [subTab, setSubTab] = useSubTabRouter<MarketingSubTabType>(MARKETING_SUB_TAB_ROUTES as any, "TẠO CHIẾN DỊCH");
 
@@ -609,7 +610,7 @@ export default function MarketingTab() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="marketing_tab_wrapper">
+    <div className="marketing-workspace flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="marketing_tab_wrapper">
       {mediaLaunch && <Suspense fallback={<TabLoader label="Đang mở media chiến dịch..." />}>
         <CampaignMediaDialog key={`${mediaLaunch.kind}:${mediaLaunch.cardId || mediaLaunch.campaignId}`} launch={mediaLaunch} onClose={() => setMediaLaunch(null)} onMediaSaved={(cardId, url, type) => {
           const update = type === "audio" ? { audioUrl: url } : type === "video" ? { videoUrl: url, imageUrl: "", mediaType: "video" as const } : { imageUrl: url, videoUrl: "", mediaType: "image" as const };
@@ -622,7 +623,7 @@ export default function MarketingTab() {
       <h1 className="sr-only">Chiến dịch Marketing - {subTab}</h1>
 
       {/* Sub Tabs control header switcher */}
-      <div className="border-b border-slate-100 bg-white px-4 py-2.5 text-xs flex justify-between items-center shrink-0" id="marketing_sub_tabs_switch">
+      <nav className={`flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-2.5 text-xs ${subTab === "BÁO CÁO" ? "bg-gradient-to-r from-sky-50 via-white to-sky-50/40" : "bg-white"}`} id="marketing_sub_tabs_switch" aria-label="Chức năng chiến dịch Marketing">
         <div className="flex items-center gap-1.5 overflow-x-auto">
           {MARKETING_SUB_TAB_ROUTES.map((tabRoute) => {
             const tab = tabRoute.value;
@@ -631,23 +632,26 @@ export default function MarketingTab() {
             return (
               <button
                 key={tab}
+                type="button"
                 onClick={() => setSubTab(tab)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none ${
+                aria-pressed={isActive}
+                aria-controls="marketing_tab_content"
+                className={`flex cursor-pointer select-none items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
                   isActive
-                    ? "bg-[#0284c7] text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : `${subTab === "BÁO CÁO" ? "bg-white" : ""} text-slate-600 hover:bg-slate-50 hover:text-slate-900`
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-500"}`} />
-                <span>{tab}</span>
+                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-500"}`} aria-hidden="true" />
+                <span>{tabRoute.label}</span>
               </button>
             );
           })}
         </div>
 
-      </div>
+      </nav>
 
-      <div className="flex-1 p-6 overflow-y-auto" id="marketing_tab_content">
+      <div className={`flex-1 overflow-y-auto p-6 ${subTab === "BÁO CÁO" ? "bg-[#f8fbff]" : ""}`} id="marketing_tab_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu marketing..." />}>
           {/* LÊN Ý TƯỞNG AI */}
           {subTab === "LÊN Ý TƯỞNG AI" && (
@@ -1040,7 +1044,7 @@ export default function MarketingTab() {
 
 function TabLoader({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl bg-white border border-gray-150 p-6 text-center">
+    <div role="status" className="flex h-full min-h-[300px] flex-col items-center justify-center gap-3 rounded-2xl bg-white border border-gray-150 p-6 text-center">
       <div className="w-8 h-8 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
       <span className="text-xs text-gray-500 font-semibold">{label}</span>
     </div>
