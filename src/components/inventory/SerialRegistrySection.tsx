@@ -5,10 +5,10 @@ import { toast } from "../../pages/Toast";
 import { StyledSelect } from "../common/StyledSelect";
 import "./inventory-ui.css";
 
-const statuses: Array<"" | SerialUnitStatus> = ["", "in_stock", "sold", "returned", "defective", "repairing", "scrapped"];
+const statuses: Array<"" | SerialUnitStatus> = ["", "in_stock", "in_transit", "internal_use", "sold", "returned", "defective", "repairing", "scrapped"];
 
 const serialStatusLabels: Record<SerialUnitStatus, string> = {
-  in_stock: "Trong kho", in_transit: "Đang chuyển kho", sold: "Đã bán", returned: "Đã trả hàng",
+  in_stock: "Trong kho", in_transit: "Đang chuyển kho", internal_use: "Đang sử dụng nội bộ", sold: "Đã bán", returned: "Đã trả hàng",
   defective: "Lỗi", repairing: "Đang sửa chữa", scrapped: "Đã thanh lý", lost: "Thất lạc",
 };
 

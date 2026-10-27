@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Search, X } from "lucide-react";
 import { inventorySerialService, type InventorySerialUnit } from "../../services/inventorySerialService";
 import type { InventoryBalance } from "../../services/inventoryReceivingService";
@@ -6,7 +7,12 @@ import type { InventoryBalance } from "../../services/inventoryReceivingService"
 type Props = { balance: InventoryBalance; onClose: () => void };
 const date = (value?: string) => value ? new Date(value).toLocaleDateString("vi-VN") : "Chưa cập nhật";
 
-export function WarehouseSerialDetailModal({ balance, onClose }: Props) {
+export function WarehouseSerialDetailModal(props: Props) {
+  const { balance } = props;
+  return <UnitDetails key={`${balance.warehouseId}:${balance.productId}:${balance.variantId || ''}:${balance.sku}:${balance.trackingMode}`} {...props} />;
+}
+
+function UnitDetails({ balance, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const [items, setItems] = useState<InventorySerialUnit[]>([]);
@@ -22,7 +28,6 @@ export function WarehouseSerialDetailModal({ balance, onClose }: Props) {
   }, []);
   useEffect(() => {
     let active = true;
-    setLoading(true); setError(null); setItems([]);
     void inventorySerialService.list({ warehouseId: balance.warehouseId, productId: balance.productId, variantId: balance.variantId,
       sku: balance.sku, trackingMode: mode, status: "in_stock", limit: 100,
     }).then((result) => { if (active) setItems(result.items || []); })
@@ -35,9 +40,9 @@ export function WarehouseSerialDetailModal({ balance, onClose }: Props) {
     return value ? items.filter((item) => [item.serialNumber, item.internalBarcode].some((code) => String(code || "").toLowerCase().includes(value))) : items;
   }, [items, query]);
   const hasWarranty = items.some((item) => item.supplierWarranty?.endAt);
-  return <dialog ref={dialogRef} aria-labelledby={titleId} onCancel={onClose}
+  return createPortal(<dialog ref={dialogRef} aria-labelledby={titleId} onCancel={onClose}
     onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
-    className="m-auto max-h-[80vh] w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-0 text-on-surface shadow-xl backdrop:bg-inverse-surface/50">
+    className="m-auto max-h-[80vh] w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-0 text-on-surface shadow-xl backdrop:bg-inverse-surface/50 [--color-on-surface-variant:var(--color-slate-600)]">
     <div className="flex max-h-[80vh] flex-col">
       <header className="flex items-start justify-between border-b border-outline-variant px-5 py-4">
         <div><h2 id={titleId} className="text-balance text-lg font-semibold">Chi tiết đơn vị hàng</h2><p className="mt-1 text-pretty text-sm text-on-surface-variant">{balance.productName || "Sản phẩm"} - {balance.variantName || balance.sku}</p></div>
@@ -57,5 +62,5 @@ export function WarehouseSerialDetailModal({ balance, onClose }: Props) {
         </table></div>}
       </div>
     </div>
-  </dialog>;
+  </dialog>, document.body);
 }

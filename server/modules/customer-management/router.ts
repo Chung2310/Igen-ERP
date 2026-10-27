@@ -4,11 +4,12 @@ import { validateRequest } from "../../middleware/validation";
 import { customerController } from "./customer.controller";
 import { customerSettingsController } from "./controllers/customer-settings.controller";
 import { updateCustomerSettingsSchema } from "./validations/customer-settings.validation";
+import { customerRepairsRouter } from "./customer-repairs.router";
 
 export const customerRouter = Router();
 const read = requirePermission("customer:read") as any;
 const manage = requirePermission("customer:manage") as any;
-const posCustomerSearch = requirePermission(["customer:read", "pos:manage"]) as any;
+const posCustomerSearch = requirePermission(["customer:read", "pos:manage", "repair:manage"]) as any;
 const posCustomerCreate = requirePermission(["customer:manage", "pos:manage"]) as any;
 
 customerRouter.get("/settings", read, customerSettingsController.get as any);
@@ -19,6 +20,7 @@ customerRouter.get("/search", posCustomerSearch, customerController.search as an
 customerRouter.post("/", posCustomerCreate, customerController.create as any);
 customerRouter.post("/quick", manage, customerController.quickCreate as any);
 customerRouter.get("/:id/purchase-history", read, customerController.purchaseHistory as any);
+customerRouter.use(customerRepairsRouter);
 customerRouter.get("/:id", read, customerController.detail as any);
 customerRouter.patch("/:id", manage, customerController.update as any);
 customerRouter.post("/:id/activate", manage, customerController.activate as any);

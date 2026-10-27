@@ -5,6 +5,8 @@ const StockLogItemSchema = new Schema(
   {
     productId: { type: String, required: true, index: true },
     variantId: { type: String, trim: true, index: true },
+    trackingMode: String,
+    unitCode: String,
     sku: { type: String, required: true },
     productName: { type: String, required: true },
     quantity: { type: Number, required: true },
@@ -36,12 +38,17 @@ const StockLogSchema = new Schema<IStockLog>({
   companyCode: { type: String, required: true, index: true },
   branchId: { type: String, index: true },
   warehouseId: { type: String, trim: true, index: true },
-  refType: { type: String, enum: ["retail-order", "goods-receipt", "sales-return", "supplier-return"], index: true },
+  refType: { type: String, enum: ["retail-order", "goods-receipt", "sales-return", "supplier-return", "stock-log-reversal"], index: true },
   refId: { type: String, index: true },
   idempotencyKey: { type: String, index: true },
+  createdById: String,
+  reversalId: String,
+  reversalOf: String,
+  reversedAt: Date,
 });
 
 StockLogSchema.index({ companyCode: 1, type: 1, createdAt: 1 });
+StockLogSchema.index({ companyCode: 1, reversalOf: 1 }, { unique: true, partialFilterExpression: { reversalOf: { $type: "string" } } });
 StockLogSchema.index(
   { companyCode: 1, idempotencyKey: 1 },
   { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } },

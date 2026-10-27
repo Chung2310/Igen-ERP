@@ -6,6 +6,8 @@ import { customerApi } from "../customerApi";
 import { retailCustomerApi, type CustomerPointEntry, type CustomerPointPolicy, type CustomerReceivableEntry } from "../retailCustomerApi";
 import BillingProfilesPanel from "./BillingProfilesPanel";
 import CustomerPurchaseHistoryPanel from "./CustomerPurchaseHistoryPanel";
+import CustomerRepairsPanel from './CustomerRepairsPanel';
+import { Wrench } from 'lucide-react';
 
 type Props = {
   customer: Customer;
@@ -24,6 +26,7 @@ const currency = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "
 const tabs = [
   { id: "overview", label: "Tổng quan", icon: UserRound },
   { id: "purchases", label: "Mua hàng & bảo hành", icon: ShoppingBag },
+  { id: "repairs", label: "Dịch vụ & bảo hành", icon: Wrench },
   { id: "receivables", label: "Công nợ", icon: CreditCard },
   { id: "points", label: "Điểm thưởng", icon: Coins },
   { id: "billing", label: "Hồ sơ VAT", icon: FileText },
@@ -56,7 +59,7 @@ function Overview({ customer, branchId }: { customer: Customer; branchId?: strin
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Không tải được tổng quan mua hàng."); });
     return () => { active = false; };
   }, [branchId, customer.companyCode, customer._id]);
-  const typeLabel = customer.type === "vat" ? "Khách xuất VAT" : "Khách lẻ";
+  const typeLabel = customer.type === "vat" ? "Xuất VAT" : "Thông thường";
   const gender = customer.gender === "male" ? "Nam" : customer.gender === "female" ? "Nữ" : customer.gender === "other" ? "Khác" : "—";
   return <div className="space-y-5">
     <section aria-label="Tóm tắt hoạt động" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -71,11 +74,13 @@ function Overview({ customer, branchId }: { customer: Customer; branchId?: strin
       <div><h3 id="customer-profile-title" className="text-base font-semibold text-on-surface">Thông tin hồ sơ</h3><p className="mt-1 text-sm text-on-surface-variant">Thông tin khách hàng dùng chung trong công ty.</p></div>
       <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <Info label="Mã khách hàng" value={customer.customerCode} icon={UserRound} />
+        <Info label="Đối tượng khách hàng" value={customer.customerKind === 'business' ? 'Doanh nghiệp / tổ chức' : customer.customerKind === 'individual' ? 'Cá nhân' : 'Chưa phân loại'} />
+        {customer.customerKind === 'business' && <Info label="Người liên hệ" value={customer.contactName || ''} />}
         <Info label="Số điện thoại" value={customer.phone} icon={Phone} />
         <Info label="Email" value={customer.email || "—"} icon={AtSign} />
         <Info label="Ngày sinh" value={customer.dateOfBirth ? new Date(customer.dateOfBirth).toLocaleDateString("vi-VN") : "—"} icon={CalendarDays} />
         <Info label="Giới tính" value={gender} />
-        <Info label="Loại khách" value={typeLabel} />
+        <Info label="Chế độ hóa đơn" value={typeLabel} />
         <Info label="Hạng thành viên" value={customer.tier ? `${customer.tier.name}${typeof customer.tierTotalSales === "number" ? ` · ${currency.format(customer.tierTotalSales)}` : ""}` : "Chưa xếp hạng"} icon={Coins} />
         <Info label="Địa chỉ" value={customer.address || "—"} icon={MapPin} />
         <Info label="Nguồn hồ sơ" value={customer.source === "pos" ? "Tạo từ bán hàng" : customer.source === "import" ? "Nhập dữ liệu" : "Tạo thủ công"} />
@@ -186,7 +191,7 @@ function LedgerTable({ title, columns, rows, empty }: { title: string; columns: 
 export default function CustomerDetailPage({ customer, branchId, canManage, canRetailRead, canManagePoints, actionError, onBack, onEdit, onToggleStatus, onBillingProfileCreated }: Props) {
   const [activeTab, setActiveTab] = React.useState<DetailTab>("overview");
   const [reloadKey, setReloadKey] = React.useState(0);
-  return <main className="mx-auto w-full max-w-screen-2xl space-y-5 px-4 py-5 text-on-surface sm:px-6 sm:py-6">
+  return <main className="mx-auto w-full max-w-screen-2xl space-y-5 px-4 py-5 text-on-surface sm:px-6 sm:py-6 [--color-on-surface-variant:var(--color-slate-600)]">
     <header className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
       {actionError && <p role="alert" className="rounded-xl border border-error bg-error-container p-3 text-sm text-on-error-container">{actionError}</p>}
       <button type="button" onClick={onBack} className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary"><ArrowLeft className="size-4" aria-hidden="true" />Quay lại danh sách</button>
@@ -207,6 +212,7 @@ export default function CustomerDetailPage({ customer, branchId, canManage, canR
     <div key={`${activeTab}-${reloadKey}`}>
       {activeTab === "overview" && <Overview customer={customer} branchId={branchId} />}
       {activeTab === "purchases" && <CustomerPurchaseHistoryPanel customerId={customer._id} companyCode={customer.companyCode} branchId={branchId} />}
+      {activeTab === 'repairs' && <CustomerRepairsPanel customerId={customer._id} companyCode={customer.companyCode} branchId={branchId} />}
       {activeTab === "receivables" && (canRetailRead ? <ReceivablesPanel key={reloadKey} customer={customer} branchId={branchId} /> : <p className="rounded-xl border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">Tài khoản chưa có quyền xem dữ liệu bán lẻ.</p>)}
       {activeTab === "points" && (canRetailRead ? <PointsPanel key={reloadKey} customer={customer} branchId={branchId} canManage={canManagePoints} /> : <p className="rounded-xl border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">Tài khoản chưa có quyền xem dữ liệu bán lẻ.</p>)}
       {activeTab === "billing" && <BillingProfilesPanel customerId={customer._id} companyCode={customer.companyCode} canManage={canManage} onProfileCreated={onBillingProfileCreated} />}

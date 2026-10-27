@@ -3,6 +3,8 @@ export type CustomerType = "regular" | "vat";
 export type CustomerGender = "male" | "female" | "other";
 
 export interface Customer {
+  customerKind?: "individual" | "business";
+  contactName?: string;
   _id: string;
   companyCode: string;
   customerCode: string;
@@ -26,7 +28,7 @@ export interface Customer {
   updatedAt?: string;
 }
 
-export type CustomerInput = Pick<Customer, "name" | "phone"> & Partial<Pick<Customer, "type" | "email" | "dateOfBirth" | "gender" | "address" | "notes" | "source">>;
+export type CustomerInput = Pick<Customer, "name" | "phone"> & Partial<Pick<Customer, "type" | "customerKind" | "contactName" | "email" | "dateOfBirth" | "gender" | "address" | "notes" | "source">>;
 export type CustomerListQuery = {
   companyCode?: string;
   q?: string;

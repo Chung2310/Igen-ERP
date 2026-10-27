@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { Suspense, lazy, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import {
   Search, Download, Printer, Plus,
   Eye, Trash2, Pencil,
   X,
-  Users, Car, Upload, Languages, Lightbulb, BookOpen, UserX, QrCode
+  Upload, QrCode
 } from 'lucide-react';
 import { cn, formatVND, formatDisplayDate } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
@@ -14,10 +14,7 @@ import { useCourseCategories, CourseCategoryItem } from '../../hooks/useCourseCa
 import { toast } from '../../../../pages/Toast';
 import { Student, Batch } from '../../types';
 import { apiFetch } from '../../lib/api';
-import { EditStudentModal } from '../../components/Student/EditStudentModal';
-import { AssignStudentBranchModal } from '../../components/Student/AssignStudentBranchModal';
-import { ImportStudentModal } from '../../components/Student/ImportStudentModal';
-import { RegisterQRModal } from '../../components/Student/RegisterQRModal';
+import { StudentLoadState } from '../../components/StudentLoadState';
 import { Pagination } from '../../components/ui/Pagination';
 import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
 import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
@@ -25,7 +22,10 @@ import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { useBranch } from '../../../../context/BranchContext';
 import { useAuth } from '../../../../context/AuthContext';
 import { getOperationalStatusLabel, getWorkerOperationalCopy, usesEducationBilling as presetUsesEducationBilling } from '../../config/workerRecruitmentCopy';
-import * as XLSX from 'xlsx';
+const EditStudentModal = lazy(() => import('../../components/Student/EditStudentModal').then((m) => ({ default: m.EditStudentModal })));
+const AssignStudentBranchModal = lazy(() => import('../../components/Student/AssignStudentBranchModal').then((m) => ({ default: m.AssignStudentBranchModal })));
+const ImportStudentModal = lazy(() => import('../../components/Student/ImportStudentModal').then((m) => ({ default: m.ImportStudentModal })));
+const RegisterQRModal = lazy(() => import('../../components/Student/RegisterQRModal').then((m) => ({ default: m.RegisterQRModal })));
 
 interface StudentsPageProps {
   onSelectStudent: (student: Student) => void;
@@ -67,15 +67,6 @@ function toTimestamp(value?: Date | string) {
 const TAB_ALL = 'Tất cả';
 const TAB_UNASSIGNED = 'Chưa xếp lớp';
 
-// Icon gợi ý theo tên phân loại; phân loại mới chưa nhận diện được thì dùng icon chung
-function categoryIcon(name: string): React.ComponentType<{ className?: string }> {
-  const n = name.toLowerCase();
-  if (n.includes('lái xe') || n.includes('lai xe')) return Car;
-  if (n.includes('ngoại ngữ') || n.includes('ngoai ngu') || n.includes('tiếng')) return Languages;
-  if (n.includes('kỹ năng') || n.includes('ky nang')) return Lightbulb;
-  return BookOpen;
-}
-
 export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, canManage = true }: StudentsPageProps) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
   const { userProfile } = useAuth();
@@ -83,7 +74,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   const [listScope] = useState<'branch' | 'unassigned'>('branch');
   const [isRegisterQROpen, setIsRegisterQROpen] = useState(false);
   const isUnassignedScope = listScope === 'unassigned';
-  const { students, loading } = useStudents(resolvedCenter, listScope);
+  const { students, loading, error: loadError, refetch } = useStudents(resolvedCenter, listScope);
   const { branches, activeBranchId } = useBranch();
   const getBranchLabel = (branchId?: string) => branches.find((b) => b._id === branchId)?.name;
   const { batches } = useBatches();
@@ -111,6 +102,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeletePreview, setBulkDeletePreview] = useState<BulkDeletePreview | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Nếu phân loại đang chọn bị xóa khỏi danh mục thì quay về "Tất cả"
   React.useEffect(() => {
@@ -349,7 +341,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
+    if (isExporting) return;
     if (filteredStudents.length === 0) {
       toast.warning('Không có dữ liệu để xuất.');
       return;
@@ -419,7 +412,9 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
 
     const data = sortedStudents.map(getRowData);
 
+    setIsExporting(true);
     try {
+      const XLSX = await import('xlsx');
       const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
       ws['!cols'] = cols;
 
@@ -432,6 +427,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
     } catch (error) {
       console.error("Error exporting to Excel:", error);
       toast.error('Có lỗi xảy ra khi xuất file Excel.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -514,6 +511,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
 
   return (
     <div className="space-y-4">
+      {loadError && <StudentLoadState error={loadError} onRetry={() => { void refetch(); }} />}
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>
@@ -532,9 +530,10 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           )}
           <button
             onClick={handleExport}
+            disabled={isExporting}
             className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-brand-primary"
           >
-            <Download className="w-3.5 h-3.5" /> Xuất
+            <Download className="w-3.5 h-3.5" /> {isExporting ? 'Đang xuất...' : 'Xuất'}
           </button>
           <button
             onClick={handlePrint}
@@ -953,22 +952,23 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
         </div>
       )}
 
-      <AssignStudentBranchModal
+      <Suspense fallback={<StudentLoadState label="Đang tải biểu mẫu..." />}>
+      {assigningStudent && <AssignStudentBranchModal
         student={assigningStudent}
         branches={branches}
         onClose={() => setAssigningStudent(null)}
         onSuccess={() => setAssigningStudent(null)}
-      />
+      />}
 
       {/* Edit Student Modal */}
-      <EditStudentModal
+      {editingStudent && <EditStudentModal
         student={editingStudent}
         selectedCenter={selectedCenter}
         isOpen={!!editingStudent}
         onClose={() => setEditingStudent(null)}
         onSuccess={() => setEditingStudent(null)}
         students={students}
-      />
+      />}
 
       {/* Import Student Modal */}
       {usesEducationBilling && isImportOpen && (
@@ -981,14 +981,15 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       )}
 
       {/* QR để học viên tự đăng ký */}
-      <RegisterQRModal
+      {isRegisterQROpen && <RegisterQRModal
         isOpen={isRegisterQROpen}
         teacherId={userProfile?.uid || ''}
-        companyCode={selectedCenter && selectedCenter !== 'all' ? selectedCenter : ((userProfile as any)?.companyCode || (userProfile as any)?.centerId || '')}
+        companyCode={selectedCenter && selectedCenter !== 'all' ? selectedCenter : (userProfile?.companyCode || (userProfile && 'centerId' in userProfile && typeof userProfile.centerId === 'string' ? userProfile.centerId : ''))}
         branchId={activeBranchId || userProfile?.branchId || ''}
         entityPreset={entityLabel.preset}
         onClose={() => setIsRegisterQROpen(false)}
-      />
+      />}
+      </Suspense>
     </div>
   );
 }

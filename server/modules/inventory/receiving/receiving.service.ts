@@ -1,6 +1,6 @@
 ﻿import mongoose, { Types } from "mongoose";
-import { runInTransaction } from "../../../config/database";
-import { BranchModel } from "../../../model/branch.model";
+import { inInventoryTransaction } from "../inventory-transaction";
+import { nextReceiptCode, receiptBusinessDay } from "./receipt-number.service";
 import { GoodsReceiptModel } from "../../../model/goods-receipt.model";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
@@ -135,11 +135,7 @@ async function resolveReceiptItems(company: string, rawItems: ReturnType<typeof 
 }
 
 async function receiptCode(scope: Scope) {
-  const branch = await BranchModel.findOne({ _id: scope.branchId, companyCode: scope.companyCode, isActive: true }).select("code").lean();
-  if (!branch) throw new ReceivingValidationError("Chi nhánh không hợp lệ.");
-  const prefix = `PN-${String(branch.code || "CN").toUpperCase().replace(/[^A-Z0-9-]/g, "")}-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`;
-  const count = await GoodsReceiptModel.countDocuments({ companyCode: scope.companyCode, branchId: scope.branchId, receiptCode: { $regex: `^${prefix}-` } });
-  return `${prefix}-${String(count + 1).padStart(4, "0")}`;
+  return nextReceiptCode(scope, receiptBusinessDay());
 }
 
 export async function listReceipts(rawScope: Scope, query: any = {}) {
@@ -207,7 +203,7 @@ export async function updateReceipt(rawScope: Scope, id: string, input: any, act
 export async function confirmReceipt(rawScope: Scope, id: string, actor: Actor) {
   const scope = normalizeScope(rawScope);
   if (!Types.ObjectId.isValid(id)) throw new ReceivingValidationError("Phiếu nhập không hợp lệ.");
-  return runInTransaction(async (session) => {
+  return inInventoryTransaction(async (session) => {
     const receipt: any = await GoodsReceiptModel.findOne({ _id: id, ...scope, status: "receiving" }).session(session || null);
     if (!receipt) {
       const confirmed = await GoodsReceiptModel.findOne({ _id: id, ...scope, status: "confirmed" }).session(session || null).lean();

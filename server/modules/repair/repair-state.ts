@@ -5,7 +5,7 @@ const allowed: Record<RepairStatus, RepairStatus[]> = {
 };
 
 export function assertRepairTransition(from: RepairStatus, to: RepairStatus) {
-  if (!allowed[from]?.includes(to)) throw new Error(`Invalid repair transition: ${from} -> ${to}`);
+  if (!allowed[from]?.includes(to)) throw Object.assign(new Error(`Invalid repair transition: ${from} -> ${to}`), { statusCode: 409, code: 'REPAIR_STATE_CONFLICT' });
 }
 
 export function pausesSla(status: RepairStatus) { return status === "waiting_parts" || status === "waiting_supplier"; }

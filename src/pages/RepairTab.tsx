@@ -12,7 +12,7 @@ const TABS = [
 type RepairView = (typeof TABS)[number]["key"];
 
 export default function RepairTab() {
-  const [view, setView] = useState<RepairView>("warranty");
+  const [view, setView] = useState<RepairView>("repair");
   const [prefill, setPrefill] = useState<RepairCreatePrefill | null>(null);
   useEffect(() => {
     const openRepair = (event: Event) => { setPrefill((event as CustomEvent<RepairCreatePrefill>).detail); setView("repair"); };

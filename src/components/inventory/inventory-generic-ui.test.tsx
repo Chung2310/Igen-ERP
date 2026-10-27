@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { WarehouseSection } from "./WarehouseSection";
 import { InventoryCountingModal } from "./InventoryCountingSection";
@@ -35,13 +35,13 @@ const count = (trackingMode: "quantity" | "serial") => ({ _id: "count-1", countC
 
 describe("shared inventory surfaces", () => {
   it("offers unit details only for SKUs configured to track individual units", async () => {
-    render(<WarehouseSection />);
+    await act(async () => { render(<WarehouseSection />); });
     for (const name of ["Giấy A4", "Thiết bị A", "Vật tư B"]) fireEvent.click(await screen.findByRole("button", { name: new RegExp(name) }));
     expect(screen.getAllByRole("button", { name: "Xem số sê-ri" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Xem mã đơn vị" })).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /IMEI/i })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Xem mã đơn vị" }));
-    expect(await screen.findByRole("dialog", { name: "Chi tiết đơn vị hàng" })).toBeTruthy();
+    expect((await screen.findByRole("dialog", { name: "Chi tiết đơn vị hàng" })).parentElement).toBe(document.body);
     expect(await screen.findByText("UNIT-1")).toBeTruthy();
     expect(inventorySerialService.list).toHaveBeenCalledWith(expect.objectContaining({ trackingMode: "unit_barcode" }));
     expect(screen.queryByRole("columnheader", { name: "Số sê-ri" })).toBeNull();

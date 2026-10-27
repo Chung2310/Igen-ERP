@@ -7,6 +7,7 @@ import type { InventoryMovementDirection, InventoryMovementPurpose } from "../..
 import { ensureDefaultWarehouse } from "../../modules/inventory/warehouse/warehouse.service";
 import { WarehouseModel } from "../../model/warehouse.model";
 import { runInventoryTransaction } from "./inventory-transaction";
+import { stockQuantityTolerance } from "./inventory-quantity";
 
 export interface StockMovementItem {
   productId: string;
@@ -137,16 +138,18 @@ async function writeStockMovementInSession(input: WriteStockMovementInput) {
     const unitCost = input.direction === "out" ? Number(balance.averageCost || 0) : Number(item.unitCost ?? balance.averageCost ?? 0);
     const currentQuantity = Number(balance.quantity || 0);
     const reservedQuantity = Number(balance.reservedQuantity || 0);
+    const tolerance = stockQuantityTolerance(currentQuantity, reservedQuantity, quantity);
     const delta = input.direction === "out" ? -quantity : quantity;
-    if (input.direction === "out" && !input.allowNegativeStock && currentQuantity - reservedQuantity < quantity) {
+    if (input.direction === "out" && !input.allowNegativeStock && currentQuantity - reservedQuantity + tolerance < quantity) {
       throw Object.assign(new Error(`Sản phẩm ${item.sku} không đủ tồn khả dụng.`), { code: "INSUFFICIENT_STOCK", status: 409, details: { sku: item.sku, requested: quantity, available: Math.max(0, currentQuantity - reservedQuantity) } });
     }
-    const nextQuantity = currentQuantity + delta;
+    const rawNextQuantity = currentQuantity + delta;
+    const nextQuantity = input.direction === "out" && !input.allowNegativeStock && Math.abs(rawNextQuantity - reservedQuantity) <= tolerance ? reservedQuantity : rawNextQuantity;
     const nextAverageCost = input.direction === "in"
       ? currentQuantity <= 0 ? unitCost : ((currentQuantity * Number(balance.averageCost || 0)) + quantity * unitCost) / nextQuantity
       : Number(balance.averageCost || 0);
     const balanceUpdate = await InventoryBalanceModel.findOneAndUpdate(
-      { _id: balance._id, version: Number(balance.version || 0), ...(input.direction === "out" && !input.allowNegativeStock ? { $expr: { $gte: [{ $subtract: ["$quantity", "$reservedQuantity"] }, quantity] } } : {}) },
+      { _id: balance._id, version: Number(balance.version || 0), ...(input.direction === "out" && !input.allowNegativeStock ? { $expr: { $gte: [{ $subtract: ["$quantity", "$reservedQuantity"] }, quantity - tolerance] } } : {}) },
       { $set: { quantity: nextQuantity, averageCost: nextAverageCost }, $inc: { version: 1 } },
       { returnDocument: 'after', session: input.session },
     );
@@ -154,8 +157,11 @@ async function writeStockMovementInSession(input: WriteStockMovementInput) {
 
     if (item.legacyProductId) {
       const legacyFilter: Record<string, unknown> = { _id: item.legacyProductId, companyCode, branchId };
-      if (input.direction === "out" && !input.allowNegativeStock) legacyFilter.stock = { $gte: quantity };
-      const legacyUpdate = await ProductModel.updateOne(legacyFilter, { $inc: { stock: delta } }, { session: input.session });
+      const protectedOutbound = input.direction === "out" && !input.allowNegativeStock;
+      if (protectedOutbound) legacyFilter.stock = { $gte: quantity - tolerance };
+      const legacyUpdate = await ProductModel.updateOne(legacyFilter,
+        protectedOutbound ? [{ $set: { stock: { $max: [0, { $add: ["$stock", delta] }] } } }] : { $inc: { stock: delta } },
+        { session: input.session, ...(protectedOutbound ? { updatePipeline: true } : {}) });
       if (legacyUpdate.modifiedCount !== 1) throw Object.assign(new Error(`Không thể đồng bộ tồn cũ của ${item.sku}.`), { code: "LEGACY_STOCK_CONFLICT", status: 409 });
     }
 

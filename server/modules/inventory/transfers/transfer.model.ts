@@ -8,6 +8,8 @@ export interface InventoryTransferItem {
   quantity: number;
   unitCost: number;
   serialUnitIds: string[];
+  trackingMode?: string;
+  unitCode?: string;
 }
 export interface InventoryTransfer {
   companyCode: string;
@@ -15,6 +17,7 @@ export interface InventoryTransfer {
   fromWarehouseId: string;
   toBranchId: string;
   toWarehouseId: string;
+  transitWarehouseId?: string;
   code: string;
   idempotencyKey: string;
   requestFingerprint: string;
@@ -35,13 +38,15 @@ export interface InventoryTransfer {
 
 const itemSchema = new Schema<InventoryTransferItem>({
   productId: { type: String, required: true }, variantId: { type: String, required: true }, sku: { type: String, required: true },
-  productName: { type: String, required: true }, quantity: { type: Number, required: true, min: 1 },
+  productName: { type: String, required: true }, quantity: { type: Number, required: true, min: 0.000001 },
+  trackingMode: String, unitCode: String,
   unitCost: { type: Number, required: true, min: 0 }, serialUnitIds: { type: [String], default: [] },
 }, { _id: false });
 const schema = new Schema<InventoryTransfer>({
   companyCode: { type: String, required: true, index: true }, fromBranchId: { type: String, required: true, index: true },
   fromWarehouseId: { type: String, required: true }, toBranchId: { type: String, required: true, index: true },
   toWarehouseId: { type: String, required: true }, code: { type: String, required: true },
+  transitWarehouseId: String,
   idempotencyKey: { type: String, required: true }, requestFingerprint: { type: String, required: true },
   status: { type: String, enum: ["in_transit", "received", "cancelled", "reversed"], required: true, index: true },
   items: { type: [itemSchema], required: true }, reason: { type: String, required: true }, cancelReason: String, reversalReason: String,

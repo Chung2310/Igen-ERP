@@ -1,8 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import type { Student } from "./types";
-import { AddStudentModal } from "./components/Student/AddStudentModal";
-import { StudentDetailModal } from "./components/Student/StudentDetailModal";
+import { StudentLoadState } from "./components/StudentLoadState";
 import { useStudents } from "./hooks/useStudents";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
@@ -40,6 +39,8 @@ const FeesPage = lazy(() => import("./pages/Fees/FeesPage").then((m) => ({ defau
 const NotificationsPage = lazy(() => import("./pages/Notifications/NotificationsPage").then((m) => ({ default: m.NotificationsPage })));
 const ResourcesPage = lazy(() => import("./pages/Resources/ResourcesPage").then((m) => ({ default: m.ResourcesPage })));
 const ClassroomsPage = lazy(() => import("./pages/Classrooms/ClassroomsPage").then((m) => ({ default: m.ClassroomsPage })));
+const AddStudentModal = lazy(() => import("./components/Student/AddStudentModal").then((m) => ({ default: m.AddStudentModal })));
+const StudentDetailModal = lazy(() => import("./components/Student/StudentDetailModal").then((m) => ({ default: m.StudentDetailModal })));
 
 const SUB_TAB_ROUTES = [
   { slug: "tong-quan", value: "TỔNG QUAN" as const, label: "Tổng quan" },
@@ -66,11 +67,7 @@ function formatDateLabel() {
 }
 
 function PageLoader() {
-  return (
-    <div className="flex min-h-[320px] items-center justify-center rounded-[28px] border border-slate-200 bg-white text-sm font-semibold text-slate-500 shadow-sm">
-      Đang tải phân khu học viên...
-    </div>
-  );
+  return <StudentLoadState />;
 }
 
 export default function StudentManagementTab() {
@@ -111,7 +108,7 @@ export default function StudentManagementTab() {
   const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -320 : 320, behavior: "smooth" });
   const canReadStudents = canReadStudentArea(userProfile?.permissions || [], "student-profile");
   const canManage = (area: Parameters<typeof canManageStudentArea>[1]) => canManageStudentArea(userProfile?.permissions || [], area);
-  const { students } = useStudents(selectedCenter === "all" ? undefined : selectedCenter, "branch", canReadStudents);
+  const { students, loading: studentListLoading, error: studentListError, refetch: reloadStudentList } = useStudents(selectedCenter === "all" ? undefined : selectedCenter, "branch", canReadStudents && isAddStudentOpen && !entityLabel.loading);
 
   const handleOpenStudent = React.useCallback((student: Student, tab: "Hồ sơ" | "Học phí" | "Lịch sử" = "Hồ sơ") => {
     setSelectedStudent(student);
@@ -121,7 +118,7 @@ export default function StudentManagementTab() {
   if (entityLabel.loading) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-white p-6">
-        <PageLoader />
+        <StudentLoadState error={entityLabel.error} onRetry={() => { void entityLabel.retry?.(); }} />
       </div>
     );
   }
@@ -247,7 +244,11 @@ export default function StudentManagementTab() {
         <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>
       </div>
 
-      {isAddStudentOpen ? (
+      <Suspense fallback={<StudentLoadState label="Đang tải biểu mẫu..." />}>
+      {isAddStudentOpen && (studentListLoading || studentListError) && (
+        <StudentLoadState label="Đang tải dữ liệu biểu mẫu..." error={studentListError} onRetry={() => { void reloadStudentList(); }} onCancel={() => setIsAddStudentOpen(false)} />
+      )}
+      {isAddStudentOpen && !studentListLoading && !studentListError ? (
         <AddStudentModal
           isOpen={isAddStudentOpen}
           onClose={() => setIsAddStudentOpen(false)}
@@ -268,6 +269,7 @@ export default function StudentManagementTab() {
           initialTab={initialStudentTab}
         />
       ) : null}
+      </Suspense>
 
     </div>
   );
