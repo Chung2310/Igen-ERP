@@ -112,6 +112,12 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
     priority: "0.8",
     changeFrequency: "weekly",
   },
+  "ĐỐI TÁC LAO ĐỘNG": {
+    title: "Đối tác lao động",
+    description: "Quản lý đối tác, giới thiệu lao động và đối soát hoa hồng.",
+    keywords: "đối tác lao động, hoa hồng",
+    path: "/doi-tac-lao-dong",
+  },
   "ĐỐI TÁC": {
     title: "Quản lý đối tác & cộng tác viên - Hoa hồng và giới thiệu",
     description:

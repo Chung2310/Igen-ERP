@@ -1,5 +1,4 @@
 import type { TabType, UserProfile } from "../types";
-import { isModuleAllowedForBusinessType, resolveBusinessType } from "./businessTypes";
 
 /** Đồng bộ với server/config/module-keys.ts */
 export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge"] as const;
@@ -54,6 +53,7 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "QUẢN LÝ LAO ĐỘNG": "worker",
   "QUẢN LÝ KHÁCH HÀNG": "customer",
   "ĐỐI TÁC": "partner",
+  "ĐỐI TÁC LAO ĐỘNG": "partner",
   "BÁN LẺ": "retail",
   "ĐỐI TÁC BÁN LẺ": "retail-partner",
   "TÀI CHÍNH": "finance",
@@ -68,7 +68,8 @@ export const MODULE_OPTIONS = [
   { key: "inventory", label: MODULE_LABELS.inventory, moduleKeys: ["inventory"] },
   { key: "resource", label: MODULE_LABELS.resource, moduleKeys: ["resource"] },
   { key: "chat", label: MODULE_LABELS.chat, moduleKeys: ["chat"] },
-  { key: "student-worker", label: "Quản lý học viên / lao động", moduleKeys: ["student", "worker"] },
+  { key: "student", label: MODULE_LABELS.student, moduleKeys: ["student"] },
+  { key: "worker", label: MODULE_LABELS.worker, moduleKeys: ["worker"] },
   { key: "customer", label: MODULE_LABELS.customer, moduleKeys: ["customer"] },
   { key: "partner", label: MODULE_LABELS.partner, moduleKeys: ["partner"] },
   { key: "retail", label: MODULE_LABELS.retail, moduleKeys: ["retail"] },
@@ -89,7 +90,8 @@ export const MODULE_OPTIONS = [
 export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "TỔNG QUAN": ["dashboard:read"],
   "NHÂN SỰ": ["hr:read", "access:read", "work:read", "timekeeping:read"],
-  "ĐỐI TÁC": ["relationship:read", "labor-partner:read"],
+  "ĐỐI TÁC": ["relationship:read", "relationship:manage"],
+  "ĐỐI TÁC LAO ĐỘNG": ["labor-partner:read", "labor-partner:manage"],
   "KHO & SẢN PHẨM": ["inventory:read"],
   "QUẢN LÝ HỌC VIÊN": ["people:read", "people:manage"],
   "QUẢN LÝ LAO ĐỘNG": ["people:read", "people:manage"],
@@ -158,19 +160,17 @@ export function isModuleEnabled(enabledModules: string[] | undefined, key: Modul
 }
 
 /** Keep permanent tabs and tenant modules that are enabled. */
-export function filterEnabledTabs(tabs: TabType[], enabledModules: string[] | undefined, businessTypeInput?: unknown): TabType[] {
-  const businessType = resolveBusinessType(businessTypeInput);
+export function filterEnabledTabs(tabs: TabType[], enabledModules: string[] | undefined, _legacyBusinessType?: unknown): TabType[] {
   return tabs.filter((tab) => {
     if (tab === "GÓI AI & LƯỢT SỬ DỤNG") return isAiSubscriptionEnabled(enabledModules);
     const moduleKey = TAB_MODULE_MAP[tab];
-    return !moduleKey || (isModuleEnabled(enabledModules, moduleKey) && isModuleAllowedForBusinessType(moduleKey, businessType));
+    return !moduleKey || (isModuleEnabled(enabledModules, moduleKey));
   });
 }
 
 /** Resolve direct navigation to a disabled module without rendering restricted content. */
-export function resolveEnabledTab(tab: TabType, enabledModules: string[] | undefined, businessTypeInput?: unknown): TabType {
+export function resolveEnabledTab(tab: TabType, enabledModules: string[] | undefined, _legacyBusinessType?: unknown): TabType {
   if (tab === "GÓI AI & LƯỢT SỬ DỤNG" && !isAiSubscriptionEnabled(enabledModules)) return "TỔNG QUAN";
   const moduleKey = TAB_MODULE_MAP[tab];
-  const businessType = resolveBusinessType(businessTypeInput);
-  return moduleKey && (!isModuleEnabled(enabledModules, moduleKey) || !isModuleAllowedForBusinessType(moduleKey, businessType)) ? "TỔNG QUAN" : tab;
+  return moduleKey && (!isModuleEnabled(enabledModules, moduleKey)) ? "TỔNG QUAN" : tab;
 }

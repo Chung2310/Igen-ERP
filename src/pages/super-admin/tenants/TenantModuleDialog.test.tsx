@@ -74,21 +74,29 @@ describe("TenantModuleDialog", () => {
     await waitFor(() => expect(superAdminTenantService.updateModules).toHaveBeenCalledTimes(1));
     expect(superAdminTenantService.updateModules).toHaveBeenCalledWith("ACME", {
       enabledModules: ["inventory", "resource", "chat", "student"],
-      businessType: "education",
       reason: "Cập nhật cấu hình module",
     });
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
-  it("auto-selects worker and hides student when business type is labor", async () => {
+  it("selects student and worker independently without a business type selector", async () => {
     render(<TenantModuleDialog code="ACME" onClose={vi.fn()} onSaved={vi.fn()} />);
-    await screen.findByText("Thông tin và module");
-
-    fireEvent.change(screen.getByLabelText("Loại hình doanh nghiệp"), { target: { value: "labor" } });
-
-    const people = screen.getByRole("checkbox", { name: "Quản lý học viên / lao động" }) as HTMLInputElement;
-    expect(people.checked).toBe(true);
-    expect(people.disabled).toBe(false);
+    await screen.findByText("Công ty ACME");
+    expect(screen.queryByLabelText("Loại hình doanh nghiệp")).toBeNull();
+    const student = screen.getByRole("checkbox", { name: "Quản lý học viên" }) as HTMLInputElement;
+    const worker = screen.getByRole("checkbox", { name: "Quản lý lao động" }) as HTMLInputElement;
+    expect(student.checked).toBe(false);
+    expect(worker.checked).toBe(false);
+    fireEvent.click(student);
+    fireEvent.click(worker);
+    expect(student.checked).toBe(true);
+    expect(worker.checked).toBe(true);
+    fireEvent.click(student);
+    expect(worker.checked).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+    await waitFor(() => expect(superAdminTenantService.updateModules).toHaveBeenCalledWith("ACME", {
+      enabledModules: ["hr", "chat", "worker"], reason: "Cập nhật cấu hình module",
+    }));
   });
 
   it("suspends the tenant with a written reason and no step-up fields", async () => {

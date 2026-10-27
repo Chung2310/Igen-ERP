@@ -16,9 +16,9 @@ test("a tenant user cannot access a disabled module", () => {
   assert.equal(resolveModuleAccess({ role: "admin", companyCode: "ACME" }, "inventory", ["hr"]), false);
 });
 
-test("requireModule denies Student and allows Worker for labor tenants with stale student modules", () => {
+test("requireModule allows both enabled modules regardless of legacy type", () => {
   const laborModules = ["student", "worker", "hr"];
-  assert.equal(resolveModuleAccess({ role: "user", companyCode: "LABOR" }, "student", laborModules, true, "labor"), false);
+  assert.equal(resolveModuleAccess({ role: "user", companyCode: "LABOR" }, "student", laborModules, true, "labor"), true);
   assert.equal(resolveModuleAccess({ role: "user", companyCode: "LABOR" }, "worker", laborModules, true, "labor"), true);
 });
 
@@ -32,8 +32,8 @@ test("legacy worker tenant route access uses the read-only entity preset fallbac
   try {
     const state = await getModuleStateForCompany("LEGACY");
     assert.equal(state.businessType, "labor");
-    assert.equal(resolveModuleAccess({ role: "user", companyCode: "LEGACY" }, "worker", state.modules, state.exists, state.businessType), true);
-    assert.equal(resolveModuleAccess({ role: "user", companyCode: "LEGACY" }, "student", state.modules, state.exists, state.businessType), false);
+    assert.equal(resolveModuleAccess({ role: "user", companyCode: "LEGACY" }, "worker", state.modules, state.exists, state.businessType), false);
+    assert.equal(resolveModuleAccess({ role: "user", companyCode: "LEGACY" }, "student", state.modules, state.exists, state.businessType), true);
   } finally {
     CompanyModel.findOne = originalCompanyFindOne;
     ModuleSettings.findOne = originalSettingsFindOne;
