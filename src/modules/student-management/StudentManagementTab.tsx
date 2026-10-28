@@ -7,7 +7,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
 import { useEntityLabel } from "./hooks/useEntityLabel";
 import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import { StudentNavIcon } from "./StudentNavIcon";
 import { canManageStudentArea, canReadStudentArea } from "../../utils/studentPermissionPolicy";
 import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
@@ -104,8 +105,6 @@ export default function StudentManagementTab() {
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = React.useState(false);
   const [initialStudentTab, setInitialStudentTab] = React.useState<"Hồ sơ" | "Học phí" | "Lịch sử">("Hồ sơ");
-  const subTabsRef = React.useRef<HTMLDivElement>(null);
-  const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -320 : 320, behavior: "smooth" });
   const canReadStudents = canReadStudentArea(userProfile?.permissions || [], "student-profile");
   const canManage = (area: Parameters<typeof canManageStudentArea>[1]) => canManageStudentArea(userProfile?.permissions || [], area);
   const { students, loading: studentListLoading, error: studentListError, refetch: reloadStudentList } = useStudents(selectedCenter === "all" ? undefined : selectedCenter, "branch", canReadStudents && isAddStudentOpen && !entityLabel.loading);
@@ -190,55 +189,18 @@ export default function StudentManagementTab() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       {/* Sub Tabs switcher navigation bar */}
-      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5" id="student_sub_tabs_bar">
-        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" title="Mục trước" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:h-7 sm:w-6"><ChevronLeft className="h-4 w-4" /></button>
-          <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar scroll-smooth">
-          {subTabRoutes.map((item) => {
-            const isActive = activeSubTab === item.value;
-            return (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => setActiveSubTab(item.value)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
-                  isActive
-                    ? "bg-[#00ADFC] text-white font-semibold shadow-sm"
-                    : "text-slate-600 hover:text-[#008FCF] font-medium"
-                }`}
-              >
-                <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${isActive ? "text-white" : "text-[#008FCF]"}`}>
-                  <StudentNavIcon slug={item.slug === "khoa-hoc" && entityLabel.preset !== "student" ? "cong-viec" : item.slug} />
-                </span>
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-          </div>
-          <button type="button" title="Mục sau" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:h-7 sm:w-6"><ChevronRight className="h-4 w-4" /></button>
+      <ModuleNavigation label="Mục Học viên" activeValue={activeSubTab} id="student_sub_tabs_bar" actions={userProfile?.role === "superadmin" && <div className="flex min-w-0 items-center gap-2">
+        <label htmlFor="student-navigation-center" className="text-xs text-on-surface-variant">Cơ sở:</label>
+        <div className="relative min-w-0 flex-1 sm:w-52 sm:flex-none">
+          <select id="student-navigation-center" value={selectedCenter} onChange={(e) => setSelectedCenter(e.target.value)} className="min-h-9 w-full cursor-pointer appearance-none rounded-xl border border-outline-variant bg-surface-container-lowest py-1.5 pl-3 pr-8 text-xs font-medium text-on-surface focus-visible:outline-2 focus-visible:outline-primary">
+            <option value="all">Tất cả cơ sở</option>
+            {centers.map((center) => <option key={center.uid} value={center.uid}>{center.displayName}</option>)}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
         </div>
-
-        {userProfile?.role === "superadmin" && (
-          <div className="flex items-center gap-2 shrink-0 pb-2 sm:pb-0 pr-2">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cơ sở:</span>
-            <div className="relative min-w-0 flex-1 sm:min-w-[200px] sm:flex-none">
-              <select
-                value={selectedCenter}
-                onChange={(e) => setSelectedCenter(e.target.value)}
-                className="w-full h-8 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none appearance-none focus:border-[#00ADFC] transition-all cursor-pointer shadow-sm"
-              >
-                <option value="all">Tất cả cơ sở</option>
-                {centers.map((center) => (
-                  <option key={center.uid} value={center.uid}>
-                    {center.displayName}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-        )}
-      </div>
+      </div>}>
+        {subTabRoutes.map(item => <ModuleNavigationButton key={item.value} active={activeSubTab === item.value} onClick={() => setActiveSubTab(item.value)} icon={<StudentNavIcon slug={item.slug === "khoa-hoc" && entityLabel.preset !== "student" ? "cong-viec" : item.slug} />}>{item.label}</ModuleNavigationButton>)}
+      </ModuleNavigation>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
         <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>

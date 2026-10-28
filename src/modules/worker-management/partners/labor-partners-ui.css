@@ -91,7 +91,7 @@
   font-weight: 600;
 }
 
-.labor-partner-workspace :is(.font-semibold, .font-bold):not(:is(h1, h2, h3, h4)) {
+.labor-partner-workspace :is(.font-semibold, .font-bold):not(:is(h1, h2, h3, h4)):not([data-module-navigation] button) {
   font-weight: 500;
 }
 
@@ -198,7 +198,7 @@
   background-color: #f7fbfe;
 }
 
-.labor-partner-workspace button {
+.labor-partner-workspace button:not([data-module-navigation] button) {
   font-weight: 500;
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
 }

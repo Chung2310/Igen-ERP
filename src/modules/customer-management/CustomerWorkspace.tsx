@@ -8,7 +8,7 @@ import CustomerDetailPage from "./components/CustomerDetailPage";
 import CustomerRetailPoliciesPanel from "./components/CustomerRetailPoliciesPanel";
 import CustomerFormDialog from "./components/CustomerFormDialog";
 import CustomerList from "./components/CustomerList";
-import { cn } from "../student-management/lib/utils";
+import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import type { BillingProfileInput, Customer, CustomerInput, CustomerStatus, CustomerType, PaginatedCustomers } from "./types";
 
 const emptyResult: PaginatedCustomers = { items: [], total: 0, page: 1, limit: 20 };
@@ -204,26 +204,10 @@ function CustomerWorkspaceContent() {
         )}
       </div>
 
-      <div className="flex gap-1 overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-1 shadow-sm">
-        <button
-          type="button"
-          onClick={() => setActiveTab("list")}
-          aria-current={activeTab === "list" ? "page" : undefined}
-          className={cn("flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-primary", activeTab === "list" ? "bg-primary-container text-on-primary-container" : "text-on-surface-variant hover:bg-surface-container")}
-        >
-          <Users className="h-4 w-4" />
-          Danh sách khách hàng
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("settings")}
-          aria-current={activeTab === "settings" ? "page" : undefined}
-          className={cn("flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-primary", activeTab === "settings" ? "bg-primary-container text-on-primary-container" : "text-on-surface-variant hover:bg-surface-container")}
-        >
-          <Settings className="h-4 w-4" />
-          Cài đặt khách hàng
-        </button>
-      </div>
+      <ModuleNavigation label="Mục Khách hàng" activeValue={activeTab}>
+        <ModuleNavigationButton active={activeTab === "list"} icon={<Users />} onClick={() => setActiveTab("list")}>Danh sách khách hàng</ModuleNavigationButton>
+        <ModuleNavigationButton active={activeTab === "settings"} icon={<Settings />} onClick={() => setActiveTab("settings")}>Cài đặt khách hàng</ModuleNavigationButton>
+      </ModuleNavigation>
 
       {error && (
         <div role="alert" className="flex items-center gap-2 rounded-xl border border-error bg-error-container p-4 text-sm text-on-error-container">

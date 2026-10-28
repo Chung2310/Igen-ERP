@@ -64,7 +64,7 @@ function parseFeeString(fee: unknown): number {
 }
 
 /** Công việc được tạo trong khoảng ngày đã chọn, nhóm theo trạng thái hiện tại. */
-async function getProjectStats(companyQ: Record<string, any>, range: DashboardRange) {
+export async function getProjectStats(companyQ: Record<string, any>, range: DashboardRange) {
   const periodQ = { ...companyQ, createdAt: { $gte: range.start, $lte: range.end } };
   const [activeProjects, byStatus, overdueTasks] = await Promise.all([
     ProjectModel.countDocuments(periodQ),
@@ -203,7 +203,7 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
 }
 
 /** Chấm công toàn doanh nghiệp trong ngày hôm nay */
-async function getTimekeepingStats(user: DashboardUser) {
+export async function getTimekeepingStats(user: DashboardUser) {
   const todayStr = getLocalDateString();
   const tkQ = buildCompanyQuery(user);
 
@@ -230,7 +230,7 @@ async function getTimekeepingStats(user: DashboardUser) {
   return { checkedInToday, lateToday, totalEmployees, onApprovedLeaveToday, absentWithoutLeave, date: todayStr };
 }
 
-async function getPersonnelNow(user: DashboardUser) {
+export async function getPersonnelNow(user: DashboardUser) {
   const companyQ = buildCompanyQuery(user);
   const canApproveLeave = user.role === "superadmin" || Boolean(user.permissions?.has("*") || user.permissions?.has("timekeeping:manage"));
   const today = new Date();

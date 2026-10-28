@@ -1,8 +1,9 @@
 import FinancialManagementPage from "./pages/FinancialManagementPage";
 import DebtManagementPanel from "./pages/DebtManagementPanel";
 import TreasuryPage from "./pages/TreasuryPage";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BellRing, Boxes, ChartNoAxesColumnIncreasing, ChevronLeft, ChevronRight, ClipboardCheck, Landmark, TrendingDown } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
+import { BellRing, Boxes, ChartNoAxesColumnIncreasing, ClipboardCheck, Landmark, TrendingDown } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import type { AgingBucket } from "./api/financeReceivables.api";
@@ -129,55 +130,6 @@ export default function FinanceWorkspace() {
     routeTabs as any,
     fallback,
   );
-  const tabBarRef = useRef<HTMLDivElement>(null);
-  const activeTabRef = useRef<HTMLButtonElement>(null);
-
-  const scrollTabs = (direction: "left" | "right") => {
-    if (tabBarRef.current) {
-      tabBarRef.current.scrollBy({
-        left: direction === "left" ? -250 : 250,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  const handleTabsWheel = (e: React.WheelEvent) => {
-    if (tabBarRef.current && (e.deltaY !== 0 || e.deltaX !== 0)) {
-      tabBarRef.current.scrollLeft += e.deltaY !== 0 ? e.deltaY : e.deltaX;
-    }
-  };
-
-  useEffect(() => {
-    const bar = tabBarRef.current;
-    const button = activeTabRef.current;
-    if (!bar || !button) return;
-    const revealActiveTab = () => {
-      const viewport = bar.getBoundingClientRect();
-      const active = button.getBoundingClientRect();
-      const padding = 20;
-      if (active.right > viewport.right - padding) {
-        bar.scrollBy({
-          left: active.right - viewport.right + padding,
-          behavior: "smooth",
-        });
-      } else if (active.left < viewport.left + padding) {
-        bar.scrollBy({
-          left: active.left - viewport.left - padding,
-          behavior: "smooth",
-        });
-      }
-    };
-    revealActiveTab();
-    const timer = setTimeout(revealActiveTab, 100);
-    if (typeof ResizeObserver === "undefined") return () => clearTimeout(timer);
-    const observer = new ResizeObserver(revealActiveTab);
-    observer.observe(bar);
-    observer.observe(button);
-    return () => {
-      clearTimeout(timer);
-      observer.disconnect();
-    };
-  }, [activeTab, tabs.length]);
   const [selectedId, setSelectedId] = useState<string>();
   const [refreshKey, setRefreshKey] = useState(0);
   const drillDown = (bucket: AgingBucket) => {
@@ -195,53 +147,9 @@ export default function FinanceWorkspace() {
     );
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-container-low">
-      <div className="sticky top-0 z-20 border-b border-outline-variant bg-surface-container-lowest/95 px-3 py-2 sm:px-6 backdrop-blur-md">
-        <div className="flex w-full items-center gap-1.5">
-          <button
-            type="button"
-            aria-label="Cuộn menu tài chính sang trái"
-            onClick={() => scrollTabs("left")}
-            className="flex h-8 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <div
-            ref={tabBarRef}
-            onWheel={handleTabsWheel}
-            className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto scrollbar-none rounded-2xl border border-outline-variant bg-surface-container-low p-1.5 shadow-xs"
-          >
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.value;
-              return (
-                <button
-                  key={tab.slug}
-                  ref={isActive ? activeTabRef : undefined}
-                  aria-current={isActive ? "page" : undefined}
-                  type="button"
-                  onClick={() => setActiveTab(tab.value)}
-                  className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition-colors sm:text-sm cursor-pointer ${
-                    isActive
-                      ? "bg-primary text-on-primary shadow-sm"
-                      : "text-on-surface-variant hover:bg-surface-container-lowest hover:text-on-surface"
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-on-primary" : "text-on-surface-variant"}`} />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            aria-label="Cuộn menu tài chính sang phải"
-            onClick={() => scrollTabs("right")}
-            className="flex h-8 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      <ModuleNavigation label="Mục Tài chính" activeValue={activeTab} wheelScroll>
+        {tabs.map(tab => <ModuleNavigationButton key={tab.slug} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
+      </ModuleNavigation>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-7xl space-y-6">
           {(["TỔNG QUAN", "THU CHI", "LÃI LỖ", "VAT", "HÒA VỐN"].includes(activeTab)) && (

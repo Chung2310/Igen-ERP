@@ -2,6 +2,8 @@ import { Response } from "express";
 import { AuthenticatedRequest, getEffectivePermissions } from "../middleware/auth";
 import { dashboardService, DashboardRange } from "../service/dashboard.service";
 import { getEnabledModulesForCompany } from "../middleware/require-module";
+import { getBusinessOverview } from '../service/business-overview.service';
+import { businessCalendarRange } from '../../shared/business-calendar';
 
 /**
  * Quy đổi bộ lọc thời gian của trang tổng quan thành khoảng ngày cụ thể.
@@ -43,6 +45,20 @@ function resolveRange(
 }
 
 export const dashboardController = {
+  async getBusinessOverview(req: AuthenticatedRequest, res: Response) {
+    if (!req.user) return res.status(401).json({ status: 'error', message: 'Người dùng chưa xác thực.' });
+    const range = businessCalendarRange(String(req.query.filter || 'day'), req.query.startDate as string | undefined, req.query.endDate as string | undefined);
+    if (!range) return res.status(400).json({ status: 'error', message: 'Bộ lọc tùy chọn cần startDate và endDate hợp lệ (YYYY-MM-DD).' });
+    if (!req.user.companyCode) return res.status(400).json({ status: 'error', message: 'Thiếu phạm vi doanh nghiệp.' });
+    try {
+      const [enabledModules, permissions] = await Promise.all([getEnabledModulesForCompany(req.user.companyCode), getEffectivePermissions(req.user.id, req.user.role, req.user.companyCode)]);
+      const data = await getBusinessOverview({ id: req.user.id, role: req.user.role, companyCode: req.user.companyCode, branchId: req.user.branchId, enabledModules, permissions }, range);
+      return res.json({ status: 'success', data });
+    } catch (error) {
+      console.error('[dashboardController.getBusinessOverview]', error);
+      return res.status(500).json({ status: 'error', message: 'Không thể tải tổng quan doanh nghiệp. Vui lòng thử lại.' });
+    }
+  },
   /**
    * GET /api/v1/dashboard/summary
    */

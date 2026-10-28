@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, Mail, UserSearch, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
+import { Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, Mail, UserSearch, MapPin } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
@@ -8,7 +8,7 @@ import { toast } from "./Toast";
 import { getApiErrorMessage } from "../utils/errorMessage";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { HR_SUB_TAB_ROUTES } from "../router/subTabRoutes";
-import { cn } from "../modules/student-management/lib/utils";
+import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
 
 // Lazy-loaded subcomponents
 const OrgChartTab = lazy(() => import("../components/hr/OrgChartTab"));
@@ -33,12 +33,6 @@ export function canAccessRecruitment(role: string | undefined, hasPermission: (c
 }
 
 export default function HRTab() {
-  const subTabsRef = useRef<HTMLElement>(null);
-  const [tabScroll, setTabScroll] = useState({ left: false, right: false });
-  const scrollSubTabs = (direction: "left" | "right") => {
-    const nav = subTabsRef.current;
-    nav?.scrollBy({ left: (direction === "left" ? -1 : 1) * Math.max(240, nav.clientWidth * 0.75), behavior: "smooth" });
-  };
   const { userProfile, hasPermission } = useAuth();
   const { activeBranchId } = useBranch();
   const isManager =
@@ -65,26 +59,6 @@ export default function HRTab() {
   const hasRecruitmentAccess = canAccessRecruitment(userProfile?.role, hasPermission);
   const canManageRecruitment =
     userProfile?.role === "admin" || userProfile?.role === "superadmin" || hasPermission("recruitment:manage");
-
-  useEffect(() => {
-    const nav = subTabsRef.current;
-    if (!nav) return;
-    const update = () => {
-      const maxScroll = Math.max(0, nav.scrollWidth - nav.clientWidth);
-      setTabScroll({ left: nav.scrollLeft > 1, right: nav.scrollLeft < maxScroll - 1 });
-    };
-    update();
-    nav.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
-    observer?.observe(nav);
-    Array.from(nav.children).forEach((tab) => observer?.observe(tab));
-    return () => {
-      nav.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-      observer?.disconnect();
-    };
-  }, [canViewDepartments, canManageBranches, canManageCelebration, hasRecruitmentAccess]);
 
   const [subTab, setSubTab] = useSubTabRouter<HRSubTabType>(HR_SUB_TAB_ROUTES, "SƠ ĐỒ TỔ CHỨC");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -217,10 +191,13 @@ export default function HRTab() {
       <h1 className="sr-only text-balance">Quản lý Nhân sự - {subTab}</h1>
 
       {/* Sub Tabs switcher navigation bar */}
-      <div className="mb-4 flex shrink-0 flex-col items-stretch gap-3 border-b border-outline-variant bg-surface-container-lowest px-3 pb-2 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5" id="hr_sub_tabs_bar">
-        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" aria-label="Cuộn tab Nhân sự sang trái" onClick={() => scrollSubTabs("left")} disabled={!tabScroll.left} className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40", !tabScroll.left && !tabScroll.right && "hidden")}><ChevronLeft className="size-4" aria-hidden="true" /></button>
-          <nav ref={subTabsRef} aria-label="Mục Nhân sự" className="flex min-w-0 max-w-full flex-1 gap-1 overflow-x-auto select-none scrollbar-none">
+      <ModuleNavigation label="Mục Nhân sự" activeValue={subTab} className="mb-4" id="hr_sub_tabs_bar" actions={userProfile?.role === "superadmin" && <div className="flex items-center gap-2">
+        <Building2 className="size-4 shrink-0 text-on-surface-variant" aria-hidden="true" />
+        <select aria-label="Chọn doanh nghiệp Nhân sự" value={selectedCompanyCode} onChange={(e) => setSelectedCompanyCode(e.target.value)} className="max-w-[60vw] cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest p-1.5 text-xs font-medium text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary sm:max-w-none">
+          <option value="SYSTEM">Hệ thống (SYSTEM)</option>
+          {companies.map((c) => <option key={c.id || c._id || c.code} value={c.code}>{c.name} ({c.code})</option>)}
+        </select>
+      </div>}>
             {[
               { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: FolderTree },
               ...(canViewDepartments ? [{ id: DEPARTMENT_TAB, label: "Phòng ban", icon: Building2 }] : []),
@@ -237,47 +214,17 @@ export default function HRTab() {
               const isActive = subTab === tab.id;
               const Icon = tab.icon;
               return (
-                <button
+                <ModuleNavigationButton
                   key={tab.id}
-                  type="button"
-                  aria-current={isActive ? "page" : undefined}
+                  active={isActive}
+                  icon={<Icon />}
                   onClick={() => setSubTab(tab.id as HRSubTabType)}
-                  className={cn(
-                    "flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold normal-case transition-colors focus-visible:outline-2 focus-visible:outline-primary",
-                    isActive ? "bg-primary font-bold text-on-primary shadow-xs" : "text-on-surface-variant hover:bg-surface hover:text-primary",
-                  )}
                 >
-                  <Icon className="size-4" aria-hidden="true" />
-                  <span>{tab.label}</span>
-                </button>
+                  {tab.label}
+                </ModuleNavigationButton>
               );
             })}
-          </nav>
-          <button type="button" aria-label="Cuộn tab Nhân sự sang phải" onClick={() => scrollSubTabs("right")} disabled={!tabScroll.right} className={cn("flex size-11 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40", !tabScroll.left && !tabScroll.right && "hidden")}><ChevronRight className="size-4" aria-hidden="true" /></button>
-        </div>
-
-        <div className="flex items-center gap-4 pb-2 sm:pb-0">
-          {/* SaaS Multi-tenant Company Filter for Superadmin */}
-          {userProfile?.role === "superadmin" && (
-            <div className="flex items-center gap-2">
-              <Building2 className="size-4 shrink-0 text-on-surface-variant" aria-hidden="true" />
-              <select
-                value={selectedCompanyCode}
-                onChange={(e) => setSelectedCompanyCode(e.target.value)}
-                className="max-w-[60vw] cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest p-1.5 text-xs font-medium text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary sm:max-w-none"
-              >
-                <option value="SYSTEM">Hệ thống (SYSTEM)</option>
-                {companies.map((c) => (
-                  <option key={c.id || c._id || c.code} value={c.code}>
-                    {c.name} ({c.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-        </div>
-      </div>
+      </ModuleNavigation>
 
       {/* Conditional Rendering of Modular Tab Components */}
       <Suspense fallback={<TabLoader label="Đang tải dữ liệu nhân sự..." />}>

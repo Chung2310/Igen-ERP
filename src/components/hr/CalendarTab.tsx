@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useIsMobile } from "../../hooks/useMediaQuery";
+import { ModuleNavigation, ModuleNavigationButton } from "../common/ModuleNavigation";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -1444,37 +1445,11 @@ export default function CalendarTab({
       id="calendar_tab_wrapper"
     >
       {/* Subtab Switcher */}
-      <div className="flex shrink-0 border-b border-[#DCE7F4] pb-2 mb-3 justify-between items-center">
-        <div className="flex gap-2 bg-slate-100/85 p-1 rounded-xl w-fit">
-          <button
-            onClick={() => setCurrentSubTab("schedule")}
-            className={`calendar-subtab-button px-5 py-2 rounded-lg text-xs font-normal transition-all duration-200 cursor-pointer ${currentSubTab === "schedule"
-                ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
-                : "text-gray-500 hover:text-gray-800"
-              }`}
-          >
-            Lịch trình
-          </button>
-          <button
-            onClick={() => setCurrentSubTab("attendance")}
-            className={`calendar-subtab-button px-5 py-2 rounded-lg text-xs font-normal transition-all duration-200 cursor-pointer ${currentSubTab === "attendance"
-                ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
-                : "text-gray-500 hover:text-gray-800"
-              }`}
-          >
-            Lịch sử chấm công
-          </button>
-          <button
-            onClick={() => setCurrentSubTab("requests")}
-            className={`calendar-subtab-button px-5 py-2 rounded-lg text-xs font-normal transition-all duration-200 cursor-pointer ${currentSubTab === "requests"
-                ? "bg-white text-slate-900 shadow-xs border border-slate-200/40"
-                : "text-gray-500 hover:text-gray-800"
-              }`}
-          >
-            Đơn từ
-          </button>
-        </div>
-      </div>
+      <ModuleNavigation label="Mục Lịch và chấm công" activeValue={currentSubTab} className="mb-3">
+        <ModuleNavigationButton active={currentSubTab === "schedule"} icon={<CalendarIcon />} onClick={() => setCurrentSubTab("schedule")}>Lịch trình</ModuleNavigationButton>
+        <ModuleNavigationButton active={currentSubTab === "attendance"} icon={<Clock />} onClick={() => setCurrentSubTab("attendance")}>Lịch sử chấm công</ModuleNavigationButton>
+        <ModuleNavigationButton active={currentSubTab === "requests"} icon={<CheckCircle />} onClick={() => setCurrentSubTab("requests")}>Đơn từ</ModuleNavigationButton>
+      </ModuleNavigation>
 
       {currentSubTab === "requests" ? (
         <Suspense

@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import { ArrowUpRight, ChartColumn, Clock3, FileText, ListOrdered, RotateCcw, Settings, ShieldCheck, Store, Ticket } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
@@ -37,7 +38,7 @@ export default function RetailWorkspace() {
   const allowed = getAllowedRetailTabSlugs(
     userProfile?.role === "admin" || userProfile?.role === "superadmin" ? ["*"] : userProfile?.permissions || [],
   );
-  const tabs: any = SUB_TABS.filter((tab) => allowed.includes(tab.slug as (typeof allowed)[number]));
+  const tabs = SUB_TABS.filter((tab) => allowed.includes(tab.slug as (typeof allowed)[number]));
   const [activeTab, setActiveTab] = useSubTabRouter<RetailSubTab>(tabs, tabs[0]?.value || "BÁN HÀNG");
 
   const openPos = () => {
@@ -63,27 +64,9 @@ export default function RetailWorkspace() {
           </div>
           {canOpenPos && <button type="button" onClick={openPos} className="inline-flex items-center gap-2 rounded-xl bg-[#0866f5] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0758d5]"><Store className="h-4 w-4" />Mở quầy POS<ArrowUpRight className="h-4 w-4" /></button>}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-slate-200/90 bg-white p-1.5 shadow-xs">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.value;
-            return (
-              <button
-                key={tab.slug}
-                type="button"
-                onClick={() => setActiveTab(tab.value)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer ${
-                  active
-                    ? "bg-cyan-600 text-white shadow-sm shadow-cyan-600/25"
-                    : "text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        <ModuleNavigation label="Mục Bán hàng" activeValue={activeTab}>
+          {tabs.map(tab => <ModuleNavigationButton key={tab.slug} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
+        </ModuleNavigation>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
         <Suspense fallback={<div className="text-sm text-slate-500">Đang tải phân hệ bán hàng...</div>}>

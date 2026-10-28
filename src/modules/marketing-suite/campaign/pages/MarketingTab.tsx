@@ -19,6 +19,7 @@ import { parseAppError } from "../../shared/utils/errorParser";
 import { socialIntegrationService, SocialIntegration, type TikTokPrivacyLevel } from "../../shared/services/socialIntegrationService";
 import { socketService } from "../../../../services/socketService";
 import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
+import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
 import CustomTimePicker from "../../shared/components/common/CustomTimePicker";
 import { isRenderableVideoUrl } from "../components/marketing/CardWidgets";
 import TikTokPublishModal from "../components/marketing/TikTokPublishModal";
@@ -623,33 +624,13 @@ export default function MarketingTab() {
       <h1 className="sr-only">Chiến dịch Marketing - {subTab}</h1>
 
       {/* Sub Tabs control header switcher */}
-      <nav className={`flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-2.5 text-xs ${subTab === "BÁO CÁO" ? "bg-gradient-to-r from-sky-50 via-white to-sky-50/40" : "bg-white"}`} id="marketing_sub_tabs_switch" aria-label="Chức năng chiến dịch Marketing">
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          {MARKETING_SUB_TAB_ROUTES.map((tabRoute) => {
-            const tab = tabRoute.value;
-            const isActive = subTab === tab;
-            const Icon = tab === "TẠO CHIẾN DỊCH" ? Sparkles : tab === "LỊCH ĐĂNG CONTENT" ? Calendar : BarChart3;
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setSubTab(tab)}
-                aria-pressed={isActive}
-                aria-controls="marketing_tab_content"
-                className={`flex cursor-pointer select-none items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
-                  isActive
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : `${subTab === "BÁO CÁO" ? "bg-white" : ""} text-slate-600 hover:bg-slate-50 hover:text-slate-900`
-                }`}
-              >
-                <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-500"}`} aria-hidden="true" />
-                <span>{tabRoute.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-      </nav>
+      <ModuleNavigation label="Chức năng chiến dịch Marketing" activeValue={subTab} id="marketing_sub_tabs_switch">
+        {MARKETING_SUB_TAB_ROUTES.map(tabRoute => {
+          const tab = tabRoute.value;
+          const Icon = tab === "TẠO CHIẾN DỊCH" ? Sparkles : tab === "LỊCH ĐĂNG CONTENT" ? Calendar : BarChart3;
+          return <ModuleNavigationButton key={tab} active={subTab === tab} icon={<Icon />} aria-pressed={subTab === tab} aria-controls="marketing_tab_content" onClick={() => setSubTab(tab)}>{tabRoute.label}</ModuleNavigationButton>;
+        })}
+      </ModuleNavigation>
 
       <div className={`flex-1 overflow-y-auto p-6 ${subTab === "BÁO CÁO" ? "bg-[#f8fbff]" : ""}`} id="marketing_tab_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu marketing..." />}>

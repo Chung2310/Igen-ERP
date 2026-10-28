@@ -11,6 +11,7 @@ import { tiktokMessengerService } from "../services/tiktokMessengerService";
 import { getAccessToken } from "../../shared/services/authService";
 import { socketService, type MessengerScope } from "../../../../services/socketService";
 import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
+import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
 import { socialIntegrationService, SocialIntegration } from "../../shared/services/socialIntegrationService";
 import { resolveAiReplyScope } from "../../shared/utils/aiReplyScope";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
@@ -1532,31 +1533,7 @@ export default function CRMTab() {
       <h1 className="sr-only">Hệ thống Sales CRM - {subTab}</h1>
 
       {/* Sub tabs selector bar */}
-      <div className="border-b border-slate-100 bg-white px-4 py-2.5 text-xs flex justify-between items-center shrink-0" id="crm_sub_tabs_switch">
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          {[
-            { key: "PHỄU KHÁCH HÀNG" as CRMSubTabType, label: "Phễu khách hàng" },
-            { key: "OMNI-INBOX CHAT" as CRMSubTabType, label: "Hộp thư hội thoại " },
-            { key: "AI COMMENT AUTO-REPLY" as CRMSubTabType, label: "AI phản hồi bình luận" },
-          ].map(({ key, label }) => {
-            const isActive = subTab === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setSubTab(key)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none ${isActive
-                    ? "bg-[#00ADFC] text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Global Social Media Channel Filters */}
-        {hasSelectableChannels && <div className="flex items-center gap-2 relative">
+      <ModuleNavigation label="Mục Message Facebook" activeValue={subTab} id="crm_sub_tabs_switch" actions={hasSelectableChannels && <div className="flex items-center gap-2 relative">
           <div className="flex items-center gap-1.5" id="inbox_channel_filters">
             {/* Unified Account Selector Button */}
             <div className="relative">
@@ -1681,8 +1658,13 @@ export default function CRMTab() {
               )}
             </div>
           </div>
-        </div>}
-      </div>
+        </div>}>
+        {[
+          { key: "PHỄU KHÁCH HÀNG" as CRMSubTabType, label: "Phễu khách hàng", icon: DollarSign },
+          { key: "OMNI-INBOX CHAT" as CRMSubTabType, label: "Hộp thư hội thoại ", icon: MessageSquare },
+          { key: "AI COMMENT AUTO-REPLY" as CRMSubTabType, label: "AI phản hồi bình luận", icon: Zap },
+        ].map(({ key, label, icon: Icon }) => <ModuleNavigationButton key={key} active={subTab === key} icon={<Icon />} onClick={() => setSubTab(key)}>{label}</ModuleNavigationButton>)}
+      </ModuleNavigation>
 
       <div className="flex-grow flex-1 overflow-hidden" id="crm_tab_main_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu CRM..." />}>

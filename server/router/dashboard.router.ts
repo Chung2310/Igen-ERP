@@ -28,6 +28,14 @@ const summarySchema = {
 
 // Tổng hợp số liệu tất cả module cho trang tổng quan
 dashboardRouter.get(
+  '/business-overview',
+  requireAuth as any,
+  requirePermission('dashboard:read') as any,
+  validateRequest(summarySchema),
+  dashboardController.getBusinessOverview as any,
+);
+
+dashboardRouter.get(
   "/summary",
   requireAuth as any,
   requirePermission("dashboard:read") as any,

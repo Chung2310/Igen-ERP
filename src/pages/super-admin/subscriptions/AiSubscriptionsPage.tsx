@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ModuleNavigation, ModuleNavigationButton } from "../../../components/common/ModuleNavigation";
 import { Building2, CheckCircle2, Layers3, Loader2, Pencil, Plus, RefreshCw, Search, Sparkles, TriangleAlert } from "lucide-react";
 import { aiSubscriptionAdminService as api, formatAiPlanPrice, type AiSubscriptionPlan } from "../../../services/aiSubscriptionService";
 import SubscriptionPlanDialog from "./SubscriptionPlanDialog";
@@ -59,14 +60,10 @@ export default function AiSubscriptionsPage() {
         </button>
       </header>
 
-      <nav className="sa-ai-tabs" aria-label="Quản lý gói AI">
-        <button type="button" aria-pressed={view === "plans"} aria-controls="sa-ai-plans" onClick={() => setView("plans")}>
-          <Layers3 size={17} aria-hidden="true" />Danh mục gói<span className="sa-ai-count">{plans.length}</span>
-        </button>
-        <button type="button" aria-pressed={view === "companies"} aria-controls="sa-ai-companies" onClick={() => setView("companies")}>
-          <Building2 size={17} aria-hidden="true" />Cấp gói doanh nghiệp
-        </button>
-      </nav>
+      <ModuleNavigation label="Quản lý gói AI" activeValue={view}>
+        <ModuleNavigationButton active={view === "plans"} icon={<Layers3 />} aria-pressed={view === "plans"} aria-controls="sa-ai-plans" onClick={() => setView("plans")}>Danh mục gói ({number(plans.length)})</ModuleNavigationButton>
+        <ModuleNavigationButton active={view === "companies"} icon={<Building2 />} aria-pressed={view === "companies"} aria-controls="sa-ai-companies" onClick={() => setView("companies")}>Cấp gói doanh nghiệp</ModuleNavigationButton>
+      </ModuleNavigation>
 
       {notice && <div className="sa-ai-feedback sa-ai-feedback-success" role="status"><CheckCircle2 size={18} aria-hidden="true" />{notice}</div>}
 

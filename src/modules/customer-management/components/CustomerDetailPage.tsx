@@ -1,6 +1,6 @@
 import React from "react";
+import { ModuleNavigation, ModuleNavigationButton } from "../../../components/common/ModuleNavigation";
 import { ArrowLeft, AtSign, CalendarDays, Coins, CreditCard, FileText, History, MapPin, Phone, ShoppingBag, UserRound } from "lucide-react";
-import { cn } from "../../student-management/lib/utils";
 import type { Customer, CustomerPurchaseHistory } from "../types";
 import { customerApi } from "../customerApi";
 import { retailCustomerApi, type CustomerPointEntry, type CustomerPointPolicy, type CustomerReceivableEntry } from "../retailCustomerApi";
@@ -208,9 +208,9 @@ export default function CustomerDetailPage({ customer, branchId, canManage, canR
         </div>
       </div>
     </header>
-    <nav aria-label="Các mục hồ sơ khách hàng" className="flex gap-1 overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-1">
-      {tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-current={activeTab === id ? "page" : undefined} onClick={() => setActiveTab(id)} className={cn("inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-primary sm:px-4", activeTab === id ? "bg-primary-container text-on-primary-container" : "text-on-surface-variant hover:bg-surface-container")}><Icon className="size-4" aria-hidden="true" />{label}</button>)}
-    </nav>
+    <ModuleNavigation label="Các mục hồ sơ khách hàng" activeValue={activeTab}>
+      {tabs.map(({ id, label, icon: Icon }) => <ModuleNavigationButton key={id} active={activeTab === id} icon={<Icon />} onClick={() => setActiveTab(id)}>{label}</ModuleNavigationButton>)}
+    </ModuleNavigation>
     <div key={`${activeTab}-${reloadKey}`}>
       {activeTab === "overview" && <Overview customer={customer} branchId={branchId} />}
       {activeTab === 'transactions' && <React.Suspense fallback={<p role="status">Đang mở lịch sử giao dịch…</p>}><CustomerTransactionsPanel customerId={customer._id} companyCode={customer.companyCode} branchId={branchId} /></React.Suspense>}
