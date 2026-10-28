@@ -1,9 +1,21 @@
-import { lazy } from "react";
+import { lazy as reactLazy } from "react";
 import type { ComponentType, LazyExoticComponent } from "react";
 import type { TabType, UserProfile } from "../types";
 import { canViewAiSubscription } from "../config/modules";
 
-export type LazyPageComponent = LazyExoticComponent<ComponentType<any>>;
+export type LazyPageComponent = LazyExoticComponent<ComponentType>;
+type RouteImport = () => Promise<{ default: ComponentType }>;
+const routeImports = new WeakMap<LazyPageComponent, RouteImport>();
+function lazy(load: RouteImport): LazyPageComponent {
+  const component = reactLazy(load);
+  routeImports.set(component, load);
+  return component;
+}
+export function retryRoute(tab: TabType) {
+  const route = getRouteByTab(tab);
+  const load = routeImports.get(route.component);
+  if (load) route.component = lazy(load);
+}
 
 export type AppRoute = {
   tab: TabType;

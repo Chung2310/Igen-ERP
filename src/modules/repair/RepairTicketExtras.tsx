@@ -5,6 +5,7 @@ import { repairExtras, repairService, type RepairNotification, type RepairPart, 
 import RepairCarePanel from "./RepairCarePanel";
 import RepairPaymentSummary from "./RepairPaymentSummary";
 import GeneralRepairMaterials from './GeneralRepairMaterials';
+const RepairRefundPanel = React.lazy(() => import('./RepairRefundPanel'));
 
 const money = (value: number) => Number(value || 0).toLocaleString("vi-VN");
 const date = (value?: string) => (value ? new Date(value).toLocaleString("vi-VN") : "—");
@@ -251,6 +252,7 @@ export default function RepairTicketExtras({ ticket, onChanged }: { ticket: Repa
     <RatingSection ticket={ticket} />
     <NotificationsSection ticket={ticket} />
     <RepairPaymentSummary ticket={ticket} />
+    {ticket.status === 'delivered' && <React.Suspense fallback={<p role="status">Đang mở khoản hoàn…</p>}><RepairRefundPanel ticket={ticket} onChanged={onChanged} /></React.Suspense>}
     <RepairCarePanel ticket={ticket} />
   </>;
 }

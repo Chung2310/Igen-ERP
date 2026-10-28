@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useResources } from '../../hooks/useResources';
+import { StudentLoadState } from '../../components/StudentLoadState';
 import { useResourceCategories } from '../../hooks/useResourceCategories';
 import { ResourceItem } from '../../types';
 import {
@@ -19,8 +20,8 @@ import { ResourceCard } from './components/ResourceCard';
 import { ResourceTable } from './components/ResourceTable';
 
 export function ResourcesPage({ canManage = true, forceType, excludeType }: { canManage?: boolean; forceType?: string; excludeType?: string }) {
-  const { resources, loading } = useResources();
-  const { categories, loading: categoriesLoading } = useResourceCategories();
+  const { resources, loading, error: resourceLoadError, refetch: reloadResources } = useResources();
+  const { categories, loading: categoriesLoading, error: categoryLoadError, refetch: reloadCategories } = useResourceCategories();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -119,6 +120,7 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
 
   return (
     <div className="space-y-4 text-left">
+      {(resourceLoadError || categoryLoadError) && <StudentLoadState error={resourceLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadResources(), reloadCategories()]); }} />}
       <ErpPageHeader
         title={forceType === 'Phòng học' ? "Quản lý phòng học" : "Quản lý thiết bị & tài nguyên"}
         subtitle={forceType === 'Phòng học' ? "Quản lý danh sách các phòng học của trung tâm." : "Bấm 'Khai báo tài nguyên mới' để thêm phòng học, thiết bị hoặc công cụ giảng dạy."}

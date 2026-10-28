@@ -8,6 +8,7 @@ import BillingProfilesPanel from "./BillingProfilesPanel";
 import CustomerPurchaseHistoryPanel from "./CustomerPurchaseHistoryPanel";
 import CustomerRepairsPanel from './CustomerRepairsPanel';
 import { Wrench } from 'lucide-react';
+const CustomerTransactionsPanel = React.lazy(() => import('./CustomerTransactionsPanel'));
 
 type Props = {
   customer: Customer;
@@ -25,6 +26,7 @@ type Props = {
 const currency = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const tabs = [
   { id: "overview", label: "Tổng quan", icon: UserRound },
+  { id: 'transactions', label: 'Lịch sử giao dịch', icon: History },
   { id: "purchases", label: "Mua hàng & bảo hành", icon: ShoppingBag },
   { id: "repairs", label: "Dịch vụ & bảo hành", icon: Wrench },
   { id: "receivables", label: "Công nợ", icon: CreditCard },
@@ -211,6 +213,7 @@ export default function CustomerDetailPage({ customer, branchId, canManage, canR
     </nav>
     <div key={`${activeTab}-${reloadKey}`}>
       {activeTab === "overview" && <Overview customer={customer} branchId={branchId} />}
+      {activeTab === 'transactions' && <React.Suspense fallback={<p role="status">Đang mở lịch sử giao dịch…</p>}><CustomerTransactionsPanel customerId={customer._id} companyCode={customer.companyCode} branchId={branchId} /></React.Suspense>}
       {activeTab === "purchases" && <CustomerPurchaseHistoryPanel customerId={customer._id} companyCode={customer.companyCode} branchId={branchId} />}
       {activeTab === 'repairs' && <CustomerRepairsPanel customerId={customer._id} companyCode={customer.companyCode} branchId={branchId} />}
       {activeTab === "receivables" && (canRetailRead ? <ReceivablesPanel key={reloadKey} customer={customer} branchId={branchId} /> : <p className="rounded-xl border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">Tài khoản chưa có quyền xem dữ liệu bán lẻ.</p>)}

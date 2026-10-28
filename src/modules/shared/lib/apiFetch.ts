@@ -1,4 +1,5 @@
 import { ApiClientError, parseApiErrorResponse } from "../../../services/apiClientError";
+import { refreshAccessToken } from '../../../services/sessionRefresh';
 
 export function getAccessToken() { return localStorage.getItem("accessToken"); }
 export function setAccessToken(token: string | null) {
@@ -20,18 +21,11 @@ export async function apiFetch<T>(endpoint: string, options: ApiFetchOptions = {
   const send = () => fetch(url.toString(), { ...options, headers });
   let response = await send();
   if (response.status === 401 && endpoint !== "/auth/refresh-token" && endpoint !== "/auth/login") {
-    try {
-      const refresh = await fetch("/api/v1/auth/refresh-token", { method: "POST" });
-      if (refresh.ok) {
-        const body = await refresh.json() as { accessToken?: string; data?: { accessToken?: string } };
-        const refreshedToken = body.accessToken || body.data?.accessToken;
-        if (refreshedToken) {
-          setAccessToken(refreshedToken);
-          headers.set("Authorization", `Bearer ${refreshedToken}`);
-          response = await send();
-        }
-      }
-    } catch (error) { console.error("Lỗi tự động làm mới token:", error); }
+    const refreshedToken = await refreshAccessToken();
+    if (refreshedToken) {
+      headers.set("Authorization", `Bearer ${refreshedToken}`);
+      response = await send();
+    }
     if (response.status === 401) {
       setAccessToken(null);
       window.dispatchEvent(new Event("unauthorized"));

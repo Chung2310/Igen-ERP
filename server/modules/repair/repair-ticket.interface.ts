@@ -1,4 +1,5 @@
 import type { RepairStatus } from "./repair-state";
+import type { RepairRefundEntry } from '../../../shared/repair-refund';
 export interface RepairTicketDocument {
   ticketType?: "service" | "warranty";
   subjectType?: "product" | "equipment" | "service";
@@ -9,6 +10,7 @@ export interface RepairTicketDocument {
   intakeRequestFingerprint?: string;
   warrantyEvidence?: { reference: string; endAt: Date; verifiedBy: string; verifiedAt: Date };
   partsVersion?: number;
+  commissionRefunds?: RepairRefundEntry[];
 }
 
 export interface RepairCoverage { customer: { covered: boolean; endAt?: Date; daysLeft?: number }; supplier: { covered: boolean; endAt?: Date; daysLeft?: number; supplierId?: string; supplierName?: string }; costBearer: "supplier" | "shop" | "customer"; checkedAt: Date }

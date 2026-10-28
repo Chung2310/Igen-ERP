@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getModuleSettings } from "../api/moduleSettings.api";
 import { socketService } from "../../../services/socketService";
 import { useEntityLabel } from "./useEntityLabel";
-import { resetEntityPresetStoreForTests, getEntityPresetSnapshot, retryEntityPresetLoad, setEntityPreset } from "./entityPresetStore";
+import { resetEntityPresetStoreForTests, getEntityPresetSnapshot, retryEntityPresetLoad, setEntityPreset, setEntityPresetScope, ensureEntityPresetLoaded } from "./entityPresetStore";
 
 vi.mock("../api/moduleSettings.api", () => ({ getModuleSettings: vi.fn() }));
 vi.mock("../../../services/socketService", () => ({
@@ -19,6 +19,34 @@ function Probe({ name, onRender }: { name: string; onRender?: (preset: string) =
 }
 
 describe("shared entity preset state", () => {
+  it('clears a resolved label and reloads settings after a company or account change', async () => {
+    setEntityPresetScope({ userId: 'u1', companyCode: 'ACME' });
+    vi.mocked(getModuleSettings).mockResolvedValueOnce({ tenantId: 'ACME', entityPreset: 'worker' }).mockResolvedValueOnce({ tenantId: 'OTHER', entityPreset: 'student' });
+    await ensureEntityPresetLoaded();
+    expect(getEntityPresetSnapshot()).toMatchObject({ preset: 'worker', loading: false });
+    setEntityPresetScope({ userId: 'u2', companyCode: 'OTHER' });
+    expect(getEntityPresetSnapshot().loading).toBe(true);
+    await ensureEntityPresetLoaded();
+    expect(getEntityPresetSnapshot()).toMatchObject({ preset: 'student', loading: false });
+  });
+  it('aborts an old company request and rejects a response for the wrong tenant', async () => {
+    let complete!: (value: Awaited<ReturnType<typeof getModuleSettings>>) => void;
+    setEntityPresetScope({ userId: 'u1', companyCode: 'ACME' });
+    vi.mocked(getModuleSettings).mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; })).mockResolvedValueOnce({ tenantId: 'ACME', entityPreset: 'worker' });
+    const old = ensureEntityPresetLoaded(); await Promise.resolve();
+    const signal = vi.mocked(getModuleSettings).mock.calls[0][1]?.signal;
+    setEntityPresetScope({ userId: 'u2', companyCode: 'OTHER' });
+    await ensureEntityPresetLoaded();
+    complete({ tenantId: 'ACME', entityPreset: 'worker' }); await old;
+    expect(signal?.aborted).toBe(true);
+    expect(getEntityPresetSnapshot()).toMatchObject({ loading: true, error: expect.any(String) });
+  });
+  it('does not fetch or reuse a previous preset after sign-out', async () => {
+    setEntityPreset('worker'); setEntityPresetScope(null);
+    await ensureEntityPresetLoaded();
+    expect(getModuleSettings).not.toHaveBeenCalled();
+    expect(getEntityPresetSnapshot().loading).toBe(true);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     resetEntityPresetStoreForTests();

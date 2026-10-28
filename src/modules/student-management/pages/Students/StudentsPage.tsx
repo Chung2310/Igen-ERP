@@ -77,9 +77,9 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   const { students, loading, error: loadError, refetch } = useStudents(resolvedCenter, listScope);
   const { branches, activeBranchId } = useBranch();
   const getBranchLabel = (branchId?: string) => branches.find((b) => b._id === branchId)?.name;
-  const { batches } = useBatches();
-  const { courses } = useCourses(resolvedCenter);
-  const { categories } = useCourseCategories(resolvedCenter);
+  const { batches, error: batchLoadError, refetch: reloadBatches } = useBatches();
+  const { courses, error: courseLoadError, refetch: reloadCourses } = useCourses(resolvedCenter);
+  const { categories, error: categoryLoadError, refetch: reloadCategories } = useCourseCategories(resolvedCenter);
   const entityLabel = useEntityLabel();
   const operationalCopy = getWorkerOperationalCopy(entityLabel.preset);
   const usesEducationBilling = presetUsesEducationBilling(entityLabel.preset);
@@ -512,6 +512,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   return (
     <div className="space-y-4">
       {loadError && <StudentLoadState error={loadError} onRetry={() => { void refetch(); }} />}
+      {(batchLoadError || courseLoadError || categoryLoadError) && <StudentLoadState error={batchLoadError || courseLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadBatches(), reloadCourses(), reloadCategories()]); }} />}
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>

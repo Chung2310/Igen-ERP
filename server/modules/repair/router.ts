@@ -2,6 +2,7 @@
 import { requirePermission } from "../../middleware/auth";
 import { retailScopeFromRequest } from "../retail/contracts";
 import { RepairTicketModel } from "./repair-ticket.model";
+import { repairRefundRouter } from './repair-refund.router';
 import { approveRepairQuote, cancelRepairTicket, createFeedbackQr, createRepairTicket, deliverRepairTicket, quoteRepairTicket, transitionRepairTicket } from "./repair-ticket.service";
 import { lookupSoldDevice } from "../retail/contracts";
 import { issueRepairPart, listRepairParts, returnRepairPart } from "./repair-part.service";
@@ -16,6 +17,7 @@ import { collectRepairPayment, lookupRepairPayment, reconcileRepairPayments } fr
 import { addRepairCareMessage, changeRepairCareStatus, repairCareForCustomer, repairCareForTicket } from "./services/repair-care.service";
 
 export const repairRouter = Router();
+repairRouter.use(repairRefundRouter);
 const manage = requirePermission(REPAIR_MANAGE_PERMISSION) as any;
 const read = requirePermission([REPAIR_READ_PERMISSION, REPAIR_MANAGE_PERMISSION]) as any;
 // Các quyền chuyên biệt luôn chấp nhận repair:manage để không khoá mất người đang dùng.

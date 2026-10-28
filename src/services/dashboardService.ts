@@ -1,5 +1,6 @@
 import { getAccessToken } from "./authService";
 import { DashboardSummary, DashboardDateFilter, DashboardActionItems } from "../types/dashboard";
+import { withRequestTimeout } from '../utils/requestTimeout';
 
 export interface DashboardSummaryParams {
   filter: DashboardDateFilter;
@@ -11,7 +12,8 @@ export const dashboardService = {
   /**
    * Lấy số liệu tổng hợp tất cả module cho trang tổng quan trong một request.
    */
-  async getSummary(params: DashboardSummaryParams): Promise<DashboardSummary> {
+  async getSummary(params: DashboardSummaryParams, options: { signal?: AbortSignal; branchId?: string } = {}): Promise<DashboardSummary> {
+    return withRequestTimeout(async (signal) => {
     const qs = new URLSearchParams({ filter: params.filter });
     if (params.filter === "custom" && params.startDate && params.endDate) {
       qs.set("startDate", params.startDate);
@@ -19,8 +21,10 @@ export const dashboardService = {
     }
 
     const res = await fetch(`/api/v1/dashboard/summary?${qs.toString()}`, {
+      signal,
       headers: {
         Authorization: `Bearer ${getAccessToken()}`,
+        ...(options.branchId ? { 'x-branch-id': options.branchId } : {}),
       },
     });
 
@@ -30,6 +34,7 @@ export const dashboardService = {
 
     const json = await res.json();
     return json.data as DashboardSummary;
+    }, 20000, 'Tải tổng quan quá lâu. Vui lòng thử lại.', options.signal);
   },
 
   /**

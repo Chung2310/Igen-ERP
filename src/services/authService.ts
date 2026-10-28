@@ -1,5 +1,7 @@
 import { UserProfile, CompanyProfile, TelegramLinkStatus } from "../types";
 import { getSuperAdminDeviceId } from "./superAdminRequest";
+import { withRequestTimeout } from '../utils/requestTimeout';
+import { refreshAccessToken, wasTokenRefreshed } from './sessionRefresh';
 
 // Helper để lấy token từ localStorage
 export function getAccessToken(): string | null {
@@ -36,7 +38,9 @@ export const authService = {
 
   // Đăng nhập bằng Email & Mật khẩu
   async loginWithEmail(email: string, password: string): Promise<any> {
+    return withRequestTimeout(async (signal) => {
     const res = await fetch("/api/v1/auth/login", {
+      signal,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -56,6 +60,7 @@ export const authService = {
       localStorage.setItem("accessToken", result.accessToken);
     }
     return result;
+    }, 20000, 'Đăng nhập quá lâu. Kiểm tra kết nối và thử lại.');
   },
 
   // Đăng nhập bằng Google (Chuyển sang JWT nên tạm thời báo không hỗ trợ)
@@ -68,10 +73,11 @@ export const authService = {
     const token = localStorage.getItem("accessToken");
     localStorage.removeItem("accessToken");
     try {
-      await fetch("/api/v1/auth/logout", {
+      await withRequestTimeout((signal) => fetch("/api/v1/auth/logout", {
+        signal,
         method: "POST",
         headers: token ? { "Authorization": `Bearer ${token}` } : {},
-      });
+      }), 10000, 'Không thể xác nhận đăng xuất với máy chủ.');
     } catch (err) {
       console.error("Lỗi khi gọi API đăng xuất phía server:", err);
     }
@@ -103,54 +109,54 @@ export const authService = {
 
   // Lấy thông tin người dùng hiện tại thông qua JWT Token
   async getMe(): Promise<UserProfile | null> {
-    try {
+    return withRequestTimeout(async (signal) => {
       const token = getAccessToken();
       if (!token) return null;
+      const assertCurrentSession = () => {
+        const current = getAccessToken();
+        if (signal.aborted || (current !== token && (!current || !wasTokenRefreshed(token, current)))) throw new Error('Phiên đăng nhập đã thay đổi. Hãy thử lại.');
+      };
 
       const res = await fetch("/api/v1/auth/me", {
+        signal,
         headers: {
           "Authorization": `Bearer ${token}`,
         },
       });
 
-      if (!res.ok) {
+      if (res.status === 401) {
         // Nếu token hết hạn, thử làm mới bằng refresh-token (cookie)
-        const refreshRes = await fetch("/api/v1/auth/refresh-token", {
-          method: "POST",
-        });
-
-        if (refreshRes.ok) {
-          const refreshData = await refreshRes.json();
-          if (refreshData.accessToken) {
-            localStorage.setItem("accessToken", refreshData.accessToken);
+        const refreshedToken = await refreshAccessToken();
+        if (refreshedToken) {
             
             // Gọi lại API me với access token mới
             const retryRes = await fetch("/api/v1/auth/me", {
+              signal,
               headers: {
-                "Authorization": `Bearer ${refreshData.accessToken}`,
+                "Authorization": `Bearer ${refreshedToken}`,
               },
             });
             if (retryRes.ok) {
               const retryData = await retryRes.json();
+              assertCurrentSession();
               return {
                 ...retryData.user,
                 uid: retryData.user._id,
               };
             }
-          }
         }
         return null;
       }
 
+      if (!res.ok) throw new Error('Không thể tải phiên đăng nhập. Hãy thử lại.');
+
       const data = await res.json();
+      assertCurrentSession();
       return {
         ...data.user,
         uid: data.user._id,
       };
-    } catch (error) {
-      console.error("Lỗi khi tự động lấy thông tin phiên làm việc getMe:", error);
-      return null;
-    }
+    }, 20000, 'Tải phiên đăng nhập quá lâu. Kiểm tra kết nối và thử lại.');
   },
 
   // Lấy danh sách toàn bộ người dùng

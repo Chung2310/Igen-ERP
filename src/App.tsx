@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { Suspense, lazy } from "react";
-import { RefreshCw } from "lucide-react";
 import Sidebar from "./pages/Sidebar";
 import Header from "./pages/Header";
 import { ToastContainer } from "./pages/Toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ChatUnreadProvider, useChatUnread } from "./context/ChatUnreadContext";
-import { BranchProvider } from "./context/BranchContext";
+import { BranchProvider, useBranch } from "./context/BranchContext";
 import type { TabType } from "./types";
 import { SEOHead } from "./seo/SEOHead";
 import { AUTH_SEO, getSeoForTab, tabToPath } from "./seo/seo-config";
@@ -45,7 +44,8 @@ const PublicMonthlyApproval = lazy(() => import("./modules/marketing-suite/campa
 const RetailPosEntry = lazy(() => import("./modules/retail/pages/RetailPosEntry"));
 
 function AppContent() {
-  const { user, userProfile, loading, logout } = useAuth();
+  const { user, userProfile, loading, logout, initializationError, retryInitialization } = useAuth();
+  const { activeBranchId, loading: branchLoading, error: branchError, retry: retryBranch } = useBranch();
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const pathname = React.useSyncExternalStore(subscribeToPathname, getPathnameSnapshot, getPathnameSnapshot);
   const requestedPath = normalizePublicPath(pathname);
@@ -215,20 +215,16 @@ function AppContent() {
     );
   }
 
+  if (initializationError && !loading) {
+    return <main className="flex min-h-dvh items-center justify-center bg-surface p-6 text-on-surface"><section className="w-full max-w-lg space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6"><h1 className="text-balance text-lg font-semibold">Chưa thể kết nối hệ thống</h1><p role="alert" className="text-pretty text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">{initializationError}</p><button type="button" onClick={retryInitialization} className="min-h-11 rounded-xl bg-primary px-4 py-2 font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thử lại kết nối</button></section></main>;
+  }
+
   if (loading) {
     return (
       <>
         <SEOHead meta={{ ...AUTH_SEO, title: "Đang tải hệ thống iGen ERP", path: "/khoi-tao-he-thong" }} />
-        <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#f6f8fd] via-[#eef2f7] to-[#e3ecf5] text-center font-sans">
-          <div className="pointer-events-none absolute left-[-10%] top-[-10%] h-[600px] w-[600px] rounded-full bg-blue-400/5 blur-[120px]" />
-          <div className="pointer-events-none absolute bottom-[-10%] right-[-10%] h-[600px] w-[600px] rounded-full bg-indigo-400/5 blur-[120px]" />
-
-          <div className="z-10 flex flex-col items-center">
-            <RefreshCw className="mb-4 h-10 w-10 animate-spin text-blue-600" />
-            <span className="animate-pulse text-xs font-bold uppercase tracking-widest text-slate-500">
-              Đang khởi tạo hệ thống ERP...
-            </span>
-          </div>
+        <div role="status" className="flex min-h-dvh items-center justify-center bg-surface p-6 text-center text-sm font-semibold text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">
+          Đang khởi tạo hệ thống ERP...
         </div>
       </>
     );
@@ -306,7 +302,18 @@ function AppContent() {
           }`}
           id="primary_page_container"
         >
-          <AppRouterView activeTab={resolvedActiveTab} userProfile={userProfile} />
+          {branchError && resolvedActiveTab !== "CÀI ĐẶT" ? (
+            <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 text-on-surface">
+              <h1 className="text-balance text-lg font-semibold">Chưa thể tải chi nhánh</h1>
+              <p role="alert" className="text-pretty text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">{branchError}</p>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" onClick={retryBranch} className="min-h-11 rounded-xl bg-primary px-4 py-2 font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thử lại chi nhánh</button>
+                <button type="button" onClick={() => setActiveTab("CÀI ĐẶT")} className="min-h-11 rounded-xl border border-outline-variant px-4 py-2 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Mở cài đặt</button>
+              </div>
+            </section>
+          ) : branchLoading && !activeBranchId && resolvedActiveTab !== "CÀI ĐẶT" ? (
+            <p role="status" className="p-6 text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">Đang tải chi nhánh…</p>
+          ) : <AppRouterView scopeKey={activeBranchId} activeTab={resolvedActiveTab} userProfile={userProfile} />}
         </main>
       </div>
 

@@ -3,17 +3,45 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch } from '../lib/api';
 import { useStudents } from './useStudents';
+import { clearStudentListCache } from './studentListCache';
 
 let activeBranchId = 'b1';
 let branchLoading = false;
 vi.mock('../../../context/AuthContext', () => ({ useAuth: () => ({ userProfile: { uid: 'u1', companyCode: 'ACME' } }) }));
 vi.mock('../../../context/BranchContext', () => ({ useBranch: () => ({ activeBranchId, loading: branchLoading }) }));
-vi.mock('../lib/api', () => ({ apiFetch: vi.fn() }));
+vi.mock('../lib/api', () => ({ apiFetch: vi.fn(), getBusinessApiScope: () => 'student' }));
 
-beforeEach(() => { vi.resetAllMocks(); activeBranchId = 'b1'; branchLoading = false; });
+beforeEach(() => { vi.resetAllMocks(); clearStudentListCache(); activeBranchId = 'b1'; branchLoading = false; });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('student list loading', () => {
+  it('loads every server page instead of silently stopping at one thousand records', async () => {
+    vi.mocked(apiFetch).mockImplementation(async (endpoint) => {
+      const page = Number(new URL(endpoint, 'http://qa.test').searchParams.get('page'));
+      return { success: true, total: 1001, students: Array.from({ length: page === 5 ? 1 : 250 }, (_, index) => ({ _id: `s-${(page - 1) * 250 + index}` })) };
+    });
+    const { result } = renderHook(() => useStudents());
+    await waitFor(() => expect(result.current.students).toHaveLength(1001));
+    expect(apiFetch).toHaveBeenCalledTimes(5);
+    expect(result.current.loading).toBe(false);
+  });
+  it('reuses a short-lived same-scope result on remount and bypasses it on explicit refresh', async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ success: true, total: 1, students: [{ _id: 's1' }] });
+    const first = renderHook(() => useStudents());
+    await waitFor(() => expect(first.result.current.students).toHaveLength(1)); first.unmount();
+    const second = renderHook(() => useStudents());
+    await waitFor(() => expect(second.result.current.students).toHaveLength(1));
+    expect(apiFetch).toHaveBeenCalledOnce();
+    await act(async () => { await second.result.current.refetch(); });
+    expect(apiFetch).toHaveBeenCalledTimes(2);
+  });
+  it('does not present a truncated or duplicated list as a complete result', async () => {
+    vi.mocked(apiFetch).mockResolvedValueOnce({ success: true, total: 2, students: [{ _id: 's1' }] }).mockResolvedValueOnce({ success: true, total: 2, students: [] });
+    const { result } = renderHook(() => useStudents());
+    await waitFor(() => expect(result.current.error).toContain('chưa tải đủ'));
+    expect(result.current.students).toEqual([]);
+    expect(result.current.loading).toBe(false);
+  });
   it('does not load while disabled or while branches are being resolved', async () => {
     branchLoading = true;
     vi.mocked(apiFetch).mockResolvedValue({ success: true, students: [] });
@@ -39,7 +67,7 @@ describe('student list loading', () => {
     rerender();
     await waitFor(() => expect(result.current.students[0]?.id).toBe('b2-student'));
     expect(firstSignal?.aborted).toBe(true);
-    expect(apiFetch).toHaveBeenLastCalledWith('/students', expect.objectContaining({ headers: { 'x-branch-id': 'b2' } }));
+    expect(apiFetch).toHaveBeenLastCalledWith('/students?page=1&limit=250', expect.objectContaining({ headers: { 'x-branch-id': 'b2' } }));
     await act(async () => { completeOld({ success: true, students: [{ _id: 'b1-student' }] }); });
     expect(result.current.students[0]?.id).toBe('b2-student');
   });

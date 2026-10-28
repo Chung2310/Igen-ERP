@@ -98,6 +98,23 @@ export async function accrueRepairCommission(scope: RetailBranchScope, ticket: a
   if (!amount) return null;
   return post(scope, { partnerId: ticket.retailPartnerId, sourceKey: `repair:${ticket._id}:labor`, sourceType: "repair", sourceId: String(ticket._id), sourceCode: ticket.ticketCode, businessDate: dateOf(ticket.deliveredAt), sku: "*", amount, baseAmount, ratePercent, rateType: "percent", rateValue: ratePercent, policyId: String((basePolicy || legacyPolicy)!._id) }, session);
 }
+/** Reverse the original earned commission, without applying today's policy. */
+export async function reverseRepairRefundCommission(scope: RetailBranchScope, ticketId: string, cumulativeLaborRefund: number, refundKey: string, businessDate: string, session: ClientSession) {
+  const earned = await RetailCommissionLedgerModel.findOne({ ...scope, sourceKey: `repair:${ticketId}:labor`, sourceType: 'repair', sourceId: ticketId }).session(session).lean();
+  if (!earned || earned.amount <= 0 || earned.baseAmount <= 0) return null;
+  const prior = await RetailCommissionLedgerModel.aggregate<{ amount: number; baseAmount: number }>([
+    { $match: { ...scope, sourceType: 'repair-refund', sourceId: ticketId, partnerId: earned.partnerId } },
+    { $group: { _id: null, amount: { $sum: '$amount' }, baseAmount: { $sum: '$baseAmount' } } },
+  ]).session(session);
+  const alreadyReversed = -Number(prior[0]?.amount || 0);
+  const entitlement = Math.round(earned.amount * Math.min(cumulativeLaborRefund, earned.baseAmount) / earned.baseAmount);
+  const delta = entitlement - alreadyReversed;
+  const baseDelta = Math.min(cumulativeLaborRefund, earned.baseAmount) + Number(prior[0]?.baseAmount || 0);
+  if (delta < 0 || entitlement > earned.amount || baseDelta < 0 || baseDelta > earned.baseAmount) throw bad('Sổ hoa hồng sửa chữa cần được đối soát trước khi hoàn tiền.', 409);
+  if (!delta) return null;
+  return post(scope, { partnerId: earned.partnerId, sourceKey: `repair:${ticketId}:refund:${refundKey}`, sourceType: 'repair-refund', sourceId: ticketId, sourceCode: earned.sourceCode, businessDate, sku: earned.sku, amount: -delta, baseAmount: -baseDelta, ratePercent: earned.ratePercent, rateType: earned.rateType, rateValue: earned.rateValue, policyId: earned.policyId, reason: 'Thu hồi hoa hồng theo khoản hoàn tiền công sửa chữa' }, session);
+}
+
 export async function reconcilePartnerCommission(scope: RetailBranchScope, partnerId: string) {
   const partner = await RetailPartnerModel.findOne({ companyCode: scope.companyCode, _id: partnerId, roles: "collaborator" }).lean();
   if (!partner) throw bad("Không tìm thấy cộng tác viên bán lẻ.", 404);

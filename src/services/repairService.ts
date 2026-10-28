@@ -51,7 +51,7 @@ export const repairExtras = {
   async resendNotification(id: string, event: "received" | "done") { return (await apiFetch<Envelope<{ status: string; reason?: string }>>(`${root}/${id}/notifications/resend`, { method: "POST", body: JSON.stringify({ event }) })).data; },
   async historyByImei(imei: string) { return (await apiFetch<Envelope<any>>("/repair/history", { params: { imei } })).data; },
   async historyByPhone(phone: string) { return (await apiFetch<Envelope<any>>("/repair/history", { params: { phone } })).data; },
-  async revenueReport(params: { from: string; to: string; groupBy?: "branch" | "technician" | "day"; branchId?: string }) { return (await apiFetch<Envelope<{ groupBy: string; items: RepairRevenueRow[]; total: RepairRevenueRow }>>("/repair/reports/revenue", { params })).data; },
+  async revenueReport(params: { from: string; to: string; groupBy?: "branch" | "technician" | "day"; branchId?: string }) { return (await apiFetch<Envelope<{ groupBy: string; items: RepairRevenueRow[]; total: RepairRevenueRow; refunds?: { amount: number; laborAmount: number; count: number; netRevenue: number } }>>("/repair/reports/revenue", { params })).data; },
   async technicianReport(params: { from: string; to: string; branchId?: string }) { return (await apiFetch<Envelope<RepairTechnicianRow[]>>("/repair/reports/technician-performance", { params })).data; },
   async feedbackSummary(params: { from: string; to: string; branchId?: string }) { return (await apiFetch<Envelope<Array<{ branchId: string; count: number; averageRating: number; distribution: Record<string, number> }>>>("/repair/reports/feedback-summary", { params })).data; },
   async notificationSettings() { return (await apiFetch<Envelope<any>>("/repair/settings/notifications")).data; },

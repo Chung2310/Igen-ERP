@@ -5,4 +5,5 @@ ItemSchema.add({ stockLedgerId: String, stockWarehouseId: String });
 
 schema.index({ companyCode: 1, code: 1 }, { unique: true }); schema.index({ companyCode: 1, idempotencyKey: 1 }, { unique: true });
 schema.index({ companyCode: 1, branchId: 1, shiftId: 1, createdAt: -1 });
+schema.index({ companyCode: 1, branchId: 1, customerId: 1, type: 1, createdAt: -1 });
 export const RetailAfterSaleModel = model("RetailAfterSale", schema);

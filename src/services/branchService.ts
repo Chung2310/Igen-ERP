@@ -40,7 +40,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export const branchService = {
   currentIp: () => request<{ ip: string }>("/api/v1/auth/current-ip"),
-  list: () => request<BranchRecord[]>("/api/v1/auth/branches"),
+  list: (signal?: AbortSignal) => request<BranchRecord[]>("/api/v1/auth/branches", { signal }),
   create: (input: Required<Pick<BranchInput, "code" | "name">> & Omit<BranchInput, "code" | "name">) => request<BranchRecord>("/api/v1/auth/branches", { method: "POST", body: JSON.stringify(input) }),
   createOwner: (id: string, input: BranchOwnerInput) => request<{ branch: BranchRecord; owner: { _id: string } }>(`/api/v1/auth/branches/${encodeURIComponent(id)}/owner`, { method: "POST", body: JSON.stringify(input) }),
   removePending: (id: string) => request<BranchRecord>(`/api/v1/auth/branches/${encodeURIComponent(id)}/pending`, { method: "DELETE" }),
