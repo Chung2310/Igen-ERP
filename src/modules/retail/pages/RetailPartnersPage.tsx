@@ -1,3 +1,4 @@
+import { ModuleNavigation, ModuleNavigationButton } from "../../../components/common/ModuleNavigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CheckCircle2, Handshake, Package, Pencil, Percent, Search, Store, UsersRound, X } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
@@ -169,9 +170,9 @@ export default function RetailPartnersPage() {
           {canManage && tab === "partners" && <ErpPrimaryButton type="button" onClick={startCreate} className="min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton>}
         </header>
 
-        {canRead && <nav aria-label="Quản lý đối tác bán lẻ" className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-outline-variant bg-surface p-1">
-          {([["partners", "Đối tác & hoa hồng", UsersRound], ["policies", "Chính sách", Percent], ["products", "Hoa hồng sản phẩm", Package]] as const).map(([key, label, Icon]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)} className={cn("flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary", tab === key ? "bg-surface-container-lowest text-primary shadow-xs" : "text-on-surface-variant hover:bg-surface-container-lowest hover:text-on-surface")}><Icon aria-hidden="true" className="size-4" />{label}</button>)}
-        </nav>}
+        {canRead && <ModuleNavigation label="Quản lý đối tác bán lẻ" activeValue={tab}>
+          {([["partners", "Đối tác & hoa hồng", UsersRound], ["policies", "Chính sách", Percent], ["products", "Hoa hồng sản phẩm", Package]] as const).map(([key, label, Icon]) => <ModuleNavigationButton key={key} active={tab === key} icon={<Icon />} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</ModuleNavigationButton>)}
+        </ModuleNavigation>}
 
         {canManage && <dialog
           ref={formDialogRef}

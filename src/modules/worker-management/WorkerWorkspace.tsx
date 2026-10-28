@@ -1,9 +1,8 @@
-import React, { Suspense, lazy, useRef } from "react";
+import React, { Suspense, lazy } from "react";
+import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import {
   Bell,
   BriefcaseBusiness,
-  ChevronLeft,
-  ChevronRight,
   FileSignature,
   LayoutDashboard,
   Users,
@@ -159,8 +158,6 @@ function WorkerProfilesRuntime({
 }
 
 export default function WorkerWorkspace() {
-  const subTabsRef = useRef<HTMLDivElement>(null);
-  const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -280 : 280, behavior: "smooth" });
   const { userProfile } = useAuth();
   const { activeBranchId } = useBranch();
   const { centers } = useAdminCenters();
@@ -312,55 +309,14 @@ export default function WorkerWorkspace() {
 
   return (
     <div className="worker-workspace flex h-full min-h-0 flex-col bg-white">
-      <div
-        className="flex shrink-0 flex-col items-stretch gap-3 border-b border-slate-200/80 bg-white px-3 pb-0 pt-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5"
-        id="worker_sub_tabs_bar"
-      >
-        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" aria-label="Cuộn tab lao động sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-[#00ADFC] sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-          <div ref={subTabsRef} className="scrollbar-none -mb-px flex min-w-0 max-w-full flex-1 select-none gap-1 overflow-x-auto">
-            {tabs.map((tab) => {
-              const active = activeTab === tab.value;
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.value}
-                  type="button"
-                  aria-current={active ? "page" : undefined}
-                  onClick={() => setActiveTab(tab.value)}
-                  className={`worker-section-tab flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold normal-case transition-all duration-200 ${
-                    active
-                      ? "worker-section-tab-active bg-[#00ADFC] text-white shadow-xs active:bg-[#0095d9]"
-                      : "text-slate-600 hover:bg-[#E8F7FF] hover:text-[#007EB8]"
-                  }`}
-                >
-                  <Icon
-                    className={`h-4 w-4 ${
-                      active ? "text-white" : "text-slate-400"
-                    }`}
-                  />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          <button type="button" aria-label="Cuộn tab lao động sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-[#00ADFC] sm:hidden"><ChevronRight className="h-4 w-4" /></button>
+      <ModuleNavigation label="Mục Lao động" activeValue={activeTab} id="worker_sub_tabs_bar" actions={userProfile?.role === "superadmin" && <div className="flex min-w-0 items-center gap-2">
+        <span className="text-xs text-on-surface-variant">Cơ sở</span>
+        <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
+          <StyledSelect value={center} onChange={setCenter} ariaLabel="Chọn cơ sở lao động" options={[{ value: "all", label: "Tất cả cơ sở" }, ...centers.map(item => ({ value: item.uid, label: item.displayName }))]} className="h-9" />
         </div>
-        {userProfile?.role === "superadmin" && (
-          <div className="flex shrink-0 items-center gap-2 pb-2 pr-2 sm:pb-0">
-            <span className="text-xs text-slate-500">Cơ sở</span>
-            <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
-              <StyledSelect
-                value={center}
-                onChange={setCenter}
-                ariaLabel="Chọn cơ sở lao động"
-                options={[{ value: "all", label: "Tất cả cơ sở" }, ...centers.map((item) => ({ value: item.uid, label: item.displayName }))]}
-                className="h-9"
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      </div>}>
+        {tabs.map(tab => <ModuleNavigationButton key={tab.value} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
+      </ModuleNavigation>
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FBFF] p-3 sm:p-6">
         <Suspense fallback={<Loader />}>{page}</Suspense>
       </div>

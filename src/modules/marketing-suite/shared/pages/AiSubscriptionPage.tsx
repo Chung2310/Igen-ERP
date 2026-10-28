@@ -8,6 +8,7 @@ import { useAuth } from "../../../../context/AuthContext";
 import { getCurrentAiSubscription, formatAiPlanPrice, type AiSubscriptionSummary } from "../../../../services/aiSubscriptionService";
 import AiPlanCatalog from "./AiPlanCatalog";
 import { socketService } from "../../../../services/socketService";
+import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
 import "./ai-subscription.css";
 
 const number = (value: number) => value.toLocaleString("vi-VN");
@@ -89,33 +90,23 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
   const openPlans = () => { setView("plans"); plansButton.current?.focus(); };
 
   return (
-    <div className="ai-subscription-page mx-auto grid w-full max-w-7xl gap-6 pb-6 font-sans" id="company_ai_subscription_page" aria-busy={!loaded || refreshing}>
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Gói AI & lượt sử dụng</h1>
-          <p className="ai-subscription-muted mt-2 text-sm leading-6">Theo dõi lượt AI của bạn trong hạn mức dùng chung của doanh nghiệp.</p>
-        </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          {companyName && <span className="ai-subscription-company inline-flex max-w-64 items-center gap-2 rounded-lg px-3 py-2 text-sm"><Building2 className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="truncate">{companyName}</span></span>}
-          <button type="button" disabled={refreshing || !loaded} onClick={refresh} className="ai-subscription-refresh inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors disabled:cursor-wait disabled:opacity-60">
+    <div className="ai-subscription-page flex h-full min-h-0 flex-col bg-surface font-sans" id="company_ai_subscription_page" aria-busy={!loaded || refreshing}>
+      <h1 className="sr-only text-balance">Gói AI & lượt sử dụng</h1>
+      <ModuleNavigation label="Thông tin sử dụng và nâng cấp gói AI" activeValue={view} className="sm:flex-col sm:items-stretch lg:flex-row lg:items-center" actions={<>
+          {companyName && <span className="inline-flex max-w-64 items-center gap-2 rounded-lg bg-surface px-3 py-2 text-xs text-on-surface-variant"><Building2 className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">{companyName}</span></span>}
+          <button type="button" disabled={refreshing || !loaded} onClick={refresh} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-outline-variant px-3.5 text-xs font-semibold text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-60 sm:min-h-9">
             <RefreshCw className={`h-4 w-4 ${refreshing || !loaded ? "motion-safe:animate-spin" : ""}`} aria-hidden="true" />
             {refreshing ? "Đang cập nhật..." : "Làm mới"}
           </button>
-          <button type="button" onClick={openPlans} aria-controls="ai_subscription_plans" className="ai-plan-action inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold">
+          <button type="button" onClick={openPlans} aria-controls="ai_subscription_plans" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary sm:min-h-9">
             <ArrowUpRight className="h-4 w-4" aria-hidden="true" />Nâng cấp gói
           </button>
-        </div>
-      </header>
-
-      <div className="ai-subscription-view-switch flex flex-wrap gap-1 border-b pb-2" role="group" aria-label="Thông tin sử dụng và nâng cấp gói AI">
-        <button type="button" aria-pressed={view === "usage"} aria-controls="ai_subscription_usage" onClick={() => setView("usage")} className={`ai-subscription-view inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${view === "usage" ? "ai-subscription-view-active" : ""}`}>
-          <Layers3 className="h-4 w-4" aria-hidden="true" />Hạn mức sử dụng
-        </button>
-        <button ref={plansButton} type="button" aria-pressed={view === "plans"} aria-controls="ai_subscription_plans" onClick={openPlans} className={`ai-subscription-view inline-flex min-h-10 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${view === "plans" ? "ai-subscription-view-active" : ""}`}>
-          <ArrowUpRight className="h-4 w-4" aria-hidden="true" />Gói & nâng cấp
-        </button>
-      </div>
-
+      </>}>
+        <ModuleNavigationButton active={view === "usage"} icon={<Layers3 />} aria-pressed={view === "usage"} aria-controls="ai_subscription_usage" onClick={() => setView("usage")}>Hạn mức sử dụng</ModuleNavigationButton>
+        <ModuleNavigationButton ref={plansButton} active={view === "plans"} icon={<ArrowUpRight />} aria-pressed={view === "plans"} aria-controls="ai_subscription_plans" onClick={openPlans}>Gói & nâng cấp</ModuleNavigationButton>
+      </ModuleNavigation>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
+      <div className="mx-auto grid w-full max-w-7xl gap-6">
       {error && <div role="alert" className="ai-subscription-notice flex items-start gap-3 rounded-xl border p-4 text-sm">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <div>
@@ -236,6 +227,8 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
         <p>Gói và hạn mức do Superadmin quản lý.</p>
         <p>{updatedAt ? `Cập nhật ${updatedAt.toLocaleTimeString("vi-VN")} · ` : ""}Cập nhật ngay khi đổi gói, tự làm mới mỗi phút.</p>
       </footer>
+      </div>
+      </div>
     </div>
   );
 }

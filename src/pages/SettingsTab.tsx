@@ -8,9 +8,9 @@ import {
   Building2,
   Shield,
   UserCheck
-  , ChevronLeft, ChevronRight
 } from "lucide-react";
 import { toast } from "./Toast";
+import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { SETTINGS_SUB_TAB_ROUTES, type SettingsSubTabType } from "../router/subTabRoutes";
 import { canManageFaces } from "../services/faceManagementService";
@@ -23,8 +23,6 @@ const FaceRecognitionSettingsTab = lazy(() => import("../components/settings/Fac
 const BranchManagementTab = lazy(() => import("../components/settings/BranchManagementTab"));
 
 export default function SettingsTab() {
-  const subTabsRef = React.useRef<HTMLDivElement>(null);
-  const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -280 : 280, behavior: "smooth" });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { userProfile, uploadAvatar } = useAuth();
   
@@ -110,56 +108,20 @@ export default function SettingsTab() {
   const formattedDate = getFormattedDate();
 
   return (
-    <div className="h-full flex flex-col font-sans overflow-y-auto pr-2 pb-5" id="settings_tab_container">
-
-      {/* Title Header with Glassmorphism Header */}
-      <div className="mb-4 flex flex-col justify-between gap-3 rounded-2xl border border-sky-100 bg-white p-3 shadow-sm sm:gap-4 sm:p-4 md:flex-row md:items-center">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-brand-primary">
-            <Sliders className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-medium tracking-tight text-slate-900 sm:text-xl">
-              Cài đặt Hệ thống & Cá nhân
-            </h1>
-            <p className="text-xs font-normal text-slate-500">Tùy chỉnh thông tin tài khoản, bảo mật và kết nối ERP</p>
-          </div>
-        </div>
-        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" aria-label="Cuộn tab cài đặt sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-          <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto select-none">
-            {[
-              { id: "profile", label: "Hồ sơ cá nhân", icon: User },
-              { id: "security", label: "Bảo mật", icon: Shield },
-              { id: "erp", label: "Cấu hình ERP", icon: Sliders },
-              ...(faceManagementAllowed
-                ? [{ id: "face-recognition", label: "Nhận diện khuôn mặt", icon: UserCheck }]
-                : []),
-              ...(userProfile?.role === "admin" ? [{ id: "branches", label: "Chi nhánh", icon: Building2 }] : []),
-            ].map((tab) => {
-              const isActive = activeSubTab === tab.id;
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveSubTab(tab.id as SettingsSubTabType)}
-                    className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${
-                    isActive
-                      ? "bg-brand-primary text-white shadow-sm"
-                      : "text-slate-600 hover:bg-sky-50 hover:text-brand-primary"
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          <button type="button" aria-label="Cuộn tab cài đặt sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
-        </div>
-      </div>
+    <div className="flex h-full min-h-0 flex-col bg-surface font-sans" id="settings_tab_container">
+      <h1 className="sr-only text-balance">Cài đặt Hệ thống & Cá nhân</h1>
+      <ModuleNavigation label="Mục Cài đặt" activeValue={activeSubTab}>
+        {[
+          { id: "profile", label: "Hồ sơ cá nhân", icon: User },
+          { id: "security", label: "Bảo mật", icon: Shield },
+          { id: "erp", label: "Cấu hình ERP", icon: Sliders },
+          ...(faceManagementAllowed ? [{ id: "face-recognition", label: "Nhận diện khuôn mặt", icon: UserCheck }] : []),
+          ...(userProfile?.role === "admin" ? [{ id: "branches", label: "Chi nhánh", icon: Building2 }] : []),
+        ].map(tab => <ModuleNavigationButton key={tab.id} active={activeSubTab === tab.id} icon={<tab.icon />} onClick={() => setActiveSubTab(tab.id as SettingsSubTabType)}>{tab.label}</ModuleNavigationButton>)}
+      </ModuleNavigation>
 
       {/* Main Settings Body Grid */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
 
         {/* Left Column: Quick Profile Card */}
@@ -234,7 +196,7 @@ export default function SettingsTab() {
         </div>
 
       </div>
-
+      </div>
     </div>
   );
 }

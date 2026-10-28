@@ -1,0 +1,9 @@
+/* Keep navigation role colors consistent inside modules with local palettes. */
+[data-module-navigation] {
+  --color-on-primary: #ffffff;
+}
+
+.dark [data-module-navigation] {
+  --color-on-primary: var(--color-surface);
+  --color-on-surface-variant: var(--color-slate-500);
+}

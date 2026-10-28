@@ -1,6 +1,7 @@
 import { getAccessToken } from "./authService";
 import { DashboardSummary, DashboardDateFilter, DashboardActionItems } from "../types/dashboard";
 import { withRequestTimeout } from '../utils/requestTimeout';
+import type { BusinessOverview } from '../../shared/business-overview';
 
 export interface DashboardSummaryParams {
   filter: DashboardDateFilter;
@@ -9,6 +10,19 @@ export interface DashboardSummaryParams {
 }
 
 export const dashboardService = {
+  async getBusinessOverview(from: string, to: string, options: { signal?: AbortSignal; branchId?: string } = {}): Promise<BusinessOverview> {
+    return withRequestTimeout(async signal => {
+      const qs = new URLSearchParams({ filter: 'custom', startDate: from, endDate: to });
+      const response = await fetch(`/api/v1/dashboard/business-overview?${qs}`, {
+        signal,
+        headers: { Authorization: `Bearer ${getAccessToken()}`, ...(options.branchId ? { 'x-branch-id': options.branchId } : {}) },
+      });
+      if (!response.ok) throw new Error('Không thể tải tổng quan doanh nghiệp. Vui lòng thử lại.');
+      const body = await response.json() as { data?: BusinessOverview };
+      if (!body.data?.access || !Array.isArray(body.data.errors)) throw new Error('Dữ liệu tổng quan không hợp lệ. Vui lòng thử lại.');
+      return body.data;
+    }, 20000, 'Tải tổng quan quá lâu. Vui lòng thử lại.', options.signal);
+  },
   /**
    * Lấy số liệu tổng hợp tất cả module cho trang tổng quan trong một request.
    */
