@@ -21,11 +21,11 @@ vi.mock("../hooks/useMediaQuery", () => ({ useIsMobile: () => false }));
 afterEach(cleanup);
 
 describe("Sidebar business modules", () => {
-  it("shows worker and hides student for labor tenants", () => {
+  it("shows both enabled modules regardless of legacy business type", () => {
     render(<Sidebar activeTab="TỔNG QUAN" setActiveTab={vi.fn()} mobileOpen onMobileClose={vi.fn()} />);
 
     expect(screen.getByText("Lao động")).toBeTruthy();
-    expect(screen.queryByText("Học viên")).toBeNull();
+    expect(screen.getByText("Học viên")).toBeTruthy();
   });
 
   it("shows Finance when the tenant enables the module", () => {

@@ -31,10 +31,10 @@ test("resolveEnabledTab redirects a disabled module to overview", () => {
   assert.equal(resolveEnabledTab("NHÂN SỰ", ["hr"]), "NHÂN SỰ");
 });
 
-test("hides student for labor tenants and shows worker", () => {
+test("shows both enabled modules regardless of legacy business type", () => {
   assert.deepEqual(
     filterEnabledTabs(["QUẢN LÝ HỌC VIÊN", "QUẢN LÝ LAO ĐỘNG", "NHÂN SỰ"] as any, ["student", "worker", "hr"], "labor" as any),
-    ["QUẢN LÝ LAO ĐỘNG", "NHÂN SỰ"],
+    ["QUẢN LÝ HỌC VIÊN", "QUẢN LÝ LAO ĐỘNG", "NHÂN SỰ"],
   );
 });
 

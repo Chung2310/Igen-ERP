@@ -13,6 +13,7 @@ export type TabType =
   | "GÓI AI & LƯỢT SỬ DỤNG"
   | "TỔNG QUAN"
   | "NHÂN SỰ"
+  | "ĐỐI TÁC LAO ĐỘNG"
   | "ĐỐI TÁC"
   | "KHO & SẢN PHẨM"
   | "SỬA CHỮA & BẢO HÀNH"

@@ -544,7 +544,8 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                     const tabConfig: Record<TabType, { title: string; icon: React.ElementType }> = {
                       "TỔNG QUAN": { title: "Tổng quan", icon: LayoutDashboard },
                       "NHÂN SỰ": { title: "Nhân sự", icon: Users },
-                      "ĐỐI TÁC": { title: "Đối tác", icon: Handshake },
+                      "ĐỐI TÁC": { title: "Đối tác học viên", icon: Handshake },
+                      "ĐỐI TÁC LAO ĐỘNG": { title: "Đối tác lao động", icon: Handshake },
                       "KHO & SẢN PHẨM": { title: "Kho hàng", icon: Package },
                       "QUẢN LÝ HỌC VIÊN": { title: "Học viên", icon: GraduationCap },
                       "QUẢN LÝ LAO ĐỘNG": { title: "Lao động", icon: BriefcaseBusiness },
@@ -562,6 +563,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       "TỔNG QUAN",
                       "NHÂN SỰ",
                       "ĐỐI TÁC",
+                      "ĐỐI TÁC LAO ĐỘNG",
                       "KHO & SẢN PHẨM",
                       "QUẢN LÝ HỌC VIÊN",
                       "QUẢN LÝ LAO ĐỘNG",
