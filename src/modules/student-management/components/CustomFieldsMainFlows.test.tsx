@@ -102,9 +102,9 @@ const exam = {
 
 beforeEach(() => {
   currentEntityPreset = "student";
-  mockedCourses.mockReturnValue({ courses: [course], loading: false, refetch: vi.fn() });
-  mockedCategories.mockReturnValue({ categories: [{ id: "cat-1", name: "General" }], loading: false, refetch: vi.fn() });
-  mockedBatches.mockReturnValue({ batches: [batch], loading: false, refetch: vi.fn() });
+  mockedCourses.mockReturnValue({ courses: [course], loading: false, error: '', refetch: vi.fn() });
+  mockedCategories.mockReturnValue({ categories: [{ id: "cat-1", name: "General" }], loading: false, error: '', refetch: vi.fn() });
+  mockedBatches.mockReturnValue({ batches: [batch], loading: false, error: '', refetch: vi.fn() });
   mockedApiFetch.mockResolvedValue({ success: true, data: { _id: "created" } });
 });
 

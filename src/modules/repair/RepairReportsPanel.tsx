@@ -14,7 +14,7 @@ function Card({ label, value, tone = "" }: { label: string; value: string; tone?
 export default function RepairReportsPanel() {
   const [range, setRange] = useState({ from: monthStart(), to: today() });
   const [groupBy, setGroupBy] = useState<"branch" | "technician" | "day">("branch");
-  const [revenue, setRevenue] = useState<{ items: RepairRevenueRow[]; total: RepairRevenueRow } | null>(null);
+  const [revenue, setRevenue] = useState<{ items: RepairRevenueRow[]; total: RepairRevenueRow; refunds?: { amount: number; laborAmount: number; count: number; netRevenue: number } } | null>(null);
   const [technicians, setTechnicians] = useState<RepairTechnicianRow[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -58,6 +58,7 @@ export default function RepairReportsPanel() {
         <Card label="Còn nợ" value={money(revenue.total.outstanding)} tone="text-rose-600" />
       </div>
 
+      {revenue.refunds && <section aria-label="Hoàn tiền trong kỳ" className="space-y-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-on-surface"><div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-on-surface-variant">Đã hoàn trong kỳ</p><p className="mt-1 font-semibold tabular-nums">{money(revenue.refunds.amount)} ₫</p></div><div><p className="text-xs text-on-surface-variant">Trong đó tiền công</p><p className="mt-1 font-semibold tabular-nums">{money(revenue.refunds.laborAmount)} ₫</p></div><div><p className="text-xs text-on-surface-variant">Doanh thu sau hoàn</p><p className="mt-1 font-semibold tabular-nums">{money(revenue.refunds.netRevenue)} ₫</p></div></div><p className="text-pretty text-xs text-on-surface-variant">Khoản hoàn tính theo ngày phiếu chi đã ghi sổ; doanh thu gốc giữ theo ngày hoàn tất dịch vụ. Không trừ lại khoản hoàn vào công nợ.</p></section>}
       <div className="overflow-x-auto rounded-xl border">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr>

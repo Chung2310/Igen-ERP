@@ -12,6 +12,7 @@ import { PersonnelToday } from "../components/dashboard/PersonnelToday";
 import { countCreatedInRange, getDashboardRange, localDateKey, type DashboardPeriod } from "../components/dashboard/dashboardPeriod";
 import type { UserProfile } from "../types";
 import type { DashboardSummary } from "../types/dashboard";
+const summaryCache = new Map<string, { at: number; data: DashboardSummary }>();
 
 const options: Array<{ value: DashboardPeriod; label: string }> = [
   { value: "today", label: "Hôm nay" }, { value: "week", label: "Tuần này" },
@@ -50,36 +51,57 @@ export default function BusinessDashboardTab() {
   const [toDate, setToDate] = useState(() => localDateKey(new Date()));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [refreshError, setRefreshError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const range = useMemo(() => getDashboardRange(period, fromDate, toDate), [period, fromDate, toDate]);
   const start = range.valid ? localDateKey(range.start) : "";
   const end = range.valid ? localDateKey(range.end) : "";
+  const userId = userProfile?.uid;
+  const companyCode = userProfile?.companyCode;
+  const role = userProfile?.role;
+  const cacheKey = JSON.stringify([userId, companyCode, activeBranchId, start, end, userProfile?.role, userProfile?.permissions, localStorage.getItem('accessToken')]);
 
   useEffect(() => {
-    if (!userProfile || !range.valid) return;
+    if (!userId || !range.valid || !canSeeHr) return;
     let cancelled = false;
+    let busy = false;
+    const controller = new AbortController();
+    const cached = summaryCache.get(cacheKey);
+    let hasData = Boolean(cached && Date.now() - cached.at < 30000 && refreshKey === 0);
     const load = async () => {
+      if (busy || cancelled) return;
+      busy = true;
       try {
-        setLoading(true);
-        const data = await dashboardService.getSummary({ filter: "custom", startDate: start, endDate: end });
-        if (!cancelled) { setSummary(data); setError(false); }
+        const data = await dashboardService.getSummary({ filter: "custom", startDate: start, endDate: end }, { signal: controller.signal, branchId: activeBranchId || undefined });
+        if (!cancelled) {
+          hasData = true;
+          summaryCache.delete(cacheKey); summaryCache.set(cacheKey, { at: Date.now(), data });
+          if (summaryCache.size > 8) summaryCache.delete(summaryCache.keys().next().value!);
+          setSummary(data); setError(false); setRefreshError('');
+        }
       } catch (err) {
         console.error("Lỗi tải tổng quan doanh nghiệp:", err);
-        if (!cancelled) { setError(true); setSummary(null); }
-      } finally { if (!cancelled) setLoading(false); }
+        if (!cancelled) { setError(!hasData); setRefreshError(hasData ? 'Chưa cập nhật được số liệu mới. Đang hiển thị dữ liệu đã tải; bạn có thể bấm Làm mới.' : ''); }
+      } finally { busy = false; if (!cancelled) setLoading(false); }
     };
-    void load();
-    const intervalId = window.setInterval(() => void load(), 30000);
-    return () => { cancelled = true; window.clearInterval(intervalId); };
-  }, [userProfile, activeBranchId, refreshKey, range.valid, start, end]);
+    // Let StrictMode cleanup cancel its first pass before starting a request.
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setSummary(hasData ? cached!.data : null);
+      setLoading(!hasData); setError(false); setRefreshError('');
+      if (!hasData) void load();
+    });
+    const intervalId = window.setInterval(() => { if (!document.hidden) void load(); }, 30000);
+    return () => { cancelled = true; controller.abort(); window.clearInterval(intervalId); };
+  }, [userId, activeBranchId, cacheKey, refreshKey, range.valid, start, end, canSeeHr]);
 
   useEffect(() => {
-    if (!userProfile || !canSeeHr) return;
+    if (!userId || !canSeeHr) return;
     let cancelled = false;
     const load = async () => {
       try {
-        const users = userProfile.role === "superadmin" ? await authService.getAllUsers() :
-          await authService.getUsersByCompany(userProfile.companyCode || "SYSTEM", activeBranchId || undefined);
+        const users = role === "superadmin" ? await authService.getAllUsers() :
+          await authService.getUsersByCompany(companyCode || "SYSTEM", activeBranchId || undefined);
         if (!cancelled) setEmployees(users.filter((person) => person.role !== "superadmin"));
       } catch (err) {
         console.error("Lỗi tải nhân sự tổng quan:", err);
@@ -88,7 +110,7 @@ export default function BusinessDashboardTab() {
     };
     void load();
     return () => { cancelled = true; };
-  }, [userProfile, activeBranchId, refreshKey, canSeeHr]);
+  }, [userId, companyCode, role, activeBranchId, refreshKey, canSeeHr]);
 
   useEffect(() => {
     const companyCode = userProfile?.companyCode;
@@ -107,6 +129,7 @@ export default function BusinessDashboardTab() {
   const greeting = timeOfDay === "morning" ? "Chào buổi sáng" : hour < 14 && hour >= 11 ? "Chào buổi trưa" : timeOfDay === "day" ? "Chào buổi chiều" : "Chào buổi tối";
   const greetingName = userProfile?.displayName?.trim().split(/\s+/).slice(-2).join(" ") || "bạn";
   return <div className="mx-auto max-h-[85vh] max-w-[1600px] overflow-y-auto px-0.5 pb-8 text-left sm:pr-2" id="dashboard_tab_view">
+    {refreshError && <p role="status" className="mb-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-pretty text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">{refreshError}</p>}
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-[18px] bg-[#E5F3FF] text-[#078DED]"><UsersRound className="h-6 w-6" /></span>
         <div><h1 className="text-xl font-semibold tracking-tight text-[#143963]">Tổng quan nhân sự</h1><p className="mt-0.5 text-xs text-slate-600">{activeBranchId ? activeBranch?.name || userProfile?.branchName || "Chi nhánh" : "Toàn doanh nghiệp"} · {todayLabel}</p><p className="mt-1 inline-flex items-center gap-1.5 text-sm text-[#355271]"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/80"><GreetingIcon timeOfDay={timeOfDay} /></span><span>{greeting}, <span className="font-semibold text-[#008FE3]">{greetingName}</span>! Chúc bạn làm việc hiệu quả.</span></p></div></div>

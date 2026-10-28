@@ -18,6 +18,7 @@ vi.mock("../pages/Toast", () => ({
 }));
 vi.mock("../modules/student-management/hooks/entityPresetStore", () => ({
   ensureEntityPresetLoaded: vi.fn(() => Promise.resolve()),
+  setEntityPresetScope: vi.fn(),
 }));
 
 const fullProfile = {

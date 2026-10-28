@@ -1,4 +1,5 @@
 import { ApiClientError, parseApiErrorResponse } from "../../../services/apiClientError";
+import { refreshAccessToken } from '../../../services/sessionRefresh';
 
 export type BusinessApiScope = "student" | "worker";
 let businessApiScope: BusinessApiScope = "student";
@@ -6,6 +7,8 @@ let businessApiScope: BusinessApiScope = "student";
 export function setBusinessApiScope(scope: BusinessApiScope) {
   businessApiScope = scope;
 }
+
+export function getBusinessApiScope(): BusinessApiScope { return businessApiScope; }
 
 function resolveBusinessEndpoint(endpoint: string) {
   if (businessApiScope !== "worker" || endpoint.startsWith("/auth/")) return endpoint;
@@ -31,15 +34,6 @@ export function getAccessToken() {
 
 interface FetchOptions extends RequestInit {
   params?: Record<string, string | number | boolean | null | undefined>;
-}
-
-interface RefreshTokenResponse {
-  status?: string;
-  success?: boolean;
-  accessToken?: string;
-  data?: {
-    accessToken?: string;
-  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,24 +65,12 @@ export async function apiFetch<T = any>(endpoint: string, options: FetchOptions 
   });
 
   if (response.status === 401 && endpoint !== "/auth/refresh-token" && endpoint !== "/auth/login") {
-    try {
-      const refreshRes = await fetch("/api/v1/auth/refresh-token", { method: "POST" });
-      if (refreshRes.ok) {
-        const refreshData = await refreshRes.json() as RefreshTokenResponse;
-        const newAccessToken = refreshData.accessToken || refreshData.data?.accessToken;
-        if (newAccessToken) {
-          setAccessToken(newAccessToken);
-
-          headers.set("Authorization", `Bearer ${getAccessToken()}`);
-          const retryRes = await fetch(url.toString(), { ...options, headers });
-          if (!retryRes.ok) {
-            throw await parseApiErrorResponse(retryRes);
-          }
-          return await retryRes.json() as T;
-        }
-      }
-    } catch (refreshErr) {
-      console.error("Lỗi tự động làm mới token:", refreshErr);
+    const newAccessToken = await refreshAccessToken();
+    if (newAccessToken) {
+      headers.set("Authorization", `Bearer ${newAccessToken}`);
+      const retryRes = await fetch(url.toString(), { ...options, headers });
+      if (!retryRes.ok) throw await parseApiErrorResponse(retryRes);
+      return await retryRes.json() as T;
     }
 
     setAccessToken(null);

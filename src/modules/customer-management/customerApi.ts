@@ -1,7 +1,14 @@
 import { apiFetch } from "../shared/lib/apiFetch";
 import type { BillingProfile, BillingProfileInput, Customer, CustomerInput, CustomerListQuery, CustomerPurchaseHistory, CustomerPurchaseHistoryScope, CustomerStatus, PaginatedCustomers } from "./types";
+import type { CustomerTransactionDetail, CustomerTransactionFilter, CustomerTransactionRow, CustomerTransactionsResult } from '../../../shared/customer-transactions';
 
 export const customerApi = {
+  async transactions(id: string, scope: CustomerPurchaseHistoryScope, query: { type: CustomerTransactionFilter; from: string; to: string; page: number; limit: number }, signal?: AbortSignal) {
+    return (await apiFetch<{ data: CustomerTransactionsResult }>(`/customers/${id}/transactions`, { params: { ...scope, ...query }, headers: { 'x-branch-id': scope.branchId }, signal })).data;
+  },
+  async transactionDetail(id: string, scope: CustomerPurchaseHistoryScope, row: CustomerTransactionRow, signal?: AbortSignal) {
+    return (await apiFetch<{ data: CustomerTransactionDetail }>(`/customers/${id}/transactions/${row.kind}/${row.sourceId}`, { params: { ...scope, eventId: row.eventId }, headers: { 'x-branch-id': scope.branchId }, signal })).data;
+  },
   async list(query: CustomerListQuery = {}) {
     const response = await apiFetch<{ success: true; data: PaginatedCustomers }>("/customers", { params: query });
     return response.data;

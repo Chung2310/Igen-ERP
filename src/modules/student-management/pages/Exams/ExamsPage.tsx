@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { useExams } from '../../hooks/useExams';
+import { StudentLoadState } from '../../components/StudentLoadState';
 import { useStudents } from '../../hooks/useStudents';
 import { useBatches } from '../../hooks/useBatches';
 import { useResources } from '../../hooks/useResources';
@@ -26,10 +27,10 @@ import { getBatchProgression, getWaitlist, placeWaitlist, saveProgression, type 
 
 export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter?: string; canManage?: boolean }) {
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
-  const { exams, loading: examsLoading } = useExams(resolvedCenter);
+  const { exams, loading: examsLoading, error: examLoadError, refetch: reloadExams } = useExams(resolvedCenter);
   const { students } = useStudents(resolvedCenter);
-  const { batches } = useBatches(resolvedCenter);
-  const { resources } = useResources();
+  const { batches, error: batchLoadError, refetch: reloadBatches } = useBatches(resolvedCenter);
+  const { resources, error: resourceLoadError, refetch: reloadResources } = useResources();
   const classrooms = React.useMemo(() => resources.filter((resource) => resource.type === "Phòng học"), [resources]);
 
   const [activeTab, setActiveTab] = useState<'exams' | 'students'>('exams');
@@ -271,6 +272,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
 
   return (
     <div className="space-y-4">
+      {(examLoadError || batchLoadError || resourceLoadError) && <StudentLoadState error={examLoadError || batchLoadError || resourceLoadError} onRetry={() => { void Promise.all([reloadExams(), reloadBatches(), reloadResources()]); }} />}
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>

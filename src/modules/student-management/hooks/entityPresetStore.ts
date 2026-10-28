@@ -29,6 +29,9 @@ let failedAttempts = 0;
 let requestVersion = 0;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let removeSocketListener: (() => void) | null = null;
+let scope: { userId: string; companyCode: string } | null | undefined;
+let scopeKey = '';
+let controller: AbortController | null = null;
 const subscribers = new Set<() => void>();
 
 function publish(nextSnapshot: EntityPresetSnapshot) {
@@ -69,14 +72,29 @@ function handleBrowserPresetChange(event: Event) {
 }
 
 function installExternalListeners() {
+  const subscribedScope = scopeKey;
   window.addEventListener("entity-label:changed", handleBrowserPresetChange);
   window.addEventListener("online", retryWhenOnline);
   removeSocketListener = socketService.on(
     "entity_preset_changed",
     (data: { entityPreset?: EntityPreset }) => {
+      if (scopeKey !== subscribedScope) return;
       setEntityPreset(data?.entityPreset);
     },
   );
+}
+
+/** Reset tenant metadata without dropping mounted consumers. */
+export function setEntityPresetScope(next: { userId: string; companyCode: string } | null) {
+  const key = next ? JSON.stringify([next.userId, next.companyCode.trim().toUpperCase()]) : 'signed-out';
+  if (scopeKey === key) return;
+  removeExternalListeners();
+  controller?.abort(); controller = null;
+  scope = next; scopeKey = key;
+  requestVersion++;
+  loadPromise = null; lastFailureAt = 0; failedAttempts = 0;
+  publish(initialSnapshot);
+  if (subscribers.size) installExternalListeners();
 }
 
 function removeExternalListeners() {
@@ -116,6 +134,7 @@ export function setEntityPreset(value: unknown): boolean {
  * thử lại có giới hạn và cho phép thử lại ngay trên màn hình khi có lỗi.
  */
 export function ensureEntityPresetLoaded(): Promise<void> {
+  if (scope === null) return Promise.resolve();
   if (!snapshot.loading) return Promise.resolve();
   if (loadPromise) return loadPromise;
   if (failedAttempts >= MAX_LOAD_ATTEMPTS) return Promise.resolve();
@@ -123,13 +142,17 @@ export function ensureEntityPresetLoaded(): Promise<void> {
 
   clearRetry();
   const version = ++requestVersion;
+  controller = new AbortController();
+  const companyCode = scope?.companyCode.trim().toUpperCase();
   loadPromise = withRequestTimeout(
     (signal) => getModuleSettings(undefined, { signal }),
     15000,
     'Tải cấu hình học viên quá lâu. Vui lòng thử lại.',
+    controller.signal,
   )
     .then((settings) => {
       if (version !== requestVersion) return;
+      if (companyCode && settings?.tenantId?.trim().toUpperCase() !== companyCode) throw new Error('Cấu hình doanh nghiệp không khớp.');
       if (!setEntityPreset(settings?.entityPreset)) throw new Error('Cấu hình học viên trả về không hợp lệ.');
     })
     .catch(() => {
@@ -164,4 +187,6 @@ export function resetEntityPresetStoreForTests(): void {
   failedAttempts = 0;
   requestVersion++;
   snapshot = initialSnapshot;
+  controller?.abort(); controller = null;
+  scope = undefined; scopeKey = '';
 }

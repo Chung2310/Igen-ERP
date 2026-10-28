@@ -15,5 +15,7 @@ test("partners are a standalone app route directly after HR in the sidebar", () 
   assert.match(routes, /import\("\.\.\/pages\/PartnersTab"\)/);
   assert.ok(sidebar.indexOf('label: "ĐỐI TÁC"') > sidebar.indexOf('label: "NHÂN SỰ"'));
   assert.ok(sidebar.indexOf('label: "ĐỐI TÁC"') < sidebar.indexOf('label: "KHO & SẢN PHẨM"'));
-  assert.match(modules, /"ĐỐI TÁC":\s*\["relationship:read"\]/);
+  const partnerPermissions = modules.match(/"ĐỐI TÁC":\s*\[([^\]]+)\]/)?.[1] || '';
+  assert.match(partnerPermissions, /"relationship:read"/);
+  assert.match(partnerPermissions, /"labor-partner:read"/);
 });

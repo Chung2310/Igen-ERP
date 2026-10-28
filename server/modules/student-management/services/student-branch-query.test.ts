@@ -3,6 +3,7 @@ import { StudentController } from '../controllers/student.controller';
 import { afterEach, it, vi } from "vitest";
 import { Student } from "../models/student.model";
 import { StudentService } from "./student.service";
+import { resourceIndexingService } from '../../../service/resource-indexing.service';
 
 const ownerScope = ["shared-owner"];
 const branchA = "branch-a";
@@ -28,6 +29,7 @@ function expectedOwnerAndBranchScope(extra: Record<string, unknown> = {}) {
 afterEach(() => vi.restoreAllMocks());
 
 it('forwards the authenticated selected branch to every scoped student action', async () => {
+  vi.spyOn(resourceIndexingService, 'trashSourceRecordResources').mockResolvedValue(0);
   const getStudents = vi.spyOn(StudentService, 'getStudents').mockResolvedValue({ students: [], total: 0, page: 1, limit: 1, totalPages: 0 });
   const getStudentById = vi.spyOn(StudentService, 'getStudentById').mockResolvedValue({ _id: 'student-a' } as any);
   const updateStudent = vi.spyOn(StudentService, 'updateStudent').mockResolvedValue({ _id: 'student-a' } as any);
@@ -54,14 +56,16 @@ it('forwards the authenticated selected branch to every scoped student action', 
 
 it("scopes student list and count queries to the selected branch when owners overlap", async () => {
   const countDocuments = vi.spyOn(Student as any, "countDocuments").mockResolvedValue(0);
+  const sort = vi.fn(() => ({ skip: () => ({ limit: async () => [] }) }));
   const find = vi.spyOn(Student as any, "find").mockImplementation(() => ({
-    sort: () => ({ skip: () => ({ limit: async () => [] }) }),
+    sort,
   }));
 
   await StudentService.getStudents(ownerScope, {}, branchA);
 
   assert.deepEqual(countDocuments.mock.calls[0]?.[0], expectedOwnerAndBranchScope());
   assert.deepEqual(find.mock.calls[0]?.[0], expectedOwnerAndBranchScope());
+  assert.deepEqual(sort.mock.calls[0], [{ createdAt: -1, _id: -1 }]);
 });
 
 it("does not select a same-owner student from another branch", async () => {

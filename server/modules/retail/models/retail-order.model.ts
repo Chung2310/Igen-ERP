@@ -15,6 +15,7 @@ RetailOrderSchema.add({ financeSettlementEventId: { type: String, index: true },
 RetailOrderSchema.index({ companyCode: 1, orderCode: 1 }, { unique: true, partialFilterExpression: { orderCode: { $type: "string" } } });
 RetailOrderSchema.index({ companyCode: 1, paymentCode: 1 }, { unique: true, partialFilterExpression: { paymentCode: { $type: "string" } } });
 RetailOrderSchema.index({ companyCode: 1, branchId: 1, businessDate: -1, status: 1 });
+RetailOrderSchema.index({ companyCode: 1, branchId: 1, customerId: 1, createdAt: -1 });
 RetailOrderSchema.index(
   { companyCode: 1, branchId: 1, createdBy: 1, heldSlot: 1 },
   { unique: true, partialFilterExpression: { status: "draft", heldSlot: { $type: "number" } } },

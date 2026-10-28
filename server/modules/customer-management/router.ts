@@ -5,6 +5,7 @@ import { customerController } from "./customer.controller";
 import { customerSettingsController } from "./controllers/customer-settings.controller";
 import { updateCustomerSettingsSchema } from "./validations/customer-settings.validation";
 import { customerRepairsRouter } from "./customer-repairs.router";
+import { customerTransactionsRouter } from './customer-transactions.router';
 
 export const customerRouter = Router();
 const read = requirePermission("customer:read") as any;
@@ -21,6 +22,7 @@ customerRouter.post("/", posCustomerCreate, customerController.create as any);
 customerRouter.post("/quick", manage, customerController.quickCreate as any);
 customerRouter.get("/:id/purchase-history", read, customerController.purchaseHistory as any);
 customerRouter.use(customerRepairsRouter);
+customerRouter.use(customerTransactionsRouter);
 customerRouter.get("/:id", read, customerController.detail as any);
 customerRouter.patch("/:id", manage, customerController.update as any);
 customerRouter.post("/:id/activate", manage, customerController.activate as any);

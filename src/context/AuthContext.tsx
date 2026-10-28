@@ -8,7 +8,7 @@ import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { isModuleEnabled as checkModule, type ModuleKey } from "../config/modules";
 import { socketService } from "../services/socketService";
 import { normalizeCompanyModulesEvent, normalizeCompanyStatusEvent } from "./companyModuleSync";
-import { ensureEntityPresetLoaded } from "../modules/student-management/hooks/entityPresetStore";
+import { ensureEntityPresetLoaded, setEntityPresetScope } from "../modules/student-management/hooks/entityPresetStore";
 
 export type ErpLoginOutcome = { status: "authenticated"; role?: string };
 
@@ -16,6 +16,8 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  initializationError: string;
+  retryInitialization: () => void;
   loginWithEmail: (email: string, password: string, rememberMe?: boolean) => Promise<ErpLoginOutcome>;
   completeErpChallenge: () => Promise<void>;
   registerWithEmail: (email: string, password: string, displayName: string, rememberMe?: boolean) => Promise<void>;
@@ -47,12 +49,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [initializationError, setInitializationError] = useState('');
+  const [initializationAttempt, setInitializationAttempt] = useState(0);
+  const authVersion = React.useRef(0);
+  const retryInitialization = () => { setInitializationError(''); setLoading(true); setInitializationAttempt((value) => value + 1); };
+
+  React.useLayoutEffect(() => {
+    setEntityPresetScope(userProfile?.uid && userProfile.companyCode ? { userId: userProfile.uid, companyCode: userProfile.companyCode } : null);
+  }, [userProfile?.uid, userProfile?.companyCode]);
 
   // Khởi tạo trạng thái đăng nhập khi mount app
   useEffect(() => {
+    let disposed = false;
+    const version = ++authVersion.current;
     const initAuth = async () => {
       try {
         const profile = await authService.getMe();
+        if (disposed || version !== authVersion.current) return;
+        setInitializationError('');
         if (profile) {
           setUser(profile as any);
           setUserProfile(profile);
@@ -61,11 +75,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserProfile(null);
         }
       } catch (error) {
+        if (disposed || version !== authVersion.current) return;
         console.error("Lỗi khi tự động khôi phục phiên đăng nhập JWT:", error);
-        setUser(null);
-        setUserProfile(null);
+        setInitializationError(error instanceof Error ? error.message : 'Không thể tải phiên đăng nhập. Hãy thử lại.');
       } finally {
-        setLoading(false);
+        if (!disposed && version === authVersion.current) setLoading(false);
       }
     };
     initAuth();
@@ -82,7 +96,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }, 10 * 60 * 1000);
 
-    return () => clearInterval(refreshInterval);
+    return () => { disposed = true; clearInterval(refreshInterval); };
+  }, [initializationAttempt]);
+
+  useEffect(() => {
+    const expired = () => {
+      authVersion.current++;
+      localStorage.removeItem('accessToken');
+      socketService.disconnect();
+      setUser(null); setUserProfile(null); setInitializationError(''); setLoading(false);
+    };
+    window.addEventListener('unauthorized', expired);
+    return () => window.removeEventListener('unauthorized', expired);
   }, []);
 
   useEffect(() => {
@@ -140,7 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!profile) return;
         setUser(profile as any);
         setUserProfile(profile);
-      });
+      }).catch((error) => console.error('Không thể cập nhật phiên đăng nhập:', error));
     });
   }, [userProfile?.uid]);
   const loginWithEmail = async (email: string, password: string, rememberMe: boolean = true): Promise<ErpLoginOutcome> => {
@@ -282,7 +307,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!profile) return;
         setUser(profile as any);
         setUserProfile(profile);
-      });
+      }).catch((error) => console.error('Không thể cập nhật quyền truy cập:', error));
     });
   }, [userProfile?.uid, userProfile?.role, userProfile?.companyCode]);
 
@@ -297,6 +322,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         userProfile,
         loading,
+        initializationError,
+        retryInitialization,
         loginWithEmail,
         completeErpChallenge,
         registerWithEmail,
