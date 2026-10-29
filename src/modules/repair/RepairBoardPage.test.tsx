@@ -187,8 +187,9 @@ test("uses a viewport-bounded responsive quote popup on mobile", async () => {
   await userEvent.setup().click(await screen.findByRole("button", { name: "Chuyển bước tiếp" }));
 
   const dialog = screen.getByRole("dialog");
-  expect(dialog.className).toContain("max-h-[calc(100vh-1.5rem)]");
-  expect(dialog.className).toContain("overflow-y-auto");
+  expect(dialog.className).toContain("max-h-[calc(100dvh-2rem)]");
+  expect(dialog.className).toContain("overflow-hidden");
+  expect(screen.getByRole("region", { name: "Nội dung phiếu sửa chữa" }).className).toContain("overflow-y-auto");
   const infoGrid = screen.getByText("Khách hàng", { selector: "b" }).parentElement?.parentElement;
   const totalsGrid = screen.getByText("Nhân công").parentElement;
   expect(infoGrid?.className).toContain("grid-cols-1");

@@ -33,6 +33,7 @@ import type { RetailAfterSaleInput, RetailAfterSaleType, RetailOrder, RetailPaym
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { toast } from "../../../pages/Toast";
 import { ApiClientError } from "../../../services/apiClientError";
+import { cn } from "../../student-management/lib/utils";
 
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
 
@@ -458,46 +459,18 @@ function OrderDialog({
   const isCompleted = order.status === "completed";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl border border-slate-100">
-        {/* Header */}
-        <div className="flex flex-col gap-3 pb-4 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900">
-                {order.orderCode || "Đơn hàng"}
-              </h2>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${order.status === "completed"
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    : order.status === "cancelled"
-                      ? "bg-rose-50 text-rose-700 border border-rose-200"
-                      : "bg-blue-50 text-blue-700 border border-blue-200"
-                  }`}
-              >
-                {order.status === "completed"
-                  ? "Hoàn tất"
-                  : order.status === "cancelled"
-                    ? "Đã hủy"
-                    : "Còn xử lý"}
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-slate-500">
-              <span className="font-semibold text-slate-700">{order.customerName || "Khách lẻ"}</span>
-              {order.customerPhone && <span> · SĐT: {order.customerPhone}</span>}
-              {order.createdByName && <span> · Thu ngân: {order.createdByName}</span>}
-            </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-4">
+      <div role="dialog" aria-modal="true" aria-label="Chi tiết đơn hàng" className="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl [overflow-wrap:anywhere]">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 p-4 sm:px-6">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="text-balance text-lg font-semibold text-slate-900">Đơn hàng</h2>
+            <span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-semibold", order.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : order.status === "cancelled" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-blue-200 bg-blue-50 text-blue-700")}>{order.status === "completed" ? "Hoàn tất" : order.status === "cancelled" ? "Đã hủy" : "Còn xử lý"}</span>
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-slate-200 p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
+          <button type="button" aria-label="Đóng chi tiết đơn hàng" onClick={onClose} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 focus-visible:outline-2 focus-visible:outline-primary"><X className="size-5" aria-hidden="true" /></button>
+        </header>
+        <div role="region" aria-label="Nội dung đơn hàng" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary sm:p-6">
+          <h3 className="text-balance font-semibold [overflow-wrap:anywhere]">{order.orderCode || "Đơn hàng"}</h3>
+          <p className="mt-2 text-sm text-slate-500 [overflow-wrap:anywhere]"><span className="font-semibold text-slate-700">{order.customerName || "Khách lẻ"}</span>{order.customerPhone && <span> · SĐT: {order.customerPhone}</span>}{order.createdByName && <span> · Thu ngân: {order.createdByName}</span>}</p>
         {/* Product Items */}
         <div className="mt-5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
@@ -505,17 +478,10 @@ function OrderDialog({
           </h3>
           <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/80 bg-white px-4">
             {order.items.map((i, idx) => (
-              <div key={`${i.sku}-${idx}`} className="flex items-center justify-between py-3 text-sm">
-                <div className="space-y-0.5">
-                  <span className="font-medium text-slate-800">
-                    {i.productName} × {i.quantity}
-                  </span>
-                  <p className="font-mono text-xs text-slate-400">
-                    SKU: {i.sku}
-                    {i.serialNumbers && i.serialNumbers.length > 0 && ` · S/N: ${i.serialNumbers.join(", ")}`}
-                  </p>
-                </div>
-                <b className="font-mono font-bold text-slate-900">{money(i.lineTotal)}</b>
+              <div key={i.sku + "-" + idx} className="grid min-w-0 gap-2 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-4">
+                <div className="min-w-0"><p className="font-medium text-slate-800">{i.productName} × {i.quantity}</p><p className="mt-1 text-xs text-slate-500">SKU: {i.sku}</p></div>
+                <b className="min-w-0 text-right tabular-nums text-slate-900 sm:max-w-64">{money(i.lineTotal)}</b>
+                {!!i.serialNumbers?.length && <details className="min-w-0 text-xs text-slate-500 sm:col-span-2"><summary className="min-h-9 cursor-pointer rounded-lg py-2 focus-visible:outline-2 focus-visible:outline-primary">S/N: {i.serialNumbers.length} mã</summary><p className="leading-5">{i.serialNumbers.join(", ")}</p></details>}
               </div>
             ))}
           </div>
@@ -526,15 +492,16 @@ function OrderDialog({
         <AfterSaleHistory order={order} />
 
         {/* Financial Metrics */}
-        <div className={`mt-5 grid gap-3 ${Number(order.pendingTransferAmount || 0) > 0 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+        <div className={`mt-5 grid gap-3 ${Number(order.pendingTransferAmount || 0) > 0 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"}`}>
           <Metric label="Tổng cộng" value={order.grandTotal} />
           <Metric label="Đã thu" value={order.paidAmount} />
           {Number(order.pendingTransferAmount || 0) > 0 && <Metric label="Chờ chuyển khoản" value={Number(order.pendingTransferAmount)} />}
           <Metric label={order.installment ? "Chờ đối tác thanh toán" : "Còn nợ"} value={Math.max(0, order.dueAmount - Number(order.pendingTransferAmount || 0))} />
         </div>
 
+        </div>
         {/* Action Buttons */}
-        <div className="mt-6 flex flex-wrap items-center gap-2.5 pt-4 border-t border-slate-100">
+        <div className="flex shrink-0 flex-wrap items-center gap-2.5 border-t border-slate-100 p-4 sm:px-6">
           {((order.status === "confirmed" && order.dueAmount > Number(order.pendingTransferAmount || 0)) || order.status === "completed" || order.status === "cancelled") && (
             <button
               type="button"
@@ -599,7 +566,7 @@ function OrderDialog({
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5">
+    <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 [overflow-wrap:anywhere]">
       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
       <p className="mt-1 font-mono text-lg font-bold text-slate-900">{money(value)}</p>
     </div>
@@ -710,9 +677,9 @@ export function AfterSalesForm({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl border border-slate-100">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
+      <div role="dialog" aria-modal="true" aria-label={type === "return" ? "Trả hàng / Hoàn tiền" : "Thu mua lại"} className="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl [overflow-wrap:anywhere]">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 p-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2.5">
             <div className={`p-2 rounded-xl text-white ${type === "return" ? "bg-orange-500" : "bg-cyan-600"}`}>
               {type === "return" ? <RotateCcw className="h-5 w-5" /> : <ShoppingBasket className="h-5 w-5" />}
             </div>
@@ -720,18 +687,21 @@ export function AfterSalesForm({
               <h3 className="text-lg font-bold text-slate-900">
                 {type === "return" ? "Trả hàng / Hoàn tiền" : "Thu mua máy cũ từ khách"}
               </h3>
-              <p className="text-xs text-slate-500">Đơn hàng: {order.orderCode}</p>
+
             </div>
           </div>
           <button
             type="button"
             onClick={close}
-            className="rounded-xl border border-slate-200 p-2 text-slate-400 hover:bg-slate-50"
+            aria-label="Đóng hậu mãi"
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-primary"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
+        <div role="region" aria-label="Nội dung hậu mãi" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary sm:p-6">
+        <p className="text-sm text-slate-500">Đơn hàng: {order.orderCode}</p>
         {(pending || blocked) && <p role="alert" className="mt-4 text-sm text-amber-700">
           {request.storageError || (request.scopeChanged
             ? "Chi nhánh hoặc tài khoản đã thay đổi. Vui lòng mở lại đơn hàng."
@@ -876,14 +846,15 @@ export function AfterSalesForm({
         </div>
 
         </fieldset>
+        </div>
         {/* Footer */}
-        <div className="mt-6 flex items-center justify-between pt-4 border-t border-slate-100">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-100 p-4 sm:px-6">
           <div>
             <span className="text-xs text-slate-400 uppercase font-semibold">Tổng số tiền chi hoàn:</span>
             <p className="font-mono text-xl font-bold text-slate-900">{money(total)}</p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={close}

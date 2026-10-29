@@ -29,6 +29,7 @@ import { invoicePaymentRows, invoicePaymentSummary } from "../components/pos/inv
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { toast } from "../../../pages/Toast";
 import { socketService } from "../../../services/socketService";
+import { cn } from "../../student-management/lib/utils";
 
 const receiptStagingWidth = (paperSize: RetailSettings["invoicePaperSize"]) =>
   paperSize === "58mm" || paperSize === "80mm" ? paperSize : paperSize === "A5" ? "148mm" : "210mm";
@@ -407,15 +408,15 @@ export default function RetailInvoicesPageContent() {
                       className="hover:bg-cyan-50/40 transition-colors group cursor-pointer"
                     >
                       <td className="px-4 py-3">
-                        <span className="font-mono font-bold text-slate-900 group-hover:text-cyan-700 transition">
+                        <span title={invoice.invoiceNo} className="block max-w-56 truncate font-mono font-bold text-slate-900 group-hover:text-cyan-700 transition">
                           {invoice.invoiceNo}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="font-semibold text-slate-800">
+                        <div title={invoice.snapshot.customerName || "Khách lẻ"} className="max-w-56 truncate font-semibold text-slate-800">
                           {invoice.snapshot.customerName || "Khách lẻ"}
                         </div>
-                        <div className="text-[11px] text-slate-400 font-mono">
+                        <div title={invoice.orderCode} className="max-w-56 truncate text-[11px] text-slate-400 font-mono">
                           {invoice.orderCode}
                         </div>
                       </td>
@@ -569,27 +570,29 @@ export default function RetailInvoicesPageContent() {
 
 function PaymentQrDialog({ qr, onClose }: { qr: RetailPaymentQr; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/60 p-3 sm:p-4">
       <div
         role="dialog"
         aria-label="QR thanh toán hóa đơn"
-        className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl border border-slate-100"
+        aria-modal="true"
+        className="flex max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-sm flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white text-center shadow-xl [overflow-wrap:anywhere]"
       >
-        <div className="flex items-center justify-between text-left">
-          <div>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 p-4 text-left">
+          <div className="min-w-0">
             <h2 className="text-lg font-bold text-slate-900">QR thanh toán</h2>
-            <p className="text-sm font-medium text-slate-500">{qr.orderCode}</p>
           </div>
           <button
             type="button"
             aria-label="Đóng QR thanh toán"
             onClick={onClose}
-            className="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-primary"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
+        <div role="region" aria-label="Chi tiết chuyển khoản" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary">
+        <p className="text-left text-sm font-medium text-slate-500">{qr.orderCode}</p>
         <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-inner">
           <img
             className="mx-auto aspect-square w-full max-w-[260px] rounded-xl object-contain bg-white p-2"
@@ -620,6 +623,7 @@ function PaymentQrDialog({ qr, onClose }: { qr: RetailPaymentQr; onClose: () => 
           </span>
           <span>Tự động cập nhật khi khách hàng chuyển khoản thành công</span>
         </div>
+        </div>
       </div>
     </div>
   );
@@ -629,12 +633,9 @@ function InvoiceDialog({
   invoice,
   downloading,
   canReprint,
-  isReprint,
-  paperSize,
   onDownload,
   onReprint,
   onClose,
-  onShowQr,
 }: {
   invoice: RetailInvoice;
   downloading: boolean;
@@ -647,134 +648,76 @@ function InvoiceDialog({
   onShowQr: () => void;
 }) {
   const isVoid = invoice.status === "void";
-  const hasDue = Number(invoice.snapshot.dueAmount || 0) > 0;
+  const titleId = React.useId();
+  const actionClass = "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary hover:bg-surface disabled:opacity-50";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-0 sm:items-center sm:p-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl border border-slate-100">
-        {/* Modal Header */}
-        <div className="flex flex-col gap-3 pb-4 border-b border-slate-100 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900">{invoice.invoiceNo}</h2>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${isVoid
-                    ? "bg-rose-50 text-rose-700 border border-rose-200"
-                    : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  }`}
-              >
-                {isVoid ? "Đã vô hiệu" : "Đã phát hành"}
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-slate-500">
-              <span className="font-semibold text-slate-700">{invoice.orderCode}</span> ·{" "}
-              <span>{invoice.snapshot.customerName}</span>
-            </p>
-            <p className="text-sm text-slate-500">
-              Nhân viên bán hàng: <span className="font-medium text-slate-800">{invoice.snapshot.salespersonName || invoice.snapshot.cashierName}</span>
-            </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl min-w-0 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-on-surface shadow-xl [--color-on-surface-variant:var(--color-slate-600)]">
+        <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-outline-variant px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <h2 id={titleId} className="text-balance text-lg font-semibold">Hóa đơn</h2>
+            <span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-semibold", isVoid ? "border-outline-variant bg-surface text-on-surface-variant" : "border-primary/20 bg-primary/5 text-primary")}>{isVoid ? "Đã vô hiệu" : "Đã phát hành"}</span>
           </div>
-
-          <div className="flex items-center gap-2">
-            {canReprint && <>
-              <button
-                type="button"
-                aria-label="Tải bản in lại PDF"
-                disabled={downloading}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-                onClick={onDownload}
-              >
-                {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                PDF
-              </button>
-              <button
-                type="button"
-                aria-label="In lại hóa đơn"
-                className="flex items-center gap-1.5 rounded-xl border border-cyan-600 bg-cyan-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 active:scale-95"
-                onClick={onReprint}
-              >
-                <Printer className="h-4 w-4" />
-                In lại
-              </button>
-            </>}
-            <button
-              type="button"
-              aria-label="Đóng hóa đơn"
-              onClick={onClose}
-              className="rounded-xl border border-slate-200 p-2 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
-            >
-              <X className="h-5 w-5" />
+          {canReprint && <div className="order-last flex w-full shrink-0 justify-end gap-2 sm:order-none sm:w-auto">
+            <button type="button" aria-label="Tải bản in lại PDF" disabled={downloading} className={actionClass} onClick={onDownload}>
+              {downloading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}PDF
             </button>
+            <button type="button" aria-label="In lại hóa đơn" className={cn(actionClass, "border-primary bg-primary text-on-primary hover:bg-primary/90")} onClick={onReprint}><Printer className="size-4" aria-hidden="true" />In lại</button>
+          </div>}
+          <button type="button" aria-label="Đóng hóa đơn" onClick={onClose} className={cn(actionClass, "size-11 p-0")}><X className="size-5" aria-hidden="true" /></button>
+        </header>
+
+        <div role="region" aria-label="Nội dung hóa đơn" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2 sm:p-6">
+          <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
+            <div className="min-w-0 sm:col-span-2"><dt className="text-xs text-on-surface-variant">Mã hóa đơn</dt><dd className="mt-1 font-semibold [overflow-wrap:anywhere]">{invoice.invoiceNo}</dd></div>
+            <div className="min-w-0"><dt className="text-xs text-on-surface-variant">Đơn hàng</dt><dd className="mt-1 [overflow-wrap:anywhere]">{invoice.orderCode}</dd></div>
+            <div className="min-w-0"><dt className="text-xs text-on-surface-variant">Khách hàng</dt><dd className="mt-1 [overflow-wrap:anywhere]">{invoice.snapshot.customerName}</dd></div>
+            <div className="min-w-0 sm:col-span-2"><dt className="text-xs text-on-surface-variant">Nhân viên bán hàng</dt><dd className="mt-1 [overflow-wrap:anywhere]">{invoice.snapshot.salespersonName || invoice.snapshot.cashierName}</dd></div>
+          </dl>
+
+          {invoice.snapshot.store && <div className="mt-4 min-w-0 rounded-xl border border-outline-variant bg-surface p-3.5 text-xs text-on-surface-variant [overflow-wrap:anywhere]">
+            <p className="font-semibold text-on-surface">{invoice.snapshot.store.storeName || invoice.snapshot.store.legalName}</p>
+            <p className="mt-1">{[invoice.snapshot.store.branchName, invoice.snapshot.store.branchAddress].filter(Boolean).join(" · ")}</p>
+          </div>}
+
+          <section className="mt-5" aria-labelledby={titleId + "_items"}>
+            <h3 id={titleId + "_items"} className="mb-2 text-balance text-xs font-semibold text-on-surface-variant">Chi tiết sản phẩm</h3>
+            <div className="divide-y divide-outline-variant rounded-xl border border-outline-variant px-3 sm:px-4">
+              {invoice.snapshot.items.length === 0 ? <p className="py-3 text-sm text-on-surface-variant">Không có dòng sản phẩm.</p> : invoice.snapshot.items.map((item, idx) => {
+                const serials = item.serialNumbers || [];
+                const serialText = serials.join(", ");
+                return <div key={item.productId + "-" + item.sku + "-" + idx} className="grid min-w-0 gap-2 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-4">
+                  <p className="min-w-0 font-medium [overflow-wrap:anywhere]">{item.productName} × {item.quantity}</p>
+                  <p className="min-w-0 text-right font-semibold tabular-nums [overflow-wrap:anywhere] sm:max-w-64">{money(item.lineTotal)}</p>
+                  {serials.length > 0 && (serials.length > 3 || serialText.length > 160 ? <details className="min-w-0 text-xs text-on-surface-variant sm:col-span-2"><summary className="min-h-9 cursor-pointer rounded-lg py-2 focus-visible:outline-2 focus-visible:outline-primary">S/N: {serials.length} mã</summary><p className="leading-5 [overflow-wrap:anywhere]">S/N: {serialText}</p></details> : <p className="min-w-0 text-xs leading-5 text-on-surface-variant [overflow-wrap:anywhere] sm:col-span-2">S/N: {serialText}</p>)}
+                </div>;
+              })}
+            </div>
+          </section>
+
+          <div className="mt-5 space-y-2 rounded-xl border border-outline-variant bg-surface p-4 text-sm">
+            <Row label="Tạm tính" value={invoice.snapshot.subtotal} />
+            <Row label="Giảm giá" value={invoice.snapshot.orderDiscount} />
+            <Row label={"Thuế (" + invoice.snapshot.taxRate + "%)"} value={invoice.snapshot.taxAmount} />
+            <div className="border-t border-outline-variant pt-2"><Row label="Tổng cộng" value={invoice.snapshot.grandTotal} strong /></div>
           </div>
+
+          <section className="mt-4 space-y-2 border-t border-outline-variant pt-3 text-sm" aria-labelledby={titleId + "_payments"}>
+            <h3 id={titleId + "_payments"} className="text-balance text-xs font-semibold text-on-surface-variant">Thanh toán</h3>
+            {invoicePaymentRows(invoice.snapshot).map((row, idx) => <Row key={row.label + "-" + idx} label={row.label} value={row.amount} />)}
+          </section>
+
+          <p className="mt-4 whitespace-pre-wrap rounded-xl border border-outline-variant bg-surface p-3 text-pretty text-sm text-on-surface-variant [overflow-wrap:anywhere]">Bằng chữ: <span className="font-semibold text-on-surface">{invoice.snapshot.amountInWords}</span></p>
         </div>
-
-        {/* Store & Customer meta card */}
-        {invoice.snapshot.store && (
-          <div className="mt-4 rounded-2xl bg-slate-50 p-3.5 text-xs text-slate-600 border border-slate-100">
-            <p className="font-bold text-slate-800 text-sm">{invoice.snapshot.store.storeName || invoice.snapshot.store.legalName}</p>
-            <p className="mt-0.5">{invoice.snapshot.store.branchName} · {invoice.snapshot.store.branchAddress}</p>
-          </div>
-        )}
-
-        {/* Items List */}
-        <div className="mt-5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Chi tiết sản phẩm</h3>
-          <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/80 bg-white px-4">
-            {invoice.snapshot.items.length === 0 ? (
-              <p className="py-3 text-sm text-slate-400 italic">Không có dòng sản phẩm.</p>
-            ) : (
-              invoice.snapshot.items.map((item, idx) => (
-                <div key={`${item.productId}-${item.sku}-${idx}`} className="flex items-center justify-between py-3 text-sm">
-                  <div className="space-y-0.5">
-                    <span className="font-medium text-slate-800">
-                      {item.productName} × {item.quantity}
-                    </span>
-                    {item.serialNumbers && item.serialNumbers.length > 0 && (
-                      <p className="font-mono text-xs text-slate-400">
-                        S/N: {item.serialNumbers.join(", ")}
-                      </p>
-                    )}
-                  </div>
-                  <b className="font-mono font-bold text-slate-900">{money(item.lineTotal)}</b>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Pricing calculations */}
-        <div className="mt-5 space-y-2 rounded-2xl bg-slate-50/70 p-4 border border-slate-100 text-sm">
-          <Row label="Tạm tính" value={invoice.snapshot.subtotal} />
-          <Row label="Giảm giá" value={invoice.snapshot.orderDiscount} />
-          <Row label={`Thuế (${invoice.snapshot.taxRate}%)`} value={invoice.snapshot.taxAmount} />
-          <div className="border-t border-slate-200/80 pt-2">
-            <Row label="Tổng cộng" value={invoice.snapshot.grandTotal} strong />
-          </div>
-        </div>
-
-        {/* Payment rows */}
-        <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-sm">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Thanh toán</h3>
-          {invoicePaymentRows(invoice.snapshot).map((row, index) => (
-            <Row key={`${row.label}-${index}`} label={row.label} value={row.amount} />
-          ))}
-        </div>
-
-        {/* Amount in words */}
-        <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600 border border-slate-100">
-          Bằng chữ: <span className="font-semibold text-slate-900">{invoice.snapshot.amountInWords}</span>
-        </p>
-
       </div>
     </div>
   );
 }
 
 function Row({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
-  return (
-    <div className={`flex justify-between ${strong ? "text-base font-bold text-slate-900" : "text-slate-600"}`}>
-      <span>{label}</span>
-      <span className="font-mono">{money(value)}</span>
-    </div>
-  );
+  return <div className={cn("grid grid-cols-2 items-start gap-x-4", strong ? "text-base font-semibold text-on-surface" : "text-on-surface-variant")}>
+    <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
+    <span className="min-w-0 text-right tabular-nums [overflow-wrap:anywhere]">{money(value)}</span>
+  </div>;
 }

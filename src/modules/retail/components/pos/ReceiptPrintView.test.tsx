@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CheckoutSuccessDialog from "./CheckoutSuccessDialog";
 import ReceiptPrintView from "./ReceiptPrintView";
+import ReceiptPrintViewSerial from "./ReceiptPrintViewSerial";
 import type { RetailOrderResult } from "../../types";
 
 afterEach(cleanup);
@@ -15,6 +16,18 @@ const result: RetailOrderResult = {
 };
 
 describe("retail receipt", () => {
+  it.each(["58mm", "80mm", "A5", "A4"] as const)("keeps full product and serial data on %s receipts", (paperSize) => {
+    const items = Array.from({ length: 25 }, (_, index) => ({ ...result.invoice.snapshot.items[0], productId: "p" + index, productName: "Thiết bị " + index + " " + "MODEL".repeat(40), quantity: index + 1, serialNumbers: ["SERIAL".repeat(40) + index] }));
+    const invoice = { ...result.invoice, snapshot: { ...result.invoice.snapshot, customerName: "Khách hàng " + "NAME".repeat(50), items } };
+    render(<ReceiptPrintViewSerial invoice={invoice} paperSize={paperSize} />);
+    expect(screen.getByText(items[24].productName)).toBeTruthy();
+    expect(screen.getByText("IMEI: " + items[24].serialNumbers[0])).toBeTruthy();
+    expect(screen.getByText("25", { selector: "td" })).toBeTruthy();
+    expect(screen.getByText("Khách hàng: " + invoice.snapshot.customerName)).toBeTruthy();
+    expect(screen.getByText("Tổng cộng")).toBeTruthy();
+    expect(screen.getByText("Tiền thừa")).toBeTruthy();
+  });
+
   it("renders printable invoice snapshot without cost data", () => {
     render(<ReceiptPrintView invoice={result.invoice} />);
     expect(screen.getAllByText("HD-CN01-1").length).toBeGreaterThan(0);
