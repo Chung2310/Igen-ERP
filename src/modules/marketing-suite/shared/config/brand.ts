@@ -1,6 +1,8 @@
+import { SERVICE_WEBSITE_URL } from "../../../../config/brand";
+
 export const BRAND_NAME = "iGen Marketing";
 export const BRAND_TAGLINE = "Marketing & Sales Workspace";
-export const SERVICE_WEBSITE_URL = "https://marketing.igentechnology.net";
+export { SERVICE_WEBSITE_URL };
 export const SUPPORT_EMAIL = "igen.work99@gmail.com";
 export const SUPPORT_URL = `${SERVICE_WEBSITE_URL}/#phap-ly`;
 export const PRIVACY_POLICY_URL = `${SERVICE_WEBSITE_URL}/privacy-policy`;
