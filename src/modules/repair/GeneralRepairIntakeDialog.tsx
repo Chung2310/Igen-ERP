@@ -12,11 +12,11 @@ const button = 'min-h-11 rounded-lg border border-outline-variant px-4 text-sm f
 type Choice = { customerId: string; customerCode: string; name: string; phone: string };
 type Pending = { idempotencyKey: string; payload: Record<string, unknown> };
 
-export function RepairIntakeAction({ onCreated }: { onCreated: () => void }) {
+export function RepairIntakeAction({ onCreated, label = 'Tạo phiếu tiếp nhận', className }: { onCreated: () => void; label?: string; className?: string }) {
   const { userProfile, hasPermission } = useAuth();
   const [open, setOpen] = useState(false);
   if (!['admin', 'superadmin'].includes(userProfile?.role || '') && !hasPermission('repair:manage')) return null;
-  return <><button type="button" onClick={() => setOpen(true)} className={cn(button, 'border-primary bg-primary text-on-primary')}>Tạo phiếu tiếp nhận</button>{open && <GeneralRepairIntakeDialog onClose={() => setOpen(false)} onCreated={() => { setOpen(false); onCreated(); }} />}</>;
+  return <><button type="button" onClick={() => setOpen(true)} className={cn(button, 'border-primary bg-primary text-on-primary', className)}>{label}</button>{open && <GeneralRepairIntakeDialog onClose={() => setOpen(false)} onCreated={() => { setOpen(false); onCreated(); }} />}</>;
 }
 
 export default function GeneralRepairIntakeDialog(props: { prefill?: RepairCreatePrefill; onClose: () => void; onCreated: () => void }) {
@@ -34,9 +34,9 @@ function Intake({ prefill, onClose, onCreated, companyCode, storageKey }: { pref
   const search = useDebouncedValue(query, 250);
   const [lookup, setLookup] = useState<{ key: string; items: Choice[]; error?: string }>({ key: '\0', items: [] });
   const [customerId, setCustomerId] = useState(prefill?.customerId || '');
-  const [kind, setKind] = useState<'service' | 'warranty'>(prefill?.coverage.customer.covered ? 'warranty' : 'service');
-  const [subjectType, setSubjectType] = useState('equipment');
-  const [source, setSource] = useState(prefill?.serialNumber ? 'company_sale' : 'external');
+  const [kind, setKind] = useState<'service' | 'warranty'>(prefill?.ticketType || (prefill?.coverage.customer.covered ? 'warranty' : 'service'));
+  const [subjectType, setSubjectType] = useState(prefill?.productId ? 'product' : 'equipment');
+  const [source, setSource] = useState(prefill?.intakeSource || (prefill?.serialNumber ? 'company_sale' : 'external'));
   const [name, setName] = useState(prefill?.productName || '');
   const [serial, setSerial] = useState(prefill?.serialNumber || '');
   const [condition, setCondition] = useState('');
@@ -94,7 +94,7 @@ function Intake({ prefill, onClose, onCreated, companyCode, storageKey }: { pref
   }
   return <dialog ref={dialogRef} aria-labelledby="general-repair-title" onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }} className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-0 text-on-surface shadow-xl backdrop:bg-inverse-surface/50 [--color-on-surface-variant:var(--color-slate-600)]">
     <form onSubmit={(event) => void submit(event)} className="space-y-5 p-4 sm:p-6" aria-busy={busy}>
-      <header className="flex items-start justify-between gap-3"><div><h2 id="general-repair-title" className="text-balance text-xl font-semibold">Tiếp nhận sửa chữa / bảo hành</h2><p className="mt-1 text-pretty text-sm text-on-surface-variant">Hàng khách gửi sửa được theo dõi riêng với tồn kho của doanh nghiệp.</p></div><button type="button" onClick={onClose} disabled={busy} className={button}>Đóng</button></header>
+      <header className="flex items-start justify-between gap-3"><div><h2 id="general-repair-title" className="text-balance text-xl font-semibold">Tiếp nhận sửa chữa / bảo hành</h2><p className="mt-1 text-pretty text-sm text-on-surface-variant">Tiếp nhận sản phẩm, thiết bị hoặc hạng mục dịch vụ. Mã định danh là tùy chọn khi tiếp nhận từ bên ngoài.</p></div><button type="button" onClick={onClose} disabled={busy} className={button}>Đóng</button></header>
       {error && <p role="alert" className="rounded-lg border border-error p-3 text-pretty text-sm text-error">{error}</p>}
       {pending && <div className="space-y-3 rounded-lg border border-outline-variant bg-surface-container p-3"><p className="text-pretty text-sm">Yêu cầu trước đang được giữ để kiểm tra lại kết quả và tránh tạo phiếu trùng.</p><div className="flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={() => void send(pending)} className={button}>{busy ? 'Đang kiểm tra…' : 'Thử lại yêu cầu trước'}</button>{canEdit && <button type="button" onClick={() => { sessionStorage.removeItem(storageKey); setPending(null); setError(''); }} className={button}>Chỉnh sửa yêu cầu</button>}</div></div>}
       <fieldset disabled={busy || Boolean(pending)} className="space-y-4 disabled:opacity-70">
@@ -104,7 +104,7 @@ function Intake({ prefill, onClose, onCreated, companyCode, storageKey }: { pref
         {searching && <p role="status" className="text-sm text-on-surface-variant">Đang tìm khách hàng…</p>}
         {!searching && lookup.error && <p role="alert" className="text-sm text-error">{lookup.error}</p>}
         {!searching && !lookup.error && !items.length && <p className="text-pretty text-sm text-on-surface-variant">Chưa có hồ sơ phù hợp. Tạo hồ sơ tại mục Khách hàng rồi quay lại chọn.</p>}
-        <label className="block text-sm">Nguồn tiếp nhận<select value={source} onChange={(event) => setSource(event.target.value)} className={field}><option value="external">Khách mang đến / dịch vụ bên ngoài</option>{subjectType !== 'service' && <option value="company_sale">Liên kết hàng đã bán trong hệ thống</option>}</select></label>
+        <label className="block text-sm">Nguồn tiếp nhận<select value={source} onChange={(event) => setSource(event.target.value as typeof source)} className={field}><option value="external">Khách mang đến / dịch vụ bên ngoài</option>{subjectType !== 'service' && <option value="company_sale">Liên kết hàng đã bán trong hệ thống</option>}</select></label>
         <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Tên đối tượng / hạng mục<input required maxLength={300} value={name} onChange={(event) => setName(event.target.value)} className={field} /></label><label className="text-sm">Serial / mã định danh {source === 'external' ? '(nếu có)' : '(bắt buộc)'}<input required={source === 'company_sale'} maxLength={200} value={serial} onChange={(event) => setSerial(event.target.value)} className={field} /></label></div>
         <label className="block text-sm">Tình trạng khi tiếp nhận<textarea required maxLength={2000} rows={2} value={condition} onChange={(event) => setCondition(event.target.value)} className={field} /></label>
         <label className="block text-sm">Mô tả lỗi / yêu cầu thực hiện<textarea required maxLength={5000} rows={3} value={symptom} onChange={(event) => setSymptom(event.target.value)} className={field} /></label>

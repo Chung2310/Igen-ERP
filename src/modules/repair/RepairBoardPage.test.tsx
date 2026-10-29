@@ -243,3 +243,11 @@ test('refreshes amounts in the open ticket after a material change', async () =>
   const dialog = screen.getByRole('dialog'); await user.click(within(dialog).getByRole('button', { name: 'Cập nhật vật tư kiểm thử' }));
   await waitFor(() => expect(within(dialog).getAllByText('1.250').length).toBeGreaterThan(0));
 });
+
+test('opens payment details instead of attempting delivery while money is still due', async () => {
+  vi.mocked(repairService.board).mockReset().mockResolvedValue({ done: [{ ...ticket, status: 'done', dueAmount: 250000 }] } as Awaited<ReturnType<typeof repairService.board>>);
+  render(<RepairBoardPage />);
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Thu tiền để bàn giao' }));
+  expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Ghi nhận thanh toán' })).toBeTruthy();
+  expect(repairService.transition).not.toHaveBeenCalled();
+});

@@ -14,6 +14,31 @@ beforeAll(() => {
 });
 beforeEach(() => { sessionStorage.clear(); mocks.search.mockResolvedValue([{ customerId: 'customer-a', customerCode: 'KH-A', name: 'Doanh nghiệp A', phone: '0901000001' }]); mocks.create.mockResolvedValue({ _id: 'ticket-a' }); });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
+it('accepts a service work item without a serial or an inventory link', async () => {
+  render(<GeneralRepairIntakeDialog onClose={vi.fn()} onCreated={vi.fn()} />);
+  await fill();
+  fireEvent.change(screen.getByLabelText('Đối tượng'), { target: { value: 'service' } });
+  expect((screen.getByLabelText('Serial / mã định danh (nếu có)') as HTMLInputElement).required).toBe(false);
+  expect(screen.queryByRole('option', { name: 'Liên kết hàng đã bán trong hệ thống' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Tạo phiếu tiếp nhận' }));
+  await waitFor(() => expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ subjectType: 'service', intakeSource: 'external', device: expect.objectContaining({ serialNumber: undefined, productId: undefined }) })));
+});
+it('classifies a prefilled catalog item as a product', () => {
+  render(<GeneralRepairIntakeDialog onClose={vi.fn()} onCreated={vi.fn()} prefill={{ productId: 'product-1', productName: 'Bàn làm việc', coverage: { customer: { covered: false }, supplier: { covered: false }, costBearer: 'customer', checkedAt: '2026-10-29' } }} />);
+  expect((screen.getByLabelText('Đối tượng') as HTMLSelectElement).value).toBe('product');
+});
+it('preserves an external intake with a serial number', async () => {
+  render(<GeneralRepairIntakeDialog onClose={vi.fn()} onCreated={vi.fn()} prefill={{ ticketType: 'service', intakeSource: 'external', productName: 'Máy in', serialNumber: 'EXT-001', coverage: { customer: { covered: false }, supplier: { covered: false }, costBearer: 'customer', checkedAt: '2026-10-29' } }} />);
+  expect((screen.getByLabelText('Nguồn tiếp nhận') as HTMLSelectElement).value).toBe('external');
+  await fill();
+  fireEvent.click(screen.getByRole('button', { name: 'Tạo phiếu tiếp nhận' }));
+  await waitFor(() => expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ ticketType: 'service', intakeSource: 'external', device: expect.objectContaining({ serialNumber: 'EXT-001' }) })));
+});
+it('opens supplier-only coverage as a warranty intake', () => {
+  render(<GeneralRepairIntakeDialog onClose={vi.fn()} onCreated={vi.fn()} prefill={{ ticketType: 'warranty', intakeSource: 'company_sale', productName: 'Máy in', serialNumber: 'ERP-001', coverage: { customer: { covered: false }, supplier: { covered: true, daysLeft: 60 }, costBearer: 'supplier', checkedAt: '2026-10-29' } }} />);
+  expect((screen.getByLabelText('Loại phiếu') as HTMLSelectElement).value).toBe('warranty');
+  expect((screen.getByLabelText('Nguồn tiếp nhận') as HTMLSelectElement).value).toBe('company_sale');
+});
 async function fill() {
   await screen.findByRole('option', { name: /Doanh nghiệp A/ });
   fireEvent.change(screen.getByLabelText('Khách hàng'), { target: { value: 'customer-a' } });

@@ -1,4 +1,4 @@
-import { BRAND_LOGO_URL, BRAND_NAME } from "../config/brand";
+import { BRAND_LOGO_URL, BRAND_NAME, SERVICE_WEBSITE_URL } from "../config/brand";
 import type { TabType } from "../types";
 
 export type SeoMeta = {
@@ -13,7 +13,7 @@ export type SeoMeta = {
   changeFrequency?: "daily" | "weekly" | "monthly";
 };
 
-export const SEO_BASE_URL = "https://erp.igentechsolutions.com";
+export const SEO_BASE_URL = SERVICE_WEBSITE_URL;
 export const SEO_DEFAULT_IMAGE = BRAND_LOGO_URL;
 export const SEO_DEFAULT_LOCALE = "vi_VN";
 
@@ -322,7 +322,7 @@ export function getSeoForPath(requestPath: string): SeoMeta {
 }
 
 export function resolveSeoUrl(path: string) {
-  return new URL(path, SEO_BASE_URL).toString();
+  return SEO_BASE_URL ? new URL(path, SEO_BASE_URL).toString() : path;
 }
 
 export function tabToPath(tab: TabType): string {
