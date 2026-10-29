@@ -26,6 +26,21 @@ export interface AiSubscriptionSummary {
   status: "active" | "expired" | "cancelled" | "replaced";
 }
 
+export interface AiSubscriptionHistoryEvent {
+  id: string;
+  type: 'purchase' | 'expired';
+  occurredAt: string;
+  planName: string;
+  aiUnits: number | null;
+  priceVnd: number | null;
+}
+
+export interface AiSubscriptionHistory {
+  items: AiSubscriptionHistoryEvent[];
+  page: number;
+  totalPages: number;
+}
+
 /** Missing prices on older plans must not be displayed as free. */
 export function formatAiPlanPrice(priceVnd: number | null | undefined): string {
   if (priceVnd == null) return "Chưa thiết lập giá";

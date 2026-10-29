@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertCircle, ArrowUpRight, Building2, CalendarDays, CheckCheck,
-  ChevronDown, CircleHelp, Clock3, Layers3, RefreshCw, RotateCcw,
-  type LucideIcon,
+  AlertCircle, ArrowUpRight, Building2, Layers3, RefreshCw,
 } from "lucide-react";
 import { useAuth } from "../../../../context/AuthContext";
-import { getCurrentAiSubscription, formatAiPlanPrice, type AiSubscriptionSummary } from "../../../../services/aiSubscriptionService";
+import { getCurrentAiSubscription, type AiSubscriptionSummary } from "../../../../services/aiSubscriptionService";
 import AiPlanCatalog from "./AiPlanCatalog";
+import AiSubscriptionHistory from "./AiSubscriptionHistory";
 import { socketService } from "../../../../services/socketService";
 import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
+import { cn } from "../../../student-management/lib/utils";
 import "./ai-subscription.css";
 
 const number = (value: number) => value.toLocaleString("vi-VN");
-const date = (value: string) => new Date(value).toLocaleString("vi-VN", {
-  day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
-});
+
 
 export default function AiSubscriptionPage() {
   const { userProfile } = useAuth();
@@ -30,6 +28,7 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [now, setNow] = useState(Date.now);
   const [view, setView] = useState<"usage" | "plans">("usage");
+  const [mobileDock, setMobileDock] = useState<HTMLDivElement | null>(null);
   const plansButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     let active = true;
@@ -89,157 +88,40 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
   const refresh = () => { setRefreshing(true); setRevision((value) => value + 1); };
   const openPlans = () => { setView("plans"); plansButton.current?.focus(); };
 
+  const quotaKnown = loaded && (!error || Boolean(subscription));
+  const historyKey = revision + ':' + (subscription?._id || 'none') + ':' + (currentSubscription?.status || 'none');
+
   return (
     <div className="ai-subscription-page flex h-full min-h-0 flex-col bg-surface font-sans" id="company_ai_subscription_page" aria-busy={!loaded || refreshing}>
-      <h1 className="sr-only text-balance">Gói AI & lượt sử dụng</h1>
-      <ModuleNavigation label="Thông tin sử dụng và nâng cấp gói AI" activeValue={view} className="sm:flex-col sm:items-stretch lg:flex-row lg:items-center" actions={<>
-          {companyName && <span className="inline-flex max-w-64 items-center gap-2 rounded-lg bg-surface px-3 py-2 text-xs text-on-surface-variant"><Building2 className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">{companyName}</span></span>}
-          <button type="button" disabled={refreshing || !loaded} onClick={refresh} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-outline-variant px-3.5 text-xs font-semibold text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-60 sm:min-h-9">
-            <RefreshCw className={`h-4 w-4 ${refreshing || !loaded ? "motion-safe:animate-spin" : ""}`} aria-hidden="true" />
-            {refreshing ? "Đang cập nhật..." : "Làm mới"}
-          </button>
-          <button type="button" onClick={openPlans} aria-controls="ai_subscription_plans" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary sm:min-h-9">
-            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />Nâng cấp gói
-          </button>
-      </>}>
-        <ModuleNavigationButton active={view === "usage"} icon={<Layers3 />} aria-pressed={view === "usage"} aria-controls="ai_subscription_usage" onClick={() => setView("usage")}>Hạn mức sử dụng</ModuleNavigationButton>
-        <ModuleNavigationButton ref={plansButton} active={view === "plans"} icon={<ArrowUpRight />} aria-pressed={view === "plans"} aria-controls="ai_subscription_plans" onClick={openPlans}>Gói & nâng cấp</ModuleNavigationButton>
+      <ModuleNavigation label="Hạn mức và nâng cấp gói AI" activeValue={view}>
+        <ModuleNavigationButton active={view === 'usage'} icon={<Layers3 />} aria-pressed={view === 'usage'} aria-controls="ai_subscription_usage" onClick={() => setView('usage')}>Hạn mức</ModuleNavigationButton>
+        <ModuleNavigationButton ref={plansButton} active={view === 'plans'} icon={<ArrowUpRight />} aria-pressed={view === 'plans'} aria-controls="ai_subscription_plans" onClick={openPlans}>Gói nâng cấp</ModuleNavigationButton>
       </ModuleNavigation>
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
-      <div className="mx-auto grid w-full max-w-7xl gap-6">
-      {error && <div role="alert" className="ai-subscription-notice flex items-start gap-3 rounded-xl border p-4 text-sm">
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-        <div>
-          <p className="font-medium">Chưa cập nhật được thông tin gói AI</p>
-          <p className="mt-1 text-sm leading-6">{error} {subscription ? "Các số liệu đang hiển thị là lần tải thành công gần nhất." : "Bạn có thể bấm Làm mới để thử lại."}</p>
-        </div>
-      </div>}
-      {!loaded && <p role="status" className="sr-only">Đang tải gói AI và hạn mức của doanh nghiệp...</p>}
-
-      <div id="ai_subscription_usage" hidden={view !== "usage"}>
-      <div className="space-y-5">
-      <section className="ai-subscription-panel overflow-hidden" aria-labelledby="ai_subscription_plan_title">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 sm:px-6">
-            <h2 id="ai_subscription_plan_title" className="text-base font-semibold">
-              Gói đang sử dụng
-            </h2>
-            {(subscription || loaded && !error) && <span className={`ai-subscription-badge ${subscription && unavailable ? "ai-subscription-badge-warning" : ""} inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium`}>
-              <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />{status}
-            </span>}
-          </div>
-          {subscription ? <>
-          <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-2 lg:gap-10">
-            <div className="min-w-0">
-              <h3 className="break-words text-2xl font-semibold tracking-tight">{subscription.planName}</h3>
-              <p className="ai-subscription-secondary mt-2 text-sm">Giá kỳ được cấp: <strong className="font-semibold tabular-nums">{formatAiPlanPrice(subscription.priceVnd)}</strong></p>
-              {(subscription.carriedOver || 0) > 0 && <p className="ai-subscription-muted mt-2 text-sm">Đã cộng {number(subscription.carriedOver!)} lượt chuyển từ gói trước vào hạn mức kỳ này.</p>}
-              <button type="button" onClick={openPlans} className="ai-subscription-upgrade-link mt-2 inline-flex min-h-9 items-center gap-1.5 text-sm font-medium">
-                Xem gói và nâng cấp<ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-              </button>
-              <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-              {[
-                { label: "Bắt đầu kỳ sử dụng", value: subscription.startsAt },
-                { label: "Ngày hết hạn", value: subscription.expiresAt },
-              ].map((item) => <div key={item.label}>
-                <dt className="ai-subscription-muted mb-1.5 flex items-center gap-1.5 text-sm"><CalendarDays className="h-4 w-4" aria-hidden="true" />{item.label}</dt>
-                <dd className="text-sm font-medium tabular-nums">{date(item.value)}</dd>
-              </div>)}
-              </dl>
-            </div>
-            <div className="ai-subscription-balance min-w-0 rounded-xl p-4 sm:p-5">
-              <p id="ai_subscription_remaining_title" className="ai-subscription-secondary text-sm font-medium">Hạn mức AI còn lại</p>
-              <div className="my-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-                <div>
-                  <p className="text-4xl font-semibold tracking-tight tabular-nums">{number(available)}</p>
-                  <p className="ai-subscription-secondary mt-1 text-sm">/ {number(subscription.aiLimit)} lượt AI trong kỳ</p>
+        <div className="mx-auto w-full max-w-7xl space-y-5">
+          <header className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 text-balance text-xl font-semibold sm:text-2xl">{view === 'usage' ? 'Hạn mức AI' : 'Nâng cấp gói AI'}</h1>
+            <div className="flex shrink-0 items-center gap-3">{companyName && <span title={companyName} className="hidden max-w-48 items-center gap-1.5 text-xs text-on-surface-variant md:flex"><Building2 className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">{companyName}</span></span>}<button type="button" disabled={refreshing || !loaded} onClick={refresh} aria-label={refreshing ? 'Đang cập nhật' : 'Làm mới'} className="ai-subscription-back"><RefreshCw className="size-4" aria-hidden="true" /><span className="hidden text-xs sm:inline">{refreshing ? 'Đang cập nhật…' : 'Làm mới'}</span></button></div>
+          </header>
+          {error && <div role="alert" className="ai-subscription-notice flex items-start gap-3 rounded-xl border p-4"><AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><div className="min-w-0"><p className="text-sm font-semibold">Chưa cập nhật được hạn mức AI</p><p className="mt-1 text-pretty text-sm leading-6">{error} {subscription ? 'Số liệu hiển thị là lần tải thành công gần nhất.' : 'Bấm Làm mới để thử lại.'}</p></div></div>}
+          <div id="ai_subscription_usage" hidden={view !== 'usage'} className="space-y-5">
+            <section className="ai-subscription-panel p-5" aria-labelledby="ai_subscription_remaining_title">
+              {!loaded ? <div role="status" className="flex flex-wrap items-center gap-5"><h2 id="ai_subscription_remaining_title" className="sr-only">Hạn mức còn lại</h2><span className="sr-only">Đang tải hạn mức AI…</span><div aria-hidden="true" className="ai-subscription-skeleton h-16 w-48 rounded-xl" /><div aria-hidden="true" className="ai-subscription-skeleton h-3 min-w-48 flex-1 rounded-full" /></div> : <div className="flex flex-wrap items-center justify-between gap-x-10 gap-y-4">
+                <div className="min-w-0"><h2 id="ai_subscription_remaining_title" className="text-balance text-sm font-medium text-on-surface-variant">Hạn mức còn lại</h2><p className="mt-2 break-words text-4xl font-semibold tabular-nums">{quotaKnown ? number(available) : '—'} <span className="text-sm font-normal text-on-surface-variant">lượt AI</span></p></div>
+                <div className="w-full space-y-2 sm:max-w-xl sm:flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-semibold tabular-nums">{quotaKnown ? 'Còn ' + remainingPercentLabel : 'Chưa xác định hạn mức'}</span>{quotaKnown && <span className={cn('ai-subscription-badge', unavailable && 'ai-subscription-badge-warning')}>{status}</span>}</div>
+                  <div className="ai-subscription-meter h-2.5 overflow-hidden rounded-full" data-low={remainingPercent < 10} role="progressbar" aria-labelledby="ai_subscription_remaining_title" aria-valuemin={0} aria-valuemax={100} aria-valuenow={quotaKnown ? remainingPercent : undefined} aria-valuetext={quotaKnown ? 'Còn ' + remainingPercentLabel + ', ' + number(available) + ' trên ' + number(subscription?.aiLimit || 0) + ' lượt AI khả dụng' : 'Chưa xác định hạn mức'}><div className="ai-subscription-meter-remaining h-full rounded-full" style={{ width: (quotaKnown ? remainingPercent : 0) + '%' }} /></div>
+                  <p className="text-xs tabular-nums text-on-surface-variant">{quotaKnown ? 'Tổng ' + number(subscription?.aiLimit || 0) + ' lượt' : 'Chờ cập nhật'}</p>
                 </div>
-                <div className="ai-subscription-remaining-percent rounded-xl px-3 py-2 text-right">
-                  <p className="text-2xl font-semibold tracking-tight tabular-nums">{remainingPercentLabel}</p>
-                  <p className="mt-0.5 text-xs">còn lại</p>
-                </div>
-              </div>
-              <div className="ai-subscription-meter h-3 overflow-hidden rounded-full" role="progressbar" aria-labelledby="ai_subscription_remaining_title" aria-valuemin={0} aria-valuemax={100} aria-valuenow={remainingPercent} aria-valuetext={`Còn ${remainingPercentLabel}, ${number(available)} trên ${number(subscription.aiLimit)} lượt AI khả dụng`}>
-                <div className="ai-subscription-meter-remaining h-full rounded-full" style={{ width: `${remainingPercent}%` }} />
-              </div>
-              <p className="ai-subscription-secondary mt-3 text-sm leading-6">Số lượt còn dùng được để AI trả lời tự động và tạo nội dung.</p>
-            </div>
+              </div>}
+            </section>
+            <AiSubscriptionHistory enabled={loaded && view === 'usage'} refreshKey={historyKey} />
           </div>
-          <dl className="ai-subscription-summary-stats grid grid-cols-1 border-t sm:grid-cols-3">
-            <QuotaStat label="Đã sử dụng" value={subscription.used} icon={CheckCheck} />
-            <QuotaStat label="Đang giữ cho tác vụ" value={subscription.reserved} icon={Clock3} />
-            <QuotaStat label="Tổng hạn mức trong kỳ" value={subscription.aiLimit} icon={Layers3} />
-          </dl>
-            {unavailable && <div className="ai-subscription-notice mx-5 mb-5 flex flex-wrap items-start gap-2 rounded-xl border p-3 text-sm leading-6 sm:mx-6">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <p>Gói hiện tại {currentSubscription?.status !== "active" ? "đã hết hiệu lực" : "đã hết lượt khả dụng"}. Liên hệ Superadmin để được cấp gói phù hợp.</p>
-              <button type="button" onClick={openPlans} className="shrink-0 self-center font-semibold underline underline-offset-4">Xem các gói</button>
-            </div>}
-          </> : !loaded ? <div className="space-y-4 p-5 sm:p-6" aria-hidden="true">
-            <div className="ai-subscription-skeleton h-7 w-2/5 rounded-lg motion-safe:animate-pulse" />
-            <div className="ai-subscription-skeleton h-12 rounded-xl motion-safe:animate-pulse" />
-            <div className="ai-subscription-skeleton h-2.5 rounded-full motion-safe:animate-pulse" />
-          </div> : <div className="flex items-start gap-4 p-5 sm:p-6">
-            <span className="ai-subscription-icon flex h-11 w-11 shrink-0 items-center justify-center rounded-xl">
-              {error ? <AlertCircle className="h-6 w-6" aria-hidden="true" /> : <Layers3 className="h-6 w-6" aria-hidden="true" />}
-            </span>
-            <div className="min-w-0">
-              <h3 className="text-base font-medium">{error ? "Chưa thể hiển thị thông tin gói" : "Doanh nghiệp chưa được cấp gói AI"}</h3>
-              <p className="ai-subscription-muted mt-1 text-sm leading-6">{error ? "Làm mới để tải lại thông tin gói và hạn mức của doanh nghiệp." : "Khi được cấp gói, hạn mức và thời hạn sử dụng sẽ hiển thị tại đây."}</p>
-              {!error && <button type="button" onClick={openPlans} className="ai-subscription-upgrade-link mt-3 inline-flex min-h-9 items-center gap-1.5 text-sm font-medium">Xem các gói AI<ArrowUpRight className="h-4 w-4" aria-hidden="true" /></button>}
-            </div>
-          </div>}
-      </section>
-
-      <details className="ai-subscription-panel ai-subscription-help overflow-hidden">
-          <summary className="flex cursor-pointer list-none items-center gap-3 p-5">
-            <CircleHelp className="ai-subscription-accent h-5 w-5 shrink-0" aria-hidden="true" />
-            <div className="min-w-0 flex-1"><h2 className="text-sm font-semibold">Cách tính lượt AI</h2><p className="ai-subscription-muted mt-1 text-sm leading-6">Mỗi lời gọi AI thành công tính 1 lượt. Một lần trả lời hoặc tạo nội dung có thể cần nhiều lượt.</p></div>
-            <ChevronDown className="ai-subscription-help-chevron ai-subscription-muted h-4 w-4 shrink-0" aria-hidden="true" />
-          </summary>
-          <ul className="ai-subscription-panel-footer grid gap-5 p-5 lg:grid-cols-3">
-            {[
-              { icon: CheckCheck, title: "Thành công mới tính lượt", text: "Mỗi lời gọi AI thành công tính 1 lượt sử dụng." },
-              { icon: RotateCcw, title: "Giải phóng lượt khi thất bại", text: "Lời gọi thất bại được trả lại lượt đang giữ. Kết quả chưa xác định được giữ chờ đối soát." },
-              { icon: Layers3, title: "Campaign tính theo từng bước", text: "Tổng lượt AI dự kiến được hiển thị trước khi bạn xác nhận chạy." },
-            ].map(({ icon: Icon, title, text }) => <li key={title} className="flex items-start gap-3">
-              <span className="ai-subscription-inset flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"><Icon className="ai-subscription-accent h-4 w-4" aria-hidden="true" /></span>
-              <div><h3 className="text-sm font-medium leading-6">{title}</h3><p className="ai-subscription-muted mt-1 text-sm leading-6">{text}</p></div>
-            </li>)}
-          </ul>
-          <div className="ai-subscription-panel-footer ai-subscription-inset flex items-start gap-2 px-5 py-4">
-            <Building2 className="ai-subscription-muted mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <p className="ai-subscription-muted text-sm leading-6">Campaign, Message Facebook và các công cụ AI cùng sử dụng hạn mức doanh nghiệp.</p>
-          </div>
-      </details>
-      </div>
-      </div>
-
-      <div id="ai_subscription_plans" hidden={view !== "plans"}>
-        <div className="space-y-5">
-          {subscription && <div className="ai-subscription-panel flex flex-wrap items-center justify-between gap-3 p-4 text-sm sm:px-5">
-            <p>Gói hiện tại: <strong className="font-semibold">{subscription.planName}</strong></p>
-            <p className="ai-subscription-muted">Còn <strong className="ai-subscription-secondary font-semibold tabular-nums">{number(available)}</strong> lượt khả dụng · {status}</p>
-          </div>}
-          <AiPlanCatalog subscription={currentSubscription} revision={revision} companyName={companyName} />
+          <div id="ai_subscription_plans" hidden={view !== 'plans'}><AiPlanCatalog subscription={currentSubscription} revision={revision} companyName={companyName} companyCode={companyCode} subscriptionReady={quotaKnown} mobileDock={mobileDock} /></div>
+          {updatedAt && <p className="text-right text-xs leading-5 text-on-surface-variant">Cập nhật lúc {updatedAt.toLocaleTimeString('vi-VN')}</p>}
         </div>
       </div>
-      <footer className="ai-subscription-muted flex flex-wrap items-center justify-between gap-2 px-1 text-xs leading-5">
-        <p>Gói và hạn mức do Superadmin quản lý.</p>
-        <p>{updatedAt ? `Cập nhật ${updatedAt.toLocaleTimeString("vi-VN")} · ` : ""}Cập nhật ngay khi đổi gói, tự làm mới mỗi phút.</p>
-      </footer>
-      </div>
-      </div>
+      <div ref={setMobileDock} hidden={view !== 'plans'} className="shrink-0 lg:hidden" />
     </div>
   );
-}
-
-function QuotaStat({ label, value, icon: Icon }: {
-  label: string; value: number; icon: LucideIcon;
-}) {
-  return <div className="ai-subscription-stat flex min-w-0 items-center justify-between gap-3 px-5 py-4 sm:px-6">
-    <dt className="ai-subscription-muted flex items-center gap-2 text-sm">
-      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />{label}
-    </dt>
-    <dd className="shrink-0 text-lg font-semibold tabular-nums">{number(value)}</dd>
-  </div>;
 }

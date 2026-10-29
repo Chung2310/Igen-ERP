@@ -1,7 +1,7 @@
-import type { AiSubscriptionPlan, AiSubscriptionSummary } from "../../shared/marketing-suite/subscription";
+import type { AiSubscriptionPlan, AiSubscriptionSummary, AiSubscriptionHistory } from "../../shared/marketing-suite/subscription";
 import { superAdminRequest } from "./superAdminRequest";
 import { getAccessToken } from "./authService";
-export type { AiSubscriptionPlan, AiSubscriptionSummary };
+export type { AiSubscriptionPlan, AiSubscriptionSummary, AiSubscriptionHistory, AiSubscriptionHistoryEvent } from "../../shared/marketing-suite/subscription";
 export { formatAiPlanPrice } from "../../shared/marketing-suite/subscription";
 
 const root = "/api/v1/super-admin";
@@ -55,4 +55,15 @@ export async function getAvailableAiSubscriptionPlans(signal?: AbortSignal): Pro
   if (!response.ok) throw new Error(payload?.message || "Không thể tải danh sách gói AI.");
   if (!Array.isArray(payload?.data?.plans)) throw new Error("Chưa nhận được danh sách gói AI. Vui lòng tải lại.");
   return payload.data.plans;
+}
+
+export async function getAiSubscriptionHistory(page = 1, signal?: AbortSignal): Promise<AiSubscriptionHistory> {
+  const response = await fetch('/api/v1/marketing-subscription/history?page=' + page, {
+    headers: { Authorization: `Bearer ${getAccessToken()}` }, signal,
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.message || 'Không thể tải lịch sử giao dịch gói AI.');
+  const data = payload?.data;
+  if (!data || !Array.isArray(data.items) || !Number.isInteger(data.page) || !Number.isInteger(data.totalPages)) throw new Error('Chưa nhận được lịch sử giao dịch. Vui lòng tải lại.');
+  return data;
 }
