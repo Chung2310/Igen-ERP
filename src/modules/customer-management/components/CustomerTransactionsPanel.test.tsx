@@ -34,7 +34,7 @@ describe('unified customer transaction history', () => {
     const buttons = await screen.findAllByRole('button', { name: 'Xem DH-001 Mua hàng' });
     expect(customerApi.transactionDetail).not.toHaveBeenCalled();
     buttons[0].focus(); fireEvent.click(buttons[0]);
-    expect(await screen.findByRole('dialog', { name: 'Chi tiết DH-001' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Chi tiết giao dịch' })).toBeTruthy();
     await waitFor(() => expect(customerApi.transactionDetail).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole('button', { name: 'Đóng chi tiết giao dịch' }));
     expect(screen.queryByRole('dialog')).toBeNull();
