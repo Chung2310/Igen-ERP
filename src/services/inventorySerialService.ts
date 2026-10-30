@@ -1,7 +1,7 @@
 import { apiFetch } from "../modules/shared/lib/apiFetch";
 
 export type SerialUnitStatus = "in_stock" | "in_transit" | "internal_use" | "sold" | "returned" | "defective" | "repairing" | "scrapped" | "lost";
-export interface InventorySerialUnit { _id: string; companyCode: string; branchId: string; warehouseId?: string; productId: string; variantId?: string; sku: string; productName: string; internalBarcode: string; normalizedInternalBarcode: string; serialNumber: string; normalizedSerialNumber: string; status: SerialUnitStatus; supplierWarranty?: { startAt?: string; endAt?: string; supplierName?: string; months?: number }; currentDocumentType?: string; currentDocumentId?: string; createdAt: string; updatedAt: string }
+export interface InventorySerialUnit { _id: string; companyCode: string; branchId: string; warehouseId?: string; productId: string; variantId?: string; sku: string; productName: string; internalBarcode: string; normalizedInternalBarcode: string; barcodeAliases?: string[]; normalizedBarcodeAliases?: string[]; serialNumber: string; normalizedSerialNumber: string; imei1?: string; imei2?: string; status: SerialUnitStatus; internalUse?: { recipientName: string; issuedAt: string; stockLogId: string; unitCost: number }; supplierWarranty?: { startAt?: string; endAt?: string; supplierName?: string; months?: number }; currentDocumentType?: string; currentDocumentId?: string; createdAt: string; updatedAt: string }
 export interface InventorySerialEvent { _id: string; serialUnitId: string; serialNumber: string; eventType: string; fromStatus?: SerialUnitStatus; toStatus: SerialUnitStatus; documentType?: string; documentId?: string; reason?: string; actorName: string; occurredAt: string }
 type Envelope<T> = { status: "success"; data: T };
 type ListResult = { items: InventorySerialUnit[]; total: number; page: number; limit: number };
@@ -9,6 +9,10 @@ type ListResult = { items: InventorySerialUnit[]; total: number; page: number; l
 const root = "/inventory/serials";
 
 export const inventorySerialService = {
+  async allocateInternalBarcodes(count: number) {
+    const result = await apiFetch<Envelope<string[]>>(`${root}/barcodes/allocate`, { method: "POST", body: JSON.stringify({ count }) });
+    return result.data;
+  },
   async list(params: { companyCode?: string; branchId?: string; serial?: string; barcodes?: string[]; sku?: string; warehouseId?: string; productId?: string; variantId?: string; trackingMode?: "serial" | "unit_barcode"; forSale?: boolean; status?: SerialUnitStatus; page?: number; limit?: number } = {}) {
     const { barcodes, ...query } = params;
     const result = await apiFetch<Envelope<ListResult>>(params.forSale ? "/retail/orders/serials" : root, { params: { ...query, barcodes: barcodes?.join(",") } });
@@ -34,16 +38,16 @@ export const inventorySerialService = {
     const result = await apiFetch<Envelope<InventorySerialUnit>>(`${root}/${id}/transfer`, { method: "POST", body: JSON.stringify(input) });
     return result.data;
   },
-  async requestTransfer(id: string, input: { toBranchId: string; toWarehouseId?: string; reason: string }) {
+  async requestTransfer(id: string, input: { toBranchId: string; toWarehouseId?: string; reason: string; idempotencyKey: string }) {
     const result = await apiFetch<Envelope<InventorySerialUnit>>(`${root}/${id}/transfer/request`, { method: "POST", body: JSON.stringify(input) });
     return result.data;
   },
-  async acceptTransfer(id: string, input: { warehouseId?: string }) {
+  async acceptTransfer(id: string, input: { warehouseId?: string; transferId: string }) {
     const result = await apiFetch<Envelope<InventorySerialUnit>>(`${root}/${id}/transfer/accept`, { method: "POST", body: JSON.stringify(input) });
     return result.data;
   },
-  async cancelTransfer(id: string, reason: string) {
-    const result = await apiFetch<Envelope<InventorySerialUnit>>(`${root}/${id}/transfer/cancel`, { method: "POST", body: JSON.stringify({ reason }) });
+  async cancelTransfer(id: string, reason: string, transferId: string) {
+    const result = await apiFetch<Envelope<InventorySerialUnit>>(`${root}/${id}/transfer/cancel`, { method: "POST", body: JSON.stringify({ reason, transferId }) });
     return result.data;
   },
 };

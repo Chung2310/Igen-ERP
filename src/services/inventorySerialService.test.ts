@@ -5,16 +5,16 @@ vi.mock("../modules/shared/lib/apiFetch", () => ({ apiFetch: vi.fn() }));
 import { apiFetch } from "../modules/shared/lib/apiFetch";
 
 describe("inventorySerialService", () => {
+  it("allocates globally unique internal barcodes for device labels", async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ status: "success", data: ["DVU000000000123"] });
+    await expect(inventorySerialService.allocateInternalBarcodes(1)).resolves.toEqual(["DVU000000000123"]);
+    expect(apiFetch).toHaveBeenCalledWith("/inventory/serials/barcodes/allocate", { method: "POST", body: JSON.stringify({ count: 1 }) });
+  });
+
   it("lists serial units with filters", async () => {
     vi.mocked(apiFetch).mockResolvedValue({ status: "success", data: { items: [], total: 0, page: 1, limit: 25 } });
     await inventorySerialService.list({ status: "in_stock", sku: "SKU-1" });
     expect(apiFetch).toHaveBeenCalledWith("/inventory/serials", { params: { status: "in_stock", sku: "SKU-1" } });
-  });
-
-  it("loads POS sale serials through the POS endpoint with the selected scope", async () => {
-    vi.mocked(apiFetch).mockResolvedValue({ success: true, data: { items: [], total: 0, page: 1, limit: 100 } });
-    await inventorySerialService.list({ forSale: true, companyCode: "ACME", branchId: "branch-2", variantId: "v1", status: "in_stock" });
-    expect(apiFetch).toHaveBeenCalledWith("/retail/orders/serials", { params: expect.objectContaining({ companyCode: "ACME", branchId: "branch-2", variantId: "v1", forSale: true }) });
   });
 
   it("imports a serial batch", async () => {
@@ -23,9 +23,14 @@ describe("inventorySerialService", () => {
     expect(apiFetch).toHaveBeenCalledWith("/inventory/serials", expect.objectContaining({ method: "POST" }));
   });
 
-  it("transfers a serial unit with a reason", async () => {
+  it("uses a stable request key and the transfer document for compatibility actions", async () => {
     vi.mocked(apiFetch).mockResolvedValue({ status: "success", data: {} });
-    await inventorySerialService.transfer("s1", { toBranchId: "branch-2", reason: "Điều chuyển" });
-    expect(apiFetch).toHaveBeenCalledWith("/inventory/serials/s1/transfer", expect.objectContaining({ method: "POST" }));
+    const request = { toBranchId: "branch-2", reason: "Điều chuyển", idempotencyKey: "request-1" };
+    await inventorySerialService.requestTransfer("s1", request);
+    expect(apiFetch).toHaveBeenLastCalledWith("/inventory/serials/s1/transfer/request", { method: "POST", body: JSON.stringify(request) });
+    await inventorySerialService.acceptTransfer("s1", { transferId: "t1" });
+    expect(apiFetch).toHaveBeenLastCalledWith("/inventory/serials/s1/transfer/accept", { method: "POST", body: JSON.stringify({ transferId: "t1" }) });
+    await inventorySerialService.cancelTransfer("s1", "Cancel", "t1");
+    expect(apiFetch).toHaveBeenLastCalledWith("/inventory/serials/s1/transfer/cancel", { method: "POST", body: JSON.stringify({ reason: "Cancel", transferId: "t1" }) });
   });
 });

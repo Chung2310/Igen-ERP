@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Snapshot reads reconcile heterogeneous current and legacy MongoDB documents. */
 import { mongo } from "mongoose";
 
 // Native reads only: importing this module cannot create models, collections,
@@ -40,10 +39,10 @@ export async function reconcileInventory(db: mongo.Db, session: mongo.ClientSess
   const baseline = options.baseline ? validateBaseline(options.baseline, scope.companyCode) : undefined;
   const bases = new Map((baseline?.balances || []).map((row) => [key(row), row]));
   const scoped = { companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), ...(scope.warehouseId ? { warehouseId: scope.warehouseId } : {}) };
-  const read = { session, maxTimeMS: 5000 };
+  const read = { session, maxTimeMS: 15000 };
   const col = (name: keyof typeof collections) => db.collection<any>(collections[name]);
-  const find = (name: keyof typeof collections, filter: any) => { options.signal?.throwIfAborted(); return col(name).findOne(filter, read); };
-  const count = (name: keyof typeof collections, filter: any) => { options.signal?.throwIfAborted(); return col(name).countDocuments(filter, read); };
+  const find = (name: keyof typeof collections, filter: any) => col(name).findOne(filter, read);
+  const count = (name: keyof typeof collections, filter: any) => col(name).countDocuments(filter, read);
   const reference = (name: keyof typeof collections, value: unknown) => find(name, { _id: oid(value), companyCode: scope.companyCode });
   if (scope.branchId && !await reference("branches", scope.branchId)) throw new AuditInputError("Chi nhánh không thuộc công ty.");
   if (scope.warehouseId) {
@@ -80,7 +79,6 @@ export async function reconcileInventory(db: mongo.Db, session: mongo.ClientSess
     const variant = balance.variantId ? await reference("variants", balance.variantId) : null;
     if (balance.variantId && (!variant || variant.productId !== balance.productId || variant.sku !== balance.sku)) await finding("SKU_INVALID", "error", balance, "Biến thể không khớp sản phẩm/SKU/công ty.");
     if (balance.variantId && !await reference("products", balance.productId)) await finding("PRODUCT_MISSING", "error", balance, "Sản phẩm catalog của balance bị thiếu trong công ty.");
-    if (variant?.trackingMode === 'lot') await finding('LOT_DETAIL_UNVERIFIED', 'review', balance, 'Đã kiểm tra tồn tổng theo SKU; chưa đối chiếu chi tiết từng lô và hạn sử dụng.');
     if (tracked(variant?.trackingMode)) {
       const actual = await count("units", { ...identity(balance), status: warehouse?.kind === "transit" ? "in_transit" : "in_stock" });
       if (!same(balance.quantity, actual)) await finding("SERIAL_BALANCE_MISMATCH", "error", balance, "Số máy khả dụng/đang vận chuyển không khớp tồn vị trí.", { balance: balance.quantity, units: actual });
@@ -99,7 +97,7 @@ export async function reconcileInventory(db: mongo.Db, session: mongo.ClientSess
     if ((scope.branchId && row.branchId !== scope.branchId) || (scope.warehouseId && row.warehouseId !== scope.warehouseId)) continue;
     if (!await find("balances", identity(row))) await finding("BASELINE_BALANCE_MISSING", "error", row, "Vị trí trong baseline không còn bản ghi tồn.");
   }
-  const sources: Record<string, keyof typeof collections> = { "manual-stock-log": "logs", "stock-log-reversal": "logs", "goods-receipt": "receipts", "inventory-transfer": "transfers", "inventory-transfer-cancel": "transfers", "inventory-transfer-reversal": "transfers", "inventory-count": "counts", "retail-order": "orders", "retail_order": "orders", "retail-after-sale": "afterSales", "sales-return": "afterSales", "supplier-return": "afterSales", "repair-ticket": "repairs" };
+  const sources: Record<string, keyof typeof collections> = { "manual-stock-log": "logs", "stock-log-reversal": "logs", "goods-receipt": "receipts", "inventory-transfer": "transfers", "inventory-count": "counts", "retail-order": "orders", "retail_order": "orders", "retail-after-sale": "afterSales", "repair-ticket": "repairs" };
   for await (const entry of scan("ledger")) {
     if (!Number.isFinite(entry.quantity) || entry.quantity <= 0 || !["in", "out"].includes(entry.direction) || !same(entry.quantityDelta, entry.quantity * (entry.direction === "in" ? 1 : -1)) || !Number.isFinite(entry.unitCost) || entry.unitCost < 0) await finding("LEDGER_INVALID", "error", entry, "Dấu/số lượng/giá vốn ledger không hợp lệ.");
     if (!await find("balances", identity(entry))) await finding("LEDGER_BALANCE_MISSING", "error", entry, "Ledger không có bản ghi tồn tương ứng.");
@@ -117,8 +115,7 @@ export async function reconcileInventory(db: mongo.Db, session: mongo.ClientSess
     if (["in_stock", "in_transit"].includes(unit.status) && !await find("balances", identity(unit))) await finding("SERIAL_BALANCE_MISSING", "error", unit, "Máy tồn/vận chuyển không có balance tương ứng.");
     if (unit.status === "in_transit") {
       const transfer = unit.currentDocumentType === "inventory-transfer" ? await reference("transfers", unit.currentDocumentId) : null;
-      if (transfer && !transfer.transitWarehouseId) await finding("LEGACY_TRANSIT_UNVERIFIED", "review", unit, "Phiếu điều chuyển cũ chưa có vị trí vận chuyển; cần kiểm tra lịch sử, không tự sửa tồn.");
-      else if (!transfer || transfer.status !== "in_transit" || transfer.transitWarehouseId !== unit.warehouseId || transfer.fromBranchId !== unit.branchId || transfer.toBranchId !== unit.transferToBranchId || transfer.toWarehouseId !== unit.transferToWarehouseId || !transfer.items?.some((line: any) => line.serialUnitIds?.includes(id(unit._id)))) await finding("TRANSIT_DOCUMENT_MISMATCH", "error", unit, "Đơn vị hàng đang chuyển không khớp chứng từ/vị trí vận chuyển; cần đối soát lịch sử.");
+      if (!transfer || transfer.status !== "in_transit" || transfer.transitWarehouseId !== unit.warehouseId || transfer.fromBranchId !== unit.branchId || transfer.toBranchId !== unit.transferToBranchId || transfer.toWarehouseId !== unit.transferToWarehouseId || !transfer.items?.some((line: any) => line.serialUnitIds?.includes(id(unit._id)))) await finding("TRANSIT_DOCUMENT_MISMATCH", "error", unit, "Máy chuyển dở không khớp chứng từ/vị trí transit; cần đối soát lịch sử.");
     } else if (warehouse?.kind === "transit") await finding("SERIAL_TRANSIT_STATUS", "error", unit, "Máy ở kho transit nhưng không ở trạng thái vận chuyển.");
     if (unit.status === "internal_use") {
       const log = await reference("logs", unit.internalUse?.stockLogId);
@@ -149,21 +146,16 @@ export async function reconcileInventory(db: mongo.Db, session: mongo.ClientSess
   }
   const transferScope = { companyCode: scope.companyCode, ...(scope.branchId ? { $or: [{ fromBranchId: scope.branchId }, { toBranchId: scope.branchId }] } : {}), ...(scope.warehouseId ? { $and: [{ $or: [{ fromWarehouseId: scope.warehouseId }, { toWarehouseId: scope.warehouseId }, { transitWarehouseId: scope.warehouseId }] }] } : {}) };
   for await (const transfer of scan("transfers", transferScope)) {
-    if (!transfer.transitWarehouseId) {
-      await finding("LEGACY_TRANSFER_UNVERIFIED", "review", { ...transfer, branchId: transfer.fromBranchId, warehouseId: transfer.fromWarehouseId }, "Phiếu cũ dùng cách ghi sổ điều chuyển trước đây; chưa kiểm tra đủ chặng vận chuyển.");
-      continue;
-    }
-    if (!["in_transit", "received", "cancelled", "reversed"].includes(transfer.status)) await finding("TRANSFER_STATUS_INVALID", "error", transfer, "Trạng thái điều chuyển không hợp lệ.");
+    if (!["in_transit", "received", "cancelled"].includes(transfer.status)) await finding("TRANSFER_STATUS_INVALID", "error", transfer, "Trạng thái điều chuyển không hợp lệ.");
     for (const line of transfer.items || []) {
       const row = { ...transfer, ...line, _id: transfer._id, branchId: transfer.fromBranchId, warehouseId: transfer.transitWarehouseId };
       const balance = await find("balances", identity(row));
       const expected = transfer.status === "in_transit" ? line.quantity : 0;
       if (!balance || !same(balance.quantity, expected) || (expected > 0 && !same(balance.averageCost, line.unitCost, 0.01))) await finding("TRANSFER_BALANCE_MISMATCH", "error", row, "Tồn/giá vốn transit không khớp trạng thái phiếu chuyển.", { expectedQuantity: expected, actualQuantity: balance?.quantity });
-      const expectedEntries = transfer.status === "in_transit" ? 2 : transfer.status === "reversed" ? 6 : 4;
-      const entries = await col("ledger").find({ companyCode: scope.companyCode, sourceType: { $in: ["inventory-transfer", "inventory-transfer-reversal"] }, sourceId: id(transfer._id), variantId: line.variantId }, read).limit(7).toArray();
+      const expectedEntries = transfer.status === "in_transit" ? 2 : 4;
+      const entries = await col("ledger").find({ companyCode: scope.companyCode, sourceType: "inventory-transfer", sourceId: id(transfer._id), variantId: line.variantId }, read).limit(5).toArray();
       const legs = [[transfer.fromBranchId, transfer.fromWarehouseId, "out"], [transfer.fromBranchId, transfer.transitWarehouseId, "in"]];
-      if (transfer.status !== "in_transit") legs.push([transfer.fromBranchId, transfer.transitWarehouseId, "out"], transfer.status === "received" || transfer.status === "reversed" ? [transfer.toBranchId, transfer.toWarehouseId, "in"] : [transfer.fromBranchId, transfer.fromWarehouseId, "in"]);
-      if (transfer.status === "reversed") legs.push([transfer.toBranchId, transfer.toWarehouseId, "out"], [transfer.fromBranchId, transfer.fromWarehouseId, "in"]);
+      if (transfer.status !== "in_transit") legs.push([transfer.fromBranchId, transfer.transitWarehouseId, "out"], transfer.status === "received" ? [transfer.toBranchId, transfer.toWarehouseId, "in"] : [transfer.fromBranchId, transfer.fromWarehouseId, "in"]);
       const validLegs = legs.every(([branchId, warehouseId, direction]) => entries.filter((entry) => entry.branchId === branchId && entry.warehouseId === warehouseId && entry.direction === direction && entry.productId === line.productId && same(entry.quantity, line.quantity) && same(entry.unitCost, line.unitCost, 0.01)).length === 1);
       if (entries.length !== expectedEntries || !validLegs || !same(entries.reduce((sum, e) => sum + e.quantityDelta, 0), 0) || !same(entries.reduce((sum, e) => sum + e.quantityDelta * e.unitCost, 0), 0, 0.01)) await finding("TRANSFER_LEDGER_MISMATCH", "error", row, "Chuyến chuyển thiếu/sai chặng ledger hoặc không bảo toàn lượng/giá trị.");
       if (transfer.status === "in_transit" && tracked(line.trackingMode)) {

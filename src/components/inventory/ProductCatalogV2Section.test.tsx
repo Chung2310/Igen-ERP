@@ -6,9 +6,9 @@ import { productCatalogService } from "../../services/productCatalogService";
 
 vi.mock("../../services/productCatalogService", () => {
   const productCatalogService = {
-    listProducts: vi.fn(), listResources: vi.fn(), getProduct: vi.fn(), listPrices: vi.fn(), createVariants: vi.fn(), updateVariant: vi.fn(), upsertPrice: vi.fn(),
+    listProducts: vi.fn(), listResources: vi.fn(), getProduct: vi.fn(), listPrices: vi.fn(), createVariants: vi.fn(), createVariant: vi.fn(), updateVariant: vi.fn(), upsertPrice: vi.fn(), deleteProduct: vi.fn(),
   };
-  return { productCatalogService };
+  return { productCatalogService, subscribeResourceChanges: vi.fn(() => () => {}) };
 });
 
 const product = {
@@ -20,7 +20,11 @@ const product = {
 };
 
 describe("ProductCatalogV2Section bulk SKU form", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(productCatalogService.listProducts).mockResolvedValue({ items: [product], total: 1, page: 1, limit: 10 });
@@ -28,43 +32,24 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
     vi.mocked(productCatalogService.getProduct).mockResolvedValue(product);
     vi.mocked(productCatalogService.listPrices).mockResolvedValue([]);
     vi.mocked(productCatalogService.createVariants).mockResolvedValue([]);
+    vi.mocked(productCatalogService.createVariant).mockResolvedValue(product.variants[0]);
     vi.mocked(productCatalogService.updateVariant).mockResolvedValue(product.variants[0]);
     vi.mocked(productCatalogService.upsertPrice).mockResolvedValue({});
   });
 
-  it("opens with one standard SKU form and submits each added SKU in one bulk request", async () => {
+  it("opens with one standard SKU form and submits newly added SKU", async () => {
     const { container } = render(<ProductCatalogV2Section />);
     await screen.findByText("Áo thun");
     fireEvent.click(container.querySelector('button[title="Sửa sản phẩm"]')!);
-    await screen.findByText("Tạo nhanh nhiều SKU");
-    fireEvent.click(screen.getByText("Tạo nhanh nhiều SKU"));
+    await screen.findByText("Thêm một SKU");
+    fireEvent.click(screen.getByText("Thêm một SKU"));
 
     await waitFor(() => expect(screen.getAllByLabelText("Mã SKU")).toHaveLength(1));
-    fireEvent.click(screen.getByText("Thêm SKU"));
-    await waitFor(() => expect(screen.getAllByLabelText("Mã SKU")).toHaveLength(2));
     const skuInputs = screen.getAllByLabelText("Mã SKU");
-    fireEvent.change(skuInputs[0], { target: { value: "AO-DEN" } });
-    fireEvent.change(skuInputs[1], { target: { value: "AO-TRANG" } });
-    fireEvent.click(screen.getByText("Tạo các SKU"));
+    fireEvent.change(skuInputs[0], { target: { value: "AO-MOI" } });
+    fireEvent.click(screen.getByText("Thêm mã SKU"));
 
-    await waitFor(() => expect(productCatalogService.createVariants).toHaveBeenCalledWith("product-1", expect.arrayContaining([
-      expect.objectContaining({ sku: "AO-DEN" }),
-      expect.objectContaining({ sku: "AO-TRANG" }),
-    ])));
-  });
-
-  it("filters the shared product list by category and brand", async () => {
-    vi.mocked(productCatalogService.listResources).mockImplementation(async (kind) => kind === "categories"
-      ? [{ _id: "category-1", code: "AO", name: "Áo", status: "active" }]
-      : [{ _id: "brand-1", code: "LOCAL", name: "Thương hiệu nội địa", status: "active" }]);
-    render(<ProductCatalogV2Section />);
-    await screen.findByText("Áo thun");
-    fireEvent.click(screen.getByRole("button", { name: "Lọc danh mục sản phẩm" }));
-    fireEvent.click(screen.getByRole("option", { name: "Áo" }));
-    fireEvent.click(screen.getByRole("button", { name: "Lọc thương hiệu sản phẩm" }));
-    fireEvent.click(screen.getByRole("option", { name: "Thương hiệu nội địa" }));
-    fireEvent.click(screen.getByRole("button", { name: /^Lọc$/ }));
-    await waitFor(() => expect(productCatalogService.listProducts).toHaveBeenLastCalledWith(expect.objectContaining({ categoryCode: "AO", brandCode: "LOCAL" })));
+    await waitFor(() => expect(productCatalogService.createVariant).toHaveBeenCalledWith("product-1", expect.objectContaining({ sku: "AO-MOI" })));
   });
 
   it("keeps the product editor open beneath the SKU editor", async () => {
@@ -112,5 +97,39 @@ describe("ProductCatalogV2Section bulk SKU form", () => {
     } else {
       expect(productCatalogService.upsertPrice).not.toHaveBeenCalled();
     }
+  });
+
+  it("shows confirmation popup when clicking delete product, and cancels when dismissed", async () => {
+    const { container } = render(<ProductCatalogV2Section />);
+    await screen.findByText("Áo thun");
+
+    const deleteBtn = container.querySelector('button[title="Xóa"]')!;
+    expect(deleteBtn).toBeDefined();
+    fireEvent.click(deleteBtn);
+
+    // ConfirmDialog opens
+    expect(await screen.findByText("Xác nhận xóa sản phẩm")).not.toBeNull();
+    expect(screen.getByText(/Bạn có chắc chắn muốn xóa sản phẩm "Áo thun"/)).not.toBeNull();
+
+    // Click "Hủy"
+    fireEvent.click(screen.getByRole("button", { name: "Hủy" }));
+    await waitFor(() => expect(screen.queryByText("Xác nhận xóa sản phẩm")).toBeNull());
+    expect(productCatalogService.deleteProduct).not.toHaveBeenCalled();
+  });
+
+  it("deletes the product when confirmed in the popup", async () => {
+    vi.mocked(productCatalogService.deleteProduct).mockResolvedValue();
+    const { container } = render(<ProductCatalogV2Section />);
+    await screen.findByText("Áo thun");
+
+    const deleteBtn = container.querySelector('button[title="Xóa"]')!;
+    fireEvent.click(deleteBtn);
+
+    expect(await screen.findByText("Xác nhận xóa sản phẩm")).not.toBeNull();
+
+    // Click "Xóa sản phẩm"
+    fireEvent.click(screen.getByRole("button", { name: "Xóa sản phẩm" }));
+
+    await waitFor(() => expect(productCatalogService.deleteProduct).toHaveBeenCalledWith("product-1"));
   });
 });

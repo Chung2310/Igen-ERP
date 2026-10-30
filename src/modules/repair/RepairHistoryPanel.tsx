@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { StyledSelect } from "../../components/common/StyledSelect";
 import { repairExtras } from "../../services/repairService";
 import { toast } from "../../pages/Toast";
 
@@ -49,10 +50,7 @@ export default function RepairHistoryPanel() {
     </div>
 
     <form onSubmit={search} className="flex flex-wrap items-center gap-2">
-      <select value={mode} onChange={(e) => { setMode(e.target.value as "imei" | "phone"); setResult(null); }} className="rounded-lg border px-3 py-2 text-sm">
-        <option value="imei">Theo IMEI / Serial</option>
-        <option value="phone">Theo số điện thoại</option>
-      </select>
+      <StyledSelect appearance="erp" ariaLabel="Cách tra cứu lịch sử" value={mode} onChange={(value) => { setMode(value as "imei" | "phone"); setResult(null); }} options={[{ value: "imei", label: "Theo IMEI / Serial" }, { value: "phone", label: "Theo số điện thoại" }]} />
       <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={mode === "imei" ? "Nhập hoặc quét IMEI/serial" : "Nhập số điện thoại khách"} className="min-w-64 flex-1 rounded-lg border px-3 py-2 text-sm" />
       <button disabled={busy} className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Đang tra..." : "Tra cứu"}</button>
     </form>

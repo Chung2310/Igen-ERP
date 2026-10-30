@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { StyledSelect } from "../../components/common/StyledSelect";
 import { authService } from "../../services/authService";
 import { repairService, type RepairStatus, type RepairTicket } from "../../services/repairService";
 import RepairTicketExtras from "./RepairTicketExtras";
@@ -47,10 +48,7 @@ function ReceiveTechnicianModal({ ticket, onClose, onSubmit }: { ticket: RepairT
       <h2 id="receive-technician-title" className="text-lg font-bold">Chọn kỹ thuật viên tiếp nhận</h2>
       <p className="mt-1 text-sm text-slate-500">{ticket.ticketCode} sẽ được chuyển sang Kiểm tra.</p>
       <label className="mt-4 flex flex-col gap-1 text-sm font-medium text-slate-700">Kỹ thuật viên tiếp nhận
-        <select value={technicianId} onChange={(e) => setTechnicianId(e.target.value)} className="rounded-lg border px-3 py-2 font-normal">
-          <option value="">— Chọn kỹ thuật viên —</option>
-          {people.map((person) => <option key={person.uid} value={person.uid}>{person.displayName || person.email || person.uid}</option>)}
-        </select>
+        <StyledSelect appearance="erp" ariaLabel="Kỹ thuật viên tiếp nhận" value={technicianId} onChange={setTechnicianId} options={[{ value: "", label: "— Chọn kỹ thuật viên —" }, ...people.map((person) => ({ value: person.uid, label: person.displayName || person.email || person.uid }))]} />
       </label>
       {error && <p className="mt-3 text-sm text-rose-700">{error}</p>}
       <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={onClose} disabled={busy} className="rounded-lg border px-4 py-2">Hủy</button><button type="button" onClick={() => void submit()} disabled={busy || !technicianId} className="rounded-lg bg-cyan-600 px-4 py-2 font-semibold text-white disabled:opacity-50">Chuyển bước tiếp</button></div>

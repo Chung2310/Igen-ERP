@@ -18,14 +18,14 @@ test('changing branches aborts the old lookup and clears its result', async () =
   const user = userEvent.setup();
   const view = render(<WarrantyLookupSection />);
   await user.type(screen.getByRole('textbox'), 'SN-001');
-  await user.click(screen.getByRole('button', { name: 'Tra cứu' }));
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra bảo hành' }));
   const options = mocks.lookup.mock.calls[0][1];
   expect(options).toEqual(expect.objectContaining({ companyCode: 'QA', branchId: 'branch-a' }));
   mocks.branchId = 'branch-b';
   view.rerender(<WarrantyLookupSection />);
   expect(options.signal.aborted).toBe(true);
   await act(async () => resolve({ found: false }));
-  expect(screen.queryByText('Không tìm thấy sản phẩm trong hệ thống')).toBeNull();
+  expect(screen.queryByText('Không tìm thấy máy trong lịch sử xuất bán của shop')).toBeNull();
   expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('');
 });
 
@@ -35,10 +35,9 @@ test('read-only staff can look up products without intake actions or management 
   const user = userEvent.setup();
   render(<WarrantyLookupSection />);
   await user.type(screen.getByRole('textbox'), 'EXT-001');
-  await user.click(screen.getByRole('button', { name: 'Tra cứu' }));
-  await screen.findByText('Không tìm thấy sản phẩm trong hệ thống');
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra bảo hành' }));
+  await screen.findByText('Không tìm thấy máy trong lịch sử xuất bán của shop');
   expect(screen.queryByRole('button', { name: /Tiếp nhận/ })).toBeNull();
   expect(screen.queryByText('Danh sách sắp hết hạn')).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Đơn hàng / khách hàng' }));
-  expect(screen.getByText('Order lookup workspace')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Đơn hàng / khách hàng' })).toBeNull();
 });

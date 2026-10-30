@@ -8,6 +8,7 @@ const format = (value: number) => Number(value || 0).toLocaleString("vi-VN");
 
 function getAlert(balance: InventoryBalance): AlertLevel | null {
   const available = Math.max(0, balance.quantity - balance.reservedQuantity);
+  if (available === 0 && !balance.hasMovementHistory && balance.quantity === 0) return null;
   const min = Number(balance.minStock || 0);
   const max = balance.maxStock;
   if (available === 0) return "out";

@@ -29,8 +29,13 @@ export type ProductResource = {
   code: string;
   name: string;
   status: "active" | "inactive";
+  parentCode?: string;
+  defaultTrackingMode?: ProductTrackingMode;
   symbol?: string;
   category?: "count" | "weight" | "volume" | "length" | "time" | "other";
+  type?: "text" | "number" | "boolean" | "select" | "multi-select";
+  options?: string[];
+  description?: string;
 };
 
 export type ProductVariant = {
@@ -101,6 +106,7 @@ export type VariantInput = {
   unitCode: string;
   trackingMode: ProductTrackingMode;
   status: "active" | "inactive" | "discontinued";
+  optionValues?: Array<{ code: string; value: string }>;
   weightGrams?: number;
   lengthMm?: number;
   widthMm?: number;
@@ -109,6 +115,7 @@ export type VariantInput = {
   supplierWarrantyMonths?: number;
   mediaIds?: string[];
   sellingPrice?: number;
+  costPrice?: number;
 };
 
 type ApiEnvelope<T> = { success: boolean; data: T };
@@ -116,6 +123,52 @@ type ListResult<T> = { items: T[]; total: number; page: number; limit: number };
 
 const root = "/inventory/catalog";
 import { getAccessToken } from "./authService";
+
+// In-Memory Resource Cache & Invalidation System
+interface ResourceCacheEntry {
+  data: ProductResource[];
+  timestamp: number;
+}
+
+const RESOURCE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
+const resourcesCache = new Map<ProductResourceKind, ResourceCacheEntry>();
+const inFlightResourceRequests = new Map<ProductResourceKind, Promise<ProductResource[]>>();
+
+export type ResourceChangeEvent = {
+  kind: ProductResourceKind;
+  action: "create" | "update" | "delete";
+  item?: any;
+};
+
+type ResourceChangeListener = (event: ResourceChangeEvent) => void;
+const resourceChangeListeners = new Set<ResourceChangeListener>();
+
+export function subscribeResourceChanges(listener: ResourceChangeListener): () => void {
+  resourceChangeListeners.add(listener);
+  return () => {
+    resourceChangeListeners.delete(listener);
+  };
+}
+
+function notifyResourceChange(kind: ProductResourceKind, action: "create" | "update" | "delete", item?: any) {
+  // 1. Invalidate cache for this kind immediately
+  resourcesCache.delete(kind);
+  // 2. Notify all subscribers
+  const event: ResourceChangeEvent = { kind, action, item };
+  resourceChangeListeners.forEach((listener) => {
+    try {
+      listener(event);
+    } catch (err) {
+      console.error("[ResourceSync] listener error:", err);
+    }
+  });
+}
+
+function stripCatalogVariantPricing<T extends Record<string, any>>(variant: T): T {
+  if (!variant || typeof variant !== "object") return variant;
+  const { sellingPrice: _s, costPrice: _c, price: _p, ...clean } = variant;
+  return clean as T;
+}
 
 export const productCatalogService = {
   async uploadMedia(file: File) {
@@ -134,7 +187,9 @@ export const productCatalogService = {
       },
       body: JSON.stringify({
         file: base64Data,
-        sourceType: "inventory.product",
+        // Catalog saves URL strings, without a managed-upload finalization token.
+        // Use permanent media storage so the pending-upload purge cannot delete saved images.
+        folder: "igen_erp/inventory/products",
         fileName: file.name,
         mimeType: file.type,
         size: file.size,
@@ -160,12 +215,20 @@ export const productCatalogService = {
   },
 
   async createProduct(input: ProductInput & { variant: VariantInput }) {
-    const result = await apiFetch<ApiEnvelope<CatalogProductDetail>>(`${root}/products`, { method: "POST", body: JSON.stringify(input) });
+    const payload = {
+      ...input,
+      variant: stripCatalogVariantPricing(input.variant),
+    };
+    const result = await apiFetch<ApiEnvelope<CatalogProductDetail>>(`${root}/products`, { method: "POST", body: JSON.stringify(payload) });
     return result.data;
   },
 
   async bulkCreateWithVariants(input: ProductInput & { variants: VariantInput[] }) {
-    const result = await apiFetch<ApiEnvelope<CatalogProductDetail>>(`${root}/products/bulk-create-with-variants`, { method: "POST", body: JSON.stringify(input) });
+    const payload = {
+      ...input,
+      variants: (input.variants || []).map(stripCatalogVariantPricing),
+    };
+    const result = await apiFetch<ApiEnvelope<CatalogProductDetail>>(`${root}/products/bulk-create-with-variants`, { method: "POST", body: JSON.stringify(payload) });
     return result.data;
   },
 
@@ -180,17 +243,20 @@ export const productCatalogService = {
   },
 
   async createVariant(productId: string, input: VariantInput) {
-    const result = await apiFetch<ApiEnvelope<ProductVariant>>(`${root}/products/${productId}/variants`, { method: "POST", body: JSON.stringify(input) });
+    const payload = stripCatalogVariantPricing(input);
+    const result = await apiFetch<ApiEnvelope<ProductVariant>>(`${root}/products/${productId}/variants`, { method: "POST", body: JSON.stringify(payload) });
     return result.data;
   },
 
   async createVariants(productId: string, variants: VariantInput[]) {
-    const result = await apiFetch<ApiEnvelope<ProductVariant[]>>(`${root}/products/${productId}/variants/bulk`, { method: "POST", body: JSON.stringify({ variants }) });
+    const payload = (variants || []).map(stripCatalogVariantPricing);
+    const result = await apiFetch<ApiEnvelope<ProductVariant[]>>(`${root}/products/${productId}/variants/bulk`, { method: "POST", body: JSON.stringify({ variants: payload }) });
     return result.data;
   },
 
   async updateVariant(id: string, input: Partial<VariantInput>) {
-    const result = await apiFetch<ApiEnvelope<ProductVariant>>(`${root}/variants/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+    const payload = stripCatalogVariantPricing(input);
+    const result = await apiFetch<ApiEnvelope<ProductVariant>>(`${root}/variants/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
     return result.data;
   },
   async upsertPrice(variantId: string, sellingPrice: number, costPrice = 0, branchId?: string) {
@@ -212,23 +278,58 @@ export const productCatalogService = {
     return result.data;
   },
 
-  async listResources(kind: ProductResourceKind) {
-    const result = await apiFetch<ApiEnvelope<ProductResource[]>>(`${root}/resources/${kind}`, { params: { status: "active" } });
-    return result.data;
+
+  async listResources(kind: ProductResourceKind, options: { forceRefresh?: boolean } = {}) {
+    const now = Date.now();
+    if (!options.forceRefresh) {
+      const cached = resourcesCache.get(kind);
+      if (cached && now - cached.timestamp < RESOURCE_CACHE_TTL_MS) {
+        return cached.data;
+      }
+      const inFlight = inFlightResourceRequests.get(kind);
+      if (inFlight) {
+        return inFlight;
+      }
+    }
+
+    const fetchPromise = (async () => {
+      try {
+        const result = await apiFetch<ApiEnvelope<ProductResource[]>>(`${root}/resources/${kind}`, { params: { status: "active" } });
+        const data = result.data || [];
+        resourcesCache.set(kind, { data, timestamp: Date.now() });
+        return data;
+      } finally {
+        inFlightResourceRequests.delete(kind);
+      }
+    })();
+
+    inFlightResourceRequests.set(kind, fetchPromise);
+    return fetchPromise;
+  },
+
+  invalidateResourceCache(kind?: ProductResourceKind) {
+    if (kind) {
+      resourcesCache.delete(kind);
+    } else {
+      resourcesCache.clear();
+    }
   },
 
   async createResource(kind: ProductResourceKind, input: Record<string, unknown>) {
     const result = await apiFetch<ApiEnvelope<ProductResource>>(`${root}/resources/${kind}`, { method: "POST", body: JSON.stringify(input) });
+    notifyResourceChange(kind, "create", result.data);
     return result.data;
   },
 
   async updateResource(kind: ProductResourceKind, id: string, input: Record<string, unknown>) {
     const result = await apiFetch<ApiEnvelope<ProductResource>>(`${root}/resources/${kind}/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+    notifyResourceChange(kind, "update", result.data);
     return result.data;
   },
 
-  async deleteResource(kind: "categories" | "brands", id: string) {
+  async deleteResource(kind: ProductResourceKind, id: string) {
     const result = await apiFetch<ApiEnvelope<{ deletedId: string }>>(`${root}/resources/${kind}/${id}`, { method: "DELETE" });
+    notifyResourceChange(kind, "delete", { deletedId: id });
     return result.data;
   },
 
@@ -244,6 +345,11 @@ export const productCatalogService = {
 
   async updateTemplate(id: string, input: Partial<{ name: string; fields: ProductTemplateField[]; status: "active" | "inactive" }>) {
     const result = await apiFetch<ApiEnvelope<ProductTemplate>>(`${root}/templates/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+    return result.data;
+  },
+
+  async seedDefaults() {
+    const result = await apiFetch<ApiEnvelope<any>>(`${root}/resources/seed/defaults`, { method: "POST" });
     return result.data;
   },
 };

@@ -3,7 +3,7 @@ import { BranchModel } from "../../../model/branch.model";
 import { inventoryError } from "../inventory-scope";
 import { ReceiptCounterModel } from "./receipt-counter.model";
 
-export function receiptBusinessDay(now = new Date(), timeZone = "Asia/Ho_Chi_Minh") {
+export function receiptBusinessDay(now = new Date(), timeZone = process.env.INVENTORY_TIME_ZONE || "Asia/Ho_Chi_Minh") {
   try {
     const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
     return ["year", "month", "day"].map((key) => parts.find((part) => part.type === key)!.value).join("");
@@ -29,15 +29,13 @@ export async function nextReceiptCode(scope: { companyCode: string; branchId: st
       ).lean();
       if (!counter || !Number.isSafeInteger(counter.sequence) || counter.sequence < 1) inventoryError("Bộ đếm phiếu nhập không hợp lệ.", 409);
       return `PN-${branchId.toUpperCase()}-${businessDay}-${String(counter.sequence).padStart(6, "0")}`;
-    } catch (error) {
-      const collision = error as { code?: number; keyPattern?: Record<string, number> } | null;
-      if (collision?.code !== 11000 || collision?.keyPattern?._id !== 1) throw error;
+    } catch (error: any) {
+      if (error?.code !== 11000 || error?.keyPattern?._id !== 1) throw error;
     }
   }
   inventoryError("Không thể cấp số phiếu nhập sau các lần thử; hãy kiểm tra bộ đếm rồi thử lại.", 409);
 }
 
-export function isReceiptCodeCollision(error: unknown) {
-  const collision = error as { code?: number; keyPattern?: Record<string, number> } | null;
-  return collision?.code === 11000 && collision?.keyPattern?.companyCode === 1 && collision?.keyPattern?.receiptCode === 1;
+export function isReceiptCodeCollision(error: any) {
+  return error?.code === 11000 && error?.keyPattern?.companyCode === 1 && error?.keyPattern?.receiptCode === 1;
 }

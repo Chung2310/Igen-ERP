@@ -4,7 +4,6 @@ export interface IStockLogItem {
   productId: string;
   variantId?: string;
   trackingMode?: string;
-  unitCode?: string;
   sku: string;
   productName: string;
   quantity: number;
@@ -40,8 +39,13 @@ export interface IStockLog extends Document {
   refType?: StockLogRefType;
   refId?: string;
   idempotencyKey?: string;
-  createdById?: string;
-  reversalId?: string;
+  requestFingerprint?: string;
+  postingFingerprint?: string;
   reversalOf?: string;
+  reversalId?: string;
   reversedAt?: Date;
+  createdById?: string;
+  postedById?: string;
+  postedByName?: string;
+  postedAt?: Date;
 }

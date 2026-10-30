@@ -22,7 +22,8 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 async function fillAndConfirm() {
-  fireEvent.change(await screen.findByLabelText('Phiếu chi đã duyệt'), { target: { value: 'voucher-a' } });
+  fireEvent.click(await screen.findByRole('button', { name: 'Phiếu chi đã duyệt' }));
+  fireEvent.click(await screen.findByRole('option', { name: /PC-001/ }));
   fireEvent.change(screen.getByLabelText(/Trong đó tiền công/), { target: { value: '40000' } });
   fireEvent.change(screen.getByLabelText('Lý do hoàn tiền'), { target: { value: 'Hoàn dịch vụ' } });
   fireEvent.click(screen.getByRole('button', { name: 'Ghi nhận khoản hoàn' }));

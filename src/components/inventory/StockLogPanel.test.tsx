@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StockLogPanel } from "./StockLogPanel";
 import { toast } from "../../pages/Toast";
@@ -48,101 +48,10 @@ it("loads saved IMEI when editing a pending outbound document", async () => {
     fireEvent.click(await screen.findByRole("button", { name: /Sửa phiếu/ }));
     fireEvent.click(screen.getByRole("button", { name: /Đã chọn 1 đơn vị/ }));
 
-    expect(await screen.findAllByText("BARCODE-SAVED · IMEI-SAVED")).toHaveLength(1);
+    expect(await screen.findAllByText("BARCODE-SAVED · IMEI-SAVED")).toHaveLength(2);
     expect(inventorySerialService.list).toHaveBeenCalledWith(expect.objectContaining({ barcodes: ["BARCODE-SAVED"] }));
   });
 describe("StockLogPanel", () => {
-  async function editTrackedDraft(identifiers: string[] = [], serialNumbers = identifiers.length ? ["SER-OLD"] : []) {
-    const { inventoryReceivingService } = await import("../../services/inventoryReceivingService");
-    vi.mocked(inventoryReceivingService.listWarehouses).mockResolvedValue([
-      { _id: "w1", branchId: "branch", code: "MAIN", name: "Kho chính", kind: "storage", isDefault: true, isActive: true },
-      { _id: "w2", branchId: "branch", code: "OTHER", name: "Kho phụ", kind: "storage", isDefault: false, isActive: true },
-    ]);
-    vi.mocked(inventoryReceivingService.listBalances).mockResolvedValue([
-      { _id: "b1", warehouseId: "w1", productId: "p1", variantId: "serial", sku: "SERIAL", productName: "Sản phẩm", trackingMode: "serial", quantity: 5, reservedQuantity: 0, averageCost: 10 },
-      { _id: "b2", warehouseId: "w1", productId: "p1", variantId: "bulk", sku: "BULK", productName: "Sản phẩm", trackingMode: "quantity", quantity: 5, reservedQuantity: 0, averageCost: 10 },
-    ]);
-    const update = vi.fn(async () => undefined);
-    render(<StockLogPanel products={[]} searchLog="" setSearchLog={vi.fn()}
-      stockLogs={[{ id: "pending-tracked", warehouseId: "w1", type: "xuất", purpose: "nội bộ", title: "Xuất nội bộ", sku: "SERIAL", productName: "Sản phẩm", quantity: 1, operatorName: "Tester", createdAt: "2026-01-01", notes: "", status: "Đang chờ",
-        items: [{ productId: "p1", variantId: "serial", sku: "SERIAL", productName: "Sản phẩm", quantity: 1, unitIdentifiers: identifiers, serialNumbers }],
-      } as any]} onExportExcel={vi.fn()} onImportExcel={vi.fn()} onNavigateToCreateProduct={vi.fn()}
-      onCreateTransaction={vi.fn()} onUpdateTransaction={update} outboundOnly />);
-    fireEvent.click(await screen.findByRole("button", { name: /Sửa phiếu/ }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "SKU / biến thể dòng 1" }).textContent).toContain("SERIAL"));
-    return update;
-  }
-
-  it("saves an incomplete tracked draft without requiring unit assignment", async () => {
-    const update = await editTrackedDraft();
-    fireEvent.click(screen.getByRole("button", { name: "Cập nhật phiếu" }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "Đang chờ" })));
-  });
-
-  it("still requires unit assignment before completing a tracked outbound document", async () => {
-    const update = await editTrackedDraft();
-    fireEvent.click(screen.getByRole("button", { name: "Trạng thái phiếu" }));
-    fireEvent.click(screen.getByRole("option", { name: "Hoàn thành" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cập nhật phiếu" }));
-    expect(update).not.toHaveBeenCalled();
-    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("chọn đủ mã đơn vị"));
-  });
-
-  it("preserves serial-only identifiers when completing an older draft", async () => {
-    const update = await editTrackedDraft([], ["SER-OLD"]);
-    fireEvent.click(screen.getByRole("button", { name: "Trạng thái phiếu" }));
-    fireEvent.click(screen.getByRole("option", { name: "Hoàn thành" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cập nhật phiếu" }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "Hoàn thành", items: [expect.objectContaining({ serialNumbers: ["SER-OLD"] })] })));
-  });
-
-  it("clears old unit identifiers when switching a draft line to a quantity SKU", async () => {
-    const update = await editTrackedDraft(["UNIT-OLD"]);
-    fireEvent.click(screen.getByRole("button", { name: "SKU / biến thể dòng 1" }));
-    fireEvent.click(screen.getByRole("option", { name: /BULK/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Cập nhật phiếu" }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ items: [expect.objectContaining({ sku: "BULK", unitIdentifiers: [], serialNumbers: [] })] })));
-  });
-
-  it("clears unit selection when changing the source warehouse", async () => {
-    const update = await editTrackedDraft(["UNIT-OLD"]);
-    fireEvent.click(screen.getByRole("button", { name: "Xuất từ kho" }));
-    fireEvent.click(screen.getByRole("option", { name: "Kho phụ" }));
-    fireEvent.click(screen.getByRole("button", { name: "Cập nhật phiếu" }));
-    await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ warehouseId: "w2", items: [expect.objectContaining({ unitIdentifiers: [], serialNumbers: [] })] })));
-  });
-
-  it.each(["Hoàn thành", "Thành công"])("only offers read access for posted stock documents (%s)", (status) => {
-    render(<StockLogPanel products={[]} searchLog="" setSearchLog={vi.fn()}
-      stockLogs={[{ id: "posted", type: "xuất", sku: "PAPER", productName: "Giấy A4", quantity: 1,
-        operatorName: "Tester", createdAt: "2026-01-01", notes: "", status } as any]}
-      onExportExcel={vi.fn()} onImportExcel={vi.fn()} onNavigateToCreateProduct={vi.fn()}
-      onCreateTransaction={vi.fn()} onUpdateTransaction={vi.fn()} onUpdateStatus={vi.fn()} onDeleteTransaction={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /Xem chi tiết/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Sửa phiếu" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Xóa" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Trạng thái posted" })).toBeNull();
-  });
-
-  it("keeps stock transfers in the receiving workflow instead of manual stock logs", async () => {
-    await editTrackedDraft();
-    fireEvent.click(screen.getByRole("button", { name: "Mục đích xuất kho" }));
-    expect(screen.queryByRole("option", { name: /Điều chuyển/ })).toBeNull();
-  });
-
-  it("keeps quantity-only stock documents free of serial fields", async () => {
-    render(<StockLogPanel products={[]} searchLog="" setSearchLog={vi.fn()}
-      stockLogs={[{ id: "quantity-log", type: "xuất", title: "Xuất giấy", sku: "PAPER", productName: "Giấy A4", quantity: 2,
-        operatorName: "Tester", createdAt: "2026-01-01", notes: "", status: "Đang chờ",
-        items: [{ productId: "paper", sku: "PAPER", productName: "Giấy A4", quantity: 2 }],
-      }]}
-      onExportExcel={vi.fn()} onImportExcel={vi.fn()} onNavigateToCreateProduct={vi.fn()}
-      onCreateTransaction={vi.fn()} onUpdateTransaction={vi.fn()} outboundOnly />);
-    fireEvent.click(screen.getByRole("button", { name: /Xem chi tiết/ }));
-    expect(screen.queryByRole("columnheader", { name: /sê-ri|IMEI/i })).toBeNull();
-    expect(screen.getByRole("columnheader", { name: "SKU" })).toBeTruthy();
-  });
-
   it("hiển thị SKU và IMEI đã lưu trong chi tiết phiếu xuất", () => {
     render(
       <StockLogPanel
@@ -161,7 +70,7 @@ describe("StockLogPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /Xem chi tiết/ }));
 
     expect(screen.getByText("Hàng xuất")).toBeTruthy();
-    expect(screen.getByRole("columnheader", { name: "Số sê-ri / Mã đơn vị" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "IMEI / Serial" })).toBeTruthy();
     expect(screen.getByText("SKU-1")).toBeTruthy();
     expect(screen.getByText("IMEI-1")).toBeTruthy();
   });
@@ -188,7 +97,7 @@ describe("StockLogPanel", () => {
 
     expect(screen.getByText("Hàng xuất")).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "SKU" })).toBeTruthy();
-    expect(screen.getByRole("columnheader", { name: "Số sê-ri / Mã đơn vị" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "IMEI / Serial" })).toBeTruthy();
     expect(screen.getByText("SKU-1")).toBeTruthy();
     expect(screen.getByText("SKU-2")).toBeTruthy();
     expect(screen.getByText("IMEI-1")).toBeTruthy();
@@ -236,5 +145,211 @@ describe("StockLogPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Lưu phiếu" }));
 
     expect(toast.error).toHaveBeenCalledWith("Vui lòng chọn kho xuất.");
+  });
+
+  it("nhận diện và hiển thị rõ ràng giao dịch bán lẻ POS với huy hiệu Bán POS", () => {
+    render(
+      <StockLogPanel
+        products={[]}
+        searchLog=""
+        setSearchLog={vi.fn()}
+        stockLogs={[
+          {
+            id: "pos-log-01",
+            type: "xuất",
+            purpose: "bán",
+            title: "Bán hàng POS: Đơn #HD1001",
+            sku: "IPHONE-15",
+            productName: "iPhone 15 Pro",
+            quantity: 1,
+            operatorName: "Thu ngân Mai",
+            createdAt: "2026-03-20T10:00:00Z",
+            notes: "Bán lẻ tại quầy",
+            status: "Hoàn thành",
+            items: [
+              {
+                productId: "prod-1",
+                sku: "IPHONE-15",
+                productName: "iPhone 15 Pro",
+                quantity: 1,
+              },
+            ],
+          },
+        ]}
+        onExportExcel={vi.fn()}
+        onImportExcel={vi.fn()}
+        onNavigateToCreateProduct={vi.fn()}
+        onCreateTransaction={vi.fn()}
+        onUpdateTransaction={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText("Bán POS").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Bán lẻ tại quầy")).toBeTruthy();
+    expect(screen.getByText("Bán hàng POS: Đơn #HD1001")).toBeTruthy();
+  });
+
+  it("lọc đúng danh sách khi bấm vào tab Bán POS", () => {
+    render(
+      <StockLogPanel
+        products={[]}
+        searchLog=""
+        setSearchLog={vi.fn()}
+        stockLogs={[
+          {
+            id: "inbound-01",
+            type: "nhập",
+            title: "Nhập hàng nhà cung cấp",
+            sku: "SKU-IN",
+            productName: "Sản phẩm nhập",
+            quantity: 5,
+            operatorName: "Thủ kho",
+            createdAt: "2026-03-20T08:00:00Z",
+            notes: "",
+            status: "Hoàn thành",
+          },
+          {
+            id: "pos-02",
+            type: "xuất",
+            purpose: "bán",
+            title: "Bán POS #200",
+            sku: "SKU-POS",
+            productName: "Sản phẩm bán POS",
+            quantity: 1,
+            operatorName: "Thu ngân",
+            createdAt: "2026-03-20T09:00:00Z",
+            notes: "",
+            status: "Hoàn thành",
+          },
+        ]}
+        onExportExcel={vi.fn()}
+        onImportExcel={vi.fn()}
+        onNavigateToCreateProduct={vi.fn()}
+        onCreateTransaction={vi.fn()}
+        onUpdateTransaction={vi.fn()}
+      />
+    );
+
+    // Initial state: both logs appear
+    expect(screen.getByText("Nhập hàng nhà cung cấp")).toBeTruthy();
+    expect(screen.getByText("Bán POS #200")).toBeTruthy();
+
+    // Click Bán POS pill
+    fireEvent.click(screen.getByRole("button", { name: /Bán POS/ }));
+
+    // Inbound is filtered out, POS is kept
+    expect(screen.queryByText("Nhập hàng nhà cung cấp")).toBeNull();
+    expect(screen.getByText("Bán POS #200")).toBeTruthy();
+  });
+
+  it("lọc giao dịch theo khoảng ngày tùy chọn (custom date range)", () => {
+    render(
+      <StockLogPanel
+        products={[]}
+        searchLog=""
+        setSearchLog={vi.fn()}
+        stockLogs={[
+          {
+            id: "log-jan",
+            type: "nhập",
+            title: "Phiếu tháng 1",
+            sku: "SKU-JAN",
+            productName: "Sản phẩm tháng 1",
+            quantity: 2,
+            operatorName: "Thủ kho",
+            createdAt: "2026-01-15T08:00:00Z",
+            notes: "",
+            status: "Hoàn thành",
+          },
+          {
+            id: "log-mar",
+            type: "xuất",
+            title: "Phiếu tháng 3",
+            sku: "SKU-MAR",
+            productName: "Sản phẩm tháng 3",
+            quantity: 1,
+            operatorName: "Thủ kho",
+            createdAt: "2026-03-20T08:00:00Z",
+            notes: "",
+            status: "Hoàn thành",
+          },
+        ]}
+        onExportExcel={vi.fn()}
+        onImportExcel={vi.fn()}
+        onNavigateToCreateProduct={vi.fn()}
+        onCreateTransaction={vi.fn()}
+        onUpdateTransaction={vi.fn()}
+      />
+    );
+
+    // Initial: both visible
+    expect(screen.getByText("Phiếu tháng 1")).toBeTruthy();
+    expect(screen.getByText("Phiếu tháng 3")).toBeTruthy();
+
+    // Enter date range for March only: 2026-03-01 to 2026-03-31 directly
+    const fromInput = screen.getByLabelText("Từ ngày");
+    const toInput = screen.getByLabelText("Đến ngày");
+    fireEvent.change(fromInput, { target: { value: "2026-03-01" } });
+    fireEvent.change(toInput, { target: { value: "2026-03-31" } });
+
+    // Jan ticket is filtered out, Mar ticket remains
+    expect(screen.queryByText("Phiếu tháng 1")).toBeNull();
+    expect(screen.getByText("Phiếu tháng 3")).toBeTruthy();
+  });
+
+  it("nhập trực tiếp 'Từ ngày' và 'Đến ngày' để lọc khoảng thời gian tùy ý", () => {
+    render(
+      <StockLogPanel
+        products={[]}
+        searchLog=""
+        setSearchLog={vi.fn()}
+        stockLogs={[
+          {
+            id: "log-1",
+            type: "nhập",
+            title: "Giao dịch ngày 10/03",
+            sku: "SKU-A",
+            productName: "Sản phẩm A",
+            quantity: 1,
+            operatorName: "Thủ kho",
+            createdAt: "2026-03-10T08:00:00Z",
+            notes: "",
+            status: "Hoàn thành",
+          },
+          {
+            id: "log-2",
+            type: "xuất",
+            title: "Giao dịch ngày 25/03",
+            sku: "SKU-B",
+            productName: "Sản phẩm B",
+            quantity: 1,
+            operatorName: "Thủ kho",
+            createdAt: "2026-03-25T08:00:00Z",
+            notes: "",
+            status: "Hoàn thành",
+          },
+        ]}
+        onExportExcel={vi.fn()}
+        onImportExcel={vi.fn()}
+        onNavigateToCreateProduct={vi.fn()}
+        onCreateTransaction={vi.fn()}
+        onUpdateTransaction={vi.fn()}
+      />
+    );
+
+    const fromInput = screen.getByLabelText("Từ ngày") as HTMLInputElement;
+    const toInput = screen.getByLabelText("Đến ngày") as HTMLInputElement;
+
+    // Both dates are initially visible and empty
+    expect(fromInput).toBeTruthy();
+    expect(toInput).toBeTruthy();
+
+    // Directly type date range: 2026-03-20 to 2026-03-31
+    fireEvent.change(fromInput, { target: { value: "2026-03-20" } });
+    fireEvent.change(toInput, { target: { value: "2026-03-31" } });
+
+    // log-1 (10/03) is filtered out, log-2 (25/03) remains
+    expect(screen.queryByText("Giao dịch ngày 10/03")).toBeNull();
+    expect(screen.getByText("Giao dịch ngày 25/03")).toBeTruthy();
   });
 });

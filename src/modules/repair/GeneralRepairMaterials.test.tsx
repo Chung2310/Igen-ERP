@@ -15,8 +15,8 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 async function choose() {
-  await screen.findByRole('option', { name: /Dây điện.*Kho vật tư/ });
-  fireEvent.change(screen.getByLabelText('Vật tư khả dụng trong kho'), { target: { value: 'balance-a' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Vật tư khả dụng trong kho' }));
+  fireEvent.click(await screen.findByRole('option', { name: /Dây điện.*Kho vật tư/ }));
   fireEvent.change(screen.getByLabelText('Số lượng'), { target: { value: '1.25' } });
 }
 it('xuất số lượng lẻ theo đúng SKU/kho và dùng tên kho trên giao diện', async () => {

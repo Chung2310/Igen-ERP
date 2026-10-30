@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { StyledSelect } from "../../components/common/StyledSelect";
 import { authService } from "../../services/authService";
 import { apiFetch } from "../shared/lib/apiFetch";
 import { repairExtras, repairService, type RepairNotification, type RepairPart, type RepairPartBilling, type RepairRatingCriteria, type RepairTicket } from "../../services/repairService";
@@ -33,10 +34,7 @@ function TechnicianPicker({ ticket, onChanged }: { ticket: RepairTicket; onChang
   };
   return <Section title="Kỹ thuật viên phụ trách">
     <div className="flex flex-wrap items-center gap-2">
-      <select value={value} onChange={(e) => setValue(e.target.value)} className="rounded border px-3 py-2 text-sm">
-        <option value="">— Chưa phân công —</option>
-        {people.map((person) => <option key={person.uid} value={person.uid}>{person.displayName || person.email}</option>)}
-      </select>
+      <StyledSelect appearance="erp" ariaLabel="Kỹ thuật viên" value={value} onChange={setValue} options={[{ value: "", label: "— Chưa phân công —" }, ...people.map((person) => ({ value: person.uid, label: person.displayName || person.email || person.uid }))]} />
       <button type="button" disabled={busy || !value || value === ticket.technicianId} onClick={() => void save()} className="min-h-11 rounded bg-cyan-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Lưu phân công</button>
       {ticket.technicianName && <span className="text-xs text-slate-500">Đang phụ trách: <b>{ticket.technicianName}</b> · {date(ticket.assignedAt)}</span>}
     </div>
@@ -143,11 +141,7 @@ function IssuePartForm({ ticket, onIssued }: { ticket: RepairTicket; onIssued: (
       <label className="flex flex-col gap-1 text-xs text-slate-600">Giá vốn<input type="number" min={0} value={unitCost} onChange={(e) => setUnitCost(Number(e.target.value))} className="rounded border px-2 py-1" /></label>
       <label className="flex flex-col gap-1 text-xs text-slate-600">Giá thu khách<input type="number" min={0} value={unitPrice} onChange={(e) => setUnitPrice(Number(e.target.value))} className="rounded border px-2 py-1" /></label>
       <label className="flex flex-col gap-1 text-xs text-slate-600">Diện chi phí
-        <select value={billing} onChange={(e) => setBilling(e.target.value as RepairPartBilling)} className="rounded border px-2 py-1">
-          <option value="customer">Khách trả (sửa chữa)</option>
-          <option value="warranty_shop">Bảo hành doanh nghiệp</option>
-          <option value="warranty_supplier">Bảo hành NCC</option>
-        </select>
+        <StyledSelect appearance="erp" ariaLabel="Diện thanh toán linh kiện" value={billing} onChange={(value) => setBilling(value as RepairPartBilling)} options={[{ value: "customer", label: "Khách trả (sửa chữa)" }, { value: "warranty_shop", label: "Bảo hành doanh nghiệp" }, { value: "warranty_supplier", label: "Bảo hành NCC" }]} />
       </label>
     </div>}
     {error && <p className="text-xs text-rose-700">{error}</p>}
@@ -230,12 +224,10 @@ function RatingSection({ ticket }: { ticket: RepairTicket }) {
     {state === "done" ? <p className="text-xs text-emerald-700">Đã ghi nhận đánh giá. Cảm ơn quý khách.</p> : <>
       <div className="flex flex-wrap items-center gap-4">
         <label className="flex items-center gap-2 text-xs">Điểm tổng
-          <select value={rating} onChange={(e) => setRating(Number(e.target.value))} className="rounded border px-2 py-1">{[5, 4, 3, 2, 1].map((score) => <option key={score} value={score}>{score} sao</option>)}</select>
+          <StyledSelect appearance="erp" ariaLabel="Đánh giá chung" value={String(rating)} onChange={(value) => setRating(Number(value))} options={[5, 4, 3, 2, 1].map((score) => ({ value: String(score), label: `${score} sao` }))} />
         </label>
         {CRITERIA.map((item) => <label key={item.key} className="flex items-center gap-2 text-xs">{item.label}
-          <select value={criteria[item.key] ?? ""} onChange={(e) => setCriteria({ ...criteria, [item.key]: e.target.value ? Number(e.target.value) : undefined })} className="rounded border px-2 py-1">
-            <option value="">—</option>{[5, 4, 3, 2, 1].map((score) => <option key={score} value={score}>{score}</option>)}
-          </select>
+          <StyledSelect appearance="erp" ariaLabel={`Đánh giá ${item.label}`} value={String(criteria[item.key] ?? "")} onChange={(value) => setCriteria({ ...criteria, [item.key]: value ? Number(value) : undefined })} options={[{ value: "", label: "—" }, ...[5, 4, 3, 2, 1].map((score) => ({ value: String(score), label: String(score) }))]} />
         </label>)}
       </div>
       <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Nhận xét của khách (tuỳ chọn)" className="mt-2 min-h-16 w-full resize-y rounded-lg border px-3 py-2 text-sm" />

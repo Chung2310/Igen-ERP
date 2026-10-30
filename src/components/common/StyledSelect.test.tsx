@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StyledSelect } from "./StyledSelect";
 
@@ -29,5 +30,23 @@ describe("StyledSelect in ERP dialogs", () => {
     fireEvent.click(document.activeElement!);
     expect(change).toHaveBeenCalledWith("b");
     expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("keeps required form validation and focuses the visible dropdown", () => {
+    function Form() {
+      const [value, setValue] = useState("");
+      return <form aria-label="Điều chuyển"><StyledSelect required appearance="erp" ariaLabel="Kho nhận" value={value} options={[{ value: "", label: "Chọn kho" }, ...options]} onChange={setValue} /></form>;
+    }
+    render(<Form />);
+    const form = screen.getByRole("form") as HTMLFormElement;
+    const trigger = screen.getByRole("button", { name: "Kho nhận" });
+    fireEvent.invalid(form.querySelector("select")!);
+    expect(document.activeElement).toBe(trigger);
+    expect(screen.getByRole("alert").textContent).toBe("Vui lòng chọn một mục.");
+    expect(form.checkValidity()).toBe(false);
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("option", { name: "Chi nhánh B" }));
+    expect(form.checkValidity()).toBe(true);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
