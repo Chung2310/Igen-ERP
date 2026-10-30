@@ -27,6 +27,7 @@ type RetailPartner = {
 type Supplier = { _id: string; code: string; name: string };
 type PartnerUser = { _id: string; displayName?: string; email: string };
 type PartnerCustomer = { _id: string; customerCode: string; name: string; phone: string };
+type CommissionBalance = { partnerId: string; balance: number };
 type Form = Omit<RetailPartner, "_id" | "supplier" | "roles"> & { role: RetailPartnerRole };
 const initialForm: Form = { code: "", name: "", role: "collaborator", phone: "", email: "", address: "", status: "active", supplierId: "", userId: "", customerId: "" };
 const roleLabels: Record<RetailPartnerRole, string> = { collaborator: "Cộng tác viên bán lẻ", dealer: "Đại lý", supplier: "Nhà cung cấp" };
@@ -45,6 +46,9 @@ export default function RetailPartnersPage() {
   const canManagePolicies = userProfile?.role === "admin" || userProfile?.role === "superadmin" || hasPermission("retail-partner-policy:manage");
   const canRead = canManage || canManagePolicies || hasPermission("retail-partner:read");
   const [partners, setPartners] = useState<RetailPartner[]>([]);
+  const [commissionBalances, setCommissionBalances] = useState<Record<string, number>>({});
+  const [commissionBalancesLoading, setCommissionBalancesLoading] = useState(false);
+  const [commissionBalanceError, setCommissionBalanceError] = useState("");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [users, setUsers] = useState<PartnerUser[]>([]);
   const [customers, setCustomers] = useState<PartnerCustomer[]>([]);
@@ -88,6 +92,27 @@ export default function RetailPartnersPage() {
   }
 
   useEffect(() => { void load(); }, [companyCode, canRead, canManage, canManagePolicies]);
+
+  useEffect(() => {
+    if (!companyCode || !canManagePolicies) {
+      setCommissionBalances({});
+      setCommissionBalanceError("");
+      setCommissionBalancesLoading(false);
+      return;
+    }
+    let active = true;
+    setCommissionBalancesLoading(true);
+    setCommissionBalanceError("");
+    void apiFetch<{ data: CommissionBalance[] }>("/retail/finance/commission/balances", { params: { companyCode } })
+      .then((response) => {
+        if (active) setCommissionBalances(Object.fromEntries(response.data.map((item) => [item.partnerId, item.balance])));
+      })
+      .catch((cause) => {
+        if (active) setCommissionBalanceError(cause instanceof Error ? cause.message : "Không tải được số dư hoa hồng.");
+      })
+      .finally(() => { if (active) setCommissionBalancesLoading(false); });
+    return () => { active = false; };
+  }, [companyCode, canManagePolicies]);
 
   useEffect(() => {
     const dialog = formDialogRef.current;
@@ -269,6 +294,7 @@ export default function RetailPartnersPage() {
                     <div className="flex min-w-0 flex-col gap-0.5 rounded-xl border border-slate-200/50 bg-white p-2"><span className="text-[11px] font-medium text-slate-500">Email</span><span className="truncate font-semibold text-slate-900">{partner.email || "Chưa cập nhật"}</span></div>
                     <div className="col-span-2 flex min-w-0 flex-col gap-0.5 rounded-xl border border-slate-200/50 bg-white p-2"><span className="text-[11px] font-medium text-slate-500">Địa chỉ</span><span className="line-clamp-2 font-semibold text-slate-900">{partner.address || "Chưa cập nhật"}</span></div>
                     {role === "collaborator" && <div className="col-span-2 flex min-w-0 flex-col gap-0.5 rounded-xl border border-slate-200/50 bg-white p-2"><span className="text-[11px] font-medium text-slate-500">Tài khoản xem sao kê</span><span className="truncate font-semibold text-slate-900">{linkedUser?.displayName || linkedUser?.email || (partner.userId ? "Đã liên kết tài khoản" : "Chưa liên kết")}</span>{linkedUser?.displayName && linkedUser.email && <span className="truncate text-[11px] text-slate-500">{linkedUser.email}</span>}</div>}
+                    {canManagePolicies && role === "collaborator" && <div className="col-span-2 flex min-w-0 flex-col gap-0.5 rounded-xl border border-emerald-200/70 bg-emerald-50/60 p-2"><span className="text-[11px] font-medium text-emerald-800">Số dư hoa hồng</span><span className="truncate text-sm font-bold tabular-nums text-emerald-900">{commissionBalancesLoading ? "Đang tải..." : commissionBalanceError ? "Không tải được" : new Intl.NumberFormat("vi-VN").format(commissionBalances[partner._id] || 0) + " ₫"}</span><span className="text-[10px] text-emerald-800/80">Hoa hồng đã ghi sổ trừ các khoản đảo và chi trả</span></div>}
                   </div>
                   {canManage && <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
                     {canManage && <button type="button" onClick={() => startEdit(partner)} aria-label={`Chỉnh sửa ${partner.name}`} className="flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Pencil aria-hidden="true" className="size-3.5 text-slate-500" />Chỉnh sửa</button>}
@@ -285,6 +311,7 @@ export default function RetailPartnersPage() {
                     <th scope="col" className="px-3.5 py-3 text-left font-semibold text-slate-700">Địa chỉ</th>
                     <th scope="col" className="px-3.5 py-3 text-left font-semibold text-slate-700">Liên kết dữ liệu</th>
                     <th scope="col" className="px-3.5 py-3 text-left font-semibold text-slate-700">Tài khoản sao kê</th>
+                    {canManagePolicies && <th scope="col" className="px-3.5 py-3 text-right font-semibold text-slate-700">Số dư hoa hồng</th>}
                     <th scope="col" className="px-3.5 py-3 text-center font-semibold text-slate-700">Trạng thái</th>
                     {canManage && <th scope="col" className="px-3.5 py-3 text-center font-semibold text-slate-700">Hành động</th>}
                   </tr></thead>
@@ -299,6 +326,7 @@ export default function RetailPartnersPage() {
                       <td className="max-w-64 px-3.5 py-3 text-xs text-slate-600">{partner.address || "Chưa cập nhật"}</td>
                       <td className="px-3.5 py-3 text-xs text-slate-600">{role === "supplier" ? partner.supplier ? `${partner.supplier.name} (${partner.supplier.code})` : partner.supplierId ? "Đã liên kết kho" : "Chưa liên kết" : role === "dealer" ? getLinkedCustomer(partner)?.name || (partner.customerId ? "Đã liên kết khách hàng" : "Chưa liên kết khách hàng") : "—"}</td>
                       <td className="px-3.5 py-3">{role === "collaborator" ? <><div className="text-xs font-medium text-slate-800">{linkedUser?.displayName || linkedUser?.email || (partner.userId ? "Đã liên kết tài khoản" : "Chưa liên kết")}</div>{linkedUser?.displayName && linkedUser.email && <div className="mt-0.5 text-[11px] text-slate-500">{linkedUser.email}</div>}</> : <span className="text-slate-500">—</span>}</td>
+                      {canManagePolicies && <td className="px-3.5 py-3 text-right font-semibold tabular-nums text-emerald-800">{role === "collaborator" ? commissionBalancesLoading ? "Đang tải..." : commissionBalanceError ? "—" : new Intl.NumberFormat("vi-VN").format(commissionBalances[partner._id] || 0) + " ₫" : "—"}</td>}
                       <td className="px-3.5 py-3 text-center"><span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-semibold", partner.status === "active" ? "border-sky-100 bg-sky-50 text-[#007EB8]" : "border-slate-200 bg-slate-100 text-slate-600")}>{partner.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"}</span></td>
                       {canManage && <td className="px-3.5 py-3 text-center"><div className="flex items-center justify-center gap-1">
                         {canManage && <button type="button" onClick={() => startEdit(partner)} aria-label={`Chỉnh sửa ${partner.name}`} title={`Chỉnh sửa ${partner.name}`} className="min-h-9 min-w-9 rounded-lg p-1.5 text-slate-500 hover:bg-sky-50 hover:text-[#00ADFC] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Pencil aria-hidden="true" className="size-3.5" /></button>}
@@ -310,6 +338,7 @@ export default function RetailPartnersPage() {
               </div>
             </>}
           </ErpCard>
+          {canManagePolicies && commissionBalanceError && <p role="alert" className="text-xs font-medium text-rose-600">Không tải được số dư hoa hồng: {commissionBalanceError}</p>}
         </section>}
         {!canRead && <RetailPartnerStatement />}
       </div>
