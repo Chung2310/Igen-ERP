@@ -218,6 +218,12 @@ export async function getEffectivePermissions(
     rolePermissions = DEFAULT_ROLE_PERMISSIONS[role] || [];
   }
 
+  // POS cashiers must retain access to the POS even when a company-specific
+  // role-permission record predates or omits the system minimum.
+  if (role === "pos_cashier" && !rolePermissions.includes("pos:manage")) {
+    rolePermissions = [...rolePermissions, "pos:manage"];
+  }
+
   return expandEffectivePermissions(normalizeStoredPermissions([...customPermissions, ...rolePermissions]));
 }
 

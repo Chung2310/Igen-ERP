@@ -854,7 +854,9 @@ export default function UserAdminTab() {
                     const dbRecord = rolePermissionsList.find(rp => rp.role === dr.role);
                     return {
                       ...dr,
-                      permissions: dbRecord ? dbRecord.permissions : (DEFAULT_ROLE_PERMISSIONS[dr.role] || []),
+                      permissions: dbRecord
+                        ? Array.from(new Set([...dbRecord.permissions, ...(dr.role === "pos_cashier" ? ["pos:manage"] : [])]))
+                        : (DEFAULT_ROLE_PERMISSIONS[dr.role] || []),
                       displayName: dbRecord?.displayName || dr.displayName,
                       level: dbRecord?.level || dr.level,
                       _id: dbRecord?._id

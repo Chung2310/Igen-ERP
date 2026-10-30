@@ -169,6 +169,7 @@ export function RoleModal({
                           {perms.map((perm) => {
                             const manageCode = perm.code.endsWith(":read") ? perm.code.replace(/:read$/, ":manage") : "";
                             const isIncludedByManage = Boolean(manageCode && selectedPermissions.includes(manageCode));
+                            const isMandatoryPosPermission = editingRole?.role === "pos_cashier" && perm.code === "pos:manage";
                             const isChecked = isEffectivelySelected(perm.code);
                             const labelText = getPermissionLabel(perm.code, perm.name);
                             const descText = getPermissionDescription(perm.code, perm.description);
@@ -176,7 +177,7 @@ export function RoleModal({
                               <div
                                 key={perm.code}
                                 onClick={() => {
-                                  if (selectedPermissions.includes("*") || isIncludedByManage) return;
+                                  if (selectedPermissions.includes("*") || isIncludedByManage || isMandatoryPosPermission) return;
                                   setSelectedPermissions((prev) => {
                                     if (prev.includes(perm.code)) {
                                       return prev.filter((p) => p !== perm.code);
@@ -185,7 +186,7 @@ export function RoleModal({
                                     return [...prev.filter((code) => code !== readCode), perm.code];
                                   });
                                 }}
-                                className={`flex items-start gap-2.5 p-2.5 border rounded-xl transition-all select-none ${isIncludedByManage ? "cursor-not-allowed opacity-75" : "cursor-pointer hover:border-indigo-300"} ${isChecked
+                                className={`flex items-start gap-2.5 p-2.5 border rounded-xl transition-all select-none ${isIncludedByManage || isMandatoryPosPermission ? "cursor-not-allowed opacity-75" : "cursor-pointer hover:border-indigo-300"} ${isChecked
                                     ? "bg-indigo-50/70 border-indigo-200 text-indigo-900"
                                     : "bg-white border-gray-150 text-slate-700"
                                   }`}
@@ -194,7 +195,7 @@ export function RoleModal({
                                   type="checkbox"
                                   aria-label={labelText}
                                   checked={isChecked}
-                                  disabled={selectedPermissions.includes("*") || isIncludedByManage}
+                                  disabled={selectedPermissions.includes("*") || isIncludedByManage || isMandatoryPosPermission}
                                   readOnly
                                   className="mt-0.5 cursor-pointer accent-indigo-650 shrink-0"
                                 />
@@ -206,6 +207,9 @@ export function RoleModal({
                                   )}
                                   {isIncludedByManage && (
                                     <span className="mt-1 block text-[10px] font-medium text-indigo-600">Đã bao gồm trong quyền quản lý</span>
+                                  )}
+                                  {isMandatoryPosPermission && (
+                                    <span className="mt-1 block text-[10px] font-medium text-indigo-600">Bắt buộc cho vai trò thu ngân POS</span>
                                   )}
                                   {(perm.code === "people:read" || perm.code === "people:manage") && (
                                     <span className="mt-1 inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">Toàn bộ module</span>

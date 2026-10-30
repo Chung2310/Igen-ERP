@@ -30,6 +30,20 @@ describe("role permission persistence", () => {
     expect(result.rolePermission).toMatchObject({ companyCode: "ACME", role: "manager" });
   });
 
+  it("preserves pos:manage when saving a POS cashier role without it", async () => {
+    mocks.findOne.mockResolvedValue(null);
+    mocks.save.mockImplementation(async function (this: any) { return this; });
+    const result = await rolePermissionService.saveRolePermission({
+      companyCode: "ACME",
+      role: "pos_cashier",
+      permissions: ["customer:read"],
+      level: 5,
+      displayName: "Nhân viên bán hàng POS",
+    });
+    expect(result.stored).toEqual(["customer:read", "pos:manage"]);
+    expect(result.effective).toEqual(["customer:read", "pos:manage", "pos:read"]);
+  });
+
   it("rejects invalid permission codes before querying storage", async () => {
     await expect(rolePermissionService.saveRolePermission({
       companyCode: "ACME",
