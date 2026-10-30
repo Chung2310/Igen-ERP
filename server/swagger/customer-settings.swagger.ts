@@ -33,7 +33,7 @@ export const customerSettingsSwagger = {
                             properties: {
                               code: { type: "string", example: "standard" },
                               name: { type: "string", example: "Thành viên" },
-                              minSpend: { type: "number", example: 0 },
+                              minGrossProfit: { type: "number", example: 0, description: "Ngưỡng lợi nhuận gộp tối thiểu (VNĐ)" },
                             },
                           },
                         },
@@ -72,9 +72,9 @@ export const customerSettingsSwagger = {
                       properties: {
                         code: { type: "string", example: "standard" },
                         name: { type: "string", example: "Thành viên" },
-                        minSpend: { type: "number", example: 0 },
+                        minGrossProfit: { type: "number", example: 0, description: "Ngưỡng lợi nhuận gộp tối thiểu (VNĐ)" },
                       },
-                      required: ["code", "name", "minSpend"],
+                      required: ["code", "name", "minGrossProfit"],
                     },
                   },
                 },
@@ -103,7 +103,7 @@ export const customerSettingsSwagger = {
                             properties: {
                               code: { type: "string", example: "standard" },
                               name: { type: "string", example: "Thành viên" },
-                              minSpend: { type: "number", example: 0 },
+                              minGrossProfit: { type: "number", example: 0, description: "Ngưỡng lợi nhuận gộp tối thiểu (VNĐ)" },
                             },
                           },
                         },

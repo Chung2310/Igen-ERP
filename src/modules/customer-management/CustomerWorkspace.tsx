@@ -12,6 +12,7 @@ import { ModuleNavigation, ModuleNavigationButton } from "../../components/commo
 import type { BillingProfileInput, Customer, CustomerInput, CustomerStatus, CustomerType, PaginatedCustomers } from "./types";
 
 const emptyResult: PaginatedCustomers = { items: [], total: 0, page: 1, limit: 20 };
+type CustomerTierSetting = { code: string; name: string; minGrossProfit: number; minSpend?: number };
 
 export default function CustomerWorkspace() {
   const { user, userProfile } = useAuth();
@@ -45,7 +46,7 @@ function CustomerWorkspaceContent() {
   const [settingsMessage, setSettingsMessage] = React.useState("");
 
   // Settings state
-  const [settings, setSettings] = React.useState<{ companyCode: string; customerTiers: Array<{ code: string; name: string; minSpend: number }> } | null>(null);
+  const [settings, setSettings] = React.useState<{ companyCode: string; customerTiers: CustomerTierSetting[] } | null>(null);
   const [loadingSettings, setLoadingSettings] = React.useState(false);
   const [savingSettings, setSavingSettings] = React.useState(false);
 
@@ -69,7 +70,13 @@ function CustomerWorkspaceContent() {
     setError("");
     try {
       const data = await customerApi.getSettings(companyCode);
-      setSettings(data);
+      setSettings({
+        ...data,
+        customerTiers: data.customerTiers.map((tier) => ({
+          ...tier,
+          minGrossProfit: Number(tier.minGrossProfit ?? tier.minSpend ?? 0),
+        })),
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không tải được cấu hình phân hạng.");
     } finally {
@@ -91,7 +98,7 @@ function CustomerWorkspaceContent() {
     catch (cause) { if (requestId === detailRequest.current) setError(cause instanceof Error ? cause.message : "Không tải được hồ sơ khách hàng."); }
   };
 
-  const handleUpdateTier = (index: number, field: "code" | "name" | "minSpend", value: any) => {
+  const handleUpdateTier = (index: number, field: "code" | "name" | "minGrossProfit", value: any) => {
     if (!settings) return;
     const newTiers = settings.customerTiers.map((tier, itemIndex) => {
       if (itemIndex === index) {
@@ -109,7 +116,7 @@ function CustomerWorkspaceContent() {
     if (!settings) return;
     const newTiers = [
       ...settings.customerTiers,
-      { code: `tier-${settings.customerTiers.length + 1}`, name: `Hạng mới ${settings.customerTiers.length + 1}`, minSpend: 0 }
+      { code: `tier-${settings.customerTiers.length + 1}`, name: `Hạng mới ${settings.customerTiers.length + 1}`, minGrossProfit: 0 }
     ];
     setSettings({ ...settings, customerTiers: newTiers });
   };
@@ -126,8 +133,16 @@ function CustomerWorkspaceContent() {
     setError("");
     setSettingsMessage("");
     try {
-      const data = await customerApi.updateSettings({ customerTiers: settings.customerTiers }, companyCode);
-      setSettings(data);
+      const data = await customerApi.updateSettings({
+        customerTiers: settings.customerTiers.map(({ code, name, minGrossProfit }) => ({ code, name, minGrossProfit })),
+      }, companyCode);
+      setSettings({
+        ...data,
+        customerTiers: data.customerTiers.map((tier) => ({
+          ...tier,
+          minGrossProfit: Number(tier.minGrossProfit ?? tier.minSpend ?? 0),
+        })),
+      });
       setSettingsMessage("Đã lưu cấu hình phân hạng khách hàng.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không lưu được cấu hình phân hạng.");
@@ -281,7 +296,7 @@ function CustomerWorkspaceContent() {
                     <tr className="border-b border-outline-variant bg-surface-container-low text-xs font-semibold text-on-surface-variant">
                       <th className="px-5 py-3">Mã hạng</th>
                       <th className="px-5 py-3">Tên hạng</th>
-                      <th className="px-5 py-3">Chi tiêu tối thiểu (VNĐ)</th>
+                      <th className="px-5 py-3">Lợi nhuận gộp tối thiểu (VNĐ)</th>
                       {canManage && <th className="px-5 py-3 text-right">Thao tác</th>}
                     </tr>
                   </thead>
@@ -316,8 +331,8 @@ function CustomerWorkspaceContent() {
                             step="1"
                             disabled={!canManage || index === 0}
                             className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 font-semibold tabular-nums text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:bg-surface-container-low"
-                            value={tier.minSpend}
-                            onChange={(e) => handleUpdateTier(index, "minSpend", Number(e.target.value))}
+                            value={tier.minGrossProfit}
+                            onChange={(e) => handleUpdateTier(index, "minGrossProfit", Number(e.target.value))}
                           />
                         </td>
                         {canManage && (

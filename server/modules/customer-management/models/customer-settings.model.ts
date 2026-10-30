@@ -21,7 +21,7 @@ export const DEFAULT_POINTS_POLICY = {
 const CustomerTierSchema = new Schema({
   code: { type: String, required: true },
   name: { type: String, required: true },
-  minGrossProfit: { type: Number, required: true, default: 0, min: 0 },
+  minGrossProfit: { type: Number, min: 0 },
   minSpend: { type: Number, default: 0, min: 0 },
   pointMultiplier: { type: Number, default: 1.0, min: 1 },
   discountPercent: { type: Number, default: 0, min: 0, max: 100 },
@@ -40,7 +40,7 @@ const PointsPolicySchema = new Schema({
 
 const CustomerSettingsSchema = new Schema<ICustomerSettings>({
   companyCode: { type: String, required: true, index: true, unique: true },
-  tierEvaluationMetric: { type: String, enum: ["gross_profit", "sales"], default: "gross_profit" },
+  tierEvaluationMetric: { type: String, enum: ["gross_profit"], default: "gross_profit" },
   evaluationWindow: { type: String, enum: ["rolling12Months", "allTime"], default: "rolling12Months" },
   customerTiers: { type: [CustomerTierSchema], default: DEFAULT_CUSTOMER_TIERS },
   pointsPolicy: { type: PointsPolicySchema, default: () => ({ ...DEFAULT_POINTS_POLICY }) },

@@ -19,6 +19,16 @@ test("net tier sales exclude cancelled orders and subtract refunds", () => {
   assert.equal(total([{ status: "completed", grandTotal: 100, refundedAmount: 30 }, { status: "confirmed", grandTotal: 50, refundedAmount: 0 }, { status: "cancelled", grandTotal: 999, refundedAmount: 0 }]), 120);
 });
 
+test("gross tier profit subtracts costs, nets loss-making sales, and skips missing cost snapshots", () => {
+  const total = (tierService as any).calculateTierGrossProfit;
+  assert.equal(total([
+    { status: "completed", grandTotal: 1_000, refundedAmount: 0, totalCost: 700 },
+    { status: "confirmed", grandTotal: 500, refundedAmount: 0, totalCost: 700 },
+    { status: "completed", grandTotal: 10_000, refundedAmount: 0 },
+    { status: "cancelled", grandTotal: 999, refundedAmount: 0, totalCost: 1 },
+  ]), 100);
+});
+
 test("retry sweep only picks up unfinished jobs with attempts left", async () => {
   const calls: string[] = [];
   const jobModel = (await import("../models/retail-customer-tier-job.model") as any).RetailCustomerTierJobModel;
