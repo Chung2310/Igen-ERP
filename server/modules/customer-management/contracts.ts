@@ -85,7 +85,6 @@ export async function getCustomerTiers(companyCode: string): Promise<ICustomerTi
     code: tier.code,
     name: tier.name,
     minGrossProfit: Number(tier.minGrossProfit ?? tier.minSpend ?? 0),
-    minSpend: Number(tier.minSpend ?? tier.minGrossProfit ?? 0),
     color: tier.color,
     pointMultiplier: tier.pointMultiplier,
     discountPercent: tier.discountPercent,

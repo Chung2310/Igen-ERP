@@ -33,7 +33,7 @@ const CustomerSchema = new Schema<ICustomer>({
     _id: false,
     default: undefined,
   },
-  tierGrossProfit: { type: Number, default: 0, min: 0 },
+  tierGrossProfit: { type: Number, default: 0 },
   tierTotalSales: { type: Number, default: 0, min: 0 },
   tierUpdatedAt: Date,
 

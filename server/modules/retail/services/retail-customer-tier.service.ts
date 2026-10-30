@@ -6,7 +6,6 @@ import { RetailCustomerTierHistoryModel } from "../models/retail-customer-tier-h
 import { RetailCustomerTierJobModel } from "../models/retail-customer-tier-job.model";
 import { RetailOrderModel } from "../models/retail-order.model";
 import { RepairTicketModel } from "../../repair/repair-ticket.model";
-import { CustomerSettingsService } from "../../customer-management/services/customer-settings.service";
 import { getResolvedRetailSettings } from "./retail-settings.service";
 
 const day = (value: Date) => value.toISOString().slice(0, 10);
@@ -56,51 +55,52 @@ export function calculateTierNetSales(orders: any[] = [], repairTickets: any[] =
  * Tính tổng LỢI NHUẬN GỘP (Giá bán - Giá vốn) kết hợp từ cả Đơn bán lẻ và Phiếu sửa chữa:
  * - Đơn bán lẻ: grandTotal - refundedAmount - totalCost
  * - Phiếu sửa chữa: totalAmount - partCost (tiền công + chênh lệch linh kiện)
+ * Giao dịch thiếu snapshot giá vốn không được tính như thể doanh thu là lợi nhuận.
  */
 export function calculateTierGrossProfit(orders: any[] = [], repairTickets: any[] = []): number {
   const orderProfit = orders
     .filter((order) => order.status === "confirmed" || order.status === "completed")
     .reduce((sum, order) => {
       const netSales = Math.max(0, Number(order.grandTotal || 0) - Number(order.refundedAmount || 0));
-      const cost = Number(order.totalCost || 0);
-      return sum + Math.max(0, netSales - cost);
+      if (order.totalCost === null || order.totalCost === undefined || order.totalCost === "") return sum;
+      const cost = Number(order.totalCost);
+      if (!Number.isFinite(cost) || cost < 0) return sum;
+      return sum + netSales - cost;
     }, 0);
 
   const repairProfit = repairTickets
     .filter((ticket) => ticket.status === "done" || ticket.status === "delivered")
     .reduce((sum, ticket) => {
       const revenue = Number(ticket.totalAmount || 0);
-      const cost = Number(ticket.partCost || 0);
-      return sum + Math.max(0, revenue - cost);
+      if (ticket.partCost === null || ticket.partCost === undefined || ticket.partCost === "") return sum;
+      const cost = Number(ticket.partCost);
+      if (!Number.isFinite(cost) || cost < 0) return sum;
+      return sum + revenue - cost;
     }, 0);
 
   return orderProfit + repairProfit;
 }
 
 /**
- * Xác định hạng thành viên theo mức đạt được.
- * Hỗ trợ xếp hạng theo Lợi Nhuận Gộp (mặc định) hoặc Doanh số chi tiêu.
+ * Xác định hạng thành viên theo lợi nhuận gộp đạt được.
  */
 export function resolveTier(
-  metricValue: number,
-  tiers: Array<{ code: string; name: string; minGrossProfit?: number; minSpend?: number }>,
-  metricType: "gross_profit" | "sales" = "gross_profit"
+  grossProfit: number,
+  tiers: Array<{ code: string; name: string; minGrossProfit?: number; minSpend?: number }>
 ) {
   if (!tiers || tiers.length === 0) {
     return { code: "standard", name: "Thành viên", minGrossProfit: 0, minSpend: 0 };
   }
 
   const sorted = [...tiers].sort((a, b) => {
-    const valA = metricType === "sales" ? Number(a.minSpend || 0) : Number(a.minGrossProfit ?? a.minSpend ?? 0);
-    const valB = metricType === "sales" ? Number(b.minSpend || 0) : Number(b.minGrossProfit ?? b.minSpend ?? 0);
+    const valA = Number(a.minGrossProfit ?? a.minSpend ?? 0);
+    const valB = Number(b.minGrossProfit ?? b.minSpend ?? 0);
     return valA - valB;
   });
 
   return sorted.reduce((selected, tier) => {
-    const threshold = metricType === "sales"
-      ? Number(tier.minSpend || 0)
-      : Number(tier.minGrossProfit ?? tier.minSpend ?? 0);
-    return metricValue >= threshold ? tier : selected;
+    const threshold = Number(tier.minGrossProfit ?? tier.minSpend ?? 0);
+    return grossProfit >= threshold ? tier : selected;
   }, sorted[0]);
 }
 
@@ -124,9 +124,8 @@ export async function processTierRefreshJob(jobId: string): Promise<void> {
 
   try {
     const scope = { companyCode: job.companyCode, branchId: job.branchId };
-    const [settings, customerSettings, tiers] = await Promise.all([
+    const [settings, tiers] = await Promise.all([
       getResolvedRetailSettings(scope),
-      CustomerSettingsService.getSettings(scope.companyCode),
       getCustomerTiers(scope.companyCode),
     ]);
 
@@ -145,9 +144,7 @@ export async function processTierRefreshJob(jobId: string): Promise<void> {
     const totalSales = calculateTierNetSales(orders, repairTickets);
     const totalGrossProfit = calculateTierGrossProfit(orders, repairTickets);
 
-    const metricType = customerSettings.tierEvaluationMetric || "gross_profit";
-    const metricValue = metricType === "sales" ? totalSales : totalGrossProfit;
-    const tier = resolveTier(metricValue, tiers, metricType);
+    const tier = resolveTier(totalGrossProfit, tiers);
 
     const latest: any = await RetailCustomerTierHistoryModel.findOne({
       companyCode: scope.companyCode,
@@ -167,7 +164,7 @@ export async function processTierRefreshJob(jobId: string): Promise<void> {
             toTierName: tier.name,
             totalSales,
             totalGrossProfit,
-            reason: metricType === "gross_profit" ? "automatic-gross-profit-recalculation" : "automatic-sales-recalculation",
+            reason: "automatic-gross-profit-recalculation",
             source: "automatic",
             sourceKey: job.sourceKey,
             changedAt: new Date(),

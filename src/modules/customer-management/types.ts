@@ -18,7 +18,8 @@ export interface Customer {
   notes?: string;
   status: CustomerStatus;
   source: "manual" | "pos" | "import";
-  tier?: { code: string; name: string; minSpend: number };
+  tier?: { code: string; name: string; minGrossProfit?: number; minSpend?: number };
+  tierGrossProfit?: number;
   tierTotalSales?: number;
   tierUpdatedAt?: string;
   createdBy: string;

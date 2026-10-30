@@ -19,9 +19,15 @@ export const CustomerSettingsService = {
     }
     return {
       ...settings,
-      customerTiers: settings.customerTiers?.length ? settings.customerTiers : DEFAULT_CUSTOMER_TIERS,
+      // Legacy companies may still have `sales` persisted. Always expose and use profit.
+      tierEvaluationMetric: "gross_profit",
+      customerTiers: settings.customerTiers?.length
+        ? settings.customerTiers.map((tier) => ({
+            ...tier,
+            minGrossProfit: Number(tier.minGrossProfit ?? tier.minSpend ?? 0),
+          }))
+        : DEFAULT_CUSTOMER_TIERS,
       pointsPolicy: settings.pointsPolicy || { ...DEFAULT_POINTS_POLICY },
-      tierEvaluationMetric: settings.tierEvaluationMetric || "gross_profit",
       evaluationWindow: settings.evaluationWindow || "rolling12Months",
     };
   },
@@ -31,7 +37,6 @@ export const CustomerSettingsService = {
     payload: {
       customerTiers: ICustomerTier[];
       pointsPolicy?: any;
-      tierEvaluationMetric?: "gross_profit" | "sales";
       evaluationWindow?: "rolling12Months" | "allTime";
     } | ICustomerTier[]
   ) {
@@ -39,7 +44,6 @@ export const CustomerSettingsService = {
 
     const tiers = Array.isArray(payload) ? payload : payload?.customerTiers;
     const pointsPolicy = Array.isArray(payload) ? undefined : payload?.pointsPolicy;
-    const tierEvaluationMetric = Array.isArray(payload) ? undefined : payload?.tierEvaluationMetric;
     const evaluationWindow = Array.isArray(payload) ? undefined : payload?.evaluationWindow;
 
     // Validate customer tiers constraints
@@ -47,15 +51,14 @@ export const CustomerSettingsService = {
       throw new CustomerError("INVALID_TIERS", "Danh sách phân hạng không được để trống.", 400);
     }
 
-    // Sort tiers by minGrossProfit (or minSpend) to make sure order is correct
+    // `minSpend` is accepted as a legacy alias; ranking always uses gross profit.
     const sortedTiers = [...tiers].map(tier => ({
       ...tier,
       minGrossProfit: Number(tier.minGrossProfit ?? tier.minSpend ?? 0),
-      minSpend: Number(tier.minSpend ?? tier.minGrossProfit ?? 0),
     })).sort((a, b) => a.minGrossProfit - b.minGrossProfit);
 
     if (sortedTiers[0].minGrossProfit !== 0) {
-      throw new CustomerError("INVALID_TIERS_START", "Hạng thấp nhất phải có mức chi tiêu bắt đầu từ 0.", 400);
+      throw new CustomerError("INVALID_TIERS_START", "Hạng thấp nhất phải có ngưỡng lợi nhuận gộp bắt đầu từ 0.", 400);
     }
 
     // Check duplicates and increasing order
@@ -81,7 +84,7 @@ export const CustomerSettingsService = {
         throw new CustomerError("DUPLICATE_TIER_NAME", `Tên hạng '${name}' bị trùng lặp.`, 400);
       }
       if (metric <= lastMetric) {
-        throw new CustomerError("INVALID_TIERS_ORDER", "Mức chi tiêu tối thiểu của các hạng tiếp theo phải lớn hơn hạng trước đó.", 400);
+        throw new CustomerError("INVALID_TIERS_ORDER", "Ngưỡng lợi nhuận gộp của các hạng tiếp theo phải lớn hơn hạng trước đó.", 400);
       }
 
       seenCodes.add(tierCode);
@@ -89,9 +92,8 @@ export const CustomerSettingsService = {
       lastMetric = metric;
     }
 
-    const updateDoc: any = { customerTiers: sortedTiers };
+    const updateDoc: any = { customerTiers: sortedTiers, tierEvaluationMetric: "gross_profit" };
     if (pointsPolicy) updateDoc.pointsPolicy = pointsPolicy;
-    if (tierEvaluationMetric) updateDoc.tierEvaluationMetric = tierEvaluationMetric;
     if (evaluationWindow) updateDoc.evaluationWindow = evaluationWindow;
 
     const updated = await CustomerSettingsModel.findOneAndUpdate(

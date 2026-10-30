@@ -4,12 +4,12 @@ import type { Customer } from "../types";
 import BillingProfilesPanel from "./BillingProfilesPanel";
 import CustomerPurchaseHistoryPanel from "./CustomerPurchaseHistoryPanel";
 
-const spend = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
+const currency = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
 export default function CustomerDetailDrawer({ customer, branchId, canManage, onClose, onEdit, onToggleStatus }: { customer: Customer; branchId?: string; canManage: boolean; onClose: () => void; onEdit: () => void; onToggleStatus: () => void }) {
   const dialogRef = React.useRef<HTMLDialogElement>(null);
   const returnFocusRef = React.useRef<HTMLElement | null>(null);
-  const rows = [["Mã khách", customer.customerCode], ["Điện thoại", customer.phone], ["Email", customer.email || "—"], ["Ngày sinh", customer.dateOfBirth ? new Date(customer.dateOfBirth).toLocaleDateString("vi-VN") : "—"], ["Địa chỉ", customer.address || "—"], ["Hạng", customer.tier ? `${customer.tier.name}${typeof customer.tierTotalSales === "number" ? ` · đã chi tiêu ${spend.format(customer.tierTotalSales)}` : ""}` : "Chưa xếp hạng"], ["Loại khách", customer.type === "vat" ? "Xuất VAT" : "Khách thường"], ["Trạng thái", customer.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"]];
+  const rows = [["Mã khách", customer.customerCode], ["Điện thoại", customer.phone], ["Email", customer.email || "—"], ["Ngày sinh", customer.dateOfBirth ? new Date(customer.dateOfBirth).toLocaleDateString("vi-VN") : "—"], ["Địa chỉ", customer.address || "—"], ["Hạng", customer.tier ? `${customer.tier.name}${typeof customer.tierGrossProfit === "number" ? ` · lãi gộp ${currency.format(customer.tierGrossProfit)}` : ""}` : "Chưa xếp hạng"], ["Loại khách", customer.type === "vat" ? "Xuất VAT" : "Khách thường"], ["Trạng thái", customer.status === "active" ? "Đang hoạt động" : "Ngừng hoạt động"]];
 
   React.useEffect(() => {
     const dialog = dialogRef.current;

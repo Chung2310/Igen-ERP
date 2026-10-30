@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  customerSettings: vi.fn(),
   repairFind: vi.fn(),
   applyCustomerTier: vi.fn(),
   getCustomerTiers: vi.fn(),
@@ -26,22 +25,20 @@ vi.mock("../models/retail-customer-tier-history.model", () => ({
 }));
 vi.mock("../models/retail-order.model", () => ({ RetailOrderModel: { find: mocks.orderFind } }));
 
-vi.mock("../../customer-management/services/customer-settings.service", () => ({ CustomerSettingsService: { getSettings: mocks.customerSettings } }));
 vi.mock("../../repair/repair-ticket.model", () => ({ RepairTicketModel: { find: mocks.repairFind } }));
 
 const { processTierRefreshJob } = await import("./retail-customer-tier.service");
 
 const JOB_ID = "64b7f2d3c1a2b3c4d5e6f7a8";
 const tiers = [
-  { code: "standard", name: "Thành viên", minSpend: 0 },
-  { code: "silver", name: "Bạc", minSpend: 5_000_000 },
-  { code: "gold", name: "Vàng", minSpend: 20_000_000 },
+  { code: "standard", name: "Thành viên", minGrossProfit: 0, minSpend: 0 },
+  { code: "silver", name: "Bạc", minGrossProfit: 5_000_000, minSpend: 5_000_000 },
+  { code: "gold", name: "Vàng", minGrossProfit: 20_000_000, minSpend: 20_000_000 },
 ];
 
 describe("processTierRefreshJob", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.customerSettings.mockResolvedValue({ tierEvaluationMetric: "sales" });
     mocks.repairFind.mockReturnValue({ select: () => ({ lean: async () => [] }) });
     mocks.jobFindOneAndUpdate.mockReturnValue({ _id: JOB_ID, companyCode: "ACME", branchId: "B1", customerId: "C1", sourceKey: "k1" });
     mocks.getResolvedRetailSettings.mockResolvedValue({ tierEvaluationWindow: { type: "lifetime" } });
@@ -53,14 +50,14 @@ describe("processTierRefreshJob", () => {
 
   const withOrders = (orders: any[]) => mocks.orderFind.mockReturnValue({ select: () => ({ lean: async () => orders }) });
 
-  it("writes the earned tier and net spend onto the customer profile", async () => {
-    withOrders([{ status: "completed", grandTotal: 21_000_000, refundedAmount: 0 }]);
+  it("ranks from gross profit even when sales would qualify the customer for a higher tier", async () => {
+    withOrders([{ status: "completed", grandTotal: 21_000_000, totalCost: 19_000_000, refundedAmount: 0 }]);
     await processTierRefreshJob(JOB_ID);
-    expect(mocks.applyCustomerTier).toHaveBeenCalledWith("ACME", "C1", tiers[2], 21_000_000, 21_000_000);
+    expect(mocks.applyCustomerTier).toHaveBeenCalledWith("ACME", "C1", tiers[0], 2_000_000, 21_000_000);
   });
 
   it("takes tier bands from customer settings, not retail settings", async () => {
-    withOrders([{ status: "completed", grandTotal: 6_000_000, refundedAmount: 0 }]);
+    withOrders([{ status: "completed", grandTotal: 6_000_000, totalCost: 1_000_000, refundedAmount: 0 }]);
     await processTierRefreshJob(JOB_ID);
     expect(mocks.getCustomerTiers).toHaveBeenCalledWith("ACME");
     expect(mocks.applyCustomerTier.mock.calls[0][2]).toEqual(tiers[1]);
@@ -68,15 +65,21 @@ describe("processTierRefreshJob", () => {
 
   it("still refreshes the profile when the tier itself did not change", async () => {
     mocks.historyFindOne.mockReturnValue({ sort: () => ({ lean: async () => ({ toTierCode: "silver", toTierName: "Bạc" }) }) });
-    withOrders([{ status: "completed", grandTotal: 7_000_000, refundedAmount: 0 }]);
+    withOrders([{ status: "completed", grandTotal: 7_000_000, totalCost: 1_000_000, refundedAmount: 0 }]);
     await processTierRefreshJob(JOB_ID);
     expect(mocks.historyUpdateOne).not.toHaveBeenCalled();
-    expect(mocks.applyCustomerTier).toHaveBeenCalledWith("ACME", "C1", tiers[1], 7_000_000, 7_000_000);
+    expect(mocks.applyCustomerTier).toHaveBeenCalledWith("ACME", "C1", tiers[1], 6_000_000, 7_000_000);
   });
 
   it("subtracts refunds so a refunded customer drops back down", async () => {
-    withOrders([{ status: "completed", grandTotal: 21_000_000, refundedAmount: 20_000_000 }]);
+    withOrders([{ status: "completed", grandTotal: 21_000_000, totalCost: 1_000_000, refundedAmount: 20_000_000 }]);
     await processTierRefreshJob(JOB_ID);
     expect(mocks.applyCustomerTier.mock.calls[0][2]).toEqual(tiers[0]);
+  });
+
+  it("does not treat sales without a cost snapshot as profit", async () => {
+    withOrders([{ status: "completed", grandTotal: 50_000_000, refundedAmount: 0 }]);
+    await processTierRefreshJob(JOB_ID);
+    expect(mocks.applyCustomerTier).toHaveBeenCalledWith("ACME", "C1", tiers[0], 0, 50_000_000);
   });
 });

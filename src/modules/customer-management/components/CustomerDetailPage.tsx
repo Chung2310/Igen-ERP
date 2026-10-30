@@ -83,7 +83,7 @@ function Overview({ customer, branchId }: { customer: Customer; branchId?: strin
         <Info label="Ngày sinh" value={customer.dateOfBirth ? new Date(customer.dateOfBirth).toLocaleDateString("vi-VN") : "—"} icon={CalendarDays} />
         <Info label="Giới tính" value={gender} />
         <Info label="Chế độ hóa đơn" value={typeLabel} />
-        <Info label="Hạng thành viên" value={customer.tier ? `${customer.tier.name}${typeof customer.tierTotalSales === "number" ? ` · ${currency.format(customer.tierTotalSales)}` : ""}` : "Chưa xếp hạng"} icon={Coins} />
+        <Info label="Hạng thành viên" value={customer.tier ? `${customer.tier.name}${typeof customer.tierGrossProfit === "number" ? ` · lãi gộp ${currency.format(customer.tierGrossProfit)}` : ""}` : "Chưa xếp hạng"} icon={Coins} />
         <Info label="Địa chỉ" value={customer.address || "—"} icon={MapPin} />
         <Info label="Nguồn hồ sơ" value={customer.source === "pos" ? "Tạo từ bán hàng" : customer.source === "import" ? "Nhập dữ liệu" : "Tạo thủ công"} />
       </dl>

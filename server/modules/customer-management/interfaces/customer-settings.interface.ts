@@ -20,7 +20,7 @@ export interface ICustomerPointsPolicy {
 
 export interface ICustomerSettings {
   companyCode: string;
-  tierEvaluationMetric?: "gross_profit" | "sales"; // Căn cứ xếp hạng VIP (mặc định "gross_profit")
+  tierEvaluationMetric?: "gross_profit"; // Xếp hạng luôn căn cứ vào lợi nhuận gộp
   evaluationWindow?: "rolling12Months" | "allTime"; // Chu kỳ xét hạng (mặc định "rolling12Months")
   customerTiers: ICustomerTier[];
   pointsPolicy?: ICustomerPointsPolicy;
