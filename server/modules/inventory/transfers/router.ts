@@ -3,6 +3,7 @@ import { requirePermission } from "../../../middleware/auth";
 import { retailScopeFromRequest, requireRetailBranch } from "../../retail/contracts";
 import { reconcileWarehouse } from "./reconciliation.service";
 import { WarehouseModel } from "../../../model/warehouse.model";
+import { BranchModel } from "../../../model/branch.model";
 import { cancelInventoryTransfer, listInventoryTransfers, receiveInventoryTransfer, requestInventoryTransfer, reverseInventoryTransfer } from "./transfer.service";
 
 export const inventoryTransferRouter = Router();
@@ -14,7 +15,12 @@ const handle = (work: (req: any) => Promise<unknown>, created = false) => async 
   try { res.status(created ? 201 : 200).json({ success: true, data: await work(req) }); }
   catch (error) { next(error); }
 };
-inventoryTransferRouter.get("/warehouses", read, handle((req) => WarehouseModel.find({ companyCode: scope(req).companyCode, isActive: true, kind: { $ne: "transit" } }).sort({ branchId: 1, name: 1 }).lean()));
+inventoryTransferRouter.get("/branches", read, handle((req) => BranchModel.find({ companyCode: scope(req).companyCode, isActive: true }).select("_id code name").sort({ name: 1 }).lean()));
+inventoryTransferRouter.get("/warehouses", read, handle(async (req) => {
+  const companyCode = scope(req).companyCode;
+  const branches = await BranchModel.find({ companyCode, isActive: true }).select("_id").lean();
+  return WarehouseModel.find({ companyCode, branchId: { $in: branches.map((branch) => String(branch._id)) }, isActive: true, kind: { $ne: "transit" } }).sort({ branchId: 1, name: 1 }).lean();
+}));
 inventoryTransferRouter.get("/reconciliation", read, handle((req) => reconcileWarehouse(scope(req).companyCode, scope(req).branchId, String(req.query.warehouseId || ""))));
 inventoryTransferRouter.get("/", read, handle((req) => listInventoryTransfers(scope(req).companyCode, scope(req).branchId)));
 inventoryTransferRouter.post("/", manage, handle((req) => requestInventoryTransfer(scope(req), req.body || {}, actor(req)), true));

@@ -78,7 +78,7 @@ export function Dropdown<T = string>({
     }
     if (isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const dialogEl = containerRef.current.closest('[role="dialog"]');
+      const dialogEl = containerRef.current.closest('dialog, [role="dialog"]');
       const bottomBoundary = dialogEl ? dialogEl.getBoundingClientRect().bottom : window.innerHeight;
       const topBoundary = dialogEl ? dialogEl.getBoundingClientRect().top : 0;
       const spaceBelow = bottomBoundary - rect.bottom;
@@ -136,7 +136,10 @@ export function Dropdown<T = string>({
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && isOpen) {
+        event.preventDefault();
+        event.stopPropagation();
         setIsOpen(false);
+        containerRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
       }
     }
     document.addEventListener("keydown", handleKeyDown);
@@ -263,6 +266,7 @@ export function Dropdown<T = string>({
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <input
                 ref={searchInputRef}
+                aria-label={searchPlaceholder}
                 type="text"
                 placeholder={searchPlaceholder}
                 value={searchQuery}
@@ -272,6 +276,7 @@ export function Dropdown<T = string>({
               {searchQuery && (
                 <button
                   type="button"
+                  aria-label="Xóa tìm kiếm"
                   onClick={() => setSearchQuery("")}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
                 >

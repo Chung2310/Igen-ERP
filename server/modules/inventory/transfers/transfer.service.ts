@@ -12,6 +12,7 @@ import { InventoryTransferModel, type InventoryTransferItem, type InventoryTrans
 import { InventoryStockReversalModel } from "./stock-reversal.model";
 import { normalizeSerialNumber } from "../serials/serial-state";
 import { stockQuantityTolerance } from "../../../integrations/shared/inventory-quantity";
+import { ensureDefaultWarehouse } from "../warehouse/warehouse.service";
 
 type Scope = { companyCode: string; branchId: string };
 type Actor = { id: string; name: string };
@@ -52,7 +53,7 @@ export function validateTransferRequest(input: any) {
   const fromWarehouseId = String(input.fromWarehouseId || "").trim();
   const toWarehouseId = String(input.toWarehouseId || "").trim();
   const reason = String(input.reason || "").trim();
-  if (!toBranchId || !fromWarehouseId || !toWarehouseId || !reason) throw fail("Chi nhánh, hai kho và lý do điều chuyển là bắt buộc.");
+  if (!toBranchId || !fromWarehouseId || !reason) throw fail("Chi nhánh nhận, kho gửi và lý do điều chuyển là bắt buộc.");
   if (!/^[A-Za-z0-9_-]{8,100}$/.test(idempotencyKey)) throw fail("Khóa chống gửi lặp của phiếu không hợp lệ.");
   if (!Array.isArray(input.items) || !input.items.length || input.items.length > 100) throw fail("Phiếu phải có từ 1 đến 100 dòng hàng.");
   const ids = new Set<string>();
@@ -85,10 +86,15 @@ export async function requestInventoryTransfer(scope: Scope, input: any, actor: 
     let result: any;
     await session.withTransaction(async () => {
       const toBranch = await BranchModel.findOne({ _id: values.toBranchId, companyCode: scope.companyCode, isActive: true }).session(session).lean();
-      const warehouses = await WarehouseModel.find({ companyCode: scope.companyCode, isActive: true, kind: { $ne: "transit" }, _id: { $in: [values.fromWarehouseId, values.toWarehouseId] } }).session(session).lean();
+      if (!toBranch) throw fail("Chi nhánh nhận không tồn tại hoặc đã ngừng hoạt động.");
+      const destination = values.toWarehouseId
+        ? null
+        : await ensureDefaultWarehouse(scope.companyCode, values.toBranchId, session);
+      const toWarehouseId = values.toWarehouseId || String(destination?._id || "");
+      const warehouses = await WarehouseModel.find({ companyCode: scope.companyCode, isActive: true, kind: { $ne: "transit" }, _id: { $in: [values.fromWarehouseId, toWarehouseId] } }).session(session).lean();
       const fromWarehouse = warehouses.find((warehouse) => String(warehouse._id) === values.fromWarehouseId && warehouse.branchId === scope.branchId);
-      const toWarehouse = warehouses.find((warehouse) => String(warehouse._id) === values.toWarehouseId && warehouse.branchId === values.toBranchId);
-      if (!toBranch || !fromWarehouse || !toWarehouse || values.fromWarehouseId === values.toWarehouseId) throw fail("Chi nhánh hoặc kho điều chuyển không hợp lệ.");
+      const toWarehouse = warehouses.find((warehouse) => String(warehouse._id) === toWarehouseId && warehouse.branchId === values.toBranchId);
+      if (!fromWarehouse || !toWarehouse || values.fromWarehouseId === toWarehouseId) throw fail("Chi nhánh hoặc kho điều chuyển không hợp lệ.");
       const snapshots: InventoryTransferItem[] = [];
       for (const item of values.items) {
         const variant = await ProductVariantModel.findOne({ _id: item.variantId, companyCode: scope.companyCode, status: "active" }).session(session).lean();
@@ -113,7 +119,7 @@ export async function requestInventoryTransfer(scope: Scope, input: any, actor: 
       const transitWarehouseId = String(new Types.ObjectId());
       await WarehouseModel.create([{ _id: transitWarehouseId, companyCode: scope.companyCode, branchId: scope.branchId, code: `VC-${_id}`, name: `Đang vận chuyển ${code}`, kind: "transit", isDefault: false, isActive: true }], { session });
       const [transfer] = await InventoryTransferModel.create([{ _id, companyCode: scope.companyCode, fromBranchId: scope.branchId,
-        fromWarehouseId: values.fromWarehouseId, toBranchId: values.toBranchId, toWarehouseId: values.toWarehouseId,
+        fromWarehouseId: values.fromWarehouseId, toBranchId: values.toBranchId, toWarehouseId,
         code, transitWarehouseId, idempotencyKey: values.idempotencyKey, requestFingerprint, status: "in_transit", items: snapshots, reason: values.reason, createdBy: actor.id, version: 0 }], { session });
       await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: values.fromWarehouseId,
         direction: "out", purpose: "transfer", sourceType: "inventory-transfer", sourceId: String(_id), sourceCode: code,

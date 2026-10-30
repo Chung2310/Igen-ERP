@@ -4,6 +4,12 @@ import { validateTransferRequest } from "./transfer.service";
 describe("phiếu điều chuyển kho", () => {
   const base = { idempotencyKey: "request-001", fromWarehouseId: "source", toWarehouseId: "destination", toBranchId: "branch", reason: "Bổ sung tồn" };
   const variantId = "507f1f77bcf86cd799439011";
+  it("cho phép chọn chi nhánh nhận chưa có kho và vẫn bắt buộc kho gửi", () => {
+    const branchOnly = { ...base, toWarehouseId: undefined };
+    expect(validateTransferRequest({ ...branchOnly, items: [{ variantId, quantity: 1 }] }).toWarehouseId).toBe("");
+    expect(() => validateTransferRequest({ ...branchOnly, fromWarehouseId: "", items: [{ variantId, quantity: 1 }] })).toThrow();
+    expect(() => validateTransferRequest({ ...branchOnly, toBranchId: "", items: [{ variantId, quantity: 1 }] })).toThrow();
+  });
   it("chấp nhận phiếu nhiều dòng và chuẩn hóa IMEI", () => {
     const result = validateTransferRequest({ ...base, items: [
       { variantId, quantity: 2, serialNumbers: [" 123456 ", "789012"] },
