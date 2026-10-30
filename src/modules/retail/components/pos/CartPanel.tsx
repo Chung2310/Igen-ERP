@@ -1,15 +1,18 @@
 import React from "react";
 import {
+  CircleX,
   CreditCard,
   FileText,
   Search,
   Settings,
   ShoppingCart,
   Ticket,
+  Users,
   X,
 } from "lucide-react";
 import { Dropdown } from "../../../../components/common/Dropdown";
 import CustomerPicker from "./CustomerPicker";
+import RetailCollaboratorSelect from "./RetailCollaboratorSelect";
 import RetailPointsInput from "./RetailPointsInput";
 import OrderAdjustments from "./OrderAdjustments";
 import CartCouponPicker from "../coupons/CartCouponPicker";
@@ -45,6 +48,7 @@ export function CartPanel({
   onPay,
 }: CartPanelProps) {
   const [showDiscountModal, setShowDiscountModal] = React.useState(false);
+  const [showCollaboratorModal, setShowCollaboratorModal] = React.useState(false);
   const [showNoteModal, setShowNoteModal] = React.useState(false);
   const [showInstallmentModal, setShowInstallmentModal] = React.useState(false);
 
@@ -232,6 +236,28 @@ export function CartPanel({
           </button>
         </div>
 
+        {/* Người giới thiệu */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowCollaboratorModal(true)}
+            aria-haspopup="dialog"
+            className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-bold transition cursor-pointer shadow-2xs ${
+              cart.collaboratorId
+                ? "border-[#9ec1ff] bg-[#edf3ff] text-[#0844a8]"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+            }`}
+          >
+            <Users className="h-4 w-4 text-slate-500" aria-hidden="true" />
+            <span>Người giới thiệu</span>
+            {cart.collaboratorId && (
+              <span className="rounded-md border border-[#c2d7ff] bg-[#dce9ff] px-1.5 py-0.5 text-[10px] font-bold text-[#0758d5]">
+                Đã chọn
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* Ghi chú và trả góp */}
         <div className="flex items-center gap-2">
           <button
@@ -411,6 +437,74 @@ export function CartPanel({
                 className="rounded-xl bg-[#0866f5] px-5 py-2 text-xs font-bold text-white hover:bg-[#0758d5] cursor-pointer shadow-xs"
               >
                 Áp dụng & Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Collaborator Modal */}
+      {showCollaboratorModal && (
+        <div
+          role="presentation"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowCollaboratorModal(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chọn người giới thiệu"
+            className="relative flex min-h-[300px] w-full max-w-md flex-col justify-between rounded-3xl border border-slate-200 bg-white p-5 text-slate-800 shadow-2xl sm:p-6"
+          >
+            <div>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#edf3ff] text-[#0866f5]" aria-hidden="true">
+                    <Users className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-extrabold leading-tight text-slate-900">Người giới thiệu / CTV</h3>
+                    <p className="text-[11px] text-slate-500">Ghi nhận cộng tác viên giới thiệu đơn hàng</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCollaboratorModal(false)}
+                  aria-label="Đóng người giới thiệu"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <RetailCollaboratorSelect
+                  scope={scope}
+                  value={cart.collaboratorId || ""}
+                  onChange={(collaboratorId) => dispatch({ type: "collaborator", collaboratorId })}
+                />
+                {cart.collaboratorId && (
+                  <button
+                    type="button"
+                    onClick={() => dispatch({ type: "collaborator", collaboratorId: "" })}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg text-xs font-semibold text-rose-600 transition hover:text-rose-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    <CircleX className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    Bỏ chọn người giới thiệu
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setShowCollaboratorModal(false)}
+                className="min-h-10 rounded-xl bg-[#0866f5] px-5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#0758d5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                Xác nhận
               </button>
             </div>
           </div>
