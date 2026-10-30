@@ -101,6 +101,44 @@ describe("điều chuyển kho hai chi nhánh", () => {
     await expect(requestInventoryTransfer({ companyCode, branchId: fromBranchId }, { ...input(), reason: "Yêu cầu khác" }, actor)).rejects.toThrow();
   }, 30_000);
 
+  it("chi nhánh chưa có kho vẫn nhận được điều chuyển và yêu cầu lặp không tạo thêm kho/tồn", async () => {
+    await WarehouseModel.deleteOne({ _id: toWarehouseId });
+    const request = { ...input(), toWarehouseId: undefined };
+    const transfer = await requestInventoryTransfer({ companyCode, branchId: fromBranchId }, request, actor);
+    const id = String(transfer._id);
+    const destination = await WarehouseModel.findById(transfer.toWarehouseId).lean();
+    expect(destination).toMatchObject({ companyCode, branchId: toBranchId, isActive: true, isDefault: true, kind: "selling" });
+    expect(await quantity(transfer.toWarehouseId, quantityVariantId)).toBe(0);
+    const replay = await requestInventoryTransfer({ companyCode, branchId: fromBranchId }, request, actor);
+    expect(String(replay._id)).toBe(id);
+    expect(await WarehouseModel.countDocuments({ companyCode, branchId: toBranchId, isDefault: true })).toBe(1);
+    await receiveInventoryTransfer({ companyCode, branchId: toBranchId }, id, actor);
+    await receiveInventoryTransfer({ companyCode, branchId: toBranchId }, id, actor);
+    expect(await quantity(transfer.toWarehouseId, serialVariantId)).toBe(2);
+    expect(await quantity(transfer.toWarehouseId, quantityVariantId)).toBe(3);
+    expect((await reconcileWarehouse(companyCode, toBranchId, transfer.toWarehouseId)).differenceCount).toBe(0);
+  }, 30_000);
+
+  it("không để lại kho mới khi phiếu thất bại vì không đủ hàng", async () => {
+    await WarehouseModel.deleteOne({ _id: toWarehouseId });
+    await expect(requestInventoryTransfer({ companyCode, branchId: fromBranchId }, {
+      ...input(), toWarehouseId: undefined, items: [{ variantId: quantityVariantId, quantity: 100 }],
+    }, actor)).rejects.toThrow(/không đủ tồn/);
+    expect(await WarehouseModel.countDocuments({ companyCode, branchId: toBranchId })).toBe(0);
+    expect(await InventoryTransferModel.countDocuments({ companyCode })).toBe(0);
+    expect(await quantity(fromWarehouseId, quantityVariantId)).toBe(5);
+  }, 30_000);
+
+  it("không tạo kho hoặc trừ tồn cho chi nhánh nhận ngoài doanh nghiệp hay đã ngừng hoạt động", async () => {
+    await BranchModel.updateOne({ _id: toBranchId }, { $set: { companyCode: "OTHER" } });
+    const request = { ...input(), toWarehouseId: "" };
+    await expect(requestInventoryTransfer({ companyCode, branchId: fromBranchId }, request, actor)).rejects.toThrow(/Chi nhánh nhận/);
+    await BranchModel.updateOne({ _id: toBranchId }, { $set: { companyCode, isActive: false } });
+    await expect(requestInventoryTransfer({ companyCode, branchId: fromBranchId }, request, actor)).rejects.toThrow(/Chi nhánh nhận/);
+    expect(await InventoryTransferModel.countDocuments({ companyCode })).toBe(0);
+    expect(await quantity(fromWarehouseId, quantityVariantId)).toBe(5);
+  }, 30_000);
+
   it("hủy phiếu đang chuyển hoàn tồn gửi và từ chối nhận lại", async () => {
     const transfer = await requestInventoryTransfer({ companyCode, branchId: fromBranchId }, input(), actor);
     const id = String(transfer._id);

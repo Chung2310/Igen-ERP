@@ -17,6 +17,8 @@ type StyledSelectProps = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  appearance?: "default" | "erp";
+  describedBy?: string;
 };
 
 export function StyledSelect({
@@ -27,8 +29,11 @@ export function StyledSelect({
   placeholder = "Chọn một mục",
   disabled = false,
   className = "",
+  appearance = "default",
+  describedBy,
 }: StyledSelectProps) {
   const [open, setOpen] = useState(false);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 280 });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -53,6 +58,7 @@ export function StyledSelect({
 
   const openMenu = () => {
     if (disabled || options.length === 0) return;
+    setPortalRoot(triggerRef.current?.closest("dialog") || document.body);
     updatePosition();
     setOpen(true);
   };
@@ -82,6 +88,8 @@ export function StyledSelect({
     };
     const handleEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
         setOpen(false);
         triggerRef.current?.focus();
       }
@@ -122,6 +130,7 @@ export function StyledSelect({
         ref={triggerRef}
         type="button"
         aria-label={ariaLabel}
+        aria-describedby={describedBy}
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={disabled}
@@ -132,7 +141,7 @@ export function StyledSelect({
             openMenu();
           }
         }}
-        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-[#DCE7F4] bg-white px-3 text-left text-sm font-normal text-slate-700 outline-none transition-colors hover:border-[#B8DFF3] focus-visible:ring-2 focus-visible:ring-[#00ADFC]/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60", className)}
+        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-[#DCE7F4] bg-white px-3 text-left text-sm font-normal text-slate-700 outline-none transition-colors hover:border-[#B8DFF3] focus-visible:ring-2 focus-visible:ring-[#00ADFC]/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60", appearance === "erp" && "border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus-visible:ring-primary/20 disabled:bg-surface", className)}
       >
         <span className={`min-w-0 truncate ${selectedOption ? "" : "text-slate-400"}`}>
           {selectedOption?.label ?? placeholder}
@@ -145,7 +154,7 @@ export function StyledSelect({
           role="listbox"
           aria-label={ariaLabel}
           onKeyDown={handleMenuKeyDown}
-          className="fixed z-[200] overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white p-1.5 text-slate-700 shadow-[0_16px_40px_rgba(11,65,99,0.2)]"
+          className={cn("fixed z-[200] overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white p-1.5 text-slate-700 shadow-[0_16px_40px_rgba(11,65,99,0.2)]", appearance === "erp" && "border-outline-variant bg-surface-container-lowest text-on-surface shadow-xl")}
           style={position}
         >
           {options.map((option, index) => {
@@ -162,14 +171,14 @@ export function StyledSelect({
                   onChange(option.value);
                   closeAndFocus();
                 }}
-                className={`flex min-h-9 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-[#00ADFC] disabled:cursor-not-allowed disabled:opacity-45 ${selected ? "bg-[#E8F7FF] text-[#007EB8]" : "text-slate-700 hover:bg-[#F1F9FD]"}`}
+                className={cn("flex min-h-9 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-[#00ADFC] disabled:cursor-not-allowed disabled:opacity-45", appearance === "erp" ? selected ? "bg-primary/10 text-primary" : "text-on-surface hover:bg-surface" : selected ? "bg-[#E8F7FF] text-[#007EB8]" : "text-slate-700 hover:bg-[#F1F9FD]")}
               >
                 <span className="min-w-0 truncate">{option.label}</span>
                 {selected && <Check className="h-4 w-4 shrink-0 text-[#00ADFC]" aria-hidden="true" />}
               </button>
             );
           })}
-        </div>, document.body,
+        </div>, portalRoot || document.body,
       )}
     </>
   );
