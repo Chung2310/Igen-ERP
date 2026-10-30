@@ -1,4 +1,4 @@
-﻿import type { ClientSession } from "mongoose";
+import type { ClientSession } from "mongoose";
 import { BranchModel } from "../../../model/branch.model";
 import { WarehouseModel } from "../../../model/warehouse.model";
 
@@ -16,7 +16,6 @@ export async function ensureDefaultWarehouse(companyCode: string, branchId: stri
   const branchQuery = BranchModel.findOne({ _id: branchId, companyCode: normalizedCompanyCode, isActive: true });
   if (session) branchQuery.session(session);
   const branch = await branchQuery.lean();
-  if (!branch) throw Object.assign(new Error("Chi nhánh không tồn tại hoặc đã ngừng hoạt động."), { statusCode: 400 });
   const branchCode = normalizeCompanyCode(String(branch?.code || branchId).replace(/[^A-Z0-9_-]/gi, "").slice(0, 24)) || "MAIN";
   const createQuery = WarehouseModel.findOneAndUpdate(
     { companyCode: normalizedCompanyCode, branchId, isDefault: true },
@@ -35,7 +34,7 @@ export async function ensureDefaultWarehouse(companyCode: string, branchId: stri
 }
 
 export async function listWarehouses(companyCode: string, branchId?: string) {
-  return WarehouseModel.find({ companyCode: normalizeCompanyCode(companyCode), ...(branchId ? { branchId } : {}), kind: { $ne: "transit" } }).sort({ branchId: 1, isDefault: -1, name: 1 }).lean();
+  return WarehouseModel.find({ companyCode: normalizeCompanyCode(companyCode), kind: { $ne: "transit" }, ...(branchId ? { branchId } : {}) }).sort({ branchId: 1, isDefault: -1, name: 1 }).lean();
 }
 
 export async function getWarehouse(companyCode: string, branchId: string, warehouseId: string) {

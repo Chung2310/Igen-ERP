@@ -68,6 +68,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 DEFAULT_ROLE_PERMISSIONS.admin.push("retail-partner:manage", "retail-partner-policy:manage", "retail-partner-payout:manage", "retail-shift-approve:manage", "retail-shift-assign:manage", "retail-payment-review:manage", "retail-coupon:manage", "retail-points:manage");
 DEFAULT_ROLE_PERMISSIONS.admin.push("repair:manage");
+DEFAULT_ROLE_PERMISSIONS.admin.push("inventory-count-approval:manage");
 // repair:read tách khỏi repair:manage nên phải cấp riêng, nếu không mọi API GET của
 // module sửa chữa trả 403 kể cả với admin.
 DEFAULT_ROLE_PERMISSIONS.admin.push("repair:read");

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
@@ -19,6 +19,7 @@ type StyledSelectProps = {
   className?: string;
   appearance?: "default" | "erp";
   describedBy?: string;
+  required?: boolean;
 };
 
 export function StyledSelect({
@@ -31,8 +32,10 @@ export function StyledSelect({
   className = "",
   appearance = "default",
   describedBy,
+  required = false,
 }: StyledSelectProps) {
   const [open, setOpen] = useState(false);
+  const [invalid, setInvalid] = useState(false);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 280 });
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -40,7 +43,7 @@ export function StyledSelect({
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const selectedOption = options.find((option) => option.value === value);
 
-  const updatePosition = () => {
+  const updatePosition = useCallback(() => {
     const bounds = triggerRef.current?.getBoundingClientRect();
     if (!bounds) return;
     const desiredHeight = Math.min(280, options.length * 40 + 12);
@@ -54,7 +57,7 @@ export function StyledSelect({
       width: Math.min(bounds.width, window.innerWidth - 24),
       maxHeight,
     });
-  };
+  }, [options.length]);
 
   const openMenu = () => {
     if (disabled || options.length === 0) return;
@@ -76,7 +79,7 @@ export function StyledSelect({
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("scroll", handleScroll, true);
     };
-  }, [open]);
+  }, [open, updatePosition]);
 
   useEffect(() => {
     if (!open) return;
@@ -131,6 +134,8 @@ export function StyledSelect({
         type="button"
         aria-label={ariaLabel}
         aria-describedby={describedBy}
+        aria-required={required || undefined}
+        aria-invalid={invalid && required && !value || undefined}
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={disabled}
@@ -148,6 +153,20 @@ export function StyledSelect({
         </span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-[#007EB8] transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
+      {required && <select
+        aria-hidden="true"
+        tabIndex={-1}
+        className="sr-only"
+        required
+        disabled={disabled}
+        value={value}
+        onChange={(event) => { setInvalid(false); onChange(event.target.value); }}
+        onInvalid={(event) => { event.preventDefault(); setInvalid(true); triggerRef.current?.focus(); }}
+      >
+        {!options.some((option) => option.value === "") && <option value="">{placeholder}</option>}
+        {options.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
+      </select>}
+      {invalid && required && !value && !disabled && <span role="alert" className="block text-xs text-error">Vui lòng chọn một mục.</span>}
       {open && createPortal(
         <div
           ref={menuRef}
@@ -168,6 +187,7 @@ export function StyledSelect({
                 aria-selected={selected}
                 disabled={option.disabled}
                 onClick={() => {
+                  setInvalid(false);
                   onChange(option.value);
                   closeAndFocus();
                 }}

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { BarChart3, ShieldCheck, Wrench } from "lucide-react";
-import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
+import { Wrench, ShieldCheck, BarChart3 } from "lucide-react";
 import WarrantyLookupSection from "../components/inventory/WarrantyLookupSection";
-import RepairBoardPage, { type RepairCreatePrefill } from "../modules/repair/RepairBoardPage";
+import RepairBoardPage, {
+  type RepairCreatePrefill,
+} from "../modules/repair/RepairBoardPage";
 import RepairReportsPanel from "../modules/repair/RepairReportsPanel";
 
 const TABS = [
@@ -15,22 +16,56 @@ type RepairView = (typeof TABS)[number]["key"];
 export default function RepairTab() {
   const [view, setView] = useState<RepairView>("warranty");
   const [prefill, setPrefill] = useState<RepairCreatePrefill | null>(null);
+
   useEffect(() => {
-    const openRepair = (event: Event) => { setPrefill((event as CustomEvent<RepairCreatePrefill>).detail); setView("repair"); };
+    const openRepair = (event: Event) => {
+      setPrefill((event as CustomEvent<RepairCreatePrefill>).detail);
+      setView("repair");
+    };
     window.addEventListener("inventory:open-repair", openRepair);
-    return () => window.removeEventListener("inventory:open-repair", openRepair);
-  }, []);
-  return <div className="flex h-full min-h-0 flex-col bg-surface" id="repair_tab_wrapper">
-    <h1 className="sr-only text-balance">Bảo hành và sửa chữa</h1>
-    <ModuleNavigation label="Mục Sửa chữa và bảo hành" activeValue={view}>
-      {TABS.map(tab => <ModuleNavigationButton key={tab.key} active={view === tab.key} icon={<tab.icon />} onClick={() => setView(tab.key)}>{tab.label}</ModuleNavigationButton>)}
-    </ModuleNavigation>
-    <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
-      <div className="mx-auto w-full max-w-screen-2xl">
+    return () =>
+      window.removeEventListener("inventory:open-repair", openRepair);
+  }, [setView]);
+
+  return (
+    <div className="space-y-4">
+      {/* Top Tab Bar Switcher */}
+      <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
+        <div className="flex gap-1 rounded-xl border border-slate-200/80 bg-white p-1 shadow-2xs">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const active = view === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                aria-current={active ? "page" : undefined}
+                onClick={() => setView(tab.key)}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  active
+                    ? "bg-cyan-600 text-white shadow-xs"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                <Icon className={`h-3.5 w-3.5 ${active ? "text-white" : "text-slate-400"}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tab View Content */}
+      <div className="min-h-0">
+        {view === "repair" && (
+          <RepairBoardPage
+            createPrefill={prefill}
+            onCreatePrefillConsumed={() => setPrefill(null)}
+          />
+        )}
         {view === "warranty" && <WarrantyLookupSection />}
-        {view === "repair" && <RepairBoardPage createPrefill={prefill} onCreatePrefillConsumed={() => setPrefill(null)} />}
         {view === "reports" && <RepairReportsPanel />}
       </div>
     </div>
-  </div>;
+  );
 }

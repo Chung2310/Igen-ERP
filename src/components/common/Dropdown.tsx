@@ -25,6 +25,7 @@ export interface DropdownProps<T = string> {
   size?: "xs" | "sm" | "md";
   searchable?: boolean;
   searchPlaceholder?: string;
+  onSearchChange?: (query: string) => void;
   align?: "left" | "right";
   direction?: "down" | "up" | "auto";
   name?: string;
@@ -53,6 +54,7 @@ export function Dropdown<T = string>({
   size,
   searchable,
   searchPlaceholder = "Tìm kiếm...",
+  onSearchChange,
   align = "left",
   direction = "auto",
   name,
@@ -69,6 +71,7 @@ export function Dropdown<T = string>({
   // Recalculate opening direction
   useEffect(() => {
     if (direction === "up") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve existing DOM-based menu positioning when its direction changes.
       setOpenUpward(true);
       return;
     }
@@ -204,7 +207,7 @@ export function Dropdown<T = string>({
         aria-label={name ? undefined : (ariaLabel || label || (selectedOption ? selectedOption.label : placeholder))}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => { if (disabled) return; if (!isOpen) onSearchChange?.(""); setIsOpen(!isOpen); }}
         className={`inline-flex items-center justify-between transition-all duration-150 select-none cursor-pointer focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-100 ${variantStyles} ${sizeStyles} ${
           isFullWidth && !triggerClassName.includes("w-") ? "w-full" : ""
         } ${
@@ -235,13 +238,13 @@ export function Dropdown<T = string>({
         <select
           name={name}
           aria-label={ariaLabel}
-          value={value as any}
+          value={String(value)}
           onChange={(e) => onChange(e.target.value as T)}
           tabIndex={-1}
           className="sr-only pointer-events-none absolute h-0 w-0 opacity-0"
         >
           {normalizedOptions.map((opt) => (
-            <option key={String(opt.value)} value={opt.value as any}>
+            <option key={String(opt.value)} value={String(opt.value)}>
               {opt.label}
             </option>
           ))}
@@ -270,14 +273,14 @@ export function Dropdown<T = string>({
                 type="text"
                 placeholder={searchPlaceholder}
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); onSearchChange?.(e.target.value); }}
                 className="w-full rounded-lg bg-slate-50 border border-slate-200 py-1 pl-7 pr-6 text-xs text-slate-700 placeholder:text-slate-400 focus:bg-white focus:border-cyan-500 focus:outline-none"
               />
               {searchQuery && (
                 <button
                   type="button"
                   aria-label="Xóa tìm kiếm"
-                  onClick={() => setSearchQuery("")}
+                  onClick={() => { setSearchQuery(""); onSearchChange?.(""); }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
                 >
                   <X className="h-3 w-3" />

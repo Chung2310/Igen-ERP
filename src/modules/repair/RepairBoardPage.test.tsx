@@ -54,7 +54,8 @@ test("transitions a received ticket with the selected technician", async () => {
   render(<RepairBoardPage />);
 
   await user.click(await screen.findByRole("button", { name: "Chuyển bước tiếp" }));
-  await user.selectOptions(screen.getByLabelText("Kỹ thuật viên tiếp nhận"), "tech-1");
+  await user.click(screen.getByRole("button", { name: "Kỹ thuật viên tiếp nhận" }));
+  await user.click(screen.getByRole("option", { name: "Nguyễn Văn Kỹ Thuật" }));
   await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Chuyển bước tiếp" }));
 
   expect(repairService.transition).toHaveBeenCalledWith("repair-1", "diagnosing", { technicianId: "tech-1" });

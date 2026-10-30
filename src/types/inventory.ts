@@ -1,4 +1,4 @@
-export type InventorySubTabType = "SẢN PHẨM" | "KHO HÀNG" | "NHẬP HÀNG" | "XUẤT HÀNG" | "ĐIỀU CHUYỂN" | "ĐỐI SOÁT TỒN KHO" | "GIAO DỊCH KHO" | "DỰ BÁO" | "IMEI / SERIAL" | "PHÂN LOẠI SẢN PHẨM" | "DANH MỤC" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
+export type InventorySubTabType = "ĐIỀU CHUYỂN" | "SẢN PHẨM" | "KHO HÀNG" | "NHẬP HÀNG" | "XUẤT HÀNG" | "GIAO DỊCH KHO" | "DỰ BÁO" | "IMEI / SERIAL" | "PHÂN LOẠI SẢN PHẨM" | "DANH MỤC" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
 
 export interface ProductItem {
   id: string;
@@ -27,7 +27,6 @@ export interface ProductCategory {
 }
 
 export interface StockLogItem {
-  unitCode?: string;
   productId: string;
   variantId?: string;
   sku: string;
@@ -64,6 +63,7 @@ export interface StockLog {
   createdAt: string;
   notes: string;
   status: "Thành công" | "Đang xử lý" | "Đang chờ" | "Hoàn thành";
+  warehouseId?: string;
 }
 
 export interface InventoryForecastSeriesPoint {
@@ -89,7 +89,6 @@ export interface InventoryForecastItem {
   suggestedReorderQty: number;
   overstockDays: number | null;
   riskLevel: "high" | "medium" | "low";
-  validation: { evaluated: boolean; accepted: boolean; actual14Days: number; predicted14Days: number; errorPercent: number | null };
   series: InventoryForecastSeriesPoint[];
 }
 
@@ -107,5 +106,4 @@ export interface InventoryForecastSummary {
   recommendations: InventoryForecastRecommendation[];
   warningItems: InventoryForecastItem[];
   hasHistoricalDemand: boolean;
-  validatedSkuCount: number;
 }

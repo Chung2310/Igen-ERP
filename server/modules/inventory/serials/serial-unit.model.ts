@@ -13,6 +13,7 @@ const SerialUnitSchema = new Schema<ISerialUnit>({
   productName: { type: String, required: true, trim: true },
   internalBarcode: { type: String, required: true, trim: true },
   normalizedInternalBarcode: { type: String, required: true, trim: true },
+  globalBarcodeKey: { type: String, trim: true },
   barcodeAliases: { type: [String], default: undefined },
   normalizedBarcodeAliases: { type: [String], default: undefined },
   serialNumber: { type: String, required: true, trim: true },
@@ -21,7 +22,7 @@ const SerialUnitSchema = new Schema<ISerialUnit>({
   imei2: { type: String, trim: true },
   normalizedImeis: { type: [String], default: undefined },
   status: { type: String, enum: ["in_stock", "in_transit", "internal_use", "sold", "returned", "defective", "repairing", "scrapped", "lost"], required: true, default: "in_stock", index: true },
-  internalUse: { type: { recipientName: String, issuedAt: Date, stockLogId: String, unitCost: Number }, required: false },
+  internalUse: { type: { recipientName: { type: String, required: true }, issuedAt: { type: Date, required: true }, stockLogId: { type: String, required: true }, unitCost: { type: Number, required: true, min: 0 } }, required: false },
   currentDocumentType: { type: String, trim: true },
   currentDocumentId: { type: String, index: true },
   customerId: { type: String, index: true },
@@ -38,10 +39,10 @@ const SerialUnitSchema = new Schema<ISerialUnit>({
 
 SerialUnitSchema.index({ companyCode: 1, normalizedSerialNumber: 1 }, { unique: true });
 SerialUnitSchema.index({ companyCode: 1, normalizedInternalBarcode: 1 }, { unique: true });
+SerialUnitSchema.index({ globalBarcodeKey: 1 }, { name: "unique_global_unit_barcode", unique: true, partialFilterExpression: { globalBarcodeKey: { $type: "string" } } });
 SerialUnitSchema.index({ companyCode: 1, normalizedBarcodeAliases: 1 }, { name: "unit_barcode_alias_lookup" });
-SerialUnitSchema.index({ companyCode: 1, normalizedImeis: 1 }, { name: "unit_imei_lookup" });
+SerialUnitSchema.index({ companyCode: 1, normalizedImeis: 1 }, { name: "unique_company_unit_imei", unique: true, partialFilterExpression: { normalizedImeis: { $type: "array" } } });
 SerialUnitSchema.index({ companyCode: 1, branchId: 1, status: 1 });
-SerialUnitSchema.index({ companyCode: 1, soldBranchId: 1, customerId: 1, status: 1, soldAt: -1 });
 SerialUnitSchema.index({ companyCode: 1, "customerWarranty.endAt": 1 });
 SerialUnitSchema.index({ companyCode: 1, "supplierWarranty.endAt": 1, status: 1 });
 

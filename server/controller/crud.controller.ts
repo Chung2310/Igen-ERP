@@ -311,7 +311,7 @@ export const crudController = {
         req.body.status = "pending";
       }
 
-      const item = await crudService.create(modelName, req.body, companyCode, req.user?.branchId);
+      const item = await crudService.create(modelName, req.body, companyCode, req.user?.branchId, { actor: { id: req.user!.id, name: req.user?.displayName || req.user!.email } });
       await crudResourceFinalizationService.finalize(modelName, { ...req.body, ...item }, {
         companyCode,
         branchId: req.user?.branchId,
@@ -517,7 +517,7 @@ export const crudController = {
         }
       }
 
-      const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole, req.user?.branchId);
+      const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole, req.user?.branchId, { actor: { id: req.user!.id, name: req.user?.displayName || req.user!.email } });
       await crudResourceFinalizationService.finalize(modelName, { ...req.body, ...item, _id: (item as any)?._id || id }, {
         companyCode,
         branchId: req.user?.branchId,

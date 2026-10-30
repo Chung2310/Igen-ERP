@@ -29,6 +29,8 @@ test('announces report loading and preserves the existing grouping action', asyn
   expect(screen.getByRole('status').textContent).toContain('Đang tải báo cáo');
   resolve({ items: [], total });
   await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
-  await userEvent.setup().selectOptions(screen.getByLabelText('Nhóm theo'), 'technician');
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Nhóm theo' }));
+  await user.click(screen.getByRole('option', { name: 'Kỹ thuật viên' }));
   await waitFor(() => expect(mocks.revenue).toHaveBeenLastCalledWith(expect.objectContaining({ groupBy: 'technician' })));
 });

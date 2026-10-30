@@ -3,6 +3,7 @@ import { requirePermission } from "../../../middleware/auth";
 import { serialUnitController } from "./serial-unit.controller";
 
 export const serialUnitRouter = Router();
+serialUnitRouter.post("/barcodes/allocate", requirePermission("inventory:manage") as any, serialUnitController.allocateBarcodes as any);
 serialUnitRouter.get("/", requirePermission("inventory:read") as any, serialUnitController.list as any);
 serialUnitRouter.get("/:id/history", requirePermission("inventory:read") as any, serialUnitController.history as any);
 serialUnitRouter.get("/:id", requirePermission("inventory:read") as any, serialUnitController.detail as any);

@@ -6,6 +6,7 @@ import { InventoryLedgerEntryModel } from "../../../model/inventory-ledger-entry
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
 import { ProductTemplateModel } from "../../../model/product-template.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
+import { SerialUnitModel } from "../serials/serial-unit.model";
 import {
   ProductCatalogBrandModel,
   ProductCatalogCategoryModel,
@@ -28,6 +29,20 @@ const FIELD_TYPES: ProductTemplateFieldType[] = ["text", "number", "boolean", "s
 const PRODUCT_STATUSES = ["draft", "active", "inactive", "archived"] as const;
 const VARIANT_STATUSES = ["active", "inactive", "discontinued"] as const;
 const DEFAULT_UNIT_CODE = "UOM-CAI";
+
+type VariantIdentity = { _id: unknown; sku: string; trackingMode: string };
+async function assertVariantIdentityEditable(companyCode: string, current: VariantIdentity, next: Partial<Pick<VariantIdentity, "sku" | "trackingMode">>) {
+  if (current.sku === (next.sku ?? current.sku) && current.trackingMode === (next.trackingMode ?? current.trackingMode)) return;
+  const hasHistory = await Promise.all([
+    InventoryBalanceModel.exists({ companyCode, variantId: String(current._id), $or: [{ quantity: { $gt: 0 } }, { reservedQuantity: { $gt: 0 } }] }),
+    InventoryLedgerEntryModel.exists({ companyCode, variantId: String(current._id) }),
+    SerialUnitModel.exists({ companyCode, variantId: String(current._id) }),
+    GoodsReceiptModel.exists({ companyCode, "items.variantId": String(current._id) }),
+  ]);
+  if (hasHistory.some(Boolean)) {
+    throw new ProductCatalogValidationError("Không thể đổi SKU hoặc cách theo dõi sau khi SKU đã phát sinh tồn hay chứng từ kho. Hãy lập SKU mới hoặc dùng quy trình chuyển đổi dữ liệu.");
+  }
+}
 const FORBIDDEN_CATALOG_FIELDS = [
   "companyCode",
   "branchId",
@@ -721,6 +736,7 @@ export const ProductCatalogService = {
       status: current.status,
       ...input,
     }, product.productType);
+    await assertVariantIdentityEditable(companyCode, current, normalized);
     if (normalized.status === "active" && (product.status === "inactive" || product.status === "archived")) {
       throw new ProductCatalogValidationError("Không thể mở bán SKU đang hoạt động cho sản phẩm đã ngừng hoạt động hoặc lưu trữ.");
     }
@@ -753,6 +769,9 @@ export const ProductCatalogService = {
     const productById = new Map(products.map((product: any) => [String(product._id), product]));
     if (updates.status === "active" && variants.some((variant: any) => productById.get(String(variant.productId))?.status !== "active")) throw new ProductCatalogValidationError("Chỉ sản phẩm đang hoạt động mới được mở bán SKU.");
     if (updates.trackingMode === "none" && variants.some((variant: any) => productById.get(String(variant.productId))?.productType !== "service")) throw new ProductCatalogValidationError("Sản phẩm hàng hóa phải theo dõi số lượng, lô hoặc số sê-ri.");
+    if (updates.trackingMode !== undefined) {
+      for (const variant of variants) await assertVariantIdentityEditable(companyCode, variant, { ...variant, trackingMode: updates.trackingMode });
+    }
     await ProductVariantModel.updateMany({ _id: { $in: uniqueIds }, companyCode }, { $set: { ...updates, updatedBy } });
     return ProductVariantModel.find({ _id: { $in: uniqueIds }, companyCode }).sort({ sku: 1 }).lean();
   },

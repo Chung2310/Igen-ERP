@@ -1,230 +1,177 @@
-import mongoose, { Types, type ClientSession } from "mongoose";
 import { createHash } from "node:crypto";
-import { BranchModel } from "../../../model/branch.model";
+import { Types, type ClientSession } from "mongoose";
+import { InventoryTransferModel } from "./transfer.model";
+import { inInventoryTransaction } from "../inventory-transaction";
+import { inventoryError, rejectScopeOverrides, resolveInventoryVariant, resolveInventoryWarehouse, type InventoryScope } from "../inventory-scope";
 import { WarehouseModel } from "../../../model/warehouse.model";
+import { BranchModel } from "../../../model/branch.model";
 import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
-import { ProductVariantModel } from "../../../model/product-variant.model";
-import { ProductCatalogModel } from "../../../model/product-catalog.model";
-import { writeStockMovement } from "../../../integrations/shared/stock-movement.service";
 import { SerialUnitModel } from "../serials/serial-unit.model";
 import { SerialEventModel } from "../serials/serial-event.model";
-import { InventoryTransferModel, type InventoryTransferItem, type InventoryTransfer } from "./transfer.model";
-import { InventoryStockReversalModel } from "./stock-reversal.model";
-import { normalizeSerialNumber } from "../serials/serial-state";
-import { stockQuantityTolerance } from "../../../integrations/shared/inventory-quantity";
+import { writeStockMovement } from "../../../integrations/shared/stock-movement.service";
 import { ensureDefaultWarehouse } from "../warehouse/warehouse.service";
 
-type Scope = { companyCode: string; branchId: string };
-type Actor = { id: string; name: string };
-const fail = (message: string, status = 400) => Object.assign(new Error(message), { status });
-const asItems = (items: InventoryTransferItem[]) => items.map((item) => ({ productId: item.productId, variantId: item.variantId, sku: item.sku, productName: item.productName, quantity: item.quantity, unitCost: item.unitCost }));
+export type TransferActor = { id: string; name: string };
+// Existing ERP transfers keep their recorded stock legs; only project missing
+// display metadata into the Retail contract, without rewriting historical stock.
+async function transferViews<T extends { fromWarehouseId: string; toWarehouseId: string; transferCode?: string; code?: string; createdByName?: string; createdBy?: string; fromWarehouseName?: string; toWarehouseName?: string }>(companyCode: string, documents: T[]) {
+  const ids = [...new Set(documents.flatMap((document) => [document.fromWarehouseId, document.toWarehouseId]))];
+  const warehouses = await WarehouseModel.find({ companyCode, _id: { $in: ids } }).select("name").lean();
+  const names = new Map(warehouses.map((warehouse) => [String(warehouse._id), warehouse.name]));
+  return documents.map((document) => ({ ...document, transferCode: document.transferCode || document.code || "", fromWarehouseName: document.fromWarehouseName || names.get(document.fromWarehouseId) || document.fromWarehouseId, toWarehouseName: document.toWarehouseName || names.get(document.toWarehouseId) || document.toWarehouseId, createdByName: document.createdByName || document.createdBy || "" }));
+}
+export type TransferInput = {
+  fromWarehouseId: string; toBranchId: string; toWarehouseId?: string; reason: string; idempotencyKey: string;
+  items: Array<{ productId: string; variantId: string; sku?: string; quantity: number; unitIdentifiers?: string[] }>;
+};
+const text = (value: unknown) => String(value || "").trim();
+const scoped = (scope: InventoryScope) => ({ companyCode: scope.companyCode, $or: [{ fromBranchId: scope.branchId }, { toBranchId: scope.branchId }] });
+function actorRequired(actor: TransferActor) { if (!text(actor.id) || !text(actor.name)) inventoryError("Thiếu người thực hiện điều chuyển."); }
+function normalize(input: TransferInput) {
+  rejectScopeOverrides(input);
+  const result = { fromWarehouseId: text(input.fromWarehouseId), toBranchId: text(input.toBranchId), toWarehouseId: text(input.toWarehouseId), reason: text(input.reason), idempotencyKey: text(input.idempotencyKey), items: Array.isArray(input.items) ? input.items.map((item) => ({ productId: text(item?.productId), variantId: text(item?.variantId), sku: text(item?.sku).toUpperCase(), quantity: Number(item?.quantity), unitIdentifiers: Array.isArray(item?.unitIdentifiers) ? item.unitIdentifiers.map((code) => text(code).toUpperCase()).sort() : [] })) : [] };
+  if (!result.reason || !result.idempotencyKey || result.idempotencyKey.length > 160) inventoryError("Lý do và khóa yêu cầu điều chuyển là bắt buộc.");
+  if (!Types.ObjectId.isValid(result.fromWarehouseId) || !Types.ObjectId.isValid(result.toBranchId) || (result.toWarehouseId && !Types.ObjectId.isValid(result.toWarehouseId))) inventoryError("Kho hoặc chi nhánh điều chuyển không hợp lệ.");
+  if (!result.items.length || result.items.length > 100) inventoryError("Phiếu điều chuyển cần từ 1 đến 100 dòng SKU.");
+  const variants = new Set<string>();
+  for (const item of result.items) {
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0 || variants.has(item.variantId)) inventoryError("Số lượng phải dương và mỗi SKU chỉ xuất hiện một lần.");
+    variants.add(item.variantId);
+  }
+  return result;
+}
 
-async function assertTransitBalance(transfer: InventoryTransfer, session: ClientSession) {
-  if (!transfer.transitWarehouseId) return;
-  for (const item of transfer.items as InventoryTransferItem[]) {
-    const balance = await InventoryBalanceModel.findOne({ companyCode: transfer.companyCode, branchId: transfer.fromBranchId, warehouseId: transfer.transitWarehouseId, productId: item.productId, variantId: item.variantId }).session(session).lean();
-    if (!balance || Math.abs(balance.quantity - item.quantity) > 0.000001 || balance.reservedQuantity !== 0 || Math.abs(balance.averageCost - item.unitCost) > 0.000001) throw fail('Tồn hoặc giá vốn đang vận chuyển không khớp phiếu. Cần đối soát trước khi nhận/hủy.', 409);
+async function events(document: any, actor: TransferActor, eventType: string, fromStatus: string, toStatus: string, branchId: string, session: ClientSession, reason?: string) {
+  for (const item of document.items) for (const serialUnitId of item.serialUnitIds) {
+    const unit = await SerialUnitModel.findOne({ _id: serialUnitId, companyCode: document.companyCode }).session(session);
+    await SerialEventModel.create([{ companyCode: document.companyCode, branchId, serialUnitId, serialNumber: unit!.serialNumber, eventType, fromStatus, toStatus, documentType: "inventory-transfer", documentId: String(document._id), reason: reason || document.reason, actorId: actor.id, actorName: actor.name }], { session });
   }
 }
 
-async function moveSerials(transfer: any, from: "in_stock" | "in_transit", to: "in_stock" | "in_transit", branchId: string, warehouseId: string, eventType: string, actor: Actor, session: ClientSession) {
-  for (const item of transfer.items as InventoryTransferItem[]) {
-    for (const id of item.serialUnitIds) {
-      const filter: Record<string, unknown> = { _id: id, companyCode: transfer.companyCode, variantId: item.variantId, status: from, currentDocumentId: from === "in_transit" ? String(transfer._id) : { $ne: String(transfer._id) } };
-      if (from === "in_stock") Object.assign(filter, { branchId, warehouseId });
-      else Object.assign(filter, { branchId: transfer.fromBranchId, warehouseId: transfer.transitWarehouseId || transfer.fromWarehouseId, transferToBranchId: transfer.toBranchId, currentDocumentType: "inventory-transfer" });
-      const update = to === "in_transit"
-        ? { $set: { status: to, warehouseId: transfer.transitWarehouseId || warehouseId, transferToBranchId: transfer.toBranchId, transferToWarehouseId: transfer.toWarehouseId, currentDocumentType: "inventory-transfer", currentDocumentId: String(transfer._id), updatedBy: actor.id } }
-        : { $set: { status: to, branchId, warehouseId, currentDocumentType: "inventory-transfer", currentDocumentId: String(transfer._id), updatedBy: actor.id }, $unset: { transferToBranchId: 1, transferToWarehouseId: 1 } };
-      const unit = await SerialUnitModel.findOneAndUpdate(filter, update, { returnDocument: "after", session });
-      if (!unit) throw fail(`Đơn vị hàng của ${item.sku} đã thay đổi trạng thái hoặc không ở kho hợp lệ.`, 409);
-      await SerialEventModel.create([{ companyCode: transfer.companyCode, branchId, serialUnitId: id, serialNumber: unit.serialNumber,
-        eventType, fromStatus: from, toStatus: to, documentType: "inventory-transfer", documentId: String(transfer._id),
-        reason: transfer.reason, actorId: actor.id, actorName: actor.name }], { session });
-    }
-  }
-}
-
-export function validateTransferRequest(input: any) {
-  if (!input || typeof input !== "object" || Array.isArray(input)) throw fail("Dữ liệu điều chuyển không hợp lệ.");
-  if (["companyCode", "branchId", "_id", "createdBy"].some((key) => Object.hasOwn(input, key))) throw fail("Không được thay đổi phạm vi hoặc người tạo phiếu điều chuyển.");
-  const idempotencyKey = String(input.idempotencyKey || "").trim();
-  const toBranchId = String(input.toBranchId || "").trim();
-  const fromWarehouseId = String(input.fromWarehouseId || "").trim();
-  const toWarehouseId = String(input.toWarehouseId || "").trim();
-  const reason = String(input.reason || "").trim();
-  if (!toBranchId || !fromWarehouseId || !reason) throw fail("Chi nhánh nhận, kho gửi và lý do điều chuyển là bắt buộc.");
-  if (!/^[A-Za-z0-9_-]{8,100}$/.test(idempotencyKey)) throw fail("Khóa chống gửi lặp của phiếu không hợp lệ.");
-  if (!Array.isArray(input.items) || !input.items.length || input.items.length > 100) throw fail("Phiếu phải có từ 1 đến 100 dòng hàng.");
-  const ids = new Set<string>();
-  const serialIds = new Set<string>();
-  const items = input.items.map((raw: any) => {
-    if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.serialNumbers !== undefined && !Array.isArray(raw.serialNumbers)) throw fail("Dòng hàng hoặc danh sách định danh không hợp lệ.");
-    const variantId = String(raw.variantId || "").trim().toLowerCase();
-    const quantity = Number(raw.quantity);
-    if (raw.serialNumbers?.some((value: unknown) => typeof value !== "string" || !value.trim())) throw fail("Mã đơn vị trong phiếu bị trùng hoặc rỗng.");
-    const units: string[] = Array.isArray(raw.serialNumbers) ? raw.serialNumbers.map((value: unknown) => normalizeSerialNumber(String(value))) : [];
-    if (!Types.ObjectId.isValid(variantId) || !Number.isFinite(quantity) || quantity < 0.000001 || quantity > Number.MAX_SAFE_INTEGER || ids.has(variantId)) throw fail("Dòng hàng trùng hoặc số lượng không hợp lệ.");
-    if (units.some((id: string) => !id || serialIds.has(id)) || new Set(units).size !== units.length) throw fail("Mã đơn vị trong phiếu bị trùng hoặc rỗng.");
-    ids.add(variantId); units.forEach((id: string) => serialIds.add(id));
-    return { variantId, quantity, serialNumbers: units };
-  });
-  return { idempotencyKey, toBranchId, fromWarehouseId, toWarehouseId, reason, items };
-}
-
-export async function requestInventoryTransfer(scope: Scope, input: any, actor: Actor) {
-  if (!actor.id?.trim() || !actor.name?.trim()) throw fail("Thiếu người thực hiện điều chuyển.");
-  const values = validateTransferRequest(input);
-  const requestFingerprint = createHash("sha256").update(JSON.stringify({ scope, values })).digest("hex");
-  const prior = await InventoryTransferModel.findOne({ companyCode: scope.companyCode, idempotencyKey: values.idempotencyKey }).lean();
-  if (prior) {
-    if (prior.requestFingerprint !== requestFingerprint) throw fail("Khóa yêu cầu đã được dùng cho phiếu khác.", 409);
-    return prior;
-  }
-  const session = await mongoose.startSession();
+export async function createTransfer(scope: InventoryScope, raw: TransferInput, actor: TransferActor) {
+  actorRequired(actor);
+  const input = normalize(raw);
+  if (scope.warehouseId && input.fromWarehouseId !== scope.warehouseId) inventoryError("Kho gửi không thuộc phạm vi đang thao tác.", 403);
+  const fingerprint = createHash("sha256").update(JSON.stringify(input)).digest("hex");
+  const replay = (doc: any) => {
+    if (doc.fromBranchId !== scope.branchId || doc.requestFingerprint !== fingerprint) inventoryError("Khóa điều chuyển đã được dùng cho nội dung khác.", 409);
+    return doc.toObject();
+  };
   try {
-    let result: any;
-    await session.withTransaction(async () => {
-      const toBranch = await BranchModel.findOne({ _id: values.toBranchId, companyCode: scope.companyCode, isActive: true }).session(session).lean();
-      if (!toBranch) throw fail("Chi nhánh nhận không tồn tại hoặc đã ngừng hoạt động.");
-      const destination = values.toWarehouseId
-        ? null
-        : await ensureDefaultWarehouse(scope.companyCode, values.toBranchId, session);
-      const toWarehouseId = values.toWarehouseId || String(destination?._id || "");
-      const warehouses = await WarehouseModel.find({ companyCode: scope.companyCode, isActive: true, kind: { $ne: "transit" }, _id: { $in: [values.fromWarehouseId, toWarehouseId] } }).session(session).lean();
-      const fromWarehouse = warehouses.find((warehouse) => String(warehouse._id) === values.fromWarehouseId && warehouse.branchId === scope.branchId);
-      const toWarehouse = warehouses.find((warehouse) => String(warehouse._id) === toWarehouseId && warehouse.branchId === values.toBranchId);
-      if (!fromWarehouse || !toWarehouse || values.fromWarehouseId === toWarehouseId) throw fail("Chi nhánh hoặc kho điều chuyển không hợp lệ.");
-      const snapshots: InventoryTransferItem[] = [];
-      for (const item of values.items) {
-        const variant = await ProductVariantModel.findOne({ _id: item.variantId, companyCode: scope.companyCode, status: "active" }).session(session).lean();
-        if (!variant) throw fail("SKU điều chuyển không tồn tại hoặc đã ngừng hoạt động.");
-        const product = await ProductCatalogModel.findOne({ _id: variant.productId, companyCode: scope.companyCode, status: "active", productType: { $in: ["physical", "bundle"] } }).session(session).lean();
-        const balance = await InventoryBalanceModel.findOne({ companyCode: scope.companyCode, warehouseId: values.fromWarehouseId, variantId: item.variantId }).session(session).lean();
-        if (!product || !balance) throw fail("Không tìm thấy hàng trong kho gửi.");
-        if (Number(balance.quantity) - Number(balance.reservedQuantity) + stockQuantityTolerance(balance.quantity, balance.reservedQuantity, item.quantity) < item.quantity) throw fail(`SKU ${variant.sku} không đủ tồn khả dụng.`, 409);
-        const serialTracked = variant.trackingMode === "serial" || variant.trackingMode === "unit_barcode";
-        if (serialTracked && (!Number.isSafeInteger(item.quantity) || item.serialNumbers.length !== item.quantity) || !serialTracked && item.serialNumbers.length) throw fail(`SKU ${variant.sku} phải khai báo đúng số sê-ri/mã đơn vị; hàng theo từng đơn vị cần số lượng nguyên.`);
-        const serialUnits = [];
-        for (const identifier of item.serialNumbers) {
-          const matches = await SerialUnitModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: values.fromWarehouseId, productId: String(variant.productId), variantId: item.variantId, status: "in_stock", $or: [{ normalizedSerialNumber: identifier }, { normalizedInternalBarcode: identifier }, { normalizedBarcodeAliases: identifier }] }).session(session).lean();
-          if (matches.length !== 1 || serialUnits.some((unit) => String(unit._id) === String(matches[0]._id))) throw fail(`Mã ${identifier} không thuộc SKU/kho gửi, không sẵn sàng hoặc đã được chọn.`, 409);
-          serialUnits.push(matches[0]);
-        }
-        snapshots.push({ productId: String(variant.productId), variantId: item.variantId, sku: variant.sku, productName: product.name,
-          quantity: item.quantity, unitCost: Number(balance.averageCost || 0), serialUnitIds: serialUnits.map((unit) => String(unit._id)), trackingMode: variant.trackingMode, unitCode: variant.unitCode });
+    return await inInventoryTransaction(async (session) => {
+      const existing = await InventoryTransferModel.findOne({ companyCode: scope.companyCode, requestKey: input.idempotencyKey }).session(session);
+      if (existing) return replay(existing);
+      const source = await resolveInventoryWarehouse(scope, input.fromWarehouseId, session);
+      const target = await resolveInventoryWarehouse({ companyCode: scope.companyCode, branchId: input.toBranchId }, input.toWarehouseId, session);
+      if (String(source._id) === String(target._id)) inventoryError("Kho gửi và kho nhận phải khác nhau.");
+      const items: any[] = [], seenUnits = new Set<string>();
+      for (const line of input.items) {
+        const { product, variant } = await resolveInventoryVariant(scope.companyCode, line, session);
+        if (variant.trackingMode === "lot") inventoryError("Điều chuyển hàng theo lô cần quy trình định danh lô; chưa hỗ trợ trên phiếu này.");
+        const serialUnitIds: string[] = [];
+        if (["serial", "unit_barcode"].includes(variant.trackingMode)) {
+          if (!Number.isInteger(line.quantity) || line.quantity > 500 || line.unitIdentifiers.length !== line.quantity) inventoryError("Số mã máy phải bằng số lượng nguyên, tối đa 500 máy mỗi dòng.");
+          for (const identifier of line.unitIdentifiers) {
+            const matches = await SerialUnitModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(source._id), productId: line.productId, variantId: line.variantId, status: "in_stock", $or: [{ normalizedSerialNumber: identifier }, { normalizedInternalBarcode: identifier }, { normalizedBarcodeAliases: identifier }] }).session(session).lean();
+            if (!identifier || matches.length !== 1 || seenUnits.has(String(matches[0]._id))) inventoryError(`Mã ${identifier} không thuộc SKU/kho gửi, không còn tồn hoặc đã bị chọn lặp.`, 409);
+            const id = String(matches[0]._id); seenUnits.add(id); serialUnitIds.push(id);
+          }
+        } else if (line.unitIdentifiers.length) inventoryError("Hàng số lượng không nhận danh sách mã máy.");
+        items.push({ productId: String(product._id), variantId: String(variant._id), sku: variant.sku, productName: product.name, trackingMode: variant.trackingMode, quantity: line.quantity, unitCost: 0, unitIdentifiers: line.unitIdentifiers, serialUnitIds });
       }
-      const _id = new Types.ObjectId();
-      const code = `DC-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(_id).slice(-8).toUpperCase()}`;
-      const transitWarehouseId = String(new Types.ObjectId());
-      await WarehouseModel.create([{ _id: transitWarehouseId, companyCode: scope.companyCode, branchId: scope.branchId, code: `VC-${_id}`, name: `Đang vận chuyển ${code}`, kind: "transit", isDefault: false, isActive: true }], { session });
-      const [transfer] = await InventoryTransferModel.create([{ _id, companyCode: scope.companyCode, fromBranchId: scope.branchId,
-        fromWarehouseId: values.fromWarehouseId, toBranchId: values.toBranchId, toWarehouseId,
-        code, transitWarehouseId, idempotencyKey: values.idempotencyKey, requestFingerprint, status: "in_transit", items: snapshots, reason: values.reason, createdBy: actor.id, version: 0 }], { session });
-      await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: values.fromWarehouseId,
-        direction: "out", purpose: "transfer", sourceType: "inventory-transfer", sourceId: String(_id), sourceCode: code,
-        idempotencyKey: `transfer:${_id}:out`, operatorName: actor.name, items: asItems(snapshots), reason: values.reason, session, writeLegacyStockLog: false });
-      await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: transitWarehouseId, direction: "in", purpose: "transfer", sourceType: "inventory-transfer", sourceId: String(_id), sourceCode: code, idempotencyKey: `transfer:${_id}:transit-in`, operatorName: actor.name, items: asItems(snapshots), reason: values.reason, session, writeLegacyStockLog: false });
-      await moveSerials(transfer, "in_stock", "in_transit", scope.branchId, values.fromWarehouseId, "transfer_requested", actor, session);
-      result = transfer;
+      const documentId = new Types.ObjectId();
+      const transitId = new Types.ObjectId();
+      const transferCode = `CK-${String(documentId).toUpperCase()}`;
+      // One transit location per shipment keeps its historical cost isolated from
+      // other shipments of the same SKU at a different cost.
+      await WarehouseModel.create([{ _id: transitId, companyCode: scope.companyCode, branchId: scope.branchId, code: transferCode, name: `Đang vận chuyển ${transferCode}`, kind: "transit", isDefault: false, isActive: true }], { session });
+      const movement = await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(source._id), direction: "out", purpose: "transfer", sourceType: "inventory-transfer", sourceId: String(documentId), sourceCode: transferCode, idempotencyKey: `transfer:${documentId}:send:out`, operatorName: actor.name, items, reason: input.reason, session, writeLegacyStockLog: false });
+      items.forEach((item, index) => { item.unitCost = movement.entries[index].unitCost; });
+      await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(transitId), direction: "in", purpose: "transfer", sourceType: "inventory-transfer", sourceId: String(documentId), sourceCode: transferCode, idempotencyKey: `transfer:${documentId}:send:in`, operatorName: actor.name, items, reason: input.reason, session, writeLegacyStockLog: false });
+      const [doc] = await InventoryTransferModel.create([{ _id: documentId, companyCode: scope.companyCode, transferCode, code: transferCode, idempotencyKey: input.idempotencyKey, fromBranchId: scope.branchId, fromWarehouseId: String(source._id), fromWarehouseName: source.name, toBranchId: input.toBranchId, toWarehouseId: String(target._id), toWarehouseName: target.name, transitWarehouseId: String(transitId), status: "in_transit", items, reason: input.reason, requestKey: input.idempotencyKey, requestFingerprint: fingerprint, createdBy: actor.id, createdByName: actor.name }], { session });
+      for (const serialUnitId of seenUnits) {
+        const changed = await SerialUnitModel.updateOne({ _id: serialUnitId, companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: String(source._id), status: "in_stock" }, { $set: { warehouseId: String(transitId), status: "in_transit", transferToBranchId: input.toBranchId, transferToWarehouseId: String(target._id), currentDocumentType: "inventory-transfer", currentDocumentId: String(documentId), updatedBy: actor.id } }, { session });
+        if (changed.modifiedCount !== 1) inventoryError("Máy vừa thay đổi trạng thái. Vui lòng tải lại.", 409);
+      }
+      await events(doc, actor, "transfer_requested", "in_stock", "in_transit", scope.branchId, session);
+      return doc.toObject();
     });
-    return result;
   } catch (error: any) {
-    if (error?.code === 11000) {
-      const replay = await InventoryTransferModel.findOne({ companyCode: scope.companyCode, idempotencyKey: values.idempotencyKey }).lean();
-      if (replay?.requestFingerprint === requestFingerprint) return replay;
-      throw fail("Khóa yêu cầu đã được dùng cho phiếu khác.", 409);
+    if (error?.code === 11000 && error?.keyPattern?.requestKey) {
+      const existing = await InventoryTransferModel.findOne({ companyCode: scope.companyCode, requestKey: input.idempotencyKey });
+      if (existing) return replay(existing);
     }
     throw error;
-  } finally { await session.endSession(); }
+  }
 }
 
-export async function receiveInventoryTransfer(scope: Scope, id: string, actor: Actor) {
-  if (!Types.ObjectId.isValid(id)) throw fail("Phiếu điều chuyển không hợp lệ.");
-  const session = await mongoose.startSession();
-  try {
-    let result: any;
-    await session.withTransaction(async () => {
-      const transfer = await InventoryTransferModel.findOne({ _id: id, companyCode: scope.companyCode, toBranchId: scope.branchId }).session(session);
-      if (!transfer) throw fail("Phiếu không còn ở trạng thái chờ nhận hoặc không thuộc chi nhánh này.", 409);
-      if (transfer.status === "received") { result = transfer; return; }
-      if (transfer.status !== "in_transit") throw fail("Phiếu không còn ở trạng thái chờ nhận.", 409);
-      await assertTransitBalance(transfer, session);
-      if (!await WarehouseModel.exists({ _id: transfer.toWarehouseId, companyCode: scope.companyCode, branchId: scope.branchId, isActive: true, kind: { $ne: "transit" } }).session(session)) throw fail("Kho nhận không còn hoạt động trong chi nhánh.", 409);
-      if (transfer.transitWarehouseId) await writeStockMovement({ companyCode: scope.companyCode, branchId: transfer.fromBranchId, warehouseId: transfer.transitWarehouseId, direction: "out", purpose: "transfer", sourceType: "inventory-transfer", sourceId: id, sourceCode: transfer.code, idempotencyKey: `transfer:${id}:transit-out:receive`, operatorName: actor.name, items: asItems(transfer.items), reason: transfer.reason, session, writeLegacyStockLog: false });
-      await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: transfer.toWarehouseId,
-        direction: "in", purpose: "transfer", sourceType: "inventory-transfer", sourceId: id, sourceCode: transfer.code,
-        idempotencyKey: `transfer:${id}:in`, operatorName: actor.name, items: asItems(transfer.items), reason: transfer.reason, session, writeLegacyStockLog: !transfer.transitWarehouseId });
-      await moveSerials(transfer, "in_transit", "in_stock", scope.branchId, transfer.toWarehouseId, "transfer_received", actor, session);
-      transfer.status = "received"; transfer.receivedBy = actor.id; transfer.receivedAt = new Date(); transfer.version += 1;
-      await transfer.save({ session });
-      if (transfer.transitWarehouseId) await WarehouseModel.updateOne({ _id: transfer.transitWarehouseId, companyCode: scope.companyCode, kind: "transit" }, { $set: { isActive: false } }, { session });
-      result = transfer;
-    });
-    return result;
-  } finally { await session.endSession(); }
+async function finish(scope: InventoryScope, id: string, actor: TransferActor, action: "received" | "cancelled", reason = "") {
+  actorRequired(actor);
+  if (!Types.ObjectId.isValid(id)) inventoryError("Mã chứng từ điều chuyển không hợp lệ.");
+  if (action === "cancelled" && !text(reason)) inventoryError("Lý do hủy chuyển kho là bắt buộc.");
+  return inInventoryTransaction(async (session) => {
+    const doc = await InventoryTransferModel.findOne({ _id: id, companyCode: scope.companyCode, ...(action === "received" ? { toBranchId: scope.branchId } : { fromBranchId: scope.branchId }) }).session(session);
+    if (!doc) inventoryError("Không tìm thấy phiếu điều chuyển trong phạm vi được phép.", 404);
+    if (!doc.transferCode && doc.code) {
+      const [view] = await transferViews(scope.companyCode, [doc.toObject()]);
+      doc.transferCode = view.transferCode;
+      doc.fromWarehouseName = view.fromWarehouseName;
+      doc.toWarehouseName = view.toWarehouseName;
+      doc.createdByName = view.createdByName;
+      doc.requestKey = doc.idempotencyKey || String(doc._id);
+      for (const item of doc.items) if (!item.trackingMode) item.trackingMode = item.serialUnitIds.length ? "serial" : "quantity";
+    }
+    const destination = action === "received" ? doc.toWarehouseId : doc.fromWarehouseId;
+    if (scope.warehouseId && scope.warehouseId !== destination) inventoryError("Kho không thuộc phạm vi thao tác.", 403);
+    if (doc.status === action) return doc.toObject();
+    if (doc.status !== "in_transit") inventoryError("Phiếu đã nhận hoặc đã hủy; không thể đổi trạng thái.", 409);
+    await resolveInventoryWarehouse(scope, destination, session);
+    for (const item of doc.items) {
+      const balance = await InventoryBalanceModel.findOne({ companyCode: scope.companyCode, branchId: doc.fromBranchId, warehouseId: doc.transitWarehouseId, variantId: item.variantId }).session(session).lean();
+      if (!balance || balance.quantity !== item.quantity || balance.reservedQuantity !== 0 || balance.averageCost !== item.unitCost) inventoryError("Tồn đang vận chuyển không khớp chứng từ; cần đối soát trước khi xử lý.", 409);
+    }
+    const base = { companyCode: scope.companyCode, purpose: "transfer" as const, sourceType: "inventory-transfer", sourceId: String(doc._id), sourceCode: doc.transferCode, operatorName: actor.name, items: doc.items.map((item) => item.toObject()), reason: reason || doc.reason, session, writeLegacyStockLog: false };
+    await writeStockMovement({ ...base, branchId: doc.fromBranchId, warehouseId: doc.transitWarehouseId, direction: "out", idempotencyKey: `transfer:${id}:${action}:out` });
+    await writeStockMovement({ ...base, branchId: scope.branchId, warehouseId: destination, direction: "in", idempotencyKey: `transfer:${id}:${action}:in` });
+    for (const item of doc.items) for (const serialUnitId of item.serialUnitIds) {
+      const changed = await SerialUnitModel.updateOne({ _id: serialUnitId, companyCode: scope.companyCode, branchId: doc.fromBranchId, warehouseId: doc.transitWarehouseId, status: "in_transit", currentDocumentType: "inventory-transfer", currentDocumentId: id }, { $set: { branchId: scope.branchId, warehouseId: destination, status: "in_stock", updatedBy: actor.id }, $unset: { transferToBranchId: 1, transferToWarehouseId: 1 } }, { session });
+      if (changed.modifiedCount !== 1) inventoryError("Máy đang chuyển không khớp chứng từ; cần đối soát.", 409);
+    }
+    await events(doc, actor, action === "received" ? "transfer_received" : "transfer_cancelled", "in_transit", "in_stock", scope.branchId, session, reason);
+    doc.status = action;
+    if (action === "received") { doc.receivedBy = actor.id; doc.receivedByName = actor.name; doc.receivedAt = new Date(); }
+    else { doc.cancelledBy = actor.id; doc.cancelledByName = actor.name; doc.cancelledAt = new Date(); doc.cancelReason = text(reason); }
+    await doc.save({ session });
+    await WarehouseModel.updateOne({ _id: doc.transitWarehouseId, companyCode: scope.companyCode, kind: "transit" }, { $set: { isActive: false } }, { session });
+    return doc.toObject();
+  });
 }
+export const acceptTransfer = (scope: InventoryScope, id: string, actor: TransferActor) => finish(scope, id, actor, "received");
+export const cancelTransfer = (scope: InventoryScope, id: string, reason: string, actor: TransferActor) => finish(scope, id, actor, "cancelled", reason);
 
-export async function cancelInventoryTransfer(scope: Scope, id: string, reason: string, actor: Actor) {
-  if (!Types.ObjectId.isValid(id) || !reason?.trim()) throw fail("Phiếu và lý do hủy là bắt buộc.");
-  const session = await mongoose.startSession();
-  try {
-    let result: any;
-    await session.withTransaction(async () => {
-      const transfer = await InventoryTransferModel.findOne({ _id: id, companyCode: scope.companyCode, fromBranchId: scope.branchId }).session(session);
-      if (!transfer) throw fail("Chỉ kho gửi được hủy phiếu đang chuyển.", 409);
-      if (transfer.status === "cancelled" && transfer.cancelReason === reason.trim()) { result = transfer; return; }
-      if (transfer.status !== "in_transit") throw fail("Phiếu không còn ở trạng thái đang chuyển hoặc đã dùng lý do hủy khác.", 409);
-      await assertTransitBalance(transfer, session);
-      if (transfer.transitWarehouseId) await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: transfer.transitWarehouseId, direction: "out", purpose: "transfer", sourceType: "inventory-transfer", sourceId: id, sourceCode: transfer.code, idempotencyKey: `transfer:${id}:transit-out:cancel`, operatorName: actor.name, items: asItems(transfer.items), reason: reason.trim(), session, writeLegacyStockLog: false });
-      await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: transfer.fromWarehouseId,
-        direction: "in", purpose: "cancel", sourceType: transfer.transitWarehouseId ? "inventory-transfer" : "inventory-transfer-cancel", sourceId: id, sourceCode: transfer.code,
-        idempotencyKey: `transfer:${id}:cancel`, operatorName: actor.name, items: asItems(transfer.items), reason: reason.trim(), session, writeLegacyStockLog: !transfer.transitWarehouseId });
-      await moveSerials(transfer, "in_transit", "in_stock", scope.branchId, transfer.fromWarehouseId, "transfer_cancelled", actor, session);
-      transfer.status = "cancelled"; transfer.cancelReason = reason.trim(); transfer.cancelledBy = actor.id; transfer.cancelledAt = new Date(); transfer.version += 1;
-      await transfer.save({ session });
-      if (transfer.transitWarehouseId) await WarehouseModel.updateOne({ _id: transfer.transitWarehouseId, companyCode: scope.companyCode, kind: "transit" }, { $set: { isActive: false } }, { session });
-      result = transfer;
-    });
-    return result;
-  } finally { await session.endSession(); }
+export async function listTransfers(scope: InventoryScope, query: { page?: unknown; status?: unknown } = {}) {
+  const page = Math.max(1, Math.trunc(Number(query.page) || 1)), limit = 20;
+  const filter = { ...scoped(scope), ...(["in_transit", "received", "cancelled", "reversed"].includes(text(query.status)) ? { status: text(query.status) as "in_transit" | "received" | "cancelled" | "reversed" } : {}) };
+  const [items, total] = await Promise.all([InventoryTransferModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(), InventoryTransferModel.countDocuments(filter)]);
+  return { items: await transferViews(scope.companyCode, items), total, page, limit };
 }
-
-export async function reverseInventoryTransfer(scope: Scope, id: string, reason: string, actor: Actor) {
-  if (!Types.ObjectId.isValid(id) || !reason?.trim()) throw fail("Phiếu và lý do đảo là bắt buộc.");
-  const session = await mongoose.startSession();
-  try {
-    let result: any;
-    await session.withTransaction(async () => {
-      const transfer = await InventoryTransferModel.findOne({ _id: id, companyCode: scope.companyCode, toBranchId: scope.branchId, status: "received" }).session(session);
-      if (!transfer) throw fail("Chỉ kho nhận được đảo phiếu đã nhận.", 409);
-      for (const item of transfer.items) {
-        const balance = await InventoryBalanceModel.findOne({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: transfer.toWarehouseId, variantId: item.variantId }).session(session).lean();
-        if (!balance || Math.abs(Number(balance.averageCost) - item.unitCost) > 0.000001) throw fail("Giá vốn tại kho nhận đã thay đổi; hãy lập điều chuyển mới thay vì đảo phiếu cũ.", 409);
-      }
-      await InventoryStockReversalModel.create([{ companyCode: scope.companyCode, sourceType: "inventory-transfer", sourceId: id, reason: reason.trim(), createdBy: actor.id }], { session });
-      await writeStockMovement({ companyCode: scope.companyCode, branchId: scope.branchId, warehouseId: transfer.toWarehouseId,
-        direction: "out", purpose: "cancel", sourceType: "inventory-transfer-reversal", sourceId: id, sourceCode: transfer.code,
-        idempotencyKey: `transfer:${id}:reverse-out`, operatorName: actor.name, items: asItems(transfer.items), reason: reason.trim(), session, writeLegacyStockLog: !transfer.transitWarehouseId });
-      await writeStockMovement({ companyCode: scope.companyCode, branchId: transfer.fromBranchId, warehouseId: transfer.fromWarehouseId,
-        direction: "in", purpose: "cancel", sourceType: "inventory-transfer-reversal", sourceId: id, sourceCode: transfer.code,
-        idempotencyKey: `transfer:${id}:reverse-in`, operatorName: actor.name, items: asItems(transfer.items), reason: reason.trim(), session, writeLegacyStockLog: !transfer.transitWarehouseId });
-      for (const item of transfer.items) for (const serialId of item.serialUnitIds) {
-        const serial = await SerialUnitModel.findOneAndUpdate({ _id: serialId, companyCode: scope.companyCode, branchId: scope.branchId,
-          warehouseId: transfer.toWarehouseId, status: "in_stock", currentDocumentId: id },
-          { $set: { branchId: transfer.fromBranchId, warehouseId: transfer.fromWarehouseId, currentDocumentType: "inventory-transfer-reversal", updatedBy: actor.id } }, { returnDocument: "after", session });
-        if (!serial) throw fail("IMEI đã phát sinh giao dịch khác; không thể đảo phiếu.", 409);
-        await SerialEventModel.create([{ companyCode: scope.companyCode, branchId: transfer.fromBranchId, serialUnitId: serialId,
-          serialNumber: serial.serialNumber, eventType: "transfer_reversed", fromStatus: "in_stock", toStatus: "in_stock",
-          documentType: "inventory-transfer-reversal", documentId: id, reason: reason.trim(), actorId: actor.id, actorName: actor.name }], { session });
-      }
-      transfer.status = "reversed"; transfer.reversalReason = reason.trim(); transfer.reversedBy = actor.id; transfer.reversedAt = new Date(); transfer.version += 1;
-      await transfer.save({ session }); result = transfer;
-    });
-    return result;
-  } finally { await session.endSession(); }
+export async function getTransfer(scope: InventoryScope, id: string) {
+  if (!Types.ObjectId.isValid(id)) inventoryError("Mã chứng từ không hợp lệ.");
+  const doc = await InventoryTransferModel.findOne({ _id: id, ...scoped(scope) }).lean();
+  if (!doc) inventoryError("Không tìm thấy phiếu điều chuyển.", 404);
+  return (await transferViews(scope.companyCode, [doc]))[0];
 }
-
-export async function listInventoryTransfers(companyCode: string, branchId: string) {
-  return InventoryTransferModel.find({ companyCode, $or: [{ fromBranchId: branchId }, { toBranchId: branchId }] }).sort({ createdAt: -1 }).limit(200).lean();
+export async function transferDestinations(companyCode: string) {
+  const branches = await BranchModel.find({ companyCode, isActive: true }).select("name code").lean();
+  const names = new Map(branches.map((branch) => [String(branch._id), `${branch.code} — ${branch.name}`]));
+  // New branches may not have opened inventory yet. Provision their own empty
+  // warehouse, while leaving deliberately deactivated warehouses unchanged.
+  const initialized = new Set(await WarehouseModel.distinct("branchId", {
+    companyCode, branchId: { $in: [...names.keys()] }, kind: { $ne: "transit" },
+  }));
+  for (const branchId of names.keys()) {
+    if (!initialized.has(branchId)) await ensureDefaultWarehouse(companyCode, branchId);
+  }
+  const warehouses = await WarehouseModel.find({ companyCode, branchId: { $in: [...names.keys()] }, isActive: true, kind: { $ne: "transit" } }).select("branchId name code isDefault").sort({ branchId: 1, name: 1 }).lean();
+  return warehouses.map((warehouse) => ({ ...warehouse, branchName: names.get(warehouse.branchId) }));
 }

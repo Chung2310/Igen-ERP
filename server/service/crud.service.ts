@@ -22,8 +22,11 @@ import { SerialUnitModel } from "../modules/inventory/serials/serial-unit.model"
 import { SerialEventModel } from "../modules/inventory/serials/serial-event.model";
 import { runInventoryTransaction } from "../integrations/shared/inventory-transaction";
 import { WarehouseModel } from "../model/warehouse.model";
+import { createManualStockLog, updateManualStockLog, deleteManualStockLog, type InventoryActor } from "../modules/inventory/manual-stock-log.service";
 
-type InventoryTransaction = { session?: mongoose.ClientSession };
+type InventoryTransaction = { session?: mongoose.ClientSession; actor?: InventoryActor; id?: string; name?: string };
+const inventoryActor = (value?: InventoryTransaction) => value?.actor || (value?.id && value?.name ? { id: value.id, name: value.name } : undefined);
+const isManualStockLog = (name: SupportedModelName): boolean => name === "stock-logs";
 const completedStockLog = (status: unknown) => status === "Hoàn thành" || status === "Thành công";
 const stockLogLocked = () => Object.assign(new Error("Phiếu kho đã hoàn thành không được sửa hoặc xóa. Hãy tạo chứng từ điều chỉnh."), { statusCode: 409 });
 
@@ -493,6 +496,7 @@ export const crudService = {
     branchId?: string,
     transaction?: InventoryTransaction,
   ) {
+    if (isManualStockLog(modelName)) return sanitizeCrudResult(modelName, await createManualStockLog({ companyCode, branchId: requireInventoryBranch(modelName, branchId)! }, data, inventoryActor(transaction)));
     if (modelName === "stock-logs" && !transaction) {
       return runInventoryTransaction((session) => crudService.create(modelName, data, companyCode, branchId, { session }));
     }
@@ -610,6 +614,7 @@ export const crudService = {
     branchId?: string,
     transaction?: InventoryTransaction,
   ) {
+    if (isManualStockLog(modelName)) return sanitizeCrudResult(modelName, await updateManualStockLog({ companyCode, branchId: requireInventoryBranch(modelName, branchId)! }, id, data, inventoryActor(transaction)));
     if (modelName === "stock-logs" && !transaction) {
       return runInventoryTransaction((session) => crudService.update(modelName, id, data, companyCode, userRole, branchId, { session }));
     }
@@ -732,6 +737,7 @@ export const crudService = {
     userRole: string,
     branchId?: string,
   ) {
+    if (isManualStockLog(modelName)) return deleteManualStockLog({ companyCode, branchId: requireInventoryBranch(modelName, branchId)! }, id);
     const model = MODEL_MAPPING[modelName];
     if (!model) {
       throw new Error(`Model '${modelName}' không được hỗ trợ.`);

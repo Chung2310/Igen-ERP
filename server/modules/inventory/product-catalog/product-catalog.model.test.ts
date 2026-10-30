@@ -37,6 +37,8 @@ test("company master resources are reusable and never branch-scoped", () => {
     assert.equal(model.schema.path("branchId"), undefined);
     assert.ok(model.schema.indexes().some(([keys, options]) => keys.companyCode === 1 && keys.code === 1 && options.unique === true));
   }
+  assert.ok(ProductCatalogCategoryModel.schema.path("parentCode"));
+  assert.ok(ProductCatalogCategoryModel.schema.path("defaultTrackingMode"));
 });
 
 test("legacy mapping keeps the old product identity available for phase-three migration", () => {

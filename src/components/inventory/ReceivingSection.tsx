@@ -1,23 +1,29 @@
 import React, { Fragment, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { StyledSelect } from "../common/StyledSelect";
 import {
   Check,
   ChevronLeft,
   ChevronRight,
-  ContactRound,
   Eye,
+  Layers,
   PackagePlus,
   Pencil,
   RefreshCw,
-  Search,
+  Scan,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import {
+  BulkVariantReceiveModal,
+  type SelectedReceiveVariant,
+} from "./receiving/BulkVariantReceiveModal";
+import { SerialManagerModal } from "./receiving/SerialManagerModal";
+import { ReceiptDetailModal } from "./receiving/ReceiptDetailModal";
+import {
   inventoryReceivingService,
   type GoodsReceipt,
   type GoodsReceiptItem,
-  type Supplier,
 } from "../../services/inventoryReceivingService";
 import {
   productCatalogService,
@@ -25,12 +31,12 @@ import {
   type CatalogProductDetail,
 } from "../../services/productCatalogService";
 import { toast } from "../../pages/Toast";
-import { StyledSelect } from "../common/StyledSelect";
-import "./inventory-ui.css";
+import { listSupplierPartners, type SupplierPartnerOption } from "../../modules/partners/partnerApi";
+import { Dropdown, type DropdownOption } from "../common/Dropdown";
 
 type DraftLine = GoodsReceiptItem & { key: string; displayName: string };
 
-/** SKU theo dõi tới từng đơn vị thì phiếu phải tách ra mỗi đơn vị một dòng để gán số sê-ri/mã đơn vị riêng. */
+/** SKU theo dõi tới từng đơn vị thì phiếu phải tách ra mỗi đơn vị một dòng để lưu định danh thiết bị. */
 const unitTracked = (trackingMode?: GoodsReceiptItem["trackingMode"]) => trackingMode === "serial" || trackingMode === "unit_barcode";
 
 const unitCount = (line: DraftLine) => Math.max(0, Math.ceil(line.quantity) || 0);
@@ -46,334 +52,15 @@ function normalizeUnits(line: DraftLine, count: number): DraftLine {
       : line.serialNumbers,
     unitDetails: Array.from({ length: count }, (_, index) => ({
       ...line.unitDetails?.[index],
-      internalBarcode: line.unitDetails?.[index]?.internalBarcode || "",
     })),
   };
 }
-type SupplierForm = {
-  name: string;
-  taxCode: string;
-  phone: string;
-  email: string;
-  address: string;
-  paymentTerms: string;
-  notes: string;
-  status: Supplier["status"];
-};
-type SupplierEditorMode = "view" | "edit" | "create";
-
 const money = (value: number) => Number(value || 0).toLocaleString("vi-VN");
-const emptySupplierForm: SupplierForm = {
-  name: "",
-  taxCode: "",
-  phone: "",
-  email: "",
-  address: "",
-  paymentTerms: "",
-  notes: "",
-  status: "active",
-};
-
-const supplierToForm = (supplier?: Supplier | null): SupplierForm =>
-  supplier
-    ? {
-        name: supplier.name,
-        taxCode: supplier.taxCode || "",
-        phone: supplier.phone || "",
-        email: supplier.email || "",
-        address: supplier.address || "",
-        paymentTerms: supplier.paymentTerms || "",
-        notes: supplier.notes || "",
-        status: supplier.status,
-      }
-    : { ...emptySupplierForm };
-
-type SupplierManagementModalProps = {
-  initialSupplier: Supplier | null;
-  initialMode: SupplierEditorMode;
-  onClose: () => void;
-  onSaved: (supplier: Supplier) => void;
-  onDeleted: (supplierId: string) => void;
-};
-
-function SupplierManagementModal({
-  initialSupplier,
-  initialMode,
-  onClose,
-  onSaved,
-  onDeleted,
-}: SupplierManagementModalProps) {
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(initialSupplier);
-  const [mode, setMode] = useState<SupplierEditorMode>(initialMode);
-  const [form, setForm] = useState<SupplierForm>(() => supplierToForm(initialSupplier));
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const pageSize = 8;
-
-  const loadSuppliers = async () => {
-    setLoading(true);
-    try {
-      setSuppliers(await inventoryReceivingService.listSuppliers());
-    } catch (error: any) {
-      toast.error(error?.message || "Không thể tải danh sách nhà cung cấp.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadSuppliers();
-  }, []);
-
-  const filteredSuppliers = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    if (!keyword) return suppliers;
-    return suppliers.filter((supplier) =>
-      [supplier.code, supplier.name, supplier.phone, supplier.email]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(keyword)),
-    );
-  }, [search, suppliers]);
-  const totalPages = Math.max(1, Math.ceil(filteredSuppliers.length / pageSize));
-  const visibleSuppliers = filteredSuppliers.slice((page - 1) * pageSize, page * pageSize);
-
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
-
-  const startCreate = () => {
-    setEditingSupplier(null);
-    setMode("create");
-    setForm({ ...emptySupplierForm });
-    setEditorOpen(true);
-  };
-
-  const startEdit = (supplier: Supplier) => {
-    setEditingSupplier(supplier);
-    setMode("edit");
-    setForm(supplierToForm(supplier));
-    setEditorOpen(true);
-  };
-
-  const startView = (supplier: Supplier) => {
-    setEditingSupplier(supplier);
-    setMode("view");
-    setForm(supplierToForm(supplier));
-    setEditorOpen(true);
-  };
-
-  const updateForm = (field: keyof SupplierForm, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
-  };
-
-  const saveSupplier = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (mode === "view") return;
-    if (!form.name.trim()) {
-      toast.error("Tên nhà cung cấp là bắt buộc.");
-      return;
-    }
-      setSaving(true);
-    try {
-      const input = {
-        name: form.name.trim(),
-        taxCode: form.taxCode.trim() || undefined,
-        phone: form.phone.trim() || undefined,
-        email: form.email.trim() || undefined,
-        address: form.address.trim() || undefined,
-        paymentTerms: form.paymentTerms.trim() || undefined,
-        notes: form.notes.trim() || undefined,
-        status: form.status,
-      };
-      const supplier = editingSupplier
-        ? await inventoryReceivingService.updateSupplier(editingSupplier._id, input)
-        : await inventoryReceivingService.createSupplier(input);
-      toast.success(editingSupplier ? "Đã cập nhật nhà cung cấp." : "Đã tạo nhà cung cấp.");
-      setEditingSupplier(supplier);
-      setMode("edit");
-      setForm(supplierToForm(supplier));
-      setEditorOpen(false);
-      await loadSuppliers();
-      onSaved(supplier);
-    } catch (error: any) {
-      toast.error(error?.message || "Không thể lưu nhà cung cấp.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const removeSupplier = async (supplier: Supplier) => {
-    if (!window.confirm(`Xóa nhà cung cấp “${supplier.name}”?`)) return;
-    try {
-      await inventoryReceivingService.deleteSupplier(supplier._id);
-      toast.success("Đã xóa nhà cung cấp.");
-      if (editingSupplier?._id === supplier._id) setEditorOpen(false);
-      await loadSuppliers();
-      onDeleted(supplier._id);
-    } catch (error: any) {
-      toast.error(error?.message || "Không thể xóa nhà cung cấp.");
-    }
-  };
-
-  const isReadOnly = mode === "view";
-  const editorTitle = mode === "view" ? "Chi tiết nhà cung cấp" : mode === "edit" ? "Chỉnh sửa nhà cung cấp" : "Tạo nhà cung cấp";
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg bg-white shadow-xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="supplier-management-title"
-      >
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <div>
-            <h2 id="supplier-management-title" className="text-lg font-semibold text-slate-900">
-              Quản lý nhà cung cấp
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Khai báo một lần để dùng lại trong các phiếu nhập hàng.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"
-            title="Đóng"
-            aria-label="Đóng quản lý nhà cung cấp"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="min-h-0 overflow-y-auto p-5">
-          {editorOpen && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditorOpen(false); }}>
-          <form onSubmit={saveSupplier} className="max-h-[92vh] w-full max-w-xl space-y-3 overflow-y-auto rounded-lg bg-white p-5 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">
-                {editorTitle}
-              </h3>
-              {mode !== "create" && (
-                <button type="button" onClick={startCreate} className="text-xs font-medium text-cyan-700 hover:underline">
-                  Tạo mới
-                </button>
-              )}
-            </div>
-            <div className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
-              {editingSupplier ? (
-                <span>Mã tự động: <strong className="font-mono text-slate-800">{editingSupplier.code}</strong></span>
-              ) : (
-                "Mã nhà cung cấp sẽ được tự động tạo sau khi lưu."
-              )}
-            </div>
-            <label className="block text-xs text-slate-600">
-              Tên nhà cung cấp <span className="text-rose-600">*</span>
-              <input
-                value={form.name}
-                onChange={(event) => updateForm("name", event.target.value)}
-                readOnly={isReadOnly}
-                className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
-                placeholder="Ví dụ: Công ty cổ phần ABC"
-                autoFocus
-              />
-            </label>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              <label className="text-xs text-slate-600">
-                Mã số thuế
-                <input value={form.taxCode} onChange={(event) => updateForm("taxCode", event.target.value)} readOnly={isReadOnly} placeholder="Ví dụ: 0312345678" className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm read-only:bg-slate-50" />
-              </label>
-              <label className="text-xs text-slate-600">
-                Số điện thoại
-                <input value={form.phone} onChange={(event) => updateForm("phone", event.target.value)} readOnly={isReadOnly} placeholder="Ví dụ: 0901 234 567" className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm read-only:bg-slate-50" />
-              </label>
-            </div>
-            <label className="block text-xs text-slate-600">
-              Thư điện tử
-              <input type="email" value={form.email} onChange={(event) => updateForm("email", event.target.value)} readOnly={isReadOnly} placeholder="Ví dụ: contact@abc.com" className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm read-only:bg-slate-50" />
-            </label>
-            <label className="block text-xs text-slate-600">
-              Địa chỉ
-              <input value={form.address} onChange={(event) => updateForm("address", event.target.value)} readOnly={isReadOnly} placeholder="Ví dụ: 123 Nguyễn Huệ, Quận 1, TP.HCM" className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm read-only:bg-slate-50" />
-            </label>
-            <label className="block text-xs text-slate-600">
-              Điều khoản thanh toán
-              <input value={form.paymentTerms} onChange={(event) => updateForm("paymentTerms", event.target.value)} readOnly={isReadOnly} placeholder="Ví dụ: Thanh toán trong 30 ngày" className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm read-only:bg-slate-50" />
-            </label>
-            <label className="block text-xs text-slate-600">
-              Ghi chú
-              <textarea rows={2} value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} readOnly={isReadOnly} placeholder="Ghi chú thêm về nhà cung cấp" className="mt-1 w-full resize-y rounded-md border border-slate-200 px-3 py-2 text-sm read-only:bg-slate-50" />
-            </label>
-            {editingSupplier && (
-              <label className="block text-xs text-slate-600">
-                Trạng thái
-                <span className="mt-1 block"><StyledSelect ariaLabel="Trạng thái nhà cung cấp" value={form.status} onChange={(value) => updateForm("status", value)} disabled={isReadOnly} options={[{ value: "active", label: "Đang dùng" }, { value: "inactive", label: "Ngừng dùng" }]} /></span>
-              </label>
-            )}
-            <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
-              <button type="button" onClick={() => setEditorOpen(false)} className="rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Đóng</button>
-              {isReadOnly ? <button type="button" onClick={() => editingSupplier && startEdit(editingSupplier)} className="inline-flex items-center gap-1.5 rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800"><Pencil className="h-4 w-4" />Sửa</button> : <button type="submit" disabled={saving} className="inline-flex items-center rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800 disabled:opacity-50">{saving ? "Đang lưu..." : mode === "edit" ? "Lưu thay đổi" : "Tạo nhà cung cấp"}</button>}
-            </div>
-          </form></div>}
-
-          <div className="min-w-0">
-            <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900">Danh sách nhà cung cấp ({filteredSuppliers.length})</h3>
-                <p className="mt-1 text-xs text-slate-500">Dữ liệu dùng chung cho toàn công ty.</p>
-              </div>
-              <div className="flex w-full items-center gap-2 sm:w-auto"><button type="button" onClick={startCreate} className="shrink-0 rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800">Tạo nhà cung cấp</button><div className="relative min-w-0 flex-1 sm:w-64">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Tìm tên, mã, điện thoại" className="w-full rounded-md border border-slate-200 py-2 pl-9 pr-3 text-sm" />
-              </div></div>
-            </div>
-            <div className="mt-3 overflow-x-auto border-y border-slate-200">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="bg-slate-50 text-xs text-slate-500">
-                  <tr><th className="px-3 py-3 font-medium">Mã tự động</th><th className="px-3 py-3 font-medium">Tên</th><th className="px-3 py-3 font-medium">Liên hệ</th><th className="px-3 py-3 font-medium">Trạng thái</th><th className="px-3 py-3 text-right font-medium">Thao tác</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {loading ? <tr><td colSpan={5} className="px-3 py-10 text-center text-slate-500">Đang tải...</td></tr> : visibleSuppliers.length === 0 ? <tr><td colSpan={5} className="px-3 py-10 text-center text-slate-500">Chưa có nhà cung cấp phù hợp.</td></tr> : visibleSuppliers.map((supplier) => <tr key={supplier._id}>
-                    <td className="px-3 py-3 font-mono text-xs text-slate-600">{supplier.code}</td>
-                    <td className="px-3 py-3 font-medium text-slate-800">{supplier.name}</td>
-                    <td className="px-3 py-3 text-slate-500">{supplier.phone || supplier.email || "—"}</td>
-                    <td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-xs ${supplier.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{supplier.status === "active" ? "Đang dùng" : "Ngừng dùng"}</span></td>
-                    <td className="px-3 py-3 text-right"><span className="inline-flex items-center gap-1"><button type="button" onClick={() => startView(supplier)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Xem chi tiết" aria-label={`Xem ${supplier.name}`}><Eye className="h-4 w-4" /></button><button type="button" onClick={() => startEdit(supplier)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Sửa nhà cung cấp" aria-label={`Sửa ${supplier.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => void removeSupplier(supplier)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-rose-50 hover:text-rose-600" title="Xóa nhà cung cấp" aria-label={`Xóa ${supplier.name}`}><Trash2 className="h-4 w-4" /></button></span></td>
-                  </tr>)}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex items-center justify-between pt-3 text-xs text-slate-500">
-              <span>Trang {page}/{totalPages}</span>
-              <div className="flex gap-1">
-                <button type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 disabled:opacity-40" title="Trang trước"><ChevronLeft className="h-4 w-4" /></button>
-                <button type="button" disabled={page >= totalPages} onClick={() => setPage((current) => current + 1)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 disabled:opacity-40" title="Trang sau"><ChevronRight className="h-4 w-4" /></button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 
 export function ReceivingSection() {
   const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState<GoodsReceipt | null>(null);
-  const [supplierManagementOpen, setSupplierManagementOpen] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-  const [supplierManagementMode, setSupplierManagementMode] = useState<SupplierEditorMode>("create");
   const [viewingReceipt, setViewingReceipt] = useState<GoodsReceipt | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -422,41 +109,30 @@ export function ReceivingSection() {
     }
   };
 
-  const openSupplierManagement = (supplier?: Supplier, mode: SupplierEditorMode = "create") => {
-    setEditingSupplier(supplier || null);
-    setSupplierManagementMode(mode);
-    setSupplierManagementOpen(true);
-  };
 
   return (
-    <section className="space-y-6" aria-label="Nhập hàng và nhà cung cấp">
+    <section className="space-y-6" aria-label="Nhập hàng">
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-base font-semibold text-slate-900">Nhập hàng</h3>
-          <p className="mt-1 text-sm text-slate-500">Khai báo sản phẩm mua từ nhà cung cấp để tăng tồn kho thực tế.</p>
         </div>
         <div className="flex gap-2">
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => openSupplierManagement()} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" title="Quản lý nhà cung cấp">
-            <ContactRound className="h-4 w-4" />
-            Nhà cung cấp
-          </button>
-          <button type="button" onClick={() => { setEditingReceipt(null); setCreatorOpen(true); }} className="inline-flex items-center gap-1.5 rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800">
-            <PackagePlus className="h-4 w-4" />
-            Tạo phiếu nhập mới
-          </button>
-          {viewingReceipt?.status === "draft" && <button type="button" onClick={() => { setEditingReceipt(viewingReceipt); setViewingReceipt(null); setCreatorOpen(true); }} className="inline-flex items-center gap-1.5 rounded-md border border-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-700 hover:bg-cyan-50"><Pencil className="h-4 w-4" />Sửa phiếu đang xem</button>}
-          <button type="button" onClick={() => void load()} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" title="Làm mới" aria-label="Làm mới">
-            <RefreshCw className="h-4 w-4" />
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { setEditingReceipt(null); setCreatorOpen(true); }} className="inline-flex items-center gap-1.5 rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800">
+              <PackagePlus className="h-4 w-4" />
+              Tạo phiếu nhập mới
+            </button>
+            {viewingReceipt?.status === "draft" && <button type="button" onClick={() => { setEditingReceipt(viewingReceipt); setViewingReceipt(null); setCreatorOpen(true); }} className="inline-flex items-center gap-1.5 rounded-md border border-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-700 hover:bg-cyan-50"><Pencil className="h-4 w-4" />Sửa phiếu đang xem</button>}
+            <button type="button" onClick={() => void load()} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" title="Làm mới" aria-label="Làm mới">
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-      </div>
 
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200"><tr><th className="px-4 py-3.5 font-medium">Mã phiếu</th><th className="px-4 py-3.5 font-medium">Nhà cung cấp</th><th className="px-4 py-3.5 font-medium">Ngày tạo</th><th className="px-4 py-3.5 text-right font-medium">Giá trị</th><th className="px-4 py-3.5 font-medium">Trạng thái</th><th className="px-4 py-3.5 text-right font-medium">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-200">{loading ? <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Đang tải dữ liệu...</td></tr> : receipts.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Chưa có phiếu nhập.</td></tr> : receipts.map((receipt) => <tr key={receipt._id} className="hover:bg-slate-50"><td className="px-4 py-3.5 font-mono text-xs font-semibold text-slate-600">{receipt.receiptCode}</td><td className="px-4 py-3.5 font-medium text-slate-800">{receipt.supplierName}</td><td className="px-4 py-3.5 text-slate-500">{new Date(receipt.createdAt).toLocaleDateString("vi-VN")}</td><td className="px-4 py-3.5 text-right tabular-nums font-semibold text-slate-900">{money(receipt.subtotal)}</td><td className="px-4 py-3.5"><ReceiptStatus status={receipt.status} /></td><td className="px-4 py-3.5 text-right"><span className="inline-flex gap-1"><button type="button" onClick={() => setViewingReceipt(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Xem chi tiết phiếu"><Eye className="h-4 w-4" /></button>{receipt.status === "draft" && <><button type="button" onClick={() => void submit(receipt)} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-50" title="Gửi chờ xác nhận">Gửi</button><button type="button" onClick={() => void cancel(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "pending" && <><button type="button" onClick={() => void startReceiving(receipt)} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-sky-700 hover:bg-sky-50" title="Bắt đầu nhập kho">Nhập kho</button><button type="button" onClick={() => void cancel(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "receiving" && <button type="button" onClick={() => void confirm(receipt)} className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-2 text-xs font-medium text-white hover:bg-emerald-700" title="Hoàn thành nhập kho"><Check className="h-3.5 w-3.5" />Hoàn thành</button>}</span></td></tr>)}</tbody></table></div>
+      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200"><tr><th className="px-4 py-3.5 font-medium">Mã phiếu</th><th className="px-4 py-3.5 font-medium">Nhà cung cấp / Khách hàng</th><th className="px-4 py-3.5 font-medium">Ngày tạo</th><th className="px-4 py-3.5 text-right font-medium">Giá trị</th><th className="px-4 py-3.5 font-medium">Trạng thái</th><th className="px-4 py-3.5 text-right font-medium">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-200">{loading ? <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Đang tải dữ liệu...</td></tr> : receipts.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Chưa có phiếu nhập.</td></tr> : receipts.map((receipt) => <tr key={receipt._id} className="hover:bg-slate-50"><td className="px-4 py-3.5 font-mono text-xs font-semibold text-slate-600">{receipt.receiptCode}{receipt.receiptKind && receipt.receiptKind !== "purchase" && <span className="mt-1 block font-sans font-normal text-cyan-700">{receipt.receiptKind === "buyback" ? "Thu mua lại" : receipt.receiptKind === "sales_cancel" ? "Hủy đơn" : "Trả hàng"} · {receipt.orderCode}</span>}</td><td className="px-4 py-3.5 font-medium text-slate-800">{receipt.supplierName}</td><td className="px-4 py-3.5 text-slate-500">{new Date(receipt.createdAt).toLocaleDateString("vi-VN")}</td><td className="px-4 py-3.5 text-right tabular-nums font-semibold text-slate-900">{money(receipt.subtotal)}</td><td className="px-4 py-3.5"><ReceiptStatus status={receipt.status} /></td><td className="px-4 py-3.5 text-right"><span className="inline-flex gap-1"><button type="button" onClick={() => setViewingReceipt(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Xem chi tiết phiếu"><Eye className="h-4 w-4" /></button>{receipt.status === "draft" && <><button type="button" onClick={() => { setEditingReceipt(receipt); setViewingReceipt(null); setCreatorOpen(true); }} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-cyan-50 hover:text-cyan-700" title="Sửa phiếu nháp" aria-label={`Sửa phiếu ${receipt.receiptCode}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => void submit(receipt)} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-50" title="Gửi chờ xác nhận">Gửi xác nhận</button><button type="button" onClick={() => void cancel(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "pending" && <><button type="button" onClick={() => void startReceiving(receipt)} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-sky-700 hover:bg-sky-50" title="Bắt đầu nhập kho">Nhập kho</button><button type="button" onClick={() => void cancel(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "receiving" && <button type="button" onClick={() => void confirm(receipt)} className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-2 text-xs font-medium text-white hover:bg-emerald-700" title="Hoàn thành nhập kho"><Check className="h-3.5 w-3.5" />Hoàn thành</button>}</span></td></tr>)}</tbody></table></div>
 
-      {supplierManagementOpen && <SupplierManagementModal initialSupplier={editingSupplier} initialMode={supplierManagementMode} onClose={() => setSupplierManagementOpen(false)} onSaved={() => void load()} onDeleted={() => void load()} />}
       {creatorOpen && <ReceiptCreatorModal initialReceipt={editingReceipt} onClose={() => { setCreatorOpen(false); setEditingReceipt(null); }} onSaved={async () => { setCreatorOpen(false); setEditingReceipt(null); await load(); }} />}
       {viewingReceipt && <ReceiptDetailModal receipt={viewingReceipt} onClose={() => setViewingReceipt(null)} />}
     </section>
@@ -465,111 +141,18 @@ export function ReceivingSection() {
 
 function ReceiptStatus({ status }: { status: GoodsReceipt["status"] }) { const details = { draft: ["Nháp", "bg-slate-100 text-slate-600"], pending: ["Chờ xác nhận", "bg-amber-50 text-amber-700"], receiving: ["Đang nhập kho", "bg-sky-50 text-sky-700"], confirmed: ["Hoàn thành", "bg-emerald-50 text-emerald-700"], cancelled: ["Đã hủy", "bg-rose-50 text-rose-700"] } as const; const [label, className] = details[status]; return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${className}`}>{label}</span>; }
 function ReceiptActions({ receipt, onView, onSubmit, onStart, onConfirm, onCancel }: { receipt: GoodsReceipt; onView: () => void; onSubmit: () => void; onStart: () => void; onConfirm: () => void; onCancel: () => void }) { return <span className="inline-flex gap-1"><button type="button" onClick={onView} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Xem chi tiết phiếu"><Eye className="h-4 w-4" /></button>{receipt.status === "draft" && <><button type="button" onClick={onSubmit} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-50" title="Gửi chờ xác nhận">Gửi</button><button type="button" onClick={onCancel} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "pending" && <><button type="button" onClick={onStart} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-sky-700 hover:bg-sky-50" title="Bắt đầu nhập kho">Nhập kho</button><button type="button" onClick={onCancel} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "receiving" && <button type="button" onClick={onConfirm} className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-2 text-xs font-medium text-white hover:bg-emerald-700" title="Hoàn thành nhập kho"><Check className="h-3.5 w-3.5" />Hoàn thành</button>}</span>; }
-function ReceiptDetailModal({ receipt, onClose }: { receipt: GoodsReceipt; onClose: () => void }) { const hasWarranty = receipt.items.some((item) => Number(item.supplierWarrantyMonths) > 0); return <Modal title={`Chi tiết phiếu nhập ${receipt.receiptCode}`} onClose={onClose} wide><div className="space-y-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{receipt.supplierName}</p><p className="mt-1 text-xs text-slate-500">Ngày tạo: {new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div><ReceiptStatus status={receipt.status} /></div><div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-4 py-3">Sản phẩm</th><th className="px-4 py-3">SKU</th><th className="px-4 py-3 text-right">Số lượng</th>{hasWarranty && <th className="px-4 py-3 text-right">Bảo hành</th>}<th className="px-4 py-3 text-right">Đơn giá</th><th className="px-4 py-3 text-right">Thành tiền</th></tr></thead><tbody className="divide-y divide-slate-100">{receipt.items.map((item, index) => <tr key={`${item.variantId}-${index}`}><td className="px-4 py-3 font-medium text-slate-800">{item.productName}</td><td className="px-4 py-3 font-mono text-xs text-slate-600">{item.sku}</td><td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td>{hasWarranty && <td className="px-4 py-3 text-right tabular-nums text-slate-600">{item.supplierWarrantyMonths ? `${item.supplierWarrantyMonths} tháng` : "—"}</td>}<td className="px-4 py-3 text-right tabular-nums">{money(item.unitCost)}</td><td className="px-4 py-3 text-right font-semibold tabular-nums">{money(item.lineTotal)}</td></tr>)}</tbody></table></div>{receipt.financeTerms && <div className="grid gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-sm text-on-surface sm:grid-cols-3"><p>Hạn trả: <strong>{receipt.financeTerms.dueOn}</strong></p><p>Đã trả: <strong className="tabular-nums">{money(receipt.financeTerms.paidAmount)} ₫</strong></p><p>Còn phải trả: <strong className="tabular-nums">{money(receipt.subtotal - receipt.financeTerms.paidAmount)} ₫</strong></p></div>}<div className="flex justify-end border-t border-slate-200 pt-4"><button type="button" onClick={onClose} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Đóng</button></div></div></Modal>; }
 
-function SearchableSelect({ options, value, onChange, onQueryChange, placeholder, disabled }: { options: { value: string; label: string }[]; value: string; onChange: (val: string) => void; onQueryChange?: (query: string) => void; placeholder: string; disabled?: boolean }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const wrapperRef = React.useRef<HTMLDivElement>(null);
-  const menuRef = React.useRef<HTMLDivElement>(null);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0, width: 0, maxHeight: 240 });
 
-  const selected = options.find((o) => o.value === value);
-  const inputValue = isOpen ? query : selected?.label || "";
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!wrapperRef.current?.contains(e.target as Node) && !menuRef.current?.contains(e.target as Node)) setIsOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [isOpen]);
-
-  React.useLayoutEffect(() => {
-    if (!isOpen) return;
-    const updatePosition = () => {
-      const bounds = inputRef.current?.getBoundingClientRect();
-      if (!bounds) return;
-      const spaceBelow = window.innerHeight - bounds.bottom - 12;
-      const spaceAbove = bounds.top - 12;
-      const above = spaceBelow < 200 && spaceAbove > spaceBelow;
-      const maxHeight = Math.min(240, Math.max(80, above ? spaceAbove : spaceBelow));
-      setPosition({
-        top: above ? bounds.top - maxHeight - 6 : bounds.bottom + 6,
-        left: Math.max(12, Math.min(bounds.left, window.innerWidth - bounds.width - 12)),
-        width: Math.min(bounds.width, window.innerWidth - 24),
-        maxHeight,
-      });
-    };
-    updatePosition();
-    const onScroll = (event: Event) => {
-      if (!menuRef.current?.contains(event.target as Node)) setIsOpen(false);
-    };
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", onScroll, true);
-    return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", onScroll, true);
-    };
-  }, [isOpen]);
-
-  const matches = useMemo(() => {
-    const term = query.trim().toLocaleLowerCase("vi");
-    if (!term) return options;
-    return options.filter((o) => o.label.toLocaleLowerCase("vi").includes(term));
-  }, [options, query]);
-
-  return (
-    <div ref={wrapperRef} className="relative w-full">
-      <input
-        ref={inputRef}
-        type="text"
-        role="combobox"
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        disabled={disabled}
-        placeholder={placeholder}
-        value={inputValue}
-        onFocus={() => { setQuery(""); onQueryChange?.(""); setIsOpen(true); }}
-        onChange={(e) => { setQuery(e.target.value); onQueryChange?.(e.target.value); setIsOpen(true); }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setIsOpen(false);
-          if (e.key === "Enter" && isOpen) {
-            e.preventDefault();
-            if (matches.length > 0) { onChange(matches[0].value); setIsOpen(false); }
-          }
-        }}
-        className="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15 disabled:bg-slate-50 disabled:text-slate-500"
-      />
-      {isOpen && !disabled && createPortal(
-        <div ref={menuRef} role="listbox" aria-label={placeholder} style={position} className="fixed z-[200] overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white p-1.5 shadow-[0_16px_40px_rgba(11,65,99,0.2)]">
-          {matches.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-slate-500">Không tìm thấy kết quả.</div>
-          ) : (
-            matches.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                role="option"
-                aria-selected={o.value === value}
-                onClick={() => { onChange(o.value); setIsOpen(false); }}
-                className={`flex w-full items-center justify-between gap-2 truncate rounded-xl px-3 py-2.5 text-left text-sm outline-none focus-visible:outline-2 focus-visible:outline-[#00ADFC] ${o.value === value ? "bg-[#E8F7FF] text-[#007EB8]" : "text-slate-700 hover:bg-[#F1F9FD]"}`}
-              >
-                <span className="truncate">{o.label}</span>
-                {o.value === value && <Check className="h-4 w-4 shrink-0 text-[#00ADFC]" />}
-              </button>
-            ))
-          )}
-        </div>, document.body
-      )}
-    </div>
-  );
+function SearchableSelect({ options, value, onChange, onQueryChange, placeholder, disabled }: { options: { value: string; label: string; sublabel?: string }[]; value: string; onChange: (val: string) => void; onQueryChange?: (query: string) => void; placeholder: string; disabled?: boolean }) {
+  return <Dropdown value={value} onChange={onChange} options={options} onSearchChange={onQueryChange} placeholder={placeholder} aria-label={placeholder} disabled={disabled} searchable searchPlaceholder={placeholder} variant="form" className="w-full" />;
 }
 
 function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialReceipt?: GoodsReceipt | null; onClose: () => void; onSaved: () => Promise<void> }) {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierPartnerOption[]>([]);
+  const supplierOptions: DropdownOption<string>[] = useMemo(
+    () => suppliers.map((item) => ({ value: item.supplierId, label: `${item.name} (${item.code})` })),
+    [suppliers],
+  );
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [productDetails, setProductDetails] = useState<Record<string, CatalogProductDetail>>({});
   const [supplierId, setSupplierId] = useState("");
@@ -579,19 +162,95 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
   const [quantity, setQuantity] = useState("1");
   const [unitCost, setUnitCost] = useState("0");
   const [notes, setNotes] = useState("");
-  const [financeEnabled, setFinanceEnabled] = useState(Boolean(initialReceipt?.financeTerms));
-  const [financeTerms, setFinanceTerms] = useState(initialReceipt?.financeTerms || { dueOn: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(new Date()), paidAmount: 0, paymentMethod: "" });
-  const [financeError, setFinanceError] = useState("");
+  const [financeEnabled, setFinanceEnabled] = useState(!initialReceipt || Boolean(initialReceipt.financeTerms));
+  const [financeTerms, setFinanceTerms] = useState(initialReceipt?.financeTerms || { dueOn: new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10), paidAmount: 0, paymentMethod: "cash" });
   const [lines, setLines] = useState<DraftLine[]>([]);
-  const [showWarranty, setShowWarranty] = useState(Boolean(initialReceipt?.items.some((item) => Number(item.supplierWarrantyMonths) > 0)));
-  const hasUnitLines = lines.some((line) => unitTracked(line.trackingMode));
-  const receiptColumnCount = 6 + Number(hasUnitLines) + Number(showWarranty);
   const [saving, setSaving] = useState(false);
+
+  // Advanced Bulk SKU & IMEI Manager states
+  const [isBulkVariantModalOpen, setIsBulkVariantModalOpen] = useState(false);
+  const [managingSerialLineKey, setManagingSerialLineKey] = useState<string | null>(null);
+  const [expandedUnitLines, setExpandedUnitLines] = useState<Record<string, boolean>>({});
+  const [bulkAllWarranty, setBulkAllWarranty] = useState<string>("12");
+
+  const activeSerialLine = useMemo(() => {
+    return lines.find((l) => l.key === managingSerialLineKey);
+  }, [lines, managingSerialLineKey]);
+
+  const otherLinesSerials = useMemo(() => {
+    return lines
+      .filter((l) => l.key !== managingSerialLineKey)
+      .flatMap((l) => (l.serialNumbers || []).map((s) => s.trim()).filter(Boolean));
+  }, [lines, managingSerialLineKey]);
+
+  const handleBulkVariantsConfirm = (selectedList: SelectedReceiveVariant[]) => {
+    const currentProduct =
+      products.find((p) => p._id === productId) ||
+      (productId && productDetails[productId] ? { _id: productId, name: productDetails[productId].name } : undefined) ||
+      (selectedList[0]?.variant ? { _id: productId || selectedList[0].variant._id, name: selectedList[0].variant.displayName || "Sản phẩm" } : undefined);
+    if (!currentProduct) {
+      toast.error("Không tìm thấy thông tin sản phẩm để thêm vào phiếu.");
+      return;
+    }
+
+    setLines((current) => {
+      const next = [...current];
+      for (const item of selectedList) {
+        const existingIndex = next.findIndex((l) => l.variantId === item.variant._id);
+        const warranty = item.supplierWarrantyMonths !== undefined ? item.supplierWarrantyMonths : item.variant.supplierWarrantyMonths;
+        if (existingIndex >= 0) {
+          const existing = next[existingIndex];
+          const newQty = existing.quantity + item.quantity;
+          const updated: DraftLine = {
+            ...existing,
+            quantity: newQty,
+            unitCost: item.unitCost > 0 ? item.unitCost : existing.unitCost,
+            supplierWarrantyMonths: warranty !== undefined ? warranty : existing.supplierWarrantyMonths,
+          };
+          next[existingIndex] = unitTracked(updated.trackingMode)
+            ? normalizeUnits(updated, Math.round(newQty))
+            : updated;
+        } else {
+          const draft: DraftLine = {
+            key: `${item.variant._id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            productId: currentProduct._id,
+            variantId: item.variant._id,
+            sku: item.variant.sku,
+            productName: currentProduct.name,
+            displayName: item.variant.displayName || item.variant.sku,
+            quantity: item.quantity,
+            unitCost: item.unitCost,
+            trackingMode: item.variant.trackingMode,
+            supplierWarrantyMonths: warranty,
+          };
+          next.push(unitTracked(draft.trackingMode) ? normalizeUnits(draft, Math.max(1, Math.round(item.quantity))) : draft);
+        }
+      }
+      return next;
+    });
+
+    toast.success(`Đã thêm/cập nhật ${selectedList.length} SKU của "${currentProduct.name}" vào phiếu nhập!`);
+  };
+
+  const handleApplyBulkWarrantyToAllLines = () => {
+    const digits = bulkAllWarranty.replace(/\D/g, "");
+    if (digits === "") {
+      toast.error("Vui lòng nhập số tháng bảo hành hợp lệ.");
+      return;
+    }
+    const months = Math.min(1200, Number(digits));
+    setLines((current) => current.map((l) => ({ ...l, supplierWarrantyMonths: months })));
+    toast.success(`Đã áp dụng bảo hành ${months} tháng cho toàn bộ ${lines.length} dòng trong phiếu nhập!`);
+  };
+
+  const handleSaveSerialLine = (updatedLine: DraftLine) => {
+    setLines((current) => current.map((l) => (l.key === updatedLine.key ? updatedLine : l)));
+  };
 
   const load = async () => {
     try {
       const [nextSuppliers, nextProducts] = await Promise.all([
-        inventoryReceivingService.listSuppliers({ status: "active" }),
+        listSupplierPartners(),
         productCatalogService.listProducts({ status: "active", limit: 20 }),
       ]);
       setSuppliers(nextSuppliers);
@@ -599,14 +258,12 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
       if (initialReceipt) {
         setSupplierId(initialReceipt.supplierId);
         setNotes(initialReceipt.notes || "");
-        setFinanceEnabled(Boolean(initialReceipt.financeTerms));
-        if (initialReceipt.financeTerms) setFinanceTerms(initialReceipt.financeTerms);
         setLines(initialReceipt.items.map((item, index) => {
           const line: DraftLine = { ...item, key: `${item.variantId}-${index}`, displayName: item.productName || item.sku };
           return unitTracked(line.trackingMode) ? normalizeUnits(line, Math.max(1, Math.round(line.quantity))) : line;
         }));
       }
-      if (!initialReceipt && nextSuppliers.length > 0) setSupplierId(nextSuppliers[0]._id);
+      if (!initialReceipt && nextSuppliers.length > 0) setSupplierId(nextSuppliers[0].supplierId);
     } catch (error: any) {
       toast.error(error?.message || "Không thể tải dữ liệu tạo phiếu nhập.");
     }
@@ -626,6 +283,20 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
   const selectedDetail = productId ? productDetails[productId] : undefined;
   const variants = selectedDetail?.variants.filter((item) => item.status === "active") || [];
   const selectedVariant = variants.find((item) => item._id === variantId);
+  const selectedProductName = selectedDetail?.name || products.find((item) => item._id === productId)?.name || "Sản phẩm";
+  const variantOptions = variants.map((variant) => {
+    const optionValues = (variant.optionValues || []).map((option) => option.value.trim()).filter(Boolean);
+    const variantName = optionValues.length
+      ? optionValues.join(" · ")
+      : variant.displayName?.trim() && variant.displayName.trim() !== variant.sku
+        ? variant.displayName.trim()
+        : "Biến thể mặc định";
+    return {
+      value: variant._id,
+      label: `${selectedProductName} — ${variantName}`,
+      sublabel: `SKU: ${variant.sku}`,
+    };
+  });
   // Hàng theo dõi từng đơn vị chỉ nhận số nguyên; hàng cân/đong mới cần bước lẻ.
   const quantityStep = !selectedVariant || unitTracked(selectedVariant.trackingMode) ? 1 : 0.001;
   useEffect(() => {
@@ -649,7 +320,6 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
       return;
     }
     const draft: DraftLine = { key: `${variant._id}-${Date.now()}`, productId, variantId, sku: variant.sku, productName: product.name, displayName: variant.displayName || variant.sku, quantity: parsedQuantity, unitCost: parsedCost, trackingMode: variant.trackingMode, supplierWarrantyMonths: variant.supplierWarrantyMonths };
-    if (Number(variant.supplierWarrantyMonths) > 0) setShowWarranty(true);
     // Hàng theo dõi từng đơn vị chỉ nhận số nguyên vì mỗi đơn vị là một dòng riêng.
     const nextLine = unitTracked(draft.trackingMode) ? normalizeUnits(draft, Math.max(1, Math.round(parsedQuantity))) : draft;
     setLines((current) => [...current, nextLine]);
@@ -702,24 +372,14 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
     }));
   };
 
-  const updateUnitBarcodeAt = (key: string, index: number, value: string) => {
+  const updateUnitDetailAt = (key: string, index: number, field: "serialNumber" | "imei1" | "imei2", value: string) => {
     setLines((current) => current.map((line) => {
       if (line.key !== key) return line;
       const normalized = normalizeUnits(line, unitCount(line));
       const unitDetails = [...(normalized.unitDetails || [])];
-      unitDetails[index] = { ...unitDetails[index], internalBarcode: value };
+      unitDetails[index] = { ...unitDetails[index], [field]: value };
       return { ...normalized, unitDetails };
     }));
-  };
-
-  const generateUnitBarcodes = (line: DraftLine) => {
-    const token = line.sku.replace(/[^A-Za-z0-9]+/g, "-").toUpperCase();
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const unitDetails = Array.from({ length: unitCount(line) }, (_, index) => ({
-      ...line.unitDetails?.[index],
-      internalBarcode: `IG-${token}-${date}-${String(index + 1).padStart(6, "0")}`,
-    }));
-    setLines((current) => current.map((item) => item.key === line.key ? { ...item, unitDetails } : item));
   };
 
   const saveReceipt = async () => {
@@ -727,48 +387,16 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
       toast.error("Chọn nhà cung cấp và ít nhất một sản phẩm.");
       return;
     }
-      const invalidSerialLine = lines.filter((line) => line.trackingMode === "serial").find((line) => {
-        const serials = (line.serialNumbers || []).map((serial) => serial.trim());
-        return !Number.isInteger(line.quantity) || serials.length !== line.quantity || serials.some((serial) => !serial) || new Set(serials.map((serial) => serial.toUpperCase())).size !== serials.length;
-      });
-      if (invalidSerialLine) {
-        toast.error(`SKU ${invalidSerialLine.sku} phải có đủ serial duy nhất theo số lượng.`);
-        return;
-      }
-      // Hàng serial được phép bỏ trống mã nội bộ, nhưng đã cấp thì phải cấp đủ và không trùng.
-      const invalidSerialBarcodeLine = lines.filter((line) => line.trackingMode === "serial").find((line) => {
-        const barcodes = (line.unitDetails || []).map((detail) => (detail.internalBarcode || "").trim());
-        if (barcodes.every((barcode) => !barcode)) return false;
-        return barcodes.length !== line.quantity || barcodes.some((barcode) => !barcode) || new Set(barcodes.map((barcode) => barcode.toUpperCase())).size !== barcodes.length;
-      });
-      if (invalidSerialBarcodeLine) {
-        toast.error(`SKU ${invalidSerialBarcodeLine.sku} đã cấp mã vạch nội bộ thì phải cấp đủ cho mọi đơn vị và không trùng nhau.`);
-        return;
-      }
-      const invalidUnitLine = lines.filter((line) => line.trackingMode === "unit_barcode").find((line) => {
-        const details = (line.unitDetails || []).map((detail) => (detail.internalBarcode || "").trim());
-        return !Number.isInteger(line.quantity) || details.length !== line.quantity || details.some((barcode) => !barcode) || new Set(details.map((barcode) => barcode.toUpperCase())).size !== details.length;
-      });
-      if (invalidUnitLine) {
-        toast.error(`SKU ${invalidUnitLine.sku} phải có đủ mã vạch nội bộ duy nhất theo số lượng.`);
-        return;
-      }
-      if (financeEnabled && (!/^\d{4}-\d{2}-\d{2}$/.test(financeTerms.dueOn) || !Number.isSafeInteger(financeTerms.paidAmount) || financeTerms.paidAmount < 0 || financeTerms.paidAmount > total)) {
-        setFinanceError("Kiểm tra hạn trả và số đã thanh toán; số đã trả không được vượt tổng phiếu nhập.");
-        return;
-      }
-      setFinanceError("");
-      setSaving(true);
+    setSaving(true);
     try {
       const payload = {
         supplierId,
         notes: notes.trim() || undefined,
         financeTerms: financeEnabled ? financeTerms : null,
-        items: lines.map(({ key: _key, displayName: _displayName, ...line }) => {
-          // Không gửi unitDetails rỗng (hàng serial được phép không cấp mã nội bộ).
-          const unitDetails = (line.unitDetails || []).filter((detail) => (detail.internalBarcode || "").trim());
-          return { ...line, unitDetails: unitDetails.length > 0 ? unitDetails : undefined };
-        }),
+        items: lines.map(({ key: _key, displayName: _displayName, ...line }) => ({
+          ...line,
+          unitDetails: line.unitDetails?.length ? line.unitDetails : undefined,
+        })),
       };
       if (initialReceipt) await inventoryReceivingService.updateReceipt(initialReceipt._id, payload);
       else await inventoryReceivingService.createReceipt(payload);
@@ -783,55 +411,101 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
 
   return (
     <Modal title={initialReceipt ? `Sửa phiếu nhập ${initialReceipt.receiptCode}` : "Tạo phiếu nhập mới"} onClose={onClose} wide>
-      <div className="-m-4 bg-[#F8FBFF] p-4">
-        <div className="space-y-4 rounded-xl border border-[#DCE7F4] bg-white p-4">
-
-
+      <div className="bg-slate-50/50 -m-5 p-5">
+        <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Nhà cung cấp</label>
-            <StyledSelect ariaLabel="Nhà cung cấp" value={supplierId} onChange={setSupplierId} options={[{ value: "", label: "Chọn nhà cung cấp" }, ...suppliers.map((item) => ({ value: item._id, label: `${item.name} (${item.code})` }))]} className="h-11" />
+            <Dropdown<string>
+              aria-label="Nhà cung cấp"
+              name="supplierId"
+              value={supplierId}
+              onChange={setSupplierId}
+              options={supplierOptions}
+              placeholder="Chọn nhà cung cấp"
+              variant="form"
+              size="md"
+              searchable
+              searchPlaceholder="Tìm nhà cung cấp..."
+              disabled={suppliers.length === 0}
+              className="w-full"
+              triggerClassName="w-full text-sm"
+            />
+            <p className="mt-1.5 text-xs text-slate-500">Thêm hoặc sửa nhà cung cấp tại Quản lý đối tác.</p>
           </div>
 
-          <div className="rounded-xl border border-[#DCE7F4] bg-[#F8FBFF] p-4">
-            <h4 className="text-sm font-semibold text-slate-900 mb-4">Thêm sản phẩm vào phiếu</h4>
-            <div className="grid gap-4 sm:grid-cols-12 items-end">
-              <div className="sm:col-span-5">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+              <h4 className="text-sm font-semibold text-slate-900">Thêm sản phẩm vào phiếu</h4>
+              {productId && variants.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsBulkVariantModalOpen(true)}
+                  className="rounded-md bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-cyan-800 transition-colors"
+                >
+                  Nhập nhiều SKU của sản phẩm này ({variants.length} SKU)
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,4fr)_minmax(0,4fr)_minmax(96px,2fr)_minmax(120px,2fr)_40px]">
+              <div>
                 <label className="mb-1.5 block text-xs font-medium text-slate-700">Sản phẩm</label>
                 <SearchableSelect
                   placeholder="Tìm kiếm sản phẩm..."
                   value={productId}
                   onChange={(id) => { setProductId(id); setVariantId(""); }}
                   onQueryChange={setProductSearch}
-                  options={products.map((p) => ({ value: p._id, label: `${p.name} (${p.productCode})` }))}
+                  options={products.map((p) => ({ value: p._id, label: p.name, sublabel: `Mã SP: ${p.productCode}` }))}
                 />
               </div>
-              <div className="sm:col-span-3">
-                <label className="mb-1.5 block text-xs font-medium text-slate-700">Mã SKU</label>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-slate-700">Phiên bản sản phẩm</label>
                 <SearchableSelect
                   disabled={!productId || variants.length === 0}
-                  placeholder="Chọn SKU..."
+                  placeholder="Chọn phiên bản..."
                   value={variantId}
                   onChange={setVariantId}
-                  options={variants.map((v) => ({ value: v._id, label: `${v.sku}${v.displayName ? ` - ${v.displayName}` : ""}` }))}
+                  options={variantOptions}
                 />
               </div>
-              <div className="sm:col-span-2">
+              <div>
                 <label className="mb-1.5 block text-xs font-medium text-slate-700">Số lượng</label>
-                <input type="number" min={quantityStep} step={quantityStep} value={quantity} onChange={(event) => setQuantity(event.target.value)} className="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15" />
+                <input type="number" min={quantityStep} step={quantityStep} value={quantity} onChange={(event) => setQuantity(event.target.value)} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 bg-white" />
               </div>
-              <div className="sm:col-span-2">
+              <div>
                 <label className="mb-1.5 block text-xs font-medium text-slate-700">Giá nhập</label>
-                <input type="number" min="0" step="1" value={unitCost} onChange={(event) => setUnitCost(event.target.value)} className="h-11 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15" />
+                <input type="number" min="0" step="1" value={unitCost} onChange={(event) => setUnitCost(event.target.value)} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 bg-white" />
               </div>
-              <div className="sm:col-span-1">
-                <button type="button" onClick={addLine} className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#00ADFC] text-white hover:bg-[#0098DD] focus:outline-none focus:ring-2 focus:ring-[#00ADFC]/20" title="Thêm dòng"><PackagePlus className="h-5 w-5" /></button>
+              <div>
+                <button type="button" onClick={addLine} className="inline-flex h-[38px] w-full items-center justify-center rounded-md bg-cyan-700 text-white hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-600 focus:ring-offset-1" title="Thêm dòng"><PackagePlus className="h-5 w-5" /></button>
               </div>
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-semibold text-slate-900">Danh sách nhập ({lines.length} dòng)</h4><label className="flex items-center gap-2 text-sm text-on-surface-variant"><input type="checkbox" checked={showWarranty} onChange={(event) => setShowWarranty(event.target.checked)} />Thông tin bảo hành</label>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
+              <h4 className="text-sm font-semibold text-slate-900">Danh sách nhập ({lines.length} dòng)</h4>
+              {lines.length > 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+                  <span className="font-medium text-slate-700">Áp BH NCC cho cả phiếu:</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="12"
+                    value={bulkAllWarranty}
+                    onChange={(e) => setBulkAllWarranty(e.target.value.replace(/\D/g, ""))}
+                    className="w-14 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-right font-bold text-slate-900 outline-none focus:border-cyan-600 shadow-sm"
+                    aria-label="Số tháng bảo hành áp dụng cho toàn bộ dòng"
+                  />
+                  <span>tháng</span>
+                  <button
+                    type="button"
+                    onClick={handleApplyBulkWarrantyToAllLines}
+                    className="rounded bg-cyan-700 hover:bg-cyan-800 text-white font-semibold px-2.5 py-1 text-xs shadow-sm transition-colors"
+                  >
+                    Áp dụng
+                  </button>
+                </div>
+              )}
             </div>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="w-full text-left text-sm">
@@ -840,55 +514,185 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                     <th className="px-4 py-3 font-medium">Sản phẩm</th>
                     <th className="px-4 py-3 font-medium">SKU</th>
                     <th className="px-4 py-3 text-right font-medium">Số lượng</th>
-                    {hasUnitLines && <th className="px-4 py-3 font-medium">Mã đơn vị</th>}
-                    {showWarranty && <th className="px-4 py-3 text-right font-medium">Bảo hành (tháng)</th>}
+                    <th className="px-4 py-3 font-medium">Serial / IMEI thiết bị</th>
+                    <th className="px-4 py-3 text-right font-medium">BH NCC (tháng)</th>
                     <th className="px-4 py-3 text-right font-medium">Đơn giá</th>
                     <th className="px-4 py-3 text-right font-medium">Thành tiền</th>
                     <th className="px-4 py-3 text-right font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {lines.length === 0 ? <tr><td colSpan={receiptColumnCount} className="px-4 py-5 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => unitTracked(line.trackingMode) ? (
+                  {lines.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">Chưa có sản phẩm trong phiếu.</td></tr> : lines.map((line) => unitTracked(line.trackingMode) ? (
                     <Fragment key={line.key}>
-                      <tr className="bg-slate-50/60">
+                      <tr className="bg-slate-50/60 hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3">
-                          <p className="font-medium text-slate-900">{line.productName}</p>
+                          <p className="font-semibold text-slate-900">{line.productName}</p>
                           <p className="text-xs text-slate-500">{line.displayName}</p>
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td>
-                        
-                        <td className="px-4 py-3 text-right tabular-nums text-sm font-semibold text-slate-800">{unitCount(line)}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-700">{line.sku}</td>
+
+                        <td className="px-4 py-3 text-right">
+                          <input
+                            type="number"
+                            min={1}
+                            max={500}
+                            value={line.quantity}
+                            onChange={(event) => updateLine(line.key, "quantity", event.target.value)}
+                            className="w-16 rounded-md border border-slate-200 bg-white px-2 py-1 text-right tabular-nums text-sm font-bold text-slate-800 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600"
+                            aria-label={`Số lượng ${line.sku}`}
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700">{line.trackingMode === "serial" ? "Theo số sê-ri" : "Theo mã vạch từng đơn vị"}</span>
-                            <button type="button" onClick={() => generateUnitBarcodes(line)} className="text-xs font-medium text-cyan-700 hover:text-cyan-900">Sinh mã nội bộ tự động</button>
+                            {line.trackingMode === "serial" ? (
+                              (() => {
+                                const filledCount = (line.serialNumbers || []).filter(Boolean).length;
+                                const isEnough = filledCount === line.quantity;
+                                return (
+                                  <span
+                                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${isEnough
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        : filledCount > 0
+                                          ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                          : "bg-rose-50 text-rose-700 border border-rose-200"
+                                      }`}
+                                  >
+                                    {isEnough && <Check className="h-3 w-3" />}
+                                    {filledCount === 0
+                                      ? `Chưa có IMEI (0/${line.quantity})`
+                                      : `${filledCount}/${line.quantity} IMEI`}
+                                  </span>
+                                );
+                              })()
+                            ) : (
+                              <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-[11px] font-medium text-cyan-700 border border-cyan-200">
+                                Theo mã vạch đơn vị
+                              </span>
+                            )}
 
+                            <button
+                              type="button"
+                              onClick={() => setManagingSerialLineKey(line.key)}
+                              className="rounded bg-cyan-700 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-cyan-800 transition-colors"
+                            >
+                              Quản lý / Quét IMEI
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedUnitLines((curr) => ({
+                                  ...curr,
+                                  [line.key]: !curr[line.key],
+                                }))
+                              }
+                              className="text-[11px] text-slate-400 hover:text-slate-700 font-medium ml-1"
+                            >
+                              {expandedUnitLines[line.key] ? "▲ Thu gọn" : "▼ Xem từng ô"}
+                            </button>
                           </div>
                         </td>
-                        {showWarranty && <td className="px-4 py-3 text-right"><input value={line.supplierWarrantyMonths ?? ""} onChange={(event) => updateWarrantyMonths(line.key, event.target.value)} placeholder="0" className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Bảo hành nhà cung cấp ${line.sku} (tháng)`} /></td>}
-                        <td className="px-4 py-3 text-right"><input type="text" inputMode="numeric" value={money(line.unitCost)} onChange={(event) => updateLine(line.key, "unitCost", event.target.value)} className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Đơn giá ${line.sku}`} /></td>
-                        <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{money(line.quantity * line.unitCost)}</td>
-                        <td className="px-4 py-3 text-right"><button type="button" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Xóa cả dòng"><Trash2 className="h-4 w-4" /></button></td>
+                        <td className="px-4 py-3 text-right">
+                          <input
+                            value={line.supplierWarrantyMonths ?? ""}
+                            onChange={(event) => updateWarrantyMonths(line.key, event.target.value)}
+                            placeholder="0"
+                            className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600"
+                            aria-label={`Bảo hành nhà cung cấp ${line.sku} (tháng)`}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={money(line.unitCost)}
+                            onChange={(event) => updateLine(line.key, "unitCost", event.target.value)}
+                            className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm font-semibold text-cyan-800 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600"
+                            aria-label={`Đơn giá ${line.sku}`}
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums font-bold text-slate-900">{money(line.quantity * line.unitCost)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                            title="Xóa cả dòng"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
                       </tr>
-                      {Array.from({ length: unitCount(line) }, (_, index) => (
-                        <tr key={`${line.key}-unit-${index}`}>
-                          <td colSpan={2} className="py-2 pl-8 pr-4 text-xs font-medium text-slate-500">Đơn vị #{index + 1}</td>
-                          <td className="px-4 py-2 text-right tabular-nums text-xs text-slate-400">1</td>
-                          <td className="px-4 py-2">
-                            <div className="flex flex-wrap gap-2">
-                              {line.trackingMode === "serial" && <input value={line.serialNumbers?.[index] || ""} onChange={(event) => updateSerialAt(line.key, index, event.target.value)} placeholder={`Số sê-ri ${index + 1}`} className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Số sê-ri ${line.sku} đơn vị ${index + 1}`} />}
-                              <input value={line.unitDetails?.[index]?.internalBarcode || ""} onChange={(event) => updateUnitBarcodeAt(line.key, index, event.target.value)} placeholder={`Mã vạch nội bộ ${index + 1}`} className="w-44 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1.5 text-xs outline-none focus:border-cyan-600" aria-label={`Mã vạch nội bộ ${line.sku} đơn vị ${index + 1}`} />
-                            </div>
+                      {expandedUnitLines[line.key] &&
+                        Array.from({ length: unitCount(line) }, (_, index) => (
+                          <tr key={`${line.key}-unit-${index}`} className="bg-slate-50/30">
+                            <td colSpan={2} className="py-2 pl-8 pr-4 text-xs font-medium text-slate-500">
+                              Đơn vị #{index + 1}
+                            </td>
+                            <td className="px-4 py-2 text-right tabular-nums text-xs text-slate-400">1</td>
+                            <td className="px-4 py-2">
+                              <div className="flex flex-wrap gap-2">
+                                {line.trackingMode === "serial" ? (
+                                  <input
+                                    value={line.serialNumbers?.[index] || ""}
+                                    onChange={(event) => updateSerialAt(line.key, index, event.target.value)}
+                                    placeholder={`Serial / IMEI chính ${index + 1}`}
+                                    className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600"
+                                    aria-label={`Serial hoặc IMEI chính ${line.sku} đơn vị ${index + 1}`}
+                                  />
+                                ) : (
+                                  <input
+                                    value={line.unitDetails?.[index]?.serialNumber || ""}
+                                    onChange={(event) => updateUnitDetailAt(line.key, index, "serialNumber", event.target.value)}
+                                    placeholder={`Serial (nếu có) ${index + 1}`}
+                                    className="w-44 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600"
+                                    aria-label={`Serial ${line.sku} đơn vị ${index + 1}`}
+                                  />
+                                )}
+                                <input
+                                  value={line.unitDetails?.[index]?.imei1 || ""}
+                                  onChange={(event) => updateUnitDetailAt(line.key, index, "imei1", event.target.value)}
+                                  placeholder={`IMEI 1 (nếu có) ${index + 1}`}
+                                  className="w-40 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600"
+                                  aria-label={`IMEI 1 ${line.sku} đơn vị ${index + 1}`}
+                                />
+                                <input
+                                  value={line.unitDetails?.[index]?.imei2 || ""}
+                                  onChange={(event) => updateUnitDetailAt(line.key, index, "imei2", event.target.value)}
+                                  placeholder={`IMEI 2 (nếu có) ${index + 1}`}
+                                  className="w-40 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:border-cyan-600"
+                                  aria-label={`IMEI 2 ${line.sku} đơn vị ${index + 1}`}
+                                />
+                              </div>
+                            </td>
+                            <td className="px-4 py-2" />
+                            <td className="px-4 py-2" />
+                            <td className="px-4 py-2" />
+                            <td className="px-4 py-2 text-right">
+                              <button
+                                type="button"
+                                onClick={() => removeUnitAt(line.key, index)}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-300 hover:bg-rose-50 hover:text-rose-600"
+                                title={`Xóa đơn vị #${index + 1}`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      {expandedUnitLines[line.key] && (
+                        <tr>
+                          <td colSpan={8} className="px-4 pb-3 pl-8">
+                            <button
+                              type="button"
+                              onClick={() => addUnit(line.key)}
+                              className="inline-flex items-center gap-1 rounded-md border border-dashed border-cyan-300 px-2.5 py-1 text-xs font-medium text-cyan-700 hover:bg-cyan-50"
+                            >
+                              + Thêm đơn vị
+                            </button>
                           </td>
-                        {showWarranty && <td className="px-4 py-2" />}
-                        <td className="px-4 py-2" />
-                        <td className="px-4 py-2" />
-                          <td className="px-4 py-2 text-right"><button type="button" onClick={() => removeUnitAt(line.key, index)} className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-300 hover:bg-rose-50 hover:text-rose-600" title={`Xóa đơn vị #${index + 1}`}><Trash2 className="h-3.5 w-3.5" /></button></td>
                         </tr>
-                      ))}
-                      <tr>
-                        <td colSpan={receiptColumnCount} className="px-4 pb-3 pl-8"><button type="button" onClick={() => addUnit(line.key)} className="inline-flex items-center gap-1 rounded-md border border-dashed border-cyan-300 px-2.5 py-1 text-xs font-medium text-cyan-700 hover:bg-cyan-50">+ Thêm đơn vị</button></td>
-                      </tr>
+                      )}
                     </Fragment>
                   ) : (
                     <tr key={line.key}>
@@ -898,8 +702,8 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-slate-600">{line.sku}</td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.key, "quantity", event.target.value)} className="w-24 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Số lượng ${line.sku}`} /></td>
-                      {hasUnitLines && <td className="px-4 py-3"><span className="text-xs text-slate-400">{line.trackingMode === "lot" ? "Theo lô" : "Không áp dụng"}</span></td>}
-                      {showWarranty && <td className="px-4 py-3 text-right"><input value={line.supplierWarrantyMonths ?? ""} onChange={(event) => updateWarrantyMonths(line.key, event.target.value)} placeholder="0" className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Bảo hành nhà cung cấp ${line.sku} (tháng)`} /></td>}
+                      <td className="px-4 py-3"><span className="text-xs text-slate-400">{line.trackingMode === "lot" ? "Theo lô" : "Không áp dụng"}</span></td>
+                      <td className="px-4 py-3 text-right"><input value={line.supplierWarrantyMonths ?? ""} onChange={(event) => updateWarrantyMonths(line.key, event.target.value)} placeholder="0" className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Bảo hành nhà cung cấp ${line.sku} (tháng)`} /></td>
                       <td className="px-4 py-3 text-right"><input type="text" inputMode="numeric" value={money(line.unitCost)} onChange={(event) => updateLine(line.key, "unitCost", event.target.value)} className="w-32 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-right tabular-nums text-sm text-slate-700 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600" aria-label={`Đơn giá ${line.sku}`} /></td>
                       <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">{money(line.quantity * line.unitCost)}</td>
                       <td className="px-4 py-3 text-right">
@@ -912,35 +716,67 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
             </div>
           </div>
 
-          <section className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4" aria-labelledby="receipt-finance-title">
-            <div>
-              <h3 id="receipt-finance-title" className="text-balance text-sm font-semibold text-on-surface">Công nợ nhà cung cấp</h3>
-              <p className="text-pretty text-sm text-on-surface-variant">Khi hoàn tất nhập kho, hệ thống ghi khoản phải trả theo giá trị phiếu trừ số đã thanh toán.</p>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-on-surface">
-              <input type="checkbox" checked={financeEnabled} onChange={(event) => { setFinanceEnabled(event.target.checked); setFinanceError(""); }} />
-              Theo dõi công nợ cho phiếu nhập này
+          {/* Cấu hình Thanh toán & Công nợ nhà cung cấp */}
+          <div className="space-y-3 rounded-xl border border-cyan-200/80 bg-cyan-50/40 p-4 shadow-xs">
+            <label className="flex items-center gap-2.5 text-sm font-semibold text-slate-800 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={financeEnabled}
+                onChange={(e) => setFinanceEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-cyan-700 focus:ring-cyan-600 cursor-pointer"
+              />
+              <span>Tự ghi nhận công nợ nhà cung cấp khi hoàn thành nhập kho</span>
             </label>
-            {financeEnabled && <div className="grid gap-3 sm:grid-cols-3">
-              <label className="space-y-1 text-sm text-on-surface">Hạn thanh toán
-                <input type="date" required value={financeTerms.dueOn} aria-invalid={Boolean(financeError)} aria-describedby={financeError ? "receipt-finance-error" : undefined} onChange={(event) => { setFinanceTerms({ ...financeTerms, dueOn: event.target.value }); setFinanceError(""); }} className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-primary" />
-              </label>
-              <label className="space-y-1 text-sm text-on-surface">Đã thanh toán (₫)
-                <input type="number" min="0" max={total} step="1" required value={financeTerms.paidAmount} aria-invalid={Boolean(financeError)} aria-describedby={financeError ? "receipt-finance-error" : undefined} onChange={(event) => { setFinanceTerms({ ...financeTerms, paidAmount: Number(event.target.value) }); setFinanceError(""); }} className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-on-surface tabular-nums focus-visible:outline-2 focus-visible:outline-primary" />
-              </label>
-              <label className="space-y-1 text-sm text-on-surface">Phương thức đã trả
-                <select value={financeTerms.paymentMethod || ""} onChange={(event) => setFinanceTerms({ ...financeTerms, paymentMethod: event.target.value })} className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-primary">
-                  <option value="">Chưa xác định</option><option value="cash">Tiền mặt</option><option value="bank">Ngân hàng</option>
-                </select>
-              </label>
-              <p className="text-sm text-on-surface-variant sm:col-span-3">Còn phải trả: <strong className="tabular-nums text-on-surface">{money(total - financeTerms.paidAmount)} ₫</strong></p>
-            </div>}
-            {financeError && <p id="receipt-finance-error" role="alert" className="text-sm text-error">{financeError}</p>}
-          </section>
+
+            {financeEnabled && (
+              <div className="grid gap-3 sm:grid-cols-3 pt-1">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Hạn thanh toán</label>
+                  <input
+                    type="date"
+                    required
+                    value={financeTerms.dueOn}
+                    onChange={(e) => setFinanceTerms({ ...financeTerms, dueOn: e.target.value })}
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 shadow-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Đã thanh toán (VND)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    value={money(financeTerms.paidAmount)}
+                    onChange={(e) => {
+                      const num = Number(e.target.value.replace(/\D/g, ""));
+                      setFinanceTerms({ ...financeTerms, paidAmount: isNaN(num) ? 0 : num });
+                    }}
+                    placeholder="0"
+                    className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 shadow-xs tabular-nums text-right font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Phương thức đã trả</label>
+<StyledSelect appearance="erp" ariaLabel="Phương thức đã trả" value={financeTerms.paymentMethod} onChange={(value) => setFinanceTerms({ ...financeTerms, paymentMethod: value })} options={[{ value: "cash", label: "Tiền mặt" }, { value: "bank", label: "Ngân hàng / Chuyển khoản" }]} />
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">
+              * Nợ = Giá trị phiếu nhập trừ số đã thanh toán. Khoản đã trả cần gán quỹ tại Tài chính → Sổ quỹ. Không nhập lại công nợ này thủ công.
+            </p>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Ghi chú phiếu nhập</label>
-            <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Nhập ghi chú hoặc thông tin tham chiếu..." className="w-full resize-y rounded-xl border border-[#DCE7F4] px-3 py-2.5 text-sm outline-none focus:border-[#70D5FF] focus:ring-2 focus:ring-[#00ADFC]/15" />
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Nhập ghi chú hoặc thông tin tham chiếu..."
+              className="w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-cyan-600 focus:ring-1 focus:ring-cyan-600 shadow-xs"
+            />
           </div>
 
           <div className="flex items-center justify-between border-t border-slate-200 pt-5 mt-2">
@@ -952,28 +788,51 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
               <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                 Hủy bỏ
               </button>
-              <button type="button" disabled={saving || lines.length === 0} onClick={() => void saveReceipt()} className="rounded-xl bg-[#00ADFC] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#0098DD] transition-colors disabled:opacity-50">
-                {saving ? "Đang xử lý..." : "Nhập kho"}
+              <button type="button" disabled={saving || lines.length === 0} onClick={() => void saveReceipt()} className="rounded-md bg-cyan-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-cyan-800 transition-colors disabled:opacity-50">
+                {saving ? "Đang xử lý..." : initialReceipt ? "Lưu thay đổi" : "Tạo phiếu nháp"}
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modal Nhập nhiều SKU của sản phẩm */}
+      {isBulkVariantModalOpen && productId && products.find((p) => p._id === productId) && (
+        <BulkVariantReceiveModal
+          isOpen={isBulkVariantModalOpen}
+          onClose={() => setIsBulkVariantModalOpen(false)}
+          product={products.find((p) => p._id === productId)!}
+          productDetail={productDetails[productId]}
+          existingVariantIds={lines.map((l) => l.variantId)}
+          onConfirm={handleBulkVariantsConfirm}
+        />
+      )}
+
+      {/* Modal Quản lý & Quét IMEI chuyên dụng */}
+      {activeSerialLine && (
+        <SerialManagerModal
+          isOpen={Boolean(activeSerialLine)}
+          onClose={() => setManagingSerialLineKey(null)}
+          line={activeSerialLine}
+          onSave={handleSaveSerialLine}
+          otherLinesSerials={otherLinesSerials}
+        />
+      )}
     </Modal>
   );
 }
 
 function Modal({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]">
-      <div role="dialog" aria-modal="true" aria-label={title} className={`inventory-popup max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,65,99,0.18)] ${wide ? "max-w-6xl" : "max-w-xl"}`}>
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#E7EFF7] bg-white px-5 py-4">
-          <h3 className="border-l-[3px] border-[#00ADFC] pl-3 text-lg font-medium text-slate-900">{title}</h3>
-          <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" title="Đóng" aria-label="Đóng">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 p-4">
+      <div role="dialog" aria-modal="true" className={`max-h-[92vh] w-full overflow-y-auto rounded-xl bg-white shadow-xl ${wide ? "max-w-5xl" : "max-w-xl"}`}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
+          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+          <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100" title="Đóng">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="p-4">{children}</div>
+        <div className="p-5">{children}</div>
       </div>
     </div>
   );

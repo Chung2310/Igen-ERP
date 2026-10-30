@@ -1,4 +1,6 @@
 import type { Model } from "mongoose";
+import { runInTransaction } from "../../../config/database";
+import { saveSupplierPartner } from "../../partners/partner-supplier.service";
 import {
   ProductAttributeDefinitionModel,
   ProductCatalogBrandModel,
@@ -73,9 +75,19 @@ function normalizeResourceInput(kind: ProductCatalogResourceKind, input: any, ac
     updatedBy: actor,
   };
   if (kind === "categories") {
+    const parentCode = input.parentCode ? normalizeCode(input.parentCode, "Mã danh mục cha") : undefined;
+    if (parentCode && parentCode === base.code) {
+      throw new ProductCatalogValidationError("Danh mục cha không thể là chính nó.");
+    }
+    const validTrackingModes = ["none", "quantity", "unit_barcode", "lot", "serial"];
+    const defaultTrackingMode = input.defaultTrackingMode ? String(input.defaultTrackingMode).trim() : undefined;
+    if (defaultTrackingMode && !validTrackingModes.includes(defaultTrackingMode)) {
+      throw new ProductCatalogValidationError("defaultTrackingMode không hợp lệ.");
+    }
     return {
       ...base,
-      parentCode: input.parentCode ? normalizeCode(input.parentCode, "Mã danh mục cha") : undefined,
+      parentCode,
+      defaultTrackingMode: defaultTrackingMode || undefined,
       description: optionalText(input.description, "Mô tả", 2_000),
     };
   }
@@ -133,8 +145,34 @@ export const ProductCatalogResourceService = {
     const actor = String(actorValue || "").trim();
     if (!actor) throw new ProductCatalogValidationError("Không xác định được người thực hiện thao tác.");
     const raw = input as Record<string, unknown>;
+
+    if (kindValue === "categories" && raw?.parentCode) {
+      const parentCode = normalizeCode(raw.parentCode, "Mã danh mục cha");
+      const parent = await ProductCatalogCategoryModel.findOne({ companyCode, code: parentCode }).lean();
+      if (parent && parent.parentCode) {
+        const grandParent = await ProductCatalogCategoryModel.findOne({ companyCode, code: parent.parentCode }).lean();
+        if (grandParent && grandParent.parentCode) {
+          throw new ProductCatalogValidationError("Cây thư mục thể loại chỉ hỗ trợ tối đa 3 cấp (Ngành hàng > Hãng/Dòng > Đời máy).");
+        }
+      }
+    }
+
     const code = raw?.code ? normalizeCode(raw.code, "Mã resource") : await resolveNextCatalogCode(models[kindValue], companyCode, RESOURCE_CODE_PREFIX[kindValue], raw?.name);
-    const document = await models[kindValue].create({ companyCode, ...normalizeResourceInput(kindValue, { ...raw, code }, actor) });
+    const values = { companyCode, ...normalizeResourceInput(kindValue, { ...raw, code }, actor) };
+    if (raw?.createSupplierPartner === true) {
+      if (kindValue !== "brands") throw new ProductCatalogValidationError("Chỉ tạo kèm nhà cung cấp khi tạo hãng.");
+      return runInTransaction(async (session) => {
+        const [brand] = await ProductCatalogBrandModel.create([values], { session });
+        try {
+          await saveSupplierPartner({ companyCode, code: brand.code, name: brand.name, roles: ["supplier"], status: brand.status, updatedBy: actor }, {}, undefined, session);
+        } catch (error) {
+          if (!session) await ProductCatalogBrandModel.deleteOne({ companyCode, _id: brand._id });
+          throw error;
+        }
+        return brand.toObject() as ResourceDocument;
+      });
+    }
+    const document = await models[kindValue].create(values);
     return document.toObject() as ResourceDocument;
   },
 
@@ -149,6 +187,22 @@ export const ProductCatalogResourceService = {
     if (raw?.code && String(raw.code).trim().toUpperCase() !== String(current.code).toUpperCase()) {
       throw new ProductCatalogValidationError("Mã đã được hệ thống cấp, không thể thay đổi.");
     }
+
+    if (kindValue === "categories" && raw?.parentCode) {
+      const parentCode = normalizeCode(raw.parentCode, "Mã danh mục cha");
+      const parent = await ProductCatalogCategoryModel.findOne({ companyCode, code: parentCode }).lean();
+      if (parent && parent.parentCode) {
+        const grandParent = await ProductCatalogCategoryModel.findOne({ companyCode, code: parent.parentCode }).lean();
+        if (grandParent && grandParent.parentCode) {
+          throw new ProductCatalogValidationError("Cây thư mục thể loại chỉ hỗ trợ tối đa 3 cấp (Ngành hàng > Hãng/Dòng > Đời máy).");
+        }
+      }
+      const hasChildren = await ProductCatalogCategoryModel.exists({ companyCode, parentCode: current.code });
+      if (hasChildren && parent && parent.parentCode) {
+        throw new ProductCatalogValidationError("Không thể chuyển thể loại đang chứa mục con vào cấp 2 vì sẽ vượt quá giới hạn 3 cấp.");
+      }
+    }
+
     const normalized = normalizeResourceInput(kindValue, { ...current.toObject(), ...raw, code: current.code }, actor);
     delete normalized.createdBy;
     const document = await models[kindValue].findOneAndUpdate({ _id: id, companyCode }, { $set: normalized }, { returnDocument: "after", runValidators: true });
@@ -169,6 +223,12 @@ export const ProductCatalogResourceService = {
     const inUse = await ProductCatalogModel.exists({ companyCode, ...productFilter });
     if (inUse) {
       throw new ProductCatalogValidationError(`Không thể xóa ${kindValue === "categories" ? "danh mục" : "thương hiệu"} đang được dùng bởi sản phẩm.`);
+    }
+    if (kindValue === "categories") {
+      const hasChildren = await ProductCatalogCategoryModel.exists({ companyCode, parentCode: current.code });
+      if (hasChildren) {
+        throw new ProductCatalogValidationError("Không thể xóa danh mục đang có danh mục con trực thuộc.");
+      }
     }
     await models[kindValue].deleteOne({ _id: id, companyCode });
     return { deletedId: id };

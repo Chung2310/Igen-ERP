@@ -1,4 +1,5 @@
-export type DomainEventType = "retail.order.confirmed" | "retail.order.paid" | "retail.order.cancelled" | "finance.receivable.settled" | "finance.receivable.overdue" | "repair.ticket.received" | "repair.ticket.done" | "repair.ticket.delivered";
+export type DomainEventType = "retail.order.confirmed" | "retail.order.paid" | "retail.order.cancelled" | "finance.receivable.settled" | "finance.receivable.overdue" | "repair.ticket.received" | "repair.ticket.done" | "repair.ticket.delivered" | "inventory.stock.changed" | "inventory.price.changed";
+export interface InventoryProductChangedPayload { variantId?: string; sku: string; }
 
 export interface RetailOrderConfirmedPayload { orderId: string; orderCode: string; branchId: string; customerId?: string; customerName?: string; customerPhone?: string; grandTotal: number; paidAmount: number; dueAmount: number; dueDate?: string; }
 export interface RetailOrderPaidPayload { orderId: string; orderCode: string; branchId: string; customerId: string; amount: number; transactionKey: string; occurredAt: string; }
@@ -9,6 +10,8 @@ export interface FinanceReceivableOverduePayload { receivableId: string; custome
 export interface RepairTicketEventPayload { ticketId: string; ticketCode: string; branchId: string; customerId: string; customerName: string; customerPhone: string; deviceName: string; serialNumber?: string; imei?: string; technicianId?: string; technicianName?: string; status: string; totalAmount: number; dueAmount: number; occurredAt: string; }
 
 export type DomainPayloadMap = {
+  "inventory.stock.changed": InventoryProductChangedPayload;
+  "inventory.price.changed": InventoryProductChangedPayload;
   "retail.order.confirmed": RetailOrderConfirmedPayload;
   "retail.order.paid": RetailOrderPaidPayload;
   "retail.order.cancelled": RetailOrderCancelledPayload;

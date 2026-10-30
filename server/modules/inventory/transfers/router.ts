@@ -1,29 +1,26 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { requirePermission } from "../../../middleware/auth";
-import { retailScopeFromRequest, requireRetailBranch } from "../../retail/contracts";
-import { reconcileWarehouse } from "./reconciliation.service";
-import { WarehouseModel } from "../../../model/warehouse.model";
-import { BranchModel } from "../../../model/branch.model";
-import { cancelInventoryTransfer, listInventoryTransfers, receiveInventoryTransfer, requestInventoryTransfer, reverseInventoryTransfer } from "./transfer.service";
+import { acceptTransfer, cancelTransfer, createTransfer, getTransfer, listTransfers, transferDestinations } from "./transfer.service";
+import { inventoryError } from "../inventory-scope";
 
-export const inventoryTransferRouter = Router();
-const read = requirePermission("inventory:read") as any;
-const manage = requirePermission("inventory:manage") as any;
-const scope = (req: any) => requireRetailBranch(retailScopeFromRequest(req.user || {}, req.query));
-const actor = (req: any) => ({ id: String(req.user?.id || req.user?.uid || ""), name: String(req.user?.displayName || req.user?.email || "") });
-const handle = (work: (req: any) => Promise<unknown>, created = false) => async (req: any, res: any, next: any) => {
-  try { res.status(created ? 201 : 200).json({ success: true, data: await work(req) }); }
-  catch (error) { next(error); }
+function scope(req: Request) {
+  const companyCode = String((req as any).user?.companyCode || "").trim().toUpperCase();
+  const branchId = String((req as any).user?.branchId || "").trim();
+  if (!companyCode || !branchId) inventoryError("Vui lòng chọn công ty và chi nhánh.");
+  return { companyCode, branchId };
+}
+function actor(req: Request) {
+  const user = (req as any).user;
+  return { id: String(user?.id || user?._id || ""), name: String(user?.displayName || user?.name || user?.fullName || user?.email || user?.id || "") };
+}
+const handle = (work: (req: Request) => Promise<unknown>, status = 200) => async (req: Request, res: Response) => {
+  try { return res.status(status).json({ status: "success", data: await work(req) }); }
+  catch (error: any) { return res.status(Number(error?.statusCode || error?.status) || 400).json({ status: "error", code: error?.code, message: error?.message || "Không thể xử lý điều chuyển." }); }
 };
-inventoryTransferRouter.get("/branches", read, handle((req) => BranchModel.find({ companyCode: scope(req).companyCode, isActive: true }).select("_id code name").sort({ name: 1 }).lean()));
-inventoryTransferRouter.get("/warehouses", read, handle(async (req) => {
-  const companyCode = scope(req).companyCode;
-  const branches = await BranchModel.find({ companyCode, isActive: true }).select("_id").lean();
-  return WarehouseModel.find({ companyCode, branchId: { $in: branches.map((branch) => String(branch._id)) }, isActive: true, kind: { $ne: "transit" } }).sort({ branchId: 1, name: 1 }).lean();
-}));
-inventoryTransferRouter.get("/reconciliation", read, handle((req) => reconcileWarehouse(scope(req).companyCode, scope(req).branchId, String(req.query.warehouseId || ""))));
-inventoryTransferRouter.get("/", read, handle((req) => listInventoryTransfers(scope(req).companyCode, scope(req).branchId)));
-inventoryTransferRouter.post("/", manage, handle((req) => requestInventoryTransfer(scope(req), req.body || {}, actor(req)), true));
-inventoryTransferRouter.post("/:id/receive", manage, handle((req) => receiveInventoryTransfer(scope(req), req.params.id, actor(req))));
-inventoryTransferRouter.post("/:id/cancel", manage, handle((req) => cancelInventoryTransfer(scope(req), req.params.id, String(req.body?.reason || ""), actor(req))));
-inventoryTransferRouter.post("/:id/reverse", manage, handle((req) => reverseInventoryTransfer(scope(req), req.params.id, String(req.body?.reason || ""), actor(req))));
+export const inventoryTransferRouter = Router();
+inventoryTransferRouter.get("/destinations", requirePermission("inventory:read") as any, handle((req) => transferDestinations(scope(req).companyCode)));
+inventoryTransferRouter.get("/", requirePermission("inventory:read") as any, handle((req) => listTransfers(scope(req), req.query)));
+inventoryTransferRouter.get("/:id", requirePermission("inventory:read") as any, handle((req) => getTransfer(scope(req), req.params.id)));
+inventoryTransferRouter.post("/", requirePermission("inventory:manage") as any, handle((req) => createTransfer(scope(req), req.body, actor(req)), 201));
+inventoryTransferRouter.post("/:id/accept", requirePermission("inventory:manage") as any, handle((req) => acceptTransfer(scope(req), req.params.id, actor(req))));
+inventoryTransferRouter.post("/:id/cancel", requirePermission("inventory:manage") as any, handle((req) => cancelTransfer(scope(req), req.params.id, String(req.body?.reason || ""), actor(req))));

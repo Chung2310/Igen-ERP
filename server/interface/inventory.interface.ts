@@ -40,6 +40,13 @@ export interface IInventoryCountUnexpectedScan {
 }
 
 export interface IInventoryCount extends Document {
+  approvalReview?: { expectedVersion: number; reason?: string; confirmedById: string; confirmedAt: Date; unexpectedScanResolutions: Array<{ code: string; reason: string }> };
+  recreatedFromId?: string;
+  replacementCountId?: string;
+  createdById?: string;
+  submittedById?: string;
+  approvedById?: string;
+  snapshotStartedAt?: Date;
   companyCode: string;
   branchId: string;
   warehouseId: string;
@@ -112,6 +119,7 @@ export interface IInventoryLedgerEntry extends Document {
 }
 
 export interface ISupplier extends Document {
+  branchId?: string;
   companyCode: string;
   code: string;
   name: string;
@@ -154,14 +162,14 @@ export interface IGoodsReceipt extends Document {
   orderCode?: string;
   customerId?: string;
   customerName?: string;
+  financeTerms?: { dueOn: string; paidAmount: number; paymentMethod?: string };
   companyCode: string;
   branchId: string;
   warehouseId: string;
   receiptCode: string;
-  supplierId?: string;
+  supplierId: string;
   supplierName: string;
   status: GoodsReceiptStatus;
-  financeTerms?: { dueOn: string; paidAmount: number; paymentMethod?: string };
   receivedAt?: Date;
   items: IGoodsReceiptItem[];
   subtotal: number;
