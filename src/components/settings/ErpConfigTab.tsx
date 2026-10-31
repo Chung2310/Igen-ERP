@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Sliders, Bell, MapPin, GraduationCap } from "lucide-react";
+import { ModuleNavigationButton } from "../common/ModuleNavigation";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { useAuth } from "../../context/AuthContext";
@@ -139,23 +140,22 @@ export default function ErpConfigTab() {
     <div className="space-y-5 rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
       {/* Tab bar nội bộ của Cấu hình ERP */}
       {(canManageLocation || canManageCompanyModules) && (
-        <div className="flex gap-1.5 overflow-x-auto border-b border-slate-100 pb-3 no-scrollbar">
-          <button
-            type="button"
+        <div className="flex gap-1.5 overflow-x-auto border-b border-slate-100 pb-3 no-scrollbar" role="tablist" aria-label="Mục cấu hình ERP">
+          <ModuleNavigationButton
+            active={activeTab === "general"}
+            icon={<Sliders className="size-4" />}
             onClick={() => setActiveTab("general")}
-            className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${
-              activeTab === "general" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"
-            }`}
           >
-            <Sliders className="h-3.5 w-3.5" />
             Cấu hình chung
-          </button>
+          </ModuleNavigationButton>
           {canManageCompanyModules && (
-            <button type="button" onClick={() => setActiveTab("companyModules")}
-              className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-medium transition-colors ${activeTab === "companyModules" ? "bg-brand-primary text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-brand-primary"}`}>
-              <GraduationCap className="h-3.5 w-3.5" />
+            <ModuleNavigationButton
+              active={activeTab === "companyModules"}
+              icon={<GraduationCap className="size-4" />}
+              onClick={() => setActiveTab("companyModules")}
+            >
               Học viên & Email
-            </button>
+            </ModuleNavigationButton>
           )}
         </div>
       )}

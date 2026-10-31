@@ -26,4 +26,24 @@ describe("retailInvoicesApi.downloadPdf", () => {
     expect(URL.createObjectURL).toHaveBeenCalledOnce();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:invoice");
   });
+
+  it("downloads bulk PDF with POST body and query params", async () => {
+    await retailInvoicesApi.downloadBulkPdf(
+      { companyCode: "ACME", branchId: "B1" },
+      { ids: ["inv-1", "inv-2"] },
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/retail/invoices/bulk-pdf?companyCode=ACME&branchId=B1",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer token",
+        },
+        body: JSON.stringify({ ids: ["inv-1", "inv-2"] }),
+      }),
+    );
+    expect(URL.createObjectURL).toHaveBeenCalledOnce();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:invoice");
+  });
 });

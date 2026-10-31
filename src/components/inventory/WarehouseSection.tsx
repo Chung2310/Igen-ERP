@@ -7,6 +7,7 @@ import {
 } from "../../services/inventoryReceivingService";
 import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
+import { TableFilterToolbar } from "../common/TableFilterToolbar";
 import { MetricBar } from "../common/MetricBar";
 import { InventoryCountingModal } from "./InventoryCountingSection";
 import { WarehouseSerialDetailModal } from "./WarehouseSerialDetailModal";
@@ -373,7 +374,7 @@ export function WarehouseSection() {
             type="button"
             disabled={!warehouseId}
             onClick={() => setCountingOpen(true)}
-            className="rounded-lg bg-cyan-700 px-3 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-cyan-800 transition-colors whitespace-nowrap disabled:opacity-50"
+            className="rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-on-primary shadow-xs hover:opacity-90 transition-colors whitespace-nowrap disabled:opacity-50 cursor-pointer"
             title={warehouseId ? "Mở kiểm kê kho thực tế" : "Vui lòng chọn kho"}
           >
             Kiểm kê kho
@@ -467,94 +468,72 @@ export function WarehouseSection() {
       />
 
       {/* 3. Search Bar & Filter Strip */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
-        {/* Search Input */}
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Tìm theo tên máy, mã SKU, biến thể (16pro, 128GB, Titan, Đen)..."
-            className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-cyan-600 focus:bg-white focus:ring-1 focus:ring-cyan-600 transition-all font-medium"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        {/* Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => { setStockFilter("all"); setPage(1); }}
-            className={`rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${stockFilter === "all"
-                ? "bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-          >
-            Tất cả ({balances.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => { setStockFilter("in_stock"); setPage(1); }}
-            className={`rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${stockFilter === "in_stock"
-                ? "bg-emerald-700 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-          >
-            Còn hàng ({balances.filter((b) => b.quantity > 0).length})
-          </button>
-          <button
-            type="button"
-            onClick={() => { setStockFilter("low_stock"); setPage(1); }}
-            className={`rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${stockFilter === "low_stock"
-                ? "bg-amber-600 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-          >
-            Sắp hết ({alertStats.lowCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => { setStockFilter("out_of_stock"); setPage(1); }}
-            className={`rounded-md px-2.5 py-1 text-xs font-bold transition-colors ${stockFilter === "out_of_stock"
-                ? "bg-rose-700 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-          >
-            Hết hàng ({alertStats.outCount})
-          </button>
-
-          {/* Expand/Collapse All */}
-          <div className="ml-1 border-l border-slate-200 pl-2 flex items-center gap-1">
+      <TableFilterToolbar
+        search={{
+          value: searchQuery,
+          onChange: (val) => {
+            setSearchQuery(val);
+            setPage(1);
+          },
+          placeholder: "Tìm theo tên máy, mã SKU, biến thể (16pro, 128GB, Titan, Đen)...",
+          ariaLabel: "Tìm kiếm tồn kho",
+        }}
+        totalCount={filteredGroups.length}
+        countLabel="dòng máy"
+        hasActiveFilters={Boolean(searchQuery || stockFilter !== "all")}
+        onResetFilters={() => {
+          setSearchQuery("");
+          setStockFilter("all");
+          setPage(1);
+        }}
+        actions={
+          <div className="flex items-center gap-1.5 text-xs">
             <button
               type="button"
               onClick={expandAll}
-              className="rounded px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-100"
+              className="rounded-lg px-2.5 py-1 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
               title="Mở rộng tất cả dòng biến thể"
             >
-              [+] Mở tất cả
+              Mở tất cả
             </button>
+            <span className="text-outline-variant">|</span>
             <button
               type="button"
               onClick={collapseAll}
-              className="rounded px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-100"
+              className="rounded-lg px-2.5 py-1 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
               title="Thu gọn các dòng"
             >
-              [-] Thu gọn
+              Thu gọn
             </button>
           </div>
+        }
+      >
+        {/* Filter Pills */}
+        <div className="flex flex-wrap items-center gap-1">
+          {[
+            { id: "all", label: `Tất cả (${balances.length})` },
+            { id: "in_stock", label: `Còn hàng (${balances.filter((b) => b.quantity > 0).length})` },
+            { id: "low_stock", label: `Sắp hết (${alertStats.lowCount})` },
+            { id: "out_of_stock", label: `Hết hàng (${alertStats.outCount})` },
+          ].map((pill) => (
+            <button
+              key={pill.id}
+              type="button"
+              onClick={() => {
+                setStockFilter(pill.id as StockFilterType);
+                setPage(1);
+              }}
+              className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                stockFilter === pill.id
+                  ? "bg-primary text-on-primary font-bold shadow-xs"
+                  : "text-on-surface-variant hover:bg-surface hover:text-primary border border-outline-variant bg-surface-container-lowest"
+              }`}
+            >
+              {pill.label}
+            </button>
+          ))}
         </div>
-      </div>
+      </TableFilterToolbar>
 
       {/* 4. Main Inventory Stock Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">

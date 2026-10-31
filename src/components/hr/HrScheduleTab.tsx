@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CalendarDays, CalendarCheck, Clock3, Users } from "lucide-react";
 import type { EmployeeNode, UserProfile } from "../../types";
-import { cn } from "../../modules/student-management/lib/utils";
+import { ModuleNavigation, ModuleNavigationButton } from "../common/ModuleNavigation";
 import CalendarTab from "./CalendarTab";
 import WorkShiftsTab from "../settings/WorkShiftsTab";
 import CompanyWorkCalendarTab from "../settings/CompanyWorkCalendarTab";
@@ -28,9 +28,18 @@ export default function HrScheduleTab({ userProfile, selectedCompanyCode, usersL
     { id: "hours", label: "Giờ làm việc nhân viên", Icon: Users, visible: canManageTimekeeping },
   ] as const;
   return <section className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface p-3 text-on-surface sm:p-5" aria-label="Lịch và ca làm việc">
-    <nav aria-label="Nội dung lịch và ca làm việc" className="flex flex-wrap gap-1 rounded-xl border border-outline-variant bg-surface-container-lowest p-2">
-      {tabs.filter(tab => tab.visible).map(({ id, label, Icon }) => <button key={id} type="button" aria-current={activeTab === id ? "page" : undefined} onClick={() => setActiveTab(id)} className={cn("inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeTab === id ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface")}><Icon className="size-4" aria-hidden="true" />{label}</button>)}
-    </nav>
+    <ModuleNavigation label="Mục Lịch và ca làm việc" activeValue={activeTab}>
+      {tabs.filter(tab => tab.visible).map(({ id, label, Icon }) => (
+        <ModuleNavigationButton
+          key={id}
+          active={activeTab === id}
+          icon={<Icon />}
+          onClick={() => setActiveTab(id)}
+        >
+          {label}
+        </ModuleNavigationButton>
+      ))}
+    </ModuleNavigation>
     {activeTab === "attendance" && <CalendarTab userProfile={userProfile} selectedCompanyCode={selectedCompanyCode} isManager={isManager} canManage={canManageAttendance} canEditAttendance={canEditAttendance} usersList={usersList} employees={employees} canApproveLeave={canManageAttendance} />}
     {activeTab === "shifts" && canManageTimekeeping && <WorkShiftsTab />}
     {activeTab === "holidays" && canManageCalendar && <CompanyWorkCalendarTab />}

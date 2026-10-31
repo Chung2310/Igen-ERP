@@ -1,4 +1,4 @@
-﻿import type { ClientSession } from "mongoose";
+import type { ClientSession } from "mongoose";
 import { RetailInvoiceCounterModel } from "../models/retail-invoice-counter.model";
 import { RetailInvoiceModel } from "../models/retail-invoice.model";
 import { RetailOrderModel } from "../models/retail-order.model";
@@ -9,7 +9,7 @@ import type { RetailStoreSnapshot } from "../interfaces/retail-invoice.interface
 import { BranchModel } from "../../../model/branch.model";
 import { CompanyModel } from "../../../model/company.model";
 import { UserModel } from "../../../model/user.model";
-export { invoicePdfFilename, invoicePdfPageSize, invoicePdfPaymentRows, renderRetailInvoicePdf } from "./retail-invoice-pdf.service";
+export { invoicePdfFilename, invoicePdfPageSize, invoicePdfPaymentRows, renderRetailInvoicePdf, renderBulkRetailInvoicesPdf } from "./retail-invoice-pdf.service";
 
 export function buildRetailInvoiceSnapshot(order: any, actor: any, store: RetailStoreSnapshot) {
   const vndValues = [order.grandTotal, order.paidAmount, order.dueAmount, ...(order.payments || []).map((payment: any) => payment.amount)];
@@ -124,6 +124,25 @@ export const RetailInvoiceService = {
       RetailInvoiceModel.countDocuments(filter),
     ]);
     return { items: await projectInvoiceSalespersons(await projectInvoicePayments(await projectInvoiceCashiers(items))), total, page, limit };
+  },
+  async listForBulkPdf(scope: RetailBranchScope, query: any) {
+    const rawIds = query?.ids;
+    const idList = Array.isArray(rawIds)
+      ? rawIds.map(String).map((s) => s.trim()).filter(Boolean)
+      : typeof rawIds === "string" && rawIds.trim()
+        ? rawIds.split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
+
+    let filter: any;
+    if (idList.length > 0) {
+      filter = { _id: { $in: idList }, ...scope };
+    } else {
+      const parsed = buildInvoiceListQuery(scope, query);
+      filter = parsed.filter;
+    }
+    const limit = Math.min(Math.max(Number(query?.limit) || 200, 1), 500);
+    const items = await RetailInvoiceModel.find(filter).sort({ issuedAt: -1 }).limit(limit).lean();
+    return projectInvoiceSalespersons(await projectInvoicePayments(await projectInvoiceCashiers(items)));
   },
   async detail(scope: RetailBranchScope, id: string) {
     const invoice = await RetailInvoiceModel.findOne({ _id: id, ...scope }).lean();

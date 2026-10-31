@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyledSelect } from "../common/StyledSelect";
 import {
   ArrowLeftRight,
@@ -7,9 +7,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  Clock,
-  FileText,
-  Filter,
   Package,
   Plus,
   RefreshCw,
@@ -17,7 +14,6 @@ import {
   Smartphone,
   Trash2,
   Truck,
-  Warehouse,
   X,
   XCircle,
   AlertTriangle,
@@ -35,6 +31,8 @@ import { OutboundImeiPickerModal } from "./outbound/OutboundImeiPickerModal";
 import { apiFetch } from "../../modules/shared/lib/apiFetch";
 import type { InventoryBalance } from "../../services/inventoryReceivingService";
 import { toast } from "../../pages/Toast";
+import { TableFilterToolbar } from "../common/TableFilterToolbar";
+import { emptyDatePeriodFilter, getDatePeriodRange, type DatePeriodFilterValue } from "../../utils/datePeriodFilter";
 
 type DraftLine = { key: string; variantId: string; quantity: string; codes: string };
 const newLine = (): DraftLine => ({ key: crypto.randomUUID(), variantId: "", quantity: "1", codes: "" });
@@ -74,6 +72,7 @@ export function InventoryTransferSection({
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState<DatePeriodFilterValue>(emptyDatePeriodFilter);
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -104,6 +103,7 @@ export function InventoryTransferSection({
   const [cancelReason, setCancelReason] = useState("");
 
   const request = useRef<{ content: string; key: string } | null>(null);
+  const dateRange = getDatePeriodRange(dateFilter);
 
   // Fetch warehouse destinations
   useEffect(() => {
@@ -124,7 +124,7 @@ export function InventoryTransferSection({
     const controller = new AbortController();
     setLoading(true);
     inventoryTransferService
-      .list(branchId, page, status, controller.signal)
+      .list(branchId, page, status, controller.signal, dateRange)
       .then((data) => {
         if (!controller.signal.aborted) {
           setDocuments(data.items);
@@ -141,7 +141,7 @@ export function InventoryTransferSection({
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [branchId, page, status, revision]);
+  }, [branchId, page, status, revision, dateRange.from, dateRange.to]);
 
   // Fetch available balances from chosen warehouse
   useEffect(() => {
@@ -190,7 +190,7 @@ export function InventoryTransferSection({
       setSerialCache((prev) => ({ ...prev, [cacheKey]: { loading: true, items: [] } }));
       inventorySerialService
         .list({ warehouseId: fromWarehouseId, sku: balance.sku, status: "in_stock", limit: 200 })
-        .then((res: any) => {
+        .then((res: { items?: InventorySerialUnit[] } | InventorySerialUnit[]) => {
           const items: InventorySerialUnit[] = Array.isArray(res)
             ? res
             : Array.isArray(res?.items)
@@ -223,8 +223,8 @@ export function InventoryTransferSection({
       toast.success(message);
       setRevision((value) => value + 1);
       setCancelId("");
-    } catch (error: any) {
-      toast.error(error.message || "Không thể xử lý điều chuyển.");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Không thể xử lý điều chuyển.");
     } finally {
       setBusy(false);
     }
@@ -461,25 +461,51 @@ export function InventoryTransferSection({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="relative min-w-[260px] flex-1">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-800 placeholder-slate-400 shadow-2xs transition focus:border-cyan-500 focus:outline-hidden focus:ring-2 focus:ring-cyan-500/20"
-            placeholder="Tìm theo mã phiếu, kho gửi/nhận, lý do, người tạo..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+      <TableFilterToolbar
+        search={{
+          value: searchQuery,
+          onChange: (val) => {
+            setSearchQuery(val);
+            setPage(1);
+          },
+          placeholder: "Tìm theo mã phiếu, kho gửi/nhận, lý do, người tạo...",
+          ariaLabel: "Tìm phiếu điều chuyển kho",
+        }}
+        dateFilter={{
+          label: "thời gian phiếu điều chuyển",
+          value: dateFilter,
+          onChange: (next) => {
+            setDateFilter(next);
+            setPage(1);
+          },
+        }}
+        totalCount={total}
+        countLabel="phiếu điều chuyển"
+        hasActiveFilters={Boolean(searchQuery || status || dateFilter.mode !== "all")}
+        onResetFilters={() => {
+          setSearchQuery("");
+          setStatus("");
+          setDateFilter(emptyDatePeriodFilter());
+          setPage(1);
+        }}
+        resetLabel="Đặt lại bộ lọc"
+      >
+        <div className="w-full sm:w-52 shrink-0">
+          <StyledSelect
+            appearance="erp"
+            ariaLabel="Lọc trạng thái điều chuyển"
+            value={status}
+            onChange={(value) => {
+              setStatus(value);
+              setPage(1);
+            }}
+            options={[
+              { value: "", label: "Tất cả trạng thái" },
+              ...Object.entries(statusLabels).map(([value, label]) => ({ value, label })),
+            ]}
           />
         </div>
-
-        <div className="flex items-center gap-2">
-          {/* Status Quick Select */}
-          <div className="relative">
-<StyledSelect appearance="erp" ariaLabel="Lọc trạng thái điều chuyển" value={status} onChange={(value) => { setStatus(value); setPage(1); }} options={[{ value: "", label: "Tất cả trạng thái" }, ...Object.entries(statusLabels).map(([value, label]) => ({ value, label }))]} />
-          </div>
-        </div>
-      </div>
+      </TableFilterToolbar>
 
       {/* Document List */}
       {loading ? (
@@ -500,11 +526,11 @@ export function InventoryTransferSection({
             Chưa có phiếu điều chuyển phù hợp.
           </p>
           <p className="mt-1 text-sm text-slate-500 max-w-md">
-            {searchQuery || status
+            {searchQuery || status || dateFilter.mode !== "all"
               ? "Hãy thử thay đổi điều kiện tìm kiếm hoặc trạng thái lọc."
               : "Bấm 'Tạo phiếu điều chuyển' để bắt đầu chuyển hàng giữa các kho."}
           </p>
-          {canManage && !searchQuery && !status && (
+          {canManage && !searchQuery && !status && dateFilter.mode === "all" && (
             <button
               type="button"
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-cyan-500 transition"

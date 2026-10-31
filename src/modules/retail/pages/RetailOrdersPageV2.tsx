@@ -33,6 +33,7 @@ import type { RetailAfterSaleInput, RetailAfterSaleType, RetailOrder, RetailPaym
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { toast } from "../../../pages/Toast";
 import { ApiClientError } from "../../../services/apiClientError";
+import { TableFilterToolbar } from "../../../components/common/TableFilterToolbar";
 import { cn } from "../../student-management/lib/utils";
 
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
@@ -107,23 +108,23 @@ export default function RetailOrdersPageV2() {
   };
 
   const collected = (updated: RetailOrder) => {
-      setSelected(updated);
-      setCollecting(false);
-      toast.success("Đã ghi nhận thanh toán công nợ thành công.");
-      void refresh();
+    setSelected(updated);
+    setCollecting(false);
+    toast.success("Đã ghi nhận thanh toán công nợ thành công.");
+    void refresh();
   };
 
   const cancelled = (updated: RetailOrder) => {
     if (!selected) return;
     const wasDraft = selected.status === "draft";
-      if (wasDraft) {
-        setSelected(null);
-      } else {
-        setSelected(updated);
-      }
-      setCancelling(false);
-      toast.success("Đã hủy đơn hàng thành công.");
-      void refresh();
+    if (wasDraft) {
+      setSelected(null);
+    } else {
+      setSelected(updated);
+    }
+    setCancelling(false);
+    toast.success("Đã hủy đơn hàng thành công.");
+    void refresh();
   };
 
   // KPI Computations
@@ -198,31 +199,25 @@ export default function RetailOrdersPageV2() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            aria-label="Tìm đơn hàng"
-            className="w-full rounded-lg border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-8 text-xs sm:text-sm text-slate-800 placeholder-slate-400 transition focus:border-cyan-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/10"
-            placeholder="Tìm mã đơn, khách hàng, số điện thoại..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          {q && (
-            <button
-              type="button"
-              onClick={() => setQ("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-
+      <TableFilterToolbar
+        search={{
+          value: q,
+          onChange: setQ,
+          placeholder: "Tìm mã đơn, khách hàng, số điện thoại...",
+          ariaLabel: "Tìm đơn hàng",
+        }}
+        totalCount={orders.length}
+        countLabel="đơn hàng"
+        hasActiveFilters={Boolean(q || status)}
+        onResetFilters={() => {
+          setQ("");
+          setStatus("");
+        }}
+      >
         <div className="w-full sm:w-52">
           <select
             aria-label="Trạng thái đơn"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/10 cursor-pointer"
+            className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs font-medium text-on-surface transition focus-visible:outline-2 focus-visible:outline-primary cursor-pointer"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
@@ -232,7 +227,7 @@ export default function RetailOrdersPageV2() {
             <option value="cancelled">Đã hủy</option>
           </select>
         </div>
-      </div>
+      </TableFilterToolbar>
 
       {/* Inline Error banner */}
       {error && (
@@ -332,15 +327,14 @@ export default function RetailOrdersPageV2() {
                       </td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            isCompleted
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${isCompleted
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                               : isCancelled
                                 ? "bg-rose-50 text-rose-700 border border-rose-200"
                                 : isConfirmed
                                   ? "bg-blue-50 text-blue-700 border border-blue-200"
                                   : "bg-slate-100 text-slate-700 border border-slate-200"
-                          }`}
+                            }`}
                         >
                           {isCompleted && <CheckCircle2 className="h-3 w-3" />}
                           {isCancelled && <Ban className="h-3 w-3" />}
@@ -358,15 +352,14 @@ export default function RetailOrdersPageV2() {
                       <td className="px-4 py-3 text-center whitespace-nowrap">
                         {order.paymentStatus ? (
                           <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                              order.paymentStatus === "paid"
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${order.paymentStatus === "paid"
                                 ? "bg-cyan-50 text-cyan-700"
                                 : order.paymentStatus === "partial"
                                   ? "bg-amber-50 text-amber-700"
                                   : order.paymentStatus === "refunded"
                                     ? "bg-rose-50 text-rose-700"
                                     : "bg-slate-100 text-slate-600"
-                            }`}
+                              }`}
                           >
                             {order.paymentStatus === "paid"
                               ? "Đã thanh toán"
@@ -471,33 +464,33 @@ function OrderDialog({
         <div role="region" aria-label="Nội dung đơn hàng" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary sm:p-6">
           <h3 className="text-balance font-semibold [overflow-wrap:anywhere]">{order.orderCode || "Đơn hàng"}</h3>
           <p className="mt-2 text-sm text-slate-500 [overflow-wrap:anywhere]"><span className="font-semibold text-slate-700">{order.customerName || "Khách lẻ"}</span>{order.customerPhone && <span> · SĐT: {order.customerPhone}</span>}{order.createdByName && <span> · Thu ngân: {order.createdByName}</span>}</p>
-        {/* Product Items */}
-        <div className="mt-5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-            Danh mục sản phẩm
-          </h3>
-          <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/80 bg-white px-4">
-            {order.items.map((i, idx) => (
-              <div key={i.sku + "-" + idx} className="grid min-w-0 gap-2 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-4">
-                <div className="min-w-0"><p className="font-medium text-slate-800">{i.productName} × {i.quantity}</p><p className="mt-1 text-xs text-slate-500">SKU: {i.sku}</p></div>
-                <b className="min-w-0 text-right tabular-nums text-slate-900 sm:max-w-64">{money(i.lineTotal)}</b>
-                {!!i.serialNumbers?.length && <details className="min-w-0 text-xs text-slate-500 sm:col-span-2"><summary className="min-h-9 cursor-pointer rounded-lg py-2 focus-visible:outline-2 focus-visible:outline-primary">S/N: {i.serialNumbers.length} mã</summary><p className="leading-5">{i.serialNumbers.join(", ")}</p></details>}
-              </div>
-            ))}
+          {/* Product Items */}
+          <div className="mt-5">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+              Danh mục sản phẩm
+            </h3>
+            <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/80 bg-white px-4">
+              {order.items.map((i, idx) => (
+                <div key={i.sku + "-" + idx} className="grid min-w-0 gap-2 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-4">
+                  <div className="min-w-0"><p className="font-medium text-slate-800">{i.productName} × {i.quantity}</p><p className="mt-1 text-xs text-slate-500">SKU: {i.sku}</p></div>
+                  <b className="min-w-0 text-right tabular-nums text-slate-900 sm:max-w-64">{money(i.lineTotal)}</b>
+                  {!!i.serialNumbers?.length && <details className="min-w-0 text-xs text-slate-500 sm:col-span-2"><summary className="min-h-9 cursor-pointer rounded-lg py-2 focus-visible:outline-2 focus-visible:outline-primary">S/N: {i.serialNumbers.length} mã</summary><p className="leading-5">{i.serialNumbers.join(", ")}</p></details>}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {order.note && <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm">Ghi chú: {order.note}</p>}
-        {order.installment && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm">Trả góp {order.installment.partner} · {order.installment.months} tháng · Trả trước {order.installment.prepayPercent}% · Đối tác tài trợ {money(order.installment.financedAmount || 0)}</p>}
-        <AfterSaleHistory order={order} />
+          {order.note && <p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm">Ghi chú: {order.note}</p>}
+          {order.installment && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm">Trả góp {order.installment.partner} · {order.installment.months} tháng · Trả trước {order.installment.prepayPercent}% · Đối tác tài trợ {money(order.installment.financedAmount || 0)}</p>}
+          <AfterSaleHistory order={order} />
 
-        {/* Financial Metrics */}
-        <div className={`mt-5 grid gap-3 ${Number(order.pendingTransferAmount || 0) > 0 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"}`}>
-          <Metric label="Tổng cộng" value={order.grandTotal} />
-          <Metric label="Đã thu" value={order.paidAmount} />
-          {Number(order.pendingTransferAmount || 0) > 0 && <Metric label="Chờ chuyển khoản" value={Number(order.pendingTransferAmount)} />}
-          <Metric label={order.installment ? "Chờ đối tác thanh toán" : "Còn nợ"} value={Math.max(0, order.dueAmount - Number(order.pendingTransferAmount || 0))} />
-        </div>
+          {/* Financial Metrics */}
+          <div className={`mt-5 grid gap-3 ${Number(order.pendingTransferAmount || 0) > 0 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"}`}>
+            <Metric label="Tổng cộng" value={order.grandTotal} />
+            <Metric label="Đã thu" value={order.paidAmount} />
+            {Number(order.pendingTransferAmount || 0) > 0 && <Metric label="Chờ chuyển khoản" value={Number(order.pendingTransferAmount)} />}
+            <Metric label={order.installment ? "Chờ đối tác thanh toán" : "Còn nợ"} value={Math.max(0, order.dueAmount - Number(order.pendingTransferAmount || 0))} />
+          </div>
 
         </div>
         {/* Action Buttons */}
@@ -701,151 +694,151 @@ export function AfterSalesForm({
         </div>
 
         <div role="region" aria-label="Nội dung hậu mãi" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary sm:p-6">
-        <p className="text-sm text-slate-500">Đơn hàng: {order.orderCode}</p>
-        {(pending || blocked) && <p role="alert" className="mt-4 text-sm text-amber-700">
-          {request.storageError || (request.scopeChanged
-            ? "Chi nhánh hoặc tài khoản đã thay đổi. Vui lòng mở lại đơn hàng."
-            : pending?.type !== type && pending
-              ? "Đơn này có yêu cầu đang chờ thuộc nghiệp vụ khác. Vui lòng mở lại đúng thao tác để kiểm tra kết quả."
-              : "Yêu cầu đã được lưu. Nếu chưa nhận được kết quả, hãy thử lại yêu cầu cũ; nội dung được giữ nguyên để tránh chi tiền và nhập kho trùng.")}
-        </p>}
-        {request.candidates.length > 1 && <div><p>Có hai bản lưu khác nhau. Chọn từng yêu cầu để đối chiếu hoặc thu hồi.</p>{request.candidates.map((row, index) => <button key={index} disabled={busy || request.scopeChanged} onClick={() => request.selectCandidate(index)}>Yêu cầu {index + 1}: {row.type === "return" ? "Trả hàng" : "Thu mua"}</button>)}</div>}
-        {pending && <button disabled={busy || request.scopeChanged || Boolean(request.storageError)} onClick={() => void reconcileAfterSale(true)}>Thu hồi yêu cầu hậu mãi chưa ghi nhận</button>}
-        {pending && <button disabled={busy || request.scopeChanged || Boolean(request.storageError)} onClick={() => void reconcileAfterSale()}>Đối chiếu yêu cầu hậu mãi</button>}
-        {exhausted && !pending && <p>Toàn bộ hàng đã được xử lý. Không có yêu cầu cũ để thử lại trên trình duyệt này.</p>}
-        {pending && <div className="mt-3 text-sm"><p>Yêu cầu đã lưu: {pending.reason} · {pending.paymentMethod}{pending.paymentReference ? " · " + pending.paymentReference : ""}</p>{pending.items.map((item, index) => <p key={index}>Dòng {item.orderLineIndex + 1} · {item.quantity} sản phẩm · {item.condition}{item.unitAmount !== undefined ? " · " + money(item.unitAmount) + "/sản phẩm" : ""}{item.note ? " · " + item.note : ""}</p>)}</div>}
-        <CashSessionPicker scope={scope} value={pending?.cashSessionId || cashSessionId} onChange={setCashSessionId} disabled={busy || Boolean(pending) || blocked || exhausted} />
-        <fieldset disabled={busy || Boolean(pending) || blocked || exhausted}>
-        <div className="mt-4 space-y-3">
-          <p className="text-xs font-semibold uppercase text-slate-400">Chọn mặt hàng áp dụng:</p>
-          {order.items.map((item, i) => {
-            const r = rows[i];
-            const codes =
-              item.trackingMode === "serial"
-                ? item.serialNumbers
-                : item.trackingMode === "unit_barcode"
-                  ? item.internalBarcodes
-                  : undefined;
-            const processed = (order.afterSales || []).flatMap((doc) => doc.items).filter((line) => line.orderLineIndex === i);
-            const remaining = Math.max(0, item.quantity - processed.reduce((sum, line) => sum + line.quantity, 0));
-            const usedSerials = new Set(processed.flatMap((line) => [...(line.serialNumbers || []), ...(line.internalBarcodes || [])]).map((value) => value.trim().toUpperCase()));
-            const key = item.trackingMode === "serial" ? "serialNumbers" : "internalBarcodes";
+          <p className="text-sm text-slate-500">Đơn hàng: {order.orderCode}</p>
+          {(pending || blocked) && <p role="alert" className="mt-4 text-sm text-amber-700">
+            {request.storageError || (request.scopeChanged
+              ? "Chi nhánh hoặc tài khoản đã thay đổi. Vui lòng mở lại đơn hàng."
+              : pending?.type !== type && pending
+                ? "Đơn này có yêu cầu đang chờ thuộc nghiệp vụ khác. Vui lòng mở lại đúng thao tác để kiểm tra kết quả."
+                : "Yêu cầu đã được lưu. Nếu chưa nhận được kết quả, hãy thử lại yêu cầu cũ; nội dung được giữ nguyên để tránh chi tiền và nhập kho trùng.")}
+          </p>}
+          {request.candidates.length > 1 && <div><p>Có hai bản lưu khác nhau. Chọn từng yêu cầu để đối chiếu hoặc thu hồi.</p>{request.candidates.map((row, index) => <button key={index} disabled={busy || request.scopeChanged} onClick={() => request.selectCandidate(index)}>Yêu cầu {index + 1}: {row.type === "return" ? "Trả hàng" : "Thu mua"}</button>)}</div>}
+          {pending && <button disabled={busy || request.scopeChanged || Boolean(request.storageError)} onClick={() => void reconcileAfterSale(true)}>Thu hồi yêu cầu hậu mãi chưa ghi nhận</button>}
+          {pending && <button disabled={busy || request.scopeChanged || Boolean(request.storageError)} onClick={() => void reconcileAfterSale()}>Đối chiếu yêu cầu hậu mãi</button>}
+          {exhausted && !pending && <p>Toàn bộ hàng đã được xử lý. Không có yêu cầu cũ để thử lại trên trình duyệt này.</p>}
+          {pending && <div className="mt-3 text-sm"><p>Yêu cầu đã lưu: {pending.reason} · {pending.paymentMethod}{pending.paymentReference ? " · " + pending.paymentReference : ""}</p>{pending.items.map((item, index) => <p key={index}>Dòng {item.orderLineIndex + 1} · {item.quantity} sản phẩm · {item.condition}{item.unitAmount !== undefined ? " · " + money(item.unitAmount) + "/sản phẩm" : ""}{item.note ? " · " + item.note : ""}</p>)}</div>}
+          <CashSessionPicker scope={scope} value={pending?.cashSessionId || cashSessionId} onChange={setCashSessionId} disabled={busy || Boolean(pending) || blocked || exhausted} />
+          <fieldset disabled={busy || Boolean(pending) || blocked || exhausted}>
+            <div className="mt-4 space-y-3">
+              <p className="text-xs font-semibold uppercase text-slate-400">Chọn mặt hàng áp dụng:</p>
+              {order.items.map((item, i) => {
+                const r = rows[i];
+                const codes =
+                  item.trackingMode === "serial"
+                    ? item.serialNumbers
+                    : item.trackingMode === "unit_barcode"
+                      ? item.internalBarcodes
+                      : undefined;
+                const processed = (order.afterSales || []).flatMap((doc) => doc.items).filter((line) => line.orderLineIndex === i);
+                const remaining = Math.max(0, item.quantity - processed.reduce((sum, line) => sum + line.quantity, 0));
+                const usedSerials = new Set(processed.flatMap((line) => [...(line.serialNumbers || []), ...(line.internalBarcodes || [])]).map((value) => value.trim().toUpperCase()));
+                const key = item.trackingMode === "serial" ? "serialNumbers" : "internalBarcodes";
 
-            return (
-              <div
-                key={i}
-                className={`rounded-2xl border p-4 transition ${r.selected ? "border-cyan-400 bg-cyan-50/20" : "border-slate-200 bg-white"
-                  }`}
-              >
-                <label className="flex items-center gap-2.5 font-semibold text-slate-800 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded text-cyan-600 focus:ring-cyan-500"
-                    checked={r.selected}
-                    disabled={remaining === 0}
-                    onChange={(e) => update(i, { selected: e.target.checked })}
-                  />
-                  <span>
-                    {item.productName} <span className="text-xs text-slate-500">(Còn {remaining}/{item.quantity})</span> <span className="font-mono text-xs font-normal text-slate-500">({item.sku})</span>
-                  </span>
-                </label>
-
-                {r.selected && (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 pt-2 border-t border-slate-100">
-                    <label className="text-xs font-semibold text-slate-600">
-                      Số lượng
+                return (
+                  <div
+                    key={i}
+                    className={`rounded-2xl border p-4 transition ${r.selected ? "border-cyan-400 bg-cyan-50/20" : "border-slate-200 bg-white"
+                      }`}
+                  >
+                    <label className="flex items-center gap-2.5 font-semibold text-slate-800 cursor-pointer">
                       <input
-                        className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm"
-                        type="number"
-                        min={1}
-                        max={remaining}
-                        disabled={Boolean(codes?.length)}
-                        value={r.quantity}
-                        onChange={(e) => update(i, { quantity: Number(e.target.value) })}
+                        type="checkbox"
+                        className="h-4 w-4 rounded text-cyan-600 focus:ring-cyan-500"
+                        checked={r.selected}
+                        disabled={remaining === 0}
+                        onChange={(e) => update(i, { selected: e.target.checked })}
                       />
+                      <span>
+                        {item.productName} <span className="text-xs text-slate-500">(Còn {remaining}/{item.quantity})</span> <span className="font-mono text-xs font-normal text-slate-500">({item.sku})</span>
+                      </span>
                     </label>
 
-                    {type === "buyback" && (
-                      <label className="text-xs font-semibold text-slate-600">
-                        Định giá thu mua / đơn vị
-                        <input
-                          className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm font-mono"
-                          type="number"
-                          min={0}
-                          value={r.unitAmount}
-                          onChange={(e) => update(i, { unitAmount: Number(e.target.value) })}
-                        />
-                      </label>
-                    )}
+                    {r.selected && (
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2 pt-2 border-t border-slate-100">
+                        <label className="text-xs font-semibold text-slate-600">
+                          Số lượng
+                          <input
+                            className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                            type="number"
+                            min={1}
+                            max={remaining}
+                            disabled={Boolean(codes?.length)}
+                            value={r.quantity}
+                            onChange={(e) => update(i, { quantity: Number(e.target.value) })}
+                          />
+                        </label>
 
-                    {codes?.length ? (
-                      <div className="sm:col-span-2 space-y-1.5">
-                        <span className="text-xs font-semibold text-slate-600">Chọn số Serial / IMEI trả:</span>
-                        <div className="flex flex-wrap gap-2">
-                          {codes.filter((code) => !usedSerials.has(code.trim().toUpperCase())).map((code) => {
-                            const values = r[key];
-                            const checked = values.includes(code);
-                            return (
-                              <label
-                                key={code}
-                                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-mono cursor-pointer transition ${checked
-                                    ? "border-cyan-500 bg-cyan-50 text-cyan-700 font-bold"
-                                    : "border-slate-200 bg-white text-slate-600"
-                                  }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  className="hidden"
-                                  checked={checked}
-                                  onChange={(e) => {
-                                    const next = e.target.checked
-                                      ? [...values, code]
-                                      : values.filter((v) => v !== code);
-                                    update(i, { [key]: next, quantity: Math.max(1, next.length) });
-                                  }}
-                                />
-                                {code}
-                              </label>
-                            );
-                          })}
-                        </div>
+                        {type === "buyback" && (
+                          <label className="text-xs font-semibold text-slate-600">
+                            Định giá thu mua / đơn vị
+                            <input
+                              className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm font-mono"
+                              type="number"
+                              min={0}
+                              value={r.unitAmount}
+                              onChange={(e) => update(i, { unitAmount: Number(e.target.value) })}
+                            />
+                          </label>
+                        )}
+
+                        {codes?.length ? (
+                          <div className="sm:col-span-2 space-y-1.5">
+                            <span className="text-xs font-semibold text-slate-600">Chọn số Serial / IMEI trả:</span>
+                            <div className="flex flex-wrap gap-2">
+                              {codes.filter((code) => !usedSerials.has(code.trim().toUpperCase())).map((code) => {
+                                const values = r[key];
+                                const checked = values.includes(code);
+                                return (
+                                  <label
+                                    key={code}
+                                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-mono cursor-pointer transition ${checked
+                                      ? "border-cyan-500 bg-cyan-50 text-cyan-700 font-bold"
+                                      : "border-slate-200 bg-white text-slate-600"
+                                      }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      className="hidden"
+                                      checked={checked}
+                                      onChange={(e) => {
+                                        const next = e.target.checked
+                                          ? [...values, code]
+                                          : values.filter((v) => v !== code);
+                                        update(i, { [key]: next, quantity: Math.max(1, next.length) });
+                                      }}
+                                    />
+                                    {code}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
 
-        {/* Payment Method and Reason */}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="text-xs font-semibold text-slate-600">
-            Phương thức chi tiền
-            <select
-              className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm bg-white"
-              value={method}
-              onChange={(e) => setMethod(e.target.value as any)}
-            >
-              <option value="cash">Tiền mặt</option>
-              <option value="transfer">Chuyển khoản</option>
-              <option value="card">Thẻ</option>
-              <option value="ewallet">Ví điện tử</option>
-            </select>
-          </label>
+            {/* Payment Method and Reason */}
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-semibold text-slate-600">
+                Phương thức chi tiền
+                <select
+                  className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm bg-white"
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value as any)}
+                >
+                  <option value="cash">Tiền mặt</option>
+                  <option value="transfer">Chuyển khoản</option>
+                  <option value="card">Thẻ</option>
+                  <option value="ewallet">Ví điện tử</option>
+                </select>
+              </label>
 
-          <label className="text-xs font-semibold text-slate-600">
-            Lý do thực hiện (bắt buộc)
-            <input
-              className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm"
-              placeholder="Nhập lý do đổi trả/thu mua..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </label>
-        </div>
+              <label className="text-xs font-semibold text-slate-600">
+                Lý do thực hiện (bắt buộc)
+                <input
+                  className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm"
+                  placeholder="Nhập lý do đổi trả/thu mua..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </label>
+            </div>
 
-        </fieldset>
+          </fieldset>
         </div>
         {/* Footer */}
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-100 p-4 sm:px-6">

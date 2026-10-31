@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Calendar,
   Download,
   Plus,
   Search,
@@ -9,11 +8,12 @@ import {
   X,
 } from "lucide-react";
 import { Dropdown, DropdownOption } from "../../common/Dropdown";
+import { DatePeriodFilter } from "../../common/DatePeriodFilter";
 import {
   DatePreset,
-  getPresetDateRange,
   StockLogStatsData,
 } from "./stockLogUtils";
+import { emptyDatePeriodFilter, getDatePeriodRange, type DatePeriodFilterValue } from "../../../utils/datePeriodFilter";
 
 interface StockLogFiltersProps {
   searchLog: string;
@@ -45,7 +45,6 @@ export function StockLogFilters({
   setTypeFilter,
   statusFilter,
   setStatusFilter,
-  datePreset,
   setDatePreset,
   startDate,
   setStartDate,
@@ -67,31 +66,19 @@ export function StockLogFilters({
     { value: "completed", label: "Hoàn thành" },
   ];
 
-  const datePresetOptions: DropdownOption<DatePreset>[] = [
-    { value: "all", label: "Tất cả thời gian" },
-    { value: "today", label: "Hôm nay" },
-    { value: "yesterday", label: "Hôm qua" },
-    { value: "7days", label: "7 ngày gần nhất" },
-    { value: "30days", label: "30 ngày gần nhất" },
-    { value: "this_month", label: "Tháng này" },
-  ];
-
-  const handleDatePresetChange = (preset: DatePreset) => {
-    setDatePreset(preset);
-    if (preset === "all") {
-      setStartDate("");
-      setEndDate("");
-    } else {
-      const range = getPresetDateRange(preset);
-      setStartDate(range.startDate);
-      setEndDate(range.endDate);
+  const datePeriodValue: DatePeriodFilterValue = React.useMemo(() => {
+    if (!startDate && !endDate) return emptyDatePeriodFilter();
+    if (startDate && startDate === endDate) {
+      return { mode: "day", day: startDate, month: "", from: startDate, to: endDate };
     }
-  };
+    return { mode: "range", from: startDate, to: endDate, day: "", month: "" };
+  }, [startDate, endDate]);
 
-  const handleClearDateFilter = () => {
-    setStartDate("");
-    setEndDate("");
-    setDatePreset("all");
+  const handleDatePeriodChange = (val: DatePeriodFilterValue) => {
+    const range = getDatePeriodRange(val);
+    setStartDate(range.from || "");
+    setEndDate(range.to || "");
+    setDatePreset(range.from || range.to ? "custom" : "all");
   };
 
   return (
@@ -234,7 +221,7 @@ export function StockLogFilters({
       </div>
 
       {/* ── Hàng 2: Tìm kiếm + Lọc trạng thái + Lọc khoảng thời gian (Từ ngày -> Đến ngày) ── */}
-      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
+      <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center">
         {/* Ô tìm kiếm */}
         <div className="relative min-w-[220px] flex-1">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -242,6 +229,7 @@ export function StockLogFilters({
           </div>
           <input
             type="text"
+            aria-label="Tìm trong phiếu kho"
             placeholder="Tìm mã phiếu, sản phẩm, SKU, IMEI, người tạo..."
             className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-9 pr-8 text-xs text-slate-800 placeholder:text-slate-400 transition-colors focus:border-teal-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100"
             value={searchLog}
@@ -270,60 +258,12 @@ export function StockLogFilters({
           />
         </div>
 
-        {/* Dropdown Preset Thời gian */}
-        <div className="w-full sm:w-40 shrink-0">
-          <Dropdown
-            value={datePreset === "custom" ? ("" as any) : datePreset}
-            placeholder={startDate || endDate ? "Mốc thời gian" : "Tất cả thời gian"}
-            onChange={handleDatePresetChange}
-            options={datePresetOptions}
-            variant="filter"
-            size="sm"
-            className="w-full"
-          />
-        </div>
-
-        {/* Khung lọc khoảng thời gian trực tiếp (Từ ngày ➔ Đến ngày) */}
-        <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-1.5 text-xs shadow-2xs shrink-0">
-          <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-          <span className="font-bold text-slate-400 text-[10px] uppercase font-mono shrink-0">
-            Từ:
-          </span>
-          <input
-            type="date"
-            aria-label="Từ ngày"
-            value={startDate}
-            onChange={(e) => {
-              setStartDate(e.target.value);
-              setDatePreset("custom");
-            }}
-            className="bg-transparent font-medium text-slate-700 outline-none text-xs cursor-pointer w-[115px]"
-          />
-          <span className="text-slate-300 font-bold shrink-0">→</span>
-          <span className="font-bold text-slate-400 text-[10px] uppercase font-mono shrink-0">
-            Đến:
-          </span>
-          <input
-            type="date"
-            aria-label="Đến ngày"
-            value={endDate}
-            onChange={(e) => {
-              setEndDate(e.target.value);
-              setDatePreset("custom");
-            }}
-            className="bg-transparent font-medium text-slate-700 outline-none text-xs cursor-pointer w-[115px]"
-          />
-          {(startDate || endDate || datePreset !== "all") && (
-            <button
-              type="button"
-              onClick={handleClearDateFilter}
-              className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors ml-0.5 cursor-pointer"
-              title="Đặt lại bộ lọc thời gian"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+        {/* Bộ lọc thời gian */}
+        <DatePeriodFilter
+          label="thời gian phiếu kho"
+          value={datePeriodValue}
+          onChange={handleDatePeriodChange}
+        />
       </div>
     </div>
   );

@@ -13,8 +13,6 @@ import {
   QrCode,
   RefreshCw,
   ScanLine,
-  Search,
-  User,
   Wallet,
   X,
 } from "lucide-react";
@@ -30,6 +28,9 @@ import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { toast } from "../../../pages/Toast";
 import { socketService } from "../../../services/socketService";
 import { cn } from "../../student-management/lib/utils";
+import { TableFilterToolbar } from "../../../components/common/TableFilterToolbar";
+import { Pagination } from "../../../components/common/Pagination";
+import { emptyDatePeriodFilter, getDatePeriodRange, type DatePeriodFilterValue } from "../../../utils/datePeriodFilter";
 
 const receiptStagingWidth = (paperSize: RetailSettings["invoicePaperSize"]) =>
   paperSize === "58mm" || paperSize === "80mm" ? paperSize : paperSize === "A5" ? "148mm" : "210mm";
@@ -43,6 +44,11 @@ export default function RetailInvoicesPageContent() {
   const [scanningInvoice, setScanningInvoice] = React.useState(false);
   const [status, setStatus] = React.useState("");
   const [items, setItems] = React.useState<RetailInvoice[]>([]);
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const [isBulkExporting, setIsBulkExporting] = React.useState(false);
+  const [total, setTotal] = React.useState(0);
+  const [page, setPage] = React.useState(1);
+  const [dateFilter, setDateFilter] = React.useState<DatePeriodFilterValue>(emptyDatePeriodFilter);
   const [loading, setLoading] = React.useState(false);
   const [selected, setSelected] = React.useState<RetailInvoice | null>(null);
   const [selectedIsReprint, setSelectedIsReprint] = React.useState(false);
@@ -56,7 +62,9 @@ export default function RetailInvoicesPageContent() {
     ? Boolean(paymentPrintInvoice.initialPrintedAt)
     : selectedIsReprint;
   const paymentQrRef = React.useRef(paymentQr);
-  paymentQrRef.current = paymentQr;
+  React.useEffect(() => {
+    paymentQrRef.current = paymentQr;
+  }, [paymentQr]);
   const paymentPrintInFlight = React.useRef(new Set<string>());
   const paymentPrintFailed = React.useRef(new Set<string>());
   const paymentPrintErrorShown = React.useRef(new Set<string>());
@@ -79,27 +87,28 @@ export default function RetailInvoicesPageContent() {
 
   React.useEffect(() => {
     let active = true;
-    setInvoicePaperSize("80mm");
     if (scope) {
       void retailSettingsApi.printConfig(scope)
         .then((config) => { if (active) setInvoicePaperSize(config.invoicePaperSize); })
         .catch(() => undefined);
     }
     return () => { active = false; };
-  }, [scope?.companyCode, scope?.branchId]);
+  }, [scope]);
 
+  const dateRange = getDatePeriodRange(dateFilter);
   const loadInvoices = React.useCallback(async () => {
     if (!scope) return;
     setLoading(true);
     try {
-      const data = await retailInvoicesApi.list(scope, { q, status: status || undefined });
+      const data = await retailInvoicesApi.list(scope, { q, status: status || undefined, from: dateRange.from, to: dateRange.to, page, limit: 20 });
       setItems(data.items);
+      setTotal(data.total);
     } catch (cause) {
       toast.error(getApiErrorMessage(cause, "Không tải được hóa đơn."));
     } finally {
       setLoading(false);
     }
-  }, [scope?.companyCode, scope?.branchId, q, status]);
+  }, [scope, q, status, dateRange.from, dateRange.to, page]);
 
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -159,7 +168,7 @@ export default function RetailInvoicesPageContent() {
       void finishSePayPayment(paymentQr.qr.orderId);
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [scope?.companyCode, scope?.branchId, paymentQr?.qr.orderId, finishSePayPayment]);
+  }, [scope, paymentQr, finishSePayPayment]);
 
   React.useEffect(() => {
     if (!scope) return;
@@ -167,7 +176,7 @@ export default function RetailInvoicesPageContent() {
       if (event.companyCode !== scope.companyCode || event.branchId !== scope.branchId || !event.orderId) return;
       void finishSePayPayment(event.orderId, event.transactionKey);
     });
-  }, [scope?.companyCode, scope?.branchId, finishSePayPayment]);
+  }, [scope, finishSePayPayment]);
 
   React.useEffect(() => {
     if (!paymentPrintInvoice) return;
@@ -230,6 +239,62 @@ export default function RetailInvoicesPageContent() {
     }
   };
 
+  const handleExportBulkPdf = async (specificIds?: string[], preferredPaperSize: "A4" | "80mm" = "A4") => {
+    if (!scope) return;
+    setIsBulkExporting(true);
+    try {
+      const idsToExport = specificIds && specificIds.length > 0 ? specificIds : Array.from(selectedIds);
+      const payload = idsToExport.length > 0
+        ? { ids: idsToExport, paperSize: preferredPaperSize }
+        : {
+            q: q || undefined,
+            status: status || undefined,
+            from: dateRange.from,
+            to: dateRange.to,
+            paperSize: preferredPaperSize,
+          };
+      toast.info("Đang tạo file PDF chuỗi bill hóa đơn...");
+      await retailInvoicesApi.downloadBulkPdf(scope, payload);
+      toast.success("Đã xuất chuỗi bill PDF thành công.");
+    } catch (cause) {
+      toast.error(getApiErrorMessage(cause, "Không thể xuất file PDF chuỗi bill."));
+    } finally {
+      setIsBulkExporting(false);
+    }
+  };
+
+  const isAllPageSelected = items.length > 0 && items.every((i) => selectedIds.has(i._id));
+  const isSomePageSelected = items.some((i) => selectedIds.has(i._id));
+
+  const toggleSelectAllPage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (isAllPageSelected) {
+        items.forEach((i) => next.delete(i._id));
+      } else {
+        items.forEach((i) => next.add(i._id));
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectOne = (id: string, e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
   const showPaymentQr = async (invoice: RetailInvoice) => {
     try {
       paymentPrintFailed.current.delete(invoice.orderId);
@@ -262,7 +327,7 @@ export default function RetailInvoicesPageContent() {
               Hóa đơn nội bộ
             </h1>
             <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200/60">
-              {items.length} chứng từ
+              {total.toLocaleString("vi-VN")} chứng từ
             </span>
           </div>
         </div>
@@ -285,12 +350,12 @@ export default function RetailInvoicesPageContent() {
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tổng hóa đơn</span>
             <FileText className="h-3.5 w-3.5 text-cyan-600" />
           </div>
-          <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-slate-900">{items.length}</p>
+          <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-slate-900">{total}</p>
         </div>
 
         <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tổng doanh số</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Doanh số trang này</span>
             <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
           </div>
           <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-emerald-700">{money(totalGrand)}</p>
@@ -298,7 +363,7 @@ export default function RetailInvoicesPageContent() {
 
         <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Đã thu tiền</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Đã thu trang này</span>
             <Wallet className="h-3.5 w-3.5 text-blue-600" />
           </div>
           <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-blue-700">{money(totalPaid)}</p>
@@ -306,7 +371,7 @@ export default function RetailInvoicesPageContent() {
 
         <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Công nợ còn lại</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Công nợ trang này</span>
             <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
           </div>
           <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-amber-600">{money(totalDue)}</p>
@@ -314,49 +379,125 @@ export default function RetailInvoicesPageContent() {
       </div>
 
       {/* Filter and Search toolbar */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            aria-label="Tìm hóa đơn"
-            className="w-full rounded-lg border border-slate-200 bg-slate-50/50 py-2 pl-9 pr-8 text-xs sm:text-sm text-slate-800 placeholder-slate-400 transition focus:border-cyan-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/10"
-            placeholder="Số hóa đơn, mã đơn, khách hàng..."
-            value={q}
-            onChange={(event) => setQ(event.target.value)}
-          />
-          {q && (
+      <TableFilterToolbar
+        search={{
+          value: q,
+          onChange: (val) => {
+            setQ(val);
+            setPage(1);
+          },
+          placeholder: "Số hóa đơn, mã đơn, khách hàng...",
+          ariaLabel: "Tìm hóa đơn",
+        }}
+        dateFilter={{
+          label: "thời gian hóa đơn",
+          value: dateFilter,
+          onChange: (next) => {
+            setDateFilter(next);
+            setPage(1);
+          },
+        }}
+        totalCount={total}
+        countLabel="chứng từ"
+        hasActiveFilters={Boolean(q || status || dateFilter.mode !== "all")}
+        onResetFilters={() => {
+          setQ("");
+          setStatus("");
+          setDateFilter(emptyDatePeriodFilter());
+          setPage(1);
+          clearSelection();
+        }}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setQ("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
+              disabled={isBulkExporting || items.length === 0}
+              onClick={() => void handleExportBulkPdf()}
+              title="Xuất file PDF chứa chuỗi các hóa đơn / bill bán hàng"
+              className="inline-flex min-h-8.5 items-center justify-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-xs font-semibold text-on-surface-variant hover:border-primary/50 hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer disabled:opacity-50"
             >
-              <X className="h-3.5 w-3.5" />
+              {isBulkExporting ? (
+                <Loader2 className="size-3.5 animate-spin text-primary" aria-hidden="true" />
+              ) : (
+                <FileText className="size-3.5" aria-hidden="true" />
+              )}
+              <span>{selectedIds.size > 0 ? `Xuất chuỗi bill (${selectedIds.size})` : "Xuất chuỗi bill PDF"}</span>
             </button>
-          )}
-        </div>
 
-        <button
-          type="button"
-          onClick={() => setScanningInvoice(true)}
-          className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
-        >
-          <ScanLine className="h-4 w-4" />
-          Quét mã
-        </button>
-
-        <div className="w-full sm:w-52">
+            <button
+              type="button"
+              onClick={() => setScanningInvoice(true)}
+              className="inline-flex min-h-8.5 items-center justify-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-xs font-semibold text-on-surface-variant hover:border-primary/50 hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+            >
+              <ScanLine className="size-3.5" aria-hidden="true" />
+              Quét mã
+            </button>
+          </div>
+        }
+      >
+        <div className="w-full sm:w-48 shrink-0">
           <select
             aria-label="Trạng thái hóa đơn"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/10 cursor-pointer"
+            className="h-9.5 w-full rounded-xl border border-outline-variant bg-surface-container-low/60 px-3 py-1.5 text-xs sm:text-sm font-medium text-on-surface transition focus:border-primary focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
             value={status}
-            onChange={(event) => setStatus(event.target.value)}
+            onChange={(event) => {
+              setStatus(event.target.value);
+              setPage(1);
+            }}
           >
             <option value="">Tất cả trạng thái</option>
             <option value="issued">Đã phát hành</option>
             <option value="void">Đã vô hiệu</option>
           </select>
         </div>
-      </div>
+      </TableFilterToolbar>
+
+      {/* Bulk action banner */}
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-xs text-on-surface animate-in fade-in duration-150">
+          <div className="flex items-center gap-2">
+            <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-on-primary">
+              {selectedIds.size}
+            </span>
+            <span className="font-semibold text-primary">
+              Đã chọn {selectedIds.size} hóa đơn
+            </span>
+            <span className="text-on-surface-variant hidden sm:inline">• Gom thành 1 file PDF chuỗi các bill</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="rounded-lg px-2.5 py-1 font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors cursor-pointer"
+            >
+              Bỏ chọn
+            </button>
+            <button
+              type="button"
+              disabled={isBulkExporting}
+              onClick={() => void handleExportBulkPdf(undefined, "80mm")}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-surface-container-lowest px-3 py-1.5 font-semibold text-primary shadow-2xs hover:bg-primary/10 transition-colors cursor-pointer disabled:opacity-50"
+              title="Xuất dạng cuộn in nhiệt 80mm"
+            >
+              Cuộn bill 80mm
+            </button>
+            <button
+              type="button"
+              disabled={isBulkExporting}
+              onClick={() => void handleExportBulkPdf(undefined, "A4")}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 font-semibold text-on-primary shadow-2xs hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-50"
+              title="Xuất chuỗi bill khổ A4"
+            >
+              {isBulkExporting ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <FileText className="size-3.5" aria-hidden="true" />
+              )}
+              Xuất PDF chuỗi bill ({selectedIds.size})
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Invoice list */}
       {items.length === 0 ? (
@@ -368,12 +509,14 @@ export default function RetailInvoicesPageContent() {
           <p className="mt-1 text-xs text-slate-500">
             Không có hóa đơn nào khớp với từ khóa tìm kiếm hoặc bộ lọc hiện tại.
           </p>
-          {(q || status) && (
+          {(q || status || dateFilter.mode !== "all") && (
             <button
               type="button"
               onClick={() => {
                 setQ("");
                 setStatus("");
+                setDateFilter(emptyDatePeriodFilter());
+                setPage(1);
               }}
               className="mt-3 rounded-xl border border-cyan-200 bg-cyan-50 px-3.5 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 cursor-pointer"
             >
@@ -387,6 +530,18 @@ export default function RetailInvoicesPageContent() {
             <table className="w-full min-w-[840px] text-left text-xs">
               <thead className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] uppercase tracking-wider text-slate-500 font-bold select-none">
                 <tr>
+                  <th className="w-10 px-3 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      aria-label="Chọn tất cả hóa đơn trên trang này"
+                      checked={isAllPageSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isSomePageSelected && !isAllPageSelected;
+                      }}
+                      onChange={toggleSelectAllPage}
+                      className="size-4 rounded border-outline-variant text-primary focus:ring-primary/30 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-4 py-3">Số hóa đơn</th>
                   <th className="px-4 py-3">Mã đơn & Khách hàng</th>
                   <th className="px-4 py-3">Thanh toán & Công nợ</th>
@@ -400,16 +555,32 @@ export default function RetailInvoicesPageContent() {
                   const summary = invoicePaymentSummary(invoice.snapshot);
                   const isVoid = invoice.status === "void";
                   const hasDue = Number(invoice.snapshot?.dueAmount || 0) > 0;
+                  const isSelected = selectedIds.has(invoice._id);
 
                   return (
                     <tr
                       key={invoice._id}
                       onClick={() => void detail(invoice._id)}
-                      className="hover:bg-cyan-50/40 transition-colors group cursor-pointer"
+                      className={cn(
+                        "hover:bg-cyan-50/40 transition-colors group cursor-pointer",
+                        isSelected && "bg-cyan-50/70",
+                      )}
                     >
+                      <td className="w-10 px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label={`Chọn hóa đơn ${invoice.invoiceNo}`}
+                          checked={isSelected}
+                          onChange={(e) => toggleSelectOne(invoice._id, e)}
+                          className="size-4 rounded border-outline-variant text-primary focus:ring-primary/30 cursor-pointer"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <span title={invoice.invoiceNo} className="block max-w-56 truncate font-mono font-bold text-slate-900 group-hover:text-cyan-700 transition">
                           {invoice.invoiceNo}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] font-normal text-slate-500">
+                          {new Date(invoice.issuedAt).toLocaleDateString("vi-VN")}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -522,6 +693,12 @@ export default function RetailInvoicesPageContent() {
         </div>
       )}
 
+      <Pagination
+        currentPage={page}
+        totalPages={Math.max(1, Math.ceil(total / 20))}
+        onPageChange={setPage}
+      />
+
       {/* Invoice Detail Dialog */}
       {selected && (
         <InvoiceDialog
@@ -560,7 +737,7 @@ export default function RetailInvoicesPageContent() {
       {scanningInvoice && (
         <BarcodeScannerDialog
           title="Quét mã hóa đơn"
-          onScan={(value) => { setQ(value); setStatus(""); }}
+          onScan={(value) => { setQ(value); setStatus(""); setDateFilter(emptyDatePeriodFilter()); setPage(1); }}
           onClose={() => setScanningInvoice(false)}
         />
       )}

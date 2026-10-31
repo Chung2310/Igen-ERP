@@ -1,5 +1,8 @@
-import React, { Fragment, useEffect, useMemo, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { StyledSelect } from "../common/StyledSelect";
+import { DatePeriodFilter } from "../common/DatePeriodFilter";
+import { TableFilterToolbar } from "../common/TableFilterToolbar";
+import { Pagination } from "../common/Pagination";
 import {
   Check,
   ChevronLeft,
@@ -10,6 +13,7 @@ import {
   Pencil,
   RefreshCw,
   Scan,
+  Search,
   Sparkles,
   Trash2,
   X,
@@ -33,6 +37,7 @@ import {
 import { toast } from "../../pages/Toast";
 import { listSupplierPartners, type SupplierPartnerOption } from "../../modules/partners/partnerApi";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
+import { emptyDatePeriodFilter, getDatePeriodRange, type DatePeriodFilterValue } from "../../utils/datePeriodFilter";
 
 type DraftLine = GoodsReceiptItem & { key: string; displayName: string };
 
@@ -59,23 +64,79 @@ const money = (value: number) => Number(value || 0).toLocaleString("vi-VN");
 
 export function ReceivingSection() {
   const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState<DatePeriodFilterValue>(emptyDatePeriodFilter);
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState<GoodsReceipt | null>(null);
   const [viewingReceipt, setViewingReceipt] = useState<GoodsReceipt | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  // Debounce search query to prevent high query frequency
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const dateRange = getDatePeriodRange(dateFilter);
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const nextReceipts = await inventoryReceivingService.listReceipts({ limit: 50 });
+      const nextReceipts = await inventoryReceivingService.listReceipts({
+        limit: 50,
+        page,
+        from: dateRange.from,
+        to: dateRange.to,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        q: debouncedSearch.trim() || undefined,
+      });
       setReceipts(nextReceipts.items);
+      setTotal(nextReceipts.total);
     } catch (error: any) {
       toast.error(error?.message || "Không thể tải danh sách phiếu nhập.");
     } finally {
       setLoading(false);
     }
+  }, [dateRange.from, dateRange.to, page, statusFilter, debouncedSearch]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    setPage(1);
   };
-  useEffect(() => { void load(); }, []);
+
+  const handleStatusChange = (val: string) => {
+    setStatusFilter(val);
+    setPage(1);
+  };
+
+  const handleDateFilterChange = (next: DatePeriodFilterValue) => {
+    setDateFilter(next);
+    setPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setDebouncedSearch("");
+    setStatusFilter("all");
+    setDateFilter(emptyDatePeriodFilter());
+    setPage(1);
+  };
+
+  const statusOptions: DropdownOption[] = [
+    { value: "all", label: "Tất cả trạng thái" },
+    { value: "draft", label: "Bản nháp" },
+    { value: "pending", label: "Chờ xác nhận" },
+    { value: "receiving", label: "Đang nhập kho" },
+    { value: "confirmed", label: "Hoàn thành" },
+    { value: "cancelled", label: "Đã hủy" },
+  ];
 
 
 
@@ -111,27 +172,258 @@ export function ReceivingSection() {
 
 
   return (
-    <section className="space-y-6" aria-label="Nhập hàng">
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+    <section className="space-y-5" aria-label="Nhập hàng">
+      {/* ── Page Header ── */}
+      <div className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between border-b border-outline-variant">
         <div>
-          <h3 className="text-base font-semibold text-slate-900">Nhập hàng</h3>
+          <h2 className="text-xl font-bold text-on-surface text-balance">Nhập hàng</h2>
+          <p className="mt-0.5 text-xs text-on-surface-variant text-pretty">
+            Quản lý phiếu nhập kho, theo dõi tiến độ và đối soát công nợ nhà cung cấp.
+          </p>
         </div>
-        <div className="flex gap-2">
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => { setEditingReceipt(null); setCreatorOpen(true); }} className="inline-flex items-center gap-1.5 rounded-md bg-cyan-700 px-3 py-2 text-sm font-semibold text-white hover:bg-cyan-800">
-              <PackagePlus className="h-4 w-4" />
-              Tạo phiếu nhập mới
+        <div className="flex flex-wrap items-center gap-2">
+          {viewingReceipt?.status === "draft" && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingReceipt(viewingReceipt);
+                setViewingReceipt(null);
+                setCreatorOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 px-3.5 py-2 text-xs sm:text-sm font-semibold text-primary hover:bg-primary/20 transition-colors shadow-2xs"
+            >
+              <Pencil className="size-4 shrink-0" aria-hidden="true" />
+              Sửa phiếu đang xem
             </button>
-            {viewingReceipt?.status === "draft" && <button type="button" onClick={() => { setEditingReceipt(viewingReceipt); setViewingReceipt(null); setCreatorOpen(true); }} className="inline-flex items-center gap-1.5 rounded-md border border-cyan-200 px-3 py-2 text-sm font-semibold text-cyan-700 hover:bg-cyan-50"><Pencil className="h-4 w-4" />Sửa phiếu đang xem</button>}
-            <button type="button" onClick={() => void load()} className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50" title="Làm mới" aria-label="Làm mới">
-              <RefreshCw className="h-4 w-4" />
-            </button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setEditingReceipt(null);
+              setCreatorOpen(true);
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs sm:text-sm font-semibold text-on-primary hover:bg-primary/90 transition-colors shadow-xs"
+          >
+            <PackagePlus className="size-4 shrink-0" aria-hidden="true" />
+            Tạo phiếu nhập mới
+          </button>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="inline-flex size-9.5 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"
+            title="Làm mới danh sách"
+            aria-label="Làm mới danh sách"
+          >
+            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
+          </button>
         </div>
-
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200"><tr><th className="px-4 py-3.5 font-medium">Mã phiếu</th><th className="px-4 py-3.5 font-medium">Nhà cung cấp / Khách hàng</th><th className="px-4 py-3.5 font-medium">Ngày tạo</th><th className="px-4 py-3.5 text-right font-medium">Giá trị</th><th className="px-4 py-3.5 font-medium">Trạng thái</th><th className="px-4 py-3.5 text-right font-medium">Thao tác</th></tr></thead><tbody className="divide-y divide-slate-200">{loading ? <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Đang tải dữ liệu...</td></tr> : receipts.length === 0 ? <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Chưa có phiếu nhập.</td></tr> : receipts.map((receipt) => <tr key={receipt._id} className="hover:bg-slate-50"><td className="px-4 py-3.5 font-mono text-xs font-semibold text-slate-600">{receipt.receiptCode}{receipt.receiptKind && receipt.receiptKind !== "purchase" && <span className="mt-1 block font-sans font-normal text-cyan-700">{receipt.receiptKind === "buyback" ? "Thu mua lại" : receipt.receiptKind === "sales_cancel" ? "Hủy đơn" : "Trả hàng"} · {receipt.orderCode}</span>}</td><td className="px-4 py-3.5 font-medium text-slate-800">{receipt.supplierName}</td><td className="px-4 py-3.5 text-slate-500">{new Date(receipt.createdAt).toLocaleDateString("vi-VN")}</td><td className="px-4 py-3.5 text-right tabular-nums font-semibold text-slate-900">{money(receipt.subtotal)}</td><td className="px-4 py-3.5"><ReceiptStatus status={receipt.status} /></td><td className="px-4 py-3.5 text-right"><span className="inline-flex gap-1"><button type="button" onClick={() => setViewingReceipt(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-cyan-700" title="Xem chi tiết phiếu"><Eye className="h-4 w-4" /></button>{receipt.status === "draft" && <><button type="button" onClick={() => { setEditingReceipt(receipt); setViewingReceipt(null); setCreatorOpen(true); }} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-cyan-50 hover:text-cyan-700" title="Sửa phiếu nháp" aria-label={`Sửa phiếu ${receipt.receiptCode}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => void submit(receipt)} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-50" title="Gửi chờ xác nhận">Gửi xác nhận</button><button type="button" onClick={() => void cancel(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "pending" && <><button type="button" onClick={() => void startReceiving(receipt)} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-sky-700 hover:bg-sky-50" title="Bắt đầu nhập kho">Nhập kho</button><button type="button" onClick={() => void cancel(receipt)} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-rose-600 hover:bg-rose-50" title="Hủy phiếu"><X className="h-4 w-4" /></button></>}{receipt.status === "receiving" && <button type="button" onClick={() => void confirm(receipt)} className="inline-flex h-8 items-center gap-1 rounded-md bg-emerald-600 px-2 text-xs font-medium text-white hover:bg-emerald-700" title="Hoàn thành nhập kho"><Check className="h-3.5 w-3.5" />Hoàn thành</button>}</span></td></tr>)}</tbody></table></div>
+      {/* ── Toolbar & Filters ── */}
+      <TableFilterToolbar
+        search={{
+          value: searchQuery,
+          onChange: handleSearchChange,
+          placeholder: "Tìm mã phiếu, nhà cung cấp, mã đơn...",
+          ariaLabel: "Tìm kiếm phiếu nhập hàng",
+        }}
+        dateFilter={{
+          label: "thời gian phiếu nhập",
+          value: dateFilter,
+          onChange: handleDateFilterChange,
+        }}
+        totalCount={total}
+        countLabel="phiếu nhập"
+        hasActiveFilters={Boolean(searchQuery || statusFilter !== "all" || dateFilter.mode !== "all")}
+        onResetFilters={handleResetFilters}
+      >
+        <div className="w-full sm:w-44 shrink-0">
+          <Dropdown
+            value={statusFilter}
+            onChange={handleStatusChange}
+            options={statusOptions}
+            variant="filter"
+            size="sm"
+            aria-label="Lọc theo trạng thái phiếu"
+          />
+        </div>
+      </TableFilterToolbar>
+
+      {/* ── Table Card ── */}
+      <div className="overflow-x-auto rounded-2xl border border-outline-variant shadow-2xs bg-surface-container-lowest">
+        <table className="w-full min-w-[760px] text-left text-sm">
+          <thead className="bg-surface-container-low text-xs uppercase text-on-surface-variant border-b border-outline-variant">
+            <tr>
+              <th scope="col" className="px-4 py-3.5 font-semibold">Mã phiếu</th>
+              <th scope="col" className="px-4 py-3.5 font-semibold">Nhà cung cấp / Khách hàng</th>
+              <th scope="col" className="px-4 py-3.5 font-semibold">Ngày tạo</th>
+              <th scope="col" className="px-4 py-3.5 text-right font-semibold">Giá trị</th>
+              <th scope="col" className="px-4 py-3.5 font-semibold">Trạng thái</th>
+              <th scope="col" className="px-4 py-3.5 text-right font-semibold">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-outline-variant">
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-12 text-center text-on-surface-variant">
+                  <div className="inline-flex items-center gap-2 text-sm">
+                    <RefreshCw className="size-4 animate-spin text-primary" aria-hidden="true" />
+                    <span>Đang tải danh sách phiếu nhập...</span>
+                  </div>
+                </td>
+              </tr>
+            ) : receipts.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-12 text-center">
+                  <div className="mx-auto flex max-w-sm flex-col items-center justify-center text-center">
+                    <p className="text-sm font-semibold text-on-surface">
+                      {searchQuery || statusFilter !== "all" || dateFilter.mode !== "all"
+                        ? "Không có phiếu nhập nào phù hợp với bộ lọc."
+                        : "Chưa có phiếu nhập hàng nào."}
+                    </p>
+                    <p className="mt-1 text-xs text-on-surface-variant">
+                      {searchQuery || statusFilter !== "all" || dateFilter.mode !== "all"
+                        ? "Hãy thử thay đổi từ khóa tìm kiếm hoặc đặt lại bộ lọc thời gian."
+                        : "Bắt đầu bằng cách tạo phiếu nhập kho mới từ nhà cung cấp."}
+                    </p>
+                    {searchQuery || statusFilter !== "all" || dateFilter.mode !== "all" ? (
+                      <button
+                        type="button"
+                        onClick={handleResetFilters}
+                        className="mt-3.5 inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-semibold text-on-surface hover:bg-surface-container-high transition-colors"
+                      >
+                        <X className="size-3.5" aria-hidden="true" />
+                        Đặt lại bộ lọc
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingReceipt(null);
+                          setCreatorOpen(true);
+                        }}
+                        className="mt-3.5 inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-on-primary hover:bg-primary/90 transition-colors shadow-2xs"
+                      >
+                        <PackagePlus className="size-3.5" aria-hidden="true" />
+                        Tạo phiếu nhập mới
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              receipts.map((receipt) => (
+                <tr key={receipt._id} className="hover:bg-surface-container-low/60 transition-colors">
+                  <td className="px-4 py-3.5 font-mono text-xs font-semibold text-on-surface">
+                    {receipt.receiptCode}
+                    {receipt.receiptKind && receipt.receiptKind !== "purchase" && (
+                      <span className="mt-1 block font-sans font-normal text-primary">
+                        {receipt.receiptKind === "buyback"
+                          ? "Thu mua lại"
+                          : receipt.receiptKind === "sales_cancel"
+                          ? "Hủy đơn"
+                          : "Trả hàng"}{" "}
+                        · {receipt.orderCode}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3.5 font-medium text-on-surface">{receipt.supplierName}</td>
+                  <td className="px-4 py-3.5 text-on-surface-variant">
+                    {new Date(receipt.createdAt).toLocaleDateString("vi-VN")}
+                  </td>
+                  <td className="px-4 py-3.5 text-right tabular-nums font-semibold text-on-surface">
+                    {money(receipt.subtotal)}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <ReceiptStatus status={receipt.status} />
+                  </td>
+                  <td className="px-4 py-3.5 text-right">
+                    <span className="inline-flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setViewingReceipt(receipt)}
+                        className="inline-flex size-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors"
+                        title="Xem chi tiết phiếu"
+                        aria-label={`Xem phiếu nhập ${receipt.receiptCode}`}
+                      >
+                        <Eye className="size-4" aria-hidden="true" />
+                      </button>
+                      {receipt.status === "draft" && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingReceipt(receipt);
+                              setViewingReceipt(null);
+                              setCreatorOpen(true);
+                            }}
+                            className="inline-flex size-8 items-center justify-center rounded-lg text-on-surface-variant hover:bg-primary/10 hover:text-primary transition-colors"
+                            title="Sửa phiếu nháp"
+                            aria-label={`Sửa phiếu ${receipt.receiptCode}`}
+                          >
+                            <Pencil className="size-4" aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void submit(receipt)}
+                            className="inline-flex h-8 items-center rounded-lg px-2 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                            title="Gửi chờ xác nhận"
+                          >
+                            Gửi xác nhận
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void cancel(receipt)}
+                            className="inline-flex size-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50"
+                            title="Hủy phiếu"
+                            aria-label={`Hủy phiếu ${receipt.receiptCode}`}
+                          >
+                            <X className="size-4" aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
+                      {receipt.status === "pending" && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void startReceiving(receipt)}
+                            className="inline-flex h-8 items-center rounded-lg px-2 text-xs font-medium text-sky-700 hover:bg-sky-50"
+                            title="Bắt đầu nhập kho"
+                          >
+                            Nhập kho
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void cancel(receipt)}
+                            className="inline-flex size-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50"
+                            title="Hủy phiếu"
+                            aria-label={`Hủy phiếu ${receipt.receiptCode}`}
+                          >
+                            <X className="size-4" aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
+                      {receipt.status === "receiving" && (
+                        <button
+                          type="button"
+                          onClick={() => void confirm(receipt)}
+                          className="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors shadow-2xs"
+                          title="Hoàn thành nhập kho"
+                        >
+                          <Check className="size-3.5" aria-hidden="true" />
+                          Hoàn thành
+                        </button>
+                      )}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <Pagination currentPage={page} totalPages={Math.max(1, Math.ceil(total / 50))} onPageChange={setPage} />
 
       {creatorOpen && <ReceiptCreatorModal initialReceipt={editingReceipt} onClose={() => { setCreatorOpen(false); setEditingReceipt(null); }} onSaved={async () => { setCreatorOpen(false); setEditingReceipt(null); await load(); }} />}
       {viewingReceipt && <ReceiptDetailModal receipt={viewingReceipt} onClose={() => setViewingReceipt(null)} />}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Wrench, ShieldCheck, BarChart3 } from "lucide-react";
+import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
 import WarrantyLookupSection from "../components/inventory/WarrantyLookupSection";
 import RepairBoardPage, {
   type RepairCreatePrefill,
@@ -30,30 +31,21 @@ export default function RepairTab() {
   return (
     <div className="space-y-4">
       {/* Top Tab Bar Switcher */}
-      <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
-        <div className="flex gap-1 rounded-xl border border-slate-200/80 bg-white p-1 shadow-2xs">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = view === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                aria-current={active ? "page" : undefined}
-                onClick={() => setView(tab.key)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  active
-                    ? "bg-cyan-600 text-white shadow-xs"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`}
-              >
-                <Icon className={`h-3.5 w-3.5 ${active ? "text-white" : "text-slate-400"}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <ModuleNavigation label="Mục Sửa chữa & Bảo hành" activeValue={view}>
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <ModuleNavigationButton
+              key={tab.key}
+              active={view === tab.key}
+              icon={<Icon />}
+              onClick={() => setView(tab.key)}
+            >
+              {tab.label}
+            </ModuleNavigationButton>
+          );
+        })}
+      </ModuleNavigation>
 
       {/* Tab View Content */}
       <div className="min-h-0">

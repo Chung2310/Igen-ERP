@@ -146,6 +146,32 @@ export async function listReceipts(rawScope: Scope, query: any = {}) {
   const page = Math.max(1, Number(query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
   const filter: any = { ...scope, ...(query.status && ["draft", "pending", "receiving", "confirmed", "cancelled"].includes(String(query.status)) ? { status: String(query.status) } : {}) };
+  if (query.q && typeof query.q === "string" && query.q.trim()) {
+    const qTrim = query.q.trim();
+    const qRegex = new RegExp(qTrim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filter.$or = [
+      { receiptCode: qRegex },
+      { supplierName: qRegex },
+      { orderCode: qRegex },
+    ];
+  }
+  const from = String(query.from || "");
+  const to = String(query.to || "");
+  if (from || to) {
+    const validDay = (value: string) => {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+      if (!match) return false;
+      const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+      return date.getUTCFullYear() === Number(match[1]) && date.getUTCMonth() + 1 === Number(match[2]) && date.getUTCDate() === Number(match[3]);
+    };
+    if ((from && !validDay(from)) || (to && !validDay(to)) || (from && to && from > to)) {
+      throw new ReceivingValidationError("Khoảng thời gian lọc phiếu nhập không hợp lệ.");
+    }
+    filter.createdAt = {
+      ...(from ? { $gte: new Date(`${from}T00:00:00+07:00`) } : {}),
+      ...(to ? { $lte: new Date(`${to}T23:59:59.999+07:00`) } : {}),
+    };
+  }
   const [items, total] = await Promise.all([GoodsReceiptModel.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), GoodsReceiptModel.countDocuments(filter)]);
   return { items, total, page, limit };
 }

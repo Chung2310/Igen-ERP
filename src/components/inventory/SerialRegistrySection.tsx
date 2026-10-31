@@ -11,6 +11,7 @@ import {
 } from "../../services/inventoryReceivingService";
 import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
+import { TableFilterToolbar } from "../common/TableFilterToolbar";
 import { MetricBar } from "../common/MetricBar";
 
 const statuses: Array<"" | SerialUnitStatus> = [
@@ -400,114 +401,110 @@ export function SerialRegistrySection({ onTransfers }: { onTransfers?: () => voi
       />
 
       {/* 3. Search Bar, Dropdown Filters, View Mode Toggle & Expand/Collapse */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xs lg:flex-row lg:items-center lg:justify-between">
-        {/* Search Input */}
-        <form onSubmit={handleSearchSubmit} className="relative flex-1">
-          <input
-            type="text"
-            value={serialQuery}
-            onChange={(e) => {
-              setSerialQuery(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Tìm theo mã IMEI / Serial, barcode, mã SKU, tên dòng máy..."
-            className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-cyan-600 focus:bg-white focus:ring-1 focus:ring-cyan-600 transition-all font-medium"
-          />
-          {serialQuery && (
-            <button
-              type="button"
-              onClick={() => {
-                setSerialQuery("");
-                setPage(1);
-              }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600"
-            >
-              ✕
-            </button>
-          )}
-        </form>
-
-        {/* Filters, Dropdowns & View Toggle */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Warehouse Dropdown */}
-          <div className="w-40">
-            <Dropdown<string>
-              aria-label="Lọc theo kho"
-              value={selectedWarehouseId}
-              onChange={(val) => {
-                setSelectedWarehouseId(val);
-                setPage(1);
-              }}
-              options={warehouseOptions}
-              variant="filter"
-              size="sm"
-              triggerClassName="w-full justify-between text-xs font-medium border-slate-200 py-1.5"
-            />
-          </div>
-
-          {/* Status Dropdown */}
-          <div className="w-38">
-            <Dropdown<string>
-              aria-label="Lọc theo trạng thái"
-              value={status}
-              onChange={(val) => {
-                setStatus(val as any);
-                setPage(1);
-              }}
-              options={statusOptions}
-              variant="filter"
-              size="sm"
-              triggerClassName="w-full justify-between text-xs font-medium border-slate-200 py-1.5"
-            />
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs">
-            <button
-              type="button"
-              onClick={() => setViewMode("by_machine")}
-              className={`rounded-md px-2.5 py-1 font-bold transition-all ${viewMode === "by_machine"
-                  ? "bg-white text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-800"
-                }`}
-            >
-              Theo dòng máy
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("flat")}
-              className={`rounded-md px-2.5 py-1 font-bold transition-all ${viewMode === "flat"
-                  ? "bg-white text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-800"
-                }`}
-            >
-              Tất cả IMEI
-            </button>
-          </div>
-
-          {/* Expand / Collapse All when in by_machine view */}
-          {viewMode === "by_machine" && (
-            <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+      <TableFilterToolbar
+        search={{
+          value: serialQuery,
+          onChange: (val) => {
+            setSerialQuery(val);
+            setPage(1);
+          },
+          placeholder: "Tìm theo mã IMEI / Serial, barcode, mã SKU, tên dòng máy...",
+          ariaLabel: "Tìm theo mã IMEI / Serial",
+          onKeyDown: (e) => {
+            if (e.key === "Enter") handleSearchSubmit(e as any);
+          },
+        }}
+        totalCount={filteredItems.length}
+        countLabel="thiết bị"
+        hasActiveFilters={Boolean(serialQuery || selectedWarehouseId || status)}
+        onResetFilters={() => {
+          setSerialQuery("");
+          setSelectedWarehouseId("");
+          setStatus("" as any);
+          setPage(1);
+        }}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex items-center rounded-xl border border-outline-variant bg-surface-container-low p-0.5 text-xs">
               <button
                 type="button"
-                onClick={expandAll}
-                className="rounded px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-100"
-                title="Mở rộng tất cả dòng máy"
+                onClick={() => setViewMode("by_machine")}
+                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${viewMode === "by_machine"
+                    ? "bg-surface text-primary font-bold shadow-2xs"
+                    : "text-on-surface-variant hover:text-on-surface"
+                  }`}
               >
-                [+] Mở tất cả
+                Theo dòng máy
               </button>
               <button
                 type="button"
-                onClick={collapseAll}
-                className="rounded px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-100"
-                title="Thu gọn danh sách"
+                onClick={() => setViewMode("flat")}
+                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${viewMode === "flat"
+                    ? "bg-surface text-primary font-bold shadow-2xs"
+                    : "text-on-surface-variant hover:text-on-surface"
+                  }`}
               >
-                [-] Thu gọn
+                Tất cả IMEI
               </button>
             </div>
-          )}
+
+            {/* Expand / Collapse All when in by_machine view */}
+            {viewMode === "by_machine" && (
+              <div className="flex items-center gap-1 border-l border-outline-variant pl-2">
+                <button
+                  type="button"
+                  onClick={expandAll}
+                  className="rounded-lg px-2 py-1 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
+                  title="Mở rộng tất cả dòng máy"
+                >
+                  Mở tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={collapseAll}
+                  className="rounded-lg px-2 py-1 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
+                  title="Thu gọn danh sách"
+                >
+                  Thu gọn
+                </button>
+              </div>
+            )}
+          </div>
+        }
+      >
+        {/* Warehouse Dropdown */}
+        <div className="min-w-[160px]">
+          <Dropdown<string>
+            aria-label="Lọc theo kho"
+            value={selectedWarehouseId}
+            onChange={(val) => {
+              setSelectedWarehouseId(val);
+              setPage(1);
+            }}
+            options={warehouseOptions}
+            variant="filter"
+            size="sm"
+            triggerClassName="w-full justify-between text-xs font-medium"
+          />
         </div>
-      </div>
+
+        {/* Status Dropdown */}
+        <div className="min-w-[160px]">
+          <Dropdown<string>
+            aria-label="Lọc theo trạng thái"
+            value={status}
+            onChange={(val) => {
+              setStatus(val as any);
+              setPage(1);
+            }}
+            options={statusOptions}
+            variant="filter"
+            size="sm"
+            triggerClassName="w-full justify-between text-xs font-medium"
+          />
+        </div>
+      </TableFilterToolbar>
 
       {/* 4. Display Content: Grouped by Machine (Default) vs Flat List */}
       {viewMode === "by_machine" ? (
