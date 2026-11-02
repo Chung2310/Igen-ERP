@@ -127,7 +127,7 @@ export function canViewAiSubscription(user: UserProfile | null | undefined): boo
  *
  * Các mục dưới đây chỉ còn phục vụ tương thích URL/quyền cũ; module đã được gỡ khỏi router ứng dụng.
  */
-export const HIDDEN_TABS = new Set<TabType>();
+export const HIDDEN_TABS = new Set<TabType>(["CHIẾN DỊCH NỘI DUNG"]);
 
 export function isTabHidden(tab: TabType): boolean {
   return HIDDEN_TABS.has(tab);
@@ -175,5 +175,5 @@ export function filterEnabledTabs(tabs: TabType[], enabledModules: string[] | un
 
 /** Resolve direct navigation to a disabled module without rendering restricted content. */
 export function resolveEnabledTab(tab: TabType, enabledModules: string[] | undefined, _legacyBusinessType?: unknown): TabType {
-  return isTabEnabled(tab, enabledModules) ? tab : "TỔNG QUAN";
+  return !isTabHidden(tab) && isTabEnabled(tab, enabledModules) ? tab : "TỔNG QUAN";
 }

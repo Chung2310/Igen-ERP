@@ -15,28 +15,6 @@ tiktokRouter.get("/webhook", (req, res) => {
 tiktokRouter.post("/webhook", tiktokController.receiveWebhook as any);
 tiktokRouter.get("/oauth/callback", tiktokController.oauthCallback as any);
 
-const publishSchema = {
-  body: Joi.object({
-    cardId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).required(),
-    caption: Joi.string().max(2200).optional().allow(""),
-    videoUrl: Joi.string().uri().required(),
-    privacyLevel: Joi.string()
-      .valid("PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "SELF_ONLY")
-      .required(),
-    allowComment: Joi.boolean().required(),
-    allowDuet: Joi.boolean().required(),
-    allowStitch: Joi.boolean().required(),
-    brandContentToggle: Joi.boolean().required(),
-    brandContent: Joi.boolean().required(),
-    brandOrganic: Joi.boolean().required(),
-    isAigc: Joi.boolean().required(),
-    videoDurationSeconds: Joi.number().positive().required(),
-    consentAccepted: Joi.boolean().valid(true).required(),
-    scheduledTime: Joi.string().isoDate().optional().allow(""),
-    integrationId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow(""),
-  }),
-};
-
 const validateTokenSchema = {
   body: Joi.object({
     username: Joi.string().optional().allow(""),
@@ -55,14 +33,6 @@ tiktokRouter.get(
   requireAuth as any,
   requirePermission("social-integration:manage") as any,
   tiktokController.startOAuth as any
-);
-
-tiktokRouter.post(
-  "/publish",
-  requireAuth as any,
-  requirePermission("marketing:post") as any,
-  validateRequest(publishSchema),
-  tiktokController.publish as any
 );
 
 tiktokRouter.post(

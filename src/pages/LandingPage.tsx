@@ -931,9 +931,9 @@ export default function LandingPage() {
                 <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e5efff] to-[#c6ddff] text-[#3676c7] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_14px_rgba(0,173,252,0.1)]">
                   <Database className="h-6 w-6" />
                 </div>
-                <h3 className="mb-2 text-base font-semibold text-slate-900 sm:text-lg">Quy trình xóa sạch dữ liệu</h3>
-                <p className="text-sm leading-relaxed text-slate-600">
-                  Cung cấp hướng dẫn xóa dữ liệu công khai, cam kết xóa toàn bộ thông tin đồng bộ trong vòng 72h khi có yêu cầu.
+                <h3 className="mb-2 text-balance text-base font-semibold text-slate-900 sm:text-lg">Quy trình xóa sạch dữ liệu</h3>
+                <p className="text-pretty text-sm leading-relaxed text-slate-600">
+                  Công khai hướng dẫn yêu cầu xóa dữ liệu và theo dõi trạng thái xử lý trên hệ thống.
                 </p>
               </div>
             </div>

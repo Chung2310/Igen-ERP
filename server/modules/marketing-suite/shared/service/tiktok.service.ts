@@ -820,7 +820,7 @@ export const tiktokService = {
     const query = new URLSearchParams({
       client_key: clientKey,
       response_type: "code",
-      scope: "user.info.basic,video.publish",
+      scope: "user.info.basic",
       redirect_uri: redirectUri,
       state,
     });
@@ -955,6 +955,10 @@ export const tiktokService = {
     postOptions: TikTokDirectPostOptions = {},
     requestUserId?: string
   ) {
+    throw Object.assign(
+      new Error("Đăng video TikTok đã tắt. iGen ERP hiện chỉ hỗ trợ tin nhắn và bình luận."),
+      { statusCode: 410 },
+    );
     void scheduledTime;
 
     const supportedPrivacyLevels = new Set([
@@ -1561,52 +1565,49 @@ export const tiktokService = {
 
   async getCreatorInfo(accessToken: string) {
     if (!accessToken) {
-      throw new Error("Access Token TikTok khong duoc de trong.");
+      throw new Error("TikTok access token is required.");
     }
 
     try {
-      const response = await (globalThis as any).fetch(`${TIKTOK_API_BASE}/v2/post/publish/creator_info/query/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json; charset=UTF-8",
-          Authorization: `Bearer ${accessToken}`,
-        },
+      const fields = new URLSearchParams({ fields: "open_id,display_name,avatar_url" });
+      const response = await (globalThis as any).fetch(`${TIKTOK_API_BASE}/v2/user/info/?${fields.toString()}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
-
       const text = await response.text();
-      let data: any = {};
+      let result: any = {};
       try {
-        data = JSON.parse(text);
+        result = JSON.parse(text);
       } catch {
         throw new Error(`TikTok API response is not JSON: ${text.slice(0, 200)}`);
       }
 
-      if (!response.ok || data.error?.code !== "ok") {
-        const errCode = data.error?.code || response.status;
-        const errMsg = data.error?.message || "Unknown TikTok API error";
-        throw new Error(`Lay thong tin creator that bai [${errCode}]: ${errMsg}`);
+      const user = result.data?.user;
+      if (!response.ok || result.error?.code !== "ok" || !user?.open_id) {
+        const errorCode = result.error?.code || response.status;
+        const errorMessage = result.error?.message || "Unknown TikTok API error";
+        throw new Error(`Could not retrieve TikTok profile [${errorCode}]: ${errorMessage}`);
       }
 
       return {
         status: "success",
-        message: "Lay thong tin creator TikTok thanh cong",
+        message: "TikTok profile retrieved successfully",
         data: {
-          creatorAvatarUrl: data.data?.creator_avatar_url || "",
-          creatorNickname: data.data?.creator_nickname || "",
-          creatorUsername: data.data?.creator_username || "",
-          privacyLevelOptions: data.data?.privacy_level_options || [],
-          commentDisabled: data.data?.comment_disabled ?? false,
-          duetDisabled: data.data?.duet_disabled ?? false,
-          stitchDisabled: data.data?.stitch_disabled ?? false,
-          maxVideoPostDurationSec: Number(data.data?.max_video_post_duration_sec || 0),
+          creatorAvatarUrl: user.avatar_url || "",
+          creatorNickname: user.display_name || "",
+          creatorUsername: user.open_id,
+          privacyLevelOptions: [],
+          commentDisabled: false,
+          duetDisabled: false,
+          stitchDisabled: false,
+          maxVideoPostDurationSec: 0,
         },
       };
     } catch (error: any) {
       console.error("[tiktokService.getCreatorInfo] Error:", error);
-      throw new Error(`Lay thong tin creator TikTok that bai: ${error.message}`);
+      throw new Error(`Could not retrieve TikTok profile: ${error.message}`);
     }
   },
-
   async getCreatorInfoForIntegration(params: {
     integrationId?: string;
     companyCode?: string;

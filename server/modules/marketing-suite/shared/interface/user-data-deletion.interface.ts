@@ -1,7 +1,7 @@
 import { Document } from "mongoose";
 
 export interface IUserDataDeletion extends Document {
-  facebookUserId: string;
+  facebookUserId?: string;
   confirmationCode: string;
   status: "pending" | "processing" | "completed" | "failed";
   requestedAt: Date;

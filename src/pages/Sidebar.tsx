@@ -180,7 +180,6 @@ const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
   "BÁN LẺ": ShoppingCartIcon,
   "ĐỐI TÁC BÁN LẺ": UsersThreeIcon,
   "TÀI CHÍNH": FileTextIcon,
-  "CHIẾN DỊCH NỘI DUNG": MegaphoneIcon,
   "OMNI INBOX": ChatCircleIcon,
   "MARKETING": UsersThreeIcon,
   "KHO TRI THỨC": BookOpenIcon,

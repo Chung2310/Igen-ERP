@@ -9,22 +9,23 @@ import {
   USER_DATA_DELETION_URL,
 } from "../config/brand";
 
-const lastUpdated = "June 30, 2026";
+const lastUpdated = "November 2, 2026";
 
 const policySections = [
   {
     title: "1. Scope",
     content: [
-      `${BRAND_NAME} is a business management platform that may connect with third-party services such as TikTok Shop, Facebook and other approved channels to help users manage operations, content, orders and customer interactions.`,
+      `${BRAND_NAME} is a business management platform that may connect with TikTok Shop, Facebook Pages, Facebook Messenger, TikTok Business Messaging and other approved services. Social messaging integrations are used to manage customer conversations and automatic replies; they are not used to publish posts or videos. TikTok Shop order and product synchronization is a separate feature.`,
       "This Privacy Policy explains what data we collect, how we use it, how long we retain it and how users can revoke access or request deletion.",
     ],
   },
   {
     title: "2. Data We Receive",
     content: [
-      "Account and profile data you provide directly, such as name, email address, phone number, company information and login credentials.",
-      "Connection data received after you authorize a third-party platform, such as public profile identifiers, shop identifiers, page identifiers, OAuth access tokens, refresh tokens and permission scopes.",
-      "Business data synchronized at your request, such as selected product catalog data, order data, inventory-related data, conversation metadata and media or text content that you choose to process through the platform.",
+      "Account and workspace data you provide, such as your name, email address, phone number and company information.",
+      "Platform connection data, such as Facebook Page IDs, TikTok account identifiers, profile names and images, permission scopes, and access or refresh tokens. Tokens are stored on our servers and are not exposed to other workspace members through the interface.",
+      "Customer communication data received through enabled integrations, including Facebook Messenger messages, Facebook Page comments, TikTok direct messages, sender and conversation identifiers, timestamps, delivery status, and attachments or attachment URLs. We also store automatic-reply text and related processing logs.",
+      "When TikTok Shop synchronization is enabled, selected shop, product, order and inventory data.",
       "Technical usage data such as IP address, browser type, device information, timestamps, logs and security events.",
     ],
   },
@@ -32,32 +33,33 @@ const policySections = [
     title: "3. How We Use Data",
     content: [
       "To authenticate users and maintain secure access to the platform.",
-      "To establish and maintain approved integrations, including TikTok Shop OAuth connections and related synchronization flows.",
-      "To sync and display the data you explicitly authorize, including profile, order, product, messaging or publishing-related data supported by the connected platform.",
-      "To generate AI-assisted drafts, content suggestions, media prompts or workflow automations based only on the materials and instructions you submit to the system.",
+      "To establish and maintain the platform connections you choose, including the separate TikTok Shop synchronization feature.",
+      "To receive, display, organize and respond to customer messages and Facebook Page comments through the connected business accounts.",
+      "When automatic replies are enabled, to send the message or comment text and relevant conversation context to our configured AI provider, Google Gemini, to generate a response, then send that response through the connected platform according to the workspace settings.",
+      "To maintain reply history, prevent duplicate processing, troubleshoot delivery and support the customer-service workflows you enable.",
       "To monitor service reliability, prevent abuse, troubleshoot incidents and comply with applicable legal obligations.",
     ],
   },
   {
-    title: "4. TikTok Shop And Other Platform Permissions",
+    title: "4. Platform Connections And Permissions",
     content: [
-      "When you connect TikTok Shop or another third-party service, we only request and use the permissions required for the features you activate.",
-      "For TikTok-related features, this may include scopes such as user identity verification, shop order synchronization or product synchronization when those features are enabled in your account.",
-      "We do not ask users to provide their TikTok password directly to us. Access is granted through the platform's official authorization flow.",
+      "Facebook permissions are used to list the Pages you choose, receive Page and Messenger webhook events, read comments needed for the enabled comment-reply workflow, and send replies through Messenger or to comments.",
+      "TikTok Login Kit profile authorization requests the user.info.basic scope to identify the connected profile. It does not grant access to direct messages. TikTok direct-message features require a separate TikTok API for Business Business Messaging authorization and are available only when that authorization is enabled for the account and application. TikTok Shop authorization and synchronization are separate features.",
+      "We do not ask users to provide Facebook or TikTok passwords directly to us. Access is granted through the applicable platform authorization flow. We do not use these social messaging connections to publish posts or videos.",
     ],
   },
   {
     title: "5. AI Processing And User-Provided Materials",
     content: [
-      "When you submit text, upload files or request AI-assisted image or content generation, the system may process the exact materials you provide in order to generate drafts or outputs.",
-      "We design the workflow to prioritize source fidelity. However, users remain responsible for reviewing generated outputs before publication or business use.",
-      "You should not upload materials that you are not authorized to process.",
+      "For automatic replies, the incoming customer message and relevant conversation context may be processed by Google Gemini to generate a response. The response may be sent automatically when the workspace has enabled automatic replies; an employee does not review every response before it is sent.",
+      "Workspace administrators are responsible for configuring the reply rules, reviewing reply history, pausing automation when needed and ensuring that the connected business account is authorized to process the conversation.",
+      "Do not submit or configure personal data or materials that you are not authorized to process.",
     ],
   },
   {
     title: "6. Sharing And Disclosure",
     content: [
-      "We may share data with infrastructure, hosting, analytics, AI or support providers only to the extent necessary to operate the service.",
+      "We share data with platform providers to operate the integrations you authorize, and with hosting, infrastructure, support and AI service providers (including Google Gemini for enabled AI replies) only as needed to provide the requested features.",
       "We may disclose information when required by law, legal process, security response or to enforce our terms and protect the platform.",
       "We do not sell personal data provided through the service.",
     ],
@@ -65,8 +67,8 @@ const policySections = [
   {
     title: "7. Retention And Security",
     content: [
-      "We retain account, connection and operational data only for as long as needed to provide the service, satisfy legal obligations, resolve disputes or enforce our agreements.",
-      "OAuth tokens and platform connection credentials are stored with access controls and are disabled or removed when the integration is disconnected or a deletion request is completed.",
+      "We retain conversation history and reply logs while the connected workspace feature is in use and until an authorized workspace administrator requests deletion. We may retain limited records longer when required by law, for security, or to resolve disputes.",
+      "Disconnecting an integration stops future platform access and synchronization; it does not by itself delete conversation history already stored in the workspace. Access tokens are disabled when an integration is disconnected. Verified deletion requests are processed within 30 days, subject to legal retention requirements.",
       "We use reasonable administrative, technical and organizational safeguards, but no system can guarantee absolute security.",
     ],
   },
@@ -75,7 +77,7 @@ const policySections = [
     content: [
       "You may disconnect a linked platform from the integration settings inside the application.",
       "You may also revoke the application's access directly from the settings page of the connected third-party platform.",
-      "You may request access, correction or deletion of eligible data by contacting our support channel or using the deletion page published by the service.",
+      "You may request access, correction or deletion of eligible data through the public deletion page or by contacting support. A Facebook callback request immediately revokes the matching connection tokens and removes the Facebook identifier for the person who authorized the connection. Page connection records and workspace conversation history are not removed by that callback; an authorized workspace administrator can request their deletion separately.",
     ],
   },
   {
@@ -93,8 +95,8 @@ const policySections = [
 export default function PrivacyPolicy() {
   const meta = {
     title: `Privacy Policy | ${BRAND_NAME}`,
-    description: `Privacy Policy for ${BRAND_NAME}, including account data, connected platform data, TikTok Shop integration data and deletion rights.`,
-    keywords: "privacy policy, TikTok Shop, user data deletion, iGen ERP",
+    description: `Privacy Policy for ${BRAND_NAME}, including Facebook and TikTok business messaging, automatic replies, TikTok Shop synchronization and deletion rights.`,
+    keywords: "privacy policy, Facebook Messenger, TikTok Business Messaging, automatic replies, user data deletion, iGen ERP",
     path: "/privacy-policy",
   };
 
@@ -109,10 +111,10 @@ export default function PrivacyPolicy() {
               <ShieldCheck className="h-4 w-4" />
               <span>Legal</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-balance text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
               Privacy Policy
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600">
+            <p className="max-w-2xl text-pretty text-sm leading-6 text-slate-600">
               This page describes how {BRAND_NAME} handles account information, connected
               platform data, uploaded materials and data deletion requests for public app
               review and user reference.
@@ -145,8 +147,8 @@ export default function PrivacyPolicy() {
 
         {policySections.map((section) => (
           <section key={section.title} className="space-y-3">
-            <h2 className="text-lg font-bold text-slate-900">{section.title}</h2>
-            <div className="space-y-3 text-sm leading-6 text-slate-600">
+            <h2 className="text-balance text-lg font-bold text-slate-900">{section.title}</h2>
+            <div className="space-y-3 text-pretty text-sm leading-6 text-slate-600">
               {section.content.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}

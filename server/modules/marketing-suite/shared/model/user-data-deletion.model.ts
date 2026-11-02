@@ -2,12 +2,12 @@ import { Schema, model } from "mongoose";
 import { IUserDataDeletion } from "../interface/user-data-deletion.interface.ts";
 
 const UserDataDeletionSchema = new Schema<IUserDataDeletion>({
-  facebookUserId: { type: String, required: true, index: true },
+  facebookUserId: { type: String, index: true },
   confirmationCode: { type: String, required: true, unique: true, index: true },
   status: {
     type: String,
     enum: ["pending", "processing", "completed", "failed"],
-    default: "completed", // Xóa xong hoặc ngắt xong đánh dấu completed luôn
+    default: "pending",
   },
   requestedAt: { type: Date, default: Date.now },
   completedAt: { type: Date },
