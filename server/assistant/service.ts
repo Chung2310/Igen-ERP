@@ -165,6 +165,17 @@ const relationChangeRequested = (intent: string, field: AssistantField) => {
     && /(?:^|\s)(?:doi|chuyen|gan|lien ket|thuoc|cap nhat|thay doi|them vao|bo sung vao|dat vao|assign|set)(?:\s|$)/.test(text);
 };
 const isSkippingReference = (text: string) => /^(?:thoi\s+)?(?:bo qua|khong can|de trong|khong gan|khong lien ket|khong chon)(?:\s|$)/.test(normalizeAssistantText(text));
+function unavailableReferencePrompt(op: AssistantOperation, field: AssistantField, label: string, skipHint = "") {
+  if (op.path === "/inventory/catalog/products" && field.reference === "inventory.catalog.resource.list") {
+    if (field.referenceContext?.path_kind === "categories") {
+      return "Tài khoản chưa có danh mục sản phẩm để chọn. Bạn có thể nhắn “tạo danh mục Ly cốc” trước, rồi yêu cầu lại việc tạo sản phẩm.";
+    }
+    if (field.referenceContext?.path_kind === "units") {
+      return "Tài khoản chưa có đơn vị tính để chọn. Bạn có thể nhắn “tạo đơn vị tính Cái, nhóm đếm” trước, rồi yêu cầu lại việc tạo sản phẩm.";
+    }
+  }
+  return `Mình chưa tìm thấy lựa chọn khả dụng cho ${label} trong phạm vi tài khoản.${skipHint}`;
+}
 export async function missingReferencePrompts(
   req: AuthenticatedRequest,
   op: AssistantOperation,
@@ -227,7 +238,7 @@ export async function missingReferencePrompts(
     const skipHint = mustResolve ? "" : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${field.label.toLocaleLowerCase("vi")}”.`;
     prompts.push(options.length
       ? `Bạn chọn giúp mình ${field.label}: ${options.join("; ")}.${skipHint}`
-      : `Mình chưa tìm thấy lựa chọn khả dụng cho ${field.label} trong phạm vi tài khoản.${skipHint}`);
+      : unavailableReferencePrompt(op, field, field.label, skipHint));
   }
 
   const nestedReferenceKey = (rootKey: string, path: string) => `${rootKey}${path}`;
@@ -282,7 +293,7 @@ export async function missingReferencePrompts(
         const skipHint = mustResolve ? "" : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${shape.label || "trường liên kết"}”.`;
         prompts.push(options.length
           ? `Bạn chọn giúp mình ${label}: ${options.join("; ")}.${skipHint}`
-          : `Mình chưa tìm thấy lựa chọn khả dụng cho ${label} trong phạm vi tài khoản.${skipHint}`);
+          : unavailableReferencePrompt(op, referenceField, label, skipHint));
         return;
       }
       if (shape.type === "array") {
@@ -326,7 +337,7 @@ export async function missingReferencePrompts(
           const skipHint = mustResolve ? "" : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${itemShape.label || field.label}”.`;
           prompts.push(options.length
             ? `Bạn chọn giúp mình ${itemShape.label}: ${options.join("; ")}${context}. Có thể chọn một hoặc nhiều tên.${skipHint}`
-            : `Mình chưa tìm thấy lựa chọn khả dụng cho ${label} trong phạm vi tài khoản.${skipHint}`);
+            : unavailableReferencePrompt(op, referenceField, label, skipHint));
           return;
         }
         if (!Array.isArray(node)) return;

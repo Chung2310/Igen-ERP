@@ -31297,6 +31297,7 @@
           "service",
           "bundle"
         ],
+        "defaultValue": "physical",
         "source": "body",
         "apiKey": "productType"
       },
@@ -31714,6 +31715,7 @@
           "service",
           "bundle"
         ],
+        "defaultValue": "physical",
         "source": "body",
         "apiKey": "productType"
       },
