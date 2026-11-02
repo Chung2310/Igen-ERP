@@ -26,7 +26,7 @@ import assignmentRoutes from "./routes/assignment.routes";
 import studentQualityRoutes from "./routes/student-quality.routes";
 import learningRoadmapRoutes from "./routes/learning-roadmap.routes";
 import { logger } from "./config/logger";
-import { authMiddleware, AuthRequest } from "./middlewares/auth.middleware";
+import { authMiddleware, AuthRequest, partnerAuthMiddleware } from "./middlewares/auth.middleware";
 import { EmailService } from "./services/email.service";
 import { requireModule, getModuleStateForCompany, resolveModuleAccess } from "../../middleware/require-module";
 import { requireAnyPermission, requirePermission } from "../../middleware/auth";
@@ -70,6 +70,7 @@ const requireSharedModule: RequestHandler = async (req, res, next) => {
   }
 };
 const areaRead = (area: keyof typeof STUDENT_AREA_PERMISSIONS) => requireAnyPermission([...STUDENT_AREA_PERMISSIONS[area].read]) as RequestHandler;
+const areaManage = (area: keyof typeof STUDENT_AREA_PERMISSIONS) => requireAnyPermission([...STUDENT_AREA_PERMISSIONS[area].manage]) as RequestHandler;
 const requirePartnerRead = requirePermission("relationship:read") as RequestHandler;
 
 studentManagementRouter.use("/auth", authRoutes);
@@ -87,7 +88,7 @@ studentManagementRouter.use("/courses", authMiddleware as unknown as RequestHand
 studentManagementRouter.use("/student-resources", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("student-resource"), resourceRoutes);
 studentManagementRouter.use("/batches", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), batchRoutes);
 studentManagementRouter.use("/schedule", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("batch"), scheduleRoutes);
-studentManagementRouter.use("/partners", authMiddleware as unknown as RequestHandler, partnerModuleGuard, requirePartnerRead, partnerRoutes);
+studentManagementRouter.use("/partners", partnerAuthMiddleware as unknown as RequestHandler, partnerModuleGuard, requirePartnerRead, partnerRoutes);
 studentManagementRouter.use("/student-management/custom-fields", authMiddleware as unknown as RequestHandler, requireSharedModule, areaRead("custom-field"), customFieldRoutes);
 // Không gác areaRead ở đây: GET cần mở cho mọi tài khoản trong công ty (nhãn
 // thực thể dùng khắp hệ thống), còn PATCH đã chặn superadmin-only trong route.
@@ -102,7 +103,7 @@ studentManagementRouter.use("/qr-attendance", qrAttendanceRoutes);
 studentManagementRouter.use("/attendance/online", studentOnlineAttendanceRoutes);
 studentManagementRouter.use("/attendance/attempts", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("assignment"), studentAttendanceAttemptRoutes);
 
-studentManagementRouter.post("/send-email", authMiddleware as unknown as RequestHandler, requireStudentModule, areaRead("student-notification"), async (req: AuthRequest, res) => {
+studentManagementRouter.post("/send-email", authMiddleware as unknown as RequestHandler, requireStudentModule, areaManage("student-notification"), async (req: AuthRequest, res) => {
   try {
     const { to, subject, html, check } = req.body;
 

@@ -22,6 +22,7 @@ import { assertCampaignMediaReady } from "./agents/campaign-media-readiness";
 import { nextCalendarDate, publicCampaignSlotScope, rememberPublicApprovalState, savePublicSlotDecision } from "./public-campaign-approval";
 import { withCampaignSlotEdit, syncCampaignSheetFields } from "./campaign-slot-edit";
 import { resolveFacebookCredentials, syncCampaignContentReady } from "./agents/campaign-utils";
+import { listAssistantCampaignSummaries } from "./marketing-campaign-assistant-list.service";
 
 interface CreateCampaignInput {
   sourceBrief: string;
@@ -280,7 +281,7 @@ export const marketingCampaignService = {
     // callers that still send "real" are migrated into the content-first order flow.
     const imageMode: "ai" | "order" = input.imageMode === "ai" ? "ai" : "order";
     const aiEstimate = estimateCampaignAi(input);
-    await aiSubscriptionService.available(companyCode, aiEstimate.estimatedCalls);
+    await aiSubscriptionService.available(companyCode, aiEstimate.estimatedCalls, createdBy);
     const researchReport = await geminiService.conductWebResearch(input.sourceBrief);
     const aiStrategy = await geminiService.generateScheduledCampaign({
       prompt: input.sourceBrief,
@@ -503,6 +504,10 @@ export const marketingCampaignService = {
         totalPages: Math.ceil(total / limit),
       },
     };
+  },
+
+  async listAssistantSummaries(companyCode: string, query?: { page?: number; limit?: number; search?: string }) {
+    return listAssistantCampaignSummaries(companyCode, query);
   },
 
   async getCalendar(companyCode: string, startDate: string, endDate: string) {

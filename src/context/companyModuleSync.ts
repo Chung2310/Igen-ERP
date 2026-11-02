@@ -12,7 +12,7 @@ export function normalizeCompanyModulesEvent(value: unknown): CompanyModulesUpda
 
   const modules = input.enabledModules;
   const enabledModules = MODULE_KEYS.filter((key) => modules.includes(key));
-  if (enabledModules.length === 0) return null;
+  if (modules.length > 0 && enabledModules.length === 0) return null;
 
   return { companyCode: input.companyCode.trim().toUpperCase(), enabledModules };
 }

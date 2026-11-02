@@ -36,7 +36,6 @@ import {
   StopCircle,
   Video,
   Cloud,
-  Bot,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useChatUnread } from "../context/ChatUnreadContext";
@@ -395,6 +394,7 @@ export default function ChatTab() {
     const unsubscribeNewMsg = socketService.on(
       "internal_new_message",
       (data: { roomId: string; message: ChatMessage; roomUpdate: ChatRoom }) => {
+        if (data.roomUpdate?.isChatbot) return;
         const msgSenderId =
           data.message.senderId && typeof data.message.senderId === "object"
             ? data.message.senderId._id
@@ -461,6 +461,7 @@ export default function ChatTab() {
 
     // Listen for room updates (e.g. group name, avatar, member changes)
     const unsubscribeRoomUpdate = socketService.on("internal_room_updated", (updatedRoom: ChatRoom) => {
+      if (updatedRoom.isChatbot) return;
       setRooms((prevRooms) => {
         const index = prevRooms.findIndex((r) => r._id === updatedRoom._id);
         if (index === -1) {
@@ -713,32 +714,12 @@ export default function ChatTab() {
     try {
       setLoadingRooms(true);
       const data = await internalChatService.getRooms();
-      const sorted = sortRoomsList(data);
+      const sorted = sortRoomsList(data.filter((room) => !room.isChatbot));
       setRooms(sorted);
 
-      // Tự động mở cuộc trò chuyện ở phiên trước hoặc mặc định mở Chatbot AI
-      if (sorted.length > 0) {
-        const savedRoomId = localStorage.getItem("lastActiveChatRoomId") || sessionStorage.getItem("activeRoomId");
-        let targetRoom: ChatRoom | undefined;
-
-        if (savedRoomId) {
-          targetRoom = sorted.find((r) => r._id === savedRoomId);
-        }
-
-        // Nếu không có phòng lưu hoặc phòng đó không còn tồn tại -> Mặc định chọn phòng Chatbot AI
-        if (!targetRoom) {
-          targetRoom = sorted.find((r) => r.isChatbot) || sorted.find((r) => (r.name || "").toLowerCase().includes("bot") || (r.name || "").toLowerCase().includes("ai"));
-        }
-
-        // Nếu hệ thống chưa có phòng Chatbot -> Mặc định chọn phòng đầu tiên
-        if (!targetRoom) {
-          targetRoom = sorted[0];
-        }
-
-        if (targetRoom) {
-          setActiveRoom(targetRoom);
-        }
-      }
+      // Khôi phục phòng nội bộ đã mở, hoặc chọn phòng đầu tiên còn khả dụng.
+      const savedRoomId = localStorage.getItem("lastActiveChatRoomId") || sessionStorage.getItem("activeRoomId");
+      setActiveRoom(sorted.find((room) => room._id === savedRoomId) || sorted[0] || null);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -1649,7 +1630,6 @@ export default function ChatTab() {
 
   // Format Room display Name
   const getRoomName = (room: ChatRoom) => {
-    if (room.isChatbot) return "Trợ lý AI";
     if (room.isGroup) return room.name || "Nhóm trò chuyện";
 
     // Phòng Cloud của tôi (chỉ có 1 thành viên là chính mình)
@@ -1666,7 +1646,6 @@ export default function ChatTab() {
 
   // Format Room display Avatar
   const getRoomAvatar = (room: ChatRoom) => {
-    if (room.isChatbot) return "ai-avatar";
     if (room.isGroup) return room.avatarURL || "";
 
     // Phòng Cloud của tôi (chỉ có 1 thành viên là chính mình)
@@ -1794,7 +1773,7 @@ export default function ChatTab() {
               </div>
               <div>
                 <h2 className="text-base font-bold text-slate-800 leading-tight">Trò chuyện</h2>
-                <p className="text-[10px] text-slate-500 font-medium">Nội bộ & Trợ lý AI</p>
+                <p className="text-[10px] text-slate-500 font-medium">Trò chuyện nội bộ</p>
               </div>
             </div>
             <div className="flex items-center gap-1.5">
@@ -1989,14 +1968,12 @@ export default function ChatTab() {
                     >
                       {/* Avatar */}
                       <div className="relative h-10 w-10 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-slate-200/80">
-                        {roomAvatar && roomAvatar !== "cloud-avatar" && roomAvatar !== "ai-avatar" ? (
+                        {roomAvatar && roomAvatar !== "cloud-avatar" ? (
                           <img src={roomAvatar} alt={roomName} className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-[#e8f7ff]">
                             {roomAvatar === "cloud-avatar" ? (
                               <Cloud className="h-5 w-5 text-[#008acb]" />
-                            ) : roomAvatar === "ai-avatar" ? (
-                              <Bot className="h-5 w-5 text-[#008acb]" />
                             ) : room.isGroup ? (
                               <Users className="h-5 w-5 text-slate-500" />
                             ) : (
@@ -2004,8 +1981,8 @@ export default function ChatTab() {
                             )}
                           </div>
                         )}
-                        {!room.isGroup && (room.members.length > 1 || room.isChatbot) && (room.isChatbot || onlineStatus) && (
-                          <div className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${room.isChatbot || onlineStatus === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
+                        {!room.isGroup && room.members.length > 1 && onlineStatus && (
+                          <div className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${onlineStatus === "online" ? "bg-emerald-500" : "bg-slate-300"}`} />
                         )}
                       </div>
 
@@ -2069,14 +2046,12 @@ export default function ChatTab() {
                 </button>
 
                 <div className="relative h-11 w-11 rounded-xl bg-slate-100 overflow-hidden border border-slate-300 shadow-2xs shrink-0">
-                  {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" && getRoomAvatar(activeRoom) !== "ai-avatar" ? (
+                  {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" ? (
                     <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center font-bold text-slate-600 bg-[#e8f7ff]">
                       {getRoomAvatar(activeRoom) === "cloud-avatar" ? (
                         <Cloud className="h-5 w-5 text-[#008acb]" />
-                      ) : getRoomAvatar(activeRoom) === "ai-avatar" ? (
-                        <Bot className="h-5 w-5 text-[#008acb]" />
                       ) : activeRoom.isGroup ? (
                         <Users className="h-5 w-5 text-slate-500" />
                       ) : (
@@ -2084,14 +2059,14 @@ export default function ChatTab() {
                       )}
                     </div>
                   )}
-                  {!activeRoom.isGroup && (activeRoom.members.length > 1 || activeRoom.isChatbot) && (activeRoom.isChatbot || getOtherUserStatus(activeRoom) === "online") && (
+                  {!activeRoom.isGroup && activeRoom.members.length > 1 && getOtherUserStatus(activeRoom) === "online" && (
                     <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
                   )}
                 </div>
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-bold text-slate-800">{getRoomName(activeRoom)}</h3>
                   <p className="truncate text-[10px] text-slate-500 font-medium">
-                    {activeRoom.isChatbot ? "Trợ lý ảo AI Doanh nghiệp" : activeRoom.isGroup ? `${activeRoom.members.length} thành viên` : getOtherUserStatus(activeRoom) === "online" ? "Đang hoạt động" : "Ngoại tuyến"}
+                    {activeRoom.isGroup ? `${activeRoom.members.length} thành viên` : getOtherUserStatus(activeRoom) === "online" ? "Đang hoạt động" : "Ngoại tuyến"}
                   </p>
                 </div>
               </div>
@@ -2275,7 +2250,7 @@ export default function ChatTab() {
                         (Math.abs(new Date(nextMsg.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 60 * 1000);
 
                        const showSenderName = !isMe && activeRoom.isGroup && !isPrevSameSender;
-                       const showAvatar = !isMe && (activeRoom.isGroup || activeRoom.isChatbot) && !isNextSameSender;
+                       const showAvatar = !isMe && activeRoom.isGroup && !isNextSameSender;
  
  
                        return (
@@ -2289,15 +2264,11 @@ export default function ChatTab() {
                            )}
  
                            <div id={`msg-${msg._id}`} className={`flex w-full items-start gap-3 group/msg ${isMe ? "justify-end" : "justify-start"}`}>
-                             {/* Member Avatar in Group Chat or Chatbot */}
-                             {!isMe && (activeRoom.isGroup || activeRoom.isChatbot) && (
+                             {/* Member Avatar in Group Chat */}
+                             {!isMe && activeRoom.isGroup && (
                                showAvatar ? (
                                  <div className="h-8 w-8 rounded-lg bg-slate-200 overflow-hidden border border-gray-100 mt-1 shrink-0 flex items-center justify-center">
-                                   {activeRoom.isChatbot ? (
-                                     <div className="flex h-full w-full items-center justify-center bg-[#e8f7ff]">
-                                       <Bot className="h-4 w-4 text-[#008acb]" />
-                                     </div>
-                                   ) : msg.senderPhoto ? (
+                                   {msg.senderPhoto ? (
                                      <img src={msg.senderPhoto} alt={msg.senderName} className="h-full w-full object-cover" />
                                    ) : (
                                      <div className="flex h-full w-full items-center justify-center font-bold text-xs text-slate-500">
@@ -2817,14 +2788,12 @@ export default function ChatTab() {
                         {/* Header info */}
                         <div className="flex flex-col items-center text-center pb-5 border-b border-gray-100">
                           <div className="relative h-16 w-16 rounded-2xl bg-slate-100 overflow-hidden border border-gray-200 mb-3 shadow-md">
-                            {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" && getRoomAvatar(activeRoom) !== "ai-avatar" ? (
+                            {getRoomAvatar(activeRoom) && getRoomAvatar(activeRoom) !== "cloud-avatar" ? (
                               <img src={getRoomAvatar(activeRoom)} alt={getRoomName(activeRoom)} className="h-full w-full object-cover" />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center font-bold text-xl text-slate-600 bg-indigo-50">
                                 {getRoomAvatar(activeRoom) === "cloud-avatar" ? (
                                   <Cloud className="h-7 w-7 text-indigo-600" />
-                                ) : getRoomAvatar(activeRoom) === "ai-avatar" ? (
-                                  <Bot className="h-7 w-7 text-indigo-600" />
                                 ) : activeRoom.isGroup ? (
                                   <Users className="h-7 w-7 text-slate-500" />
                                 ) : (
@@ -2835,28 +2804,12 @@ export default function ChatTab() {
                           </div>
                           <h4 className="font-bold text-slate-800 text-base">{getRoomName(activeRoom)}</h4>
                           <p className="text-xs text-gray-400 mt-1">
-                            {activeRoom.isChatbot ? "Trợ lý ảo AI Doanh nghiệp" : activeRoom.isGroup ? "Phòng chat nhóm" : "Phòng chat riêng 1-1"}
+                            {activeRoom.isGroup ? "Phòng chat nhóm" : "Phòng chat riêng 1-1"}
                           </p>
                         </div>
 
-                        {/* Member list or AI Capabilities section */}
-                        {activeRoom.isChatbot ? (
-                          <div className="mt-5 space-y-3.5">
-                            <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Khả năng hỗ trợ</h5>
-                            <div className="text-xs text-slate-600 space-y-2 leading-relaxed bg-indigo-50/30 p-3.5 rounded-2xl border border-indigo-100/30 shadow-xs">
-                              <p>🤖 <strong>Trợ lý AI</strong> được tích hợp dữ liệu thời gian thực của doanh nghiệp để hỗ trợ bạn:</p>
-                              <ul className="list-disc list-inside space-y-1.5 pl-1 text-slate-500 font-medium">
-                                <li>Tra cứu tồn kho & sản phẩm</li>
-                                <li>Kiểm tra tiến độ công việc và dự án</li>
-                                <li>Xem số dư ví cá nhân</li>
-                                <li>Tư vấn nghiệp vụ ERP chung</li>
-                              </ul>
-                              <p className="text-[10px] text-gray-400 italic pt-2 border-t border-slate-100">
-                                Dữ liệu được bảo mật tuyệt đối theo phạm vi tài khoản của bạn.
-                              </p>
-                            </div>
-                          </div>
-                        ) : activeRoom.isGroup && (
+                        {/* Member list */}
+                        {activeRoom.isGroup && (
                           <div className="mt-5">
                             <div className="flex items-center justify-between mb-3">
                               <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Thành viên ({activeRoom.members.length})</h5>

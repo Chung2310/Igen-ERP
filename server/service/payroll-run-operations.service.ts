@@ -26,6 +26,13 @@ export interface CreatePayrollRunInput {
   supplementalReason?: string;
 }
 
+export interface ListPayrollRunsInput {
+  periodKey?: string;
+  type?: PayrollRunType;
+  status?: "draft" | "review" | "closed" | "paid";
+  limit?: number;
+}
+
 export class PayrollOperationError extends Error {
   constructor(
     public readonly code: string,
@@ -248,6 +255,20 @@ export async function createRun(scope: PayrollOperationScope, actorId: string, i
     }
   }
   throw new PayrollOperationError("PAYROLL_RUN_RESERVATION_CONFLICT", "Payroll run creation could not reserve its branch", 409);
+}
+
+export async function listRuns(scope: PayrollOperationScope, input: ListPayrollRunsInput) {
+  const filter = {
+    ...scope,
+    ...(input.periodKey ? { periodKey: input.periodKey } : {}),
+    ...(input.type ? { type: input.type } : {}),
+    ...(input.status ? { status: input.status } : {}),
+  };
+  return PayrollRunModel.find(filter)
+    .select("_id periodKey startDate endDate type status version createdAt")
+    .sort({ periodKey: -1, createdAt: -1, _id: -1 })
+    .limit(Math.min(100, Math.max(1, Number(input.limit) || 50)))
+    .lean();
 }
 
 export async function syncAttendance(

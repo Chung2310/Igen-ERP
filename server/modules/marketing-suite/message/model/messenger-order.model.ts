@@ -12,7 +12,10 @@ export interface IMessengerOrderItem {
 }
 
 export interface IMessengerOrder extends Document {
+  isSimulation?: boolean;
   checkoutFlow?: "cake_deposit";
+  retailOrderId?: string;
+  retailCustomerNotifiedEventIds?: string[];
   checkoutSnapshot?: CakeCheckoutSnapshot;
   paymentRequestStatus?: "active" | "superseded";
   depositSyncAttempts?: number;
@@ -91,7 +94,10 @@ const MessengerOrderItemSchema = new Schema<IMessengerOrderItem>({
 }, { _id: false });
 
 const MessengerOrderSchema = new Schema<IMessengerOrder>({
+  isSimulation: { type: Boolean, default: false, index: true },
   checkoutFlow: { type: String, enum: ["cake_deposit"] },
+  retailOrderId: { type: String, index: true },
+  retailCustomerNotifiedEventIds: { type: [String], default: [] },
   checkoutSnapshot: { type: Schema.Types.Mixed, immutable: true },
   paymentRequestStatus: { type: String, enum: ["active", "superseded"] },
   depositSyncAttempts: { type: Number, default: 0 },

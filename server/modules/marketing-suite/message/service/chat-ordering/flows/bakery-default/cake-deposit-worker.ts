@@ -16,7 +16,7 @@ export async function processCakeDeposits() {
     for (let count = 0; count < 10; count++) {
       const token = randomUUID();
       const order = await MessengerOrderModel.findOneAndUpdate({
-        checkoutFlow: "cake_deposit", depositSyncCompletedAt: { $exists: false },
+        checkoutFlow: "cake_deposit", isSimulation: { $ne: true }, depositSyncCompletedAt: { $exists: false },
         $or: [
           { depositRequired: true, depositStatus: "verified" },
           { depositRequired: false, depositStatus: "not_required" },

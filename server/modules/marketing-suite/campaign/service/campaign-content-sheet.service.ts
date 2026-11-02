@@ -14,6 +14,7 @@ import { MarketingCampaignSlotModel } from "../model/marketing-campaign-slot.mod
 import { MarketingContentModel } from "../model/marketing-content.model.ts";
 import { MarketingCandidateModel } from "../model/marketing-candidate.model.ts";
 import {
+  CampaignSheetAIJobStatus,
   CampaignSheetDataType,
   CampaignSheetFieldPolicy,
   ICampaignSheetColumn,
@@ -372,6 +373,53 @@ export const campaignContentSheetService = {
         };
       }),
     };
+  },
+
+  async listAssistantSlots(companyCode: string, campaignId: string) {
+    const campaign = await assertCampaign(companyCode, campaignId);
+    const slots = await MarketingCampaignSlotModel.find({
+      companyCode,
+      campaignId,
+      status: { $nin: ["published", "cancelled"] },
+    })
+      .sort({ scheduledAt: 1 })
+      .limit(MAX_ROWS)
+      .select("_id scheduledAt platform status integrationId")
+      .populate("integrationId", "displayName username")
+      .lean();
+
+    return slots.map((slot: any, index: number) => {
+      const scheduledAt = slot.scheduledAt ? new Date(slot.scheduledAt).toISOString() : "";
+      const page = slot.integrationId?.displayName || slot.integrationId?.username || "";
+      const timeLabel = scheduledAt ? scheduledAt.slice(0, 16).replace("T", " ") : "Chưa xếp lịch";
+      const label = [`Dòng ${index + 1}`, timeLabel, slot.platform, page, slot.status].filter(Boolean).join(" — ");
+      return {
+        id: String(slot._id),
+        name: label,
+        scheduledAt,
+        platform: String(slot.platform || ""),
+        page: String(page),
+        status: String(slot.status || ""),
+      };
+    });
+  },
+
+  async listAssistantColumns(companyCode: string, campaignId: string) {
+    await assertCampaign(companyCode, campaignId);
+    const config = await getOrCreateConfig(companyCode, campaignId);
+    return (config.columns || [])
+      .filter((column: ICampaignSheetColumn) => !column.archived)
+      .sort((a: ICampaignSheetColumn, b: ICampaignSheetColumn) => a.display.order - b.display.order)
+      .map((column: ICampaignSheetColumn) => ({
+        id: column.id,
+        name: `${column.label} (${column.key})`,
+        label: column.label,
+        key: column.key,
+        kind: column.kind,
+        dataType: column.dataType,
+        required: column.required,
+        fieldPolicy: column.fieldPolicy,
+      }));
   },
 
   async addColumn(companyCode: string, campaignId: string, userId: string, input: any) {
@@ -1269,6 +1317,36 @@ export const campaignContentSheetService = {
       },
       { returnDocument: "after" }
     );
+  },
+
+  async listAssistantAIJobSummaries(
+    companyCode: string,
+    campaignId: string,
+    options: { status?: CampaignSheetAIJobStatus; limit?: number } = {}
+  ) {
+    await assertCampaign(companyCode, campaignId);
+    const filter: Record<string, unknown> = { companyCode, campaignId };
+    if (options.status) filter.status = options.status;
+    const limit = Math.max(1, Math.min(100, Math.trunc(options.limit || 20)));
+    const jobs = await CampaignSheetAIJobModel.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limit)
+      .select("_id operation status totalItems completedItems failedItems conflictedItems progress startedAt completedAt createdAt updatedAt")
+      .lean();
+    return jobs.map((job) => ({
+      _id: String(job._id),
+      operation: job.operation,
+      status: job.status,
+      totalItems: job.totalItems,
+      completedItems: job.completedItems,
+      failedItems: job.failedItems,
+      conflictedItems: job.conflictedItems,
+      progress: job.progress,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+    }));
   },
 
   async getAIJob(companyCode: string, campaignId: string, jobId: string) {

@@ -13,6 +13,7 @@ export class MarketingAnalyticsService {
       platform?: string;
       startDate?: string;
       endDate?: string;
+      assistantSummary?: boolean;
     }
   ) {
     // 1. Xây dựng match filters cho slots
@@ -57,7 +58,7 @@ export class MarketingAnalyticsService {
       byFunnelRaw,
       byMediaRaw,
     ] = await Promise.all([
-      // Aggregation 1: Tổng quan slot (Total, Published, Failed, AI Cost)
+      // Aggregation 1: Tổng quan slot (Total, Published, AI Cost)
       MarketingCampaignSlotModel.aggregate([
         { $match: slotMatch },
         campaignSlotCostLookup(),
@@ -292,7 +293,7 @@ export class MarketingAnalyticsService {
       ]),
 
       // Aggregation 6: Thống kê theo Content Pillar
-      MarketingCampaignSlotModel.aggregate([
+      filters.assistantSummary ? Promise.resolve([]) : MarketingCampaignSlotModel.aggregate([
         { $match: slotMatch },
         campaignSlotCostLookup(),
         {
@@ -344,7 +345,7 @@ export class MarketingAnalyticsService {
       ]),
 
       // Aggregation 7: Top lỗi đăng bài
-      MarketingCampaignSlotModel.aggregate([
+      filters.assistantSummary ? Promise.resolve([]) : MarketingCampaignSlotModel.aggregate([
         {
           $match: {
             ...slotMatch,
@@ -373,13 +374,13 @@ export class MarketingAnalyticsService {
       ]),
 
       // Aggregation 8: Danh sách chiến dịch để đổ vào Dropdown bộ lọc
-      MarketingCampaignModel.find({ companyCode })
+      MarketingCampaignModel.find({ companyCode, ...(filters.assistantSummary && filters.campaignId ? { _id: new Types.ObjectId(filters.campaignId) } : {}) })
         .select("_id title status startDate endDate")
         .sort({ createdAt: -1 })
         .lean(),
 
       // Aggregation 9: Danh sách tất cả các slot bài đăng kèm metrics thực tế (nếu có) và đường dẫn bài đăng
-      MarketingCampaignSlotModel.aggregate([
+      filters.assistantSummary ? Promise.resolve([]) : MarketingCampaignSlotModel.aggregate([
         { $match: slotMatch },
         { $sort: { scheduledAt: -1 } },
         { $limit: 100 },
@@ -451,13 +452,13 @@ export class MarketingAnalyticsService {
       ]),
 
       // Aggregation 10: Thống kê theo Phễu Marketing (TOFU / MOFU / BOFU)
-      MarketingCampaignSlotModel.aggregate([
+      filters.assistantSummary ? Promise.resolve([]) : MarketingCampaignSlotModel.aggregate([
         { $match: slotMatch },
         { $group: { _id: "$funnelStage", count: { $sum: 1 } } },
       ]),
 
       // Aggregation 11: Thống kê theo Loại Đa Phương Tiện
-      MarketingCampaignSlotModel.aggregate([
+      filters.assistantSummary ? Promise.resolve([]) : MarketingCampaignSlotModel.aggregate([
         { $match: slotMatch },
         { $group: { _id: "$mediaType", count: { $sum: 1 } } },
       ]),
@@ -609,6 +610,42 @@ export class MarketingAnalyticsService {
       topErrors,
       campaigns,
       posts: postList,
+    };
+  }
+
+  public static async getAssistantCampaignAnalytics(
+    companyCode: string,
+    filters: { campaignId: string; platform?: string; startDate: string; endDate: string },
+  ) {
+    const validDate = (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const timestamp = Date.parse(`${value}T00:00:00.000Z`);
+      return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+    };
+    if (!/^[a-f\d]{24}$/i.test(filters.campaignId)) throw new Error("Hãy chọn một chiến dịch trong danh sách theo tên.");
+    if (!validDate(filters.startDate) || !validDate(filters.endDate) || filters.startDate > filters.endDate) {
+      throw new Error("Khoảng ngày cần hợp lệ và theo định dạng YYYY-MM-DD.");
+    }
+    const dayCount = (Date.parse(`${filters.endDate}T00:00:00.000Z`) - Date.parse(`${filters.startDate}T00:00:00.000Z`)) / 86_400_000 + 1;
+    if (dayCount > 31) throw new Error("Báo cáo trợ lý hỗ trợ tối đa 31 ngày cho mỗi chiến dịch.");
+    if (filters.platform && !["Facebook", "TikTok"].includes(filters.platform)) throw new Error("Kênh cần là Facebook hoặc TikTok.");
+
+    const campaign = await MarketingCampaignModel.findOne({ _id: new Types.ObjectId(filters.campaignId), companyCode })
+      .select("title")
+      .lean();
+    if (!campaign) throw new Error("Không tìm thấy chiến dịch trong doanh nghiệp hiện tại.");
+
+    const analytics = await this.getCampaignAnalytics(companyCode, { ...filters, assistantSummary: true });
+    return {
+      campaignTitle: campaign.title,
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      platform: filters.platform || "all",
+      overview: analytics.overview,
+      platformMetrics: analytics.platformMetrics,
+      byPlatform: analytics.byPlatform,
+      byDate: analytics.byDate,
+      qualityScores: analytics.qualityScores,
     };
   }
 }

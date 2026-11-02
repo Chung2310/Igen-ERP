@@ -210,6 +210,19 @@ export async function createVoucher(scope: FinanceBranchScope, input: any, actor
         await session.endSession();
     }
 }
+export async function createTax(scope: FinanceBranchScope, input: any, actor: any) {
+    const data = validateManagement("tax", input);
+    if (data.sourceOrderId) {
+        if (!mongoose.isValidObjectId(data.sourceOrderId)) fail("Đơn bán VAT không hợp lệ.");
+        const order = await RetailOrderModel.findOne({
+            ...scope,
+            _id: data.sourceOrderId,
+            status: { $in: ["confirmed", "completed"] },
+        }).select("_id").lean();
+        if (!order) fail("Không tìm thấy đơn bán đã xác nhận trong chi nhánh đã chọn.", 404);
+    }
+    return FinanceTaxModel.create({ ...scope, ...data, createdBy: actor.id });
+}
 export async function saveFollowup(scope: FinanceBranchScope, input: any, actor: any) {
     const model: any = input.targetType === "receivable" ? ReceivableModel : FinancePayableModel;
     if (!await model.exists({ ...scope, _id: input.targetId }) && !(input.targetType === "payable" && await findReceiptDebt(scope, input.targetId)))

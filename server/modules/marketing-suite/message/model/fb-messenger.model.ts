@@ -13,6 +13,7 @@ export interface IFBConversation extends Document {
   status: "open" | "closed";
   tags: string[];
   isVip: boolean;
+  isSimulation?: boolean;
   aiPausedUntil?: Date;
   lastSender?: "user" | "assistant";
   lastAssistantMessageAt?: Date;
@@ -70,6 +71,7 @@ const FBConversationSchema: Schema = new Schema(
     status: { type: String, enum: ["open", "closed"], default: "open" },
     tags: { type: [String], default: [] },
     isVip: { type: Boolean, default: false },
+    isSimulation: { type: Boolean, default: false, index: true },
     aiPausedUntil: { type: Date, default: null },
     lastSender: { type: String, enum: ["user", "assistant"], default: "user" },
     lastAssistantMessageAt: { type: Date, default: null },

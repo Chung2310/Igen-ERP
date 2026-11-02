@@ -52,7 +52,12 @@ export const WorkerReferralService = {
     const partnerObjectId = requiredObjectId(partnerId);
     const partner = await LaborPartnerModel.exists({ _id: partnerObjectId, ...scopeQuery(scope), deletedAt: null });
     if (!partner) throw new LaborPartnerError("LABOR_PARTNER_NOT_FOUND", "Không tìm thấy đối tác lao động.", 404);
-    return WorkerReferralModel.find({ partnerId: partnerObjectId, ...scopeQuery(scope) }).sort({ effectiveFrom: -1 }).lean();
+    const referrals = await WorkerReferralModel.find({ partnerId: partnerObjectId, ...scopeQuery(scope) }).sort({ effectiveFrom: -1 }).lean() as any[];
+    const workerIds = [...new Set(referrals.map(referral => String(referral.workerId || "")).filter(Boolean))];
+    if (!workerIds.length) return referrals;
+    const workers = await WorkerModel.find({ _id: { $in: workerIds }, ...buildWorkerQuery(scope) }).select("_id fullName").lean() as any[];
+    const workerNames = new Map(workers.map(worker => [String(worker._id), String(worker.fullName || "")]));
+    return referrals.map(referral => ({ ...referral, workerName: workerNames.get(String(referral.workerId || "")) || "" }));
   },
   async getForWorker(scope: LaborPartnerScope, workerId: string) {
     return WorkerReferralModel.find({ workerId: requiredObjectId(workerId), ...scopeQuery(scope) })

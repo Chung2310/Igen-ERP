@@ -16,6 +16,12 @@ import { cakePaidMessage } from "./cake-shipping";
 import { cakeCustomerMemory, CUSTOMER_SESSION_MS, type CakeSessionContext } from "./cake-customer-memory";
 import { CakeConsultationSessionModel } from "../../../../model/cake-customer-memory.model.ts";
 import type { ChatOrderFlowInput, ChatOrderFlowPreview } from "../../core/types";
+import { saveCakeOrderToRetail } from "../../../cake-retail-order.service";
+import { CustomerModel } from "../../../../../../customer-management/models/customer.model";
+import { normalizePhone, phoneLookupVariants } from "../../../../../../customer-management/customer-normalization";
+import { cakeIntakeQuestion, cakeSizeClarification, isAffirmativeSizeReply, resolveCakeRecipientName } from "./cake-checkout-conversation";
+import { checkCakeStockAtLocation } from "../../../cake-stock-availability";
+import { resolveCakeDepositPolicy } from "./cake-checkout-policy";
 
 const money = (amount: number) => `${amount.toLocaleString("vi-VN")}đ`;
 const blankDetails: CakeCheckoutDetails = { groupId: "", size: "", height: null, budget: null, packQuantity: null, name: "",
@@ -65,7 +71,7 @@ function cakeOptions(options: CakeVariant[], customer: string) {
 
 async function loadContext(companyCode: string, pageId: string) {
   const integration = await SocialIntegrationModel.findOne({ platform: "Facebook", username: pageId, companyCode, isConnected: true,
-    "orderSheetConfig.enabled": true }).lean();
+     }).lean();
   const company = await CompanyModel.findOne({ code: companyCode }).lean();
   const sepayConfig = company?.sepayConfig;
   const config = {
@@ -81,9 +87,9 @@ async function loadContext(companyCode: string, pageId: string) {
   if (!integration) return null;
   const pageFilter = { $or: [{ pageScope: "all" as const }, { pageScope: { $exists: false } }, { pageScope: "selected" as const, pageIds: pageId }] };
   const scope = { companyCode, channelScope: { $in: ["all", "facebook"] as const }, purposeScope: { $in: ["all", "sales"] as const }, ...pageFilter };
-  const documents = await AIKnowledgeDocumentModel.find({ ...scope, status: "active" }).select("_id version").lean();
+  const documents = await AIKnowledgeDocumentModel.find({ ...scope, status: "active" }).select("_id version chunkSetId").lean();
   if (!documents.length) return null;
-  const chunks = await AIKnowledgeChunkModel.find({ ...scope, $or: documents.map(doc => ({ documentId: doc._id, version: doc.version })),
+  const chunks = await AIKnowledgeChunkModel.find({ ...scope, $or: documents.map(doc => ({ documentId: doc.chunkSetId || doc._id, version: doc.version })),
     $and: [pageFilter] }).sort({ documentId: 1, chunkIndex: 1 }).select("text").lean();
   const knowledge = chunks.map(chunk => chunk.text).join("\n");
   const catalog = parseCakePriceCatalog(knowledge);
@@ -93,6 +99,13 @@ async function loadContext(companyCode: string, pageId: string) {
 export function cakeSummary(snapshot: CakeCheckoutSnapshot, customer = "anh chị", seller = "em") {
   const { details: d, variant: v } = snapshot;
   const noDepositPaymentMethod = cakePaymentMethod(d);
+  const stockCheckLine = snapshot.stockCheck?.status === "available"
+    ? `Tồn khả dụng tại thời điểm kiểm tra: ${snapshot.stockCheck.availableQuantity} chiếc${snapshot.stockCheck.branchName ? ` tại ${snapshot.stockCheck.branchName}` : ""}; tiệm chưa giữ hàng.`
+    : snapshot.stockCheck?.status === "untracked"
+      ? "Chưa có dữ liệu tồn kho cho mẫu bánh này; tiệm cần xác nhận khả năng làm trước khi chốt."
+      : snapshot.stockCheck?.status === "unknown"
+        ? "Chưa xác minh được tồn kho tại chi nhánh nhận bánh; tiệm cần xác nhận trước khi chốt."
+        : "";
   return [`Dạ ${seller} xác nhận lại thông tin đặt bánh của ${customer}:`,
     `Khách: ${d.customerName} — SĐT: ${d.customerPhone}`,
     `Bánh: ${v.name}${v.size ? `; size ${v.size}cm` : ""}${v.height ? `; cao ${v.height}cm` : ""}`,
@@ -101,6 +114,7 @@ export function cakeSummary(snapshot: CakeCheckoutSnapshot, customer = "anh ch�
     `Chữ trên bánh: ${d.inscription}`, `Trang trí: ${d.decoration || "Theo ảnh mẫu"}`,
     `${d.fulfillmentMethod === "delivery" ? "Giao đến" : "Nhận tại"}: ${d.fulfillmentMethod === "delivery" ? d.deliveryAddress : d.pickupLocation}`,
     `Ngày giờ nhận: ${d.pickupAt.replace("T", " ")} (giờ Việt Nam)`,
+    stockCheckLine,
     ...(d.fulfillmentMethod === "delivery" ? [d.deliveryBooking === "customer" ? "Khách tự book xe đến lấy bánh." : d.deliveryBooking === "shop" ? "Khách nhờ tiệm hỗ trợ book xe." : "Giao nhận: khách tự book xe hoặc nhờ tiệm hỗ trợ book.",
       "Phí vận chuyển khách thanh toán riêng, không nằm trong tiền bánh hoặc tiền cọc."] : []),
     `Tổng tiền: ${money(snapshot.total)}`,
@@ -108,7 +122,7 @@ export function cakeSummary(snapshot: CakeCheckoutSnapshot, customer = "anh ch�
       `Còn lại trả khi nhận bánh: ${money(snapshot.balance)}`,
       `Nếu muốn không đặt cọc (${noDepositPaymentMethod.toLowerCase()}), ${customer} nói ${seller} biết nhé.`]
       : ["Đơn này không yêu cầu đặt cọc.", `${noDepositPaymentMethod}: ${money(snapshot.balance)}`]),
-    `Thông tin đúng rồi thì ${customer} xác nhận giúp ${seller}${snapshot.deposit > 0 ? " để gửi QR cọc" : " để tiệm chốt đơn"} nhé. Cần sửa chỗ nào thì nhắn lại nhé.`,
+    `Thông tin đúng rồi thì ${customer} xác nhận giúp ${seller}${snapshot.deposit > 0 ? snapshot.accountNumber ? " để tiệm ghi nhận đơn và gửi thông tin cọc" : " để tiệm ghi nhận đơn" : " để tiệm chốt đơn"} nhé. Cần sửa chỗ nào thì nhắn lại nhé.`,
   ].filter(Boolean).join("\n");
 }
 
@@ -175,6 +189,18 @@ async function extractDetails(message: string, previous: CakeCheckoutDetails, tr
   }
   for (const field of ["height", "budget", "packQuantity"] as const) details[field] = Number(raw[field]) > 0 ? Number(raw[field]) : null;
   details.quantity = Number.isInteger(raw.quantity) && Number(raw.quantity) > 0 && Number(raw.quantity) <= 100 ? Number(raw.quantity) : 0;
+  const normalizedMessage = normalizeCakeText(message);
+  const quantityWords: Record<string, number> = { mot: 1, hai: 2, ba: 3, bon: 4, nam: 5, sau: 6, bay: 7, tam: 8, chin: 9, muoi: 10 };
+  const explicitQuantity = normalizedMessage.match(/\b(?:dat|lay|mua|chon)\s+(\d{1,2}|mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi)\s+(chiec|cai|banh|set)\b/);
+  if (explicitQuantity) {
+    const quantity = Number(explicitQuantity[1]) || quantityWords[explicitQuantity[1]];
+    if (quantity > 0 && quantity <= 100) details.quantity = quantity;
+  }
+  const recipientNameMatch = message.match(/(?:tên người nhận(?: bánh)?(?: là)?|người nhận tên|người nhận là)\s*[:\-]?\s*([^,.;\n]+)/iu);
+  const recipientName = recipientNameMatch?.[1]?.replace(/\s+(?:số điện thoại|sđt|sdt|liên hệ)\b.*$/iu, "").trim().slice(0, 120);
+  const phone = message.match(/\b0\d{9}\b/)?.[0];
+  const hasPhoneCue = /(?:số điện thoại|sđt|sdt|điện thoại|liên hệ)/iu.test(message);
+  if (phone && hasPhoneCue) details.customerPhone = phone;
   details.imageUrl = previous.imageUrl;
   details.fulfillmentMethod = raw.fulfillmentMethod === "delivery" || raw.fulfillmentMethod === "pickup" ? raw.fulfillmentMethod
     : details.pickupLocation ? "pickup" : "";
@@ -182,9 +208,20 @@ async function extractDetails(message: string, previous: CakeCheckoutDetails, tr
   if (details.fulfillmentMethod === "pickup") { details.deliveryAddress = ""; details.deliveryBooking = ""; }
   details.guestCount = Number.isSafeInteger(raw.guestCount) && Number(raw.guestCount) > 0 ? Number(raw.guestCount)
     : raw.newOrder === true ? 0 : previous.guestCount || 0;
-  return { details, wantsOrder: raw.wantsOrder === true, needsStaff: raw.needsStaff === true,
-    adviceOnly: raw.adviceOnly === true, newOrder: raw.newOrder === true,
-    buyerName: typeof raw.buyerName === "string" ? raw.buyerName : "", buyerPhone: typeof raw.buyerPhone === "string" ? raw.buyerPhone : "",
+  const buyerNameMatch = message.match(/(?:mình|tôi|em|anh|chị)\s+tên\s+(?:là\s+)?([^,.;\n]+)/iu);
+  const buyerName = (typeof raw.buyerName === "string" && raw.buyerName.trim()) || buyerNameMatch?.[1]?.trim() || "";
+  const buyerPhone = (typeof raw.buyerPhone === "string" && raw.buyerPhone.trim()) || (phone && hasPhoneCue ? phone : "");
+  details.customerName = resolveCakeRecipientName({
+    message, extractedName: recipientName || details.customerName, buyerName, previousName: previous.customerName,
+  });
+  const normalizedNameMessage = normalizeCakeText(message);
+  const suppliesOrderDetails = Boolean(explicitQuantity || recipientNameMatch || (phone && hasPhoneCue)
+    || /\b(?:trang tri|ghi chu|viet chu|khong ghi chu)\b/.test(normalizedMessage));
+  const continuesSelectedOrder = suppliesOrderDetails && Boolean(previous.groupId);
+  return { details, wantsOrder: raw.wantsOrder === true || continuesSelectedOrder, needsStaff: raw.needsStaff === true,
+    adviceOnly: raw.adviceOnly === true && !continuesSelectedOrder, newOrder: raw.newOrder === true,
+    buyerName: buyerName || (details.customerName && /\bnguoi nhan la minh\b/.test(normalizedNameMessage) ? details.customerName : ""),
+    buyerPhone: buyerPhone || (details.customerPhone && /\bnguoi nhan la minh\b/.test(normalizedNameMessage) ? details.customerPhone : ""),
     reviewReason: raw.reviewReason === "delivery" ? "delivery" : "custom", switchToPickup: raw.switchToPickup === true,
     customerAddress: shortAddress(raw.customerAddress), sellerAddress: shortAddress(raw.sellerAddress) };
 }
@@ -271,7 +308,7 @@ export const cakeCheckoutService = {
     return !!(integration?.companyCode && await loadContext(integration.companyCode, pageId));
   },
   async process(input: { companyCode: string; pageId: string; conversationId: string; messageId: string; message: string;
-    imageUrls: string[]; observation?: ChatImageObservation; visualMode?: boolean; replyDeadlineAt?: number; businessContext?: string; customerAddressStyle?: string; session?: CakeSessionContext }): Promise<CakeCheckoutReply | undefined> {
+    imageUrls: string[]; observation?: ChatImageObservation; visualMode?: boolean; simulationMode?: boolean; replyDeadlineAt?: number; businessContext?: string; customerAddressStyle?: string; session?: CakeSessionContext }): Promise<CakeCheckoutReply | undefined> {
     const { companyCode, pageId, conversationId, messageId, message } = input;
     const scope = { companyCode, pageId, conversationId };
     if (input.session?.ask) return { text: input.session.ask, isMock: false, draftId: "", revision: 0 };
@@ -300,6 +337,8 @@ export const cakeCheckoutService = {
     const transcriptRows = await FBMessageModel.find({ conversationId, ...(input.session ? { consultationSessionId: input.session.sessionId } : {}) }).sort({ timestamp: -1 }).limit(24).lean();
     transcriptRows.reverse();
     const transcript = transcriptRows.map(row => `${row.direction === "inbound" ? "KHÁCH" : "SHOP"}: ${row.text || "[ảnh]"}`).join("\n").slice(-14000);
+    const lastShopText = [...transcriptRows].reverse().find(row => row.direction === "outbound" && row.text?.trim())?.text || "";
+    const affirmativeSizeReply = isAffirmativeSizeReply(message, lastShopText);
     if (!existing && !/\b(dat|mua|lay|chot|chon|xac nhan)\b/.test(normalizeCakeText(message))) return undefined;
     if (!existing) {
       try { await CakeCheckoutModel.create(scope); } catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
@@ -312,6 +351,33 @@ export const cakeCheckoutService = {
     let seller = draft.sellerAddress || "em";
     const shippingQuestion = /\b(ship|giao hang|giao tan|phi giao)\b/.test(normalizeCakeText(message));
     const consult = (): CakeCheckoutReply => {
+      if (draft.reviewReason === "inventory") return reply("Tồn kho hiện tại chưa đủ số lượng đặt tại chi nhánh này. Anh/chị muốn giảm số lượng hay chọn chi nhánh khác ạ?");
+      if (draft.reviewReason === "availability") return reply("ERP chưa theo dõi tồn kho hoặc công suất làm mẫu bánh này. Tiệm cần xác nhận khả năng làm trước khi nhận cọc hoặc chốt đơn ạ.");
+      if (draft.reviewReason === "custom") {
+        const details = { ...blankDetails, ...draft.details };
+        const typedCatalog = context.catalog.filter(variant => matchesCakeType(variant, details.cakeType || "")
+          && (!details.groupId || variant.groupId === details.groupId));
+        const customRequest = details.decoration || "yêu cầu trang trí riêng";
+        const servingRules = parseCakeServingRules(input.businessContext || "", context.knowledge);
+        const sizePrompt = details.guestCount > 0
+          ? cakeServingRecommendationReply(details.guestCount, typedCatalog, servingRules)
+          : undefined;
+        const nextQuestion = affirmativeSizeReply
+          ? cakeSizeClarification(customer)
+          : !details.size && !details.budget
+            ? sizePrompt || (typedCatalog.length ? cakeOptions(typedCatalog, customer) : `${customer} muốn chọn size bánh nào ạ?`)
+          : !details.quantity ? `${customer} muốn lấy mấy chiếc ạ?`
+          : !details.customerName || !/^\+?\d{8,15}$/.test(details.customerPhone.replace(/\s/g, ""))
+            ? `Cho ${seller} xin tên người nhận và số điện thoại liên hệ nhé.`
+            : missingPickupDetail(details.pickupAt) ? `${customer} muốn nhận bánh ngày nào, khoảng mấy giờ ạ?`
+              : !details.fulfillmentMethod ? `${customer} ghé tiệm lấy hay muốn giao tận nơi ạ?`
+                : details.fulfillmentMethod === "pickup" && !details.pickupLocation ? `${customer} ghé chi nhánh nào lấy bánh ạ?`
+                  : details.fulfillmentMethod === "delivery" && !details.deliveryAddress ? `${customer} gửi ${seller} địa chỉ giao bánh nhé.`
+                    : !details.inscription ? `${customer} muốn ghi chữ gì trên bánh, hay không ghi chữ ạ?`
+                      : "Tiệm cần xác nhận phần yêu cầu trang trí riêng trước khi chốt đơn.";
+        const text = `Phần ${customRequest} cần tiệm xác nhận khả năng làm và giá riêng. ${nextQuestion} Chưa thể chốt tổng tiền hoặc đặt cọc lúc này.`;
+        return reply(text, { wordingSource: text });
+      }
       const missingDelivery = [!draft.details?.deliveryAddress ? "địa chỉ nhận bánh cụ thể" : "",
         missingPickupDetail(draft.details?.pickupAt)].filter(Boolean);
       return reply(
@@ -599,13 +665,42 @@ export const cakeCheckoutService = {
         && confirmationDecision && canConfirmCakeOrder(confirmationDecision)) {
         await assertCurrent();
         const snapshot = draft.snapshot;
-        if (snapshot.deposit > 0 && !context.config.accountNumbers.includes(snapshot.accountNumber)) return reply(`Thông tin nhận cọc đã thay đổi, ${customer} chờ kiểm tra lại trước khi nhận QR nhé`);
+        const latestStockCheck = await checkCakeStockAtLocation({ companyCode,
+          location: snapshot.details.fulfillmentMethod === "delivery" ? snapshot.details.deliveryAddress || "" : snapshot.details.pickupLocation,
+          sku: snapshot.variant.id, quantity: snapshot.details.quantity });
+        if (latestStockCheck.status === "insufficient") {
+          draft.state = "manual_review"; draft.reviewReason = "inventory"; draft.snapshot = undefined;
+          draft.summarySentAt = undefined; draft.revision++;
+          draft.lastMessageId = messageId;
+          draft.replyText = `Tại ${latestStockCheck.branchName || "chi nhánh nhận bánh"} hiện còn ${latestStockCheck.availableQuantity || 0} chiếc theo dữ liệu kho, chưa đủ ${snapshot.details.quantity} chiếc. Anh/chị muốn giảm số lượng hay chọn chi nhánh khác ạ?`;
+          await draft.save();
+          return reply(draft.replyText);
+        }
+        const stockChanged = latestStockCheck.status !== snapshot.stockCheck?.status
+          || latestStockCheck.availableQuantity !== snapshot.stockCheck?.availableQuantity
+          || latestStockCheck.branchName !== snapshot.stockCheck?.branchName;
+        if (stockChanged) {
+          snapshot.stockCheck = { ...latestStockCheck, checkedAt: new Date() };
+          draft.snapshot = snapshot; draft.revision++;
+          draft.summaryText = cakeSummary(snapshot, customer, seller);
+          draft.summarySentAt = undefined; draft.lastMessageId = messageId; draft.replyText = draft.summaryText;
+          await draft.save();
+          return reply(draft.summaryText, { isSummary: true });
+        }
+        if (!input.simulationMode && latestStockCheck.status !== "available") {
+          draft.state = "manual_review"; draft.reviewReason = "availability"; draft.lastMessageId = messageId;
+          draft.replyText = "ERP chưa theo dõi tồn kho hoặc công suất làm mẫu bánh này. Tiệm cần xác nhận khả năng làm trước khi nhận cọc hoặc chốt đơn ạ.";
+          await draft.save();
+          return reply(draft.replyText);
+        }
+        if (snapshot.deposit > 0 && snapshot.accountNumber && !context.config.accountNumbers.includes(snapshot.accountNumber)) return reply(`Thông tin nhận cọc đã thay đổi, ${customer} chờ kiểm tra lại trước khi nhận QR nhé`);
         const fingerprint = createHash("sha256").update(`${draft._id}:${draft.revision}`).digest("hex");
         let order = await MessengerOrderModel.findOne({ fingerprint, companyCode });
         if (!order) {
           const orderId = randomUUID();
           const d = snapshot.details; const v = snapshot.variant;
           order = await MessengerOrderModel.create({ orderId, fingerprint, companyCode, integrationId: context.integration._id,
+            isSimulation: input.simulationMode === true,
             pageId, conversationId, sourceMessageId: messageId, customerName: d.customerName, customerPhone: d.customerPhone,
             items: [{ productCode: v.id, productName: v.name, quantity: d.quantity, unitPrice: v.price, lineTotal: snapshot.subtotal ?? snapshot.total,
               variantSummary: `${v.shape} ${v.size ? `${v.size}cm` : ""}${v.height ? ` cao ${v.height}cm` : ""}; ${v.packQuantity} ${v.unit.replace(/^set\s+/i, "")} mỗi phần`,
@@ -618,7 +713,8 @@ export const cakeCheckoutService = {
             status: "confirmed", confirmedAt: new Date(), depositRequired: snapshot.deposit > 0,
             depositWaiverReason: snapshot.depositWaiverReason,
             ...(snapshot.deposit > 0 ? { depositPercent: snapshot.depositPercent, depositStatus: "awaiting_receipt" as const,
-              paymentCode: `${snapshot.paymentPrefix}${orderId.replace(/-/g, "").slice(0, 12).toUpperCase()}`, paymentRequestStatus: "active" as const }
+              ...(!input.simulationMode ? { paymentCode: `${snapshot.paymentPrefix}${orderId.replace(/-/g, "").slice(0, 12).toUpperCase()}`,
+                paymentRequestStatus: "active" as const } : { paymentRequestStatus: "superseded" as const }) }
             : { paymentMethod: cakePaymentMethod(d), depositStatus: "not_required" as const }),
             depositAmount: snapshot.deposit, checkoutFlow: "cake_deposit", checkoutSnapshot: snapshot,
           }).catch(async error => {
@@ -628,12 +724,21 @@ export const cakeCheckoutService = {
             return recovered;
           });
         }
+        const retailOrderId = order.retailOrderId || await saveCakeOrderToRetail(order);
+        if (!order.retailOrderId) { order.retailOrderId = retailOrderId; await order.save(); }
         draft.orderId = order.orderId;
         if (order.depositRequired) {
           draft.state = "payment_pending";
-          const payment = cakePaymentRequest(order.orderId, order.paymentCode!, snapshot, seller);
+          if (input.simulationMode) {
+            const confirmation = `Đơn thử ${order.orderId} đã được lưu nháp vào Bán hàng. Đơn đang chờ cọc ${money(snapshot.deposit)} (${snapshot.depositPercent}%); chế độ chạy thử không gửi QR hoặc tin nhắn ra Page.`;
+            draft.lastMessageId = messageId; draft.replyText = confirmation; await draft.save();
+            return reply(confirmation);
+          }
+          const payment = snapshot.accountNumber
+            ? cakePaymentRequest(order.orderId, order.paymentCode!, snapshot, seller)
+            : { text: `Đơn ${order.orderId} đã được ghi nhận vào hệ thống. Tiền cọc ${money(snapshot.deposit)} (${snapshot.depositPercent}%) được yêu cầu; tiệm sẽ gửi hướng dẫn thanh toán sau nhé.` };
           draft.lastMessageId = messageId; draft.replyText = payment.text; await draft.save();
-          return reply(payment.text, { qrUrl: payment.imageUrl });
+          return reply(payment.text, "imageUrl" in payment && payment.imageUrl ? { qrUrl: payment.imageUrl } : {});
         }
         draft.state = "confirmed";
         const paymentTiming = snapshot.details.fulfillmentMethod === "delivery" ? "trước khi giao bánh" : "khi nhận bánh";
@@ -643,7 +748,7 @@ export const cakeCheckoutService = {
             ? `Dạ đơn bánh đã được xác nhận. Khách quen được miễn đặt cọc; mình thanh toán ${money(snapshot.total)} ${paymentTiming} nhé.`
             : `Dạ đơn bánh đã được xác nhận. Mình thanh toán ${money(snapshot.total)} ${paymentTiming} nhé.`;
         draft.lastMessageId = messageId; draft.replyText = confirmation; await draft.save();
-        void import("../../../cake-deposit-worker").then(({ wakeCakeDepositWorker }) => wakeCakeDepositWorker())
+        if (!input.simulationMode && context.integration.orderSheetConfig?.enabled) void import("../../../cake-deposit-worker").then(({ wakeCakeDepositWorker }) => wakeCakeDepositWorker())
           .catch(error => console.error("[Cake Checkout] Không thể kích hoạt đồng bộ đơn không cọc:", error));
         return reply(confirmation);
       }
@@ -698,6 +803,13 @@ export const cakeCheckoutService = {
         extracted.details.packQuantity = null;
       }
       const normalizedMessage = normalizeCakeText(message);
+      const removesCustomDecoration = /\b(?:bo|loai bo|khong can|khong trang tri|banh don gian)\b/.test(normalizedMessage)
+        && /\b(?:hinh|trang tri|tao hinh|ve)\b/.test(normalizedMessage);
+      if (!removesCustomDecoration && /\b(?:trang tri hinh|ve hinh|tao hinh|logo)\b/.test(normalizedMessage)) {
+        // A named figure/logo has no base-catalog price. Keep it in manual review unless the customer removes it.
+        extracted.needsStaff = true;
+        extracted.reviewReason = "custom";
+      }
       const ambiguousFulfillment = /^(?:den tan noi|toi tan noi)(?: nhe| nha| a)?$/.test(normalizedMessage);
       if (ambiguousFulfillment) {
         extracted.details.fulfillmentMethod = previous.fulfillmentMethod || "";
@@ -790,9 +902,13 @@ export const cakeCheckoutService = {
       draft.details = extracted.details; draft.state = "collecting"; draft.summarySentAt = undefined; draft.snapshot = undefined;
       draft.revision++; draft.lastMessageId = messageId;
       const d = extracted.details;
-      if (extracted.needsStaff && extracted.reviewReason !== "delivery") {
+      const pendingCustomReview = priorReviewReason === "custom" && !removesCustomDecoration;
+      const newCustomReview = extracted.needsStaff && (extracted.reviewReason === "custom" || !extracted.reviewReason)
+        && !removesCustomDecoration;
+      const otherStaffReview = extracted.needsStaff && extracted.reviewReason !== "custom" && extracted.reviewReason !== "delivery";
+      if ((newCustomReview || pendingCustomReview || otherStaffReview) && extracted.reviewReason !== "delivery") {
         draft.state = "manual_review";
-        draft.reviewReason = shippingQuestion || extracted.reviewReason === "delivery" ? "delivery" : priorReviewReason || "custom";
+        draft.reviewReason = shippingQuestion || extracted.reviewReason === "delivery" ? "delivery" : "custom";
         draft.replyText = undefined;
         await draft.save();
         return consult();
@@ -829,15 +945,23 @@ export const cakeCheckoutService = {
       else if (ambiguousFulfillment) text = `${customer} muốn đến tiệm lấy hay muốn giao bánh tới địa chỉ của mình ạ?`;
       else if (!d.groupId) text = d.imageUrl
         ? `Dạ ${seller} đã nhận ảnh mẫu. ${customer} muốn đặt bánh hình tròn, trái tim hay hình nào trong ảnh ạ?`
-        : `${customer} đã có mẫu bánh ưng ý chưa ạ? Có rồi thì gửi ${seller} xem nhé; chưa có thì cho ${seller} biết bánh tặng ai, dịp gì để gửi mẫu phù hợp.`;
+        : cakeIntakeQuestion({ customerMessages: transcriptRows.filter(row => row.direction === "inbound").map(row => row.text || ""),
+          pickupAt: d.pickupAt, guestCount: d.guestCount });
       else if (choices.length !== 1) {
         const options = choices.length ? choices : typedCatalog.filter(v => v.groupId === d.groupId).sort((a, b) => Math.abs(a.price - (d.budget || 0)) - Math.abs(b.price - (d.budget || 0)));
         const names = [...new Set(choices.map(option => option.name))];
         const sameSpecification = choices.length > 1 && choices.every(option => option.size === choices[0].size
           && option.height === choices[0].height && option.packQuantity === choices[0].packQuantity && option.price === choices[0].price);
-        text = sameSpecification && names.length > 1
+        const servingRecommendation = d.guestCount > 0 && !d.size && !d.budget
+          ? cakeServingRecommendationReply(d.guestCount,
+            typedCatalog.filter(variant => !d.groupId || variant.groupId === d.groupId),
+            parseCakeServingRules(input.businessContext || "", context.knowledge))
+          : undefined;
+        text = affirmativeSizeReply
+          ? cakeSizeClarification(customer)
+          : servingRecommendation || (sameSpecification && names.length > 1
           ? `${customer} chọn ${names.join(" hay ")}${!d.quantity ? ", và lấy mấy chiếc" : ""} ạ?`
-          : `${choices.length ? "" : `Dạ chưa có lựa chọn khớp chính xác, ${customer} tham khảo các phương án này nhé:\n`}${cakeOptions(options, customer)}`;
+          : `${choices.length ? "" : `Dạ chưa có lựa chọn khớp chính xác, ${customer} tham khảo các phương án này nhé:\n`}${cakeOptions(options, customer)}`);
       } else if (!d.quantity) text = `${customer} muốn lấy mấy ${choices[0].size ? "chiếc" : "set"} ạ?`;
       else if (choices[0].needsApproval) text = `Mẫu này cần kiểm tra giá áp dụng trước khi chốt đơn. ${customer} cho ${seller} biết ngày muốn nhận bánh nhé`;
       else {
@@ -872,21 +996,34 @@ export const cakeCheckoutService = {
           text = questions.filter(Boolean).slice(0, 2).join("\n");
         } else {
         const config = context.config;
-        const returningCustomer = input.session?.returningCustomer === true;
+        const stockCheck = await checkCakeStockAtLocation({ companyCode,
+          location: d.fulfillmentMethod === "delivery" ? d.deliveryAddress || "" : d.pickupLocation,
+          sku: choices[0].id, quantity: d.quantity });
+        if (stockCheck.status === "insufficient") {
+          draft.state = "manual_review"; draft.reviewReason = "inventory"; draft.snapshot = undefined;
+          draft.summarySentAt = undefined; draft.revision++;
+          draft.lastMessageId = messageId;
+          draft.replyText = `Tại ${stockCheck.branchName || "chi nhánh nhận bánh"} hiện còn ${stockCheck.availableQuantity || 0} chiếc theo dữ liệu kho, chưa đủ ${d.quantity} chiếc. Anh/chị muốn giảm số lượng hay chọn chi nhánh khác ạ?`;
+          await draft.save();
+          return reply(draft.replyText);
+        }
+        const normalizedCustomerPhone = normalizePhone(d.customerPhone);
+        const returningCustomer = input.session?.returningCustomer === true || Boolean(normalizedCustomerPhone && await CustomerModel.exists({ companyCode,
+          normalizedPhone: { $in: phoneLookupVariants(normalizedCustomerPhone) } }));
         const customerRequestedWaiver = draft.noDepositRequested === true;
-        const canRequireDeposit = config.enabled && config.depositEnabled && Boolean(config.qrBankId
-          && config.qrAccountNumber && config.qrAccountName && config.accountNumbers.includes(config.qrAccountNumber));
-        const waiveDeposit = customerRequestedWaiver || returningCustomer || !canRequireDeposit;
+        const canRequireDeposit = config.depositEnabled;
         const configuredPercent = Number(config.depositPercent || 30);
-        const calculatedAmounts = calculateCakeDeposit(choices[0].price, d.quantity, waiveDeposit ? 1 : configuredPercent);
-        const percent = waiveDeposit ? 0 : configuredPercent;
-        const amounts = waiveDeposit
+        const depositPolicy = resolveCakeDepositPolicy({ depositEnabled: canRequireDeposit, depositPercent: configuredPercent,
+          returningCustomer, customerRequestedWaiver });
+        const calculatedAmounts = calculateCakeDeposit(choices[0].price, d.quantity, depositPolicy.depositPercent || 1);
+        const percent = depositPolicy.depositPercent;
+        const amounts = depositPolicy.depositPercent === 0
           ? { ...calculatedAmounts, deposit: 0, balance: calculatedAmounts.total }
           : calculatedAmounts;
         draft.snapshot = { details: d, variant: choices[0], ...amounts, subtotal: amounts.total, shippingFee: 0,
+          stockCheck: { ...stockCheck, checkedAt: new Date() },
           depositPercent: percent,
-          ...(customerRequestedWaiver ? { depositWaiverReason: "customer_requested" as const }
-            : returningCustomer && canRequireDeposit ? { depositWaiverReason: "returning_customer" as const } : {}),
+          ...(depositPolicy.depositWaiverReason ? { depositWaiverReason: depositPolicy.depositWaiverReason } : {}),
           customerAddress: customer, sellerAddress: seller,
           bankId: config.qrBankId || "", accountNumber: config.qrAccountNumber || "", accountName: config.qrAccountName || "",
           paymentPrefix: config.paymentCodePrefix || "DH" };

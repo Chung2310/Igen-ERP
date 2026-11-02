@@ -9,7 +9,7 @@ export type CustomerScope = { companyCode: string };
 export type CustomerActor = { id: string; name: string };
 export type CustomerListQuery = {
   q?: string;
-  status?: CustomerStatus;
+  status?: CustomerStatus | "all";
   type?: CustomerType;
   page?: number;
   limit?: number;
@@ -33,7 +33,7 @@ const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$
 export function buildCustomerListFilter(scope: CustomerScope, query: CustomerListQuery): Record<string, unknown> {
   const filter: Record<string, unknown> = {
     companyCode: scope.companyCode,
-    status: query.status || "active",
+    ...(query.status === "all" ? {} : { status: query.status || "active" }),
     ...(query.type ? { type: query.type } : {}),
   };
   const q = String(query.q || "").trim();

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from "express";
 import { fbMessengerController } from "../controller/fb-messenger.controller.ts";
-import { requireAuth } from "../../shared/middleware/auth";
+import { requireAuth, requirePermission } from "../../shared/middleware/auth";
 
 export const fbMessengerRouter = Router();
 
@@ -13,7 +13,7 @@ fbMessengerRouter.post("/webhook", fbMessengerController.receiveWebhookEvent);
 fbMessengerRouter.get("/debug-ai-logs", requireAuth as any, fbMessengerController.debugAILogs);
 
 // Routes dành cho Igen-ERP Client (Frontend) - Bắt bu�"c yêu cầu �Ēng nhập (requireAuth)
-fbMessengerRouter.get("/messenger/conversations", requireAuth as any, fbMessengerController.getConversations);
+fbMessengerRouter.get("/messenger/conversations", requireAuth as any, requirePermission("omni-inbox:read") as any, fbMessengerController.getConversations);
 fbMessengerRouter.get("/messenger/conversations/:recipientId/messages", requireAuth as any, fbMessengerController.getMessages);
 fbMessengerRouter.post("/messenger/conversations/:recipientId/mark-read", requireAuth as any, fbMessengerController.markRead);
 fbMessengerRouter.post("/messenger/conversations/:recipientId/resume-ai", requireAuth as any, fbMessengerController.resumeAI);

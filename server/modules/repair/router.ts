@@ -89,6 +89,18 @@ repairRouter.post("/tickets/:id/notifications/resend", manage, async (req, res, 
   await RepairNotificationModel.deleteOne({ companyCode: ticket.companyCode, idempotencyKey: `repair:${req.params.id}:${event}` });
   return res.json({ success: true, data: await dispatchRepairNotification(ticket, event) });
 } catch (error) { next(error); } });
+export function buildRepairNotificationSettingsSet(companyCode: string, updatedBy: string, body: any) {
+  const update: Record<string, unknown> = { companyCode, updatedBy };
+  if (Array.isArray(body?.notifyChannels)) update.notifyChannels = body.notifyChannels.map(String);
+  for (const event of REPAIR_NOTIFICATION_EVENTS) {
+    const template = body?.templates?.[event];
+    if (!template || typeof template !== "object" || Array.isArray(template)) continue;
+    if (template.enabled !== undefined) update[`templates.${event}.enabled`] = Boolean(template.enabled);
+    if (template.subject !== undefined) update[`templates.${event}.subject`] = String(template.subject);
+    if (template.html !== undefined) update[`templates.${event}.html`] = String(template.html);
+  }
+  return update;
+}
 repairRouter.get("/settings/notifications", read, async (req, res, next) => { try {
   const companyCode = reportScope(req).companyCode;
   const settings: any = await RepairSettingsModel.findOne({ companyCode }).lean();
@@ -96,12 +108,9 @@ repairRouter.get("/settings/notifications", read, async (req, res, next) => { tr
 } catch (error) { next(error); } });
 repairRouter.put("/settings/notifications", manage, async (req, res, next) => { try {
   const companyCode = reportScope(req).companyCode;
-  const templates = Object.fromEntries(REPAIR_NOTIFICATION_EVENTS.filter((event) => req.body?.templates?.[event]).map((event) => {
-    const value = req.body.templates[event];
-    return [event, { enabled: value.enabled !== false, subject: String(value.subject || ""), html: String(value.html || "") }];
-  }));
-  const notifyChannels = Array.isArray(req.body?.notifyChannels) ? req.body.notifyChannels.map(String) : undefined;
-  const data = await RepairSettingsModel.findOneAndUpdate({ companyCode }, { $set: { companyCode, ...(notifyChannels ? { notifyChannels } : {}), ...(Object.keys(templates).length ? { templates } : {}), updatedBy: actor(req).id } }, { returnDocument: 'after', upsert: true }).lean();
+  const update = buildRepairNotificationSettingsSet(companyCode, actor(req).id, req.body);
+  if (Object.keys(update).length === 2) return res.status(400).json({ success: false, message: "Cần nêu kênh gửi hoặc nội dung mẫu cần cập nhật." });
+  const data = await RepairSettingsModel.findOneAndUpdate({ companyCode }, { $set: update }, { returnDocument: 'after', upsert: true }).lean();
   return res.json({ success: true, data });
 } catch (error) { next(error); } });
 

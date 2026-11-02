@@ -16,10 +16,21 @@ import { retailPartnerRoutes } from "./routes/retail-partner.routes";
 import { retailPaymentReviewRoutes } from "./routes/retail-payment-review.routes";
 import { retailPointsRoutes } from "./routes/retail-points.routes";
 import { retailFinanceRoutes } from "./routes/retail-finance.routes";
+import { resolveRetailScopeFromRequest } from "./contracts";
 
 export const retailRouter = Router();
 // Scope these guards to retail because this router is mounted at the API root.
 retailRouter.use("/retail", requireAuth as any, requireModule("retail"));
+retailRouter.use("/retail", async (req, _res, next) => {
+  const branchId = String(req.query.branchId || "").trim();
+  if (!branchId || branchId === "all") return next();
+  try {
+    await resolveRetailScopeFromRequest((req as any).user || {}, req.query);
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+});
 retailRouter.use("/retail/coupons", retailCouponRoutes);
 registerRetailFinanceSettlementConsumer();
 retailRouter.use("/retail/settings", retailSettingsRoutes);

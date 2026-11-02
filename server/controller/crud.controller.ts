@@ -16,6 +16,7 @@ import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
+import { BranchModel } from "../model/branch.model";
 
 /**
  * Chuyển lỗi Mongo duplicate key (E11000) thành lỗi 409 dễ hiểu thay vì để lọt
@@ -213,6 +214,14 @@ export const crudController = {
     try {
       const modelName = req.params.modelName as SupportedModelName;
       const companyCode = req.user?.companyCode || "SYSTEM";
+      let branchId = req.user?.branchId;
+
+      if (["products", "categories", "stock-logs"].includes(modelName) && !branchId && ["admin", "superadmin"].includes(String(req.user?.role || ""))) {
+        branchId = String(req.body?.branchId || "").trim();
+        if (!branchId) throw Object.assign(new Error("Hãy nêu tên chi nhánh để tạo dữ liệu kho."), { statusCode: 400 });
+        const branch = await BranchModel.findOne({ _id: branchId, companyCode, isActive: true }).select("_id").lean();
+        if (!branch) throw Object.assign(new Error("Không tìm thấy chi nhánh đang hoạt động trong công ty."), { statusCode: 400 });
+      }
 
       console.log(`[crudController.create] modelName=${modelName} body:`, req.body);
 
@@ -311,10 +320,10 @@ export const crudController = {
         req.body.status = "pending";
       }
 
-      const item = await crudService.create(modelName, req.body, companyCode, req.user?.branchId, { actor: { id: req.user!.id, name: req.user?.displayName || req.user!.email } });
+      const item = await crudService.create(modelName, req.body, companyCode, branchId, { actor: { id: req.user!.id, name: req.user?.displayName || req.user!.email } });
       await crudResourceFinalizationService.finalize(modelName, { ...req.body, ...item }, {
         companyCode,
-        branchId: req.user?.branchId,
+        branchId,
         actorId: req.user?.id || "",
         actorName: req.user?.email,
       });

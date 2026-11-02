@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { retailScopeFromRequest, requireRetailBranch } from "../contracts";
-import { lookupWarranty, lookupWarrantyByPhone, listExpiringWarranty, listWarrantyGapRisk, updateWarranty } from "../services/warranty-lookup.service";
+import { lookupWarranty, lookupWarrantyByPhone, listExpiringWarranty, listWarrantyGapRisk, updateWarranty, updateWarrantyByCode } from "../services/warranty-lookup.service";
 import { getEffectivePermissions } from "../../../middleware/auth";
 import { listOrderWarranties } from "../services/order-warranty.service";
 
@@ -36,4 +36,26 @@ export const retailWarrantyController = {
   expiring: async (req: Request, res: Response) => { const scope = retailScopeFromRequest((req as any).user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId }); res.json({ success: true, data: await listExpiringWarranty(scope, String(req.query.scope || "customer") as any, Number(req.query.days || 30)) }); },
   gapRisk: async (req: Request, res: Response) => { const scope = retailScopeFromRequest((req as any).user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId }); res.json({ success: true, data: await listWarrantyGapRisk(scope) }); },
   update: async (req: Request, res: Response) => { const scope = retailScopeFromRequest((req as any).user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId }); const user = (req as any).user || {}; res.json({ success: true, data: await updateWarranty(scope, req.params.id, req.body || {}, { id: String(user.id || user.uid || ""), name: String(user.email || user.displayName || "") }) }); },
+  updateByCode: async (req: Request, res: Response) => {
+    try {
+      const scope = retailScopeFromRequest((req as any).user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId });
+      const user = (req as any).user || {};
+      const unit: any = await updateWarrantyByCode(scope, req.params.code, req.body || {}, { id: String(user.id || user.uid || ""), name: String(user.email || user.displayName || "") });
+      const kind = req.body?.kind === "supplier" ? "supplier" : "customer";
+      const warranty = unit[`${kind}Warranty`] || {};
+      return res.json({ success: true, data: {
+        serialNumber: unit.serialNumber,
+        internalBarcode: unit.internalBarcode,
+        sku: unit.sku,
+        productName: unit.productName,
+        status: unit.status,
+        warrantyKind: kind,
+        warrantyMonths: warranty.months,
+        warrantyStartAt: warranty.startAt,
+        warrantyEndAt: warranty.endAt,
+      } });
+    } catch (error: any) {
+      return res.status(Number(error?.status || error?.statusCode) || 500).json({ success: false, message: error?.message || "Không thể cập nhật thời hạn bảo hành." });
+    }
+  },
 };

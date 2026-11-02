@@ -43,6 +43,40 @@ export class LearningRoadmapService {
     return LearningRoadmap.find({ ...ownerQuery(ownerId), ...branchQuery(branchId) }).sort({ status: 1, name: 1 }).lean();
   }
 
+  static async listRoadmapSteps(ownerId: OwnerScope, roadmapId: string, branchId?: string, courseId?: string) {
+    const roadmap = await LearningRoadmap.findOne({
+      _id: roadmapId,
+      ...ownerQuery(ownerId),
+      ...branchQuery(branchId),
+      status: "active",
+    }).lean();
+    if (!roadmap) return null;
+
+    const steps = (roadmap.steps || []).filter((step) => !courseId || String(step.courseId) === courseId);
+    const courseIds = [...new Set(steps.map((step) => String(step.courseId)).filter(Boolean))];
+    const courses = courseIds.length
+      ? await Course.find({ _id: { $in: courseIds }, ...ownerQuery(ownerId), ...branchQuery(branchId) }).select("_id title code").lean()
+      : [];
+    const courseById = new Map(courses.map((course) => [String(course._id), course]));
+
+    return steps.flatMap((step) => {
+      const course = courseById.get(String(step.courseId));
+      if (!course) return [];
+      const courseTitle = String(course.title || course.code || "Khóa học");
+      return [{
+        stepId: String(step.id),
+        name: `Chặng ${step.order}: ${courseTitle}`,
+        code: String(course.code || ""),
+        courseId: String(step.courseId),
+        courseTitle,
+        courseCode: String(course.code || ""),
+        order: Number(step.order),
+        minClassSize: Number(step.minClassSize || 0),
+        maxClassSize: Number(step.maxClassSize || 0),
+      }];
+    });
+  }
+
   static async createRoadmap(ownerId: string, branchId: string | undefined, data: Pick<ILearningRoadmap, "code" | "name" | "description" | "status" | "steps">, courseOwnerScope: OwnerScope = ownerId) {
     this.assertSteps(data.steps || []);
     await this.assertCoursesExist(data.steps || [], courseOwnerScope, branchId);

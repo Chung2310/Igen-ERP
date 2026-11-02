@@ -4,12 +4,14 @@ import { Building2, CheckCircle2, Layers3, Loader2, Pencil, Plus, RefreshCw, Sea
 import { aiSubscriptionAdminService as api, formatAiPlanPrice, type AiSubscriptionPlan } from "../../../services/aiSubscriptionService";
 import SubscriptionPlanDialog from "./SubscriptionPlanDialog";
 import SubscriptionAssignmentPanel from "./SubscriptionAssignmentPanel";
+import UserSubscriptionAssignmentPanel from "./UserSubscriptionAssignmentPanel";
+import ServicePlansPanel from "./ServicePlansPanel";
 import "./ai-subscriptions-admin.css";
 
 const number = (value: number) => value.toLocaleString("vi-VN");
 
 export default function AiSubscriptionsPage() {
-  const [view, setView] = useState<"plans" | "companies">("plans");
+  const [view, setView] = useState<"plans" | "companies" | "users" | "services">("plans");
   const [plans, setPlans] = useState<AiSubscriptionPlan[]>([]);
   const [editor, setEditor] = useState<{ plan: AiSubscriptionPlan | null } | null>(null);
   const [query, setQuery] = useState("");
@@ -51,8 +53,8 @@ export default function AiSubscriptionsPage() {
           <span className="sa-ai-page-icon"><Sparkles size={22} aria-hidden="true" /></span>
           <div>
             <p className="sa-ai-eyebrow">Quản lý dịch vụ</p>
-            <h2 id="sa-ai-title">Gói AI & hạn mức</h2>
-            <p className="sa-ai-muted">Thiết lập giá, số lượt, thời hạn và cấp gói dùng chung cho từng doanh nghiệp.</p>
+            <h2 id="sa-ai-title">Gói cước & hạn mức</h2>
+            <p className="sa-ai-muted">Thiết lập gói AI theo doanh nghiệp hoặc người dùng, và gói dịch vụ theo phân hệ.</p>
           </div>
         </div>
         <button type="button" className="sa-ai-button sa-ai-button-primary" disabled={loading} onClick={createPlan}>
@@ -63,6 +65,8 @@ export default function AiSubscriptionsPage() {
       <ModuleNavigation label="Quản lý gói AI" activeValue={view}>
         <ModuleNavigationButton active={view === "plans"} icon={<Layers3 />} aria-pressed={view === "plans"} aria-controls="sa-ai-plans" onClick={() => setView("plans")}>Danh mục gói ({number(plans.length)})</ModuleNavigationButton>
         <ModuleNavigationButton active={view === "companies"} icon={<Building2 />} aria-pressed={view === "companies"} aria-controls="sa-ai-companies" onClick={() => setView("companies")}>Cấp gói doanh nghiệp</ModuleNavigationButton>
+        <ModuleNavigationButton active={view === "users"} icon={<Sparkles />} aria-pressed={view === "users"} aria-controls="sa-ai-users" onClick={() => setView("users")}>Cấp gói người dùng</ModuleNavigationButton>
+        <ModuleNavigationButton active={view === "services"} icon={<Building2 />} aria-pressed={view === "services"} aria-controls="sa-ai-services" onClick={() => setView("services")}>Gói dịch vụ</ModuleNavigationButton>
       </ModuleNavigation>
 
       {notice && <div className="sa-ai-feedback sa-ai-feedback-success" role="status"><CheckCircle2 size={18} aria-hidden="true" />{notice}</div>}
@@ -120,6 +124,14 @@ export default function AiSubscriptionsPage() {
 
       <section id="sa-ai-companies" hidden={view !== "companies"} aria-label="Cấp gói cho doanh nghiệp">
         <SubscriptionAssignmentPanel plans={plans} plansLoading={loading} plansError={error} onCreatePlan={createPlan} onPlansChanged={refresh} />
+      </section>
+
+      <section id="sa-ai-users" hidden={view !== "users"} aria-label="Cấp gói AI cho người dùng">
+        <UserSubscriptionAssignmentPanel plans={plans} plansLoading={loading} plansError={error} />
+      </section>
+
+      <section id="sa-ai-services" hidden={view !== "services"} aria-label="Gói dịch vụ doanh nghiệp">
+        <ServicePlansPanel />
       </section>
 
       {editor && <SubscriptionPlanDialog key={editor.plan?._id || "new"} plan={editor.plan} onClose={() => setEditor(null)} onSaved={(name) => {

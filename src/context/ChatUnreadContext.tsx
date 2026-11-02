@@ -47,7 +47,7 @@ export function ChatUnreadProvider({ children }: { children: React.ReactNode }) 
         if (cancelled) return;
         const initial: Record<string, number> = {};
         rooms.forEach((room) => {
-          if (room.unreadCount) initial[room._id] = room.unreadCount;
+          if (!room.isChatbot && room.unreadCount) initial[room._id] = room.unreadCount;
         });
         setUnreadByRoom(initial);
       })
@@ -67,7 +67,7 @@ export function ChatUnreadProvider({ children }: { children: React.ReactNode }) 
     const unsubscribeNewMessage = socketService.on("internal_new_message", (data: any) => {
       const msg = data?.message;
       const roomId = data?.roomId as string | undefined;
-      if (!msg || !roomId) return;
+      if (!msg || !roomId || data.roomUpdate?.isChatbot) return;
       const senderId = msg.senderId && typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
 
       setUnreadByRoom((prev) => {

@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../shared/context/AuthContext";
+import { PageChatSimulator } from "../components/knowledge/PageChatSimulator";
+import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
 import { FaqLearningSuggestionsPanel } from "../components/knowledge/FaqLearningSuggestionsPanel";
 import { KnowledgeDocumentTypeSelect } from "../components/knowledge/KnowledgeDocumentTypeSelect";
 import {
@@ -39,6 +41,15 @@ import {
   socialIntegrationService,
 } from "../../shared/services/socialIntegrationService";
 import { toast } from "../../../../pages/Toast";
+
+type KnowledgeSection = "documents" | "faq_learning" | "test_search" | "page_chat";
+
+const KNOWLEDGE_SECTION_ROUTES = [
+  { slug: "documents", value: "documents" },
+  { slug: "faq-learning", value: "faq_learning" },
+  { slug: "test-search", value: "test_search" },
+  { slug: "page-chat", value: "page_chat" },
+] as const satisfies ReadonlyArray<{ slug: string; value: KnowledgeSection }>;
 
 const PURPOSES: Array<{
   id: KnowledgePurposeScope;
@@ -250,7 +261,7 @@ export default function CompanyKnowledgePage() {
   const [editPageIds, setEditPageIds] = useState<string[]>([]);
   const [editDocumentType, setEditDocumentType] = useState<KnowledgeDocumentType>("general");
 
-  const [activeSection, setActiveSection] = useState<"documents" | "faq_learning" | "test_search">("documents");
+  const [activeSection, setActiveSection] = useSubTabRouter<KnowledgeSection>(KNOWLEDGE_SECTION_ROUTES, "documents");
   const [pendingFaqCount, setPendingFaqCount] = useState(0);
 
   // State cho RAG Search Simulator
@@ -540,6 +551,7 @@ export default function CompanyKnowledgePage() {
           <button
             type="button"
             onClick={() => setActiveSection("documents")}
+            aria-current={activeSection === "documents" ? "page" : undefined}
             className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeSection === "documents"
                 ? "bg-indigo-650 text-white shadow-md shadow-indigo-650/20"
                 : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
@@ -560,6 +572,7 @@ export default function CompanyKnowledgePage() {
           <button
             type="button"
             onClick={() => setActiveSection("faq_learning")}
+            aria-current={activeSection === "faq_learning" ? "page" : undefined}
             className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeSection === "faq_learning"
                 ? "bg-indigo-650 text-white shadow-md shadow-indigo-650/20"
                 : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
@@ -591,6 +604,7 @@ export default function CompanyKnowledgePage() {
           <button
             type="button"
             onClick={() => setActiveSection("test_search")}
+            aria-current={activeSection === "test_search" ? "page" : undefined}
             className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${activeSection === "test_search"
                 ? "bg-indigo-650 text-white shadow-md shadow-indigo-650/20"
                 : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
@@ -599,8 +613,14 @@ export default function CompanyKnowledgePage() {
             <Search className="h-4 w-4" />
             <span>Thử nghiệm Tìm kiếm (RAG)</span>
           </button>
+          <button type="button" onClick={() => setActiveSection("page_chat")}
+            aria-current={activeSection === "page_chat" ? "page" : undefined}
+            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold focus-visible:outline-2 focus-visible:outline-primary ${activeSection === "page_chat" ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest text-on-surface"}`}>
+            <MessageSquare className="size-4" aria-hidden="true" /> Mô phỏng chat Page
+          </button>
         </div>
 
+        {activeSection === "page_chat" && <PageChatSimulator />}
         {activeSection === "faq_learning" && (
           <div className="mt-5">
             <FaqLearningSuggestionsPanel onKnowledgeUpdated={() => void loadData()} />

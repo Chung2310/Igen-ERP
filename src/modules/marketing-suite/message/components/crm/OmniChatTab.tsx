@@ -270,10 +270,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
     setSavingConfig(true);
     try {
       await persistLocalConfig(localConfigRef.current);
-      toast.success("Đã lưu thiết lập rule, kịch bản và cấu hình trợ lý AI thành công!");
+      toast.success("Đã lưu thiết lập rule, kịch bản và cấu hình chatbot Page thành công!");
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Không thể lưu thiết lập rule, kịch bản và cấu hình trợ lý AI.");
+      toast.error(err.message || "Không thể lưu thiết lập rule, kịch bản và cấu hình chatbot Page.");
     } finally {
       setSavingConfig(false);
     }
@@ -996,7 +996,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     }`}
                 >
                   <Sliders className="h-3.5 w-3.5" />
-                  <span>{showConfig ? "Ẩn cấu hình AI" : "Cấu hình trợ lý AI"}</span>
+                  <span>{showConfig ? "Ẩn cấu hình chatbot" : "Cấu hình chatbot Page"}</span>
                 </button>
 
                 {/* Source logo info */}
@@ -1142,7 +1142,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                         </div>
 
                         <span className="text-[8.5px] text-slate-400 font-mono mt-1.5 select-none font-sans">
-                          {isMe ? "CRM Operator • " : isAI ? "Trợ lý AI • " : `${activeCustomer.name} • `}
+                          {isMe ? "CRM Operator • " : isAI ? "Chatbot Page • " : `${activeCustomer.name} • `}
                           {new Date(h.timestamp).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </div>
@@ -1155,7 +1155,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                   <div className="flex items-start gap-2.5 animate-pulse" id="ai_thinking_marker">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#CDEEFF] bg-slate-50 text-sky-600 shadow-xxs animate-spin-slow"><Bot size={18} /></span>
                     <div className="p-3 bg-[#EAF8FF] border border-[#CDEEFF] rounded-2xl rounded-bl-none text-left">
-                      <span className="text-[8px] font-mono block text-[#008FCF] font-bold mb-1 uppercase tracking-widest">Trợ lý AI đang soạn câu trả lời...</span>
+                      <span className="text-[8px] font-mono block text-[#008FCF] font-bold mb-1 uppercase tracking-widest">Chatbot Page đang soạn câu trả lời...</span>
                       <div className="flex gap-1.5 justify-center py-1">
                         <span className="w-1.5 h-1.5 bg-[#008FCF] rounded-full animate-bounce" style={{ animationDelay: "0s" }} />
                         <span className="w-1.5 h-1.5 bg-[#00ADFC] rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
@@ -1190,7 +1190,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00ADFC]"></span>
                   </span>
                   <span className="flex items-center gap-1 text-[10px] font-medium font-sans">
-                    <Bot size={12} />Trợ lý AI đang tạm dừng phản hồi để bạn chat (tự động bật lại sau <strong>{aiCountdownText}</strong>)
+                    <Bot size={12} />Chatbot Page đang tạm dừng phản hồi để bạn chat (tự động bật lại sau <strong>{aiCountdownText}</strong>)
                   </span>
                 </div>
                 {onResumeAI && (
@@ -1243,6 +1243,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       {/* R-Col: Config side-panel sidebar for custom AI assistant parameters (Collapsible) */}
       {showConfig && (
         <AiAssistantConfigPanel
+          pageId={activeChannel === "facebook" || activeCustomer?.channel === "facebook" ? activeCustomer?.pageId || selectedFacebookPageId : ""}
           onClose={() => setShowConfig(false)}
           localConfig={localConfig}
           setLocalConfig={updateLocalConfig}

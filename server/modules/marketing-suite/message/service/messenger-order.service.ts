@@ -193,7 +193,7 @@ async function extractOrder(transcript: string) {
 
 async function syncOrder(orderId: string) {
   const order = await MessengerOrderModel.findOne({ orderId });
-  if (!order || order.status === "synced") return order;
+  if (!order || order.isSimulation || order.status === "synced") return order;
   const verifiedDeposit = order.depositRequired && order.depositStatus === "verified";
   const waivedDeposit = !order.depositRequired && order.depositStatus === "not_required";
   if (order.checkoutFlow === "cake_deposit" && !verifiedDeposit && !waivedDeposit) return order;
@@ -423,7 +423,7 @@ export const messengerOrderService = {
   },
 
   async getDepositRequest(orderId: string) {
-    const order = await MessengerOrderModel.findOne({ orderId });
+    const order = await MessengerOrderModel.findOne({ orderId, isSimulation: { $ne: true } });
     if (!order || !order.depositRequired || order.depositStatus !== "awaiting_receipt" || order.depositRequestedAt) return null;
     const company = await CompanyModel.findOne({ code: order.companyCode }).lean();
     const config = company?.sepayConfig;
@@ -441,14 +441,14 @@ export const messengerOrderService = {
   },
 
   async getDepositPaymentQr(orderId: string) {
-    const order = await MessengerOrderModel.findOne({ orderId });
+    const order = await MessengerOrderModel.findOne({ orderId, isSimulation: { $ne: true } });
     if (!order?.depositRequired || order.depositStatus !== "awaiting_receipt") return null;
     return companySepayService.getPaymentQr(order.companyCode, order.depositAmount, order.paymentCode);
   },
 
   async markDepositRequested(orderId: string) {
     return MessengerOrderModel.findOneAndUpdate(
-      { orderId, depositStatus: "awaiting_receipt", depositRequestedAt: { $exists: false } },
+      { orderId, isSimulation: { $ne: true }, depositStatus: "awaiting_receipt", depositRequestedAt: { $exists: false } },
       { $set: { depositRequestedAt: new Date() } },
       { new: true },
     );
@@ -467,6 +467,7 @@ export const messengerOrderService = {
     const order = await MessengerOrderModel.findOne({
       pageId,
       conversationId,
+      isSimulation: { $ne: true },
       depositStatus: "awaiting_receipt",
       depositRequestedAt: { $gte: oldestAllowed },
     }).sort({ depositRequestedAt: -1 });
@@ -593,6 +594,7 @@ export const messengerOrderService = {
   async retry(orderId: string, companyCode: string) {
     const order = await MessengerOrderModel.findOne({ orderId, companyCode });
     if (!order) throw new Error("Khong tim thay don Messenger.");
+    if (order.isSimulation) throw new Error("Không thể đồng bộ đơn thử chat Page ra dịch vụ bên ngoài.");
     if (order.checkoutFlow === "cake_deposit") {
       const waivedDeposit = !order.depositRequired && order.depositStatus === "not_required";
       if (!waivedDeposit && !(order.depositRequired && order.depositStatus === "verified")) {

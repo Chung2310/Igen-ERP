@@ -1115,7 +1115,7 @@ export const fbMessengerService = {
     options?: { sync?: boolean; limit?: number; skip?: number; tokenContext?: FacebookTokenContext },
   ) {
     console.log(`[FB Service getConversations] Lọc hội thoại theo Page ID: ${pageId || "Tất cả"}, limit: ${options?.limit || 20}, skip: ${options?.skip || 0}`);
-    const filter = pageId ? { pageId } : {};
+    const filter = pageId ? { pageId, isSimulation: { $ne: true } } : { isSimulation: { $ne: true } };
     const skip = options?.skip || 0;
     const limit = options?.limit || 20;
 

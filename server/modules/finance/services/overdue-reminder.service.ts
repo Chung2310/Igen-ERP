@@ -8,6 +8,7 @@ import { NotificationModel } from "../../../model/notification.model";
 import { UserModel } from "../../../model/user.model";
 import { publishDomainEvent } from "../../../integrations/shared/event-bus";
 import { getEnabledModulesForCompany } from "../../../middleware/require-module";
+import { ConflictError } from "../../../errors/app-error";
 
 export function businessDateInTimeZone(now: Date, timeZone: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
@@ -126,10 +127,10 @@ const mongoDependencies: Dependencies = {
 
 export const OverdueReminderService = createOverdueReminderService(mongoDependencies);
 
-export function retryReminderDelivery(id: string, now = new Date(), scope?: FinanceBranchScope) {
-  return retryReminderDeliveryWith(id, now, {
+export async function retryReminderDelivery(id: string, now = new Date(), scope?: FinanceBranchScope, channel?: "in_app" | "marketing") {
+  try { return await retryReminderDeliveryWith(id, now, {
     claim: (deliveryId) => ReminderDeliveryModel.findOneAndUpdate(
-      { _id: deliveryId, ...(scope || {}), status: "failed", failureType: "temporary", $expr: { $lt: ["$attempt", "$maxAttempts"] } },
+      { _id: deliveryId, ...(scope || {}), ...(channel ? { channel } : {}), status: "failed", failureType: "temporary", $expr: { $lt: ["$attempt", "$maxAttempts"] } },
       { $set: { status: "sending" }, $inc: { attempt: 1 } }, { returnDocument: 'after' },
     ).lean(),
     send: (delivery) => delivery.channel === "in_app"
@@ -140,7 +141,13 @@ export function retryReminderDelivery(id: string, now = new Date(), scope?: Fina
       const unset = Object.fromEntries(Object.entries(values).filter(([, value]) => value === undefined).map(([key]) => [key, 1]));
       await ReminderDeliveryModel.updateOne({ _id: deliveryId }, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}) });
     },
-  });
+  }); }
+  catch (error) {
+    if (error instanceof Error && error.message === "DELIVERY_NOT_RETRYABLE") {
+      throw new ConflictError("CONFLICT", "Thông báo không còn đủ điều kiện thử lại. Vui lòng tải lại danh sách trước khi thao tác.");
+    }
+    throw error;
+  }
 }
 
 export async function runOverdueScansForAllScopes(now = new Date()) {

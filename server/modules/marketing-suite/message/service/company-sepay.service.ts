@@ -215,7 +215,8 @@ async function syncVerifiedPayment(orderId: string) {
 export const companySepayService = {
   notifyCustomerPayment,
   async getConfig(companyCode: string, baseUrl: string) {
-    return publicConfig(await ensureCompany(companyCode), baseUrl);
+    const record = await companyWithSecret({ code: String(companyCode || "").trim().toUpperCase() });
+    return publicConfig(record, baseUrl);
   },
 
   async updateConfig(companyCode: string, input: SepayConfigInput, baseUrl: string) {
@@ -339,7 +340,7 @@ export const companySepayService = {
       } else {
         const code = sepayPaymentCode(payload, config.paymentCodePrefix || "DH");
         transaction.code = code;
-        const order = code ? await MessengerOrderModel.findOne({ companyCode: company.code, paymentCode: code }) : null;
+        const order = code ? await MessengerOrderModel.findOne({ companyCode: company.code, paymentCode: code, isSimulation: { $ne: true } }) : null;
         if (!order) {
           transaction.status = "order_not_found";
           transaction.reason = "Không tìm thấy đơn hàng theo mã thanh toán.";

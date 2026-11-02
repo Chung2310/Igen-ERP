@@ -35,6 +35,13 @@ export const aiSubscriptionAdminService = {
   },
   assign: (code: string, planId: string, reason: string, expectedSubscriptionId: string | null, planUpdatedAt: string) => mutation(`/tenants/${encodeURIComponent(code)}/ai-subscription`, "POST", { planId, reason, expectedSubscriptionId, planUpdatedAt }),
   cancel: (code: string, reason: string, subscriptionId: string) => mutation(`/tenants/${encodeURIComponent(code)}/ai-subscription`, "DELETE", { reason, subscriptionId }),
+  async userCurrent(userId: string): Promise<AiSubscriptionSummary | null> {
+    return (await superAdminRequest(root + `/users/${encodeURIComponent(userId)}/ai-subscription`)).subscription;
+  },
+  assignUser: (userId: string, planId: string, reason: string, expectedSubscriptionId: string | null, planUpdatedAt: string) =>
+    mutation(`/users/${encodeURIComponent(userId)}/ai-subscription`, "POST", { planId, reason, expectedSubscriptionId, planUpdatedAt }),
+  cancelUser: (userId: string, reason: string, subscriptionId: string) =>
+    mutation(`/users/${encodeURIComponent(userId)}/ai-subscription`, "DELETE", { reason, subscriptionId }),
 };
 
 export async function getCurrentAiSubscription(signal?: AbortSignal): Promise<AiSubscriptionSummary | null> {

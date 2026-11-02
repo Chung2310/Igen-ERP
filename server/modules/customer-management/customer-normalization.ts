@@ -4,7 +4,7 @@ import type { CustomerGender, CustomerInput, CustomerSource, CustomerStatus, Cus
 const CUSTOMER_TYPES = new Set<CustomerType>(["regular", "vat"]);
 const CUSTOMER_GENDERS = new Set<CustomerGender>(["male", "female", "other"]);
 const CUSTOMER_STATUSES = new Set<CustomerStatus>(["active", "inactive"]);
-const CUSTOMER_SOURCES = new Set<CustomerSource>(["manual", "pos", "import"]);
+const CUSTOMER_SOURCES = new Set<CustomerSource>(["manual", "pos", "import", "page"]);
 
 const optional = (value: unknown): string | undefined => {
   const text = String(value ?? "").trim();

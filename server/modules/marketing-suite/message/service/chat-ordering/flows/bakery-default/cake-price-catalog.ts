@@ -23,7 +23,50 @@ export function parseCakePriceCatalog(text: string): CakeVariant[] {
     const key = [values.groupId, values.name, values.size, values.height, values.packQuantity].join("|");
     target.push({ ...values, id: id || `BV_${createHash("sha256").update(key).digest("hex").slice(0, 14)}` });
   };
+  const addNarrativeSizes = (line: string, groupId: string, name: string, shape: string) => {
+    const pattern = /size\s+(\d+(?:x\d+)?)\s*cm(?:\s+cao\s+(\d+)\s*cm)?\s+giá\s+(\d+(?:[.,]\d+)?)\s*(k|tr)/gi;
+    for (const match of line.matchAll(pattern)) {
+      const price = Math.round(Number(match[3].replace(",", ".")) * (match[4].toLowerCase() === "tr" ? 1_000_000 : 1000));
+      add({ groupId, name, shape, size: match[1], height: Number(match[2]) || null,
+        price, packQuantity: 1, unit: "bánh", needsApproval: false, source: line }, legacy);
+    }
+  };
+  const addNarrativeSets = (line: string) => {
+    const pattern = /(set\s+|su singapore\s+)(\d+)\s+(cốc|cái)(.*?)\s+giá\s+(\d+(?:[.,]\d+)?)\s*k/gi;
+    for (const match of line.matchAll(pattern)) {
+      const isSu = normalizeCakeText(match[1]).includes("su singapore");
+      const suffix = match[4].trim();
+      const name = isSu ? "Su Singapore" : `Set ${suffix || "bánh"}`;
+      add({ groupId: "VIBARY-SET", name, shape: /tim/i.test(suffix) ? "Trái tim" : /tròn/i.test(suffix) ? "Tròn" : "",
+        size: "", height: null, packQuantity: Number(match[2]), unit: `set ${match[3]}`,
+        price: Math.round(Number(match[5].replace(",", ".")) * 1000), needsApproval: false, source: line }, legacy);
+    }
+  };
   for (const line of text.split(/\r?\n/)) {
+    const round = line.match(/bánh tròn thường\s*&\s*bông lan trứng muối\s*:\s*(.*)/i);
+    if (round) {
+      addNarrativeSizes(round[1], "VIBARY-ROUND", "Bánh tròn thường", "Tròn");
+      addNarrativeSizes(round[1], "VIBARY-SALTED-EGG", "Bông lan trứng muối", "Tròn");
+    }
+    const shaped = line.match(/bánh trái tim\s*&\s*bánh vuông\s*:\s*(.*)/i);
+    if (shaped) {
+      const squareAt = shaped[1].search(/bánh vuông/i);
+      if (squareAt >= 0) {
+        addNarrativeSizes(shaped[1].slice(0, squareAt), "VIBARY-HEART", "Bánh kem tươi", "Trái tim");
+        addNarrativeSizes(shaped[1].slice(squareAt + "bánh vuông".length), "VIBARY-SQUARE", "Bánh kem tươi", "Vuông");
+      }
+    }
+    const rectangle = line.match(/bánh chữ nhật\s*:\s*(.*)/i);
+    if (rectangle) addNarrativeSizes(rectangle[1], "VIBARY-RECTANGLE", "Bánh kem tươi", "Chữ nhật");
+    const mousseAndTiramisu = line.match(/bánh mousse\s*&\s*tiramisu\s*:\s*(.*)/i);
+    if (mousseAndTiramisu) {
+      const tiramisuAt = mousseAndTiramisu[1].search(/tiramisu/i);
+      const mousseText = tiramisuAt >= 0 ? mousseAndTiramisu[1].slice(0, tiramisuAt) : mousseAndTiramisu[1];
+      const flavors = mousseText.match(/mousse\s+(.+?)\s+size/i)?.[1].split(/,\s*/).map(flavor => flavor.trim()).filter(Boolean);
+      for (const flavor of flavors || []) addNarrativeSizes(mousseText, "VIBARY-MOUSSE", `Mousse ${flavor}`, "Tròn");
+      if (tiramisuAt >= 0) addNarrativeSizes(mousseAndTiramisu[1].slice(tiramisuAt), "VIBARY-TIRAMISU", "Tiramisu", "Tròn");
+    }
+    if (/set bánh đặc biệt|su singapore|set\s+\d+\s+cốc/i.test(line)) addNarrativeSets(line);
     if (!/^\s*Dòng\s+\d+\s*:/.test(line)) continue;
     const fields = Object.fromEntries(line.replace(/^\s*Dòng\s+\d+\s*:\s*/, "").split(/\s*\|\s*/).map(field => {
       const split = field.indexOf(":");

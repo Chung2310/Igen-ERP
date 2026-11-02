@@ -260,7 +260,7 @@ const feedbackSchema = {
   }),
   body: Joi.object({
     feedback: Joi.string().valid("good", "bad", "needs_fix").required(),
-    note: Joi.string().optional().allow(""),
+    note: Joi.string().max(2000).optional().allow(""),
   }),
 };
 
@@ -278,8 +278,8 @@ geminiRouter.get("/knowledge-health", requireAuth as any, geminiController.getKn
 geminiRouter.post("/clear-knowledge", requireAuth as any, requireKnowledgeManager as any, geminiController.clearKnowledge as any);
 geminiRouter.delete("/customer-service-scenario", requireAuth as any, requireKnowledgeManager as any, geminiController.clearCustomerServiceScenario as any);
 geminiRouter.post("/test-reply", requireAuth as any, validateRequest(testReplySchema), geminiController.testReply as any);
-geminiRouter.get("/ai-reply-logs", requireAuth as any, geminiController.listAIReplyLogs as any);
-geminiRouter.patch("/ai-reply-logs/:id/feedback", requireAuth as any, validateRequest(feedbackSchema), geminiController.updateAIReplyFeedback as any);
+geminiRouter.get("/ai-reply-logs", requireAuth as any, requirePermission("omni-inbox:read") as any, geminiController.listAIReplyLogs as any);
+geminiRouter.patch("/ai-reply-logs/:id/feedback", requireAuth as any, requirePermission("omni-inbox:manage") as any, validateRequest(feedbackSchema), geminiController.updateAIReplyFeedback as any);
 geminiRouter.post("/sync-drive", requireAuth as any, requireKnowledgeManager as any, validateRequest(syncDriveSchema), geminiController.syncGoogleDrive as any);
 geminiRouter.post("/upload-document", requireAuth as any, requireKnowledgeManager as any, validateRequest(uploadDocumentSchema), geminiController.uploadLocalDocument as any);
 geminiRouter.post("/extract-scenario", requireAuth as any, requirePermission("omni-inbox:manage") as any, validateRequest(extractScenarioSchema), (req, _res, next) => {
@@ -294,6 +294,6 @@ geminiRouter.post("/edit-image", requireAuth as any, validateRequest(editImageSc
 geminiRouter.post("/optimize-script", requireAuth as any, validateRequest(optimizeScriptSchema), geminiController.optimizeScript);
 geminiRouter.post("/optimize-prompt", requireAuth as any, validateRequest(optimizePromptSchema), geminiController.optimizeImagePrompt);
 
-geminiRouter.get("/media-history", requireAuth as any, validateRequest(getHistorySchema), geminiController.getMediaHistory);
-geminiRouter.delete("/media-history/:id", requireAuth as any, validateRequest(deleteHistorySchema), geminiController.deleteMediaHistory);
+geminiRouter.get("/media-history", requireAuth as any, requirePermission("marketing:read") as any, validateRequest(getHistorySchema), geminiController.getMediaHistory);
+geminiRouter.delete("/media-history/:id", requireAuth as any, requirePermission("marketing:manage") as any, validateRequest(deleteHistorySchema), geminiController.deleteMediaHistory);
 

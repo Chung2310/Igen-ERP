@@ -1,0 +1,21 @@
+[
+  { "method": "POST", "path": "/auth/register-user", "operationId": "employee.create" },
+  { "method": "GET", "path": "/auth/users", "operationId": "employee.list" },
+  { "method": "GET", "path": "/auth/branches", "operationId": "branch.list" },
+  { "method": "PATCH", "path": "/auth/users/:id", "operationId": "employee.update" },
+  { "method": "PATCH", "path": "/kanban/tasks/:id", "operationId": "task.update" },
+  { "method": "GET", "path": "/repair/tickets/:id/refunds", "operationId": "repair.refund.summary", "file": "server/modules/repair/repair-refund.router.ts", "line": 11 },
+  { "method": "POST", "path": "/repair/tickets/:id/refunds", "operationId": "repair.refund.create", "file": "server/modules/repair/repair-refund.router.ts", "line": 18 },
+  { "method": "GET", "path": "/repair/tickets/:id/refunds/vouchers", "operationId": "repair.refund.vouchers" },
+  { "method": "POST", "path": "/customers", "operationId": "customer.create" },
+  { "method": "GET", "path": "/customers/:id/transactions", "operationId": "customer.transactions" },
+  { "method": "GET", "path": "/customers/:id/transactions/:kind/:sourceId", "operationId": "customer.transaction.detail" },
+  { "method": "GET", "path": "/omni-inbox/accounts", "operationId": "omni-inbox.account.list", "file": "server/modules/marketing-suite/shared/data.router.ts", "line": 38 },
+  { "method": "GET", "path": "/marketing-campaigns/accounts", "operationId": "marketing.account.list", "file": "server/modules/marketing-suite/shared/data.router.ts", "line": 38 },
+  { "method": "GET", "path": "/company-knowledge/accounts", "operationId": "company-knowledge.account.list", "file": "server/modules/marketing-suite/shared/data.router.ts", "line": 38 },
+  { "method": "GET", "path": "/marketing-contents", "operationId": "marketing.content.list", "file": "server/modules/marketing-suite/shared/data.router.ts", "line": 87 },
+  { "method": "GET", "path": "/omni-inbox/leads", "operationId": "omni-inbox.leads.list", "file": "server/modules/marketing-suite/shared/data.router.ts", "line": 86 },
+  { "method": "POST", "path": "/omni-inbox/leads", "operationId": "omni-inbox.leads.create", "file": "server/modules/marketing-suite/shared/data.router.ts", "line": 106 },
+  { "method": "PATCH", "path": "/omni-inbox/leads/:id", "operationId": "omni-inbox.leads.update", "file": "server/modules/marketing-suite/shared/data.router.ts", "line": 115 },
+  { "method": "GET", "path": "/crud/stock-logs", "operationId": "inventory.stock-log.list", "file": "server/router/crud.router.ts", "line": 173 }
+]

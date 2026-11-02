@@ -1040,7 +1040,7 @@ export const aiAutoReplyService = {
             const companyCode = targetCompanyCode;
             const aiTrace = aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
             const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
-              const orderFlow = channel === "facebook" ? chatOrderFlowRegistry.resolve(companyCode) : undefined;
+              const orderFlow = channel === "facebook" ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId) : undefined;
               const customerSession = orderFlow && await orderFlow.isEnabled(resolvedPlatformId)
                 ? await orderFlow.prepareSession({ companyCode, pageId: resolvedPlatformId, conversationId }, latestDbMessage.messageId) : undefined;
               if (customerSession) {
@@ -1131,6 +1131,11 @@ export const aiAutoReplyService = {
                 aiResponse = await geminiService.reviewReply(groupedCustomerMessage, history,
                   { ...aiConfig, advancedInstructions: conversationalInstructions }, checkoutReply.text,
                   { ...effectiveRagContext, visualInput: undefined, visualContext });
+              }
+              if (orderFlow?.key === "page-intake" && checkoutReply) {
+                const required = checkoutReply.text.trim();
+                const body = aiResponse.text.trim();
+                aiResponse = { ...aiResponse, text: body.includes(required) ? body : [body, required].filter(Boolean).join("\n\n") };
               }
               if (channel === "facebook") requireFacebookReplyText(aiResponse?.text);
               if (checkoutReply?.wordingSource && orderFlow?.preservesReplyFacts
