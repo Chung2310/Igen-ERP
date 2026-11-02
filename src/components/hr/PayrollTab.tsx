@@ -686,7 +686,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                   <th className="border-l border-slate-200 p-3 text-right font-normal text-slate-500">Hoa hồng</th>
                   <SortHeader label="Tổng khấu trừ" sortKey="deductionTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Thực nhận" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap" title="Doanh thu thuần POS trong tháng chia cho tổng chỉ tiêu bán hàng được giao">KPI bán hàng</th>
+                  <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap">KPI bán hàng</th>
                 </tr>
               </thead>
               <tbody>
@@ -744,7 +744,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <th className="p-3 text-center font-normal text-slate-500">Trạng thái công</th>
-                  <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap" title="Doanh thu thuần POS trong tháng chia cho tổng chỉ tiêu bán hàng được giao">KPI bán hàng</th>
+                  <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap">KPI bán hàng</th>
                 </tr>
               </thead>
               <tbody>

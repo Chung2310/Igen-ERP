@@ -37,6 +37,7 @@ describe("payroll sales KPI report", () => {
     expect(mocks.taskFind).toHaveBeenCalledWith(expect.objectContaining({
       companyCode: "ACME",
       branchId: "branch-1",
+      category: "Bán hàng",
       dueDate: { $gte: "2026-08-01", $lt: "2026-09-01" },
       salesKpiTarget: { $gt: 0 },
     }));

@@ -23,6 +23,7 @@ export async function getPayrollSalesKpiReport(scope: PayrollSalesKpiScope, peri
   const [tasks, sales] = await Promise.all([
     KanbanTaskModel.find({
       ...scopedFilter,
+      category: "Bán hàng",
       dueDate: { $gte: start, $lt: nextMonth },
       salesKpiTarget: { $gt: 0 },
     }).select("assigneeUid salesKpiTarget").lean(),
