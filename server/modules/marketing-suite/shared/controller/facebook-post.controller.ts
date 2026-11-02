@@ -606,7 +606,10 @@ export const facebookPostController = {
         const result = await SocialIntegrationModel.updateMany({
           platform: "Facebook", facebookUserId: String(facebookUserId), fbAppId: { $in: appIds },
           $or: accounts.map(integration => ({ _id: integration._id, companyCode: integration.companyCode })),
-        }, { $set: { isConnected: false, accessToken: "", refreshToken: "" } });
+        }, {
+          $set: { isConnected: false, accessToken: "", refreshToken: "" },
+          $unset: { facebookUserId: 1 },
+        });
         disconnectedCount = result.modifiedCount;
       }
       const requiresReview = matchingAccounts.some(integration => Boolean(integration.username)
@@ -616,13 +619,12 @@ export const facebookPostController = {
 
       // Ghi nhận yêu cầu vào bảng UserDataDeletionModel
       await UserDataDeletionModel.create({
-        facebookUserId,
         confirmationCode,
         status: requiresReview ? "pending" : "completed",
         completedAt: requiresReview ? undefined : new Date(),
         details: requiresReview
           ? `Đã xử lý ${disconnectedCount} kết nối có mã người cấp quyền khớp yêu cầu. Các kết nối cũ thiếu thông tin cấp quyền cần đối chiếu; không tự động ngắt kết nối theo App Secret.`
-          : `Đã tự động ngắt ${disconnectedCount} kết nối Facebook cho FB User ID ${facebookUserId}.`
+          : `Đã tự động ngắt ${disconnectedCount} kết nối Facebook cho tài khoản đã khớp.`
       });
 
       // Trả về kết quả JSON đúng cấu trúc chuẩn của Meta
@@ -672,7 +674,6 @@ export const facebookPostController = {
         status: "success",
         data: {
           code: deletionRecord.confirmationCode,
-          facebookUserId: deletionRecord.facebookUserId,
           status: deletionRecord.status,
           requestedAt: deletionRecord.requestedAt,
           completedAt: deletionRecord.completedAt,

@@ -81,7 +81,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       usernamePlaceholder: "igen_business",
       tokenLabel: "TikTok Access Token *",
       tokenPlaceholder: "Nhap TikTok Access Token",
-      tokenHelp: "Access Token TikTok Production API dùng để xác thực và đăng video trực tiếp.",
+      tokenHelp: "OAuth TikTok dùng để đọc thông tin hồ sơ cơ bản.",
       activeClass: "border-black bg-black text-white shadow-sm",
     },
     Facebook: {
@@ -404,7 +404,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       const stateStr = encodeURIComponent(stateData.state);
 
       const redirectUri = `${window.location.origin}/api/v1/facebook/oauth-callback`;
-      const oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${stateData.appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_show_list,pages_read_engagement,pages_read_user_content,pages_manage_posts,pages_manage_engagement,pages_messaging,pages_manage_metadata,read_insights&state=${stateStr}`;
+      const oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${stateData.appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=pages_show_list,pages_read_engagement,pages_read_user_content,pages_manage_engagement,pages_messaging,pages_manage_metadata&state=${stateStr}`;
 
       const width = 600;
       const height = 800;
@@ -719,12 +719,12 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
       <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-gray-100 pb-4">
           <div className="text-left">
-            <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+            <h3 className="text-balance text-base font-bold text-gray-800 flex items-center gap-2">
               <Building2 className="h-5 w-5 text-indigo-650" />
               Mạng xã hội Doanh nghiệp
             </h3>
-            <p className="text-xs text-gray-500 mt-1">
-              Quản lý các tài khoản mạng xã hội dùng chung của công ty. Các bài viết tự động đăng tải sẽ lấy cấu hình tại đây.
+            <p className="text-xs text-pretty text-gray-500 mt-1">
+              Kết nối tài khoản mạng xã hội của công ty để quản lý hội thoại và bật trả lời tự động.
             </p>
             <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
               Đây là khu vực dùng chung theo doanh nghiệp. Nếu sửa hoặc xóa tại đây, mọi tài khoản cùng company sẽ bị ảnh hưởng.
@@ -935,11 +935,11 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                               </div>
                               <div>
                                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-200">TikTok OAuth</h4>
-                                <span className="text-[9px] bg-emerald-500/15 text-emerald-300 px-1.5 py-0.5 rounded-md font-medium border border-emerald-400/25">Production API · Đã duyệt</span>
+                                <span className="text-[9px] bg-emerald-500/15 text-emerald-300 px-1.5 py-0.5 rounded-md font-medium border border-emerald-400/25">TikTok Login Kit · Hồ sơ cơ bản</span>
                               </div>
                             </div>
-                            <p className="text-[10px] leading-relaxed text-slate-400 mt-2">
-                              Kết nối tài khoản TikTok thật qua Production API để tự động liên kết kênh và đồng bộ trạng thái đăng bài.
+                            <p className="text-[10px] text-pretty leading-relaxed text-slate-400 mt-2">
+                              Liên kết TikTok Login Kit để lấy thông tin hồ sơ tài khoản. Quyền này chưa cấp quyền truy cập tin nhắn.
                             </p>
                           </div>
 
@@ -1372,8 +1372,8 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
               <div className="py-12 flex flex-col items-center justify-center gap-2 bg-gray-50/30 border border-gray-150 rounded-2xl text-center px-4">
                 <Globe className="h-8 w-8 text-gray-300 mb-1" />
                 <p className="text-xs font-bold text-gray-600">Chưa có liên kết doanh nghiệp nào</p>
-                <p className="text-[10px] text-gray-400 max-w-xs">
-                  Đóng danh sách và dùng biểu mẫu thêm tài khoản để liên kết tài khoản đầu tiên phục vụ đăng bài viết marketing.
+                <p className="text-[10px] text-pretty text-gray-400 max-w-xs">
+                  Liên kết tài khoản đầu tiên để quản lý hội thoại và thiết lập trả lời tự động.
                 </p>
               </div>
             ) : (
@@ -1398,8 +1398,8 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                           <h5 className="text-sm font-bold text-gray-800 break-words" title={item.displayName}>
                             {item.displayName}
                           </h5>
-                          <p className="text-xs text-gray-500 break-all mt-0.5" title={item.platform === "TikTok" ? `@${item.username || "n/a"}` : item.username || "n/a"}>
-                            {item.platform === "TikTok" ? `@${item.username || "n/a"}` : item.username || "n/a"}
+                          <p className="text-xs text-pretty text-gray-500 break-all mt-0.5" title={item.username || "n/a"}>
+                            {item.username || "n/a"}
                           </p>
                         </div>
                       </div>
@@ -1414,7 +1414,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       {item.platform === "TikTok" && (
                         <div className="flex justify-between items-center gap-2">
                           <span className="text-gray-400 shrink-0">Chế độ:</span>
-                          <span className="font-semibold truncate">TikTok Production API</span>
+                          <span className="font-semibold truncate">TikTok Login Kit</span>
                         </div>
                       )}
                       <div className="flex justify-between items-center gap-2">
@@ -1558,7 +1558,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                               {item.displayName}
                             </h5>
                             <p className="text-xs text-gray-500 break-all">
-                              {item.platform === "TikTok" ? `@${item.username || "n/a"}` : item.username || "n/a"}
+                              {item.username || "n/a"}
                             </p>
                           </div>
                         </div>

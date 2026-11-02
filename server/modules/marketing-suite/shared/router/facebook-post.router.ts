@@ -52,14 +52,6 @@ const n8nCallbackSchema = {
 };
 
 // Route đăng bài viết lên Facebook Page qua n8n (Yêu cầu đăng nhập và có quyền marketing:post)
-facebookPostRouter.post(
-  "/publish",
-  requireAuth as any,
-  requirePermission("marketing:post") as any,
-  validateRequest(publishSchema),
-  facebookPostController.publish as any
-);
-
 // Route xác thực token liên kết Page Facebook qua n8n (Yêu cầu đăng nhập và có quyền marketing:post)
 facebookPostRouter.post(
   "/validate-token",
@@ -109,9 +101,10 @@ facebookPostRouter.get(
   facebookPostController.getDataDeletionStatus as any
 );
 
-// Route Webhook tiếp nhận callback từ n8n sau khi đăng bài thành công lên Facebook Page (không áp dụng requireAuth để n8n gọi từ ngoài)
 facebookPostRouter.post(
   "/n8n-callback",
   validateRequest(n8nCallbackSchema),
   facebookPostController.receiveN8nCallback as any
 );
+
+// Route Webhook tiếp nhận callback từ n8n sau khi đăng bài thành công lên Facebook Page (không áp dụng requireAuth để n8n gọi từ ngoài)

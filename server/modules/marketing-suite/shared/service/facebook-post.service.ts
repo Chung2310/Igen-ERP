@@ -77,6 +77,10 @@ export const facebookPostService = {
     forceRetry?: boolean,
     mediaUrls?: string[]
   ) {
+    throw Object.assign(
+      new Error("Đăng bài Facebook đã tắt. iGen ERP hiện chỉ hỗ trợ tin nhắn và bình luận."),
+      { statusCode: 410 },
+    );
     const webhookUrl = idempotencyKey
       ? (process.env.N8N_CAMPAIGN_FB_WEBHOOK_URL || process.env.N8N_FB_WEBHOOK_URL)
       : process.env.N8N_FB_WEBHOOK_URL;
