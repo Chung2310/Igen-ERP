@@ -8,6 +8,7 @@ import PayrollTab from "./PayrollTab";
 
 const getRun = vi.hoisted(() => vi.fn());
 const getResults = vi.hoisted(() => vi.fn());
+const getMonthlySalesKpi = vi.hoisted(() => vi.fn());
 const getAdjustments = vi.hoisted(() => vi.fn());
 const getPolicies = vi.hoisted(() => vi.fn());
 const getLineOverrides = vi.hoisted(() => vi.fn());
@@ -21,6 +22,7 @@ vi.mock("../../services/payrollService", () => ({
   payrollService: {
     getRun,
     getResults,
+    getMonthlySalesKpi,
     getAdjustments,
     getPolicies,
     getLineOverrides,
@@ -107,6 +109,7 @@ type PayrollRunFixture = Omit<ReturnType<typeof draftRun>, "effectiveLines"> & {
 function arrange(run: PayrollRunFixture | null = draftRun()) {
   getRun.mockResolvedValue(run);
   getResults.mockResolvedValue([]);
+  getMonthlySalesKpi.mockResolvedValue({ rows: [] });
   getAdjustments.mockResolvedValue([]);
   getPolicies.mockResolvedValue([]);
   getLineOverrides.mockResolvedValue([
@@ -146,6 +149,15 @@ describe("PayrollTab editable payroll results", () => {
     render(<PayrollTab canManage />);
 
     expect(screen.queryByText("formula-library-entry-point")).toBeNull();
+  });
+
+  it("shows assigned sales KPI as a percentage without changing payroll amounts", async () => {
+    arrange();
+    getMonthlySalesKpi.mockResolvedValue({ rows: [{ employeeId: "e1", percent: 125 }] });
+    render(<PayrollTab canManage />);
+
+    expect(await screen.findByText("125%")).toBeTruthy();
+    expect(screen.getByLabelText("net-e1").textContent).toContain("10.600.000");
   });
 
   it("keeps the custom catalog but replaces fixed period inputs with editable result and active custom cells", async () => {

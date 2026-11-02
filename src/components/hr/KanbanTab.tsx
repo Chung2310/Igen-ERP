@@ -692,6 +692,7 @@ export default function KanbanTab({
   const [editStatus, setEditStatus] = useState<"Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived">("Not Started");
   const [editPriority, setEditPriority] = useState<"High" | "Medium" | "Low">("Medium");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editSalesKpiTarget, setEditSalesKpiTarget] = useState<number | "">("");
 
   // New Notion Task fields
   const [editProjectId, setEditProjectId] = useState("");
@@ -880,6 +881,7 @@ export default function KanbanTab({
       setEditPriority(initialPriority as any);
 
       setEditDueDate(selectedKanbanTask.dueDate || "");
+      setEditSalesKpiTarget(selectedKanbanTask.salesKpiTarget || "");
 
       setEditProjectId(selectedKanbanTask.projectId || "");
       setEditStartTime(selectedKanbanTask.startTime || "");
@@ -972,6 +974,11 @@ export default function KanbanTab({
       toast.error("Nhân sự được giao việc không hợp lệ!");
       return;
     }
+    const salesKpiTargetNum = editSalesKpiTarget === "" ? 0 : Number(editSalesKpiTarget);
+    if (!Number.isSafeInteger(salesKpiTargetNum) || salesKpiTargetNum < 0) {
+      toast.warning("Chỉ tiêu bán hàng phải là số tiền nguyên không âm.");
+      return;
+    }
 
     // Đánh dấu Hoàn thành → bắt buộc điền đầy đủ thông tin
     if (editStatus === "Done") {
@@ -1026,6 +1033,7 @@ export default function KanbanTab({
           assignee: assignedEmp.name,
           assigneeAvatar: assignedEmp.avatar || "👨‍💻",
           dueDate: editDueDate.trim() || "Chưa cập nhật",
+          salesKpiTarget: salesKpiTargetNum,
           priority: editPriority,
           status: editStatus,
           companyCode: compCode,
@@ -1089,6 +1097,9 @@ export default function KanbanTab({
         if ((selectedKanbanTask.dueDate || "") !== editDueDate.trim()) {
           changes.push(`Sửa hạn chót: "${selectedKanbanTask.dueDate || 'Chưa thiết lập'}" → "${editDueDate.trim() || 'Chưa thiết lập'}"`);
         }
+        if (Number(selectedKanbanTask.salesKpiTarget || 0) !== salesKpiTargetNum) {
+          changes.push(`Sửa chỉ tiêu doanh số: ${Number(selectedKanbanTask.salesKpiTarget || 0).toLocaleString("vi-VN")}đ → ${salesKpiTargetNum.toLocaleString("vi-VN")}đ`);
+        }
         if ((selectedKanbanTask.startTime || "") !== editStartTime) {
           changes.push(`Sửa TG bắt đầu: "${selectedKanbanTask.startTime || 'Chưa thiết lập'}" → "${editStartTime || 'Chưa thiết lập'}"`);
         }
@@ -1127,6 +1138,7 @@ export default function KanbanTab({
           assignee: assignedEmp.name,
           assigneeAvatar: assignedEmp.avatar || "👨‍💻",
           dueDate: editDueDate.trim() || "Chưa cập nhật",
+          salesKpiTarget: salesKpiTargetNum,
           priority: editPriority,
           status: editStatus,
           projectId: editProjectId,
@@ -2011,6 +2023,28 @@ export default function KanbanTab({
                     onChange={setEditDueDate}
                     className={missingCls("dueDate", "min-w-0 flex-1")}
                   />
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <label htmlFor="edit-sales-kpi-target" className="w-24 shrink-0 text-on-surface-variant">Chỉ tiêu bán hàng (₫)</label>
+                  <div className="min-w-0 flex-1">
+                    <input
+                      id="edit-sales-kpi-target"
+                      type="number"
+                      min={0}
+                      max={Number.MAX_SAFE_INTEGER}
+                      step={1}
+                      inputMode="numeric"
+                      value={editSalesKpiTarget}
+                      onChange={(event) => setEditSalesKpiTarget(event.target.value === "" ? "" : Number(event.target.value))}
+                      readOnly={!isManager}
+                      aria-describedby="sales-kpi-target-help"
+                      className="w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary/20 read-only:bg-surface-container-low"
+                    />
+                    <p id="sales-kpi-target-help" className="mt-1 text-[10px] text-on-surface-variant">
+                      {isManager ? "Để trống nếu không giao KPI bán hàng. Tháng tính theo hạn chót; doanh thu POS đã trừ hoàn trả." : "Chỉ quản lý có thể đặt chỉ tiêu. Tháng KPI tính theo hạn chót công việc."}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-4">

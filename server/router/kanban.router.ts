@@ -169,6 +169,7 @@ function changesFor(oldTask: any, update: any) {
     description: "Mô tả",
     assigneeUid: "Người thực hiện",
     dueDate: "Hạn chót",
+    salesKpiTarget: "Chỉ tiêu doanh số",
     priority: "Độ ưu tiên",
     status: "Trạng thái",
     projectId: "Dự án",
@@ -188,6 +189,13 @@ function changesFor(oldTask: any, update: any) {
         ? `${labels[key]}: ${(oldTask[key] || []).length} → ${(update[key] || []).length} file`
         : `${labels[key]}: "${String(oldTask[key] ?? "Chưa thiết lập")}" → "${String(update[key] ?? "Chưa thiết lập")}"`
     );
+}
+
+function normalizeSalesKpiTarget(value: unknown): number {
+  if (value === undefined || value === null || value === "") return 0;
+  const target = Number(value);
+  if (!Number.isSafeInteger(target) || target < 0) throw httpError(400, "Chỉ tiêu bán hàng phải là số tiền nguyên không âm.");
+  return target;
 }
 
 async function handleError(res: Response, error: any) {
@@ -267,6 +275,7 @@ kanbanRouter.post("/tasks", requirePermission("work:manage") as any, async (req:
       assignee: assignee?.displayName || "Thành viên",
       assigneeAvatar: assignee?.photoURL || "",
       dueDate: req.body.dueDate,
+      salesKpiTarget: normalizeSalesKpiTarget(req.body.salesKpiTarget),
       priority: req.body.priority || "Medium",
       status: status as any,
       category: req.body.category || "Onboarding",
@@ -357,13 +366,14 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     const assigned = task.assigneeUid === req.user?.id;
     if (!manager && !assigned) throw httpError(403, "Bạn không có quyền cập nhật công việc này.");
 
-    const managerFields = ["title", "description", "assigneeUid", "dueDate", "priority", "status", "projectId", "startTime", "actualStartTime", "endTime", "estTime", "actualTime", "tags", "linkNote", "attachments", "category"];
+    const managerFields = ["title", "description", "assigneeUid", "dueDate", "salesKpiTarget", "priority", "status", "projectId", "startTime", "actualStartTime", "endTime", "estTime", "actualTime", "tags", "linkNote", "attachments", "category"];
     // Nhân viên được đính kèm file kết quả (ghi âm, hình ảnh, tài liệu…) vào task của mình
     const staffFields = ["status", "startTime", "actualStartTime", "endTime", "actualTime", "linkNote", "attachments", "description", "dueDate", "estTime"];
     const allowed = manager ? managerFields : staffFields;
     const update: any = {};
     for (const key of allowed) if (req.body[key] !== undefined) update[key] = req.body[key];
     if (update.attachments !== undefined) update.attachments = sanitizeAttachments(update.attachments) || [];
+    if (update.salesKpiTarget !== undefined) update.salesKpiTarget = normalizeSalesKpiTarget(update.salesKpiTarget);
 
     if (update.status !== undefined) {
       update.status = normalizeStatus(update.status);

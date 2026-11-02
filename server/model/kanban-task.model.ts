@@ -29,6 +29,7 @@ const KanbanTaskSchema = new Schema<IKanbanTask>({
   assignee: { type: String, required: true },
   assigneeAvatar: { type: String, default: "" },
   dueDate: { type: String, required: true },
+  salesKpiTarget: { type: Number, min: 0, default: 0 },
   priority: { type: String, enum: ["High", "Medium", "Low", "Cao", "Trung bình", "Thấp"], default: "Medium" },
   status: { type: String, required: true, index: true },
   category: { type: String },
