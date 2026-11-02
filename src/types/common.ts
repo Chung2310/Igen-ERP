@@ -19,6 +19,7 @@ export type TabType =
   | "SỬA CHỮA & BẢO HÀNH"
   | "QUẢN LÝ TÀI NGUYÊN"
   | "TRÒ CHUYỆN"
+  | "TRỢ LÝ AI"
   | "TÀI NGUYÊN"
   | "QUẢN LÝ HỌC VIÊN"
   | "PHÂN TÍCH & BÁO CÁO"

@@ -313,7 +313,7 @@
       "handlers": "async (req, res, next) => {\r\n  try {\r\n    const state = typeof req.query.state === \"string\" ? req.query.state : \"\";\r\n    const payload = jwt.verify(state, getMarketingApprovalSecret(), { audience: \"erp-facebook-oauth\" }) as jwt.JwtPayload;\r\n    if (payload.purpose !== \"facebook-oauth\" || typeof payload.sessionId !== \"string\" || req.cookies?.[COOKIE] !== payload.sessionId) return res.status(400).send(\"Invalid Facebook OAuth state.\");\r\n    const session = await OAuthSession.findOneAndDelete({ _id: payload.sessionId, tokenHash: createHash(\"sha256\").update(state).digest(\"hex\"), expiresAt: { $gt: new Date() } }).lean();\r\n    res.clearCookie(COOKIE, { path: \"/api/v1/facebook/oauth-callback\" });\r\n    if (!session) return res.status(400).send(\"Facebook OAuth session expired or already used.\");\r\n    const user = await UserModel.findById(session.userId).lean();\r\n    if (!user || user.disabledAt || user.companyCode !== session.companyCode) return res.status(403).send(\"Account access revoked.\");\r\n    const permissions = await getEffectivePermissions(session.userId, user.role, user.companyCode);\r\n    if (!permissions.has(\"*\") && !permissions.has(\"social-integration:manage\")) return res.status(403).send(\"Integration permission revoked.\");\r\n    if (!await companyModuleEnabled(session.companyCode, \"social-marketing\") && !await companyModuleEnabled(session.companyCode, \"omni-inbox\")) return res.status(403).send(\"Module access revoked.\");\r\n    req.query.state = encodeURIComponent(JSON.stringify({ integrationId: session.integrationId || \"\", companyCode: session.companyCode, createdBy: session.userId }));\r\n    return facebookPostController.oauthCallback(req, res);\r\n  } catch (error) {\r\n    if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) return res.status(400).send(\"Invalid or expired Facebook OAuth state.\");\r\n    return next(error);\r\n  }\r\n}",
       "ambiguous": true,
       "alsoMountedAt": [
-        "server/modules/marketing-suite/shared/router/facebook-post.router.ts:88"
+        "server/modules/marketing-suite/shared/router/facebook-post.router.ts:80"
       ]
     },
     {
@@ -1540,53 +1540,6 @@
     },
     {
       "method": "POST",
-      "path": "/facebook/publish",
-      "permissions": [
-        [
-          "marketing:post"
-        ]
-      ],
-      "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 55,
-      "contracts": {
-        "body": {
-          "type": "object",
-          "keys": {
-            "content": {
-              "type": "string",
-              "required": true
-            },
-            "imageUrl": {
-              "type": "string",
-              "required": false
-            },
-            "videoUrl": {
-              "type": "string",
-              "required": false
-            },
-            "pageId": {
-              "type": "string",
-              "required": true
-            },
-            "accessToken": {
-              "type": "string",
-              "required": true
-            },
-            "cardId": {
-              "type": "string",
-              "required": false
-            },
-            "title": {
-              "type": "string",
-              "required": false
-            }
-          }
-        }
-      },
-      "handlers": "requireAuth as any, requirePermission(\"marketing:post\") as any, validateRequest(publishSchema), facebookPostController.publish as any"
-    },
-    {
-      "method": "POST",
       "path": "/facebook/validate-token",
       "permissions": [
         [
@@ -1594,7 +1547,7 @@
         ]
       ],
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 64,
+      "line": 56,
       "contracts": {
         "body": {
           "type": "object",
@@ -1617,7 +1570,7 @@
       "path": "/facebook/login-credentials",
       "permissions": [],
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 73,
+      "line": 65,
       "contracts": {},
       "handlers": "requireAuth as any, facebookPostController.loginWithCredentials as any"
     },
@@ -1626,7 +1579,7 @@
       "path": "/facebook/init-oauth",
       "permissions": [],
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 81,
+      "line": 73,
       "contracts": {},
       "handlers": "requireAuth as any, facebookPostController.initOAuth as any"
     },
@@ -1635,7 +1588,7 @@
       "path": "/facebook/config",
       "permissions": [],
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 94,
+      "line": 86,
       "contracts": {},
       "handlers": "requireAuth as any, facebookPostController.getConfig as any"
     },
@@ -1644,7 +1597,7 @@
       "path": "/facebook/data-deletion-callback",
       "permissions": [],
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 101,
+      "line": 93,
       "contracts": {},
       "handlers": "facebookPostController.dataDeletionCallback as any"
     },
@@ -1653,7 +1606,7 @@
       "path": "/facebook/data-deletion-status/:code",
       "permissions": [],
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 107,
+      "line": 99,
       "contracts": {},
       "handlers": "facebookPostController.getDataDeletionStatus as any"
     },
@@ -1662,7 +1615,7 @@
       "path": "/facebook/n8n-callback",
       "permissions": [],
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 113,
+      "line": 104,
       "contracts": {
         "body": {
           "type": "object",
@@ -2007,97 +1960,9 @@
         ]
       ],
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 53,
+      "line": 31,
       "contracts": {},
       "handlers": "requireAuth as any, requirePermission(\"social-integration:manage\") as any, tiktokController.startOAuth as any"
-    },
-    {
-      "method": "POST",
-      "path": "/tiktok/publish",
-      "permissions": [
-        [
-          "marketing:post"
-        ]
-      ],
-      "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 60,
-      "contracts": {
-        "body": {
-          "type": "object",
-          "keys": {
-            "cardId": {
-              "type": "string",
-              "required": true
-            },
-            "caption": {
-              "type": "string",
-              "required": false
-            },
-            "videoUrl": {
-              "type": "string",
-              "required": true
-            },
-            "privacyLevel": {
-              "type": "string",
-              "options": [
-                "PUBLIC_TO_EVERYONE",
-                "MUTUAL_FOLLOW_FRIENDS",
-                "FOLLOWER_OF_CREATOR",
-                "SELF_ONLY"
-              ],
-              "required": true
-            },
-            "allowComment": {
-              "type": "boolean",
-              "required": true
-            },
-            "allowDuet": {
-              "type": "boolean",
-              "required": true
-            },
-            "allowStitch": {
-              "type": "boolean",
-              "required": true
-            },
-            "brandContentToggle": {
-              "type": "boolean",
-              "required": true
-            },
-            "brandContent": {
-              "type": "boolean",
-              "required": true
-            },
-            "brandOrganic": {
-              "type": "boolean",
-              "required": true
-            },
-            "isAigc": {
-              "type": "boolean",
-              "required": true
-            },
-            "videoDurationSeconds": {
-              "type": "number",
-              "required": true
-            },
-            "consentAccepted": {
-              "type": "boolean",
-              "options": [
-                true
-              ],
-              "required": true
-            },
-            "scheduledTime": {
-              "type": "string",
-              "required": false
-            },
-            "integrationId": {
-              "type": "string",
-              "required": false
-            }
-          }
-        }
-      },
-      "handlers": "requireAuth as any, requirePermission(\"marketing:post\") as any, validateRequest(publishSchema), tiktokController.publish as any"
     },
     {
       "method": "POST",
@@ -2108,7 +1973,7 @@
         ]
       ],
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 68,
+      "line": 38,
       "contracts": {
         "body": {
           "type": "object",
@@ -2135,7 +2000,7 @@
         ]
       ],
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 76,
+      "line": 46,
       "contracts": {
         "body": {
           "type": "object",
@@ -2185,97 +2050,9 @@
         ]
       ],
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 53,
+      "line": 31,
       "contracts": {},
       "handlers": "requireAuth as any, requirePermission(\"social-integration:manage\") as any, tiktokController.startOAuth as any"
-    },
-    {
-      "method": "POST",
-      "path": "/tiktok-business/publish",
-      "permissions": [
-        [
-          "marketing:post"
-        ]
-      ],
-      "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 60,
-      "contracts": {
-        "body": {
-          "type": "object",
-          "keys": {
-            "cardId": {
-              "type": "string",
-              "required": true
-            },
-            "caption": {
-              "type": "string",
-              "required": false
-            },
-            "videoUrl": {
-              "type": "string",
-              "required": true
-            },
-            "privacyLevel": {
-              "type": "string",
-              "options": [
-                "PUBLIC_TO_EVERYONE",
-                "MUTUAL_FOLLOW_FRIENDS",
-                "FOLLOWER_OF_CREATOR",
-                "SELF_ONLY"
-              ],
-              "required": true
-            },
-            "allowComment": {
-              "type": "boolean",
-              "required": true
-            },
-            "allowDuet": {
-              "type": "boolean",
-              "required": true
-            },
-            "allowStitch": {
-              "type": "boolean",
-              "required": true
-            },
-            "brandContentToggle": {
-              "type": "boolean",
-              "required": true
-            },
-            "brandContent": {
-              "type": "boolean",
-              "required": true
-            },
-            "brandOrganic": {
-              "type": "boolean",
-              "required": true
-            },
-            "isAigc": {
-              "type": "boolean",
-              "required": true
-            },
-            "videoDurationSeconds": {
-              "type": "number",
-              "required": true
-            },
-            "consentAccepted": {
-              "type": "boolean",
-              "options": [
-                true
-              ],
-              "required": true
-            },
-            "scheduledTime": {
-              "type": "string",
-              "required": false
-            },
-            "integrationId": {
-              "type": "string",
-              "required": false
-            }
-          }
-        }
-      },
-      "handlers": "requireAuth as any, requirePermission(\"marketing:post\") as any, validateRequest(publishSchema), tiktokController.publish as any"
     },
     {
       "method": "POST",
@@ -2286,7 +2063,7 @@
         ]
       ],
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 68,
+      "line": 38,
       "contracts": {
         "body": {
           "type": "object",
@@ -2313,7 +2090,7 @@
         ]
       ],
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 76,
+      "line": 46,
       "contracts": {
         "body": {
           "type": "object",
@@ -7787,7 +7564,8 @@
       "permissions": [
         [
           "access:read",
-          "hr:read"
+          "hr:read",
+          "timekeeping:read"
         ]
       ],
       "file": "server/router/auth.router.ts",
@@ -7807,7 +7585,7 @@
           }
         }
       },
-      "handlers": "requireAuth as any, requirePermission([\"access:read\", \"hr:read\"]) as any, validateRequest(getUsersSchema), authController.getUsers as any",
+      "handlers": "requireAuth as any, requirePermission([\"access:read\", \"hr:read\", \"timekeeping:read\"]) as any, validateRequest(getUsersSchema), authController.getUsers as any",
       "ambiguous": true,
       "alsoMountedAt": [
         "server/modules/student-management/routes/auth.routes.ts:21"
@@ -9498,11 +9276,43 @@
       "path": "/timekeeping/today",
       "permissions": [],
       "file": "server/router/timekeeping.router.ts",
-      "line": 115,
+      "line": 125,
       "contracts": {
         "emptyBodyVerified": true
       },
       "handlers": "requireAuth as any, timekeepingController.getTodayStatus as any"
+    },
+    {
+      "method": "GET",
+      "path": "/timekeeping/records",
+      "permissions": [
+        [
+          "timekeeping:read"
+        ]
+      ],
+      "file": "server/router/timekeeping.router.ts",
+      "line": 126,
+      "contracts": {
+        "query": {
+          "type": "object",
+          "keys": {
+            "date": {
+              "type": "string",
+              "required": false
+            },
+            "companyCode": {
+              "type": "string",
+              "required": false
+            },
+            "branchId": {
+              "type": "string",
+              "required": false
+            }
+          },
+          "open": true
+        }
+      },
+      "handlers": "requireAuth as any, requirePermission(\"timekeeping:read\") as any, validateRequest(attendanceRecordsQuerySchema), timekeepingController.listAttendanceRecords as any"
     },
     {
       "method": "GET",
@@ -9513,7 +9323,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 116,
+      "line": 127,
       "contracts": {},
       "handlers": "requireAuth as any, requirePermission(\"timekeeping:manage\") as any, attendanceAttemptController.list as any"
     },
@@ -9522,7 +9332,7 @@
       "path": "/timekeeping/check-in",
       "permissions": [],
       "file": "server/router/timekeeping.router.ts",
-      "line": 119,
+      "line": 130,
       "contracts": {
         "body": {
           "type": "object",
@@ -9551,7 +9361,7 @@
       "path": "/timekeeping/check-out",
       "permissions": [],
       "file": "server/router/timekeeping.router.ts",
-      "line": 130,
+      "line": 141,
       "contracts": {
         "body": {
           "type": "object",
@@ -9580,7 +9390,7 @@
       "path": "/timekeeping/company-location",
       "permissions": [],
       "file": "server/router/timekeeping.router.ts",
-      "line": 141,
+      "line": 152,
       "contracts": {
         "emptyBodyVerified": true
       },
@@ -9595,7 +9405,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 148,
+      "line": 159,
       "contracts": {
         "body": {
           "type": "object",
@@ -9658,7 +9468,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 156,
+      "line": 167,
       "contracts": {},
       "handlers": "requireAuth as any, requirePermission(\"timekeeping:manage\") as any, workShiftController.list as any"
     },
@@ -9671,7 +9481,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 157,
+      "line": 168,
       "contracts": {
         "body": {
           "type": "object",
@@ -9777,7 +9587,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 158,
+      "line": 169,
       "contracts": {
         "params": {
           "type": "object",
@@ -9892,7 +9702,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 159,
+      "line": 170,
       "contracts": {},
       "handlers": "requireAuth as any, requirePermission(\"timekeeping:manage\") as any, workShiftController.remove as any"
     },
@@ -9905,7 +9715,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 160,
+      "line": 171,
       "contracts": {},
       "handlers": "requireAuth as any, requirePermission(\"timekeeping:manage\") as any, workShiftController.listAssignments as any"
     },
@@ -9918,7 +9728,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 161,
+      "line": 172,
       "contracts": {
         "body": {
           "type": "object",
@@ -9963,7 +9773,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 164,
+      "line": 175,
       "contracts": {
         "emptyBodyVerified": true
       },
@@ -9978,7 +9788,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 172,
+      "line": 183,
       "contracts": {
         "params": {
           "type": "object",
@@ -10045,7 +9855,7 @@
       "path": "/timekeeping/work-calendar",
       "permissions": [],
       "file": "server/router/timekeeping.router.ts",
-      "line": 197,
+      "line": 208,
       "contracts": {},
       "handlers": "requireAuth as any, companyWorkCalendarController.list as any"
     },
@@ -10058,7 +9868,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 198,
+      "line": 209,
       "contracts": {
         "body": {
           "type": "object",
@@ -10084,7 +9894,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 199,
+      "line": 210,
       "contracts": {
         "body": {
           "type": "object",
@@ -10125,7 +9935,7 @@
         ]
       ],
       "file": "server/router/timekeeping.router.ts",
-      "line": 200,
+      "line": 211,
       "contracts": {
         "params": {
           "type": "object",
@@ -10175,11 +9985,26 @@
       "path": "/timekeeping/work-calendar/:id/audit",
       "permissions": [],
       "file": "server/router/timekeeping.router.ts",
-      "line": 201,
+      "line": 212,
       "contracts": {
         "emptyBodyVerified": true
       },
       "handlers": "requireAuth as any, companyWorkCalendarController.audit as any"
+    },
+    {
+      "method": "GET",
+      "path": "/payroll/periods/:periodKey/kpi",
+      "permissions": [
+        [
+          "payroll-period:manage"
+        ]
+      ],
+      "file": "server/router/payroll.router.ts",
+      "line": 12,
+      "contracts": {
+        "emptyBodyVerified": true
+      },
+      "handlers": "requirePermission(\"payroll-period:manage\") as any, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {\r\n    try {\r\n      const companyCode = req.user?.companyCode;\r\n      const branchId = req.user?.branchId;\r\n      if (!companyCode || !branchId) {\r\n        return res.status(400).json({ status: \"error\", message: \"Cần xác định doanh nghiệp và chi nhánh để xem KPI.\" });\r\n      }\r\n      const report = await getMonthlyKpiReport(\r\n        { companyCode, branchId },\r\n        String(req.params.periodKey || \"\"),\r\n      );\r\n      return res.json({\r\n        status: \"success\",\r\n        data: {\r\n          periodKey: report.periodKey,\r\n          rows: report.rows.map(({ employeeId, percent }) => ({ employeeId, percent })),\r\n        },\r\n      });\r\n    } catch (error) {\r\n      return next(error);\r\n    }\r\n  }"
     },
     {
       "method": "GET",
@@ -10190,7 +10015,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 11,
+      "line": 38,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollReconciliationController.getSchedule as any"
     },
@@ -10203,7 +10028,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 12,
+      "line": 39,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollReconciliationController.saveSchedule as any"
     },
@@ -10216,7 +10041,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 13,
+      "line": 40,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollReconciliationController.list as any"
     },
@@ -10229,7 +10054,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 14,
+      "line": 41,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollReconciliationController.publish as any"
     },
@@ -10242,7 +10067,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 15,
+      "line": 42,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollReconciliationController.staffAction as any"
     },
@@ -10251,7 +10076,7 @@
       "path": "/payroll/employee/me/reconciliation",
       "permissions": [],
       "file": "server/router/payroll.router.ts",
-      "line": 16,
+      "line": 43,
       "contracts": {},
       "handlers": "payrollReconciliationController.mine as any"
     },
@@ -10260,7 +10085,7 @@
       "path": "/payroll/employee/me/reconciliation/:id/actions",
       "permissions": [],
       "file": "server/router/payroll.router.ts",
-      "line": 17,
+      "line": 44,
       "contracts": {},
       "handlers": "payrollReconciliationController.employeeAction as any"
     },
@@ -10273,7 +10098,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 18,
+      "line": 45,
       "contracts": {
         "emptyBodyVerified": true
       },
@@ -10288,7 +10113,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 19,
+      "line": 46,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollPeriodInputController.createVariable as any"
     },
@@ -10301,7 +10126,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 20,
+      "line": 47,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollPeriodInputController.updateVariable as any"
     },
@@ -10314,7 +10139,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 21,
+      "line": 48,
       "contracts": {
         "emptyBodyVerified": true
       },
@@ -10329,7 +10154,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 22,
+      "line": 49,
       "contracts": {
         "emptyBodyVerified": true
       },
@@ -10344,7 +10169,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 23,
+      "line": 50,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollPeriodInputController.list as any"
     },
@@ -10357,7 +10182,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 24,
+      "line": 51,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollPeriodInputController.save as any"
     },
@@ -10370,7 +10195,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 25,
+      "line": 52,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollPeriodInputController.bulk as any"
     },
@@ -10383,7 +10208,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 26,
+      "line": 53,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollLineOverrideController.list as any"
     },
@@ -10396,7 +10221,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 27,
+      "line": 54,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollLineOverrideController.bulk as any"
     },
@@ -10409,7 +10234,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 28,
+      "line": 55,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:read\") as any, payrollFormulaController.list as any"
     },
@@ -10422,7 +10247,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 29,
+      "line": 56,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollFormulaController.create as any"
     },
@@ -10435,7 +10260,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 30,
+      "line": 57,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollFormulaController.update as any"
     },
@@ -10448,7 +10273,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 31,
+      "line": 58,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollFormulaController.activate as any"
     },
@@ -10461,7 +10286,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 32,
+      "line": 59,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollFormulaController.retire as any"
     },
@@ -10474,7 +10299,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 33,
+      "line": 60,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollFormulaController.clone as any"
     },
@@ -10488,7 +10313,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 34,
+      "line": 61,
       "contracts": {},
       "handlers": "requirePermission([\"payroll-period:read\", \"payroll-period:manage\"]) as any, payrollController.listOperationalRuns as any"
     },
@@ -10501,7 +10326,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 35,
+      "line": 62,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.createOperationalRun as any"
     },
@@ -10514,7 +10339,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 36,
+      "line": 63,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.syncAttendance as any"
     },
@@ -10527,7 +10352,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 37,
+      "line": 64,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.lockAttendance as any"
     },
@@ -10540,7 +10365,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 38,
+      "line": 65,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:read\") as any, payrollController.listPolicies as any"
     },
@@ -10553,7 +10378,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 39,
+      "line": 66,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollController.createPolicy as any"
     },
@@ -10566,7 +10391,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 40,
+      "line": 67,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollController.activatePolicy as any"
     },
@@ -10579,7 +10404,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 41,
+      "line": 68,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollController.retirePolicy as any"
     },
@@ -10592,7 +10417,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 42,
+      "line": 69,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollController.updatePolicy as any"
     },
@@ -10605,7 +10430,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 43,
+      "line": 70,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollController.clonePolicy as any"
     },
@@ -10618,7 +10443,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 44,
+      "line": 71,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-policy:manage\") as any, payrollController.deletePolicy as any"
     },
@@ -10631,7 +10456,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 45,
+      "line": 72,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.reviewOperationalRun as any"
     },
@@ -10644,7 +10469,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 46,
+      "line": 73,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.closeOperationalRun as any"
     },
@@ -10657,7 +10482,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 47,
+      "line": 74,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.reopenOperationalRun as any"
     },
@@ -10670,7 +10495,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 48,
+      "line": 75,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-payment:manage\") as any, payrollController.markOperationalRunPaid as any"
     },
@@ -10683,7 +10508,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 49,
+      "line": 76,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollController.listRunAudit as any"
     },
@@ -10696,7 +10521,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 50,
+      "line": 77,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.calculateRun as any"
     },
@@ -10709,7 +10534,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 51,
+      "line": 78,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.calculateRun as any"
     },
@@ -10722,7 +10547,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 52,
+      "line": 79,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollController.listRunIssues as any"
     },
@@ -10731,7 +10556,7 @@
       "path": "/payroll/runs/:id/lines/:employeeId",
       "permissions": [],
       "file": "server/router/payroll.router.ts",
-      "line": 53,
+      "line": 80,
       "contracts": {},
       "handlers": "payrollController.getLineDetail as any"
     },
@@ -10744,7 +10569,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 54,
+      "line": 81,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-payment:manage\") as any, payrollController.publishPayslips as any"
     },
@@ -10753,7 +10578,7 @@
       "path": "/payroll/runs/:id/payslips/:employeeId/print",
       "permissions": [],
       "file": "server/router/payroll.router.ts",
-      "line": 55,
+      "line": 82,
       "contracts": {},
       "handlers": "payrollController.printPayslip as any"
     },
@@ -10766,7 +10591,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 59,
+      "line": 86,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-payment:manage\") as any, payrollController.withdrawPayslip as any"
     },
@@ -10775,7 +10600,7 @@
       "path": "/payroll/employee/me/payslips",
       "permissions": [],
       "file": "server/router/payroll.router.ts",
-      "line": 60,
+      "line": 87,
       "contracts": {},
       "handlers": "payrollController.listEmployeePayslips as any"
     },
@@ -10784,7 +10609,7 @@
       "path": "/payroll/employee/me/payslip-review-requests",
       "permissions": [],
       "file": "server/router/payroll.router.ts",
-      "line": 61,
+      "line": 88,
       "contracts": {},
       "handlers": "payrollPayslipReviewController.mine as any"
     },
@@ -10793,7 +10618,7 @@
       "path": "/payroll/employee/me/payslips/:id/review-requests",
       "permissions": [],
       "file": "server/router/payroll.router.ts",
-      "line": 62,
+      "line": 89,
       "contracts": {},
       "handlers": "payrollPayslipReviewController.create as any"
     },
@@ -10806,7 +10631,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 63,
+      "line": 90,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollPayslipReviewController.listRun as any"
     },
@@ -10819,7 +10644,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 64,
+      "line": 91,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollPayslipReviewController.resolve as any"
     },
@@ -10832,7 +10657,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 65,
+      "line": 92,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-payment:read\") as any, payrollController.exportPayroll as any"
     },
@@ -10845,7 +10670,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 66,
+      "line": 93,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-payment:read\") as any, payrollController.listPayments as any"
     },
@@ -10858,7 +10683,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 67,
+      "line": 94,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-payment:manage\") as any, payrollController.createPayment as any"
     },
@@ -10871,7 +10696,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 68,
+      "line": 95,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-payment:manage\") as any, payrollController.confirmPayment as any"
     },
@@ -10884,7 +10709,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 69,
+      "line": 96,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-payment:manage\") as any, payrollController.cancelPayment as any"
     },
@@ -10897,7 +10722,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 70,
+      "line": 97,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-payment:manage\") as any, payrollController.reversePayment as any"
     },
@@ -10910,7 +10735,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 71,
+      "line": 98,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollController.listAudit as any"
     },
@@ -10923,7 +10748,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 72,
+      "line": 99,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollController.listResults as any"
     },
@@ -10936,7 +10761,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 73,
+      "line": 100,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.createSnapshot as any"
     },
@@ -10949,7 +10774,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 74,
+      "line": 101,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.lockResults as any"
     },
@@ -10962,7 +10787,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 75,
+      "line": 102,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.createRun as any"
     },
@@ -10975,7 +10800,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 76,
+      "line": 103,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.processPeriod as any"
     },
@@ -10988,7 +10813,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 77,
+      "line": 104,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollController.getRun as any"
     },
@@ -11001,7 +10826,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 78,
+      "line": 105,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.resetPeriod as any"
     },
@@ -11014,7 +10839,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 79,
+      "line": 106,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.approveAdjustment as any"
     },
@@ -11027,7 +10852,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 80,
+      "line": 107,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.rejectAdjustment as any"
     },
@@ -11040,7 +10865,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 81,
+      "line": 108,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.approveRun as any"
     },
@@ -11053,7 +10878,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 82,
+      "line": 109,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.closeRun as any"
     },
@@ -11066,7 +10891,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 83,
+      "line": 110,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:read\") as any, payrollController.listAdjustments as any"
     },
@@ -11079,7 +10904,7 @@
         ]
       ],
       "file": "server/router/payroll.router.ts",
-      "line": 84,
+      "line": 111,
       "contracts": {},
       "handlers": "requirePermission(\"payroll-period:manage\") as any, payrollController.createAdjustment as any"
     },
@@ -11101,7 +10926,7 @@
         ]
       ],
       "file": "server/router/hr-contract.router.ts",
-      "line": 96,
+      "line": 101,
       "contracts": {
         "body": {
           "type": "object",
@@ -11147,7 +10972,7 @@
         ]
       ],
       "file": "server/router/hr-contract.router.ts",
-      "line": 115,
+      "line": 120,
       "contracts": {
         "query": {
           "type": "object",
@@ -11166,6 +10991,12 @@
             },
             "search": {
               "type": "string",
+              "required": false
+            },
+            "alertDays": {
+              "type": "number",
+              "min": 1,
+              "max": 365,
               "required": false
             },
             "page": {
@@ -11195,7 +11026,7 @@
         ]
       ],
       "file": "server/router/hr-contract.router.ts",
-      "line": 121,
+      "line": 126,
       "contracts": {
         "body": {
           "type": "object",
@@ -11303,9 +11134,51 @@
         ]
       ],
       "file": "server/router/hr-contract.router.ts",
-      "line": 127,
+      "line": 132,
       "contracts": {},
       "handlers": "requirePermission(\"hr:manage\") as any, validateRequest({ params: Joi.object({ id }), body: updateBody }), hrContractController.update as any"
+    },
+    {
+      "method": "GET",
+      "path": "/hr-contracts/settings",
+      "permissions": [
+        [
+          "hr:read"
+        ]
+      ],
+      "file": "server/router/hr-contract.router.ts",
+      "line": 138,
+      "contracts": {},
+      "handlers": "requirePermission(\"hr:read\") as any, hrContractController.getSettings as any"
+    },
+    {
+      "method": "PUT",
+      "path": "/hr-contracts/settings",
+      "permissions": [
+        [
+          "hr:manage"
+        ]
+      ],
+      "file": "server/router/hr-contract.router.ts",
+      "line": 143,
+      "contracts": {
+        "body": {
+          "type": "object",
+          "keys": {
+            "expiryAlertDays": {
+              "type": "number",
+              "min": 1,
+              "max": 365,
+              "required": true
+            },
+            "notifyManagers": {
+              "type": "boolean",
+              "required": false
+            }
+          }
+        }
+      },
+      "handlers": "requirePermission(\"hr:manage\") as any, validateRequest({\r\n    body: Joi.object({\r\n      expiryAlertDays: Joi.number().integer().min(1).max(365).required().messages({\r\n        \"number.base\": \"Số ngày báo trước phải là số.\",\r\n        \"number.min\": \"Số ngày báo trước tối thiểu là 1 ngày.\",\r\n        \"number.max\": \"Số ngày báo trước tối đa là 365 ngày.\",\r\n        \"any.required\": \"Vui lòng nhập số ngày báo trước.\",\r\n      }),\r\n      notifyManagers: Joi.boolean().optional(),\r\n    }),\r\n  }), hrContractController.updateSettings as any"
     },
     {
       "method": "GET",
@@ -11316,7 +11189,7 @@
         ]
       ],
       "file": "server/router/hr-contract.router.ts",
-      "line": 133,
+      "line": 159,
       "contracts": {},
       "handlers": "requirePermission(\"hr:read\") as any, hrContractController.listExtensions as any"
     },
@@ -11329,7 +11202,7 @@
         ]
       ],
       "file": "server/router/hr-contract.router.ts",
-      "line": 138,
+      "line": 164,
       "contracts": {},
       "handlers": "requirePermission(\"hr:manage\") as any, validateRequest({ params: Joi.object({ id }), body: extensionBody }), hrContractController.extend as any"
     },
@@ -12977,7 +12850,7 @@
         ]
       ],
       "file": "server/router/kanban.router.ts",
-      "line": 201,
+      "line": 218,
       "contracts": {},
       "handlers": "requirePermission(\"work:read\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const companyCode = req.user?.companyCode || \"SYSTEM\";\r\n    const branchId = req.user?.branchId || (req.query.branchId ? String(req.query.branchId) : undefined);\r\n    const periodKey = req.query.period ? String(req.query.period) : currentPeriodKey();\r\n    const report = await getMonthlyKpiReport({ companyCode, branchId }, periodKey);\r\n    return res.json({ status: \"success\", data: { ...report, rows: visibleMonthlyKpiRows(report.rows, req.user || {}) } });\r\n  } catch (error) {\r\n    return handleError(res, error);\r\n  }\r\n}"
     },
@@ -12990,7 +12863,7 @@
         ]
       ],
       "file": "server/router/kanban.router.ts",
-      "line": 213,
+      "line": 230,
       "contracts": {},
       "handlers": "requirePermission(\"work:read\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const filter: any = companyFilter(req);\r\n    if (req.user?.branchId) {\r\n      filter.branchId = req.user.branchId;\r\n    } else if (req.query.branchId) {\r\n      filter.branchId = req.query.branchId;\r\n    }\r\n    if (!isManager(req.user?.role)) {\r\n      filter.$or = [{ assigneeUid: req.user?.id }, { creatorUid: req.user?.id }];\r\n    }\r\n    const tasks = await KanbanTaskModel.find(filter).sort(\"-createdAt\").lean();\r\n    const now = Date.now();\r\n    const nextDay = now + 24 * 60 * 60 * 1000;\r\n    void Promise.all(tasks.map(async (task: any) => {\r\n      const due = new Date(task.dueDate).getTime();\r\n      if (!Number.isFinite(due) || [\"Done\", \"Archived\"].includes(normalizeStatus(task.status))) return;\r\n      const overdue = due < now;\r\n      const reminder = due >= now && due <= nextDay;\r\n      if (!overdue && !reminder) return;\r\n      const flag = overdue ? \"overdueNotifiedAt\" : \"deadlineReminderSentAt\";\r\n      if (task[flag]) return;\r\n      const claimed = await KanbanTaskModel.findOneAndUpdate(\r\n        { _id: task._id, [flag]: { $exists: false } },\r\n        { $set: { [flag]: new Date() } },\r\n        { returnDocument: 'after' }\r\n      );\r\n      if (!claimed) return;\r\n      await notificationService.createNotification({\r\n        title: overdue ? \"Công việc đã quá hạn\" : \"Công việc sắp đến hạn\",\r\n        body: `Công việc \"${task.title}\" ${overdue ? \"đã quá hạn\" : \"sẽ đến hạn trong 24 giờ\"}.`,\r\n        type: \"task\", companyCode: task.companyCode, recipientUid: task.assigneeUid, read: false,\r\n        action: { tab: \"NHÂN SỰ\", subTab: \"Giao Việc\" },\r\n      });\r\n    }));    return res.json({ status: \"success\", data: tasks.map(toClient) });\r\n  } catch (error) {\r\n    return handleError(res, error);\r\n  }\r\n}"
     },
@@ -13003,9 +12876,9 @@
         ]
       ],
       "file": "server/router/kanban.router.ts",
-      "line": 253,
+      "line": 270,
       "contracts": {},
-      "handlers": "requirePermission(\"work:manage\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const companyCode = req.user?.companyCode || \"SYSTEM\";\r\n    const status = normalizeStatus(req.body.status);\r\n    if (!VALID_STATUSES.includes(status as any)) throw httpError(400, \"Trạng thái công việc không hợp lệ.\");\r\n    if (!VALID_PRIORITIES.includes(req.body.priority || \"Medium\")) throw httpError(400, \"Độ ưu tiên không hợp lệ.\");\r\n    await validateRelations(companyCode, req.body.assigneeUid, req.body.projectId);\r\n    validateTimeline(req.body);\r\n    const assignee = await UserModel.findById(req.body.assigneeUid).select(\"displayName photoURL\").lean();\r\n    const now = new Date();\r\n    const task = await KanbanTaskModel.create({\r\n      title: String(req.body.title || \"\").trim(),\r\n      description: String(req.body.description || \"\").trim(),\r\n      assigneeUid: req.body.assigneeUid,\r\n      assignee: assignee?.displayName || \"Thành viên\",\r\n      assigneeAvatar: assignee?.photoURL || \"\",\r\n      dueDate: req.body.dueDate,\r\n      priority: req.body.priority || \"Medium\",\r\n      status: status as any,\r\n      category: req.body.category || \"Onboarding\",\r\n      companyCode,\r\n      branchId: req.user?.branchId || req.body.branchId || \"\",\r\n      creatorUid: req.user?.id,\r\n      createdAt: now,\r\n      projectId: req.body.projectId || \"\",\r\n      startTime: req.body.startTime || \"\",\r\n      estTime: Number(req.body.estTime || 0),\r\n      endTime: req.body.endTime || \"\",\r\n      actualTime: Number(req.body.actualTime || 0),\r\n      tags: Array.isArray(req.body.tags) ? req.body.tags : [],\r\n      linkNote: String(req.body.linkNote || \"\"),\r\n      attachments: sanitizeAttachments(req.body.attachments) || [],\r\n      history: [{ time: now.toISOString(), user: await actorName(req), action: \"Tạo công việc mới\" }],\r\n    });\r\n    await finalizeTaskAttachments(req, task);\r\n    await syncProjectLifecycle(companyCode, [task.projectId]);\r\n    await kanbanAuditService.recordTaskMutation({\r\n      action: \"created\",\r\n      actorId: req.user?.id || \"\",\r\n      companyCode,\r\n      correlationId: correlationId(req),\r\n      task: toClient(task),\r\n    });\r\n    await notificationService.notifyTaskAssigned(task as any);\r\n    emitToCompany(companyCode, \"kanban:task-created\", toClient(task));\r\n    return res.status(201).json({ status: \"success\", data: toClient(task) });\r\n  } catch (error) {\r\n    return handleError(res, error);\r\n  }\r\n}"
+      "handlers": "requirePermission(\"work:manage\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const companyCode = req.user?.companyCode || \"SYSTEM\";\r\n    const status = normalizeStatus(req.body.status);\r\n    const requestedCategory = req.body.category || \"Onboarding\";\r\n    const category = isSalesTaskCategory(requestedCategory) ? SALES_TASK_CATEGORY : requestedCategory;\r\n    if (!VALID_STATUSES.includes(status as any)) throw httpError(400, \"Trạng thái công việc không hợp lệ.\");\r\n    if (!VALID_PRIORITIES.includes(req.body.priority || \"Medium\")) throw httpError(400, \"Độ ưu tiên không hợp lệ.\");\r\n    await validateRelations(companyCode, req.body.assigneeUid, req.body.projectId);\r\n    validateTimeline(req.body);\r\n    const assignee = await UserModel.findById(req.body.assigneeUid).select(\"displayName photoURL\").lean();\r\n    const now = new Date();\r\n    const task = await KanbanTaskModel.create({\r\n      title: String(req.body.title || \"\").trim(),\r\n      assigneeUid: req.body.assigneeUid,\r\n      assignee: assignee?.displayName || \"Thành viên\",\r\n      assigneeAvatar: assignee?.photoURL || \"\",\r\n      dueDate: req.body.dueDate,\r\n      salesKpiTarget: isSalesTaskCategory(category) ? normalizeSalesKpiTarget(req.body.salesKpiTarget, true) : 0,\r\n      priority: req.body.priority || \"Medium\",\r\n      status: status as any,\r\n      category,\r\n      companyCode,\r\n      branchId: req.user?.branchId || req.body.branchId || \"\",\r\n      creatorUid: req.user?.id,\r\n      createdAt: now,\r\n      projectId: req.body.projectId || \"\",\r\n      startTime: req.body.startTime || \"\",\r\n      estTime: Number(req.body.estTime || 0),\r\n      endTime: req.body.endTime || \"\",\r\n      actualTime: Number(req.body.actualTime || 0),\r\n      tags: Array.isArray(req.body.tags) ? req.body.tags : [],\r\n      linkNote: String(req.body.linkNote || \"\"),\r\n      attachments: sanitizeAttachments(req.body.attachments) || [],\r\n      history: [{ time: now.toISOString(), user: await actorName(req), action: \"Tạo công việc mới\" }],\r\n    });\r\n    await finalizeTaskAttachments(req, task);\r\n    await syncProjectLifecycle(companyCode, [task.projectId]);\r\n    await kanbanAuditService.recordTaskMutation({\r\n      action: \"created\",\r\n      actorId: req.user?.id || \"\",\r\n      companyCode,\r\n      correlationId: correlationId(req),\r\n      task: toClient(task),\r\n    });\r\n    await notificationService.notifyTaskAssigned(task as any);\r\n    emitToCompany(companyCode, \"kanban:task-created\", toClient(task));\r\n    return res.status(201).json({ status: \"success\", data: toClient(task) });\r\n  } catch (error) {\r\n    return handleError(res, error);\r\n  }\r\n}"
     },
     {
       "method": "PATCH",
@@ -13016,18 +12889,18 @@
         ]
       ],
       "file": "server/router/kanban.router.ts",
-      "line": 304,
+      "line": 323,
       "contracts": {},
-      "handlers": "requirePermission(\"work:read\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const scope: any = { _id: req.params.id, ...companyFilter(req) };\r\n    if (req.user?.branchId) scope.branchId = req.user.branchId;\r\n    const task = await KanbanTaskModel.findOne(scope).lean();\r\n    if (!task) throw httpError(404, \"Không tìm thấy công việc.\");\r\n    const uid = String(req.user!.id);\r\n    const manager = isManager(req.user?.role);\r\n    if (!manager && task.assigneeUid !== uid && task.creatorUid !== uid && !task.helpRequested && !task.helpers?.some(helper => helper.uid === uid)) throw httpError(403, \"Bạn không có quyền truy cập công việc.\");\r\n    if (!Number.isInteger(req.body.revision) || req.body.revision !== (task.revision || 0)) throw httpError(409, \"Công việc đã thay đổi. Hãy tải lại trước khi cập nhật.\");\r\n    if (req.body.action === \"progress\" && req.body.progress === 100 && (!task.description?.trim() || !Number(task.estTime))) {\r\n      throw httpError(400, \"Hoàn thành công việc yêu cầu mô tả và số giờ dự tính.\");\r\n    }\r\n    if (req.body.action === \"progress\" && req.body.progress === 100 && task.startTime && new Date(task.startTime).getTime() > Date.now()) {\r\n      throw httpError(400, \"Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.\");\r\n    }\r\n    let requestedHelperUid = \"\";\r\n    if (req.body.action === \"help\") {\r\n      if (req.body.helpers !== undefined) throw httpError(400, \"Chỉ được chọn một nhân viên hỗ trợ.\");\r\n      if (req.body.helper !== undefined) {\r\n        const helperUid = req.body.helper?.uid;\r\n        if (typeof helperUid !== \"string\" || !mongoose.isValidObjectId(helperUid)) throw httpError(400, \"Nhân viên hỗ trợ không hợp lệ.\");\r\n        const helper = await UserModel.findOne({ _id: helperUid, companyCode: task.companyCode }).select(\"_id branchId\").lean();\r\n        if (!helper || (task.branchId && String(helper.branchId || \"\") !== String(task.branchId))) throw httpError(400, \"Nhân viên hỗ trợ không thuộc phạm vi công việc.\");\r\n        requestedHelperUid = helperUid;\r\n      }\r\n    }\r\n    const result = taskActivityUpdate(task, req.body, { uid, name: await actorName(req), manager });\r\n    const revisionFilter = task.revision ? { revision: task.revision } : { $or: [{ revision: 0 }, { revision: { $exists: false } }] };\r\n    const updated = await KanbanTaskModel.findOneAndUpdate({ ...scope, ...revisionFilter }, { $set: result.update, $push: { history: result.history }, $inc: { revision: 1 } }, { returnDocument: \"after\", runValidators: true });\r\n    if (!updated) throw httpError(409, \"Công việc đã được cập nhật. Hãy tải lại.\");\r\n    await syncProjectLifecycle(task.companyCode, [task.projectId]);\r\n    await kanbanAuditService.recordTaskMutation({ action: \"updated\", actorId: uid, companyCode: task.companyCode, correlationId: correlationId(req), before: task, task: toClient(updated) });\r\n    emitToCompany(task.companyCode, \"kanban:task-updated\", { id: String(task._id) });\r\n    if (req.body.action === \"help\") {\r\n      try {\r\n        const recipients = new Set([task.creatorUid, task.assigneeUid, ...(task.helpers || []).map(helper => helper.uid), requestedHelperUid]);\r\n        recipients.delete(uid);\r\n        recipients.delete(\"\");\r\n        await Promise.all([...recipients].map(recipientUid => notificationService.createNotification({ recipientUid, companyCode: task.companyCode, type: \"task\", read: false, title: \"Công việc cần trợ giúp\", body: `${task.title}: ${result.history.action}`, action: { tab: \"NHÂN SỰ\", subTab: \"Giao Việc\" } })));\r\n      } catch (error) { console.error(\"Task help notification failed\", error); }\r\n    }\r\n    return res.json({ status: \"success\", data: toClient(updated) });\r\n  } catch (error) { return handleError(res, error); }\r\n}"
+      "handlers": "requirePermission(\"work:read\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const scope: any = { _id: req.params.id, ...companyFilter(req) };\r\n    if (req.user?.branchId) scope.branchId = req.user.branchId;\r\n    const task = await KanbanTaskModel.findOne(scope).lean();\r\n    if (!task) throw httpError(404, \"Không tìm thấy công việc.\");\r\n    const uid = String(req.user!.id);\r\n    const manager = isManager(req.user?.role);\r\n    if (!manager && task.assigneeUid !== uid && task.creatorUid !== uid && !task.helpRequested && !task.helpers?.some(helper => helper.uid === uid)) throw httpError(403, \"Bạn không có quyền truy cập công việc.\");\r\n    if (!Number.isInteger(req.body.revision) || req.body.revision !== (task.revision || 0)) throw httpError(409, \"Công việc đã thay đổi. Hãy tải lại trước khi cập nhật.\");\r\n    if (req.body.action === \"progress\" && req.body.progress === 100 && !Number(task.estTime)) {\r\n      throw httpError(400, \"Hoàn thành công việc yêu cầu số giờ dự tính.\");\r\n    }\r\n    if (req.body.action === \"progress\" && req.body.progress === 100 && task.startTime && new Date(task.startTime).getTime() > Date.now()) {\r\n      throw httpError(400, \"Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.\");\r\n    }\r\n    let requestedHelperUid = \"\";\r\n    if (req.body.action === \"help\") {\r\n      if (req.body.helpers !== undefined) throw httpError(400, \"Chỉ được chọn một nhân viên hỗ trợ.\");\r\n      if (req.body.helper !== undefined) {\r\n        const helperUid = req.body.helper?.uid;\r\n        if (typeof helperUid !== \"string\" || !mongoose.isValidObjectId(helperUid)) throw httpError(400, \"Nhân viên hỗ trợ không hợp lệ.\");\r\n        const helper = await UserModel.findOne({ _id: helperUid, companyCode: task.companyCode }).select(\"_id branchId\").lean();\r\n        if (!helper || (task.branchId && String(helper.branchId || \"\") !== String(task.branchId))) throw httpError(400, \"Nhân viên hỗ trợ không thuộc phạm vi công việc.\");\r\n        requestedHelperUid = helperUid;\r\n      }\r\n    }\r\n    const result = taskActivityUpdate(task, req.body, { uid, name: await actorName(req), manager });\r\n    const revisionFilter = task.revision ? { revision: task.revision } : { $or: [{ revision: 0 }, { revision: { $exists: false } }] };\r\n    const updated = await KanbanTaskModel.findOneAndUpdate({ ...scope, ...revisionFilter }, { $set: result.update, $push: { history: result.history }, $inc: { revision: 1 } }, { returnDocument: \"after\", runValidators: true });\r\n    if (!updated) throw httpError(409, \"Công việc đã được cập nhật. Hãy tải lại.\");\r\n    await syncProjectLifecycle(task.companyCode, [task.projectId]);\r\n    await kanbanAuditService.recordTaskMutation({ action: \"updated\", actorId: uid, companyCode: task.companyCode, correlationId: correlationId(req), before: task, task: toClient(updated) });\r\n    emitToCompany(task.companyCode, \"kanban:task-updated\", { id: String(task._id) });\r\n    if (req.body.action === \"help\") {\r\n      try {\r\n        const recipients = new Set([task.creatorUid, task.assigneeUid, ...(task.helpers || []).map(helper => helper.uid), requestedHelperUid]);\r\n        recipients.delete(uid);\r\n        recipients.delete(\"\");\r\n        await Promise.all([...recipients].map(recipientUid => notificationService.createNotification({ recipientUid, companyCode: task.companyCode, type: \"task\", read: false, title: \"Công việc cần trợ giúp\", body: `${task.title}: ${result.history.action}`, action: { tab: \"NHÂN SỰ\", subTab: \"Giao Việc\" } })));\r\n      } catch (error) { console.error(\"Task help notification failed\", error); }\r\n    }\r\n    return res.json({ status: \"success\", data: toClient(updated) });\r\n  } catch (error) { return handleError(res, error); }\r\n}"
     },
     {
       "method": "PATCH",
       "path": "/kanban/tasks/:id",
       "permissions": [],
       "file": "server/router/kanban.router.ts",
-      "line": 350,
+      "line": 369,
       "contracts": {},
-      "handlers": "async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const filter = { _id: req.params.id, ...companyFilter(req) };\r\n    const task: any = await KanbanTaskModel.findOne(filter).lean();\r\n    if (!task) throw httpError(404, \"Không tìm thấy công việc.\");\r\n\r\n    const manager = isManager(req.user?.role);\r\n    const assigned = task.assigneeUid === req.user?.id;\r\n    if (!manager && !assigned) throw httpError(403, \"Bạn không có quyền cập nhật công việc này.\");\r\n\r\n    const managerFields = [\"title\", \"description\", \"assigneeUid\", \"dueDate\", \"priority\", \"status\", \"projectId\", \"startTime\", \"actualStartTime\", \"endTime\", \"estTime\", \"actualTime\", \"tags\", \"linkNote\", \"attachments\", \"category\"];\r\n    // Nhân viên được đính kèm file kết quả (ghi âm, hình ảnh, tài liệu…) vào task của mình\r\n    const staffFields = [\"status\", \"startTime\", \"actualStartTime\", \"endTime\", \"actualTime\", \"linkNote\", \"attachments\", \"description\", \"dueDate\", \"estTime\"];\r\n    const allowed = manager ? managerFields : staffFields;\r\n    const update: any = {};\r\n    for (const key of allowed) if (req.body[key] !== undefined) update[key] = req.body[key];\r\n    if (update.attachments !== undefined) update.attachments = sanitizeAttachments(update.attachments) || [];\r\n\r\n    if (update.status !== undefined) {\r\n      update.status = normalizeStatus(update.status);\r\n      if (!VALID_STATUSES.includes(update.status)) throw httpError(400, \"Trạng thái công việc không hợp lệ.\");\r\n      if (!manager && update.status === \"Archived\") throw httpError(403, \"Nhân viên không được lưu trữ công việc.\");\r\n    }\r\n    if (update.priority !== undefined && !VALID_PRIORITIES.includes(update.priority)) throw httpError(400, \"Độ ưu tiên không hợp lệ.\");\r\n    await validateRelations(task.companyCode, update.assigneeUid, update.projectId);\r\n    validateTimeline(update, task);\r\n\r\n    if (update.assigneeUid && update.assigneeUid !== task.assigneeUid) {\r\n      const assignee = await UserModel.findById(update.assigneeUid).select(\"displayName photoURL\").lean();\r\n      update.assignee = assignee?.displayName || \"Thành viên\";\r\n      update.assigneeAvatar = assignee?.photoURL || \"\";\r\n    }\r\n    if (update.status === \"In Progress\") {\r\n      if (task.isFromWorkflow && !task.actualStartTime && !update.actualStartTime) update.actualStartTime = new Date().toISOString();\r\n      else if (!task.isFromWorkflow && !task.startTime && !update.startTime) update.startTime = new Date().toISOString();\r\n    }\r\n    if (update.status === \"Done\") {\r\n      const merged = { ...task, ...update };\r\n      const plannedStartAt = new Date(merged.startTime).getTime();\r\n      if (Number.isFinite(plannedStartAt) && plannedStartAt > Date.now()) {\r\n        throw httpError(400, \"Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.\");\r\n      }\r\n      if (!merged.description?.trim() || !merged.startTime || !Number(merged.estTime)) {\r\n        throw httpError(400, \"Hoàn thành công việc yêu cầu mô tả, thời gian bắt đầu và số giờ dự tính.\");\r\n      }\r\n      if (!merged.endTime) update.endTime = new Date().toISOString();\r\n      update.completedAt = update.endTime;\r\n    }\r\n    if (update.status === \"Done\") { update.progress = 100; update.helpRequested = false; }\r\n    else if (update.status && update.status !== \"Archived\") {\r\n      update.progress = update.status === \"Not Started\" ? 0 : Math.max(1, Math.min(99, taskProgress(task)));\r\n      update.completedAt = \"\";\r\n      update.endTime = \"\";\r\n    }\r\n\r\n    const changes = changesFor(task, update);\r\n    if (changes.length === 0) return res.json({ status: \"success\", data: toClient(task) });\r\n    const audit = { time: new Date().toISOString(), user: await actorName(req), action: changes.join(\", \") };\r\n    const revisionFilter = task.revision\r\n      ? { revision: task.revision }\r\n      : { $or: [{ revision: { $exists: false } }, { revision: 0 }] };\r\n    const updated: any = await KanbanTaskModel.findOneAndUpdate(\r\n      { ...filter, ...revisionFilter },\r\n      { $set: update, $push: { history: audit }, $inc: { revision: 1 } },\r\n      { returnDocument: 'after', runValidators: true }\r\n    );\r\n    if (!updated) throw httpError(409, \"Công việc vừa được thay đổi. Vui lòng tải lại.\");\r\n\r\n    await finalizeTaskAttachments(req, updated);\r\n    await syncProjectLifecycle(task.companyCode, [task.projectId, updated.projectId]);\r\n    await kanbanAuditService.recordTaskMutation({\r\n      action: \"updated\",\r\n      actorId: req.user?.id || \"\",\r\n      companyCode: task.companyCode,\r\n      correlationId: correlationId(req),\r\n      before: task,\r\n      task: toClient(updated),\r\n    });\r\n\r\n    if (update.assigneeUid && update.assigneeUid !== task.assigneeUid) {\r\n      await notificationService.notifyTaskReassigned(updated, task.assigneeUid);\r\n    }\r\n    if (update.dueDate && update.dueDate !== task.dueDate) await notificationService.notifyTaskDeadlineChanged(updated);\r\n    if (update.status && update.status !== normalizeStatus(task.status)) {\r\n      await notificationService.notifyTaskStatusChanged(updated, req.user?.id || \"\");\r\n    }\r\n    emitToCompany(task.companyCode, \"kanban:task-updated\", toClient(updated));\r\n    emitToUser(updated.assigneeUid, \"kanban:task-updated\", toClient(updated));\r\n    return res.json({ status: \"success\", data: toClient(updated) });\r\n  } catch (error) {\r\n    return handleError(res, error);\r\n  }\r\n}"
+      "handlers": "async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const filter = { _id: req.params.id, ...companyFilter(req) };\r\n    const task: any = await KanbanTaskModel.findOne(filter).lean();\r\n    if (!task) throw httpError(404, \"Không tìm thấy công việc.\");\r\n\r\n    const manager = isManager(req.user?.role);\r\n    const assigned = task.assigneeUid === req.user?.id;\r\n    if (!manager && !assigned) throw httpError(403, \"Bạn không có quyền cập nhật công việc này.\");\r\n\r\n    const managerFields = [\"title\", \"assigneeUid\", \"dueDate\", \"salesKpiTarget\", \"priority\", \"status\", \"projectId\", \"startTime\", \"actualStartTime\", \"endTime\", \"estTime\", \"actualTime\", \"tags\", \"linkNote\", \"attachments\", \"category\"];\r\n    // Nhân viên được đính kèm file kết quả (ghi âm, hình ảnh, tài liệu…) vào task của mình\r\n    const staffFields = [\"status\", \"startTime\", \"actualStartTime\", \"endTime\", \"actualTime\", \"linkNote\", \"attachments\", \"dueDate\", \"estTime\"];\r\n    const allowed = manager ? managerFields : staffFields;\r\n    const update: any = {};\r\n    for (const key of allowed) if (req.body[key] !== undefined) update[key] = req.body[key];\r\n    if (update.category !== undefined && isSalesTaskCategory(update.category)) update.category = SALES_TASK_CATEGORY;\r\n    if (update.attachments !== undefined) update.attachments = sanitizeAttachments(update.attachments) || [];\r\n    if (update.salesKpiTarget !== undefined || update.category !== undefined) {\r\n      const category = update.category ?? task.category;\r\n      update.salesKpiTarget = isSalesTaskCategory(category)\r\n        ? normalizeSalesKpiTarget(update.salesKpiTarget ?? task.salesKpiTarget, true)\r\n        : 0;\r\n    }\r\n\r\n    if (update.status !== undefined) {\r\n      update.status = normalizeStatus(update.status);\r\n      if (!VALID_STATUSES.includes(update.status)) throw httpError(400, \"Trạng thái công việc không hợp lệ.\");\r\n      if (!manager && update.status === \"Archived\") throw httpError(403, \"Nhân viên không được lưu trữ công việc.\");\r\n    }\r\n    if (update.priority !== undefined && !VALID_PRIORITIES.includes(update.priority)) throw httpError(400, \"Độ ưu tiên không hợp lệ.\");\r\n    await validateRelations(task.companyCode, update.assigneeUid, update.projectId);\r\n    validateTimeline(update, task);\r\n\r\n    if (update.assigneeUid && update.assigneeUid !== task.assigneeUid) {\r\n      const assignee = await UserModel.findById(update.assigneeUid).select(\"displayName photoURL\").lean();\r\n      update.assignee = assignee?.displayName || \"Thành viên\";\r\n      update.assigneeAvatar = assignee?.photoURL || \"\";\r\n    }\r\n    if (update.status === \"In Progress\") {\r\n      if (task.isFromWorkflow && !task.actualStartTime && !update.actualStartTime) update.actualStartTime = new Date().toISOString();\r\n      else if (!task.isFromWorkflow && !task.startTime && !update.startTime) update.startTime = new Date().toISOString();\r\n    }\r\n    if (update.status === \"Done\") {\r\n      const merged = { ...task, ...update };\r\n      const plannedStartAt = new Date(merged.startTime).getTime();\r\n      if (Number.isFinite(plannedStartAt) && plannedStartAt > Date.now()) {\r\n        throw httpError(400, \"Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.\");\r\n      }\r\n      if (!merged.startTime || !Number(merged.estTime)) {\r\n        throw httpError(400, \"Hoàn thành công việc yêu cầu thời gian bắt đầu và số giờ dự tính.\");\r\n      }\r\n      if (!merged.endTime) update.endTime = new Date().toISOString();\r\n      update.completedAt = update.endTime;\r\n    }\r\n    if (update.status === \"Done\") { update.progress = 100; update.helpRequested = false; }\r\n    else if (update.status && update.status !== \"Archived\") {\r\n      update.progress = update.status === \"Not Started\" ? 0 : Math.max(1, Math.min(99, taskProgress(task)));\r\n      update.completedAt = \"\";\r\n      update.endTime = \"\";\r\n    }\r\n\r\n    const changes = changesFor(task, update);\r\n    if (changes.length === 0) return res.json({ status: \"success\", data: toClient(task) });\r\n    const audit = { time: new Date().toISOString(), user: await actorName(req), action: changes.join(\", \") };\r\n    const revisionFilter = task.revision\r\n      ? { revision: task.revision }\r\n      : { $or: [{ revision: { $exists: false } }, { revision: 0 }] };\r\n    const updated: any = await KanbanTaskModel.findOneAndUpdate(\r\n      { ...filter, ...revisionFilter },\r\n      { $set: update, $push: { history: audit }, $inc: { revision: 1 } },\r\n      { returnDocument: 'after', runValidators: true }\r\n    );\r\n    if (!updated) throw httpError(409, \"Công việc vừa được thay đổi. Vui lòng tải lại.\");\r\n\r\n    await finalizeTaskAttachments(req, updated);\r\n    await syncProjectLifecycle(task.companyCode, [task.projectId, updated.projectId]);\r\n    await kanbanAuditService.recordTaskMutation({\r\n      action: \"updated\",\r\n      actorId: req.user?.id || \"\",\r\n      companyCode: task.companyCode,\r\n      correlationId: correlationId(req),\r\n      before: task,\r\n      task: toClient(updated),\r\n    });\r\n\r\n    if (update.assigneeUid && update.assigneeUid !== task.assigneeUid) {\r\n      await notificationService.notifyTaskReassigned(updated, task.assigneeUid);\r\n    }\r\n    if (update.dueDate && update.dueDate !== task.dueDate) await notificationService.notifyTaskDeadlineChanged(updated);\r\n    if (update.status && update.status !== normalizeStatus(task.status)) {\r\n      await notificationService.notifyTaskStatusChanged(updated, req.user?.id || \"\");\r\n    }\r\n    emitToCompany(task.companyCode, \"kanban:task-updated\", toClient(updated));\r\n    emitToUser(updated.assigneeUid, \"kanban:task-updated\", toClient(updated));\r\n    return res.json({ status: \"success\", data: toClient(updated) });\r\n  } catch (error) {\r\n    return handleError(res, error);\r\n  }\r\n}"
     },
     {
       "method": "DELETE",
@@ -13038,7 +12911,7 @@
         ]
       ],
       "file": "server/router/kanban.router.ts",
-      "line": 444,
+      "line": 470,
       "contracts": {},
       "handlers": "requirePermission(\"work:manage\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const task: any = await KanbanTaskModel.findOneAndDelete({ _id: req.params.id, ...companyFilter(req) });\r\n    if (!task) throw httpError(404, \"Không tìm thấy công việc.\");\r\n    await syncProjectLifecycle(task.companyCode, [task.projectId]);\r\n    await kanbanAuditService.recordTaskMutation({\r\n      action: \"deleted\",\r\n      actorId: req.user?.id || \"\",\r\n      companyCode: task.companyCode,\r\n      correlationId: correlationId(req),\r\n      task: toClient(task),\r\n    });\r\n    emitToCompany(task.companyCode, \"kanban:task-deleted\", { id: task._id.toString() });\r\n    return res.json({ status: \"success\", data: toClient(task) });\r\n  } catch (error) {\r\n    return handleError(res, error);\r\n  }\r\n}"
     },
@@ -13051,7 +12924,7 @@
         ]
       ],
       "file": "server/router/kanban.router.ts",
-      "line": 463,
+      "line": 489,
       "contracts": {},
       "handlers": "requirePermission(\"work:read\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const filter: any = companyFilter(req);\r\n    if (req.user?.branchId) {\r\n      filter.branchId = req.user.branchId;\r\n    } else if (req.query.branchId) {\r\n      filter.branchId = req.query.branchId;\r\n    }\r\n    const projects: any[] = await ProjectModel.find(filter).sort(\"-createdAt\").lean();\r\n    const ids = projects.map((project) => String(project._id));\r\n    const companyCodes = [...new Set(projects.map((project) => project.companyCode))];\r\n    const grouped = ids.length ? await KanbanTaskModel.aggregate([\r\n      { $match: { projectId: { $in: ids }, companyCode: { $in: companyCodes } } },\r\n      { $group: { _id: \"$projectId\", statuses: { $push: \"$status\" } } },\r\n    ]) : [];\r\n    const progressById = new Map(grouped.map((group: any) => [String(group._id), calculateProjectProgress(group.statuses.map((status: string) => ({ status })))]));\r\n    return res.json({ status: \"success\", data: projects.map((project) => ({ ...project, progress: progressById.get(String(project._id)) || calculateProjectProgress([]) })) });\r\n  } catch (error) {\r\n    return handleError(res, error);\r\n  }\r\n}"
     },
@@ -13064,7 +12937,7 @@
         ]
       ],
       "file": "server/router/kanban.router.ts",
-      "line": 485,
+      "line": 511,
       "contracts": {},
       "handlers": "requirePermission(\"work:manage\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const companyCode = req.user?.companyCode || \"SYSTEM\";\r\n    const name = String(req.body.name || \"\").trim();\r\n    if (!name) throw httpError(400, \"Tên dự án là bắt buộc.\");\r\n    const attachments = sanitizeAttachments(req.body.attachments) || [];\r\n    try { validateProjectPayload({ ...req.body, attachments }); } catch (error: any) { throw httpError(400, error.message); }\r\n    const project = await ProjectModel.create({\r\n      name,\r\n      companyCode,\r\n      branchId: req.user?.branchId || req.body.branchId || \"\",\r\n      creatorUid: req.user?.id,\r\n      status: req.body.status || \"not_started\",\r\n      priority: req.body.priority || \"medium\",\r\n      startAt: req.body.startAt || undefined,\r\n      dueAt: req.body.dueAt || undefined,\r\n      attachments,\r\n      createdAt: new Date()\r\n    });\r\n    await finalizeProjectAttachments(req, project);\r\n    await kanbanAuditService.recordProjectMutation({\r\n      action: \"created\",\r\n      actorId: req.user?.id || \"\",\r\n      companyCode,\r\n      correlationId: correlationId(req),\r\n      project: project.toObject(),\r\n    });\r\n    emitToCompany(companyCode, \"kanban:project-created\", project.toObject());\r\n    return res.status(201).json({ status: \"success\", data: project });\r\n  } catch (error) {\r\n    return handleError(res, error);\r\n  }\r\n}"
     },
@@ -13077,7 +12950,7 @@
         ]
       ],
       "file": "server/router/kanban.router.ts",
-      "line": 519,
+      "line": 545,
       "contracts": {},
       "handlers": "requirePermission(\"work:manage\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const project: any = await ProjectModel.findOne({ _id: req.params.id, ...projectScope(req) }).lean();\r\n    if (!project) throw httpError(404, \"Không tìm thấy dự án.\");\r\n    const update: any = {};\r\n    for (const key of [\"name\", \"status\", \"priority\", \"startAt\", \"dueAt\", \"attachments\"]) if (req.body[key] !== undefined) update[key] = req.body[key];\r\n    if (update.name !== undefined) { update.name = String(update.name).trim(); if (!update.name) throw httpError(400, \"Tên dự án là bắt buộc.\"); }\r\n    if (update.attachments !== undefined) update.attachments = sanitizeAttachments(update.attachments) || [];\r\n    const progress = await projectProgress(project.companyCode, req.params.id);\r\n    try { validateProjectPayload({ ...project, ...update, status: update.status }, progress); } catch (error: any) { throw httpError(400, error.message); }\r\n    for (const key of [\"startAt\", \"dueAt\"]) if (update[key] === \"\" || update[key] === null) update[key] = null;\r\n    if (update.status === \"completed\") update.completedAt = new Date();\r\n    else if (update.status !== undefined) update.completedAt = null;\r\n    const lifecycle = deriveProjectLifecycle(update.status ?? project.status, progress);\r\n    if (lifecycle) Object.assign(update, lifecycle);\r\n    const updated: any = await ProjectModel.findOneAndUpdate({ _id: req.params.id, ...projectScope(req) }, { $set: update }, { returnDocument: 'after', runValidators: true });\r\n    await finalizeProjectAttachments(req, updated, project.attachments || []);\r\n    await kanbanAuditService.recordProjectMutation({ action: \"updated\", actorId: req.user?.id || \"\", companyCode: project.companyCode, correlationId: correlationId(req), before: project, project: updated.toObject() });\r\n    emitToCompany(project.companyCode, \"kanban:project-updated\", updated.toObject());\r\n    return res.json({ status: \"success\", data: { ...updated.toObject(), progress } });\r\n  } catch (error) { return handleError(res, error); }\r\n}"
     },
@@ -13090,7 +12963,7 @@
         ]
       ],
       "file": "server/router/kanban.router.ts",
-      "line": 542,
+      "line": 568,
       "contracts": {},
       "handlers": "requirePermission(\"work:manage\") as any, async (req: AuthenticatedRequest, res: Response) => {\r\n  try {\r\n    const project: any = await ProjectModel.findOneAndDelete({ _id: req.params.id, ...projectScope(req) });\r\n    if (!project) throw httpError(404, \"Không tìm thấy dự án.\");\r\n    await kanbanAuditService.recordProjectMutation({\r\n      action: \"deleted\",\r\n      actorId: req.user?.id || \"\",\r\n      companyCode: project.companyCode,\r\n      correlationId: correlationId(req),\r\n      project: toClient(project),\r\n    });\r\n    await KanbanTaskModel.updateMany({ companyCode: project.companyCode, projectId: req.params.id }, { $set: { projectId: \"\" } });\r\n    emitToCompany(project.companyCode, \"kanban:project-deleted\", { id: req.params.id });\r\n    return res.json({ status: \"success\", data: project });\r\n  } catch (error) {\r\n    return handleError(res, error);\r\n  }\r\n}"
     },
@@ -13776,7 +13649,7 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 20,
+      "line": 23,
       "contracts": {},
       "handlers": "wrap(getSettings)"
     },
@@ -13789,7 +13662,7 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 21,
+      "line": 24,
       "contracts": {
         "body": {
           "type": "object",
@@ -13819,6 +13692,9 @@
               "type": "string",
               "required": true
             },
+            "responseRules": {
+              "type": "string"
+            },
             "alwaysConfirm": {
               "type": "boolean",
               "required": true
@@ -13826,11 +13702,108 @@
             "speakReplies": {
               "type": "boolean",
               "required": true
+            },
+            "memoryEnabled": {
+              "type": "boolean"
+            },
+            "autoMemoryEnabled": {
+              "type": "boolean"
             }
           }
         }
       },
-      "handlers": "validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid(\"window\", \"fullscreen\").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow(\"\").required(), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required() }) }), wrap(req => saveSettings(req, req.body))"
+      "handlers": "validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid(\"window\", \"fullscreen\").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow(\"\").required(), responseRules: Joi.string().max(2000).allow(\"\"), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required(), memoryEnabled: Joi.boolean(), autoMemoryEnabled: Joi.boolean() }) }), wrap(req => saveSettings(req, req.body))"
+    },
+    {
+      "method": "GET",
+      "path": "/chatbot/assistant/memory",
+      "permissions": [
+        [
+          "chat:read"
+        ]
+      ],
+      "file": "server/assistant/router.ts",
+      "line": 25,
+      "contracts": {},
+      "handlers": "wrap(listAssistantMemories)"
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/memory",
+      "permissions": [
+        [
+          "chat:read"
+        ]
+      ],
+      "file": "server/assistant/router.ts",
+      "line": 26,
+      "contracts": {
+        "body": {
+          "type": "object",
+          "keys": {
+            "content": {
+              "type": "string",
+              "required": true
+            }
+          }
+        }
+      },
+      "handlers": "validateRequest({ body: Joi.object({ content: Joi.string().trim().min(1).max(300).required() }) }), wrap(req => saveAssistantMemory(req, req.body.content, \"manual\"))"
+    },
+    {
+      "method": "PATCH",
+      "path": "/chatbot/assistant/memory/:memoryId",
+      "permissions": [
+        [
+          "chat:read"
+        ]
+      ],
+      "file": "server/assistant/router.ts",
+      "line": 27,
+      "contracts": {
+        "params": {
+          "type": "object",
+          "keys": {
+            "memoryId": {
+              "type": "string",
+              "required": true
+            }
+          }
+        },
+        "body": {
+          "type": "object",
+          "keys": {
+            "content": {
+              "type": "string",
+              "required": true
+            }
+          }
+        }
+      },
+      "handlers": "validateRequest({ params: Joi.object({ memoryId: Joi.string().hex().length(24).required() }), body: Joi.object({ content: Joi.string().trim().min(1).max(300).required() }) }), wrap(req => updateAssistantMemory(req, req.params.memoryId, req.body.content))"
+    },
+    {
+      "method": "DELETE",
+      "path": "/chatbot/assistant/memory/:memoryId",
+      "permissions": [
+        [
+          "chat:read"
+        ]
+      ],
+      "file": "server/assistant/router.ts",
+      "line": 28,
+      "contracts": {
+        "params": {
+          "type": "object",
+          "keys": {
+            "memoryId": {
+              "type": "string",
+              "required": true
+            }
+          }
+        }
+      },
+      "handlers": "validateRequest({ params: Joi.object({ memoryId: Joi.string().hex().length(24).required() }) }), wrap(req => deleteAssistantMemory(req, req.params.memoryId))"
     },
     {
       "method": "GET",
@@ -13841,7 +13814,7 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 22,
+      "line": 29,
       "contracts": {},
       "handlers": "wrap(listWorkflows)"
     },
@@ -13854,7 +13827,7 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 23,
+      "line": 30,
       "contracts": {
         "params": {
           "type": "object",
@@ -13891,7 +13864,7 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 24,
+      "line": 31,
       "contracts": {
         "params": {
           "type": "object",
@@ -13959,7 +13932,7 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 25,
+      "line": 32,
       "contracts": {
         "params": {
           "type": "object",
@@ -13992,7 +13965,7 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 26,
+      "line": 33,
       "contracts": {
         "query": {
           "type": "object",
@@ -14023,7 +13996,7 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 27,
+      "line": 34,
       "contracts": {
         "params": {
           "type": "object",
@@ -14046,9 +14019,32 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 28,
+      "line": 40,
       "contracts": {},
-      "handlers": "validateRequest({ body: Joi.object({ conversationId: id, requestId: id, text: Joi.string().trim().min(1).max(6000), decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor(\"text\", \"decision\") }), wrap(req => processTurn(req, req.body))"
+      "handlers": "validateRequest({ body: Joi.object({ conversationId: id, requestId: id, text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor(\"text\", \"decision\").with(\"attachment\", \"text\") }), wrap(req => processTurn(req, req.body))"
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/speech",
+      "permissions": [
+        [
+          "chat:read"
+        ]
+      ],
+      "file": "server/assistant/router.ts",
+      "line": 41,
+      "contracts": {
+        "body": {
+          "type": "object",
+          "keys": {
+            "text": {
+              "type": "string",
+              "required": true
+            }
+          }
+        }
+      },
+      "handlers": "expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required() }) }), wrap(req => synthesizeVietnameseSpeech(req.body.text))"
     },
     {
       "method": "POST",
@@ -20054,7 +20050,7 @@
       "file": "server/modules/inventory/transfers/router.ts",
       "line": 34,
       "contracts": {},
-      "handlers": "requirePermission(\"inventory:read\") as any, handle((req) => transferDestinations(scope(req).companyCode))"
+      "handlers": "requirePermission(\"inventory:read\") as any, handle(async (req) => transferDestinations((await scope(req)).companyCode))"
     },
     {
       "method": "GET",
@@ -21759,6 +21755,32 @@
       "handlers": "read, retailInvoiceController.list as any"
     },
     {
+      "method": "GET",
+      "path": "/retail/invoices/bulk-pdf",
+      "permissions": [
+        [
+          "retail:manage"
+        ]
+      ],
+      "file": "server/modules/retail/routes/retail-invoice.routes.ts",
+      "line": 7,
+      "contracts": {},
+      "handlers": "manage, retailInvoiceController.bulkPdf as any"
+    },
+    {
+      "method": "POST",
+      "path": "/retail/invoices/bulk-pdf",
+      "permissions": [
+        [
+          "retail:manage"
+        ]
+      ],
+      "file": "server/modules/retail/routes/retail-invoice.routes.ts",
+      "line": 8,
+      "contracts": {},
+      "handlers": "manage, retailInvoiceController.bulkPdf as any"
+    },
+    {
       "method": "POST",
       "path": "/retail/invoices/:id/pos-print",
       "permissions": [
@@ -21768,7 +21790,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 7,
+      "line": 9,
       "contracts": {},
       "handlers": "operate, retailInvoiceController.posPrint as any"
     },
@@ -21782,7 +21804,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 8,
+      "line": 10,
       "contracts": {},
       "handlers": "operate, retailInvoiceController.paymentPrint as any"
     },
@@ -21795,7 +21817,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 9,
+      "line": 11,
       "contracts": {},
       "handlers": "manage, retailInvoiceController.reprint as any"
     },
@@ -21808,7 +21830,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 10,
+      "line": 12,
       "contracts": {},
       "handlers": "manage, retailInvoiceController.pdf as any"
     },
@@ -21822,7 +21844,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 11,
+      "line": 13,
       "contracts": {},
       "handlers": "read, retailInvoiceController.detail as any"
     },
@@ -22033,6 +22055,23 @@
     },
     {
       "method": "GET",
+      "path": "/retail/warranty/lookup-phone/:phone",
+      "permissions": [
+        [
+          "retail:read",
+          "retail:manage",
+          "pos:manage",
+          "repair:read",
+          "repair:manage"
+        ]
+      ],
+      "file": "server/modules/retail/routes/retail-warranty.routes.ts",
+      "line": 8,
+      "contracts": {},
+      "handlers": "requirePermission([\"retail:read\", \"retail:manage\", \"pos:manage\", \"repair:read\", \"repair:manage\"]) as any, retailWarrantyController.lookupByPhone as any"
+    },
+    {
+      "method": "GET",
       "path": "/retail/warranty/expiring",
       "permissions": [
         [
@@ -22041,7 +22080,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-warranty.routes.ts",
-      "line": 8,
+      "line": 9,
       "contracts": {},
       "handlers": "requirePermission([\"retail:manage\", \"repair:manage\"]) as any, retailWarrantyController.expiring as any"
     },
@@ -22055,7 +22094,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-warranty.routes.ts",
-      "line": 9,
+      "line": 10,
       "contracts": {},
       "handlers": "requirePermission([\"retail:manage\", \"repair:manage\"]) as any, retailWarrantyController.gapRisk as any"
     },
@@ -22068,7 +22107,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-warranty.routes.ts",
-      "line": 10,
+      "line": 11,
       "contracts": {},
       "handlers": "requirePermission(\"retail:manage\") as any, retailWarrantyController.updateByCode as any"
     },
@@ -22081,7 +22120,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-warranty.routes.ts",
-      "line": 11,
+      "line": 12,
       "contracts": {},
       "handlers": "requirePermission(\"retail:manage\") as any, retailWarrantyController.update as any"
     },
@@ -22157,6 +22196,7 @@
       "path": "/retail/partners/collaborators",
       "permissions": [
         [
+          "pos:manage",
           "retail:manage",
           "repair:manage",
           "retail-partner:read",
@@ -22166,7 +22206,7 @@
       "file": "server/modules/retail/routes/retail-partner.routes.ts",
       "line": 97,
       "contracts": {},
-      "handlers": "picker, route(async (req) =>\n  RetailPartnerModel.find({ companyCode: companyCode(req), roles: \"collaborator\", status: \"active\" })\n    .select(\"code name\").sort({ name: 1 }).limit(1000).lean())"
+      "handlers": "picker, route(async (req) =>\r\n  RetailPartnerModel.find({ companyCode: companyCode(req), roles: \"collaborator\", status: \"active\" })\r\n    .select(\"code name\").sort({ name: 1 }).limit(1000).lean())"
     },
     {
       "method": "GET",
@@ -22179,7 +22219,7 @@
       "file": "server/modules/retail/routes/retail-partner.routes.ts",
       "line": 101,
       "contracts": {},
-      "handlers": "manage, route(async (req) =>\n  SupplierModel.find({ companyCode: companyCode(req), status: \"active\" })\n    .select(\"code name\").sort({ name: 1 }).limit(1000).lean())"
+      "handlers": "manage, route(async (req) =>\r\n  SupplierModel.find({ companyCode: companyCode(req), status: \"active\" })\r\n    .select(\"code name\").sort({ name: 1 }).limit(1000).lean())"
     },
     {
       "method": "GET",
@@ -22192,7 +22232,7 @@
       "file": "server/modules/retail/routes/retail-partner.routes.ts",
       "line": 105,
       "contracts": {},
-      "handlers": "manage, route(async (req) =>\n  UserModel.find({ companyCode: companyCode(req), isActive: { $ne: false } })\n    .select(\"displayName email\").sort({ displayName: 1 }).limit(1000).lean())"
+      "handlers": "manage, route(async (req) =>\r\n  UserModel.find({ companyCode: companyCode(req), isActive: { $ne: false } })\r\n    .select(\"displayName email\").sort({ displayName: 1 }).limit(1000).lean())"
     },
     {
       "method": "GET",
@@ -22205,7 +22245,7 @@
       "file": "server/modules/retail/routes/retail-partner.routes.ts",
       "line": 109,
       "contracts": {},
-      "handlers": "manage, route(async (req) =>\n  CustomerModel.find({ companyCode: companyCode(req), status: \"active\" })\n    .select(\"customerCode name phone\").sort({ name: 1 }).limit(1000).lean())"
+      "handlers": "manage, route(async (req) =>\r\n  CustomerModel.find({ companyCode: companyCode(req), status: \"active\" })\r\n    .select(\"customerCode name phone\").sort({ name: 1 }).limit(1000).lean())"
     },
     {
       "method": "GET",
@@ -22283,7 +22323,7 @@
       "file": "server/modules/retail/routes/retail-partner.routes.ts",
       "line": 119,
       "contracts": {},
-      "handlers": "policyManage, route(async (req) => {\n  const company = companyCode(req);\n  const variants = await ProductVariantModel.find({ companyCode: company, status: \"active\" })\n    .select(\"productId sku displayName\").sort({ sku: 1 }).limit(1000).lean();\n  const productIds = [...new Set(variants.map((variant) => String(variant.productId)))];\n  const products = await ProductCatalogModel.find({ companyCode: company, _id: { $in: productIds }, status: \"active\" })\n    .select(\"name\").lean();\n  const byId = new Map(products.map((product) => [String(product._id), product.name]));\n  return variants.flatMap((variant) => {\n    const productName = byId.get(String(variant.productId));\n    return productName ? [{ _id: String(variant._id), sku: variant.sku, name: productName, variantName: variant.displayName || variant.sku }] : [];\n  });\n})"
+      "handlers": "policyManage, route(async (req) => {\r\n  const company = companyCode(req);\r\n  const variants = await ProductVariantModel.find({ companyCode: company, status: \"active\" })\r\n    .select(\"productId sku displayName\").sort({ sku: 1 }).limit(1000).lean();\r\n  const productIds = [...new Set(variants.map((variant) => String(variant.productId)))];\r\n  const products = await ProductCatalogModel.find({ companyCode: company, _id: { $in: productIds }, status: \"active\" })\r\n    .select(\"name\").lean();\r\n  const byId = new Map(products.map((product) => [String(product._id), product.name]));\r\n  return variants.flatMap((variant) => {\r\n    const productName = byId.get(String(variant.productId));\r\n    return productName ? [{ _id: String(variant._id), sku: variant.sku, name: productName, variantName: variant.displayName || variant.sku }] : [];\r\n  });\r\n})"
     },
     {
       "method": "GET",
@@ -22297,7 +22337,7 @@
       "file": "server/modules/retail/routes/retail-partner.routes.ts",
       "line": 133,
       "contracts": {},
-      "handlers": "self, route(async (req) => {\n  const partner = await RetailPartnerModel.findOne({ companyCode: companyCode(req), userId: String(req.user.id), status: \"active\" }).lean();\n  if (!partner) throw bad(\"Tài khoản chưa được liên kết với đối tác bán lẻ.\", 404);\n  return partner;\n})"
+      "handlers": "self, route(async (req) => {\r\n  const partner = await RetailPartnerModel.findOne({ companyCode: companyCode(req), userId: String(req.user.id), status: \"active\" }).lean();\r\n  if (!partner) throw bad(\"Tài khoản chưa được liên kết với đối tác bán lẻ.\", 404);\r\n  return partner;\r\n})"
     },
     {
       "method": "GET",
@@ -22312,7 +22352,7 @@
       "file": "server/modules/retail/routes/retail-partner.routes.ts",
       "line": 139,
       "contracts": {},
-      "handlers": "read, route(async (req) => {\n  const filter: Record<string, unknown> = { companyCode: companyCode(req) };\n  if (req.query.role) {\n    if (!RETAIL_PARTNER_ROLES.includes(req.query.role)) throw bad(\"Vai trò không hợp lệ.\");\n    filter.roles = req.query.role;\n  }\n  const partners = await RetailPartnerModel.find(filter).sort({ name: 1 }).limit(1000).lean();\n  const supplierIds = partners.flatMap((partner) => partner.supplierId ? [partner.supplierId] : []);\n  const suppliers = await SupplierModel.find({ companyCode: filter.companyCode, _id: { $in: supplierIds } }).select(\"name code status\").lean();\n  const byId = new Map(suppliers.map((supplier) => [String(supplier._id), supplier]));\n  return partners.map((partner) => ({ ...partner, supplier: partner.supplierId ? byId.get(partner.supplierId) || null : null }));\n})"
+      "handlers": "read, route(async (req) => {\r\n  const filter: Record<string, unknown> = { companyCode: companyCode(req) };\r\n  if (req.query.role) {\r\n    if (!RETAIL_PARTNER_ROLES.includes(req.query.role)) throw bad(\"Vai trò không hợp lệ.\");\r\n    filter.roles = req.query.role;\r\n  }\r\n  const partners = await RetailPartnerModel.find(filter).sort({ name: 1 }).limit(1000).lean();\r\n  const supplierIds = partners.flatMap((partner) => partner.supplierId ? [partner.supplierId] : []);\r\n  const suppliers = await SupplierModel.find({ companyCode: filter.companyCode, _id: { $in: supplierIds } }).select(\"name code status\").lean();\r\n  const byId = new Map(suppliers.map((supplier) => [String(supplier._id), supplier]));\r\n  return partners.map((partner) => ({ ...partner, supplier: partner.supplierId ? byId.get(partner.supplierId) || null : null }));\r\n})"
     },
     {
       "method": "POST",
@@ -22325,7 +22365,7 @@
       "file": "server/modules/retail/routes/retail-partner.routes.ts",
       "line": 152,
       "contracts": {},
-      "handlers": "manage, route(async (req) => {\n  const input = await validatedInput(req);\n  return RetailPartnerModel.create({ ...input, companyCode: companyCode(req), createdBy: req.user.id, updatedBy: req.user.id });\n}, true)"
+      "handlers": "manage, route(async (req) => {\r\n  const input = await validatedInput(req);\r\n  return RetailPartnerModel.create({ ...input, companyCode: companyCode(req), createdBy: req.user.id, updatedBy: req.user.id });\r\n}, true)"
     },
     {
       "method": "PATCH",
@@ -22338,7 +22378,7 @@
       "file": "server/modules/retail/routes/retail-partner.routes.ts",
       "line": 157,
       "contracts": {},
-      "handlers": "manage, route(async (req) => {\n  const company = companyCode(req);\n  const partner = await RetailPartnerModel.findOne({ companyCode: company, _id: id(req.params.id) });\n  if (!partner) throw bad(\"Không tìm thấy đối tác bán lẻ.\", 404);\n  const input = await validatedInput(req, partner);\n  Object.assign(partner, input, { updatedBy: req.user.id });\n  await partner.save();\n  return partner;\n})"
+      "handlers": "manage, route(async (req) => {\r\n  const company = companyCode(req);\r\n  const partner = await RetailPartnerModel.findOne({ companyCode: company, _id: id(req.params.id) });\r\n  if (!partner) throw bad(\"Không tìm thấy đối tác bán lẻ.\", 404);\r\n  const input = await validatedInput(req, partner);\r\n  Object.assign(partner, input, { updatedBy: req.user.id });\r\n  await partner.save();\r\n  return partner;\r\n})"
     },
     {
       "method": "GET",
@@ -22524,7 +22564,7 @@
       "file": "server/modules/retail/routes/retail-finance.routes.ts",
       "line": 28,
       "contracts": {},
-      "handlers": "partnerManage, handle(async (req) => {\n  const branch = scope(req), partnerId = String(req.body?.partnerId || \"\"), kind = String(req.body?.kind || \"\"), sku = kind === \"repair\" ? \"*\" : String(req.body?.sku || \"*\").trim().toUpperCase(), ratePercent = Number(req.body?.ratePercent);\n  if (!Types.ObjectId.isValid(partnerId) || !await RetailPartnerModel.exists({ companyCode: branch.companyCode, _id: partnerId, roles: \"collaborator\" })) throw bad(\"Cộng tác viên bán lẻ không hợp lệ.\");\n  if (![\"sale\", \"repair\"].includes(kind) || !sku || !Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 100) throw bad(\"Chính sách hoa hồng không hợp lệ.\");\n  const effectiveFrom = new Date(`${String(req.body.effectiveFrom || \"\")}T00:00:00.000Z`);\n  if (Number.isNaN(effectiveFrom.valueOf())) throw bad(\"Ngày hiệu lực không hợp lệ.\");\n  const filter = { companyCode: branch.companyCode, partnerId, kind: kind as \"sale\" | \"repair\", sku };\n  return RetailCommissionPolicyModel.findOneAndUpdate(filter, { $set: { ratePercent, effectiveFrom, active: req.body.active !== false, updatedBy: String(req.user.id), updatedAt: new Date() }, $inc: { version: 1 }, $setOnInsert: filter }, { upsert: true, returnDocument: \"after\" }).lean();\n})"
+      "handlers": "partnerManage, handle(async (req) => {\r\n  const branch = scope(req), partnerId = String(req.body?.partnerId || \"\"), kind = String(req.body?.kind || \"\"), sku = kind === \"repair\" ? \"*\" : String(req.body?.sku || \"*\").trim().toUpperCase(), ratePercent = Number(req.body?.ratePercent);\r\n  if (!Types.ObjectId.isValid(partnerId) || !await RetailPartnerModel.exists({ companyCode: branch.companyCode, _id: partnerId, roles: \"collaborator\" })) throw bad(\"Cộng tác viên bán lẻ không hợp lệ.\");\r\n  if (![\"sale\", \"repair\"].includes(kind) || !sku || !Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 100) throw bad(\"Chính sách hoa hồng không hợp lệ.\");\r\n  const effectiveFrom = new Date(`${String(req.body.effectiveFrom || \"\")}T00:00:00.000Z`);\r\n  if (Number.isNaN(effectiveFrom.valueOf())) throw bad(\"Ngày hiệu lực không hợp lệ.\");\r\n  const filter = { companyCode: branch.companyCode, partnerId, kind: kind as \"sale\" | \"repair\", sku };\r\n  return RetailCommissionPolicyModel.findOneAndUpdate(filter, { $set: { ratePercent, effectiveFrom, active: req.body.active !== false, updatedBy: String(req.user.id), updatedAt: new Date() }, $inc: { version: 1 }, $setOnInsert: filter }, { upsert: true, returnDocument: \"after\" }).lean();\r\n})"
     },
     {
       "method": "POST",
@@ -22553,6 +22593,19 @@
       "handlers": "partnerManage, handle(async (req) => { const branch = scope(req); const { from, to } = dates(req); if (!await RetailPartnerModel.exists({ companyCode: branch.companyCode, _id: req.params.id, roles: \"collaborator\" })) throw bad(\"Cộng tác viên bán lẻ không hợp lệ.\", 404); return partnerStatement(branch.companyCode, req.params.id, from, to); })"
     },
     {
+      "method": "GET",
+      "path": "/retail/finance/commission/balances",
+      "permissions": [
+        [
+          "retail-partner-policy:manage"
+        ]
+      ],
+      "file": "server/modules/retail/routes/retail-finance.routes.ts",
+      "line": 39,
+      "contracts": {},
+      "handlers": "partnerManage, handle(async (req) => {\r\n  const company = retailScopeFromRequest(req.user || {}, { companyCode: req.query.companyCode }).companyCode;\r\n  const accounts = await RetailCommissionAccountModel.find({ companyCode: company }).select(\"partnerId balance\").lean();\r\n  return accounts.map((account) => ({ partnerId: account.partnerId, balance: Number(account.balance || 0) }));\r\n})"
+    },
+    {
       "method": "POST",
       "path": "/retail/finance/commission/partners/:id/payouts",
       "permissions": [
@@ -22561,7 +22614,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-finance.routes.ts",
-      "line": 39,
+      "line": 44,
       "contracts": {},
       "handlers": "payoutManage, handle((req) => payPartnerCommission(scope(req), req.params.id, req.body || {}, String(req.user.id)))"
     },
@@ -22575,7 +22628,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-finance.routes.ts",
-      "line": 40,
+      "line": 45,
       "contracts": {},
       "handlers": "selfRead, handle(async (req) => { const branch = scope(req); const partner = await RetailPartnerModel.findOne({ companyCode: branch.companyCode, userId: String(req.user.id), roles: \"collaborator\", status: \"active\" }).lean(); if (!partner) throw bad(\"Tài khoản chưa liên kết với cộng tác viên bán lẻ.\", 404); const { from, to } = dates(req); return { partner: { code: partner.code, name: partner.name }, ...await partnerStatement(branch.companyCode, String(partner._id), from, to) }; })"
     },
@@ -22588,7 +22641,7 @@
         ]
       ],
       "file": "server/modules/retail/routes/retail-finance.routes.ts",
-      "line": 41,
+      "line": 46,
       "contracts": {},
       "handlers": "partnerManage, handle(async (req) => { const branch = scope(req), { from, to } = dates(req); assertCashRange(from, to); const items = await RetailCommissionLedgerModel.aggregate([{ $match: { companyCode: branch.companyCode, branchId: branch.branchId, businessDate: { $gte: from, $lte: to } } }, { $group: { _id: \"$partnerId\", commission: { $sum: \"$amount\" }, sources: { $sum: 1 } } }, { $sort: { commission: -1 } }]); return items; })"
     },

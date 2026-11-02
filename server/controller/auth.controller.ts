@@ -12,11 +12,12 @@ import { recordUserActivity } from "../middleware/user-activity";
 import { clearModuleCache } from "../middleware/require-module";
 import { notifyCompanyModulesChanged } from "../service/company-module-notify";
 import { PERMISSION_CODES } from "../config/permission-catalog";
-import { getEffectivePermissions } from "../middleware/auth";
+import { getEffectivePermissions, hasAnyPermission } from "../middleware/auth";
 import { profileResourceService } from "../service/profile-resource.service";
 import { employeeDocumentResourceService } from "../service/employee-document-resource.service";
 import { resourceIndexingService } from "../service/resource-indexing.service";
 import { buildBranchRosterFilter } from "../utils/branch-roster-filter";
+import { toAttendanceRosterProfile } from "../utils/attendance-roster";
 
 /** Redirect URI cho OAuth Google Drive (khớp Google Cloud Console). */
 function buildDriveRedirectUri(req: Request): string {
@@ -509,10 +510,13 @@ export const authController = {
       }
       const filter = buildUserRosterFilter(companyCode, requestedBranchId, includeUnassignedBranchUsers);
       const users = await authService.getUsers(filter);
+      const permissions = await getEffectivePermissions(req.user?.id || "", req.user?.role || "user", companyCode);
+      const canViewFullRoster = hasAnyPermission(permissions, ["access:read", "hr:read"]);
+      const data = canViewFullRoster ? users : users.map(toAttendanceRosterProfile);
 
       return res.status(200).json({
         status: "success",
-        data: users,
+        data,
       });
     } catch (error: any) {
       console.error("[authController.getUsers] Error:", error);

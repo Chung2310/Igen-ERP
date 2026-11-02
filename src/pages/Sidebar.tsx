@@ -79,6 +79,12 @@ const baseMenuItems: MenuItem[] = [
     group: "main",
   },
   {
+    label: "TRỢ LÝ AI",
+    title: "Trợ lý AI",
+    icon: Sparkles,
+    group: "operations",
+  },
+  {
     label: "NHÂN SỰ",
     title: "Nhân sự",
     icon: Users,
@@ -187,6 +193,7 @@ const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
   "GÓI AI & LƯỢT SỬ DỤNG": SparkleIcon,
   "QUẢN LÝ TÀI NGUYÊN": FolderIcon,
   "TRÒ CHUYỆN": ChatCircleIcon,
+  "TRỢ LÝ AI": SparkleIcon,
   "QUẢN TRỊ USER": ShieldIcon,
   "CÀI ĐẶT": GearIcon,
 };
@@ -215,7 +222,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
       const isPartnerAdmin =
         ["ĐỐI TÁC", "ĐỐI TÁC LAO ĐỘNG"].includes(item.label) &&
         (userProfile?.role === "admin" || userProfile?.role === "superadmin");
-      const locked = item.label === "GÓI AI & LƯỢT SỬ DỤNG" ? !canViewAiSubscription(userProfile) : requiredPerms
+      const locked = item.label === "GÓI AI & LƯỢT SỬ DỤNG" ? !canViewAiSubscription(userProfile) : item.label === "TRỢ LÝ AI" ? !hasPermission("chat:read") : requiredPerms
         ? !isPartnerAdmin && !requiredPerms.some((code) => hasPermission(code))
         : false;
       return { ...item, locked };

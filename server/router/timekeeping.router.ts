@@ -34,6 +34,16 @@ const checkInOutSchema = {
   }),
 };
 
+export const attendanceRecordsQuerySchema = {
+  query: Joi.object({
+    date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    // The assistant transport includes these context fields on contract requests;
+    // listAttendanceRecords always derives tenant and branch scope from req.user.
+    companyCode: Joi.string().optional(),
+    branchId: Joi.string().optional(),
+  }).unknown(false),
+};
+
 const updateLocationSchema = {
   body: Joi.object({
     latitude: Joi.number().min(-90).max(90).required().messages({
@@ -113,6 +123,7 @@ const updateWorkHoursSchema = {
 
 // Get today's checkin/checkout log for the current user
 timekeepingRouter.get("/today", requireAuth as any, timekeepingController.getTodayStatus as any);
+timekeepingRouter.get("/records", requireAuth as any, requirePermission("timekeeping:read") as any, validateRequest(attendanceRecordsQuerySchema), timekeepingController.listAttendanceRecords as any);
 timekeepingRouter.get("/attempts", requireAuth as any, requirePermission("timekeeping:manage") as any, attendanceAttemptController.list as any);
 
 // Check-in

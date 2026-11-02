@@ -1,10 +1,10 @@
 {
-  "total": 1143,
-  "connectedContracts": 793,
+  "total": 1153,
+  "connectedContracts": 795,
   "connectedManualRoutes": 19,
-  "connectedRoutes": 812,
+  "connectedRoutes": 814,
   "reviewPending": 0,
-  "intentionallyUnsupported": 331,
+  "intentionallyUnsupported": 339,
   "unresolved": [],
   "entries": [
     {
@@ -625,19 +625,11 @@
     },
     {
       "method": "POST",
-      "path": "/facebook/publish",
-      "status": "unsupported",
-      "reason": "API nhận payload đăng Facebook tổng quát, không chọn slot chiến dịch hoặc hiển thị nội dung/nền tảng đích để xác nhận. Dùng workflow đăng một slot đã chọn theo tên.",
-      "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 55
-    },
-    {
-      "method": "POST",
       "path": "/facebook/validate-token",
       "status": "unsupported",
       "reason": "Xác thực token Facebook nhận bí mật truy cập trong request; không thu thập token qua hội thoại vì nội dung chat được lưu.",
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 64
+      "line": 56
     },
     {
       "method": "POST",
@@ -645,7 +637,7 @@
       "status": "unsupported",
       "reason": "Nhận thông tin đăng nhập Facebook; không thu thập mật khẩu hoặc cookie trong lịch sử chat.",
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 73
+      "line": 65
     },
     {
       "method": "POST",
@@ -653,7 +645,7 @@
       "status": "unsupported",
       "reason": "Khởi tạo OAuth tạo state/cookie và bắt đầu kết nối tài khoản Facebook bên ngoài; chỉ thực hiện từ màn hình kết nối tích hợp.",
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 81
+      "line": 73
     },
     {
       "method": "GET",
@@ -661,7 +653,7 @@
       "status": "contract",
       "id": "marketing.facebook-app-config.read",
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 94
+      "line": 86
     },
     {
       "method": "POST",
@@ -669,7 +661,7 @@
       "status": "unsupported",
       "reason": "Callback xóa dữ liệu Facebook là endpoint công khai cho quy trình tuân thủ từ nền tảng, không phải thao tác do người dùng trong công ty yêu cầu.",
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 101
+      "line": 93
     },
     {
       "method": "GET",
@@ -677,7 +669,7 @@
       "status": "unsupported",
       "reason": "Tra trạng thái bằng mã yêu cầu xóa công khai, không có cách chọn yêu cầu theo tên trong công ty và không thuộc quyền nghiệp vụ của chat.",
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 107
+      "line": 99
     },
     {
       "method": "POST",
@@ -685,7 +677,7 @@
       "status": "unsupported",
       "reason": "Callback từ n8n nhận payload tích hợp tự động và không có quyền nghiệp vụ người dùng tường minh; không gọi từ hội thoại.",
       "file": "server/modules/marketing-suite/shared/router/facebook-post.router.ts",
-      "line": 113
+      "line": 104
     },
     {
       "method": "GET",
@@ -949,15 +941,7 @@
       "status": "unsupported",
       "reason": "Khởi tạo OAuth /tiktok/oauth/start cần chuyển người dùng sang trang nhà cung cấp và xác nhận quyền trên trình duyệt; chat không thể hoàn tất redirect an toàn.",
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 53
-    },
-    {
-      "method": "POST",
-      "path": "/tiktok/publish",
-      "status": "contract",
-      "id": "marketing.tiktok.publish",
-      "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 60
+      "line": 31
     },
     {
       "method": "POST",
@@ -965,7 +949,7 @@
       "status": "unsupported",
       "reason": "Xác thực token TikTok nhận bí mật truy cập trong request; không thu thập token qua hội thoại vì nội dung chat được lưu.",
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 68
+      "line": 38
     },
     {
       "method": "POST",
@@ -973,7 +957,7 @@
       "status": "contract",
       "id": "marketing.tiktok.creator-info",
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 76
+      "line": 46
     },
     {
       "method": "GET",
@@ -1005,15 +989,7 @@
       "status": "unsupported",
       "reason": "Khởi tạo OAuth /tiktok-business/oauth/start cần chuyển người dùng sang trang nhà cung cấp và xác nhận quyền trên trình duyệt; chat không thể hoàn tất redirect an toàn.",
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 53
-    },
-    {
-      "method": "POST",
-      "path": "/tiktok-business/publish",
-      "status": "contract",
-      "id": "marketing.tiktok-business.publish",
-      "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 60
+      "line": 31
     },
     {
       "method": "POST",
@@ -1021,7 +997,7 @@
       "status": "unsupported",
       "reason": "Xác thực token TikTok Business nhận bí mật truy cập trong request; không thu thập token qua hội thoại vì nội dung chat được lưu.",
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 68
+      "line": 38
     },
     {
       "method": "POST",
@@ -1029,7 +1005,7 @@
       "status": "contract",
       "id": "marketing.tiktok-business.creator-info",
       "file": "server/modules/marketing-suite/shared/router/tiktok.router.ts",
-      "line": 76
+      "line": 46
     },
     {
       "method": "POST",
@@ -3261,7 +3237,15 @@
       "status": "contract",
       "id": "timekeeping.today.me",
       "file": "server/router/timekeeping.router.ts",
-      "line": 115
+      "line": 125
+    },
+    {
+      "method": "GET",
+      "path": "/timekeeping/records",
+      "status": "contract",
+      "id": "timekeeping.records.list",
+      "file": "server/router/timekeeping.router.ts",
+      "line": 126
     },
     {
       "method": "GET",
@@ -3269,7 +3253,7 @@
       "status": "contract",
       "id": "api.get.d2e63aaeb8682c88",
       "file": "server/router/timekeeping.router.ts",
-      "line": 116
+      "line": 127
     },
     {
       "method": "POST",
@@ -3277,7 +3261,7 @@
       "status": "unsupported",
       "reason": "Chấm công vào ca yêu cầu tệp ảnh, xác minh khuôn mặt và cổng vị trí/chi nhánh; chat không thu thập bằng chứng camera an toàn.",
       "file": "server/router/timekeeping.router.ts",
-      "line": 119
+      "line": 130
     },
     {
       "method": "POST",
@@ -3285,7 +3269,7 @@
       "status": "unsupported",
       "reason": "Chấm công ra ca yêu cầu tệp ảnh, xác minh khuôn mặt và cổng vị trí/chi nhánh; chat không thu thập bằng chứng camera an toàn.",
       "file": "server/router/timekeeping.router.ts",
-      "line": 130
+      "line": 141
     },
     {
       "method": "GET",
@@ -3293,7 +3277,7 @@
       "status": "contract",
       "id": "timekeeping.company.location",
       "file": "server/router/timekeeping.router.ts",
-      "line": 141
+      "line": 152
     },
     {
       "method": "PATCH",
@@ -3301,7 +3285,7 @@
       "status": "contract",
       "id": "api.patch.cbf8c2b9d544f837",
       "file": "server/router/timekeeping.router.ts",
-      "line": 148
+      "line": 159
     },
     {
       "method": "GET",
@@ -3309,7 +3293,7 @@
       "status": "contract",
       "id": "api.get.d632a938b9c72492",
       "file": "server/router/timekeeping.router.ts",
-      "line": 156
+      "line": 167
     },
     {
       "method": "POST",
@@ -3317,7 +3301,7 @@
       "status": "contract",
       "id": "api.post.4e68581113f1ef79",
       "file": "server/router/timekeeping.router.ts",
-      "line": 157
+      "line": 168
     },
     {
       "method": "PATCH",
@@ -3325,7 +3309,7 @@
       "status": "contract",
       "id": "api.patch.08411917f1ed9b75",
       "file": "server/router/timekeeping.router.ts",
-      "line": 158
+      "line": 169
     },
     {
       "method": "DELETE",
@@ -3333,7 +3317,7 @@
       "status": "contract",
       "id": "api.delete.39330ed93a819149",
       "file": "server/router/timekeeping.router.ts",
-      "line": 159
+      "line": 170
     },
     {
       "method": "GET",
@@ -3341,7 +3325,7 @@
       "status": "contract",
       "id": "api.get.efd26957a4dbe889",
       "file": "server/router/timekeeping.router.ts",
-      "line": 160
+      "line": 171
     },
     {
       "method": "POST",
@@ -3349,7 +3333,7 @@
       "status": "contract",
       "id": "api.post.5511b45cf3a736d1",
       "file": "server/router/timekeeping.router.ts",
-      "line": 161
+      "line": 172
     },
     {
       "method": "GET",
@@ -3357,7 +3341,7 @@
       "status": "contract",
       "id": "api.get.5d0d3ea4fc0d9efb",
       "file": "server/router/timekeeping.router.ts",
-      "line": 164
+      "line": 175
     },
     {
       "method": "PATCH",
@@ -3365,7 +3349,7 @@
       "status": "contract",
       "id": "api.patch.6bc968347283a069",
       "file": "server/router/timekeeping.router.ts",
-      "line": 172
+      "line": 183
     },
     {
       "method": "GET",
@@ -3373,7 +3357,7 @@
       "status": "contract",
       "id": "timekeeping.work-calendar.list",
       "file": "server/router/timekeeping.router.ts",
-      "line": 197
+      "line": 208
     },
     {
       "method": "POST",
@@ -3381,7 +3365,7 @@
       "status": "contract",
       "id": "timekeeping.work-calendar.sync",
       "file": "server/router/timekeeping.router.ts",
-      "line": 198
+      "line": 209
     },
     {
       "method": "POST",
@@ -3389,7 +3373,7 @@
       "status": "contract",
       "id": "timekeeping.work-calendar.create",
       "file": "server/router/timekeeping.router.ts",
-      "line": 199
+      "line": 210
     },
     {
       "method": "PATCH",
@@ -3397,7 +3381,7 @@
       "status": "contract",
       "id": "timekeeping.work-calendar.update",
       "file": "server/router/timekeeping.router.ts",
-      "line": 200
+      "line": 211
     },
     {
       "method": "GET",
@@ -3405,7 +3389,15 @@
       "status": "contract",
       "id": "timekeeping.work-calendar.audit",
       "file": "server/router/timekeeping.router.ts",
-      "line": 201
+      "line": 212
+    },
+    {
+      "method": "GET",
+      "path": "/payroll/periods/:periodKey/kpi",
+      "status": "unsupported",
+      "reason": "Báo cáo trả mã nhân viên nội bộ thay cho tên và chỉ dùng chi nhánh đang gắn với tài khoản; chưa thể trình bày đúng người, đúng phạm vi theo tên trong chat.",
+      "file": "server/router/payroll.router.ts",
+      "line": 12
     },
     {
       "method": "GET",
@@ -3413,7 +3405,7 @@
       "status": "contract",
       "id": "payroll.reconciliation.schedule.get",
       "file": "server/router/payroll.router.ts",
-      "line": 11
+      "line": 38
     },
     {
       "method": "PUT",
@@ -3421,7 +3413,7 @@
       "status": "contract",
       "id": "payroll.reconciliation.schedule.update",
       "file": "server/router/payroll.router.ts",
-      "line": 12
+      "line": 39
     },
     {
       "method": "GET",
@@ -3429,7 +3421,7 @@
       "status": "contract",
       "id": "payroll.run.reconciliation.list",
       "file": "server/router/payroll.router.ts",
-      "line": 13
+      "line": 40
     },
     {
       "method": "POST",
@@ -3437,7 +3429,7 @@
       "status": "contract",
       "id": "payroll.run.reconciliation.publish",
       "file": "server/router/payroll.router.ts",
-      "line": 14
+      "line": 41
     },
     {
       "method": "POST",
@@ -3445,7 +3437,7 @@
       "status": "contract",
       "id": "payroll.run.reconciliation.action",
       "file": "server/router/payroll.router.ts",
-      "line": 15
+      "line": 42
     },
     {
       "method": "GET",
@@ -3453,7 +3445,7 @@
       "status": "contract",
       "id": "payroll.employee.me.reconciliation",
       "file": "server/router/payroll.router.ts",
-      "line": 16
+      "line": 43
     },
     {
       "method": "POST",
@@ -3461,7 +3453,7 @@
       "status": "contract",
       "id": "payroll.employee.reconciliation.action",
       "file": "server/router/payroll.router.ts",
-      "line": 17
+      "line": 44
     },
     {
       "method": "GET",
@@ -3469,7 +3461,7 @@
       "status": "contract",
       "id": "payroll.period.variables.list",
       "file": "server/router/payroll.router.ts",
-      "line": 18
+      "line": 45
     },
     {
       "method": "POST",
@@ -3477,7 +3469,7 @@
       "status": "contract",
       "id": "payroll.period.variables.create",
       "file": "server/router/payroll.router.ts",
-      "line": 19
+      "line": 46
     },
     {
       "method": "PATCH",
@@ -3485,7 +3477,7 @@
       "status": "contract",
       "id": "payroll.period.variables.update",
       "file": "server/router/payroll.router.ts",
-      "line": 20
+      "line": 47
     },
     {
       "method": "POST",
@@ -3493,7 +3485,7 @@
       "status": "contract",
       "id": "payroll.period.variables.activate",
       "file": "server/router/payroll.router.ts",
-      "line": 21
+      "line": 48
     },
     {
       "method": "POST",
@@ -3501,7 +3493,7 @@
       "status": "contract",
       "id": "payroll.period.variables.retire",
       "file": "server/router/payroll.router.ts",
-      "line": 22
+      "line": 49
     },
     {
       "method": "GET",
@@ -3509,7 +3501,7 @@
       "status": "contract",
       "id": "api.get.79f4d36088c00b86",
       "file": "server/router/payroll.router.ts",
-      "line": 23
+      "line": 50
     },
     {
       "method": "PUT",
@@ -3517,7 +3509,7 @@
       "status": "contract",
       "id": "payroll.period.input.update",
       "file": "server/router/payroll.router.ts",
-      "line": 24
+      "line": 51
     },
     {
       "method": "PUT",
@@ -3525,7 +3517,7 @@
       "status": "contract",
       "id": "payroll.period.inputs.bulk",
       "file": "server/router/payroll.router.ts",
-      "line": 25
+      "line": 52
     },
     {
       "method": "GET",
@@ -3533,7 +3525,7 @@
       "status": "contract",
       "id": "payroll.period.line-overrides.list",
       "file": "server/router/payroll.router.ts",
-      "line": 26
+      "line": 53
     },
     {
       "method": "PUT",
@@ -3541,7 +3533,7 @@
       "status": "contract",
       "id": "payroll.period.line-overrides.bulk",
       "file": "server/router/payroll.router.ts",
-      "line": 27
+      "line": 54
     },
     {
       "method": "GET",
@@ -3549,7 +3541,7 @@
       "status": "contract",
       "id": "payroll.formula.list",
       "file": "server/router/payroll.router.ts",
-      "line": 28
+      "line": 55
     },
     {
       "method": "POST",
@@ -3557,7 +3549,7 @@
       "status": "contract",
       "id": "payroll.formula.create",
       "file": "server/router/payroll.router.ts",
-      "line": 29
+      "line": 56
     },
     {
       "method": "PATCH",
@@ -3565,7 +3557,7 @@
       "status": "contract",
       "id": "payroll.formula.update",
       "file": "server/router/payroll.router.ts",
-      "line": 30
+      "line": 57
     },
     {
       "method": "POST",
@@ -3573,7 +3565,7 @@
       "status": "contract",
       "id": "payroll.formula.activate",
       "file": "server/router/payroll.router.ts",
-      "line": 31
+      "line": 58
     },
     {
       "method": "POST",
@@ -3581,7 +3573,7 @@
       "status": "contract",
       "id": "payroll.formula.retire",
       "file": "server/router/payroll.router.ts",
-      "line": 32
+      "line": 59
     },
     {
       "method": "POST",
@@ -3589,7 +3581,7 @@
       "status": "contract",
       "id": "payroll.formula.clone",
       "file": "server/router/payroll.router.ts",
-      "line": 33
+      "line": 60
     },
     {
       "method": "GET",
@@ -3597,7 +3589,7 @@
       "status": "contract",
       "id": "payroll.run.list",
       "file": "server/router/payroll.router.ts",
-      "line": 34
+      "line": 61
     },
     {
       "method": "POST",
@@ -3605,7 +3597,7 @@
       "status": "contract",
       "id": "payroll.run.create",
       "file": "server/router/payroll.router.ts",
-      "line": 35
+      "line": 62
     },
     {
       "method": "POST",
@@ -3613,7 +3605,7 @@
       "status": "contract",
       "id": "payroll.run.sync-attendance",
       "file": "server/router/payroll.router.ts",
-      "line": 36
+      "line": 63
     },
     {
       "method": "POST",
@@ -3621,7 +3613,7 @@
       "status": "contract",
       "id": "payroll.run.lock-attendance",
       "file": "server/router/payroll.router.ts",
-      "line": 37
+      "line": 64
     },
     {
       "method": "GET",
@@ -3629,7 +3621,7 @@
       "status": "contract",
       "id": "payroll.policy.list",
       "file": "server/router/payroll.router.ts",
-      "line": 38
+      "line": 65
     },
     {
       "method": "POST",
@@ -3637,7 +3629,7 @@
       "status": "contract",
       "id": "payroll.policy.create",
       "file": "server/router/payroll.router.ts",
-      "line": 39
+      "line": 66
     },
     {
       "method": "POST",
@@ -3645,7 +3637,7 @@
       "status": "contract",
       "id": "payroll.policy.activate",
       "file": "server/router/payroll.router.ts",
-      "line": 40
+      "line": 67
     },
     {
       "method": "POST",
@@ -3653,7 +3645,7 @@
       "status": "contract",
       "id": "payroll.policy.retire",
       "file": "server/router/payroll.router.ts",
-      "line": 41
+      "line": 68
     },
     {
       "method": "PATCH",
@@ -3661,7 +3653,7 @@
       "status": "contract",
       "id": "payroll.policy.update",
       "file": "server/router/payroll.router.ts",
-      "line": 42
+      "line": 69
     },
     {
       "method": "POST",
@@ -3669,7 +3661,7 @@
       "status": "contract",
       "id": "payroll.policy.clone",
       "file": "server/router/payroll.router.ts",
-      "line": 43
+      "line": 70
     },
     {
       "method": "DELETE",
@@ -3677,7 +3669,7 @@
       "status": "contract",
       "id": "payroll.policy.delete",
       "file": "server/router/payroll.router.ts",
-      "line": 44
+      "line": 71
     },
     {
       "method": "POST",
@@ -3685,7 +3677,7 @@
       "status": "contract",
       "id": "payroll.run.review",
       "file": "server/router/payroll.router.ts",
-      "line": 45
+      "line": 72
     },
     {
       "method": "POST",
@@ -3693,7 +3685,7 @@
       "status": "contract",
       "id": "payroll.run.close",
       "file": "server/router/payroll.router.ts",
-      "line": 46
+      "line": 73
     },
     {
       "method": "POST",
@@ -3701,7 +3693,7 @@
       "status": "contract",
       "id": "payroll.run.reopen",
       "file": "server/router/payroll.router.ts",
-      "line": 47
+      "line": 74
     },
     {
       "method": "POST",
@@ -3709,7 +3701,7 @@
       "status": "contract",
       "id": "payroll.run.mark-paid",
       "file": "server/router/payroll.router.ts",
-      "line": 48
+      "line": 75
     },
     {
       "method": "GET",
@@ -3717,7 +3709,7 @@
       "status": "contract",
       "id": "api.get.f2ac09bb2c5e311f",
       "file": "server/router/payroll.router.ts",
-      "line": 49
+      "line": 76
     },
     {
       "method": "POST",
@@ -3725,7 +3717,7 @@
       "status": "contract",
       "id": "payroll.run.calculate",
       "file": "server/router/payroll.router.ts",
-      "line": 50
+      "line": 77
     },
     {
       "method": "POST",
@@ -3733,7 +3725,7 @@
       "status": "contract",
       "id": "payroll.run.recalculate",
       "file": "server/router/payroll.router.ts",
-      "line": 51
+      "line": 78
     },
     {
       "method": "GET",
@@ -3741,7 +3733,7 @@
       "status": "contract",
       "id": "payroll.run.issues.list",
       "file": "server/router/payroll.router.ts",
-      "line": 52
+      "line": 79
     },
     {
       "method": "GET",
@@ -3749,7 +3741,7 @@
       "status": "contract",
       "id": "payroll.run.line.detail",
       "file": "server/router/payroll.router.ts",
-      "line": 53
+      "line": 80
     },
     {
       "method": "POST",
@@ -3757,7 +3749,7 @@
       "status": "contract",
       "id": "payroll.run.payslips.publish",
       "file": "server/router/payroll.router.ts",
-      "line": 54
+      "line": 81
     },
     {
       "method": "GET",
@@ -3765,7 +3757,7 @@
       "status": "unsupported",
       "reason": "Endpoint trả HTML phiếu lương có thông tin thu nhập nhạy cảm và gọi chức năng in; dùng trang phiếu lương đã xác thực, không hiển thị HTML trong chat.",
       "file": "server/router/payroll.router.ts",
-      "line": 55
+      "line": 82
     },
     {
       "method": "POST",
@@ -3773,7 +3765,7 @@
       "status": "contract",
       "id": "payroll.run.payslips.withdraw",
       "file": "server/router/payroll.router.ts",
-      "line": 59
+      "line": 86
     },
     {
       "method": "GET",
@@ -3781,7 +3773,7 @@
       "status": "contract",
       "id": "payroll.employee.me.payslips",
       "file": "server/router/payroll.router.ts",
-      "line": 60
+      "line": 87
     },
     {
       "method": "GET",
@@ -3789,7 +3781,7 @@
       "status": "contract",
       "id": "payroll.employee.me.payslip.review-requests",
       "file": "server/router/payroll.router.ts",
-      "line": 61
+      "line": 88
     },
     {
       "method": "POST",
@@ -3797,7 +3789,7 @@
       "status": "contract",
       "id": "payroll.employee.me.payslip.review.request",
       "file": "server/router/payroll.router.ts",
-      "line": 62
+      "line": 89
     },
     {
       "method": "GET",
@@ -3805,7 +3797,7 @@
       "status": "contract",
       "id": "payroll.run.payslip.review-requests.list",
       "file": "server/router/payroll.router.ts",
-      "line": 63
+      "line": 90
     },
     {
       "method": "POST",
@@ -3813,7 +3805,7 @@
       "status": "contract",
       "id": "payroll.run.payslip.review-request.resolve",
       "file": "server/router/payroll.router.ts",
-      "line": 64
+      "line": 91
     },
     {
       "method": "POST",
@@ -3821,7 +3813,7 @@
       "status": "unsupported",
       "reason": "API trả tệp bảng lương XLSX có dữ liệu lương nhạy cảm; chat chưa có kênh tải tệp và kiểm soát người nhận. Dùng giao diện bảng lương có quyền xuất tệp.",
       "file": "server/router/payroll.router.ts",
-      "line": 65
+      "line": 92
     },
     {
       "method": "GET",
@@ -3829,7 +3821,7 @@
       "status": "contract",
       "id": "payroll.run.payments.list",
       "file": "server/router/payroll.router.ts",
-      "line": 66
+      "line": 93
     },
     {
       "method": "POST",
@@ -3837,7 +3829,7 @@
       "status": "contract",
       "id": "payroll.run.payment.create",
       "file": "server/router/payroll.router.ts",
-      "line": 67
+      "line": 94
     },
     {
       "method": "POST",
@@ -3845,7 +3837,7 @@
       "status": "contract",
       "id": "payroll.payment.confirm",
       "file": "server/router/payroll.router.ts",
-      "line": 68
+      "line": 95
     },
     {
       "method": "POST",
@@ -3853,7 +3845,7 @@
       "status": "contract",
       "id": "payroll.payment.cancel",
       "file": "server/router/payroll.router.ts",
-      "line": 69
+      "line": 96
     },
     {
       "method": "POST",
@@ -3861,7 +3853,7 @@
       "status": "contract",
       "id": "payroll.payment.reverse",
       "file": "server/router/payroll.router.ts",
-      "line": 70
+      "line": 97
     },
     {
       "method": "GET",
@@ -3869,7 +3861,7 @@
       "status": "contract",
       "id": "api.get.ac427b464961eae6",
       "file": "server/router/payroll.router.ts",
-      "line": 71
+      "line": 98
     },
     {
       "method": "GET",
@@ -3877,7 +3869,7 @@
       "status": "contract",
       "id": "api.get.8a6bcc27085077c3",
       "file": "server/router/payroll.router.ts",
-      "line": 72
+      "line": 99
     },
     {
       "method": "POST",
@@ -3885,7 +3877,7 @@
       "status": "unsupported",
       "reason": "Tạo snapshot đầu vào lương theo periodKey có thể chốt lại dữ liệu công/điều chỉnh; chat dùng workflow lượt lương theo tên/kỳ/chi nhánh để đồng bộ, kiểm tra và xác nhận.",
       "file": "server/router/payroll.router.ts",
-      "line": 73
+      "line": 100
     },
     {
       "method": "POST",
@@ -3893,7 +3885,7 @@
       "status": "unsupported",
       "reason": "Khóa kết quả công theo kỳ ảnh hưởng dữ liệu đầu vào lương. Dùng workflow khóa công trên lượt lương được chọn theo kỳ và chi nhánh, có kiểm tra trạng thái và xác nhận.",
       "file": "server/router/payroll.router.ts",
-      "line": 74
+      "line": 101
     },
     {
       "method": "POST",
@@ -3901,7 +3893,7 @@
       "status": "unsupported",
       "reason": "Route tạo lượt chạy trực tiếp theo periodKey chưa có bản xem trước phạm vi và kiểm tra trùng trong chat. Dùng workflow tạo bản nháp lượt lương theo kỳ/chi nhánh đã chọn.",
       "file": "server/router/payroll.router.ts",
-      "line": 75
+      "line": 102
     },
     {
       "method": "POST",
@@ -3909,7 +3901,7 @@
       "status": "unsupported",
       "reason": "Route xử lý kỳ có thể tính và ghi kết quả lương hàng loạt. Dùng workflow tính hoặc tính lại trên lượt lương được chọn, có kiểm tra trạng thái và xác nhận.",
       "file": "server/router/payroll.router.ts",
-      "line": 76
+      "line": 103
     },
     {
       "method": "GET",
@@ -3917,7 +3909,7 @@
       "status": "unsupported",
       "reason": "API đọc này có thể tự sửa snapshot bảng lương khi phát hiện lệch checksum và trả cả dòng lương chi tiết; chưa an toàn để gọi từ chat.",
       "file": "server/router/payroll.router.ts",
-      "line": 77
+      "line": 104
     },
     {
       "method": "DELETE",
@@ -3925,7 +3917,7 @@
       "status": "contract",
       "id": "payroll.period.reset",
       "file": "server/router/payroll.router.ts",
-      "line": 78
+      "line": 105
     },
     {
       "method": "POST",
@@ -3933,7 +3925,7 @@
       "status": "contract",
       "id": "payroll.adjustment.approve",
       "file": "server/router/payroll.router.ts",
-      "line": 79
+      "line": 106
     },
     {
       "method": "POST",
@@ -3941,7 +3933,7 @@
       "status": "contract",
       "id": "payroll.adjustment.reject",
       "file": "server/router/payroll.router.ts",
-      "line": 80
+      "line": 107
     },
     {
       "method": "POST",
@@ -3949,7 +3941,7 @@
       "status": "unsupported",
       "reason": "Phê duyệt ở cấp kỳ không nêu rõ lượt lương và trạng thái đích trong payload; dùng workflow duyệt lượt lương đã chọn theo tên/kỳ/chi nhánh.",
       "file": "server/router/payroll.router.ts",
-      "line": 81
+      "line": 108
     },
     {
       "method": "POST",
@@ -3957,7 +3949,7 @@
       "status": "unsupported",
       "reason": "Đóng kỳ là chuyển trạng thái tài chính quan trọng; dùng workflow chốt lượt lương đã chọn, kiểm tra phiên bản, khoản thanh toán và xác nhận.",
       "file": "server/router/payroll.router.ts",
-      "line": 82
+      "line": 109
     },
     {
       "method": "GET",
@@ -3965,7 +3957,7 @@
       "status": "contract",
       "id": "payroll.adjustment.list",
       "file": "server/router/payroll.router.ts",
-      "line": 83
+      "line": 110
     },
     {
       "method": "POST",
@@ -3973,7 +3965,7 @@
       "status": "contract",
       "id": "payroll.adjustment.create",
       "file": "server/router/payroll.router.ts",
-      "line": 84
+      "line": 111
     },
     {
       "method": "GET",
@@ -3989,7 +3981,7 @@
       "status": "unsupported",
       "reason": "Route POST /hr-contracts/upload cần truyền/nhận byte tệp; chat không thể chọn tệp cục bộ hoặc trả nội dung tải xuống an toàn.",
       "file": "server/router/hr-contract.router.ts",
-      "line": 96
+      "line": 101
     },
     {
       "method": "GET",
@@ -3997,7 +3989,7 @@
       "status": "contract",
       "id": "api.get.0c557a74cbc907f9",
       "file": "server/router/hr-contract.router.ts",
-      "line": 115
+      "line": 120
     },
     {
       "method": "POST",
@@ -4005,7 +3997,7 @@
       "status": "contract",
       "id": "api.post.564251c483731a91",
       "file": "server/router/hr-contract.router.ts",
-      "line": 121
+      "line": 126
     },
     {
       "method": "PATCH",
@@ -4013,7 +4005,23 @@
       "status": "contract",
       "id": "api.patch.7d7b8c0cbce4fe1c",
       "file": "server/router/hr-contract.router.ts",
-      "line": 127
+      "line": 132
+    },
+    {
+      "method": "GET",
+      "path": "/hr-contracts/settings",
+      "status": "contract",
+      "id": "hr.contract.settings.get",
+      "file": "server/router/hr-contract.router.ts",
+      "line": 138
+    },
+    {
+      "method": "PUT",
+      "path": "/hr-contracts/settings",
+      "status": "contract",
+      "id": "hr.contract.settings.update",
+      "file": "server/router/hr-contract.router.ts",
+      "line": 143
     },
     {
       "method": "GET",
@@ -4021,7 +4029,7 @@
       "status": "contract",
       "id": "api.get.b44c64519e939e0a",
       "file": "server/router/hr-contract.router.ts",
-      "line": 133
+      "line": 159
     },
     {
       "method": "POST",
@@ -4029,7 +4037,7 @@
       "status": "contract",
       "id": "api.post.8dad6fff5226b63c",
       "file": "server/router/hr-contract.router.ts",
-      "line": 138
+      "line": 164
     },
     {
       "method": "GET",
@@ -4613,15 +4621,15 @@
       "status": "contract",
       "id": "api.get.15793bc7bd272c4c",
       "file": "server/router/kanban.router.ts",
-      "line": 201
+      "line": 218
     },
     {
       "method": "GET",
       "path": "/kanban/tasks",
       "status": "contract",
-      "id": "api.get.3d687522518ab16e",
+      "id": "task.list",
       "file": "server/router/kanban.router.ts",
-      "line": 213
+      "line": 230
     },
     {
       "method": "POST",
@@ -4629,7 +4637,7 @@
       "status": "contract",
       "id": "api.post.f2b2178c81901b8e",
       "file": "server/router/kanban.router.ts",
-      "line": 253
+      "line": 270
     },
     {
       "method": "PATCH",
@@ -4637,14 +4645,14 @@
       "status": "contract",
       "id": "task.activity.update",
       "file": "server/router/kanban.router.ts",
-      "line": 304
+      "line": 323
     },
     {
       "method": "PATCH",
       "path": "/kanban/tasks/:id",
       "status": "manual",
       "file": "server/router/kanban.router.ts",
-      "line": 350,
+      "line": 369,
       "id": "task.update"
     },
     {
@@ -4653,7 +4661,7 @@
       "status": "contract",
       "id": "api.delete.35dac79ef381e139",
       "file": "server/router/kanban.router.ts",
-      "line": 444
+      "line": 470
     },
     {
       "method": "GET",
@@ -4661,7 +4669,7 @@
       "status": "contract",
       "id": "api.get.8e53379f0ff1bf95",
       "file": "server/router/kanban.router.ts",
-      "line": 463
+      "line": 489
     },
     {
       "method": "POST",
@@ -4669,7 +4677,7 @@
       "status": "contract",
       "id": "api.post.e0125cd5872cd784",
       "file": "server/router/kanban.router.ts",
-      "line": 485
+      "line": 511
     },
     {
       "method": "PATCH",
@@ -4677,7 +4685,7 @@
       "status": "contract",
       "id": "api.patch.016a33228acac407",
       "file": "server/router/kanban.router.ts",
-      "line": 519
+      "line": 545
     },
     {
       "method": "DELETE",
@@ -4685,7 +4693,7 @@
       "status": "contract",
       "id": "api.delete.b0c8940fa928ef44",
       "file": "server/router/kanban.router.ts",
-      "line": 542
+      "line": 568
     },
     {
       "method": "GET",
@@ -4861,7 +4869,7 @@
       "status": "contract",
       "id": "account.assistant-settings.read",
       "file": "server/assistant/router.ts",
-      "line": 20
+      "line": 23
     },
     {
       "method": "PATCH",
@@ -4869,7 +4877,39 @@
       "status": "contract",
       "id": "account.assistant-settings.update",
       "file": "server/assistant/router.ts",
-      "line": 21
+      "line": 24
+    },
+    {
+      "method": "GET",
+      "path": "/chatbot/assistant/memory",
+      "status": "unsupported",
+      "reason": "Bản ghi nhớ cá nhân của trợ lý được quản lý qua phần cài đặt riêng; không phải dữ liệu nghiệp vụ để tra cứu trong cuộc trò chuyện.",
+      "file": "server/assistant/router.ts",
+      "line": 25
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/memory",
+      "status": "unsupported",
+      "reason": "Việc lưu ghi nhớ do trợ lý và phần cài đặt quản lý; không cho phép tạo trực tiếp bản ghi nhớ qua workflow nghiệp vụ trong chat.",
+      "file": "server/assistant/router.ts",
+      "line": 26
+    },
+    {
+      "method": "PATCH",
+      "path": "/chatbot/assistant/memory/:memoryId",
+      "status": "unsupported",
+      "reason": "Bản ghi nhớ cá nhân được chỉnh trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ.",
+      "file": "server/assistant/router.ts",
+      "line": 27
+    },
+    {
+      "method": "DELETE",
+      "path": "/chatbot/assistant/memory/:memoryId",
+      "status": "unsupported",
+      "reason": "Bản ghi nhớ cá nhân được quản lý trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ.",
+      "file": "server/assistant/router.ts",
+      "line": 28
     },
     {
       "method": "GET",
@@ -4877,7 +4917,7 @@
       "status": "unsupported",
       "reason": "API cấp dữ liệu cấu hình workflow cho màn hình biên tập; không phải thao tác nghiệp vụ chạy trên dữ liệu công ty.",
       "file": "server/assistant/router.ts",
-      "line": 22
+      "line": 29
     },
     {
       "method": "POST",
@@ -4885,7 +4925,7 @@
       "status": "unsupported",
       "reason": "API tạo bản diễn giải workflow cho trình biên tập theo văn bản tùy ý; chỉ dùng trong luồng chỉnh workflow, không thực thi dữ liệu nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 23
+      "line": 30
     },
     {
       "method": "PATCH",
@@ -4893,7 +4933,7 @@
       "status": "unsupported",
       "reason": "API lưu toàn bộ workflow cá nhân theo phiên bản và cấu trúc trường tùy chỉnh; chưa có bộ cập nhật từng trường được kiểm soát cho lời gọi chat.",
       "file": "server/assistant/router.ts",
-      "line": 24
+      "line": 31
     },
     {
       "method": "POST",
@@ -4901,7 +4941,7 @@
       "status": "unsupported",
       "reason": "API khôi phục cấu hình workflow cá nhân về mặc định trong màn hình quản lý; không phải thao tác dữ liệu nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 25
+      "line": 32
     },
     {
       "method": "GET",
@@ -4909,7 +4949,7 @@
       "status": "unsupported",
       "reason": "API phân trang lịch sử phiên chat của giao diện; nội dung hội thoại cần xem trong màn hình lịch sử, không dùng làm danh sách hồ sơ nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 26
+      "line": 33
     },
     {
       "method": "GET",
@@ -4917,7 +4957,7 @@
       "status": "unsupported",
       "reason": "API tải trạng thái và nội dung của một phiên chat bằng UUID nội bộ; dùng riêng cho giao diện xem lại hội thoại.",
       "file": "server/assistant/router.ts",
-      "line": 27
+      "line": 34
     },
     {
       "method": "POST",
@@ -4925,7 +4965,15 @@
       "status": "unsupported",
       "reason": "API điều phối chính của trợ lý AI; không gọi lồng từ một workflow để tránh đệ quy và gửi lại nội dung hội thoại.",
       "file": "server/assistant/router.ts",
-      "line": 28
+      "line": 40
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/speech",
+      "status": "unsupported",
+      "reason": "Endpoint nội bộ tạo âm thanh tiếng Việt cho giao diện trợ lý; chỉ được gọi theo tùy chọn đọc câu trả lời, không phải thao tác nghiệp vụ cho AI thực hiện.",
+      "file": "server/assistant/router.ts",
+      "line": 41
     },
     {
       "method": "POST",
@@ -6267,7 +6315,7 @@
       "method": "GET",
       "path": "/inventory/receiving/receipts",
       "status": "contract",
-      "id": "api.get.206d0a4aee78f0a6",
+      "id": "inventory.receipt.list",
       "file": "server/modules/inventory/receiving/router.ts",
       "line": 10
     },
@@ -6275,7 +6323,7 @@
       "method": "POST",
       "path": "/inventory/receiving/receipts",
       "status": "contract",
-      "id": "api.post.a0f47fe662a971fe",
+      "id": "inventory.receipt.create",
       "file": "server/modules/inventory/receiving/router.ts",
       "line": 11
     },
@@ -6283,7 +6331,7 @@
       "method": "PATCH",
       "path": "/inventory/receiving/receipts/:id",
       "status": "contract",
-      "id": "api.patch.7fde6ff34040ed36",
+      "id": "inventory.receipt.update",
       "file": "server/modules/inventory/receiving/router.ts",
       "line": 12
     },
@@ -6291,7 +6339,7 @@
       "method": "POST",
       "path": "/inventory/receiving/receipts/:id/submit",
       "status": "contract",
-      "id": "api.post.9fffd9f1416c8a89",
+      "id": "inventory.receipt.submit",
       "file": "server/modules/inventory/receiving/router.ts",
       "line": 13
     },
@@ -6299,7 +6347,7 @@
       "method": "POST",
       "path": "/inventory/receiving/receipts/:id/start-receiving",
       "status": "contract",
-      "id": "api.post.7dc3b15d5e875338",
+      "id": "inventory.receipt.start",
       "file": "server/modules/inventory/receiving/router.ts",
       "line": 14
     },
@@ -6307,7 +6355,7 @@
       "method": "POST",
       "path": "/inventory/receiving/receipts/:id/confirm",
       "status": "contract",
-      "id": "api.post.b1251f40c4a19779",
+      "id": "inventory.receipt.confirm",
       "file": "server/modules/inventory/receiving/router.ts",
       "line": 15
     },
@@ -6315,7 +6363,7 @@
       "method": "POST",
       "path": "/inventory/receiving/receipts/:id/cancel",
       "status": "contract",
-      "id": "api.post.36d91c1b612e1f2a",
+      "id": "inventory.receipt.cancel",
       "file": "server/modules/inventory/receiving/router.ts",
       "line": 16
     },
@@ -7520,12 +7568,28 @@
       "line": 6
     },
     {
+      "method": "GET",
+      "path": "/retail/invoices/bulk-pdf",
+      "status": "unsupported",
+      "reason": "Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ.",
+      "file": "server/modules/retail/routes/retail-invoice.routes.ts",
+      "line": 7
+    },
+    {
+      "method": "POST",
+      "path": "/retail/invoices/bulk-pdf",
+      "status": "unsupported",
+      "reason": "Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ.",
+      "file": "server/modules/retail/routes/retail-invoice.routes.ts",
+      "line": 8
+    },
+    {
       "method": "POST",
       "path": "/retail/invoices/:id/pos-print",
       "status": "unsupported",
       "reason": "Endpoint tạo lệnh in hóa đơn tại POS, phụ thuộc máy in/phiên quầy đang hoạt động; chat không có kênh chọn và điều khiển thiết bị. Dùng màn hình thu ngân.",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 7
+      "line": 9
     },
     {
       "method": "POST",
@@ -7533,7 +7597,7 @@
       "status": "unsupported",
       "reason": "Endpoint in biên nhận thanh toán qua thiết bị POS đang gắn với ca; chat không thể xác minh máy in và quầy đích. Dùng màn hình thu ngân.",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 8
+      "line": 10
     },
     {
       "method": "POST",
@@ -7541,7 +7605,7 @@
       "status": "unsupported",
       "reason": "In lại hóa đơn cần thiết bị/quầy đích và kiểm tra bản in đã phát hành; chat chưa có xác nhận thiết bị. Dùng giao diện hóa đơn/POS.",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 9
+      "line": 11
     },
     {
       "method": "GET",
@@ -7549,7 +7613,7 @@
       "status": "contract",
       "id": "api.get.50a4c95af69a5440",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 10
+      "line": 12
     },
     {
       "method": "GET",
@@ -7557,7 +7621,7 @@
       "status": "contract",
       "id": "api.get.25096366f15d730b",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 11
+      "line": 13
     },
     {
       "method": "GET",
@@ -7681,11 +7745,19 @@
     },
     {
       "method": "GET",
+      "path": "/retail/warranty/lookup-phone/:phone",
+      "status": "contract",
+      "id": "retail.warranty.lookup.phone",
+      "file": "server/modules/retail/routes/retail-warranty.routes.ts",
+      "line": 8
+    },
+    {
+      "method": "GET",
       "path": "/retail/warranty/expiring",
       "status": "contract",
       "id": "api.get.5ac7dee040f9bb15",
       "file": "server/modules/retail/routes/retail-warranty.routes.ts",
-      "line": 8
+      "line": 9
     },
     {
       "method": "GET",
@@ -7693,7 +7765,7 @@
       "status": "contract",
       "id": "api.get.65279c2bb28cac4b",
       "file": "server/modules/retail/routes/retail-warranty.routes.ts",
-      "line": 9
+      "line": 10
     },
     {
       "method": "PATCH",
@@ -7701,7 +7773,7 @@
       "status": "contract",
       "id": "retail.warranty.serial.update",
       "file": "server/modules/retail/routes/retail-warranty.routes.ts",
-      "line": 10
+      "line": 11
     },
     {
       "method": "PATCH",
@@ -7709,7 +7781,7 @@
       "status": "unsupported",
       "reason": "Trùng thao tác cập nhật bảo hành qua PATCH /retail/warranty/serial/by-code/:code đã có kiểm tra mã thiết bị hiển thị, chi nhánh và xác nhận; không yêu cầu người dùng cung cấp ID cơ sở dữ liệu.",
       "file": "server/modules/retail/routes/retail-warranty.routes.ts",
-      "line": 11
+      "line": 12
     },
     {
       "method": "GET",
@@ -7992,12 +8064,20 @@
       "line": 38
     },
     {
+      "method": "GET",
+      "path": "/retail/finance/commission/balances",
+      "status": "unsupported",
+      "reason": "API chỉ trả mã đối tác và số dư, chưa có tên/mã hiển thị để người dùng đối chiếu. Dùng workflow tra cứu đối soát hoa hồng theo tên đối tác.",
+      "file": "server/modules/retail/routes/retail-finance.routes.ts",
+      "line": 39
+    },
+    {
       "method": "POST",
       "path": "/retail/finance/commission/partners/:id/payouts",
       "status": "contract",
       "id": "api.post.3c5a416752fe6656",
       "file": "server/modules/retail/routes/retail-finance.routes.ts",
-      "line": 39
+      "line": 44
     },
     {
       "method": "GET",
@@ -8005,7 +8085,7 @@
       "status": "contract",
       "id": "api.get.203a9f8e9a785680",
       "file": "server/modules/retail/routes/retail-finance.routes.ts",
-      "line": 40
+      "line": 45
     },
     {
       "method": "GET",
@@ -8013,7 +8093,7 @@
       "status": "contract",
       "id": "api.get.78da159ec226e07e",
       "file": "server/modules/retail/routes/retail-finance.routes.ts",
-      "line": 41
+      "line": 46
     },
     {
       "method": "GET",
@@ -8883,7 +8963,7 @@
       "method": "POST",
       "path": "/worker-management/workers",
       "status": "contract",
-      "id": "api.post.479b054fb833c67d",
+      "id": "worker.create",
       "file": "server/modules/worker-management/routes/worker.routes.ts",
       "line": 8
     },

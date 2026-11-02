@@ -347,12 +347,12 @@ function AppContent() {
         />
 
         <main
-          className={`min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface ${
-            activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-6" : "p-3 sm:p-6"
+          className={`min-w-0 flex-1 bg-surface ${
+            resolvedActiveTab === "TRỢ LÝ AI" ? "flex min-h-0 flex-col overflow-hidden p-0" : `overflow-x-hidden overflow-y-auto ${activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-6" : "p-3 sm:p-6"}`
           }`}
           id="primary_page_container"
         >
-          {branchError && resolvedActiveTab !== "CÀI ĐẶT" ? (
+          {branchError && resolvedActiveTab !== "CÀI ĐẶT" && resolvedActiveTab !== "TRỢ LÝ AI" ? (
             <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 text-on-surface">
               <h1 className="text-balance text-lg font-semibold">Chưa thể tải chi nhánh</h1>
               <p role="alert" className="text-pretty text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">{branchError}</p>
@@ -361,7 +361,7 @@ function AppContent() {
                 <button type="button" onClick={() => setActiveTab("CÀI ĐẶT")} className="min-h-11 rounded-xl border border-outline-variant px-4 py-2 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Mở cài đặt</button>
               </div>
             </section>
-          ) : branchLoading && !activeBranchId && resolvedActiveTab !== "CÀI ĐẶT" ? (
+          ) : branchLoading && !activeBranchId && resolvedActiveTab !== "CÀI ĐẶT" && resolvedActiveTab !== "TRỢ LÝ AI" ? (
             <p role="status" className="p-6 text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">Đang tải chi nhánh…</p>
           ) : <AppRouterView scopeKey={activeBranchId} activeTab={resolvedActiveTab} userProfile={userProfile} />}
         </main>
@@ -369,7 +369,7 @@ function AppContent() {
 
       {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
       <NotificationToastContainer onNavigate={handleSearchNavigation} />
-      {hasPermission("chat:read") && <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />}
+      {hasPermission("chat:read") && resolvedActiveTab !== "TRỢ LÝ AI" && <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />}
     </div>
   );
 }
