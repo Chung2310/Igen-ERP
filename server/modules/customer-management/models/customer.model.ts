@@ -18,7 +18,7 @@ const CustomerSchema = new Schema<ICustomer>({
   address: { type: String, trim: true },
   notes: { type: String, trim: true },
   status: { type: String, enum: ["active", "inactive"], default: "active", required: true },
-  source: { type: String, enum: ["manual", "pos", "import"], default: "manual", required: true },
+  source: { type: String, enum: ["manual", "pos", "import", "page"], default: "manual", required: true },
 
   tier: {
     type: {

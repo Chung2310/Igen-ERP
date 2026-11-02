@@ -1,9 +1,13 @@
 import { Router } from "express";
+import { simulatePageChat } from "../service/page-chat-simulator";
+import { runPersistentPageChatTurn } from "../service/page-chat-persistent-simulator";
+import type { AuthenticatedRequest } from "../../shared/middleware/auth";
 import Joi from "joi";
 import { companyKnowledgeController } from "../controller/company-knowledge.controller.ts";
 import { geminiController } from "../../shared/controller/gemini.controller.ts";
 import { requireAuth, requirePermission } from "../../shared/middleware/auth";
 import { validateRequest } from "../../../../middleware/validation";
+import { withAiUsage } from "../../shared/service/ai-subscription.service";
 
 export const companyKnowledgeRouter = Router();
 
@@ -164,3 +168,45 @@ companyKnowledgeRouter.post(
   companyKnowledgeController.clearAllKnowledge as never
 );
 
+
+companyKnowledgeRouter.post("/simulate-page-chat", async (request, res) => {
+  const req = request as AuthenticatedRequest;
+  const { message, history, documentText, rule, pageId } = req.body || {};
+  if (typeof message !== "string" || !message.trim() || message.length > 3000
+    || !Array.isArray(history) || history.length > 40
+    || history.some(turn => !turn || !["customer", "bot"].includes(turn.role) || typeof turn.text !== "string" || turn.text.length > 3000)
+    || (documentText !== undefined && (typeof documentText !== "string" || documentText.length > 30000))
+    || (rule !== undefined && (typeof rule !== "string" || rule.length > 5000))
+    || (pageId !== undefined && (typeof pageId !== "string" || pageId.length > 100))) {
+    return res.status(400).json({ status: "error", message: "Dữ liệu hội thoại mô phỏng không hợp lệ." });
+  }
+  try {
+    const companyCode = req.user!.companyCode;
+    const data = await withAiUsage({ companyCode, userId: req.user!.id }, () => simulatePageChat({ companyCode, pageId, message: message.trim(), history, documentText, rule }));
+    return res.json({ status: "success", data });
+  } catch (error) {
+    console.error("[PageChatSimulator] Error:", error);
+    return res.status(502).json({ status: "error", message: "Không thể tạo phản hồi mô phỏng lúc này." });
+  }
+});
+
+companyKnowledgeRouter.post("/simulate-page-chat-real", managerOnly as never, async (request, res) => {
+  const req = request as AuthenticatedRequest;
+  const { message, pageId, conversationKey, turnId } = req.body || {};
+  if (typeof message !== "string" || !message.trim() || message.length > 3000
+    || typeof pageId !== "string" || !pageId.trim() || pageId.length > 100
+    || typeof conversationKey !== "string" || !conversationKey.trim() || conversationKey.length > 100
+    || typeof turnId !== "string" || !turnId.trim() || turnId.length > 100) {
+    return res.status(400).json({ status: "error", message: "Dữ liệu lượt chat lưu thật không hợp lệ." });
+  }
+  try {
+    const companyCode = req.user!.companyCode;
+    const data = await withAiUsage({ companyCode, userId: req.user!.id }, () => runPersistentPageChatTurn({ companyCode, pageId, conversationKey, turnId, message }));
+    return res.json({ status: "success", data });
+  } catch (error) {
+    const problem = error as Error & { statusCode?: number };
+    console.error("[PageChatPersistentSimulator] Error:", error);
+    const status = problem.statusCode && problem.statusCode >= 400 && problem.statusCode < 500 ? problem.statusCode : 502;
+    return res.status(status).json({ status: "error", message: status === 502 ? "Không thể hoàn tất lượt chat lưu thật lúc này." : problem.message });
+  }
+});

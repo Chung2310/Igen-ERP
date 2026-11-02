@@ -14,6 +14,7 @@ export interface CakeCheckoutDetails extends CakeChoice {
 export interface CakeCheckoutSnapshot {
   details: CakeCheckoutDetails; variant: CakeVariant; total: number; deposit: number; balance: number;
   depositPercent: number; bankId: string; accountNumber: string; accountName: string; paymentPrefix: string;
+  stockCheck?: { status: "available" | "insufficient" | "untracked" | "unknown"; availableQuantity?: number; branchName?: string; checkedAt: Date };
   depositWaiverReason?: "returning_customer" | "customer_requested";
   subtotal?: number; shippingFee?: number; shippingEvidence?: string;
   customerAddress?: string; sellerAddress?: string;

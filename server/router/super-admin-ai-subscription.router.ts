@@ -7,10 +7,11 @@ import { executeSubscriptionAction } from "../super-admin/subscription-action";
 import { registerAdminAction } from "../super-admin/action-registry";
 import { AiSubscriptionPlanModel } from "../modules/marketing-suite/shared/model/ai-subscription.model";
 import { aiSubscriptionService } from "../modules/marketing-suite/shared/service/ai-subscription.service";
+import { aiUserSubscriptionService } from "../modules/marketing-suite/shared/service/ai-user-subscription.service";
 
 const action = (type: string) => registerAdminAction({ type, risk: "sensitive", requiresReason: true,
   requiresStepUp: false, parse: (input: unknown) => input });
-const actions = { savePlan: action("ai.subscription.plan.save"), assign: action("ai.subscription.assign"), cancel: action("ai.subscription.cancel") };
+const actions = { savePlan: action("ai.subscription.plan.save"), assign: action("ai.subscription.assign"), cancel: action("ai.subscription.cancel"), assignUser: action("ai.subscription.user.assign"), cancelUser: action("ai.subscription.user.cancel") };
 const reason = Joi.string().trim().min(3).max(500).required();
 const objectId = Joi.string().hex().length(24).required();
 const plan = Joi.object({ code: Joi.string().trim().uppercase().pattern(/^[A-Z0-9_-]+$/).max(40).required(),
@@ -36,7 +37,7 @@ function notifySubscription(companyCode: string) {
   }).catch(() => console.warn("[AI subscription] Live update unavailable; clients will refresh on reconnect."));
 }
 export const superAdminAiSubscriptionRouter = Router();
-superAdminAiSubscriptionRouter.use(["/ai-subscription", "/tenants/:companyCode/ai-subscription"], requireAuth, requireRealSuperAdmin, requirePrivilegedSession, requirePermission("access:manage"));
+superAdminAiSubscriptionRouter.use(["/ai-subscription", "/tenants/:companyCode/ai-subscription", "/users/:userId/ai-subscription"], requireAuth, requireRealSuperAdmin, requirePrivilegedSession, requirePermission("access:manage"));
 superAdminAiSubscriptionRouter.get("/ai-subscription/plans", async (_req, res, next) => {
   try { res.json({ plans: await AiSubscriptionPlanModel.find().sort({ createdAt: -1 }).lean() }); } catch (error) { next(error); }
 });
@@ -87,3 +88,31 @@ superAdminAiSubscriptionRouter.delete("/tenants/:companyCode/ai-subscription", i
     res.json(result);
   } catch (error) { actionError(res, error); }
 });
+
+const userParams = Joi.object({ userId: objectId });
+superAdminAiSubscriptionRouter.get("/users/:userId/ai-subscription", validateRequest({ params: userParams }), async (req, res, next) => {
+  try { res.json({ subscription: await aiUserSubscriptionService.summary(req.params.userId) }); } catch (error) { next(error); }
+});
+superAdminAiSubscriptionRouter.post("/users/:userId/ai-subscription", idempotency,
+  validateRequest({ params: userParams, body: Joi.object({ planId: objectId, reason, expectedSubscriptionId: objectId.allow(null), planUpdatedAt: Joi.date().iso().required() }) }),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const result = await executeSubscriptionAction({ actorId: req.user!.id }, {
+        definition: actions.assignUser, input: { userId: req.params.userId, planId: req.body.planId,
+          expectedSubscriptionId: req.body.expectedSubscriptionId, planUpdatedAt: req.body.planUpdatedAt },
+        reason: req.body.reason, idempotencyKey: String(req.headers["idempotency-key"]),
+      }, (input, session) => aiUserSubscriptionService.assign(input.userId, input.planId, req.user!.id, input.expectedSubscriptionId, input.planUpdatedAt, session));
+      res.json(result);
+    } catch (error) { actionError(res, error); }
+  });
+superAdminAiSubscriptionRouter.delete("/users/:userId/ai-subscription", idempotency,
+  validateRequest({ params: userParams, body: Joi.object({ reason, subscriptionId: objectId }) }),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const result = await executeSubscriptionAction({ actorId: req.user!.id }, {
+        definition: actions.cancelUser, input: { userId: req.params.userId, subscriptionId: req.body.subscriptionId },
+        reason: req.body.reason, idempotencyKey: String(req.headers["idempotency-key"]),
+      }, (input, session) => aiUserSubscriptionService.cancel(input.userId, input.subscriptionId, session));
+      res.json(result);
+    } catch (error) { actionError(res, error); }
+  });

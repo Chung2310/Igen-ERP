@@ -155,22 +155,25 @@ export const HIDE_AI_AUTO_REPLY = true;
 export function isModuleEnabled(enabledModules: string[] | undefined, key: ModuleKey): boolean {
   if (key === "retail-partner") return Boolean(enabledModules?.includes("retail") && enabledModules.includes(key));
   if (key === "retail" || key === "finance" || key === "social-marketing" || key === "omni-inbox" || key === "company-knowledge") return Boolean(enabledModules?.includes(key));
-  if (!enabledModules || enabledModules.length === 0) return true;
+  if (!enabledModules) return true;
+  if (enabledModules.length === 0) return false;
   return enabledModules.includes(key);
+}
+
+function isTabEnabled(tab: TabType, enabledModules: string[] | undefined): boolean {
+  if (tab === "GÓI AI & LƯỢT SỬ DỤNG") return isAiSubscriptionEnabled(enabledModules);
+  if (tab === "ĐỐI TÁC" && !isModuleEnabled(enabledModules, "student")) return false;
+  if (tab === "ĐỐI TÁC LAO ĐỘNG" && !isModuleEnabled(enabledModules, "worker")) return false;
+  const moduleKey = TAB_MODULE_MAP[tab];
+  return !moduleKey || isModuleEnabled(enabledModules, moduleKey);
 }
 
 /** Keep permanent tabs and tenant modules that are enabled. */
 export function filterEnabledTabs(tabs: TabType[], enabledModules: string[] | undefined, _legacyBusinessType?: unknown): TabType[] {
-  return tabs.filter((tab) => {
-    if (tab === "GÓI AI & LƯỢT SỬ DỤNG") return isAiSubscriptionEnabled(enabledModules);
-    const moduleKey = TAB_MODULE_MAP[tab];
-    return !moduleKey || (isModuleEnabled(enabledModules, moduleKey));
-  });
+  return tabs.filter((tab) => isTabEnabled(tab, enabledModules));
 }
 
 /** Resolve direct navigation to a disabled module without rendering restricted content. */
 export function resolveEnabledTab(tab: TabType, enabledModules: string[] | undefined, _legacyBusinessType?: unknown): TabType {
-  if (tab === "GÓI AI & LƯỢT SỬ DỤNG" && !isAiSubscriptionEnabled(enabledModules)) return "TỔNG QUAN";
-  const moduleKey = TAB_MODULE_MAP[tab];
-  return moduleKey && (!isModuleEnabled(enabledModules, moduleKey)) ? "TỔNG QUAN" : tab;
+  return isTabEnabled(tab, enabledModules) ? tab : "TỔNG QUAN";
 }

@@ -26,6 +26,13 @@ export const createOperationalRunSchema = Joi.object({
   "supplemental.reference": "Kỳ lương bổ sung yêu cầu parentRunId hoặc lý do bổ sung (supplementalReason)",
 });
 
+export const listOperationalRunsQuerySchema = Joi.object({
+  periodKey: Joi.string().pattern(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
+  type: Joi.string().valid("regular", "supplemental").optional(),
+  status: Joi.string().valid("draft", "review", "closed", "paid").optional(),
+  limit: Joi.number().integer().min(1).max(100).default(50),
+});
+
 export const syncAttendanceSchema = Joi.object({ expectedVersion });
 export const lockAttendanceSchema = Joi.object({ expectedVersion });
 

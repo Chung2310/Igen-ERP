@@ -104,3 +104,12 @@ export const updateEnrollmentStatusSchema = Joi.object({
     "string.pattern.base": "Ngày dự kiến quay lại phải có định dạng YYYY-MM-DD.",
   }),
 });
+
+export const updateAttendanceRecordSchema = Joi.object({
+  date: Joi.string().pattern(datePattern).required().messages({
+    "any.required": "Ngày điểm danh là bắt buộc.",
+    "string.pattern.base": "Ngày điểm danh phải có định dạng YYYY-MM-DD.",
+  }),
+  studentId: Joi.string().pattern(/^[0-9a-fA-F]{24}$/).required(),
+  status: Joi.string().valid("present", "absent", "excused", "late").required(),
+});

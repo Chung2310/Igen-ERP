@@ -5,7 +5,8 @@ export type ModuleSettingsView = { tenantId: string; entityPreset: EntityPreset 
 
 export class ModuleSettingsService {
   async get(tenantId: string): Promise<ModuleSettingsView> {
-    return { tenantId, entityPreset: "student" };
+    const settings = await ModuleSettings.findOne({ tenantId }).select("entityPreset").lean();
+    return { tenantId, entityPreset: settings?.entityPreset ?? "student" };
   }
 
   async update(context: ModuleSettingsContext, entityPreset: EntityPreset): Promise<ModuleSettingsView> {

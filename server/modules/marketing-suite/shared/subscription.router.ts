@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { AuthenticatedRequest } from "../../../middleware/auth";
 import { aiSubscriptionService } from "./service/ai-subscription.service";
+import { aiUserSubscriptionService } from "./service/ai-user-subscription.service";
 import { AiSubscriptionPlanModel, AiUsageModel } from "./model/ai-subscription.model";
 import { getSubscriptionHistory } from './service/ai-subscription-history.service';
 
@@ -27,10 +28,14 @@ subscriptionRouter.get("/", async (req: AuthenticatedRequest, res, next) => {
   try {
   const companyCode = req.user!.companyCode!.trim().toUpperCase();
   await aiSubscriptionService.recoverExpired(companyCode);
-  const [subscription, usage] = await Promise.all([
+  const personal = req.user?.id ? await aiUserSubscriptionService.summary(req.user.id) : null;
+  const personalActive = personal?.status === "active" && personal.companyCode === companyCode;
+  const [companySubscription, usage] = await Promise.all([
     aiSubscriptionService.summary(companyCode),
-    AiUsageModel.find({ companyCode }).select("kind model units status createdAt completedAt").sort({ createdAt: -1 }).limit(30).lean(),
+    AiUsageModel.find(personalActive ? { companyCode, userId: req.user!.id, billingScope: "user" } : { companyCode, billingScope: { $ne: "user" } })
+      .select("kind model units status createdAt completedAt").sort({ createdAt: -1 }).limit(30).lean(),
   ]);
+  const subscription = personalActive ? { ...personal, scope: "user" } : companySubscription ? { ...companySubscription, scope: "company" } : null;
   res.json({ status: "success", data: { subscription, usage } });
   } catch (error) { next(error); }
 });

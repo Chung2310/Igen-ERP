@@ -37,9 +37,12 @@ export function isCakeServingQuestion(message: string) {
 
 export function isCakeServingRecommendation(message: string) {
   const normalized = normalizeCakeText(message);
-  return /\b(?:nguoi|khach|suat)\b/.test(normalized)
-    && (/\b(?:size|kich thuoc|nen|chon|dat|bao nhieu|du|vua)\b/.test(normalized)
-      || /^\d{1,3}(?:\s*(?:den|toi|[-–—])\s*\d{1,3})?\s*nguoi(?:\s+(?:nhe|nha|a|an))?[.!?]*$/.test(normalized));
+  const bareGuestCount = /^\d{1,3}(?:\s*(?:den|toi|[-–—])\s*\d{1,3})?\s*(?:nguoi|khach)(?:\s+(?:nhe|nha|a|an))?[.!?]*$/.test(normalized);
+  const mentionsGuestCount = /\b\d{1,3}(?:\s*(?:den|toi|[-–—])\s*\d{1,3})?\s*(?:nguoi|khach|suat)\b/.test(normalized)
+    || /\b(?:so|luong)\s+(?:nguoi|khach|suat)\b/.test(normalized)
+    || /\b(?:nguoi|khach)\s+(?:tham du|an|dung)\b/.test(normalized);
+  return (bareGuestCount || mentionsGuestCount)
+    && (bareGuestCount || /\b(?:size|kich thuoc|nen|chon|dat|bao nhieu|du|vua)\b/.test(normalized));
 }
 
 function specification(variant: CakeVariant) {
@@ -73,6 +76,6 @@ export function cakeServingRecommendationReply(guestCount: number, catalog: Cake
   if (!rows.size) return undefined;
   const options = [...rows.values()].slice(0, 3);
   return options.length === 1
-    ? `Khoảng ${guestCount} người thì ${options[0].replace(/^Size/, "size")} phù hợp nhé.`
-    : `Khoảng ${guestCount} người có các lựa chọn phù hợp:\n${options.join("\n")}`;
+    ? `Khoảng ${guestCount} người thì ${options[0].replace(/^Size/, "size")} phù hợp nhé. Anh/chị muốn chọn size này ạ?`
+    : `Khoảng ${guestCount} người có các lựa chọn phù hợp:\n${options.join("\n")}\nAnh/chị muốn chọn size nào ạ?`;
 }

@@ -11,12 +11,13 @@ import { adjustCustomerPoints, getPointPolicy, updatePointPolicy } from "../serv
 export const retailPointsRoutes = Router();
 const manage = requirePermission("retail-points:manage") as any;
 const operate = requirePermission(["retail:manage", "pos:manage"]) as any;
+const pointPolicyRead = requirePermission(["retail:manage", "pos:manage", "retail-points:manage"]) as any;
 const scope = (req: any) => retailScopeFromRequest(req.user || {}, req.query);
 const handle = (work: (req: any) => Promise<unknown>) => async (req: any, res: any, next: any) => {
   try { res.json({ success: true, data: await work(req) }); }
   catch (error) { next(error); }
 };
-retailPointsRoutes.get("/policy", operate, handle((req) => getPointPolicy(scope(req).companyCode)));
+retailPointsRoutes.get("/policy", pointPolicyRead, handle((req) => getPointPolicy(scope(req).companyCode)));
 retailPointsRoutes.put("/policy", manage, handle((req) => updatePointPolicy(scope(req).companyCode, req.body || {}, String(req.user?.id || ""))));
 retailPointsRoutes.get("/customers/search", manage, handle(async (req) => {
   const companyCode = scope(req).companyCode;

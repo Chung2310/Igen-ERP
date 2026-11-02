@@ -17,7 +17,7 @@ export const walletService = {
     const context = getAiUsageContext();
     const companyCode = context?.companyCode || (await UserModel.findById(userId).select("companyCode").lean())?.companyCode;
     if (!companyCode) throw quotaError("Không xác định được doanh nghiệp sử dụng AI.", 403);
-    await aiSubscriptionService.available(companyCode.trim().toUpperCase(), Math.ceil(amount));
+    await aiSubscriptionService.available(companyCode.trim().toUpperCase(), Math.ceil(amount), userId);
   },
   // The provider boundary owns reservation and settlement; existing task callers
   // must not debit again after their AI call has already been counted.

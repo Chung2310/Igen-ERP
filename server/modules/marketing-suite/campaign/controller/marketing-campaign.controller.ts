@@ -90,7 +90,7 @@ export const marketingCampaignController = {
     try {
       const { companyCode } = getIdentity(req);
       const data = estimateCampaignAi(req.body);
-      const subscription = await aiSubscriptionService.available(companyCode, data.estimatedCalls);
+      const subscription = await aiSubscriptionService.available(companyCode, data.estimatedCalls, req.user?.id);
       return res.json({ status: "success", data: { ...data, remaining: subscription.remaining } });
     } catch (error) {
       return res.status(Number((error as { statusCode?: number }).statusCode) || 400).json({ status: "error", message: (error as Error).message });
@@ -119,6 +119,19 @@ export const marketingCampaignController = {
       return res.status(200).json({ status: "success", data: result });
     } catch (error: unknown) {
       return res.status(400).json({ status: "error", message: error instanceof Error ? error.message : "Không thể tải chiến dịch." });
+    }
+  },
+
+  async listAssistantSummaries(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+      const search = typeof req.query.search === "string" ? req.query.search : undefined;
+      const result = await marketingCampaignService.listAssistantSummaries(companyCode, { page, limit, search });
+      return res.status(200).json({ status: "success", data: result });
+    } catch (error: unknown) {
+      return res.status(400).json({ status: "error", message: error instanceof Error ? error.message : "Không thể tải danh sách tóm tắt chiến dịch." });
     }
   },
 
@@ -157,6 +170,28 @@ export const marketingCampaignController = {
     }
   },
 
+  async listAssistantSheetSlots(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const data = await campaignContentSheetService.listAssistantSlots(companyCode, req.params.id);
+      return res.status(200).json({ status: "success", data });
+    } catch (error: unknown) {
+      const statusCode = Number((error as { statusCode?: number })?.statusCode || 400);
+      return res.status(statusCode).json({ status: "error", message: error instanceof Error ? error.message : "Không thể tải danh sách dòng Content Sheet." });
+    }
+  },
+
+  async listAssistantSheetColumns(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const data = await campaignContentSheetService.listAssistantColumns(companyCode, req.params.id);
+      return res.status(200).json({ status: "success", data });
+    } catch (error: unknown) {
+      const statusCode = Number((error as { statusCode?: number })?.statusCode || 400);
+      return res.status(statusCode).json({ status: "error", message: error instanceof Error ? error.message : "Không thể tải danh sách cột Content Sheet." });
+    }
+  },
+
   async listAssetOrders(req: AuthenticatedRequest, res: Response) {
     try {
       const { companyCode } = getIdentity(req);
@@ -176,6 +211,24 @@ export const marketingCampaignController = {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "TikTok status worker thất bại.";
       return res.status(message.includes("token") ? 401 : 500).json({ status: "error", message });
+    }
+  },
+
+  async listAssetOrderAssistantSummaries(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const status = typeof req.query.status === "string" && req.query.status
+        ? req.query.status as import("../interface/campaign-asset-order.interface.ts").CampaignAssetOrderStatus
+        : undefined;
+      const data = await campaignAssetOrderService.listAssistantSummaries(companyCode, req.params.id, {
+        search: typeof req.query.search === "string" ? req.query.search : undefined,
+        status,
+        limit: Number(req.query.limit || 20),
+      });
+      return res.status(200).json({ status: "success", data });
+    } catch (error: unknown) {
+      const statusCode = Number((error as { statusCode?: number })?.statusCode || 400);
+      return res.status(statusCode).json({ status: "error", message: error instanceof Error ? error.message : "Không thể tra cứu Order sản xuất." });
     }
   },
 
@@ -358,6 +411,23 @@ export const marketingCampaignController = {
     } catch (error: unknown) {
       const statusCode = Number((error as { statusCode?: number })?.statusCode || 400);
       return res.status(statusCode).json({ status: "error", message: error instanceof Error ? error.message : "Không thể xem trước kết quả tạo hàng loạt." });
+    }
+  },
+
+  async listFillAllAssetOrdersAIAssistantSummaries(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const status = typeof req.query.status === "string" && req.query.status
+        ? req.query.status as import("../interface/campaign-asset-order.interface.ts").CampaignAssetOrderAIJobStatus
+        : undefined;
+      const data = await campaignAssetOrderService.listAssistantFillAllAIJobSummaries(companyCode, req.params.id, {
+        status,
+        limit: Number(req.query.limit || 20),
+      });
+      return res.status(200).json({ status: "success", data });
+    } catch (error: unknown) {
+      const statusCode = Number((error as { statusCode?: number })?.statusCode || 400);
+      return res.status(statusCode).json({ status: "error", message: error instanceof Error ? error.message : "Không thể tra cứu các lượt AI điền Order." });
     }
   },
 
@@ -583,6 +653,23 @@ export const marketingCampaignController = {
     } catch (error: unknown) {
       const statusCode = Number((error as { statusCode?: number; status?: number })?.statusCode || (error as { status?: number })?.status || 400);
       return res.status(statusCode).json({ status: "error", message: error instanceof Error ? error.message : "Không thể tạo AI job hàng loạt." });
+    }
+  },
+
+  async listSheetAssistantAIJobSummaries(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const status = typeof req.query.status === "string" && req.query.status
+        ? req.query.status as import("../interface/campaign-content-sheet.interface.ts").CampaignSheetAIJobStatus
+        : undefined;
+      const data = await campaignContentSheetService.listAssistantAIJobSummaries(companyCode, req.params.id, {
+        status,
+        limit: Number(req.query.limit || 20),
+      });
+      return res.status(200).json({ status: "success", data });
+    } catch (error: unknown) {
+      const statusCode = Number((error as { statusCode?: number })?.statusCode || 400);
+      return res.status(statusCode).json({ status: "error", message: error instanceof Error ? error.message : "Không thể tra cứu trạng thái AI job Content Sheet." });
     }
   },
 
@@ -957,6 +1044,22 @@ export const marketingCampaignController = {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Sync metrics worker thất bại.";
       return res.status(message.includes("token") ? 401 : 500).json({ status: "error", message });
+    }
+  },
+
+  async getAssistantAnalytics(req: AuthenticatedRequest, res: Response) {
+    try {
+      const { companyCode } = getIdentity(req);
+      const { campaignId, platform, startDate, endDate } = req.query;
+      const result = await MarketingAnalyticsService.getAssistantCampaignAnalytics(companyCode, {
+        campaignId: campaignId as string,
+        platform: platform as string | undefined,
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+      return res.status(200).json({ status: "success", data: result });
+    } catch (error: unknown) {
+      return res.status(400).json({ status: "error", message: error instanceof Error ? error.message : "Không thể lấy tóm tắt báo cáo chiến dịch." });
     }
   },
 

@@ -106,6 +106,40 @@ const calendarSchema = {
   }),
 };
 
+const assistantSummarySchema = {
+  query: Joi.object({
+    search: Joi.string().trim().max(100).allow(""),
+    page: Joi.number().integer().min(1).max(100).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(10),
+  }),
+};
+
+const assistantAnalyticsSchema = {
+  query: Joi.object({
+    campaignId: objectId,
+    startDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
+    endDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
+    platform: Joi.string().valid("Facebook", "TikTok").optional(),
+  }),
+};
+
+const assetOrderAssistantSummarySchema = {
+  params: Joi.object({ id: objectId }),
+  query: Joi.object({
+    search: Joi.string().trim().max(100).allow(""),
+    status: Joi.string().valid("draft", "needs_assets", "ready", "bulk_queued", "completed", "cancelled").allow(""),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+  }),
+};
+
+const assetOrderAIJobAssistantSummarySchema = {
+  params: Joi.object({ id: objectId }),
+  query: Joi.object({
+    status: Joi.string().valid("queued", "processing", "completed", "partial", "failed", "cancelled").allow(""),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+  }),
+};
+
 const sheetDataType = Joi.string().valid(
   "short_text", "long_text", "number", "currency", "date", "datetime",
   "select", "multi_select", "url", "media_url", "boolean"
@@ -194,6 +228,13 @@ const sheetAIJobSchema = {
     idempotencyKey: Joi.string().trim().min(8).max(200).required(),
   }),
 };
+const assistantAIJobSummarySchema = {
+  params: Joi.object({ id: objectId }),
+  query: Joi.object({
+    status: Joi.string().valid("queued", "processing", "awaiting_review", "applying", "completed", "partial", "failed", "cancelled").allow(""),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+  }),
+};
 
 const assetOrderAssetSchema = Joi.object({
   role: Joi.string().valid("primary", "secondary", "logo", "video", "other").required(),
@@ -269,12 +310,21 @@ marketingCampaignRouter.post("/public/monthly/:token/bulk-action", marketingCamp
 
 marketingCampaignRouter.use(requireAuth as never, requirePermission("marketing:post") as never);
 marketingCampaignRouter.post("/preview-drive", marketingCampaignController.previewDrive as never);
+marketingCampaignRouter.get("/assistant/analytics", validateRequest(assistantAnalyticsSchema), marketingCampaignController.getAssistantAnalytics as never);
 marketingCampaignRouter.get("/analytics", marketingCampaignController.getAnalytics as never);
 marketingCampaignRouter.post("/estimate-ai", validateRequest(createSchema), marketingCampaignController.estimateAi as never);
 marketingCampaignRouter.get("/calendar", validateRequest(calendarSchema), marketingCampaignController.calendar as never);
+marketingCampaignRouter.get("/assistant/summaries", validateRequest(assistantSummarySchema), marketingCampaignController.listAssistantSummaries as never);
 marketingCampaignRouter.post("/", validateRequest(createSchema), marketingCampaignController.create as never);
 marketingCampaignRouter.get("/", marketingCampaignController.list as never);
 marketingCampaignRouter.get("/:id/sheet", marketingCampaignController.getSheet as never);
+marketingCampaignRouter.get("/:id/sheet/slots", validateRequest({
+  params: Joi.object({ id: objectId }),
+}), marketingCampaignController.listAssistantSheetSlots as never);
+marketingCampaignRouter.get("/:id/sheet/columns/assistant-summaries", validateRequest({
+  params: Joi.object({ id: objectId }),
+}), marketingCampaignController.listAssistantSheetColumns as never);
+marketingCampaignRouter.get("/:id/asset-orders/assistant-summaries", validateRequest(assetOrderAssistantSummarySchema), marketingCampaignController.listAssetOrderAssistantSummaries as never);
 marketingCampaignRouter.get("/:id/asset-orders", validateRequest({ params: Joi.object({ id: objectId } ) }), marketingCampaignController.listAssetOrders as never);
 marketingCampaignRouter.post("/:id/asset-orders/drive-import/preview", validateRequest({
   params: Joi.object({ id: objectId }),
@@ -330,6 +380,7 @@ marketingCampaignRouter.post("/:id/asset-orders/ai/fill-all", validateRequest({
     orderIds: Joi.array().items(objectId).min(1).max(100).unique().optional(),
   }),
 }), marketingCampaignController.fillAllAssetOrdersAI as never);
+marketingCampaignRouter.get("/:id/asset-orders/ai/jobs/assistant-summaries", validateRequest(assetOrderAIJobAssistantSummarySchema), marketingCampaignController.listFillAllAssetOrdersAIAssistantSummaries as never);
 marketingCampaignRouter.get("/:id/asset-orders/ai/jobs/:jobId", validateRequest({
   params: Joi.object({ id: objectId, jobId: objectId }),
 }), marketingCampaignController.getFillAllAssetOrdersAIJob as never);
@@ -409,6 +460,7 @@ marketingCampaignRouter.patch("/:id/sheet/cells", validateRequest(updateSheetCel
 marketingCampaignRouter.patch("/:id/sheet/rows/:slotId", validateRequest(updateSheetRowSchema), marketingCampaignController.updateSheetRow as never);
 marketingCampaignRouter.post("/:id/sheet/ai/preview", validateRequest(sheetAIPreviewSchema), marketingCampaignController.previewSheetAI as never);
 marketingCampaignRouter.post("/:id/sheet/ai/jobs", validateRequest(sheetAIJobSchema), marketingCampaignController.createSheetAIJob as never);
+marketingCampaignRouter.get("/:id/sheet/ai/jobs/assistant-summaries", validateRequest(assistantAIJobSummarySchema), marketingCampaignController.listSheetAssistantAIJobSummaries as never);
 marketingCampaignRouter.get("/:id/sheet/ai/jobs/:jobId", validateRequest({
   params: Joi.object({ id: objectId, jobId: objectId }),
 }), marketingCampaignController.getSheetAIJob as never);

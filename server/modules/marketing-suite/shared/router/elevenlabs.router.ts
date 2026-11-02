@@ -2,7 +2,7 @@
 import { Router } from "express";
 import Joi from "joi";
 import { elevenlabsController } from "../controller/elevenlabs.controller.ts";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../../../../middleware/validation";
 
 export const elevenlabsRouter = Router();
@@ -77,14 +77,14 @@ const updateVoiceSettingsSchema = {
   }),
 };
 
-elevenlabsRouter.post("/generate-voice", requireAuth as any, validateRequest(generateVoiceSchema), elevenlabsController.generateVoice);
+elevenlabsRouter.post("/generate-voice", requireAuth as any, requirePermission("marketing:manage") as any, validateRequest(generateVoiceSchema), elevenlabsController.generateVoice);
 elevenlabsRouter.get("/history", requireAuth as any, elevenlabsController.getVoiceHistory);
 elevenlabsRouter.delete("/history/:id", requireAuth as any, validateRequest(deleteHistorySchema), elevenlabsController.deleteVoiceHistory);
-elevenlabsRouter.get("/voices", requireAuth as any, elevenlabsController.getVoices);
+elevenlabsRouter.get("/voices", requireAuth as any, requirePermission("marketing:read") as any, elevenlabsController.getVoices);
 elevenlabsRouter.get("/voices/:voiceId", requireAuth as any, validateRequest(voiceIdParamSchema), elevenlabsController.getVoice);
 elevenlabsRouter.get("/voices/:voiceId/settings", requireAuth as any, validateRequest(voiceIdParamSchema), elevenlabsController.getVoiceSettings);
 elevenlabsRouter.post("/voices/:voiceId/settings", requireAuth as any, validateRequest(updateVoiceSettingsSchema), elevenlabsController.updateVoiceSettings);
-elevenlabsRouter.get("/models", requireAuth as any, elevenlabsController.getModels);
+elevenlabsRouter.get("/models", requireAuth as any, requirePermission("marketing:read") as any, elevenlabsController.getModels);
 elevenlabsRouter.post("/custom-voice-preview", requireAuth as any, validateRequest(customVoicePreviewSchema), elevenlabsController.generateCustomVoicePreview);
 elevenlabsRouter.post("/create-voice", requireAuth as any, validateRequest(createCustomVoiceSchema), elevenlabsController.createCustomVoice);
 elevenlabsRouter.post("/voices/add", requireAuth as any, validateRequest(addVoiceSchema), elevenlabsController.addVoice);

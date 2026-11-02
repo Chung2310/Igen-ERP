@@ -31,6 +31,7 @@ import { EmailService, SmtpSettings } from "./email.service";
 import { companyEmailService } from "../../../service/company-email.service";
 import { CompanyModel } from "../../../model/company.model";
 import { getPlannedSessionCount, StudentBatchEnrollmentService } from "./student-batch-enrollment.service";
+import { upsertAttendanceRecord, type AttendanceRecordStatus } from "../utils/attendance-record.util";
 
 interface BatchFilters {
   page?: number | string;
@@ -490,6 +491,7 @@ export class BatchService {
     if (filters.search) {
       query.$or = [
         { code: { $regex: filters.search, $options: "i" } },
+        { name: { $regex: filters.search, $options: "i" } },
         { location: { $regex: filters.search, $options: "i" } },
         { instructorText: { $regex: filters.search, $options: "i" } },
       ];
@@ -508,6 +510,48 @@ export class BatchService {
     const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) return null;
     return (await enrichBatches([batch]))[0];
+  }
+
+  static async getAttendanceLearners(
+    ownerId: string | string[],
+    batchId: string,
+    branchId?: string,
+    search = "",
+    limit = 100,
+  ) {
+    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) })
+      .select("learnerIds")
+      .lean();
+    if (!batch) return null;
+    if (!batch.learnerIds?.length) return [];
+
+    const normalizedLimit = Math.min(100, Math.max(1, Math.floor(Number(limit) || 100)));
+    const normalizedSearch = String(search || "").trim();
+    const escapedSearch = normalizedSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const searchFilter = escapedSearch
+      ? { $or: [
+        { fullName: { $regex: escapedSearch, $options: "i" } },
+        { name: { $regex: escapedSearch, $options: "i" } },
+        { phone: { $regex: escapedSearch, $options: "i" } },
+      ] }
+      : {};
+    const students = await Student.find({
+      _id: { $in: batch.learnerIds },
+      ...buildOwnerQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
+      ...searchFilter,
+    })
+      .select("fullName name phone")
+      .sort({ fullName: 1, name: 1, phone: 1 })
+      .limit(normalizedLimit)
+      .lean();
+
+    return students.flatMap((student) => {
+      const studentFields = student as unknown as { fullName?: string; name?: string };
+      const name = String(studentFields.fullName || studentFields.name || "").trim();
+      if (!name) return [];
+      return [{ id: String(student._id), name, phone: String(student.phone || "") }];
+    });
   }
 
   static async updateBatch(
@@ -802,6 +846,52 @@ export class BatchService {
     const saved = await batch.save();
     await syncAttendedSessions(saved);
     return (await enrichBatches([saved]))[0];
+  }
+
+  static async updateAttendanceRecord(
+    ownerId: string | string[],
+    batchId: string,
+    date: string,
+    studentId: string,
+    status: AttendanceRecordStatus,
+    branchId?: string,
+  ) {
+    const batch = await Batch.findOne({ _id: batchId, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
+    if (!batch) throw new Error("Không tìm thấy lớp học.");
+
+    const normalizedStudentId = String(studentId);
+    if (!(batch.learnerIds || []).some((id) => String(id) === normalizedStudentId)) {
+      throw new Error("Học viên đã chọn không còn thuộc lớp này.");
+    }
+    const student = await Student.findOne({
+      _id: normalizedStudentId,
+      ...buildOwnerQuery(ownerId),
+      ...buildBranchScopeQuery(branchId),
+    }).select("fullName name").lean();
+    const studentFields = student as unknown as { fullName?: string; name?: string } | null;
+    const studentName = String(studentFields?.fullName || studentFields?.name || "").trim();
+    if (!student || !studentName) throw new Error("Không tìm thấy học viên trong phạm vi lớp đã chọn.");
+
+    const attendanceDate = String(date).trim();
+    const currentSessions = (batch.attendanceSessions || []).map((session: any) =>
+      typeof session?.toObject === "function" ? session.toObject() : session,
+    );
+    const updatedSessions = upsertAttendanceRecord(currentSessions, attendanceDate, normalizedStudentId, status);
+
+    await assertWithinSessionQuota(batch, attendanceDate, [{ studentId: normalizedStudentId, status }]);
+    batch.set("attendanceSessions", updatedSessions);
+    batch.markModified("attendanceSessions");
+    await StudentBatchEnrollmentService.assertAndSyncAttendanceLimits(batch);
+    const saved = await batch.save();
+    await syncAttendedSessions(saved);
+
+    return {
+      batchCode: saved.code,
+      batchName: saved.name || saved.code,
+      date: attendanceDate,
+      studentName,
+      status,
+    };
   }
 
   static async deleteAttendanceSessionByDate(

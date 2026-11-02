@@ -11,6 +11,7 @@ import { AIReplyLogModel } from "../message/model/ai-reply-log.model";
 import { assertMarketingAccountOwnership } from "./account-ownership";
 import { AiAutoReplyConfigSchema } from "../../../model/user.model";
 import { assertCampaignContentLinks, syncCampaignContentMedia } from "../campaign/service/campaign-uploaded-media.service";
+import { createMarketingContentDraft, deleteMarketingContentDraft, updateMarketingContentDraft } from "../campaign/service/marketing-content-draft.service";
 
 type SuiteRecord = Record<string, unknown> & { companyCode: string };
 type AsyncHandler = (req: AuthenticatedRequest, res: Response) => Promise<unknown>;
@@ -51,12 +52,13 @@ suiteDataRouter.patch("/omni-inbox/accounts/:id/ai-config", requirePermission("o
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID không hợp lệ." });
   const config = req.body?.aiAutoReplyConfig;
   const allowed = Object.keys(AiAutoReplyConfigSchema.paths).filter((key) => key !== "_id");
-  if (!config || typeof config !== "object" || Array.isArray(config)
+  if (!config || typeof config !== "object" || Array.isArray(config) || Object.keys(config).length === 0
     || Object.keys(req.body).some((key) => key !== "aiAutoReplyConfig")
     || Object.keys(config).some((key) => !allowed.includes(key))) {
     return res.status(400).json({ status: "error", message: "Cấu hình AI không hợp lệ." });
   }
-  const item = await SocialIntegrationModel.findOneAndUpdate({ _id: req.params.id, companyCode: req.user!.companyCode }, { $set: { aiAutoReplyConfig: config } }, { returnDocument: "after", runValidators: true }).select(`${accountFields} aiAutoReplyConfig`).lean();
+  const updates = Object.fromEntries(Object.entries(config).map(([key, value]) => [`aiAutoReplyConfig.${key}`, value]));
+  const item = await SocialIntegrationModel.findOneAndUpdate({ _id: req.params.id, companyCode: req.user!.companyCode }, { $set: updates }, { returnDocument: "after", runValidators: true }).select(`${accountFields} aiAutoReplyConfig`).lean();
   return item ? res.json({ status: "success", data: item }) : res.status(404).json({ status: "error", message: "Không tìm thấy tích hợp." });
 }));
 suiteDataRouter.patch("/omni-inbox/ai-reply-logs/:id", run(async (req, res) => {
@@ -82,7 +84,7 @@ for (const [path, rawModel] of [
 ] as const) {
   const model = rawModel as unknown as Model<SuiteRecord>;
   const integration = path === "/social-integrations";
-  suiteDataRouter.get(path, run(async (req, res) => {
+  suiteDataRouter.get(path, ...(path === "/marketing-contents" ? [requirePermission("marketing:read")] : []), run(async (req, res) => {
     const page = Math.max(1, Number(req.query.page) || 1), limit = Math.min(1000, Math.max(1, Number(req.query.limit) || 1000));
     const filter: Record<string, unknown> = { companyCode: req.user!.companyCode };
     for (const key of ["status", "platform", "channel", "campaignId", "campaignSlotId", "integrationId", "username", "createdBy", "authorUid", "isConnected"]) {
@@ -97,7 +99,7 @@ for (const [path, rawModel] of [
     const [items, total] = await Promise.all([model.find(filter).sort(sort).skip((page - 1) * limit).limit(limit).lean(), model.countDocuments(filter)]);
     res.json({ status: "success", data: items.map((item) => publicRecord(item, integration)), total, page, limit });
   }));
-  suiteDataRouter.get(path + "/:id", run(async (req, res) => {
+  suiteDataRouter.get(path + "/:id", ...(path === "/marketing-contents" ? [requirePermission("marketing:read")] : []), run(async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ status: "error", message: "ID không hợp lệ." });
     const item = await model.findOne({ _id: req.params.id, companyCode: req.user!.companyCode }).lean();
     return item ? res.json({ status: "success", data: publicRecord(item, integration) }) : res.status(404).json({ status: "error", message: "Không tìm thấy dữ liệu." });
@@ -156,3 +158,16 @@ for (const [path, rawModel] of [
     return item ? res.json({ status: "success", message: "Đã xóa dữ liệu." }) : res.status(404).json({ status: "error", message: "Không tìm thấy dữ liệu." });
   }));
 }
+
+suiteDataRouter.post("/marketing-contents/assistant/drafts", requirePermission("marketing:manage"), run(async (req, res) => {
+  const data = await createMarketingContentDraft(req.user!.companyCode!, req.user!.id, req.body);
+  return res.status(201).json({ status: "success", data });
+}));
+suiteDataRouter.patch("/marketing-contents/assistant/drafts/:id", requirePermission("marketing:manage"), run(async (req, res) => {
+  const data = await updateMarketingContentDraft(req.user!.companyCode!, req.params.id, req.body);
+  return res.json({ status: "success", data });
+}));
+suiteDataRouter.delete("/marketing-contents/assistant/drafts/:id", requirePermission("marketing:manage"), run(async (req, res) => {
+  const data = await deleteMarketingContentDraft(req.user!.companyCode!, req.params.id);
+  return res.json({ status: "success", data });
+}));

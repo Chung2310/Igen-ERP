@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { ClientSession } from "mongoose";
+import { isValidObjectId, type ClientSession } from "mongoose";
 import { AiSubscriptionPeriodModel, AiSubscriptionPlanModel, AiUsageModel } from "../model/ai-subscription.model";
+import { AiUserSubscriptionModel } from "../model/ai-user-subscription.model";
 import { CompanyModel } from "../../../../model/company.model";
 import { MarketingCampaignModel } from "../../campaign/model/marketing-campaign.model";
 import { MarketingCampaignSlotModel } from "../../campaign/model/marketing-campaign-slot.model";
@@ -30,9 +31,16 @@ export const aiSubscriptionService = {
     return { ...value, remaining: Math.max(0, value.aiLimit - value.used - value.reserved),
       status: value.expiresAt <= new Date() ? "expired" as const : value.status };
   },
-  async available(companyCode: string, units = 1) {
+  async available(companyCode: string, units = 1, userId?: string) {
     companyCode = companyCode.trim().toUpperCase();
     await this.recoverExpired(companyCode);
+    const targetUserId = userId || getAiUsageContext()?.userId;
+    const userPlan = targetUserId && isValidObjectId(targetUserId) ? await AiUserSubscriptionModel.findOne({ userId: targetUserId, companyCode, status: "active", startsAt: { $lte: new Date() }, expiresAt: { $gt: new Date() } }).lean() : null;
+    if (userPlan) {
+      const remaining = Math.max(0, userPlan.aiLimit - userPlan.used - userPlan.reserved);
+      if (remaining < units) throw quotaError(`Gói AI cá nhân còn ${remaining} lượt, tác vụ cần ${units} lượt.`);
+      return { ...userPlan, remaining };
+    }
     const subscription = await this.summary(companyCode);
     if (!subscription || subscription.status !== "active" || subscription.startsAt > new Date()) {
       throw quotaError("Doanh nghiệp chưa có gói AI còn hiệu lực. Vui lòng liên hệ Superadmin.");
@@ -92,13 +100,19 @@ export const aiSubscriptionService = {
     await this.recoverExpired(context.companyCode);
     return AiUsageModel.db.transaction(async (session) => {
       const now = new Date();
-      const period = await AiSubscriptionPeriodModel.findOneAndUpdate({
-        companyCode: context.companyCode, status: "active", startsAt: { $lte: now }, expiresAt: { $gt: now },
-        $expr: { $lt: [{ $add: ["$used", "$reserved"] }, "$aiLimit"] },
-      }, { $inc: { reserved: 1 } }, { returnDocument: "after", session });
+      const userPlan = context.userId && isValidObjectId(context.userId) ? await AiUserSubscriptionModel.findOne({
+        userId: context.userId, companyCode: context.companyCode, status: "active",
+        startsAt: { $lte: now }, expiresAt: { $gt: now },
+      }).select("_id").session(session).lean() : null;
+      const billingScope = userPlan ? "user" : "company";
+      const availability = { status: "active" as const, startsAt: { $lte: now }, expiresAt: { $gt: now },
+        $expr: { $lt: [{ $add: ["$used", "$reserved"] }, "$aiLimit"] } };
+      const period = userPlan
+        ? await AiUserSubscriptionModel.findOneAndUpdate({ _id: userPlan._id, ...availability }, { $inc: { reserved: 1 } }, { returnDocument: "after", session })
+        : await AiSubscriptionPeriodModel.findOneAndUpdate({ companyCode: context.companyCode, ...availability }, { $inc: { reserved: 1 } }, { returnDocument: "after", session });
       if (!period) throw quotaError("Gói AI đã hết lượt hoặc hết hạn. Vui lòng liên hệ Superadmin.");
       const [usage] = await AiUsageModel.create([{
-        companyCode: context.companyCode, userId: context.userId, campaignId: context.campaignId, slotId: context.slotId,
+        companyCode: context.companyCode, userId: context.userId, billingScope, campaignId: context.campaignId, slotId: context.slotId,
         subscriptionId: period._id, requestKey: randomUUID(), kind, model, units: 1,
         expiresAt: new Date(now.getTime() + 60 * 60_000),
       }], { session });
@@ -114,8 +128,11 @@ export const aiSubscriptionService = {
         if (settled?.status === (success ? "succeeded" : "released")) return;
         throw quotaError("Lượt AI đã hết thời gian giữ lượt hoặc đã được đối soát khác trạng thái.", 409);
       }
-      const changed = await AiSubscriptionPeriodModel.updateOne({ _id: usage.subscriptionId, reserved: { $gte: usage.units } },
-        { $inc: { reserved: -usage.units, used: success ? usage.units : 0 } }, { session });
+      const counterFilter = { _id: usage.subscriptionId, reserved: { $gte: usage.units } };
+      const counterUpdate = { $inc: { reserved: -usage.units, used: success ? usage.units : 0 } };
+      const changed = usage.billingScope === "user"
+        ? await AiUserSubscriptionModel.updateOne(counterFilter, counterUpdate, { session })
+        : await AiSubscriptionPeriodModel.updateOne(counterFilter, counterUpdate, { session });
       if (!changed.matchedCount) throw new Error("Không thể đối soát hạn mức AI.");
       if (success && usage.campaignId) await MarketingCampaignModel.updateOne({ _id: usage.campaignId, companyCode: usage.companyCode }, { $inc: { "statistics.aiCallsUsed": usage.units } }, { session });
       if (success && usage.slotId) await MarketingCampaignSlotModel.updateOne({ _id: usage.slotId, companyCode: usage.companyCode, campaignId: usage.campaignId }, { $inc: { aiCallsUsed: usage.units } }, { session });

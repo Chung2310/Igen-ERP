@@ -38,7 +38,7 @@ periodSchema.index({ companyCode: 1 }, { unique: true, partialFilterExpression: 
 export const AiSubscriptionPeriodModel = model<SubscriptionPeriodRecord>("AiSubscriptionPeriod", periodSchema);
 
 export interface AiUsageRecord {
-  companyCode: string; subscriptionId: Types.ObjectId; userId?: string;
+  companyCode: string; subscriptionId: Types.ObjectId; userId?: string; billingScope?: "company" | "user";
   requestKey: string; kind: string; model?: string; units: number;
   status: "reserved" | "succeeded" | "released"; campaignId?: string; slotId?: string;
   expiresAt: Date; completedAt?: Date; reason?: string; createdAt: Date;
@@ -47,7 +47,7 @@ export interface AiUsageRecord {
 const usageSchema = new Schema<AiUsageRecord>({
   companyCode: { type: String, required: true },
   subscriptionId: { type: Schema.Types.ObjectId, ref: "AiSubscriptionPeriod", required: true },
-  userId: String, requestKey: { type: String, required: true }, kind: { type: String, required: true }, model: String,
+  userId: String, billingScope: { type: String, enum: ["company", "user"], default: "company" }, requestKey: { type: String, required: true }, kind: { type: String, required: true }, model: String,
   units: { type: Number, required: true, min: 1, validate: integer },
   status: { type: String, enum: ["reserved", "succeeded", "released"], default: "reserved" },
   campaignId: String, slotId: String, expiresAt: { type: Date, required: true }, completedAt: Date, reason: String,

@@ -46,6 +46,8 @@ export class TenantManagementService {
   async updateModules(v:string, input:{ enabledModules?:unknown; businessType?:unknown }){
     const c=code(v);
     const tenant=needed(await this.tenants.get(c),c);
+    const subscription = (tenant as TenantRecord & { serviceSubscription?: { status: string; expiresAt: Date } }).serviceSubscription;
+    if (subscription) throw Error("Doanh nghiệp đã được quản lý bằng gói dịch vụ. Hãy đổi gói trong mục Gói cước.");
     const legacyEntityPreset = tenant.businessType
       ? undefined
       : (await ModuleSettings.findOne({ tenantId: c }).select("entityPreset").lean())?.entityPreset;

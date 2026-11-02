@@ -59,6 +59,17 @@ const CompanyVietqrConfigSchema = new Schema(
   { _id: false }
 );
 
+const ServiceSubscriptionSchema = new Schema({
+  planId: { type: Schema.Types.ObjectId, ref: "ServicePlan", required: true },
+  planName: { type: String, required: true },
+  priceVnd: { type: Number, required: true },
+  modules: { type: [String], required: true },
+  startsAt: { type: Date, required: true },
+  expiresAt: { type: Date, required: true },
+  status: { type: String, enum: ["active", "cancelled"], default: "active" },
+  assignedBy: { type: String, required: true },
+}, { _id: false });
+
 const CompanySchema = new Schema<ICompany>({
   code: { type: String, required: true, unique: true, index: true, uppercase: true },
   name: { type: String, required: true },
@@ -66,6 +77,7 @@ const CompanySchema = new Schema<ICompany>({
   ownerEmail: { type: String, required: true },
   businessType: { type: String, enum: ["education", "labor", "service", "recruitment", "general"], default: "general", index: true },
   enabledModules: { type: [String], enum: MODULE_KEYS, default: () => [...DEFAULT_MODULE_KEYS] },
+  serviceSubscription: { type: ServiceSubscriptionSchema, default: null },
   driveFolderLink: { type: String, default: "" },
   driveOAuth: { type: CompanyDriveOAuthSchema, default: () => ({}) },
   driveFolderId: { type: String, default: "" },
