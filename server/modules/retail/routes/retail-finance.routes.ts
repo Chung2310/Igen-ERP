@@ -4,7 +4,7 @@ import { requirePermission } from "../../../middleware/auth";
 import { requireRetailBranch, retailScopeFromRequest } from "../contracts";
 import { listCashbook, createCashVoucher, closeCashPeriod, reconcileCashPeriod, assertCashRange } from "../services/retail-cashbook.service";
 import { retailProfitReport } from "../services/retail-profit.service";
-import { RetailCommissionPolicyModel, RetailCommissionLedgerModel } from "../models/retail-commission.model";
+import { RetailCommissionPolicyModel, RetailCommissionLedgerModel, RetailCommissionAccountModel } from "../models/retail-commission.model";
 import { RetailPartnerModel } from "../models/retail-partner.model";
 import { partnerStatement, payPartnerCommission, reconcilePartnerCommission } from "../services/retail-commission.service";
 
@@ -36,6 +36,11 @@ retailFinanceRoutes.put("/commission/policies", partnerManage, handle(async (req
 }));
 retailFinanceRoutes.post("/commission/partners/:id/reconcile", partnerManage, handle((req) => reconcilePartnerCommission(scope(req), req.params.id)));
 retailFinanceRoutes.get("/commission/partners/:id/statement", partnerManage, handle(async (req) => { const branch = scope(req); const { from, to } = dates(req); if (!await RetailPartnerModel.exists({ companyCode: branch.companyCode, _id: req.params.id, roles: "collaborator" })) throw bad("Cộng tác viên bán lẻ không hợp lệ.", 404); return partnerStatement(branch.companyCode, req.params.id, from, to); }));
+retailFinanceRoutes.get("/commission/balances", partnerManage, handle(async (req) => {
+  const company = retailScopeFromRequest(req.user || {}, { companyCode: req.query.companyCode }).companyCode;
+  const accounts = await RetailCommissionAccountModel.find({ companyCode: company }).select("partnerId balance").lean();
+  return accounts.map((account) => ({ partnerId: account.partnerId, balance: Number(account.balance || 0) }));
+}));
 retailFinanceRoutes.post("/commission/partners/:id/payouts", payoutManage, handle((req) => payPartnerCommission(scope(req), req.params.id, req.body || {}, String(req.user.id))));
 retailFinanceRoutes.get("/commission/me", selfRead, handle(async (req) => { const branch = scope(req); const partner = await RetailPartnerModel.findOne({ companyCode: branch.companyCode, userId: String(req.user.id), roles: "collaborator", status: "active" }).lean(); if (!partner) throw bad("Tài khoản chưa liên kết với cộng tác viên bán lẻ.", 404); const { from, to } = dates(req); return { partner: { code: partner.code, name: partner.name }, ...await partnerStatement(branch.companyCode, String(partner._id), from, to) }; }));
 retailFinanceRoutes.get("/commission/kpi", partnerManage, handle(async (req) => { const branch = scope(req), { from, to } = dates(req); assertCashRange(from, to); const items = await RetailCommissionLedgerModel.aggregate([{ $match: { companyCode: branch.companyCode, branchId: branch.branchId, businessDate: { $gte: from, $lte: to } } }, { $group: { _id: "$partnerId", commission: { $sum: "$amount" }, sources: { $sum: 1 } } }, { $sort: { commission: -1 } }]); return items; }));

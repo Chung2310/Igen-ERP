@@ -14,7 +14,7 @@ export const retailPartnerRoutes = Router();
 const read = requirePermission(["retail-partner:read", "retail-partner:manage", "retail-partner-policy:manage"]) as any;
 const manage = requirePermission("retail-partner:manage") as any;
 const policyManage = requirePermission("retail-partner-policy:manage") as any;
-const picker = requirePermission(["retail:manage", "repair:manage", "retail-partner:read", "retail-partner:manage"]) as any;
+const picker = requirePermission(["pos:manage", "retail:manage", "repair:manage", "retail-partner:read", "retail-partner:manage"]) as any;
 const self = requirePermission(["retail-partner-self:read", "retail-partner-self:manage"]) as any;
 
 function companyCode(req: any) {

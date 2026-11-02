@@ -216,8 +216,56 @@ function AppContent() {
     );
   }
 
+  const isAuthPage = currentPath === "/dang-nhap" || currentPath === "/login";
+
+  if (isAuthPage && !user && !loading) {
+    return (
+      <>
+        <SEOHead meta={AUTH_SEO} />
+        <Suspense fallback={<AuthLoader />}>
+          <AuthPage />
+        </Suspense>
+      </>
+    );
+  }
+
   if (initializationError && !loading) {
-    return <main className="flex min-h-dvh items-center justify-center bg-surface p-6 text-on-surface"><section className="w-full max-w-lg space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6"><h1 className="text-balance text-lg font-semibold">Chưa thể kết nối hệ thống</h1><p role="alert" className="text-pretty text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">{initializationError}</p><button type="button" onClick={retryInitialization} className="min-h-11 rounded-xl bg-primary px-4 py-2 font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thử lại kết nối</button></section></main>;
+    const handleReLogin = () => {
+      localStorage.removeItem("accessToken");
+      window.dispatchEvent(new Event("unauthorized"));
+      if (currentPath !== "/dang-nhap") {
+        window.history.pushState(null, "", "/dang-nhap");
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      }
+      retryInitialization();
+    };
+
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-surface p-6 text-on-surface">
+        <section className="w-full max-w-lg space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6">
+          <h1 className="text-balance text-lg font-semibold">Chưa thể kết nối hệ thống</h1>
+          <p role="alert" className="text-pretty text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">
+            {initializationError}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={retryInitialization}
+              className="min-h-11 rounded-xl bg-primary px-4 py-2 font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Thử lại kết nối
+            </button>
+            <button
+              type="button"
+              onClick={handleReLogin}
+              className="min-h-11 rounded-xl border border-outline-variant px-4 py-2 font-semibold text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Đăng nhập lại
+            </button>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   if (loading) {

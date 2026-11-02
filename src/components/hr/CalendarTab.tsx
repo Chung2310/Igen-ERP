@@ -9,12 +9,8 @@ import {
   Minimize2,
   Users,
   Clock,
-  Info,
   CheckCircle,
   X,
-  Check,
-  RefreshCw,
-  Eye,
   ChevronDown
 } from "lucide-react";
 import { UserProfile, EmployeeNode } from "../../types";
@@ -891,6 +887,11 @@ export default function CalendarTab({
                 <button type="button" onClick={() => void toggleAttendanceFullscreen()} aria-label={isAttendanceFullscreen ? "Thu nhỏ bảng chấm công" : "Mở toàn màn hình bảng chấm công"} title={isAttendanceFullscreen ? "Thu nhỏ bảng" : "Xem toàn màn hình"} className="ml-1 flex h-9 w-9 items-center justify-center rounded-lg border border-[#bceaff] bg-white text-[#007eb8] transition-colors hover:bg-[#e8f7ff]">
                   {isAttendanceFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </button>
+                <AttendanceUtilityMenu
+                  disabled={isLogsLoading}
+                  onExportCoefficients={() => handleAttendanceExcelExport("coeff")}
+                  onExportHours={() => handleAttendanceExcelExport("hours")}
+                />
               </div>
             )}
 
@@ -1706,7 +1707,7 @@ export default function CalendarTab({
                                   })`}
                               >
                                 <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current align-middle" />
-                                {(["event", "reminder"].includes(item.type)) && `${new Date(item.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} · `}
+                                {(["meeting", "event", "reminder"].includes(item.type)) && `${new Date(item.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} · `}
                                 {item.title}
                               </div>
                             );

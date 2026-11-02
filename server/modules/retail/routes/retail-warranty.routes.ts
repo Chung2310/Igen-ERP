@@ -5,6 +5,7 @@ import { retailWarrantyController } from "../controllers/retail-warranty.control
 export const retailWarrantyRoutes = Router();
 retailWarrantyRoutes.get("/orders", requirePermission(["retail:read", "retail:manage", "repair:read", "repair:manage"]) as any, retailWarrantyController.orders as any);
 retailWarrantyRoutes.get("/lookup/:code", requirePermission(["retail:read", "retail:manage", "pos:manage", "repair:read", "repair:manage"]) as any, retailWarrantyController.lookup as any);
+retailWarrantyRoutes.get("/lookup-phone/:phone", requirePermission(["retail:read", "retail:manage", "pos:manage", "repair:read", "repair:manage"]) as any, retailWarrantyController.lookupByPhone as any);
 retailWarrantyRoutes.get("/expiring", requirePermission(["retail:manage", "repair:manage"]) as any, retailWarrantyController.expiring as any);
 retailWarrantyRoutes.get("/gap-risk", requirePermission(["retail:manage", "repair:manage"]) as any, retailWarrantyController.gapRisk as any);
 retailWarrantyRoutes.patch("/serial/by-code/:code", requirePermission("retail:manage") as any, retailWarrantyController.updateByCode as any);

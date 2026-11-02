@@ -149,9 +149,26 @@ async function finish(scope: InventoryScope, id: string, actor: TransferActor, a
 export const acceptTransfer = (scope: InventoryScope, id: string, actor: TransferActor) => finish(scope, id, actor, "received");
 export const cancelTransfer = (scope: InventoryScope, id: string, reason: string, actor: TransferActor) => finish(scope, id, actor, "cancelled", reason);
 
-export async function listTransfers(scope: InventoryScope, query: { page?: unknown; status?: unknown } = {}) {
+export async function listTransfers(scope: InventoryScope, query: { page?: unknown; status?: unknown; from?: unknown; to?: unknown } = {}) {
   const page = Math.max(1, Math.trunc(Number(query.page) || 1)), limit = 20;
-  const filter = { ...scoped(scope), ...(["in_transit", "received", "cancelled", "reversed"].includes(text(query.status)) ? { status: text(query.status) as "in_transit" | "received" | "cancelled" | "reversed" } : {}) };
+  const filter: Record<string, any> = { ...scoped(scope), ...(["in_transit", "received", "cancelled", "reversed"].includes(text(query.status)) ? { status: text(query.status) as "in_transit" | "received" | "cancelled" | "reversed" } : {}) };
+  const from = String(query.from || "");
+  const to = String(query.to || "");
+  if (from || to) {
+    const validDay = (value: string) => {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+      if (!match) return false;
+      const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+      return date.getUTCFullYear() === Number(match[1]) && date.getUTCMonth() + 1 === Number(match[2]) && date.getUTCDate() === Number(match[3]);
+    };
+    if ((from && !validDay(from)) || (to && !validDay(to)) || (from && to && from > to)) {
+      inventoryError("Khoảng thời gian lọc phiếu điều chuyển không hợp lệ.");
+    }
+    filter.createdAt = {
+      ...(from ? { $gte: new Date(`${from}T00:00:00+07:00`) } : {}),
+      ...(to ? { $lte: new Date(`${to}T23:59:59.999+07:00`) } : {}),
+    };
+  }
   const [items, total] = await Promise.all([InventoryTransferModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(), InventoryTransferModel.countDocuments(filter)]);
   return { items: await transferViews(scope.companyCode, items), total, page, limit };
 }

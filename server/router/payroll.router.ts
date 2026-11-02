@@ -1,13 +1,42 @@
-import { Router } from "express";
-import { requireAuth, requirePermission } from "../middleware/auth";
+import { Router, type NextFunction, type Response } from "express";
+import { requireAuth, requirePermission, type AuthenticatedRequest } from "../middleware/auth";
+import { requireModule } from "../middleware/require-module";
 import { payrollReconciliationController } from "../controller/payroll-reconciliation.controller";
 import { payrollController } from "../controller/payroll.controller";
 import { payrollPayslipReviewController } from "../controller/payroll-payslip-review.controller";
 import { payrollFormulaController } from "../controller/payroll-formula.controller";
 import { payrollPeriodInputController } from "../controller/payroll-period-input.controller";
 import { payrollLineOverrideController } from "../controller/payroll-line-override.controller";
+import { getPayrollSalesKpiReport } from "../service/payroll-sales-kpi.service";
 export const payrollRouter = Router();
 payrollRouter.use(requireAuth as any);
+payrollRouter.get(
+  "/periods/:periodKey/kpi",
+  requirePermission("payroll-period:read") as any,
+  requireModule("retail") as any,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const companyCode = req.user?.companyCode;
+      const branchId = req.user?.branchId;
+      if (!companyCode || !branchId) {
+        return res.status(400).json({ status: "error", message: "Cần xác định doanh nghiệp và chi nhánh để xem KPI." });
+      }
+      const report = await getPayrollSalesKpiReport(
+        { companyCode, branchId },
+        String(req.params.periodKey || ""),
+      );
+      return res.json({
+        status: "success",
+        data: {
+          periodKey: report.periodKey,
+          rows: report.rows.map(({ employeeId, percent }) => ({ employeeId, percent })),
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
 payrollRouter.get("/reconciliation-schedule", requirePermission("payroll-period:read") as any, payrollReconciliationController.getSchedule as any);
 payrollRouter.put("/reconciliation-schedule", requirePermission("payroll-period:manage") as any, payrollReconciliationController.saveSchedule as any);
 payrollRouter.get("/runs/:id/reconciliation", requirePermission("payroll-period:read") as any, payrollReconciliationController.list as any);

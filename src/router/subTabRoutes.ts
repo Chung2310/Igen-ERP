@@ -13,6 +13,25 @@ export type SettingsSubTabType =
   | "face-recognition"
   | "branches";
 
+export type DashboardSubTabType =
+  | "DOANH_NGHIEP"
+  | "TAI_CHINH"
+  | "BAN_LE"
+  | "NHAN_SU"
+  | "HOC_VIEN"
+  | "LAO_DONG"
+  | "MARKETING";
+
+export const DASHBOARD_SUB_TAB_ROUTES: SubTabRouteMap<DashboardSubTabType> = [
+  { slug: "doanh-nghiep", value: "DOANH_NGHIEP" },
+  { slug: "tai-chinh", value: "TAI_CHINH" },
+  { slug: "ban-le", value: "BAN_LE" },
+  { slug: "nhan-su", value: "NHAN_SU" },
+  { slug: "hoc-vien", value: "HOC_VIEN" },
+  { slug: "lao-dong", value: "LAO_DONG" },
+  { slug: "marketing", value: "MARKETING" },
+];
+
 // Nguồn slug ?sub= duy nhất cho toàn app — các trang và điều hướng toàn cục
 // (handleSearchNavigation) đều dùng chung để không bao giờ lệch nhau.
 export const HR_SUB_TAB_ROUTES: SubTabRouteMap<HRSubTabType> = [
@@ -71,6 +90,7 @@ export const STUDENT_SUB_TAB_ROUTES: SubTabRouteMap<string> = [
 ];
 
 const SUB_TAB_ROUTES_BY_TAB: Partial<Record<TabType, SubTabRouteMap<string>>> = {
+  "TỔNG QUAN": DASHBOARD_SUB_TAB_ROUTES as SubTabRouteMap<string>,
   "NHÂN SỰ": HR_SUB_TAB_ROUTES,
   "KHO & SẢN PHẨM": INVENTORY_SUB_TAB_ROUTES,
   "QUẢN LÝ TÀI NGUYÊN": RESOURCE_SUB_TAB_ROUTES,

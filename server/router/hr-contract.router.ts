@@ -21,6 +21,11 @@ const listQuerySchema = Joi.object({
   }),
   companyCode: Joi.string().trim().optional(),
   search: Joi.string().trim().allow("").optional(),
+  alertDays: Joi.number().integer().min(1).max(365).optional().messages({
+    "number.base": "Số ngày cảnh báo phải là số.",
+    "number.min": "Số ngày cảnh báo tối thiểu là 1.",
+    "number.max": "Số ngày cảnh báo tối đa là 365.",
+  }),
   page: Joi.number().integer().min(1).default(1).optional().messages({
     "number.base": "Trang phải là số.",
     "number.min": "Trang tối thiểu là 1.",
@@ -129,6 +134,27 @@ hrContractRouter.patch(
   requirePermission("hr:manage") as any,
   validateRequest({ params: Joi.object({ id }), body: updateBody }),
   hrContractController.update as any,
+);
+hrContractRouter.get(
+  "/settings",
+  requirePermission("hr:read") as any,
+  hrContractController.getSettings as any,
+);
+hrContractRouter.put(
+  "/settings",
+  requirePermission("hr:manage") as any,
+  validateRequest({
+    body: Joi.object({
+      expiryAlertDays: Joi.number().integer().min(1).max(365).required().messages({
+        "number.base": "Số ngày báo trước phải là số.",
+        "number.min": "Số ngày báo trước tối thiểu là 1 ngày.",
+        "number.max": "Số ngày báo trước tối đa là 365 ngày.",
+        "any.required": "Vui lòng nhập số ngày báo trước.",
+      }),
+      notifyManagers: Joi.boolean().optional(),
+    }),
+  }),
+  hrContractController.updateSettings as any,
 );
 hrContractRouter.get(
   "/extensions/list",

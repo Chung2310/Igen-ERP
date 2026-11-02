@@ -18,7 +18,11 @@ export const rolePermissionService = {
     if (!normalizedCompany) {
       throw Object.assign(new Error("Mã công ty là bắt buộc."), { code: "ROLE_COMPANY_REQUIRED" });
     }
-    const normalized = compactStoredPermissions(permissions);
+    const requestedPermissions = Array.isArray(permissions) ? [...permissions] : [];
+    if (role === "pos_cashier" && !requestedPermissions.includes("pos:manage")) {
+      requestedPermissions.push("pos:manage");
+    }
+    const normalized = compactStoredPermissions(requestedPermissions);
 
     let rolePermission = await RolePermissionModel.findOne({
       companyCode: normalizedCompany,

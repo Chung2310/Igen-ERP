@@ -28,6 +28,16 @@ describe("POS cashier access and assignment", () => {
     expect([...permissions].sort()).toEqual(["pos:manage", "pos:read"]);
   });
 
+  it("keeps the mandatory POS permission when a company role record omits it", async () => {
+    vi.spyOn(UserModel, "findById").mockReturnValue({ select: () => ({ lean: async () => ({ permissions: [] }) }) } as any);
+    vi.spyOn(RolePermissionModel, "findOne").mockReturnValue({ lean: async () => ({ permissions: ["customer:read"] }) } as any);
+    const permissions = await getEffectivePermissions("cashier-1", "pos_cashier", "ACME");
+    expect(permissions.has("pos:manage")).toBe(true);
+    expect(permissions.has("pos:read")).toBe(true);
+    expect(permissions.has("customer:read")).toBe(true);
+    expect(permissions.has("retail:manage")).toBe(false);
+  });
+
   it("rejects creation without an assigned branch", async () => {
     const save = vi.spyOn(UserModel.prototype, "save");
     await expect(authService.registerUserForCompany(createInput, "ACME", "superadmin")).rejects.toThrow(/chi nhánh/);

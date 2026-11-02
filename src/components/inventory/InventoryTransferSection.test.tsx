@@ -90,7 +90,7 @@ it("discards unfinished drafts and refetches on a branch-keyed remount", async (
   view.rerender(<InventoryTransferSection key="B" branchId="B" canManage />);
   await screen.findByText(/CK-1/);
   expect(screen.queryByRole("form", { name: "Tạo phiếu điều chuyển" })).toBeNull();
-  expect(inventoryTransferService.list).toHaveBeenLastCalledWith("B", 1, "", expect.any(AbortSignal));
+  expect(inventoryTransferService.list).toHaveBeenLastCalledWith("B", 1, "", expect.any(AbortSignal), {});
 });
 
 it("allows selecting available IMEI units directly from warehouse for the selected SKU without manual typing", async () => {

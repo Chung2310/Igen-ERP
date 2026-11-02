@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload, ArrowDownRight, ArrowUpRight, Package, ArrowLeftRight, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle, FolderTree, Pencil, Plus, Search, Tags, Trash2, Package, ArrowLeftRight, Warehouse, PackagePlus, Barcode, PackageMinus, ClipboardList, TrendingUp } from "lucide-react";
+import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { INVENTORY_SUB_TAB_ROUTES } from "../router/subTabRoutes";
@@ -8,10 +8,6 @@ import { toast } from "./Toast";
 import { getApiErrorMessage } from "../utils/errorMessage";
 import { CategoryModal } from "../components/inventory/CategoryModal";
 import { ConfirmDialog } from "../components/inventory/InventoryConfirmDialog";
-import { inventoryTabs } from "../components/inventory/data";
-import { Pagination } from "../components/common/Pagination";
-import { CategoryManagementSection } from "../components/inventory/CategoryManagementSection";
-import { InventoryTabHeader } from "../components/inventory/InventoryTabHeader";
 import { SummaryCard } from "../components/inventory/SummaryCard";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
@@ -75,8 +71,6 @@ export default function InventoryTab() {
 }
 
 function InventoryWorkspace() {
-  const subTabsRef = useRef<HTMLDivElement>(null);
-  const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -280 : 280, behavior: "smooth" });
   const { user, hasPermission } = useAuth();
   const { activeBranchId, loading: branchLoading } = useBranch();
   const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "SẢN PHẨM");
@@ -673,41 +667,36 @@ function InventoryWorkspace() {
   };
 
   return (
-    <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-white" id="inventory_tab_wrapper">
+    <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-surface" id="inventory_tab_wrapper">
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
-      <div className="flex shrink-0 items-center justify-between border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:px-5" id="inventory_tabs_switch">
-        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" aria-label="Cuộn tab kho sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-          <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto select-none">
-            {[
-              { id: "SẢN PHẨM", label: "Sản phẩm" },
-              { id: "KHO HÀNG", label: "Kho hàng" },
-              { id: "NHẬP HÀNG", label: "Nhập hàng" },
-              { id: "IMEI / SERIAL", label: "IMEI / Serial" },
-              { id: "XUẤT HÀNG", label: "Xuất hàng" },
-              { id: "ĐIỀU CHUYỂN", label: "Điều chuyển" },
-              { id: "GIAO DỊCH KHO", label: "Giao dịch kho" },
-              { id: "DỰ BÁO", label: "Dự báo" },
-            ].map((tab) => {
-              const isActive = subTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setSubTab(tab.id as InventorySubTabType)}
-                  className={`px-3.5 py-1.5 font-bold text-xs transition-all cursor-pointer shrink-0 rounded-lg ${
-                    isActive
-                      ? "bg-cyan-700 text-white shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-          <button type="button" aria-label="Cuộn tab kho sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
-        </div>
-      </div>
+      <ModuleNavigation
+        label="Mục Kho & Sản phẩm"
+        activeValue={subTab}
+        id="inventory_tabs_switch"
+      >
+        {[
+          { id: "SẢN PHẨM", label: "Sản phẩm", icon: Package },
+          { id: "KHO HÀNG", label: "Kho hàng", icon: Warehouse },
+          { id: "NHẬP HÀNG", label: "Nhập hàng", icon: PackagePlus },
+          { id: "IMEI / SERIAL", label: "IMEI / Serial", icon: Barcode },
+          { id: "XUẤT HÀNG", label: "Xuất hàng", icon: PackageMinus },
+          { id: "ĐIỀU CHUYỂN", label: "Điều chuyển", icon: ArrowLeftRight },
+          { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ClipboardList },
+          { id: "DỰ BÁO", label: "Dự báo", icon: TrendingUp },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <ModuleNavigationButton
+              key={tab.id}
+              active={subTab === tab.id}
+              icon={<Icon />}
+              onClick={() => setSubTab(tab.id as InventorySubTabType)}
+            >
+              {tab.label}
+            </ModuleNavigationButton>
+          );
+        })}
+      </ModuleNavigation>
 
       <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="inventory_tab_content">
         {subTab === "SẢN PHẨM" && (

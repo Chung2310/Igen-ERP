@@ -8,7 +8,7 @@ import type { RetailInvoice } from "../types";
 import RetailInvoicesPage from "./RetailInvoicesPageContent";
 
 vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({ scope: { companyCode: "ACME", branchId: "B1" }, userProfile: { permissions: ["retail:manage"] } }) }));
-vi.mock("../api/retailInvoices.api", () => ({ retailInvoicesApi: { list: vi.fn(), detail: vi.fn(), reprint: vi.fn(), downloadPdf: vi.fn() } }));
+vi.mock("../api/retailInvoices.api", () => ({ retailInvoicesApi: { list: vi.fn(), detail: vi.fn(), reprint: vi.fn(), downloadPdf: vi.fn(), downloadBulkPdf: vi.fn() } }));
 
 const invoice: RetailInvoice = {
   _id: "i1", invoiceNo: "HD-01", orderId: "o1", orderCode: "DH-01", issuedAt: "2026-08-12T01:00:00Z", status: "issued",
@@ -22,6 +22,7 @@ beforeEach(() => {
   vi.mocked(retailInvoicesApi.detail).mockResolvedValue(invoice);
   vi.mocked(retailInvoicesApi.reprint).mockResolvedValue(invoice);
   vi.mocked(retailInvoicesApi.downloadPdf).mockResolvedValue(undefined);
+  vi.mocked(retailInvoicesApi.downloadBulkPdf).mockResolvedValue(undefined);
 });
 
 describe("RetailInvoicesPage", () => {
@@ -46,6 +47,19 @@ describe("RetailInvoicesPage", () => {
     expect(screen.getAllByText("Còn nợ").length).toBeGreaterThan(0);
   });
 
+  it("supports selecting invoices and exporting bulk reconciliation PDF", async () => {
+    render(<RetailInvoicesPage />);
+    await screen.findByText("HD-01");
+    const checkbox = screen.getByRole("checkbox", { name: "Chọn hóa đơn HD-01" });
+    await userEvent.click(checkbox);
+    const bulkButton = await screen.findByRole("button", { name: "Xuất PDF chuỗi bill (1)" });
+    await userEvent.click(bulkButton);
+    await waitFor(() => expect(retailInvoicesApi.downloadBulkPdf).toHaveBeenCalledWith(
+      { companyCode: "ACME", branchId: "B1" },
+      { ids: ["i1"], paperSize: "A4" },
+    ));
+  });
+
   it("keeps long identifiers and every invoice line readable while retaining header actions", async () => {
     const longInvoice = {
       ...invoice,
@@ -55,11 +69,21 @@ describe("RetailInvoicesPage", () => {
         ...invoice.snapshot,
         customerName: "Công ty khách hàng " + "tên đầy đủ ".repeat(30),
         salespersonName: "Nhân viên " + "phụ trách ".repeat(30),
-        items: Array.from({ length: 40 }, (_, index) => ({ productId: "p" + index, sku: "SKU" + index, productName: "Thiết bị " + index + " " + "MODEL".repeat(40), quantity: 1, unitPrice: 1000, discountAmount: 0, lineTotal: 1000, unit: "cái", serialNumbers: ["SERIAL".repeat(60) + index] })),
+        items: Array.from({ length: 40 }, (_, index) => ({
+          productId: "p" + index,
+          sku: "SKU" + index,
+          productName: "Thiết bị " + index + " " + "MODEL".repeat(40),
+          quantity: 1,
+          unitPrice: 1000,
+          discountAmount: 0,
+          lineTotal: 1000,
+          unit: "cái",
+          serialNumbers: ["SERIAL".repeat(60) + index],
+        })),
       },
     };
-    vi.mocked(retailInvoicesApi.list).mockResolvedValue({ items: [longInvoice], total: 1, page: 1, limit: 20 });
-    vi.mocked(retailInvoicesApi.detail).mockResolvedValue(longInvoice);
+    vi.mocked(retailInvoicesApi.list).mockResolvedValue({ items: [longInvoice as unknown as RetailInvoice], total: 1, page: 1, limit: 20 });
+    vi.mocked(retailInvoicesApi.detail).mockResolvedValue(longInvoice as unknown as RetailInvoice);
     render(<RetailInvoicesPage />);
     const open = await screen.findByRole("button", { name: "Xem hóa đơn " + longInvoice.invoiceNo });
     await userEvent.click(open);

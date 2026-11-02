@@ -5,6 +5,7 @@ import { RetailOrderModel } from "../models/retail-order.model";
 import { RetailInvoiceModel } from "../models/retail-invoice.model";
 import { RetailAfterSaleModel } from "../models/retail-after-sale.model";
 import { listOrderWarranties, normalizeOrderWarrantyQuery } from "./order-warranty.service";
+import { lookupWarrantyByPhone } from "./warranty-lookup.service";
 import { retailWarrantyController } from "../controllers/retail-warranty.controller";
 
 const scope = { companyCode: "WARRANTY", branchId: "MAIN" };
@@ -42,10 +43,10 @@ describe("ERP order warranty", () => {
   it("subtracts completed returns and buybacks using the original line index", async () => {
     const orderId = await sold({}, [line(), line({ sku: "OTHER", quantity: 2 })]);
     await RetailAfterSaleModel.collection.insertMany([
-      { ...scope, code: "RT1", orderId, type: "return", status: "completed", items: [{ orderLineIndex: 0, quantity: 1 }, { orderLineIndex: 1, quantity: 2 }] },
-      { ...scope, code: "RT2", orderId, type: "buyback", status: "completed", items: [{ orderLineIndex: 0, quantity: 1 }] },
-      { ...scope, code: "RT3", orderId, type: "return", status: "draft", items: [{ orderLineIndex: 0, quantity: 1 }] },
-      { ...scope, code: "RT4", branchId: "OTHER", orderId, type: "return", status: "completed", items: [{ orderLineIndex: 0, quantity: 100 }] },
+      { ...scope, code: "RT1", idempotencyKey: "RT1", orderId, type: "return", status: "completed", items: [{ orderLineIndex: 0, quantity: 1 }, { orderLineIndex: 1, quantity: 2 }] },
+      { ...scope, code: "RT2", idempotencyKey: "RT2", orderId, type: "buyback", status: "completed", items: [{ orderLineIndex: 0, quantity: 1 }] },
+      { ...scope, code: "RT3", idempotencyKey: "RT3", orderId, type: "return", status: "draft", items: [{ orderLineIndex: 0, quantity: 1 }] },
+      { ...scope, code: "RT4", idempotencyKey: "RT4", branchId: "OTHER", orderId, type: "return", status: "completed", items: [{ orderLineIndex: 0, quantity: 100 }] },
     ]);
     const result = await listOrderWarranties(scope, {}, at);
     expect(result.total).toBe(1);
@@ -76,5 +77,38 @@ describe("ERP order warranty", () => {
       expect(status).toBe(403);
       expect(data).toMatchObject({ success: false });
     }
+  });
+
+  it("lookupWarrantyByPhone finds customer devices and calculates warranty by phone number", async () => {
+    // 1. Số điện thoại không hợp lệ / quá ngắn
+    const invalidRes = await lookupWarrantyByPhone(scope, "123");
+    expect(invalidRes.found).toBe(false);
+    expect(invalidRes.totalDevices).toBe(0);
+
+    // 2. Tạo đơn hàng gắn số điện thoại
+    const phone = "0987654321";
+    await sold({
+      orderCode: "DH-PHONE-1",
+      customerPhone: phone,
+      customerSnapshot: { name: "Nguyễn Văn Test", phone, customerCode: "KH-PHONE" },
+    }, [
+      line({ sku: "PHONE-15", productName: "iPhone 15 Pro", customerWarrantyMonths: 12, customerWarrantyStartAt: new Date("2026-01-01"), customerWarrantyEndAt: new Date("2027-01-01") }),
+    ]);
+
+    const result = await lookupWarrantyByPhone(scope, phone, new Date("2026-06-01"));
+    expect(result.found).toBe(true);
+    expect(result.totalDevices).toBe(1);
+    expect(result.customer).toMatchObject({ name: "Nguyễn Văn Test", phone });
+    expect(result.devices[0]).toMatchObject({
+      found: true,
+      product: expect.objectContaining({ sku: "PHONE-15", name: "iPhone 15 Pro" }),
+      customerWarranty: expect.objectContaining({ covered: true }),
+    });
+
+    // 3. Controller lookupByPhone
+    let jsonResult: unknown = null;
+    const res = { json: (data: unknown) => { jsonResult = data; return data; } };
+    await retailWarrantyController.lookupByPhone({ user: { role: "employee", ...scope }, params: { phone }, query: {} } as unknown as import("express").Request, res as unknown as import("express").Response);
+    expect(jsonResult).toMatchObject({ success: true, data: { found: true, totalDevices: 1 } });
   });
 });

@@ -167,7 +167,7 @@ export const authController = {
       const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
       if (!refreshToken) {
-        return res.status(400).json({
+        return res.status(401).json({
           status: "error",
           message: "Yêu cầu mã làm mới (Refresh Token).",
         });

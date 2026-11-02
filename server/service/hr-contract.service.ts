@@ -61,13 +61,14 @@ export const hrContractService = {
     };
   },
 
-  async listExpiryAlerts(params: { companyCode: string; branchId?: string; employeeId?: string; now?: Date }) {
+  async listExpiryAlerts(params: { companyCode: string; branchId?: string; employeeId?: string; now?: Date; days?: number }) {
     const now = params.now || new Date();
     const start = startOfVietnamDay(now);
+    const alertDays = Math.max(1, Math.min(365, Number(params.days) || 20));
     const query: Record<string, unknown> = {
       companyCode: params.companyCode,
       status: "active",
-      endDate: { $gte: start, $lt: new Date(start.getTime() + 21 * DAY_MS) },
+      endDate: { $gte: start, $lt: new Date(start.getTime() + (alertDays + 1) * DAY_MS) },
     };
     if (params.branchId) query.branchId = params.branchId;
     if (params.employeeId) query.employeeId = params.employeeId;
@@ -75,10 +76,17 @@ export const hrContractService = {
       HRContractModel.find(query).select("_id contractType employeeId employeeName endDate").sort({ endDate: 1 }).limit(20).lean(),
       HRContractModel.countDocuments(query),
     ]);
-    return { total, items: contracts.map(contract => ({
-      id: String(contract._id), contractType: contract.contractType, employeeId: contract.employeeId,
-      employeeName: contract.employeeName, endDate: contract.endDate,
-      daysRemaining: daysUntilContractExpiry(contract.endDate, now),
-    })) };
+    return {
+      total,
+      alertDays,
+      items: contracts.map(contract => ({
+        id: String(contract._id),
+        contractType: contract.contractType,
+        employeeId: contract.employeeId,
+        employeeName: contract.employeeName,
+        endDate: contract.endDate,
+        daysRemaining: daysUntilContractExpiry(contract.endDate, now),
+      })),
+    };
   },
 };

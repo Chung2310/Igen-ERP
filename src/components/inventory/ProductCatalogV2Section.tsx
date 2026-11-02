@@ -39,6 +39,7 @@ import { productDescriptionToText } from "./catalog/productDescription";
 import { ProductEditorModal } from "./catalog/ProductEditorModal";
 import { CatalogSetupModal } from "./catalog/CatalogSetupModal";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
+import { TableFilterToolbar } from "../common/TableFilterToolbar";
 import { ConfirmDialog } from "./InventoryConfirmDialog";
 import { VariantModal } from "./catalog/VariantModal";
 import { BulkVariantModal } from "./catalog/BulkVariantModal";
@@ -282,34 +283,34 @@ export function ProductCatalogV2Section() {
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Grouped setup tools */}
-          <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-1 shadow-xs">
+          <div className="inline-flex items-center rounded-xl border border-outline-variant bg-surface-container-lowest p-1 shadow-2xs">
             <button
               type="button"
               onClick={() => setSetupKind("categories")}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-700 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
               title="Quản lý cây thư mục và thể loại (Ngành hàng > Hãng > Đời máy)"
             >
-              <FolderTree className="h-3.5 w-3.5 text-cyan-700" />
+              <FolderTree className="h-3.5 w-3.5 text-primary" />
               Cây thể loại / Thư mục
             </button>
-            <div className="h-4 w-px bg-slate-200 mx-0.5" />
+            <div className="h-4 w-px bg-outline-variant mx-0.5" />
             <button
               type="button"
               onClick={() => setSetupKind("brands")}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-700 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
               title="Khai báo thương hiệu dùng chung"
             >
-              <Tag className="h-3.5 w-3.5 text-cyan-700" />
+              <Tag className="h-3.5 w-3.5 text-primary" />
               Thương hiệu
             </button>
-            <div className="h-4 w-px bg-slate-200 mx-0.5" />
+            <div className="h-4 w-px bg-outline-variant mx-0.5" />
             <button
               type="button"
               onClick={() => setSetupKind("attributes")}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-cyan-700 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
               title="Cấu hình thuộc tính biến thể: Màu sắc, Dung lượng, Tình trạng..."
             >
-              <Sliders className="h-3.5 w-3.5 text-cyan-700" />
+              <Sliders className="h-3.5 w-3.5 text-primary" />
               Thuộc tính
             </button>
           </div>
@@ -320,7 +321,7 @@ export function ProductCatalogV2Section() {
               void load();
               setEditor("create");
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-700 px-3.5 py-2 text-sm font-semibold text-white shadow-xs hover:bg-cyan-800 active:scale-[0.98] transition-all"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-on-primary shadow-xs hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
           >
             <PackagePlus className="h-4 w-4" />
             Tạo sản phẩm
@@ -328,35 +329,34 @@ export function ProductCatalogV2Section() {
         </div>
       </div>
 
-      {/* Filter toolbar */}
-      <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-slate-200/90 bg-slate-50/80 p-2.5 shadow-xs">
-        {/* Search with instant clear */}
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void applyFilter();
-            }}
-            className={`${inputClassName()} pl-9 pr-8 bg-white`}
-            placeholder="Tìm tên, mã sản phẩm hoặc SKU..."
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                void load();
-              }}
-              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
-              title="Xóa tìm kiếm"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
+      {/* Unified Filter toolbar */}
+      <TableFilterToolbar
+        search={{
+          value: query,
+          onChange: setQuery,
+          placeholder: "Tìm tên, mã sản phẩm hoặc SKU...",
+          ariaLabel: "Tìm tên, mã sản phẩm hoặc SKU",
+          onKeyDown: (event) => {
+            if (event.key === "Enter") void applyFilter();
+          },
+        }}
+        totalCount={total}
+        countLabel="sản phẩm"
+        hasActiveFilters={Boolean(query || selectedCategory || selectedBrand || status)}
+        onResetFilters={() => void resetFilter()}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-2.5 py-1 text-xs font-medium text-on-surface">
+              <TrackingModeIcon mode="serial" />
+              IMEI: <strong className="text-on-surface">{serialCount}</strong>
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-2.5 py-1 text-xs font-medium text-on-surface">
+              <TrackingModeIcon mode="quantity" />
+              Số lượng: <strong className="text-on-surface">{qtyCount}</strong>
+            </span>
+          </div>
+        }
+      >
         {/* Category 3-Level Tree filter */}
         <Dropdown<string>
           value={selectedCategory}
@@ -405,52 +405,7 @@ export function ProductCatalogV2Section() {
           className="min-w-[165px]"
           triggerClassName="text-xs font-medium"
         />
-
-        <div className="flex items-center gap-1.5 ml-auto">
-          <button
-            type="button"
-            onClick={() => void applyFilter()}
-            className="rounded-lg bg-cyan-700 px-3.5 py-2 text-sm font-semibold text-white shadow-xs hover:bg-cyan-800 transition-colors"
-          >
-            Lọc
-          </button>
-          <button
-            type="button"
-            onClick={() => void resetFilter()}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-xs hover:bg-slate-50 transition-colors"
-            title="Đặt lại bộ lọc"
-          >
-            <RotateCcw className="h-3.5 w-3.5 text-slate-500" />
-            Đặt lại
-          </button>
-        </div>
-      </div>
-
-      {/* Quick stats & counter strip */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 px-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
-            <Box className="h-3.5 w-3.5 text-slate-500" />
-            Tổng: <strong className="text-slate-900">{total}</strong> sản phẩm
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-50 px-3 py-1 font-medium text-cyan-800 border border-cyan-200/80">
-            <TrackingModeIcon mode="serial" />
-            IMEI / Serial: <strong className="text-cyan-900">{serialCount}</strong>
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 font-medium text-emerald-800 border border-emerald-200/80">
-            <TrackingModeIcon mode="quantity" />
-            Số lượng: <strong className="text-emerald-900">{qtyCount}</strong>
-          </span>
-          {(query || selectedCategory || selectedBrand || status) && (
-            <span className="inline-flex items-center gap-1 text-cyan-700 font-medium ml-1">
-              • Đang lọc ({products.length} sản phẩm)
-            </span>
-          )}
-        </div>
-        <div className="text-slate-500">
-          Hiển thị <strong>{products.length}</strong> trên <strong>{total}</strong> sản phẩm
-        </div>
-      </div>
+      </TableFilterToolbar>
 
       {/* Data Table Area */}
       {loading ? (
