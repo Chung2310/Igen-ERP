@@ -10,6 +10,9 @@ import { toast } from "../../../pages/Toast";
 const STATUS_LABELS: Record<string, string> = {
   in_use: "Đang dùng",
   idle: "Chờ dùng",
+  repairing: "Đang sửa",
+  lost: "Mất",
+  damaged: "Hỏng",
   disposed: "Đã thanh lý",
 };
 
@@ -28,8 +31,11 @@ const EMPTY_FORM = {
   group: "",
   originalCost: "",
   salvageValue: "",
+  purchaseDate: "",
   inServiceDate: "",
   usefulLifeMonths: "",
+  supplierName: "",
+  department: "",
   location: "",
 };
 
@@ -37,7 +43,7 @@ type CreateForm = typeof EMPTY_FORM;
 type CreateFormField = keyof CreateForm;
 type CreateFormErrors = Partial<Record<CreateFormField, string>>;
 
-export const validateCreateForm = (form: CreateForm): CreateFormErrors => {
+export const validateCreateForm = (form: Omit<CreateForm, "supplierName" | "department" | "purchaseDate"> & Partial<Pick<CreateForm, "supplierName" | "department" | "purchaseDate">>): CreateFormErrors => {
   const errors: CreateFormErrors = {};
   if (!form.assetCode.trim()) errors.assetCode = "Vui lòng nhập mã tài sản.";
   if (!form.barcode.trim()) errors.barcode = "Vui lòng nhập mã vạch.";
@@ -64,13 +70,15 @@ export const validateCreateForm = (form: CreateForm): CreateFormErrors => {
   return errors;
 };
 
-const EDITABLE_FIELDS = ["name", "group", "location", "custodianName"] as const;
+const EDITABLE_FIELDS = ["name", "group", "location", "custodianName", "supplierName", "department"] as const;
 
 const editFormFrom = (asset: FixedAsset) => ({
   name: asset.name,
   group: asset.group,
   location: asset.location || "",
   custodianName: asset.custodianName || "",
+  supplierName: asset.supplierName || "",
+  department: asset.department || "",
   status: asset.status === "disposed" ? "in_use" : asset.status,
   note: "",
 });
@@ -165,6 +173,9 @@ export default function FixedAssetsPage({
         salvageValue: Number(form.salvageValue || 0),
         inServiceDate: toIso(form.inServiceDate),
         usefulLifeMonths: Number(form.usefulLifeMonths),
+        ...(form.purchaseDate ? { purchaseDate: toIso(form.purchaseDate) } : {}),
+        ...(form.supplierName.trim() ? { supplierName: form.supplierName.trim() } : {}),
+        ...(form.department.trim() ? { department: form.department.trim() } : {}),
         ...(form.location.trim() ? { location: form.location.trim() } : {}),
       });
       closeCreateDialog();
@@ -298,8 +309,11 @@ export default function FixedAssetsPage({
                 ["group", "Nhóm", "text"],
                 ["originalCost", "Nguyên giá", "number"],
                 ["salvageValue", "Giá trị thu hồi", "number"],
+                ["purchaseDate", "Ngày mua", "date"],
                 ["inServiceDate", "Ngày đưa vào dùng", "date"],
                 ["usefulLifeMonths", "Số tháng khấu hao", "number"],
+                ["supplierName", "Nhà cung cấp", "text"],
+                ["department", "Bộ phận sử dụng", "text"],
                 ["location", "Vị trí", "text"],
               ].map(([field, label, type]) => (
                 <label key={field} className="text-sm font-semibold text-slate-700">
@@ -439,6 +453,8 @@ export default function FixedAssetsPage({
                 ["group", "Nhóm"],
                 ["location", "Vị trí"],
                 ["custodianName", "Người giữ"],
+                ["supplierName", "Nhà cung cấp"],
+                ["department", "Bộ phận sử dụng"],
                 ["note", "Ghi chú thay đổi"],
               ].map(([field, label]) => (
                 <label key={field} className="text-sm font-semibold text-slate-700">
@@ -456,11 +472,14 @@ export default function FixedAssetsPage({
                 <select
                   aria-label="Trạng thái"
                   value={editForm.status}
-                  onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value as "in_use" | "idle" }))}
+                  onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value as Exclude<FixedAsset["status"], "disposed"> }))}
                   className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-normal"
                 >
                   <option value="in_use">Đang dùng</option>
                   <option value="idle">Chờ dùng</option>
+                  <option value="repairing">Đang sửa</option>
+                  <option value="lost">Mất</option>
+                  <option value="damaged">Hỏng</option>
                 </select>
               </label>
               <button

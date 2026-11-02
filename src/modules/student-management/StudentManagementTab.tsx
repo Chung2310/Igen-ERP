@@ -1,14 +1,14 @@
 import React, { Suspense, lazy } from "react";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import type { Student } from "./types";
-import { AddStudentModal } from "./components/Student/AddStudentModal";
-import { StudentDetailModal } from "./components/Student/StudentDetailModal";
+import { StudentLoadState } from "./components/StudentLoadState";
 import { useStudents } from "./hooks/useStudents";
 import { useAuth } from "../../context/AuthContext";
 import { useAdminCenters } from "./hooks/useAdminCenters";
 import { useEntityLabel } from "./hooks/useEntityLabel";
 import { getStudentManagementSubTabLabel } from "./config/workerRecruitmentCopy";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import { StudentNavIcon } from "./StudentNavIcon";
 import { canManageStudentArea, canReadStudentArea } from "../../utils/studentPermissionPolicy";
 import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
@@ -17,7 +17,6 @@ import { setBusinessApiScope } from "./lib/api";
 type StudentSubTab =
   | "BAO_LUU_HOC_LAI"
   | "LO_TRINH_CHO_LOP"
-  | "TỔNG QUAN"
   | "HỌC VIÊN"
   | "KHÓA HỌC"
   | "LỚP HỌC"
@@ -28,7 +27,6 @@ type StudentSubTab =
   | "PHÒNG HỌC"
   | "TÀI NGUYÊN";
 
-const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const StudentsPage = lazy(() => import("./pages/Students/StudentsPage").then((m) => ({ default: m.StudentsPage })));
 const CoursesPage = lazy(() => import("./pages/Courses/CoursesPage").then((m) => ({ default: m.CoursesPage })));
 const BatchesPage = lazy(() => import("./pages/Batches/BatchesPage").then((m) => ({ default: m.BatchesPage })));
@@ -40,9 +38,10 @@ const FeesPage = lazy(() => import("./pages/Fees/FeesPage").then((m) => ({ defau
 const NotificationsPage = lazy(() => import("./pages/Notifications/NotificationsPage").then((m) => ({ default: m.NotificationsPage })));
 const ResourcesPage = lazy(() => import("./pages/Resources/ResourcesPage").then((m) => ({ default: m.ResourcesPage })));
 const ClassroomsPage = lazy(() => import("./pages/Classrooms/ClassroomsPage").then((m) => ({ default: m.ClassroomsPage })));
+const AddStudentModal = lazy(() => import("./components/Student/AddStudentModal").then((m) => ({ default: m.AddStudentModal })));
+const StudentDetailModal = lazy(() => import("./components/Student/StudentDetailModal").then((m) => ({ default: m.StudentDetailModal })));
 
 const SUB_TAB_ROUTES = [
-  { slug: "tong-quan", value: "TỔNG QUAN" as const, label: "Tổng quan" },
   { slug: "khoa-hoc", value: "KHÓA HỌC" as const, label: "Khóa học" },
   { slug: "lop-hoc", value: "LỚP HỌC" as const, label: "Lớp học" },
   { slug: "chat-luong-hoc-vien", value: "CHẤT LƯỢNG HỌC VIÊN" as const, label: "Chất lượng học viên" },
@@ -66,11 +65,7 @@ function formatDateLabel() {
 }
 
 function PageLoader() {
-  return (
-    <div className="flex min-h-[320px] items-center justify-center rounded-[28px] border border-slate-200 bg-white text-sm font-semibold text-slate-500 shadow-sm">
-      Đang tải phân khu học viên...
-    </div>
-  );
+  return <StudentLoadState />;
 }
 
 export default function StudentManagementTab() {
@@ -102,16 +97,14 @@ export default function StudentManagementTab() {
     return userProfile?.role === "superadmin" ? "all" : centerId || userProfile?.companyCode || "all";
   });
 
-  const defaultSubTab = subTabRoutes[0]?.value || "TỔNG QUAN";
+  const defaultSubTab = subTabRoutes[0]?.value || "HỌC VIÊN";
   const [activeSubTab, setActiveSubTab] = useSubTabRouter<StudentSubTab>(subTabRoutes, defaultSubTab);
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = React.useState(false);
   const [initialStudentTab, setInitialStudentTab] = React.useState<"Hồ sơ" | "Học phí" | "Lịch sử">("Hồ sơ");
-  const subTabsRef = React.useRef<HTMLDivElement>(null);
-  const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -320 : 320, behavior: "smooth" });
   const canReadStudents = canReadStudentArea(userProfile?.permissions || [], "student-profile");
   const canManage = (area: Parameters<typeof canManageStudentArea>[1]) => canManageStudentArea(userProfile?.permissions || [], area);
-  const { students } = useStudents(selectedCenter === "all" ? undefined : selectedCenter, "branch", canReadStudents);
+  const { students, loading: studentListLoading, error: studentListError, refetch: reloadStudentList } = useStudents(selectedCenter === "all" ? undefined : selectedCenter, "branch", canReadStudents && isAddStudentOpen && !entityLabel.loading);
 
   const handleOpenStudent = React.useCallback((student: Student, tab: "Hồ sơ" | "Học phí" | "Lịch sử" = "Hồ sơ") => {
     setSelectedStudent(student);
@@ -121,7 +114,7 @@ export default function StudentManagementTab() {
   if (entityLabel.loading) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-white p-6">
-        <PageLoader />
+        <StudentLoadState error={entityLabel.error} onRetry={() => { void entityLabel.retry?.(); }} />
       </div>
     );
   }
@@ -142,15 +135,6 @@ export default function StudentManagementTab() {
       return <LearningRoadmapPage selectedCenter={selectedCenter} canManage={canManage("learning-roadmap")} />;
     }
     switch (activeSubTab) {
-      case "TỔNG QUAN":
-        return (
-          <DashboardPage
-            formattedDate={formatDateLabel()}
-            onSelectStudent={handleOpenStudent}
-            onNavigate={() => { }}
-            selectedCenter={selectedCenter}
-          />
-        );
       case "HỌC VIÊN":
         return (
           <StudentsPage
@@ -193,61 +177,28 @@ export default function StudentManagementTab() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       {/* Sub Tabs switcher navigation bar */}
-      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white px-3 pt-2 pb-0 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5" id="student_sub_tabs_bar">
-        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" title="Mục trước" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:h-7 sm:w-6"><ChevronLeft className="h-4 w-4" /></button>
-          <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar scroll-smooth">
-          {subTabRoutes.map((item) => {
-            const isActive = activeSubTab === item.value;
-            return (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => setActiveSubTab(item.value)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs transition-all duration-200 cursor-pointer shrink-0 rounded-xl ${
-                  isActive
-                    ? "bg-[#00ADFC] text-white font-semibold shadow-sm"
-                    : "text-slate-600 hover:text-[#008FCF] font-medium"
-                }`}
-              >
-                <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${isActive ? "text-white" : "text-[#008FCF]"}`}>
-                  <StudentNavIcon slug={item.slug === "khoa-hoc" && entityLabel.preset !== "student" ? "cong-viec" : item.slug} />
-                </span>
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-          </div>
-          <button type="button" title="Mục sau" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:h-7 sm:w-6"><ChevronRight className="h-4 w-4" /></button>
+      <ModuleNavigation label="Mục Học viên" activeValue={activeSubTab} id="student_sub_tabs_bar" actions={userProfile?.role === "superadmin" && <div className="flex min-w-0 items-center gap-2">
+        <label htmlFor="student-navigation-center" className="text-xs text-on-surface-variant">Cơ sở:</label>
+        <div className="relative min-w-0 flex-1 sm:w-52 sm:flex-none">
+          <select id="student-navigation-center" value={selectedCenter} onChange={(e) => setSelectedCenter(e.target.value)} className="min-h-9 w-full cursor-pointer appearance-none rounded-xl border border-outline-variant bg-surface-container-lowest py-1.5 pl-3 pr-8 text-xs font-medium text-on-surface focus-visible:outline-2 focus-visible:outline-primary">
+            <option value="all">Tất cả cơ sở</option>
+            {centers.map((center) => <option key={center.uid} value={center.uid}>{center.displayName}</option>)}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
         </div>
-
-        {userProfile?.role === "superadmin" && (
-          <div className="flex items-center gap-2 shrink-0 pb-2 sm:pb-0 pr-2">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cơ sở:</span>
-            <div className="relative min-w-0 flex-1 sm:min-w-[200px] sm:flex-none">
-              <select
-                value={selectedCenter}
-                onChange={(e) => setSelectedCenter(e.target.value)}
-                className="w-full h-8 pl-3 pr-8 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none appearance-none focus:border-[#00ADFC] transition-all cursor-pointer shadow-sm"
-              >
-                <option value="all">Tất cả cơ sở</option>
-                {centers.map((center) => (
-                  <option key={center.uid} value={center.uid}>
-                    {center.displayName}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-        )}
-      </div>
+      </div>}>
+        {subTabRoutes.map(item => <ModuleNavigationButton key={item.value} active={activeSubTab === item.value} onClick={() => setActiveSubTab(item.value)} icon={<StudentNavIcon slug={item.slug === "khoa-hoc" && entityLabel.preset !== "student" ? "cong-viec" : item.slug} />}>{item.label}</ModuleNavigationButton>)}
+      </ModuleNavigation>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
         <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>
       </div>
 
-      {isAddStudentOpen ? (
+      <Suspense fallback={<StudentLoadState label="Đang tải biểu mẫu..." />}>
+      {isAddStudentOpen && (studentListLoading || studentListError) && (
+        <StudentLoadState label="Đang tải dữ liệu biểu mẫu..." error={studentListError} onRetry={() => { void reloadStudentList(); }} onCancel={() => setIsAddStudentOpen(false)} />
+      )}
+      {isAddStudentOpen && !studentListLoading && !studentListError ? (
         <AddStudentModal
           isOpen={isAddStudentOpen}
           onClose={() => setIsAddStudentOpen(false)}
@@ -268,6 +219,7 @@ export default function StudentManagementTab() {
           initialTab={initialStudentTab}
         />
       ) : null}
+      </Suspense>
 
     </div>
   );

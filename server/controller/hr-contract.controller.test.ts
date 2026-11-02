@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { CompanyModel } from "../model/company.model";
 import { managedUploadService } from "../service/managed-upload.service";
 import {
   finalizeContractPendingUploads,
@@ -47,14 +48,14 @@ describe("hrContractController managed uploads", () => {
     });
   });
 
-  it("finalizes contract and signed-image tokens against the saved contract", async () => {
+  it("finalizes contract, signed-image and electronic-signature tokens independently", async () => {
     const finalizeManagedUpload = vi.fn(async (token: string) => ({
-      _id: token === "contract-token" ? "resource-contract" : "resource-signed",
+      _id: token === "contract-token" ? "resource-contract" : token === "signed-token" ? "resource-signed" : "resource-signature",
     }));
 
     const patch = await finalizeContractPendingUploads({
       contract: { _id: "contract-1", employeeId: "employee-1", employeeName: "NV001 - Nguyễn Văn A" },
-      body: { contractFileUploadToken: "contract-token", signedImageUploadToken: "signed-token" },
+      body: { contractFileUploadToken: "contract-token", signedImageUploadToken: "signed-token", electronicSignatureUploadToken: "signature-token" },
       actor: { companyCode: "ACME", branchId: "branch-a", actorId: "user-1", actorName: "Admin" },
       finalizeManagedUpload: finalizeManagedUpload as any,
     });
@@ -66,7 +67,11 @@ describe("hrContractController managed uploads", () => {
       sourceRecordId: "contract-1",
       sourceField: "contractFile",
     });
-    expect(patch).toEqual({ contractResourceId: "resource-contract", signedImageResourceId: "resource-signed" });
+    expect(finalizeManagedUpload).toHaveBeenNthCalledWith(3, "signature-token", expect.any(Object), expect.objectContaining({
+      sourceRecordId: "contract-1",
+      sourceField: "electronicSignature",
+    }));
+    expect(patch).toEqual({ contractResourceId: "resource-contract", signedImageResourceId: "resource-signed", electronicSignatureResourceId: "resource-signature" });
   });
 
   it("finalizes extension tokens against the saved extension", async () => {
@@ -86,5 +91,55 @@ describe("hrContractController managed uploads", () => {
       sourceRecordId: "extension-1",
       sourceField: "extensionSignedImage",
     }));
+  });
+});
+
+describe("hrContractController settings", () => {
+  it("returns configured alert days or default 20", async () => {
+    vi.spyOn(CompanyModel, "findOne").mockReturnValue({
+      select: () => ({
+        lean: vi.fn().mockResolvedValue({ contractConfig: { expiryAlertDays: 45, notifyManagers: true } }),
+      }),
+    } as any);
+
+    const req: any = { user: { companyCode: "ACME" } };
+    const res = response();
+    await hrContractController.getSettings(req, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({
+      status: "success",
+      data: { expiryAlertDays: 45, notifyManagers: true },
+    });
+  });
+
+  it("updates contract alert days settings", async () => {
+    const updateSpy = vi.spyOn(CompanyModel, "updateOne").mockResolvedValue({ modifiedCount: 1 } as any);
+    const req: any = {
+      user: { companyCode: "ACME" },
+      body: { expiryAlertDays: 30, notifyManagers: false },
+    };
+    const res = response();
+    await hrContractController.updateSettings(req, res);
+    expect(updateSpy).toHaveBeenCalledWith(
+      { code: "ACME" },
+      { $set: { "contractConfig.expiryAlertDays": 30, "contractConfig.notifyManagers": false } },
+      { upsert: false }
+    );
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({
+      status: "success",
+      data: { expiryAlertDays: 30, notifyManagers: false },
+    });
+  });
+
+  it("rejects invalid expiryAlertDays", async () => {
+    const req: any = {
+      user: { companyCode: "ACME" },
+      body: { expiryAlertDays: 500 },
+    };
+    const res = response();
+    await hrContractController.updateSettings(req, res);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.message).toContain("Số ngày báo trước phải là số nguyên");
   });
 });

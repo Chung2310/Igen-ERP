@@ -46,6 +46,8 @@ export class TenantManagementService {
   async updateModules(v:string, input:{ enabledModules?:unknown; businessType?:unknown }){
     const c=code(v);
     const tenant=needed(await this.tenants.get(c),c);
+    const subscription = (tenant as TenantRecord & { serviceSubscription?: { status: string; expiresAt: Date } }).serviceSubscription;
+    if (subscription) throw Error("Doanh nghiệp đã được quản lý bằng gói dịch vụ. Hãy đổi gói trong mục Gói cước.");
     const legacyEntityPreset = tenant.businessType
       ? undefined
       : (await ModuleSettings.findOne({ tenantId: c }).select("entityPreset").lean())?.entityPreset;
@@ -60,7 +62,11 @@ export class TenantManagementService {
     if(!next[currentStatus].includes(target))throw Error(`Invalid lifecycle transition from ${currentStatus} to ${target}`);
     const now=new Date();
     const updated=needed(await this.tenants.update(c,{lifecycleStatus:target,lifecycleChangedAt:now}),c);
-    await UserModel.updateMany({companyCode:c},{$set:{disabledAt: target==="active" ? null : now}});
+    if (target !== "active") {
+      await UserModel.updateMany({ companyCode: c, role: { $ne: "superadmin" } }, { $set: { activeSessionId: "" } });
+      const { disconnectCompanySockets } = await import("../socket");
+      disconnectCompanySockets(c);
+    }
     return updated;
   }
 

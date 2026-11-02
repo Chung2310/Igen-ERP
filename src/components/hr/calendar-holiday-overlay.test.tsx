@@ -14,6 +14,7 @@ const holidayDate = `${currentYear}-${currentMonth}-15`;
 describe("CalendarTab applied holiday overlay", () => {
   beforeEach(() => {
     localStorage.setItem("accessToken", "token");
+    window.matchMedia = window.matchMedia || vi.fn().mockImplementation((query) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
     vi.stubGlobal(
       "fetch",
       vi.fn((url: string) => {

@@ -59,11 +59,11 @@ export const superAdminDashboardService = {
     // 2. System Counts
     const [totalTenants, activeTenants, suspendedTenants, totalUsers, activeSessions, lockedAccounts] = await Promise.all([
       CompanyModel.countDocuments(),
-      CompanyModel.countDocuments({ status: { $ne: "suspended" } }),
-      CompanyModel.countDocuments({ status: "suspended" }),
+      CompanyModel.countDocuments({ $or: [{ lifecycleStatus: "active" }, { lifecycleStatus: { $exists: false } }, { lifecycleStatus: null }] }),
+      CompanyModel.countDocuments({ lifecycleStatus: "suspended" }),
       UserModel.countDocuments(),
       SuperAdminSessionModel.countDocuments({ revokedAt: { $exists: false }, expiresAt: { $gt: now } }),
-      UserModel.countDocuments({ "superAdminSecurity.lockedUntil": { $gt: now } }),
+      UserModel.countDocuments({ $or: [{ lockedAt: { $ne: null } }, { "superAdminSecurity.lockedUntil": { $gt: now } }] }),
     ]);
 
     const counts = {

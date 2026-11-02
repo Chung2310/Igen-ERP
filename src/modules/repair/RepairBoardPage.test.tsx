@@ -2,6 +2,8 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
+vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ userProfile: { role: 'admin', companyCode: 'QA' }, hasPermission: () => true }) }));
+vi.mock('../../context/BranchContext', () => ({ useBranch: () => ({ activeBranchId: 'branch-a' }) }));
 
 vi.mock("../../services/repairService", async () => {
   const actual = await vi.importActual<typeof import("../../services/repairService")>("../../services/repairService");
@@ -12,7 +14,7 @@ vi.mock("../../services/authService", () => ({
   authService: { getColleagues: vi.fn(async () => [{ uid: "tech-1", displayName: "Nguyễn Văn Kỹ Thuật" }]) },
 }));
 
-vi.mock("./RepairTicketExtras", () => ({ default: () => null }));
+vi.mock("./RepairTicketExtras", () => ({ default: ({ onChanged }: { onChanged: () => void }) => <button type="button" onClick={onChanged}>Cập nhật vật tư kiểm thử</button> }));
 
 import RepairBoardPage from "./RepairBoardPage";
 import { repairService, type RepairTicket } from "../../services/repairService";
@@ -52,7 +54,8 @@ test("transitions a received ticket with the selected technician", async () => {
   render(<RepairBoardPage />);
 
   await user.click(await screen.findByRole("button", { name: "Chuyển bước tiếp" }));
-  await user.selectOptions(screen.getByLabelText("Kỹ thuật viên tiếp nhận"), "tech-1");
+  await user.click(screen.getByRole("button", { name: "Kỹ thuật viên tiếp nhận" }));
+  await user.click(screen.getByRole("option", { name: "Nguyễn Văn Kỹ Thuật" }));
   await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Chuyển bước tiếp" }));
 
   expect(repairService.transition).toHaveBeenCalledWith("repair-1", "diagnosing", { technicianId: "tech-1" });
@@ -185,8 +188,9 @@ test("uses a viewport-bounded responsive quote popup on mobile", async () => {
   await userEvent.setup().click(await screen.findByRole("button", { name: "Chuyển bước tiếp" }));
 
   const dialog = screen.getByRole("dialog");
-  expect(dialog.className).toContain("max-h-[calc(100vh-1.5rem)]");
-  expect(dialog.className).toContain("overflow-y-auto");
+  expect(dialog.className).toContain("max-h-[calc(100dvh-2rem)]");
+  expect(dialog.className).toContain("overflow-hidden");
+  expect(screen.getByRole("region", { name: "Nội dung phiếu sửa chữa" }).className).toContain("overflow-y-auto");
   const infoGrid = screen.getByText("Khách hàng", { selector: "b" }).parentElement?.parentElement;
   const totalsGrid = screen.getByText("Nhân công").parentElement;
   expect(infoGrid?.className).toContain("grid-cols-1");
@@ -230,4 +234,22 @@ test("offers payment only for a completed ticket awaiting delivery", async () =>
   await userEvent.setup().click(await screen.findByText("REP-001"));
 
   expect(screen.getByRole("button", { name: "Ghi nhận thanh toán" })).not.toBeNull();
+});
+
+test('refreshes amounts in the open ticket after a material change', async () => {
+  const before = { ...ticket, status: 'approved' as const, totalAmount: 0, dueAmount: 0 };
+  const after = { ...before, totalAmount: 1250, dueAmount: 1250, partRevenue: 1250 };
+  vi.mocked(repairService.board).mockReset().mockResolvedValueOnce({ approved: [before] } as Awaited<ReturnType<typeof repairService.board>>).mockResolvedValueOnce({ approved: [after] } as Awaited<ReturnType<typeof repairService.board>>);
+  render(<RepairBoardPage />);
+  const user = userEvent.setup(); await user.click(await screen.findByText('REP-001'));
+  const dialog = screen.getByRole('dialog'); await user.click(within(dialog).getByRole('button', { name: 'Cập nhật vật tư kiểm thử' }));
+  await waitFor(() => expect(within(dialog).getAllByText('1.250').length).toBeGreaterThan(0));
+});
+
+test('opens payment details instead of attempting delivery while money is still due', async () => {
+  vi.mocked(repairService.board).mockReset().mockResolvedValue({ done: [{ ...ticket, status: 'done', dueAmount: 250000 }] } as Awaited<ReturnType<typeof repairService.board>>);
+  render(<RepairBoardPage />);
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Thu tiền để bàn giao' }));
+  expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Ghi nhận thanh toán' })).toBeTruthy();
+  expect(repairService.transition).not.toHaveBeenCalled();
 });

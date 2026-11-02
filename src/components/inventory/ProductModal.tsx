@@ -79,7 +79,7 @@ export function ProductModal({
               {isEditing ? "Cập nhật sản phẩm" : "Khai báo sản phẩm mới"}
             </h4>
             <p className="mt-1 text-xs text-slate-400">
-              {isEditing ? "Chỉnh sửa thông tin sản phẩm đang lưu trên hệ thống kho." : "Lưu sản phẩm mới lên dữ liệu kho của iGen ERP."}
+              {isEditing ? "Chỉnh sửa thông tin sản phẩm đang lưu trên hệ thống kho." : "Lưu sản phẩm mới lên dữ liệu kho của AnhKhoa Mobile."}
             </p>
           </div>
           <button

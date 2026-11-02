@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CheckoutSuccessDialog from "./CheckoutSuccessDialog";
 import ReceiptPrintView from "./ReceiptPrintView";
+import ReceiptPrintViewSerial from "./ReceiptPrintViewSerial";
 import type { RetailOrderResult } from "../../types";
 
 afterEach(cleanup);
@@ -15,9 +16,21 @@ const result: RetailOrderResult = {
 };
 
 describe("retail receipt", () => {
+  it.each(["58mm", "80mm", "A5", "A4"] as const)("keeps full product and serial data on %s receipts", (paperSize) => {
+    const items = Array.from({ length: 25 }, (_, index) => ({ ...result.invoice.snapshot.items[0], productId: "p" + index, productName: "Thiết bị " + index + " " + "MODEL".repeat(40), quantity: index + 1, serialNumbers: ["SERIAL".repeat(40) + index] }));
+    const invoice = { ...result.invoice, snapshot: { ...result.invoice.snapshot, customerName: "Khách hàng " + "NAME".repeat(50), items } };
+    render(<ReceiptPrintViewSerial invoice={invoice} paperSize={paperSize} />);
+    expect(screen.getByText(items[24].productName)).toBeTruthy();
+    expect(screen.getByText("IMEI: " + items[24].serialNumbers[0])).toBeTruthy();
+    expect(screen.getByText("25", { selector: "td" })).toBeTruthy();
+    expect(screen.getByText("Khách hàng: " + invoice.snapshot.customerName)).toBeTruthy();
+    expect(screen.getByText("Tổng cộng")).toBeTruthy();
+    expect(screen.getByText("Tiền thừa")).toBeTruthy();
+  });
+
   it("renders printable invoice snapshot without cost data", () => {
     render(<ReceiptPrintView invoice={result.invoice} />);
-    expect(screen.getByText("HD-CN01-1")).toBeTruthy();
+    expect(screen.getAllByText("HD-CN01-1").length).toBeGreaterThan(0);
     expect(screen.getByText("Cửa hàng Igen")).toBeTruthy();
     expect(screen.getByText("1 Nguyễn Huệ")).toBeTruthy();
     expect(screen.getByText("Nguyễn Văn A")).toBeTruthy();
@@ -31,14 +44,14 @@ describe("retail receipt", () => {
     expect(screen.getAllByText("111.800 ₫").length).toBeGreaterThan(1);
   });
 
-  it("prints the completed invoice and can start a new order", async () => {
+  it("shows the completed invoice and starts a new order without a duplicate POS print action", async () => {
     const print = vi.spyOn(window, "print").mockImplementation(() => undefined);
     const onNewOrder = vi.fn();
     render(<CheckoutSuccessDialog result={result} onNewOrder={onNewOrder} onClose={() => undefined} />);
     expect(screen.getByText("DH-CN01-1")).toBeTruthy();
-    expect(screen.getByText("HD-CN01-1")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "In hóa đơn" }));
-    expect(print).toHaveBeenCalledOnce();
+    expect(screen.getAllByText("HD-CN01-1").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "In hóa đơn" })).toBeNull();
+    expect(print).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Đơn mới" }));
     expect(onNewOrder).toHaveBeenCalledOnce();
   });

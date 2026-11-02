@@ -1,4 +1,8 @@
+import FinancialManagementPage from "./pages/FinancialManagementPage";
+import DebtManagementPanel from "./pages/DebtManagementPanel";
+import TreasuryPage from "./pages/TreasuryPage";
 import { useMemo, useState } from "react";
+import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import { BellRing, Boxes, ChartNoAxesColumnIncreasing, ClipboardCheck, Landmark, TrendingDown } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
@@ -12,13 +16,24 @@ import FinanceRemindersPage from "./pages/FinanceRemindersPage";
 import ReceivablesPage from "./pages/ReceivablesPage";
 
 type FinanceSubTab =
+  | "THU CHI"
+  | "LÃI LỖ"
+  | "VAT"
+  | "HÒA VỐN"
+  | "SỔ QUỸ"
   | "CÔNG NỢ"
   | "TUỔI NỢ"
   | "NHẮC NỢ"
   | "TÀI SẢN"
   | "KHẤU HAO"
   | "KIỂM KÊ";
+
 export const FINANCE_SUB_TABS = [
+  { slug: "thu-chi", value: "THU CHI" as const, label: "Thu - Chi", icon: Landmark },
+  { slug: "lai-lo", value: "LÃI LỖ" as const, label: "Lãi lỗ", icon: TrendingDown },
+  { slug: "vat", value: "VAT" as const, label: "VAT", icon: Landmark },
+  { slug: "hoa-von", value: "HÒA VỐN" as const, label: "Hòa vốn", icon: ChartNoAxesColumnIncreasing },
+  { slug: "so-quy", value: "SỔ QUỸ" as const, label: "Sổ quỹ & dòng tiền", icon: Landmark },
   {
     slug: "cong-no",
     value: "CÔNG NỢ" as const,
@@ -60,6 +75,11 @@ export const FINANCE_SUB_TABS = [
 export function getAllowedFinanceTabSlugs(permissions: readonly string[] = []) {
   if (permissions.includes("*")) return FINANCE_SUB_TABS.map((tab) => tab.slug);
   const allowed: Array<(typeof FINANCE_SUB_TABS)[number]["slug"]> = [];
+  if (permissions.includes("finance-wallet:manage")) {
+    allowed.push("thu-chi", "lai-lo", "vat", "hoa-von", "so-quy");
+  } else if (permissions.includes("finance-wallet:read")) {
+    allowed.push("so-quy");
+  }
   const canReadReceivables = permissions.some((item) =>
     ["finance-receivable:read", "finance-receivable:manage"].includes(item),
   );
@@ -87,10 +107,11 @@ export function resolveFinanceSubTab(
 
 export default function FinanceWorkspace() {
   const { userProfile } = useAuth();
-  const permissions =
-    userProfile?.role === "admin" || userProfile?.role === "superadmin"
-      ? ["*"]
-      : userProfile?.permissions || [];
+  const isAdmin = userProfile?.role === "admin" || userProfile?.role === "superadmin";
+  const permissions = useMemo(
+    () => isAdmin ? ["*"] : userProfile?.permissions || [],
+    [isAdmin, userProfile?.permissions],
+  );
   const allowedSlugs = useMemo(
     () => getAllowedFinanceTabSlugs(permissions),
     [permissions],
@@ -99,10 +120,12 @@ export default function FinanceWorkspace() {
     () => FINANCE_SUB_TABS.filter((tab) => allowedSlugs.includes(tab.slug)),
     [allowedSlugs],
   );
+  // Keep the URL selection while the profile and its permissions are loading.
+  const routeTabs = tabs.length ? tabs : FINANCE_SUB_TABS;
   const fallback =
     resolveFinanceSubTab(window.location.search, allowedSlugs) || "CÔNG NỢ";
   const [activeTab, setActiveTab] = useSubTabRouter<FinanceSubTab>(
-    tabs as any,
+    routeTabs as any,
     fallback,
   );
   const [selectedId, setSelectedId] = useState<string>();
@@ -116,47 +139,58 @@ export default function FinanceWorkspace() {
   };
   if (!tabs.length)
     return (
-      <div className="p-6 text-sm font-semibold text-amber-800">
+      <div className="p-6 text-sm font-semibold text-on-tertiary-container">
         Bạn chưa được cấp quyền sử dụng chức năng tài chính.
       </div>
     );
   return (
-    <div className="flex h-full min-h-0 flex-col bg-slate-50">
-      <div className="flex gap-1 border-b border-slate-200 bg-white px-4 pt-3">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.slug}
-              type="button"
-              onClick={() => setActiveTab(tab.value)}
-              className={`flex items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${activeTab === tab.value ? "bg-cyan-600 text-white" : "text-slate-600 hover:bg-cyan-50"}`}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-        {activeTab === "CÔNG NỢ" && (
-          <ReceivablesPage
-            key={refreshKey}
-            permissions={permissions}
-            onOpen={setSelectedId}
-          />
-        )}{" "}
-        {activeTab === "TUỔI NỢ" && <AgingReportPage onDrillDown={drillDown} />}{" "}
-        {activeTab === "NHẮC NỢ" && (
-          <FinanceRemindersPage permissions={permissions} />
-        )}{" "}
-        {activeTab === "TÀI SẢN" && <FixedAssetsPage permissions={permissions} />}{" "}
-        {activeTab === "KHẤU HAO" && (
-          <AssetDepreciationPage permissions={permissions} />
-        )}{" "}
-        {activeTab === "KIỂM KÊ" && (
-          <AssetInventoryPage permissions={permissions} />
-        )}
+    <div className="flex h-full min-h-0 flex-col bg-surface-container-low">
+      <ModuleNavigation label="Mục Tài chính" activeValue={activeTab} wheelScroll>
+        {tabs.map(tab => <ModuleNavigationButton key={tab.slug} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
+      </ModuleNavigation>
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto max-w-7xl space-y-6">
+          {(["THU CHI", "LÃI LỖ", "VAT", "HÒA VỐN"].includes(activeTab)) && (
+            <FinancialManagementPage
+              key={activeTab}
+              view={
+                ({
+                  "THU CHI": "cash",
+                  "LÃI LỖ": "profit",
+                  "VAT": "vat",
+                  "HÒA VỐN": "breakeven",
+                } as const)[activeTab as "THU CHI" | "LÃI LỖ" | "VAT" | "HÒA VỐN"]
+              }
+            />
+          )}
+          {activeTab === "SỔ QUỸ" && <TreasuryPage permissions={permissions} />}
+          {(["CÔNG NỢ", "TUỔI NỢ", "NHẮC NỢ"].includes(activeTab)) && (
+            <DebtManagementPanel
+              key={activeTab + refreshKey}
+              mode={activeTab === "CÔNG NỢ" ? "debt" : activeTab === "TUỔI NỢ" ? "aging" : "reminders"}
+              permissions={permissions}
+              onOpen={setSelectedId}
+            />
+          )}
+          {activeTab === "CÔNG NỢ" && (
+            <ReceivablesPage
+              key={refreshKey}
+              permissions={permissions}
+              onOpen={setSelectedId}
+            />
+          )}{" "}
+          {activeTab === "TUỔI NỢ" && <details className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4"><summary className="cursor-pointer text-sm font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Xem báo cáo tuổi nợ theo nhóm cũ</summary><AgingReportPage onDrillDown={drillDown} /></details>}{" "}
+          {activeTab === "NHẮC NỢ" && (
+            <details className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4"><summary className="cursor-pointer text-sm font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Xem lịch gửi nhắc nợ</summary><FinanceRemindersPage permissions={permissions} /></details>
+          )}{" "}
+          {activeTab === "TÀI SẢN" && <FixedAssetsPage permissions={permissions} />}{" "}
+          {activeTab === "KHẤU HAO" && (
+            <AssetDepreciationPage permissions={permissions} />
+          )}{" "}
+          {activeTab === "KIỂM KÊ" && (
+            <AssetInventoryPage permissions={permissions} />
+          )}
+        </div>
       </div>
       {selectedId && (
         <ReceivableDetailDrawer

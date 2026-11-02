@@ -1,15 +1,35 @@
-﻿import { RetailOrderModel } from "./models/retail-order.model";
+import { RetailOrderModel } from "./models/retail-order.model";
 import { SerialUnitModel } from "../inventory/serials/serial-unit.model";
 import { snapshotCoverage } from "../inventory/serials/warranty-clock";
+import { BranchModel } from "../../model/branch.model";
 
 export type RetailScope = { companyCode: string; branchId?: string };
 export type RetailBranchScope = { companyCode: string; branchId: string };
 
+import { getCustomerContact } from "../customer-management/contracts";
+
 export async function lookupSoldDevice(scope: RetailScope, code: string, at = new Date()) {
   const normalized = String(code || "").trim().toUpperCase();
-  const unit: any = await SerialUnitModel.findOne({ companyCode: scope.companyCode, status: "sold", $or: [{ normalizedSerialNumber: normalized }, { normalizedInternalBarcode: normalized }] }).lean();
+  const unit: any = await SerialUnitModel.findOne({ companyCode: scope.companyCode, status: "sold", $or: [{ normalizedSerialNumber: normalized }, { normalizedInternalBarcode: normalized }, { normalizedBarcodeAliases: normalized }, { normalizedImeis: normalized }] }).lean();
   if (!unit) return { found: false as const };
-  return { found: true as const, serialUnit: unit, coverage: snapshotCoverage(unit, at), sold: { soldAt: unit.soldAt, orderId: unit.soldOrderId, orderCode: unit.soldOrderCode, branchId: unit.soldBranchId, customerId: unit.customerId } };
+  const customer = unit.customerId ? await getCustomerContact({ companyCode: scope.companyCode }, String(unit.customerId), { includeInactive: true }).catch(() => null) : null;
+  const isHex = (id?: unknown) => typeof id === "string" && /^[0-9a-fA-F]{24}$/.test(id.trim());
+  const friendlyCustId = customer?.customerCode || (unit.customerId && !isHex(unit.customerId) ? String(unit.customerId) : undefined);
+  return {
+    found: true as const,
+    serialUnit: unit,
+    coverage: snapshotCoverage(unit, at),
+    sold: {
+      soldAt: unit.soldAt,
+      orderId: unit.soldOrderId,
+      orderCode: unit.soldOrderCode,
+      branchId: unit.soldBranchId,
+      customerId: friendlyCustId || (customer?.phone ? `KH-${customer.phone}` : String(unit.customerId || "")),
+      customerCode: customer?.customerCode,
+      customerName: customer?.name,
+      customerPhone: customer?.phone,
+    }
+  };
 }
 
 type RetailActor = {
@@ -28,6 +48,8 @@ export class RetailScopeError extends Error {
     super(message);
   }
 }
+
+type RetailBranchLookup = { exists(filter: { _id: string; companyCode: string; isActive: boolean }): Promise<unknown> };
 
 function normalizeCompanyCode(value: unknown): string {
   return String(value || "").trim().toUpperCase();
@@ -63,10 +85,30 @@ export function retailScopeFromRequest(
   if (requestedCompanyCode && requestedCompanyCode !== actorScope.companyCode) {
     throw new RetailScopeError("Requested company scope is not allowed", 403);
   }
-  if (requestedBranchId && requestedBranchId !== actorScope.branchId) {
+  const isCompanyAdmin = String(actor.role || "") === "admin";
+  if (requestedBranchId && requestedBranchId !== actorScope.branchId && !isCompanyAdmin) {
     throw new RetailScopeError("Requested branch scope is not allowed", 403);
   }
-  return actorScope;
+  const branchId = requestedBranchId && isCompanyAdmin ? requestedBranchId : actorScope.branchId;
+  return { companyCode: actorScope.companyCode, ...(branchId ? { branchId } : {}) };
+}
+
+export async function resolveRetailScopeFromRequest(
+  actor: RetailActor,
+  requested: RequestedRetailScope,
+  branchLookup: RetailBranchLookup = BranchModel as unknown as RetailBranchLookup,
+): Promise<RetailScope> {
+  const requestedBranchId = normalizeBranchId(requested.branchId);
+  const role = String(actor.role || "");
+  const scope = retailScopeFromRequest(actor, requested);
+
+  if (requestedBranchId && (role === "admin" || role === "superadmin")) {
+    if (!/^[a-f0-9]{24}$/i.test(requestedBranchId)) throw new RetailScopeError("Selected branch is invalid", 400);
+    if (!await branchLookup.exists({ _id: requestedBranchId, companyCode: scope.companyCode, isActive: true })) {
+      throw new RetailScopeError("Selected branch does not belong to this company", 403);
+    }
+  }
+  return scope;
 }
 
 export function requireRetailBranch(scope: RetailScope): RetailBranchScope {

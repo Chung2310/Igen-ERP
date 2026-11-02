@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getModuleSettings } from "../api/moduleSettings.api";
 import { socketService } from "../../../services/socketService";
 import { useEntityLabel } from "./useEntityLabel";
-import { resetEntityPresetStoreForTests } from "./entityPresetStore";
+import { resetEntityPresetStoreForTests, getEntityPresetSnapshot, retryEntityPresetLoad, setEntityPreset, setEntityPresetScope, ensureEntityPresetLoaded } from "./entityPresetStore";
 
 vi.mock("../api/moduleSettings.api", () => ({ getModuleSettings: vi.fn() }));
 vi.mock("../../../services/socketService", () => ({
@@ -19,12 +19,85 @@ function Probe({ name, onRender }: { name: string; onRender?: (preset: string) =
 }
 
 describe("shared entity preset state", () => {
+  it('clears a resolved label and reloads settings after a company or account change', async () => {
+    setEntityPresetScope({ userId: 'u1', companyCode: 'ACME' });
+    vi.mocked(getModuleSettings).mockResolvedValueOnce({ tenantId: 'ACME', entityPreset: 'worker' }).mockResolvedValueOnce({ tenantId: 'OTHER', entityPreset: 'student' });
+    await ensureEntityPresetLoaded();
+    expect(getEntityPresetSnapshot()).toMatchObject({ preset: 'worker', loading: false });
+    setEntityPresetScope({ userId: 'u2', companyCode: 'OTHER' });
+    expect(getEntityPresetSnapshot().loading).toBe(true);
+    await ensureEntityPresetLoaded();
+    expect(getEntityPresetSnapshot()).toMatchObject({ preset: 'student', loading: false });
+  });
+  it('aborts an old company request and rejects a response for the wrong tenant', async () => {
+    let complete!: (value: Awaited<ReturnType<typeof getModuleSettings>>) => void;
+    setEntityPresetScope({ userId: 'u1', companyCode: 'ACME' });
+    vi.mocked(getModuleSettings).mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; })).mockResolvedValueOnce({ tenantId: 'ACME', entityPreset: 'worker' });
+    const old = ensureEntityPresetLoaded(); await Promise.resolve();
+    const signal = vi.mocked(getModuleSettings).mock.calls[0][1]?.signal;
+    setEntityPresetScope({ userId: 'u2', companyCode: 'OTHER' });
+    await ensureEntityPresetLoaded();
+    complete({ tenantId: 'ACME', entityPreset: 'worker' }); await old;
+    expect(signal?.aborted).toBe(true);
+    expect(getEntityPresetSnapshot()).toMatchObject({ loading: true, error: expect.any(String) });
+  });
+  it('does not fetch or reuse a previous preset after sign-out', async () => {
+    setEntityPreset('worker'); setEntityPresetScope(null);
+    await ensureEntityPresetLoaded();
+    expect(getModuleSettings).not.toHaveBeenCalled();
+    expect(getEntityPresetSnapshot().loading).toBe(true);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     resetEntityPresetStoreForTests();
   });
 
-  afterEach(cleanup);
+  afterEach(() => { cleanup(); resetEntityPresetStoreForTests(); vi.useRealTimers(); });
+
+  it("recovers automatically without remounting after a transient settings error", async () => {
+    vi.useFakeTimers();
+    vi.mocked(getModuleSettings).mockRejectedValueOnce(new Error('Offline')).mockResolvedValue({ tenantId: 'ACME', entityPreset: 'worker' });
+    render(<Probe name="first" />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(getEntityPresetSnapshot().error).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(screen.getByLabelText('first').textContent).toBe('worker');
+    expect(getModuleSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it("caps automatic retries and permits an immediate explicit retry", async () => {
+    vi.useFakeTimers();
+    vi.mocked(getModuleSettings).mockRejectedValue(new Error('Offline'));
+    render(<Probe name="first" />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    expect(getModuleSettings).toHaveBeenCalledTimes(3);
+    expect(getEntityPresetSnapshot().error).toBeTruthy();
+    vi.mocked(getModuleSettings).mockResolvedValue({ tenantId: 'ACME', entityPreset: 'student' });
+    await act(async () => { await retryEntityPresetLoad(); });
+    expect(screen.getByLabelText('first').textContent).toBe('student');
+  });
+
+  it("releases a hung settings request and ignores a late response after a realtime update", async () => {
+    vi.useFakeTimers();
+    let complete!: (value: Awaited<ReturnType<typeof getModuleSettings>>) => void;
+    vi.mocked(getModuleSettings).mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    render(<Probe name="first" />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+    expect(getEntityPresetSnapshot().error).toBeTruthy();
+    act(() => { setEntityPreset('worker'); });
+    await act(async () => { complete({ tenantId: 'ACME', entityPreset: 'student' }); });
+    expect(screen.getByLabelText('first').textContent).toBe('worker');
+  });
+
+  it("keeps a realtime preset update when the older request completes afterwards", async () => {
+    let complete!: (value: Awaited<ReturnType<typeof getModuleSettings>>) => void;
+    vi.mocked(getModuleSettings).mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    render(<Probe name="first" />);
+    await waitFor(() => expect(getModuleSettings).toHaveBeenCalledTimes(1));
+    act(() => { setEntityPreset('worker'); });
+    await act(async () => { complete({ tenantId: 'ACME', entityPreset: 'student' }); });
+    expect(screen.getByLabelText('first').textContent).toBe('worker');
+  });
 
   it("does not request student settings when label loading is disabled", async () => {
     function DisabledProbe() {

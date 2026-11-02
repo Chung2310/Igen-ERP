@@ -29,16 +29,23 @@ export interface ICompanySmtpConfig { host: string; port: number; secure: boolea
 export interface ICelebrationTemplate { subject: string; html: string; }
 export interface ICompanyCelebrationConfig { birthdayEnabled: boolean; holidayEnabled: boolean; sendTime: string; birthdayTemplate: ICelebrationTemplate; holidayTemplate: ICelebrationTemplate; holidayOverrides?: Array<{ date: string; enabled: boolean; subject?: string; html?: string }>; }
 
-export interface ICompanySmtpConfig { host: string; port: number; secure: boolean; user: string; passwordEncrypted: string; fromEmail: string; fromName: string; updatedAt?: Date; }
-export interface ICelebrationTemplate { subject: string; html: string; }
-export interface ICompanyCelebrationConfig { birthdayEnabled: boolean; holidayEnabled: boolean; sendTime: string; birthdayTemplate: ICelebrationTemplate; holidayTemplate: ICelebrationTemplate; holidayOverrides?: Array<{ date: string; enabled: boolean; subject?: string; html?: string }>; }
 export interface ICompanyVietqrConfig {
   bankId: string;
   accountNo: string;
   accountName: string;
 }
 
+export interface ICompanyContractConfig {
+  expiryAlertDays: number;
+  notifyManagers?: boolean;
+}
+
 export interface ICompany extends Document {
+  elevenlabsConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyElevenLabsConfig;
+  telegramOrderConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyTelegramOrderConfig;
+  sepayConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanySepayConfig;
+  productCatalogConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyProductCatalogConfig;
+  cakeCatalogConfig?: import("../modules/marketing-suite/shared/interface/company.interface").ICompanyCakeCatalogConfig;
   code: string;
   name: string;
   createdAt: Date;
@@ -46,6 +53,7 @@ export interface ICompany extends Document {
   businessType?: "education" | "labor" | "service" | "recruitment" | "general";
   /** Các module nghiệp vụ được bật cho doanh nghiệp. Rỗng/thiếu = bật tất cả. */
   enabledModules?: string[];
+  serviceSubscription?: { planId: unknown; planName: string; priceVnd: number; modules: string[]; startsAt: Date; expiresAt: Date; status: "active" | "cancelled"; assignedBy: string } | null;
   /** Link thư mục Google Drive dùng chung cho toàn công ty (tài liệu). */
   driveFolderLink?: string;
   /** OAuth Google Drive riêng của công ty (mỗi công ty kết nối tài khoản Google của họ). */
@@ -58,6 +66,7 @@ export interface ICompany extends Document {
   smtpConfig?: ICompanySmtpConfig;
   celebrationConfig?: ICompanyCelebrationConfig;
   vietqrConfig?: ICompanyVietqrConfig;
+  contractConfig?: ICompanyContractConfig;
 
   lifecycleStatus?: "active" | "suspended" | "archived" | "scheduled-deletion";
   lifecycleChangedAt?: Date;

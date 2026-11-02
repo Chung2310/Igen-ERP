@@ -1,0 +1,166 @@
+/* Marketing standalone visual tokens, scoped to the ERP Marketing workspace. */
+.marketing-workspace {
+  min-width: 0;
+  color: var(--color-on-surface);
+  font-family: var(--font-sans);
+  --color-primary: #00adfc;
+  --color-on-primary: #052235;
+  --color-primary-container: #d9f3ff;
+  --color-on-primary-container: #005580;
+  --color-primary-fixed: #effaff;
+  --color-primary-fixed-dim: #b7eaff;
+  --color-on-primary-fixed: #052235;
+  --color-on-primary-fixed-variant: #00628f;
+  --color-inverse-primary: #48caff;
+  --color-surface-tint: #00adfc;
+  --color-blue-50: #effaff;
+  --color-blue-100: #d9f3ff;
+  --color-blue-200: #b7eaff;
+  --color-blue-300: #86ddff;
+  --color-blue-400: #48caff;
+  --color-blue-500: #00adfc;
+  --color-blue-600: #00adfc;
+  --color-blue-700: #008fcf;
+  --color-blue-800: #006f9f;
+  --color-blue-900: #003c59;
+  --color-sky-50: #effaff;
+  --color-sky-100: #d9f3ff;
+  --color-sky-200: #b7eaff;
+  --color-sky-300: #86ddff;
+  --color-sky-400: #48caff;
+  --color-sky-500: #00adfc;
+  --color-sky-600: #00adfc;
+  --color-sky-700: #008fcf;
+  --color-sky-800: #006f9f;
+  --color-sky-900: #003c59;
+  --color-cyan-50: #effaff;
+  --color-cyan-100: #d9f3ff;
+  --color-cyan-200: #b7eaff;
+  --color-cyan-300: #86ddff;
+  --color-cyan-400: #48caff;
+  --color-cyan-500: #00adfc;
+  --color-cyan-600: #00adfc;
+  --color-cyan-700: #008fcf;
+  --color-cyan-800: #006f9f;
+  --color-cyan-900: #003c59;
+  --color-indigo-50: #effaff;
+  --color-indigo-100: #d9f3ff;
+  --color-indigo-200: #b7eaff;
+  --color-indigo-300: #86ddff;
+  --color-indigo-400: #48caff;
+  --color-indigo-500: #00adfc;
+  --color-indigo-600: #00adfc;
+  --color-indigo-700: #008fcf;
+  --color-indigo-800: #006f9f;
+  --color-indigo-900: #003c59;
+  --color-indigo-150: #cceeff;
+  --color-indigo-650: #00adfc;
+}
+
+/* ERP supports dark mode; keep its already inverted neutrals and readable role
+   pairs while the source palette above applies only to Marketing. */
+.dark .marketing-workspace,
+.dark.marketing-workspace {
+  --color-primary: #22d3ee;
+  --color-on-surface-variant: var(--color-slate-500);
+  --color-on-primary: var(--color-surface);
+  --color-primary-container: #1b2f47;
+  --color-on-primary-container: #38bdf8;
+  --color-on-secondary: var(--color-surface);
+  --color-tertiary: var(--color-amber-600);
+  --color-on-tertiary: var(--color-surface);
+  --color-tertiary-container: var(--color-amber-100);
+  --color-on-tertiary-container: var(--color-amber-600);
+  --color-error: var(--color-red-600);
+  --color-on-error: var(--color-surface);
+  --color-error-container: var(--color-red-100);
+  --color-on-error-container: var(--color-slate-600);
+  --color-blue-50: #121e2d;
+  --color-blue-100: #1b2f47;
+  --color-blue-600: #38bdf8;
+  --color-blue-800: #0284c7;
+  --color-sky-50: #121e2d;
+  --color-sky-100: #1b2f47;
+  --color-sky-600: #38bdf8;
+  --color-sky-800: #0284c7;
+  --color-cyan-50: #121e2d;
+  --color-cyan-100: #1b2f47;
+  --color-cyan-600: #38bdf8;
+  --color-cyan-800: #0284c7;
+  --color-indigo-50: #121e2d;
+  --color-indigo-100: #1b2f47;
+  --color-indigo-600: #38bdf8;
+  --color-indigo-800: #0284c7;
+  --color-violet-50: #231633;
+  --color-violet-100: #372350;
+  --color-violet-600: #c084fc;
+  --color-violet-700: #d8b4fe;
+  --color-pink-50: #2b141f;
+  --color-pink-100: #421e30;
+  --color-pink-600: #f472b6;
+  --color-pink-700: #f9a8d4;
+  --color-rose-50: #2b1419;
+  --color-rose-100: #421e26;
+  --color-rose-600: #fb7185;
+  --color-orange-50: #291e12;
+  --color-orange-100: #3f2e1b;
+  --color-orange-600: #fb923c;
+  --color-orange-700: #fdba74;
+  --color-emerald-50: #0f241d;
+  --color-emerald-100: #17382c;
+  --color-emerald-600: #34d399;
+  --color-emerald-700: #6ee7b7;
+  --color-teal-50: #0f2424;
+  --color-teal-100: #173838;
+  --color-teal-600: #2dd4bf;
+}
+
+.marketing-workspace .uppercase,
+.marketing-workspace.uppercase {
+  text-transform: none;
+}
+
+.marketing-workspace :where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid #00adfc;
+  outline-offset: 2px;
+}
+
+/* Match the source Campaign detail typography, including nested Markdown. */
+:is(.marketing-workspace.campaign-detail-modal, .marketing-workspace .campaign-detail-modal),
+:is(.marketing-workspace.campaign-detail-modal, .marketing-workspace .campaign-detail-modal) * {
+  font-weight: 400 !important;
+}
+
+:is(.marketing-workspace.campaign-detail-modal, .marketing-workspace .campaign-detail-modal) .clean-markdown-view :is(strong, b) {
+  color: inherit;
+}
+
+:is(.marketing-workspace.campaign-detail-modal, .marketing-workspace .campaign-detail-modal) .clean-markdown-view :is(h3, h4, h5) {
+  color: #007fb8;
+}
+
+:is(.marketing-workspace.campaign-detail-modal, .marketing-workspace .campaign-detail-modal) .clean-markdown-view h4 > span,
+:is(.marketing-workspace.campaign-detail-modal, .marketing-workspace .campaign-detail-modal) .clean-markdown-view li > span {
+  background-color: #00adfc;
+  color: #fff;
+}
+
+:is(.marketing-workspace.campaign-detail-modal, .marketing-workspace .campaign-detail-modal) .research-report .clean-markdown-view :is(h3, h4, h5) {
+  color: #334155;
+}
+
+:is(.marketing-workspace.campaign-detail-modal, .marketing-workspace .campaign-detail-modal) .research-report .clean-markdown-view h4 > span:not(:first-child) {
+  background-color: transparent;
+  color: inherit;
+}
+
+:is(.marketing-workspace.campaign-detail-modal, .marketing-workspace .campaign-detail-modal) .clean-markdown-view code {
+  background-color: #f0f9ff;
+  color: #007fb8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-workspace :is(.animate-spin, .animate-pulse, .animate-ping, .animate-fadeIn) {
+    animation: none;
+  }
+}

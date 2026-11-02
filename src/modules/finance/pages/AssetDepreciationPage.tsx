@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { financeAssetsApi, type AssetDepreciation } from "../api/financeAssets.api";
 import { canManageAssets } from "./FixedAssetsPage";
+import { exportCsv } from "../components/ManagementUI";
 
 const vnd = (value: number) => value.toLocaleString("vi-VN");
 const message = (reason: unknown, fallback: string) =>
@@ -21,9 +22,11 @@ export default function AssetDepreciationPage({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const canManage = canManageAssets(permissions);
   const total = lines.reduce((sum, line) => sum + line.amount, 0);
   const posted = lines.length > 0 && lines.every((line) => line.status === "posted");
+  const visibleLines = statusFilter === "all" ? lines : lines.filter((line) => line.status === statusFilter);
 
   const load = async (target = period) => {
     try {
@@ -103,6 +106,10 @@ export default function AssetDepreciationPage({
       {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
       {notice && <p className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>}
 
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-sm text-on-surface">Trạng thái <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-primary"><option value="all">Tất cả</option><option value="planned">Kế hoạch</option><option value="posted">Đã ghi sổ</option></select></label>
+        <button type="button" disabled={!visibleLines.length} onClick={() => exportCsv(`khau-hao-${period}`, ["Tài sản", "Mã tài sản", "Nguyên giá", "Khấu hao", "Lũy kế", "Giá trị còn lại", "Trạng thái"], visibleLines.map((line) => [line.assetName || line.assetId, line.assetCode || "", line.originalCost ?? "", line.amount, line.accumulatedAfter, line.netBookValueAfter, line.status]))} className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-sm font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Xuất CSV</button>
+      </div>
       <div className="rounded-2xl border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b p-4 text-sm">
           <b>
@@ -111,16 +118,16 @@ export default function AssetDepreciationPage({
           <b>Tổng khấu hao: {vnd(total)}</b>
         </div>
         <div className="divide-y">
-          {lines.map((line) => (
+          {visibleLines.map((line) => (
             <div key={line._id} className="grid grid-cols-2 gap-2 p-4 text-sm sm:grid-cols-4">
-              <span>{line.assetId}</span>
+              <span><strong>{line.assetName || line.assetCode || line.assetId}</strong>{line.assetCode && <small className="block text-on-surface-variant">{line.assetCode}</small>}</span>
               <span>{vnd(line.amount)}</span>
-              <span>Luỹ kế: {vnd(line.accumulatedAfter)}</span>
+              <span>Luỹ kế: {vnd(line.accumulatedAfter)}{line.originalCost != null && <small className="block text-on-surface-variant">Nguyên giá: {vnd(line.originalCost)}</small>}</span>
               <span>{line.status === "posted" ? "Đã ghi sổ" : "Kế hoạch"}</span>
             </div>
           ))}
-          {!lines.length && (
-            <p className="p-6 text-center text-sm text-slate-500">Kỳ này chưa có dòng khấu hao nào.</p>
+          {!visibleLines.length && (
+            <p className="p-6 text-center text-sm text-on-surface-variant">{!lines.length ? <><span>Kỳ này chưa có dòng khấu hao nào.</span> <span>Lập kế hoạch để bắt đầu.</span></> : "Không có dòng khấu hao phù hợp. Chọn trạng thái khác."}</p>
           )}
         </div>
       </div>

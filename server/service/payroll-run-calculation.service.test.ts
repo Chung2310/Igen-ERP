@@ -2,6 +2,20 @@ import { describe, expect, it } from "vitest";
 import { calculateDetailedPayroll } from "./payroll-run-calculation.service";
 
 describe("calculateDetailedPayroll", () => {
+  it("deducts an approved salary advance once and records it separately", () => {
+    const input = {
+      employeeId: "employee-1", standardDays: 26, standardHours: 208, workedMinutes: 208 * 60,
+      shortageMinutes: 0, paidLeaveMinutesByRate: [], overtime: [], allowances: 0, bonuses: 0,
+      deductions: 0, adjustments: 0,
+      segments: [{ sourceId: "contract", start: "2026-07-01", end: "2026-07-31", monthlySalary: 10_000_000 }],
+    };
+    const withoutAdvance = calculateDetailedPayroll(input);
+    const withAdvance = calculateDetailedPayroll({ ...input, advances: 500_000 });
+    expect(withAdvance.totals.grossPay).toBe(withoutAdvance.totals.grossPay);
+    expect(withAdvance.totals.netPay).toBe(withoutAdvance.totals.netPay - 500_000);
+    expect(withAdvance.lines[0].calculation.advances).toBe(500_000);
+  });
+
   it("calculates each effective segment and returns typed totals", () => {
     const result = calculateDetailedPayroll({
       employeeId: "employee-1",

@@ -32,7 +32,6 @@ export function UserAdminHeader({
           <h1 className="text-xl font-semibold tracking-tight text-slate-800">
             Quản lý người dùng
           </h1>
-          <p className="mt-1 text-sm text-slate-500">Tài khoản và vai trò trong hệ thống</p>
         </div>
       </div>
 

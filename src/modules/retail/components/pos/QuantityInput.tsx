@@ -25,7 +25,7 @@ export function QuantityInput({ ariaLabel, value, onQuantityChange }: Props) {
   return (
     <input
       aria-label={ariaLabel}
-      className="w-16 rounded-lg border px-2 py-1"
+      className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1 text-center font-bold text-slate-800 shadow-2xs focus:border-[#0866f5] focus:outline-none"
       type="number"
       min="0"
       value={draftValue}

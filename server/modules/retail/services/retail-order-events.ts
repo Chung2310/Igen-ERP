@@ -31,6 +31,7 @@ export async function publishRetailOrderEvent(event: EventName, scope: RetailBra
         orderId, orderCode: String(order.orderCode), branchId: scope.branchId, customerId: order.customerId ? String(order.customerId) : undefined,
         customerName: order.customerName, customerPhone: order.customerPhone, grandTotal: order.grandTotal,
         paidAmount: order.paidAmount, dueAmount: order.dueAmount, dueDate: order.dueDate ? date(order.dueDate).toISOString() : undefined,
+        ...(order.installment ? { financingPartner: order.installment.partner } : {}),
       },
     }, options.session);
   }
@@ -48,7 +49,7 @@ export async function publishRetailOrderEvent(event: EventName, scope: RetailBra
     ...base, eventId: `retail-order:${orderId}:cancelled`, eventType: "retail.order.cancelled", occurredAt,
     payload: {
       orderId, orderCode: String(order.orderCode), branchId: scope.branchId, customerId: order.customerId ? String(order.customerId) : undefined,
-      dueAmount: Number(order.dueAmount), refundedAmount: Number(order.refundedAmount), reason: String(order.cancelReason), cancelledAt: occurredAt.toISOString(),
+      dueAmount: Math.max(0, Number(order.dueAmount) - Number(order.pendingTransferAmount || 0)), refundedAmount: Number(order.refundedAmount), reason: String(order.cancelReason), cancelledAt: occurredAt.toISOString(),
     },
   }, options.session);
 }

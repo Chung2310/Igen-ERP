@@ -53,7 +53,7 @@ export async function superAdminRequest(path: string, init: SuperAdminRequestIni
     const correlationId = data.correlationId || data.requestId || data.error?.requestId;
     toast.error(correlationId ? `${message} (Mã đối soát: ${correlationId})` : message);
   }
-  if (!response.ok) { const error: any = new Error(data.message || "Yêu cầu thất bại"); error.correlationId = data.correlationId; throw error; }
+  if (!response.ok) throw Object.assign(new Error(data.message || "Yêu cầu thất bại"), { correlationId: data.correlationId, status: response.status, code: data.code });
   const method = String(requestInit.method || "GET").toUpperCase();
   if (method !== "GET" && !suppressSuccessToast) {
     toast.success(successMessage || (typeof data.message === "string" ? data.message : defaultSuccessMessage(method, path)));

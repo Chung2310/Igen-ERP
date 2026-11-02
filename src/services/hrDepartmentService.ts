@@ -1,6 +1,7 @@
 import { getAccessToken } from "./authService";
 
-export type HrDepartment = { id: string; name: string; employeeCount: number };
+export type HrDepartment = { id: string; name: string; employeeCount: number; code?: string; description?: string; managerUid?: string; managerName?: string; sortOrder?: number; isActive?: boolean };
+export type HrDepartmentInput = { name: string; code?: string; description?: string; managerUid?: string; sortOrder?: number; isActive?: boolean };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1/hr/departments${path}`, {
@@ -16,7 +17,7 @@ const query = (companyCode: string) => `?companyCode=${encodeURIComponent(compan
 
 export const hrDepartmentService = {
   list: (companyCode: string) => request<HrDepartment[]>(query(companyCode)),
-  create: (companyCode: string, name: string) => request<HrDepartment>("/", { method: "POST", body: JSON.stringify({ companyCode, name }) }),
-  rename: (companyCode: string, id: string, name: string) => request<HrDepartment>(`/${encodeURIComponent(id)}${query(companyCode)}`, { method: "PATCH", body: JSON.stringify({ companyCode, name }) }),
+  create: (companyCode: string, input: HrDepartmentInput) => request<HrDepartment>("/", { method: "POST", body: JSON.stringify({ companyCode, ...input }) }),
+  rename: (companyCode: string, id: string, input: HrDepartmentInput) => request<HrDepartment>(`/${encodeURIComponent(id)}${query(companyCode)}`, { method: "PATCH", body: JSON.stringify({ companyCode, ...input }) }),
   remove: (companyCode: string, id: string) => request<{ id: string }>(`/${encodeURIComponent(id)}${query(companyCode)}`, { method: "DELETE" }),
 };

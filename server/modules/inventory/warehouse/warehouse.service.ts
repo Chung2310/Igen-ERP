@@ -1,4 +1,4 @@
-﻿import type { ClientSession } from "mongoose";
+import type { ClientSession } from "mongoose";
 import { BranchModel } from "../../../model/branch.model";
 import { WarehouseModel } from "../../../model/warehouse.model";
 
@@ -34,9 +34,9 @@ export async function ensureDefaultWarehouse(companyCode: string, branchId: stri
 }
 
 export async function listWarehouses(companyCode: string, branchId?: string) {
-  return WarehouseModel.find({ companyCode: normalizeCompanyCode(companyCode), ...(branchId ? { branchId } : {}) }).sort({ branchId: 1, isDefault: -1, name: 1 }).lean();
+  return WarehouseModel.find({ companyCode: normalizeCompanyCode(companyCode), kind: { $ne: "transit" }, ...(branchId ? { branchId } : {}) }).sort({ branchId: 1, isDefault: -1, name: 1 }).lean();
 }
 
 export async function getWarehouse(companyCode: string, branchId: string, warehouseId: string) {
-  return WarehouseModel.findOne({ _id: warehouseId, companyCode: normalizeCompanyCode(companyCode), branchId, isActive: true }).lean();
+  return WarehouseModel.findOne({ _id: warehouseId, companyCode: normalizeCompanyCode(companyCode), branchId, isActive: true, kind: { $ne: "transit" } }).lean();
 }

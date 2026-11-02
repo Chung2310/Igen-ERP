@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createUserAccessManagementService } from "./user-access-management.service";
+import { normalizeStoredPermissions } from "../config/permission-catalog";
 
 test("search is tenant scoped and paginated", async () => {
   let query: any; const service = createUserAccessManagementService({ users: { count: async (q: any) => { query = q; return 3; }, search: async () => [{ _id: "u1" }] }, sessions: {}, audit: async () => {} });
@@ -57,12 +58,12 @@ test("assignRole persists valid permissions and rejects unknown codes", async ()
   const saved: any = { _id: "user", role: "user", save: async () => {} };
   const service = createUserAccessManagementService({
     users: { find: async () => saved },
-    sessions: {}, audit: async () => {},
+    sessions: { revokeAll: async () => {} }, audit: async () => {},
   });
 
   await service.assignRole({ tenantId: "SYSTEM", userId: "user", role: "admin", permissions: ["inventory:manage", "inventory:read"] });
   assert.equal(saved.role, "admin");
-  assert.deepEqual(saved.permissions, ["inventory:manage", "inventory:read"]);
+  assert.deepEqual(saved.permissions, normalizeStoredPermissions(["inventory:manage", "inventory:read"]));
 
   await assert.rejects(
     () => service.assignRole({ tenantId: "SYSTEM", userId: "user", role: "admin", permissions: ["not:a:permission"] }),

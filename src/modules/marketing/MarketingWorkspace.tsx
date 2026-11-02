@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { History, Settings2 } from "lucide-react";
+import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import MarketingAutomationSettingsPage from "./pages/MarketingAutomationSettingsPage";
@@ -35,22 +36,9 @@ export default function MarketingWorkspace() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-50">
-      <div className="flex gap-1 border-b border-slate-200 bg-white px-4 pt-3">
-        {MARKETING_SUB_TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.slug}
-              type="button"
-              onClick={() => setActiveTab(tab.value)}
-              className={`flex items-center gap-2 rounded-t-xl px-4 py-3 text-sm font-semibold ${activeTab === tab.value ? "bg-cyan-600 text-white" : "text-slate-600 hover:bg-cyan-50"}`}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <ModuleNavigation label="Mục Marketing tự động" activeValue={activeTab}>
+        {MARKETING_SUB_TABS.map(tab => <ModuleNavigationButton key={tab.slug} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
+      </ModuleNavigation>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
         {activeTab === "CÀI ĐẶT TỰ ĐỘNG" && <MarketingAutomationSettingsPage canManage={canManage} />}
         {activeTab === "NHẬT KÝ GỬI" && <MarketingDeliveriesPage canManage={canManage} />}

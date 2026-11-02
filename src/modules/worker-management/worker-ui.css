@@ -6,7 +6,7 @@
   font-weight: 500;
 }
 
-.worker-workspace #worker_sub_tabs_bar .worker-section-tab-active {
+.worker-workspace #worker_sub_tabs_bar [aria-current="page"] {
   font-weight: 700;
 }
 

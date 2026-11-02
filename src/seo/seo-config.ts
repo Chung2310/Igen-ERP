@@ -1,4 +1,4 @@
-import { BRAND_LOGO_URL, BRAND_NAME } from "../config/brand";
+import { BRAND_LOGO_URL, BRAND_NAME, SERVICE_WEBSITE_URL } from "../config/brand";
 import type { TabType } from "../types";
 
 export type SeoMeta = {
@@ -13,7 +13,7 @@ export type SeoMeta = {
   changeFrequency?: "daily" | "weekly" | "monthly";
 };
 
-export const SEO_BASE_URL = "https://erp.igentechsolutions.com";
+export const SEO_BASE_URL = SERVICE_WEBSITE_URL;
 export const SEO_DEFAULT_IMAGE = BRAND_LOGO_URL;
 export const SEO_DEFAULT_LOCALE = "vi_VN";
 
@@ -87,6 +87,11 @@ export const DELETION_SEO: SeoMeta = {
 };
 
 export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, SeoMeta> = {
+  "GÓI AI & LƯỢT SỬ DỤNG": { title: "Gói AI & lượt sử dụng", description: "Gói AI và hạn mức sử dụng chung của doanh nghiệp", keywords: "", path: "/goi-ai", robots: "noindex, nofollow" },
+  "CHIẾN DỊCH NỘI DUNG": { title: "Chiến dịch nội dung", description: "Quản lý chiến dịch nội dung", keywords: "", path: "/chien-dich-noi-dung", robots: "noindex, nofollow" },
+  "OMNI INBOX": { title: "Hộp thư đa kênh", description: "Quản lý hội thoại khách hàng", keywords: "", path: "/omni-inbox", robots: "noindex, nofollow" },
+  "KHO TRI THỨC": { title: "Kho tri thức doanh nghiệp", description: "Quản lý tri thức doanh nghiệp", keywords: "", path: "/kho-tri-thuc", robots: "noindex, nofollow" },
+  "TÍCH HỢP MARKETING": { title: "Tích hợp Marketing", description: "Kết nối tài khoản Marketing", keywords: "", path: "/tich-hop-marketing", robots: "noindex, nofollow" },
   "TỔNG QUAN": {
     title: "Tổng quan nhân sự - iGen ERP",
     description:
@@ -107,6 +112,12 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
     priority: "0.8",
     changeFrequency: "weekly",
   },
+  "ĐỐI TÁC LAO ĐỘNG": {
+    title: "Đối tác lao động",
+    description: "Quản lý đối tác, giới thiệu lao động và đối soát hoa hồng.",
+    keywords: "đối tác lao động, hoa hồng",
+    path: "/doi-tac-lao-dong",
+  },
   "ĐỐI TÁC": {
     title: "Quản lý đối tác & cộng tác viên - Hoa hồng và giới thiệu",
     description:
@@ -116,6 +127,13 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
     path: "/doi-tac",
     priority: "0.7",
     changeFrequency: "weekly",
+  },
+  "ĐỐI TÁC BÁN LẺ": {
+    title: "Đối tác bán lẻ",
+    description: "Quản lý cộng tác viên, đại lý và nhà cung cấp bán lẻ.",
+    keywords: "đối tác bán lẻ, cộng tác viên, đại lý, nhà cung cấp",
+    path: "/doi-tac-ban-le",
+    robots: "noindex, nofollow",
   },
   "KHO & SẢN PHẨM": {
     title: "Quản lý kho & Sản phẩm - Quản lý tồn kho theo mã sản phẩm, xuất nhập kho",
@@ -128,11 +146,11 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
     changeFrequency: "weekly",
   },
   "QUẢN LÝ TÀI NGUYÊN": {
-    title: "Quản lý tài nguyên - Lưu trữ và đồng bộ Google Drive",
+    title: "Quản lý tài nguyên - Lưu trữ tài liệu nội bộ",
     description:
-      "Không gian quản lý tài nguyên, tài liệu nội bộ và liên kết đồng bộ trực tiếp với tài khoản Google Drive cá nhân của nhân viên trên iGen ERP.",
+      "Không gian lưu trữ, quản lý và chia sẻ tài liệu nội bộ trên iGen ERP.",
     keywords:
-      "quản lý tài nguyên, lưu trữ tài liệu, google drive erp, đồng bộ google drive, thư mục tài nguyên, igen erp",
+      "quản lý tài nguyên, lưu trữ tài liệu, chia sẻ tài liệu, thư mục tài nguyên, igen erp",
     path: "/quan-ly-tai-nguyen",
     priority: "0.8",
     changeFrequency: "weekly",
@@ -223,9 +241,9 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
   "QUẢN TRỊ USER": {
     title: "Quản trị người dùng - Phân quyền và cấu hình tài khoản",
     description:
-      "Quản lý tài khoản người dùng, phân quyền truy cập hệ thống, cấu hình HeyGen  và quản trị thông tin doanh nghiệp tập trung.",
+      "Quản lý tài khoản người dùng, phân quyền truy cập hệ thống, quản trị thông tin doanh nghiệp tập trung.",
     keywords:
-      "quản trị user, phân quyền người dùng, quản trị tài khoản, admin ERP, heygen user, cấu hình phân quyền",
+      "quản trị user, phân quyền người dùng, quản trị tài khoản, admin ERP, cấu hình phân quyền",
     path: "/quan-tri-user",
     robots: "noindex, nofollow",
     priority: "0.2",
@@ -254,23 +272,12 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
     changeFrequency: "weekly",
   },
   "TÀI NGUYÊN": {
-    title: "Tài nguyên - Quản lý tài liệu & Drive nội bộ",
+    title: "Tài nguyên - Quản lý tài liệu nội bộ",
     description:
-      "Lưu trữ và quản lý tài liệu nội bộ, kết nối Google Drive và chia sẻ tài nguyên doanh nghiệp tập trung trên iGen ERP.",
+      "Lưu trữ, quản lý và chia sẻ tài liệu doanh nghiệp tập trung trên iGen ERP.",
     keywords:
-      "tài liệu nội bộ, google drive, quản lý tài nguyên, lưu trữ doanh nghiệp, tài nguyên ERP",
+      "tài liệu nội bộ, quản lý tài nguyên, lưu trữ doanh nghiệp, tài nguyên ERP",
     path: "/tai-nguyen",
-    robots: "noindex, nofollow",
-    priority: "0.5",
-    changeFrequency: "weekly",
-  },
-  "HƯỚNG DẪN": {
-    title: "Hướng dẫn sử dụng - Cẩm nang thao tác hệ thống",
-    description:
-      "Hướng dẫn sử dụng chi tiết từng phân hệ trong iGen ERP bằng ngôn ngữ giản dị, trực quan dành cho người dùng không chuyên.",
-    keywords:
-      "hướng dẫn sử dụng, cẩm nang erp, tài liệu hướng dẫn, igen erp, hỗ trợ sử dụng",
-    path: "/huong-dan",
     robots: "noindex, nofollow",
     priority: "0.5",
     changeFrequency: "weekly",
@@ -315,7 +322,7 @@ export function getSeoForPath(requestPath: string): SeoMeta {
 }
 
 export function resolveSeoUrl(path: string) {
-  return new URL(path, SEO_BASE_URL).toString();
+  return SEO_BASE_URL ? new URL(path, SEO_BASE_URL).toString() : path;
 }
 
 export function tabToPath(tab: TabType): string {

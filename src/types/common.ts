@@ -3,10 +3,17 @@ export type TabType =
   | "QUẢN LÝ LAO ĐỘNG"
   | "QUẢN LÝ KHÁCH HÀNG"
   | "BÁN LẺ"
+  | "ĐỐI TÁC BÁN LẺ"
   | "TÀI CHÍNH"
   | "MARKETING"
+  | "CHIẾN DỊCH NỘI DUNG"
+  | "OMNI INBOX"
+  | "KHO TRI THỨC"
+  | "TÍCH HỢP MARKETING"
+  | "GÓI AI & LƯỢT SỬ DỤNG"
   | "TỔNG QUAN"
   | "NHÂN SỰ"
+  | "ĐỐI TÁC LAO ĐỘNG"
   | "ĐỐI TÁC"
   | "KHO & SẢN PHẨM"
   | "SỬA CHỮA & BẢO HÀNH"
@@ -16,8 +23,7 @@ export type TabType =
   | "QUẢN LÝ HỌC VIÊN"
   | "PHÂN TÍCH & BÁO CÁO"
   | "QUẢN TRỊ USER"
-  | "CÀI ĐẶT"
-  | "HƯỚNG DẪN";
+  | "CÀI ĐẶT";
 
 export interface GoogleDriveIntegration {
   isConnected: boolean;
@@ -30,7 +36,7 @@ export interface UserProfile {
   email: string;
   displayName: string;
   photoURL?: string;
-  role: "user" | "teacher" | "manager" | "branch_owner" | "admin" | "superadmin";
+  role: string;
   permissions?: string[];
   createdAt: any;
   birthDate?: string;

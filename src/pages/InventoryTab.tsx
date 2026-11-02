@@ -1,17 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { CheckCircle, Cpu, Download, FolderTree, Pencil, Plus, Search, Tags, Trash2, Upload, ArrowDownRight, ArrowUpRight, Package, ArrowLeftRight, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle, FolderTree, Pencil, Plus, Search, Tags, Trash2, Package, ArrowLeftRight, Warehouse, PackagePlus, Barcode, PackageMinus, ClipboardList, TrendingUp } from "lucide-react";
+import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
 import { InventoryForecastSummary, InventorySubTabType, ProductCategory, ProductItem, StockLog } from "../types";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { INVENTORY_SUB_TAB_ROUTES } from "../router/subTabRoutes";
 import { toast } from "./Toast";
 import { getApiErrorMessage } from "../utils/errorMessage";
 import { CategoryModal } from "../components/inventory/CategoryModal";
-import { ConfirmDialog } from "../components/common/ConfirmDialog";
-import { inventoryTabs } from "../components/inventory/data";
-import { Pagination } from "../components/common/Pagination";
-import { CategoryManagementSection } from "../components/inventory/CategoryManagementSection";
-import { InventoryTabHeader } from "../components/inventory/InventoryTabHeader";
+import { ConfirmDialog } from "../components/inventory/InventoryConfirmDialog";
 import { SummaryCard } from "../components/inventory/SummaryCard";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
@@ -24,6 +20,9 @@ import { ProductCatalogV2Section } from "../components/inventory/ProductCatalogV
 import { WarehouseSection } from "../components/inventory/WarehouseSection";
 import { ReceivingSection } from "../components/inventory/ReceivingSection";
 import { SerialRegistrySection } from "../components/inventory/SerialRegistrySection";
+import { OutboundSection } from "../components/inventory/OutboundSection";
+import { InventoryTransferSection } from "../components/inventory/InventoryTransferSection";
+import { ConfirmationProvider } from "../context/ConfirmationContext";
 
 // Lazy-loaded subcomponents
 const AiForecastPanel = lazy(() =>
@@ -67,9 +66,12 @@ function getStockLogItems(log: StockLog) {
 }
 
 export default function InventoryTab() {
-  const subTabsRef = useRef<HTMLDivElement>(null);
-  const scrollSubTabs = (direction: "left" | "right") => subTabsRef.current?.scrollBy({ left: direction === "left" ? -280 : 280, behavior: "smooth" });
-  const { user } = useAuth();
+  const { activeBranchId } = useBranch();
+  return <ConfirmationProvider key={activeBranchId}><InventoryWorkspace /></ConfirmationProvider>;
+}
+
+function InventoryWorkspace() {
+  const { user, hasPermission } = useAuth();
   const { activeBranchId, loading: branchLoading } = useBranch();
   const [subTab, setSubTab] = useSubTabRouter<InventorySubTabType>(INVENTORY_SUB_TAB_ROUTES, "SẢN PHẨM");
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -80,7 +82,6 @@ export default function InventoryTab() {
   const [searchCategory, setSearchCategory] = useState("");
   const [searchLog, setSearchLog] = useState("");
   const [stockLogExcelImporting, setStockLogExcelImporting] = useState(false);
-  const [outboundPrefill, setOutboundPrefill] = useState<{ warehouseId: string; sku: string; nonce: number } | null>(null);
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -377,6 +378,7 @@ export default function InventoryTab() {
   };
 
   const handleCreateTransaction = async (payload: {
+    idempotencyKey?: string;
     type: "nhập" | "xuất";
     purpose?: import("../types").StockLogPurpose;
     customerId?: string;
@@ -435,6 +437,7 @@ export default function InventoryTab() {
 
     // Lưu phiếu vào Firebase
     await inventoryStockLogService.createLog({
+      idempotencyKey: payload.idempotencyKey,
       type: payload.type,
       purpose: payload.purpose,
       customerId: payload.customerId,
@@ -664,56 +667,48 @@ export default function InventoryTab() {
   };
 
   return (
-    <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-[#f8fbff]" id="inventory_tab_wrapper">
+    <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-surface" id="inventory_tab_wrapper">
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
-      <div className="flex shrink-0 items-center justify-between border-b border-[#dce7f4] bg-white px-3 pt-2 pb-0 text-xs sm:px-5" id="inventory_tabs_switch">
-        <div className="flex min-w-0 flex-1 items-center gap-1 select-none">
-          <button type="button" aria-label="Cuộn tab kho sang trái" onClick={() => scrollSubTabs("left")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronLeft className="h-4 w-4" /></button>
-          <div ref={subTabsRef} className="flex min-w-0 flex-1 gap-1 overflow-x-auto select-none">
-            {[
-              { id: "SẢN PHẨM", label: "Sản phẩm", icon: Package },
-              { id: "KHO HÀNG", label: "Kho hàng", icon: FolderTree },
-              { id: "NHẬP HÀNG", label: "Nhập hàng", icon: ArrowDownRight },
-              { id: "IMEI / SERIAL", label: "IMEI / Serial", icon: Package },
-              { id: "XUẤT HÀNG", label: "Xuất hàng", icon: ArrowUpRight },
-              { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ArrowLeftRight },
-              { id: "DỰ BÁO", label: "Dự báo", icon: Sparkles },
-            ].map((tab) => {
-              const isActive = subTab === tab.id;
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setSubTab(tab.id as InventorySubTabType)}
-                  className={`flex items-center gap-2 px-3.5 py-2.5 font-semibold text-xs transition-all cursor-pointer shrink-0 rounded-xl ${
-                    isActive
-                      ? "bg-[#00adfc] text-white shadow-sm"
-                      : "text-slate-600 hover:bg-[#e8f7ff] hover:text-[#007eb8]"
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-400"}`} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          <button type="button" aria-label="Cuộn tab kho sang phải" onClick={() => scrollSubTabs("right")} className="flex h-6 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-700 sm:hidden"><ChevronRight className="h-4 w-4" /></button>
-        </div>
-      </div>
+      <ModuleNavigation
+        label="Mục Kho & Sản phẩm"
+        activeValue={subTab}
+        id="inventory_tabs_switch"
+      >
+        {[
+          { id: "SẢN PHẨM", label: "Sản phẩm", icon: Package },
+          { id: "KHO HÀNG", label: "Kho hàng", icon: Warehouse },
+          { id: "NHẬP HÀNG", label: "Nhập hàng", icon: PackagePlus },
+          { id: "IMEI / SERIAL", label: "IMEI / Serial", icon: Barcode },
+          { id: "XUẤT HÀNG", label: "Xuất hàng", icon: PackageMinus },
+          { id: "ĐIỀU CHUYỂN", label: "Điều chuyển", icon: ArrowLeftRight },
+          { id: "GIAO DỊCH KHO", label: "Giao dịch kho", icon: ClipboardList },
+          { id: "DỰ BÁO", label: "Dự báo", icon: TrendingUp },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <ModuleNavigationButton
+              key={tab.id}
+              active={subTab === tab.id}
+              icon={<Icon />}
+              onClick={() => setSubTab(tab.id as InventorySubTabType)}
+            >
+              {tab.label}
+            </ModuleNavigationButton>
+          );
+        })}
+      </ModuleNavigation>
 
-      <div className="flex-1 overflow-y-auto bg-[#f8fbff] p-3 sm:p-6" id="inventory_tab_content">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="inventory_tab_content">
         {subTab === "SẢN PHẨM" && (
           <div className="space-y-6" id="product_catalog_menu">
             <ProductCatalogV2Section />
           </div>
         )}
 
-        {subTab === "KHO HÀNG" && <WarehouseSection onCreateOutbound={(warehouseId, sku) => {
-          setOutboundPrefill({ warehouseId, sku, nonce: Date.now() });
-          setSubTab("XUẤT HÀNG");
-        }} />}
+        {subTab === "KHO HÀNG" && <WarehouseSection />}
         {subTab === "NHẬP HÀNG" && <ReceivingSection />}
-        {subTab === "IMEI / SERIAL" && <SerialRegistrySection />}
+        {subTab === "ĐIỀU CHUYỂN" && activeBranchId && <InventoryTransferSection key={activeBranchId} branchId={activeBranchId} canManage={hasPermission?.("inventory:manage") || false} />}
+        {subTab === "IMEI / SERIAL" && <SerialRegistrySection key={activeBranchId} onTransfers={() => setSubTab("ĐIỀU CHUYỂN")} />}
 
         {subTab === "PHÂN LOẠI SẢN PHẨM" && (
           <div className="space-y-6" id="product_classification_tab">
@@ -892,28 +887,29 @@ export default function InventoryTab() {
             </>
           )}
           {subTab === "XUẤT HÀNG" && (
-            <StockLogPanel
-              products={products}
-              searchLog={searchLog}
-              setSearchLog={setSearchLog}
+            <OutboundSection
+              key={activeBranchId}
+              onReverse={activeBranchId && hasPermission?.("inventory:manage") ? (id, reason) => inventoryStockLogService.reverseOutbound(id, reason, activeBranchId) : undefined}
               stockLogs={stockLogs}
               isLoading={stockLogLoading}
-              onExportExcel={handleExportStockLogsExcel}
-              onImportExcel={handleOpenStockLogImport}
-              isImporting={stockLogExcelImporting}
-              onNavigateToCreateProduct={handleNavigateToCreateProduct}
               onCreateTransaction={handleCreateTransaction}
               onUpdateTransaction={handleUpdateTransaction}
               onUpdateStatus={handleQuickUpdateTransactionStatus}
               onDeleteTransaction={handleDeleteTransaction}
-              outboundOnly
-              hideExcelActions
-              initialWarehouseId={outboundPrefill?.warehouseId}
-              initialSku={outboundPrefill?.sku}
-              openOnMountKey={outboundPrefill?.nonce}
             />
           )}
-          {subTab === "DỰ BÁO" && <AiForecastPanel forecast={forecastSummary} stockLogs={stockLogs} />}
+          {subTab === "DỰ BÁO" && (
+            <AiForecastPanel
+              forecast={forecastSummary}
+              stockLogs={stockLogs}
+              onNavigateToReceiving={(sku, qty) => {
+                setSubTab("NHẬP HÀNG");
+                if (sku) {
+                  toast.info(`Chuyển sang Nhập hàng cho SKU: ${sku} (Đề xuất: ${qty || 1} sp)`);
+                }
+              }}
+            />
+          )}
         </Suspense>
       </div>
 

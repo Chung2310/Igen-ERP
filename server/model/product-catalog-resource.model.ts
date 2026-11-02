@@ -18,6 +18,7 @@ const ProductCatalogCategorySchema = new Schema<IProductCatalogCategory>(
     name: { type: String, required: true, trim: true },
     normalizedName: { type: String, required: true, trim: true, lowercase: true },
     parentCode: { type: String, trim: true, uppercase: true },
+    defaultTrackingMode: { type: String, enum: ["none", "quantity", "unit_barcode", "lot", "serial"] },
     description: { type: String, trim: true, maxlength: 2_000 },
     status: { type: String, enum: ["active", "inactive"], default: "active", required: true },
     ...auditFields,

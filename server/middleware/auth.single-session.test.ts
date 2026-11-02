@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { afterEach, beforeEach, describe, it, vi } from "vitest";
 import type { Response } from "express";
 import { UserModel } from "../model/user.model";
+import { CompanyModel } from "../model/company.model";
 import { requireAuth } from "./auth";
 import { getJwtAccessSecret } from "../config/env";
 
@@ -18,7 +19,7 @@ function makeResponse() {
 function invoke(token: string, activeSessionId: string) {
   vi.spyOn(UserModel, "findById").mockReturnValue({
     select: () => ({
-      lean: async () => ({ branchId: "branch-1", activeSessionId, displayName: "Nguyễn An" }),
+      lean: async () => ({ role: "user", email: "user@example.com", companyCode: "ACME", branchId: "branch-1", activeSessionId, displayName: "Nguyễn An" }),
     }),
   } as any);
   const req = { headers: { authorization: `Bearer ${token}` }, method: "GET", originalUrl: "/api/v1/auth/me" } as any;
@@ -30,6 +31,7 @@ function invoke(token: string, activeSessionId: string) {
 describe("requireAuth regular active session", () => {
   beforeEach(() => {
     process.env.JWT_ACCESS_SECRET ||= "test-access-secret-at-least-32-characters";
+    vi.spyOn(CompanyModel, "findOne").mockReturnValue({ select: () => ({ lean: async () => ({ lifecycleStatus: "active" }) }) } as any);
   });
 
   afterEach(() => {

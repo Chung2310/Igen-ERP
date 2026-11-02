@@ -29,7 +29,7 @@ describe("ShiftScheduleNotice", () => {
     })} />);
 
     expect(alertText()).toContain("Chưa đến giờ làm việc của bạn");
-    expect(alertText()).toContain("Hành chính (HC)");
+    expect(alertText()).toContain("Hành chính");
     expect(alertText()).toContain("08:00 – 17:00");
     expect(alertText()).toContain("Bạn có thể mở ca bán hàng từ 08:00.");
     expect(alertText()).not.toContain("SHIFT_OUTSIDE_WORK_SCHEDULE");

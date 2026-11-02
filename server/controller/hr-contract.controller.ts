@@ -6,6 +6,7 @@ import {
 } from "../model/hr-contract.model";
 import { UserModel } from "../model/user.model";
 import { BranchModel } from "../model/branch.model";
+import { CompanyModel } from "../model/company.model";
 import { hrContractService } from "../service/hr-contract.service";
 import {
   managedUploadService,
@@ -30,7 +31,7 @@ type FinalizeUpload = (
 
 export async function finalizeContractPendingUploads(input: {
   contract: { _id: unknown; employeeId: string; employeeName: string };
-  body: { contractFileUploadToken?: string; signedImageUploadToken?: string };
+  body: { contractFileUploadToken?: string; signedImageUploadToken?: string; electronicSignatureUploadToken?: string };
   actor: ManagedUploadActor;
   finalizeManagedUpload?: FinalizeUpload;
 }) {
@@ -41,7 +42,7 @@ export async function finalizeContractPendingUploads(input: {
     entityLabel: input.contract.employeeName,
     sourceRecordId: String(input.contract._id),
   };
-  const patch: { contractResourceId?: string; signedImageResourceId?: string } = {};
+  const patch: { contractResourceId?: string; signedImageResourceId?: string; electronicSignatureResourceId?: string } = {};
   if (input.body.contractFileUploadToken) {
     const resource = await finalize(input.body.contractFileUploadToken, input.actor, {
       ...sourceBase,
@@ -55,6 +56,13 @@ export async function finalizeContractPendingUploads(input: {
       sourceField: "signedImage",
     });
     patch.signedImageResourceId = resource._id;
+  }
+  if (input.body.electronicSignatureUploadToken) {
+    const resource = await finalize(input.body.electronicSignatureUploadToken, input.actor, {
+      ...sourceBase,
+      sourceField: "electronicSignature",
+    });
+    patch.electronicSignatureResourceId = resource._id;
   }
   return patch;
 }
@@ -142,7 +150,7 @@ export const hrContractController = {
       );
       const page = Number(req.query.page) || 1;
       const limit = Number(req.query.limit) || 10;
-      const [paginationResult, employees] = await Promise.all([
+      const [paginationResult, employees, expiryAlertData] = await Promise.all([
         hrContractService.list({
           companyCode,
           branchId,
@@ -159,6 +167,12 @@ export const hrContractController = {
           : UserModel.find({ _id: req.user!.id, companyCode })
               .select("_id displayName email department")
               .lean(),
+        (async () => {
+          const company = await CompanyModel.findOne({ code: companyCode }).select("contractConfig").lean();
+          const configuredAlertDays = Number(req.query.alertDays) || company?.contractConfig?.expiryAlertDays || 20;
+          const alerts = await hrContractService.listExpiryAlerts({ companyCode, branchId, employeeId: employeeFilter || undefined, days: configuredAlertDays });
+          return { alerts, configuredAlertDays };
+        })(),
       ]);
       return res.json({
         status: "success",
@@ -168,6 +182,9 @@ export const hrContractController = {
           page: paginationResult.page,
           limit: paginationResult.limit,
           employees,
+          expiryAlerts: expiryAlertData.alerts.items,
+          expiryAlertTotal: expiryAlertData.alerts.total,
+          expiryAlertDays: expiryAlertData.configuredAlertDays,
         },
       });
     } catch (error: any) {
@@ -368,6 +385,44 @@ export const hrContractController = {
         message: "Không thể gia hạn hợp đồng.",
         details: error.message,
       });
+    }
+  },
+  getSettings: async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const companyCode = tenant(req);
+      const company = await CompanyModel.findOne({ code: companyCode }).select("contractConfig").lean();
+      const expiryAlertDays = company?.contractConfig?.expiryAlertDays ?? 20;
+      const notifyManagers = company?.contractConfig?.notifyManagers ?? true;
+      return res.json({
+        status: "success",
+        data: { expiryAlertDays, notifyManagers },
+      });
+    } catch (error: any) {
+      return res.status(500).json({ status: "error", message: error.message });
+    }
+  },
+  updateSettings: async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const companyCode = tenant(req);
+      const alertDays = Number(req.body?.expiryAlertDays);
+      if (!Number.isInteger(alertDays) || alertDays < 1 || alertDays > 365) {
+        return res.status(400).json({
+          status: "error",
+          message: "Số ngày báo trước phải là số nguyên từ 1 đến 365 ngày.",
+        });
+      }
+      const notifyManagers = req.body?.notifyManagers !== false;
+      await CompanyModel.updateOne(
+        { code: companyCode },
+        { $set: { "contractConfig.expiryAlertDays": alertDays, "contractConfig.notifyManagers": notifyManagers } },
+        { upsert: false }
+      );
+      return res.json({
+        status: "success",
+        data: { expiryAlertDays: alertDays, notifyManagers },
+      });
+    } catch (error: any) {
+      return res.status(500).json({ status: "error", message: error.message });
     }
   },
 };

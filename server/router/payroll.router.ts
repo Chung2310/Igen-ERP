@@ -1,11 +1,47 @@
-import { Router } from "express";
-import { requireAuth, requirePermission } from "../middleware/auth";
+import { Router, type NextFunction, type Response } from "express";
+import { requireAuth, requirePermission, type AuthenticatedRequest } from "../middleware/auth";
+import { payrollReconciliationController } from "../controller/payroll-reconciliation.controller";
 import { payrollController } from "../controller/payroll.controller";
+import { payrollPayslipReviewController } from "../controller/payroll-payslip-review.controller";
 import { payrollFormulaController } from "../controller/payroll-formula.controller";
 import { payrollPeriodInputController } from "../controller/payroll-period-input.controller";
 import { payrollLineOverrideController } from "../controller/payroll-line-override.controller";
+import { getMonthlyKpiReport } from "../service/kanban-monthly-kpi.service";
 export const payrollRouter = Router();
 payrollRouter.use(requireAuth as any);
+payrollRouter.get(
+  "/periods/:periodKey/kpi",
+  requirePermission("payroll-period:manage") as any,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const companyCode = req.user?.companyCode;
+      const branchId = req.user?.branchId;
+      if (!companyCode || !branchId) {
+        return res.status(400).json({ status: "error", message: "Cần xác định doanh nghiệp và chi nhánh để xem KPI." });
+      }
+      const report = await getMonthlyKpiReport(
+        { companyCode, branchId },
+        String(req.params.periodKey || ""),
+      );
+      return res.json({
+        status: "success",
+        data: {
+          periodKey: report.periodKey,
+          rows: report.rows.map(({ employeeId, percent }) => ({ employeeId, percent })),
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+payrollRouter.get("/reconciliation-schedule", requirePermission("payroll-period:read") as any, payrollReconciliationController.getSchedule as any);
+payrollRouter.put("/reconciliation-schedule", requirePermission("payroll-period:manage") as any, payrollReconciliationController.saveSchedule as any);
+payrollRouter.get("/runs/:id/reconciliation", requirePermission("payroll-period:read") as any, payrollReconciliationController.list as any);
+payrollRouter.post("/runs/:id/reconciliation/publish", requirePermission("payroll-period:manage") as any, payrollReconciliationController.publish as any);
+payrollRouter.post("/runs/:id/reconciliation/:employeeId/actions", requirePermission("payroll-period:manage") as any, payrollReconciliationController.staffAction as any);
+payrollRouter.get("/employee/me/reconciliation", payrollReconciliationController.mine as any);
+payrollRouter.post("/employee/me/reconciliation/:id/actions", payrollReconciliationController.employeeAction as any);
 payrollRouter.get("/period-input-variables", requirePermission("payroll-period:read") as any, payrollPeriodInputController.variables as any);
 payrollRouter.post("/period-input-variables", requirePermission("payroll-period:manage") as any, payrollPeriodInputController.createVariable as any);
 payrollRouter.patch("/period-input-variables/:id", requirePermission("payroll-period:manage") as any, payrollPeriodInputController.updateVariable as any);
@@ -22,6 +58,7 @@ payrollRouter.patch("/formulas/:id", requirePermission("payroll-policy:manage") 
 payrollRouter.post("/formulas/:id/activate", requirePermission("payroll-policy:manage") as any, payrollFormulaController.activate as any);
 payrollRouter.post("/formulas/:id/retire", requirePermission("payroll-policy:manage") as any, payrollFormulaController.retire as any);
 payrollRouter.post("/formulas/:id/clone", requirePermission("payroll-policy:manage") as any, payrollFormulaController.clone as any);
+payrollRouter.get("/runs", requirePermission(["payroll-period:read", "payroll-period:manage"]) as any, payrollController.listOperationalRuns as any);
 payrollRouter.post("/runs", requirePermission("payroll-period:manage") as any, payrollController.createOperationalRun as any);
 payrollRouter.post("/runs/:id/sync-attendance", requirePermission("payroll-period:manage") as any, payrollController.syncAttendance as any);
 payrollRouter.post("/runs/:id/lock-attendance", requirePermission("payroll-period:manage") as any, payrollController.lockAttendance as any);
@@ -48,6 +85,10 @@ payrollRouter.get(
 );
 payrollRouter.post("/runs/:id/payslips/:employeeId/withdraw", requirePermission("payroll-payment:manage") as any, payrollController.withdrawPayslip as any);
 payrollRouter.get("/employee/me/payslips", payrollController.listEmployeePayslips as any);
+payrollRouter.get("/employee/me/payslip-review-requests", payrollPayslipReviewController.mine as any);
+payrollRouter.post("/employee/me/payslips/:id/review-requests", payrollPayslipReviewController.create as any);
+payrollRouter.get("/runs/:id/payslip-review-requests", requirePermission("payroll-period:read") as any, payrollPayslipReviewController.listRun as any);
+payrollRouter.post("/runs/:id/payslip-review-requests/:requestId/resolve", requirePermission("payroll-period:manage") as any, payrollPayslipReviewController.resolve as any);
 payrollRouter.post("/runs/:id/exports", requirePermission("payroll-payment:read") as any, payrollController.exportPayroll as any);
 payrollRouter.get("/runs/:id/payments", requirePermission("payroll-payment:read") as any, payrollController.listPayments as any);
 payrollRouter.post("/runs/:id/payments", requirePermission("payroll-payment:manage") as any, payrollController.createPayment as any);

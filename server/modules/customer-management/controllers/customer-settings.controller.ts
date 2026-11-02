@@ -32,8 +32,7 @@ export const customerSettingsController = {
 
   update: handle(async (req, res) => {
     const companyCode = getCompanyCode(req);
-    const tiers = req.body?.customerTiers;
-    const data = await CustomerSettingsService.updateSettings(companyCode, tiers);
+    const data = await CustomerSettingsService.updateSettings(companyCode, req.body);
     return res.json({ success: true, data });
   }),
 };

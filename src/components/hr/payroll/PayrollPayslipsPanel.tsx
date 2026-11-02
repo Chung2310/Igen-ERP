@@ -4,12 +4,14 @@ const ALLOWED_RUN_STATUSES = new Set(["closed", "paid"]);
 
 export function PayrollPayslipsPanel({
   canManage,
+  canExport = true,
   publishedCount,
   runStatus,
   onPublish,
   onExport,
 }: {
   canManage: boolean;
+  canExport?: boolean;
   publishedCount: number;
   runStatus?: string;
   onPublish: () => void;
@@ -19,7 +21,7 @@ export function PayrollPayslipsPanel({
   return (
     <div className="space-y-3">
       {!canReleasePayslips && (
-        <p className="text-xs text-amber-700">
+        <p className="text-pretty text-xs text-on-surface-variant">
           Cần chốt kỳ lương trước khi phát hành phiếu lương hoặc xuất báo cáo.
         </p>
       )}
@@ -28,19 +30,19 @@ export function PayrollPayslipsPanel({
           <button
             type="button"
             onClick={onPublish}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#00A4E8] px-3 py-2 text-sm font-normal text-white cursor-pointer hover:bg-[#008FCB]"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
           >
-            <Send size={15} /> {publishedCount > 0 ? "Phát hành lại phiếu lương" : "Phát hành phiếu lương"}
+            <Send size={15} aria-hidden="true" /> {publishedCount > 0 ? "Phát hành lại phiếu lương" : "Phát hành phiếu lương"}
           </button>
         )}
-        <button
+        {canExport && <button
           type="button"
           onClick={() => onExport("detailed")}
           disabled={!canReleasePayslips}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-[#F8FBFE] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer hover:bg-slate-50"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-outline bg-surface-container-lowest px-3 py-2 text-sm text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Download size={15} /> Xuất bảng lương chi tiết
-        </button>
+          <Download size={15} aria-hidden="true" /> Xuất bảng lương chi tiết
+        </button>}
       </div>
     </div>
   );

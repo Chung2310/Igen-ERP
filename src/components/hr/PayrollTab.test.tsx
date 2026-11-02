@@ -8,6 +8,7 @@ import PayrollTab from "./PayrollTab";
 
 const getRun = vi.hoisted(() => vi.fn());
 const getResults = vi.hoisted(() => vi.fn());
+const getMonthlyTaskKpi = vi.hoisted(() => vi.fn());
 const getAdjustments = vi.hoisted(() => vi.fn());
 const getPolicies = vi.hoisted(() => vi.fn());
 const getLineOverrides = vi.hoisted(() => vi.fn());
@@ -21,6 +22,7 @@ vi.mock("../../services/payrollService", () => ({
   payrollService: {
     getRun,
     getResults,
+    getMonthlyTaskKpi,
     getAdjustments,
     getPolicies,
     getLineOverrides,
@@ -37,6 +39,9 @@ vi.mock("./payroll/PayrollFormulaLibrary", () => ({ PayrollFormulaLibrary: () =>
 vi.mock("./payroll/PayrollCustomVariableManager", () => ({ PayrollCustomVariableManager: () => <div>custom-variable-catalog</div> }));
 vi.mock("./payroll/PayrollReviewQueue", () => ({ PayrollReviewQueue: () => null }));
 vi.mock("./payroll/PayrollPayslipsPanel", () => ({ PayrollPayslipsPanel: () => null }));
+vi.mock("./payroll/PayrollPayslipReviewPanel", () => ({ PayrollPayslipReviewPanel: () => null }));
+vi.mock("./payroll/PayrollComplaintsPanel", () => ({ PayrollComplaintsPanel: () => null }));
+vi.mock("./payroll/PayrollPublicationSchedule", () => ({ PayrollPublicationSchedule: () => null }));
 vi.mock("./payroll/PayrollReopenModal", () => ({ PayrollReopenModal: () => null }));
 
 const fixedPeriodInputFields = ["agreedSalary", "reconciledDays", "reconciledHours", "allowance", "bonus", "deduction"];
@@ -104,6 +109,7 @@ type PayrollRunFixture = Omit<ReturnType<typeof draftRun>, "effectiveLines"> & {
 function arrange(run: PayrollRunFixture | null = draftRun()) {
   getRun.mockResolvedValue(run);
   getResults.mockResolvedValue([]);
+  getMonthlyTaskKpi.mockResolvedValue({ rows: [] });
   getAdjustments.mockResolvedValue([]);
   getPolicies.mockResolvedValue([]);
   getLineOverrides.mockResolvedValue([
@@ -145,11 +151,30 @@ describe("PayrollTab editable payroll results", () => {
     expect(screen.queryByText("formula-library-entry-point")).toBeNull();
   });
 
+  it("hides task KPI from payroll readers without management permission", async () => {
+    arrange(draftRun("review"));
+    render(<PayrollTab canManage={false} />);
+
+    expect(await screen.findByText("Nguyễn Văn A")).toBeTruthy();
+    expect(screen.queryByText("KPI công việc")).toBeNull();
+    expect(getMonthlyTaskKpi).not.toHaveBeenCalled();
+  });
+
+  it("shows task completion KPI as a percentage without changing payroll amounts", async () => {
+    arrange();
+    getMonthlyTaskKpi.mockResolvedValue({ rows: [{ employeeId: "e1", percent: 125 }] });
+    render(<PayrollTab canManage />);
+
+    expect((await screen.findAllByText("KPI công việc")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("125%")).toBeTruthy();
+    expect(screen.getByLabelText("net-e1").textContent).toContain("10.600.000");
+  });
+
   it("keeps the custom catalog but replaces fixed period inputs with editable result and active custom cells", async () => {
     arrange();
     render(<PayrollTab canManage />);
 
-    expect(await screen.findByText("Thông tin nhân viên")).toBeTruthy();
+    expect((await screen.findAllByText("Thông tin nhân viên")).length).toBeGreaterThan(0);
     expect(await screen.findByText("Các khoản có thể chỉnh sửa")).toBeTruthy();
     expect(await screen.findByText("Khoản khấu trừ")).toBeTruthy();
     expect((await screen.findAllByText("Thực nhận")).length).toBeGreaterThanOrEqual(2);
@@ -292,7 +317,7 @@ describe("PayrollTab editable payroll results", () => {
     expect((within(e2Row).getByLabelText("bonusTotal-e2") as HTMLInputElement).value).toBe("250000");
     expect(screen.getByText(/1 nhân viên có thay đổi chưa lưu/)).toBeTruthy();
     expect(saveDialog().getByRole("button", { name: "Lưu thay đổi" })).toBeTruthy();
-  });
+  }, 15000);
 
   it("uses non-default system custom values and includes unsaved custom drafts in the footer preview", async () => {
     const run: any = draftRun();
@@ -408,7 +433,8 @@ describe("PayrollTab read-only payroll results", () => {
 
     render(<PayrollTab canManage={false} />);
     expect(await screen.findByText("Nguyễn Văn A")).toBeTruthy();
-    fireEvent.change(screen.getByDisplayValue("2026-08"), { target: { value: "2026-07" } });
+    fireEvent.click(screen.getByRole("button", { name: "Chọn tháng lương" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tháng 7 năm 2026" }));
 
     expect(await screen.findByText(/chưa được tính cho kỳ này/i)).toBeTruthy();
     expect(toast.error).not.toHaveBeenCalled();

@@ -16,6 +16,7 @@ import { cn, formatVND } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useCourses } from '../../hooks/useCourses';
+import { StudentLoadState } from '../../components/StudentLoadState';
 import { useCourseCategories } from '../../hooks/useCourseCategories';
 import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
 import { useAuth } from '../../../../context/AuthContext';
@@ -210,8 +211,8 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const courseDurationPlaceholder = copy.durationPlaceholder;
 
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
-  const { courses, loading } = useCourses(resolvedCenter);
-  const { categories, loading: categoriesLoading } = useCourseCategories(resolvedCenter);
+  const { courses, loading, error: courseLoadError, refetch: reloadCourses } = useCourses(resolvedCenter);
+  const { categories, loading: categoriesLoading, error: categoryLoadError, refetch: reloadCategories } = useCourseCategories(resolvedCenter);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -470,6 +471,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
 
   return (
     <div className="space-y-5 rounded-2xl bg-[#F8FBFF] px-3 py-5 text-left sm:px-5 sm:py-6">
+      {(courseLoadError || categoryLoadError) && <StudentLoadState error={courseLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadCourses(), reloadCategories()]); }} />}
       <ErpPageHeader
         title={copy.pageTitle}
         action={canManage ? (

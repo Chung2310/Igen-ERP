@@ -3,6 +3,7 @@ import { Types, type SortOrder } from "mongoose";
 import type { CustomerScope } from "./customer.service";
 import { CustomerModel } from "./models/customer.model";
 import { RetailOrderModel } from "../retail/models/retail-order.model";
+import { SerialUnitModel } from "../inventory/serials/serial-unit.model";
 
 type PurchaseHistoryOrder = {
   _id: unknown;
@@ -16,9 +17,21 @@ type PurchaseHistoryOrder = {
   salespersonName?: string;
 };
 
+type PurchaseHistoryDevice = {
+  _id: unknown;
+  productName?: string;
+  sku?: string;
+  internalBarcode?: string;
+  serialNumber?: string;
+  soldAt?: Date | string;
+  soldOrderCode?: string;
+  customerWarranty?: { startAt?: Date | string; endAt?: Date | string };
+};
+
 export interface CustomerPurchaseHistoryRepository {
   customer(scope: CustomerScope, customerId: string): Promise<unknown | null>;
   orders(filter: Record<string, unknown>, sort: Record<string, SortOrder>): Promise<PurchaseHistoryOrder[]>;
+  devices(filter: Record<string, unknown>, sort: Record<string, SortOrder>): Promise<PurchaseHistoryDevice[]>;
 }
 
 const numberValue = (value: unknown) => Number(value) || 0;
@@ -33,10 +46,16 @@ export function createCustomerPurchaseHistoryService(repository: CustomerPurchas
       const customer = await repository.customer(scope, customerId);
       if (!customer) throw new CustomerError("CUSTOMER_NOT_FOUND", "Không tìm thấy khách hàng.", 404);
 
-      const items = await repository.orders(
-        { companyCode: scope.companyCode, branchId: normalizedBranchId, customerId },
-        { businessDate: -1, _id: -1 },
-      );
+      const [items, devices] = await Promise.all([
+        repository.orders(
+          { companyCode: scope.companyCode, branchId: normalizedBranchId, customerId },
+          { businessDate: -1, _id: -1 },
+        ),
+        repository.devices(
+          { companyCode: scope.companyCode, soldBranchId: normalizedBranchId, customerId, status: "sold" },
+          { soldAt: -1, _id: -1 },
+        ),
+      ]);
       const purchases = items.filter(completedPurchase);
       const lastPurchase = purchases.find((order) => order.businessDate);
       return {
@@ -58,6 +77,17 @@ export function createCustomerPurchaseHistoryService(repository: CustomerPurchas
           itemCount: (order.items || []).reduce((total, item) => total + numberValue(item.quantity), 0),
           salespersonName: order.salespersonName,
         })),
+        devices: devices.map((device) => ({
+          _id: String(device._id),
+          productName: device.productName || "Thiết bị",
+          sku: device.sku,
+          internalBarcode: device.internalBarcode,
+          serialNumber: device.serialNumber,
+          soldAt: device.soldAt,
+          orderCode: device.soldOrderCode,
+          warrantyStartAt: device.customerWarranty?.startAt,
+          warrantyEndAt: device.customerWarranty?.endAt,
+        })),
       };
     },
   };
@@ -66,6 +96,9 @@ export function createCustomerPurchaseHistoryService(repository: CustomerPurchas
 const repository: CustomerPurchaseHistoryRepository = {
   customer: (scope, customerId) => CustomerModel.findOne({ _id: customerId, ...scope }).lean(),
   orders: (filter, sort) => RetailOrderModel.find(filter).sort(sort).lean() as any,
+  devices: (filter, sort) => SerialUnitModel.find(filter)
+    .select("_id productName sku internalBarcode serialNumber soldAt soldOrderCode customerWarranty.startAt customerWarranty.endAt")
+    .sort(sort).lean() as any,
 };
 
 export const CustomerPurchaseHistoryService = createCustomerPurchaseHistoryService(repository);

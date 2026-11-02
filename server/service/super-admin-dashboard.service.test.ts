@@ -37,8 +37,8 @@ test("getSummary aggregates correct counts, financial summaries, and health valu
     const filter = this.getFilter();
 
     if (modelName === "Company" && op === "countDocuments") {
-      if (filter.status === "suspended") return 1;
-      if (filter.status === "active" || filter.status?.$ne === "suspended") return 4;
+      if (filter.lifecycleStatus === "suspended") return 1;
+      if (filter.$or?.some((entry: any) => entry.lifecycleStatus === "active")) return 4;
       return 5;
     }
     if (modelName === "User" && op === "countDocuments") {

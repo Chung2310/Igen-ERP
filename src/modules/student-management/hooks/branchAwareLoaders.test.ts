@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "vitest";
 
-const files = ["./useBatches.ts", "./useCourses.ts", "./useExams.ts", "./useResources.ts", "../pages/Notifications/NotificationsPage.tsx"];
+// Collection loaders are covered by the behavioral tests in useStudentCollection.test.tsx.
+const files = ["../pages/Notifications/NotificationsPage.tsx"];
 
 describe("student-management branch-aware loaders", () => {
   for (const file of files) {

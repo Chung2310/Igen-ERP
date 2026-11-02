@@ -27,11 +27,7 @@ export function getRequiredBusinessModule(type: BusinessType): ModuleKey | null 
   return REQUIRED_BUSINESS_MODULE[type];
 }
 
-/**
- * Loại hình chỉ loại bỏ nghiệp vụ lõi của loại hình còn lại (giáo dục ⇄ lao động).
- * Không ép bật nghiệp vụ lõi nào — công ty vẫn có thể tắt cả học viên lẫn lao động.
- */
-export function isModuleAllowedForBusinessType(key: ModuleKey, type: BusinessType): boolean {
-  const excluded = BUSINESS_TYPES.filter((item) => item !== type).map((item) => REQUIRED_BUSINESS_MODULE[item]);
-  return !excluded.includes(key);
+/** Legacy metadata no longer restricts independently enabled modules. */
+export function isModuleAllowedForBusinessType(_key: ModuleKey, _type: BusinessType): boolean {
+  return true;
 }

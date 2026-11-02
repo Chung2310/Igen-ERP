@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
+import { KanbanTaskProgress } from "./KanbanTaskProgress";
 import {
   Briefcase,
   MapPin,
@@ -84,7 +85,8 @@ const getLocalDatetimeString = (date = new Date()) => {
 };
 
 const DEFAULT_TASK_CATEGORY = "Hướng dẫn nhân viên mới";
-const TASK_CATEGORY_PRESETS = [DEFAULT_TASK_CATEGORY, "Đào tạo", "Tuyển dụng", "Văn hóa"];
+const SALES_TASK_CATEGORY = "Bán hàng";
+const TASK_CATEGORY_PRESETS = [DEFAULT_TASK_CATEGORY, "Đào tạo", "Tuyển dụng", "Văn hóa", SALES_TASK_CATEGORY];
 
 function formatTaskCategory(category?: string): string {
   return !category || category === "Onboarding" ? DEFAULT_TASK_CATEGORY : category;
@@ -420,16 +422,14 @@ export function AttachmentEditor({
  * Các trường bắt buộc phải điền trước khi đánh dấu Hoàn thành —
  * đảm bảo task Done luôn đủ dữ liệu để tính KPI và truy vết.
  */
-type DoneFieldKey = "description" | "dueDate" | "startTime" | "estTime";
+type DoneFieldKey = "dueDate" | "startTime" | "estTime";
 
 const getMissingDoneFields = (info: {
-  description?: string;
   dueDate?: string;
   startTime?: string;
   estTime?: number;
 }): { key: DoneFieldKey; label: string }[] => {
   const missing: { key: DoneFieldKey; label: string }[] = [];
-  if (!info.description || !info.description.trim()) missing.push({ key: "description", label: "Mô tả công việc" });
   const due = (info.dueDate || "").trim();
   if (!due || due === "Chưa cập nhật") missing.push({ key: "dueDate", label: "Hạn chót" });
   if (!info.startTime) missing.push({ key: "startTime", label: "Ngày giờ bắt đầu" });
@@ -552,9 +552,6 @@ function TaskTable({
                         <div className="truncate text-[11px] text-slate-850" title={task.title}>
                           {task.title}
                         </div>
-                        <div className="text-[10px] text-gray-400 truncate mt-0.5" title={task.description}>
-                          {task.description || "Không có mô tả chi tiết."}
-                        </div>
                       </div>
                     </div>
                   </td>
@@ -663,11 +660,10 @@ export default function KanbanTab({
     missing: { key: DoneFieldKey; label: string }[];
   } | null>(null);
   const [qdFields, setQdFields] = useState<{
-    description: string;
     dueDate: string;
     startTime: string;
     estTime: number | "";
-  }>({ description: "", dueDate: "", startTime: "", estTime: "" });
+  }>({ dueDate: "", startTime: "", estTime: "" });
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
@@ -686,11 +682,11 @@ export default function KanbanTab({
   const projectRequestGeneration = React.useRef(0);
 
   const [editTitle, setEditTitle] = useState("");
-  const [editDescription, setEditDescription] = useState("");
   const [editAssigneeUid, setEditAssigneeUid] = useState("");
   const [editStatus, setEditStatus] = useState<"Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived">("Not Started");
   const [editPriority, setEditPriority] = useState<"High" | "Medium" | "Low">("Medium");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editSalesKpiTarget, setEditSalesKpiTarget] = useState<number | "">("");
 
   // New Notion Task fields
   const [editProjectId, setEditProjectId] = useState("");
@@ -863,7 +859,6 @@ export default function KanbanTab({
   useEffect(() => {
     if (selectedKanbanTask) {
       setEditTitle(selectedKanbanTask.title || "");
-      setEditDescription(selectedKanbanTask.description || "");
       setEditAssigneeUid(selectedKanbanTask.assigneeUid || "");
 
       let initialStatus = selectedKanbanTask.status || "Not Started";
@@ -879,6 +874,7 @@ export default function KanbanTab({
       setEditPriority(initialPriority as any);
 
       setEditDueDate(selectedKanbanTask.dueDate || "");
+      setEditSalesKpiTarget(selectedKanbanTask.salesKpiTarget || "");
 
       setEditProjectId(selectedKanbanTask.projectId || "");
       setEditStartTime(selectedKanbanTask.startTime || "");
@@ -971,11 +967,16 @@ export default function KanbanTab({
       toast.error("Nhân sự được giao việc không hợp lệ!");
       return;
     }
+    const salesKpiTargetNum = editSalesKpiTarget === "" ? 0 : Number(editSalesKpiTarget);
+    if (editCategory === SALES_TASK_CATEGORY && (!Number.isSafeInteger(salesKpiTargetNum) || salesKpiTargetNum <= 0)) {
+      toast.warning("Vui lòng nhập chỉ tiêu bán hàng là số tiền nguyên lớn hơn 0.");
+      return;
+    }
+    const salesTarget = editCategory === SALES_TASK_CATEGORY ? salesKpiTargetNum : 0;
 
     // Đánh dấu Hoàn thành → bắt buộc điền đầy đủ thông tin
     if (editStatus === "Done") {
       const missing = getMissingDoneFields({
-        description: editDescription,
         dueDate: editDueDate,
         startTime: editStartTime,
         estTime: editEstTime === "" ? 0 : Number(editEstTime),
@@ -1020,11 +1021,11 @@ export default function KanbanTab({
 
         const newTaskDoc = {
           title: editTitle.trim(),
-          description: editDescription.trim(),
           assigneeUid: editAssigneeUid,
           assignee: assignedEmp.name,
           assigneeAvatar: assignedEmp.avatar || "👨‍💻",
           dueDate: editDueDate.trim() || "Chưa cập nhật",
+          salesKpiTarget: salesTarget,
           priority: editPriority,
           status: editStatus,
           companyCode: compCode,
@@ -1088,6 +1089,9 @@ export default function KanbanTab({
         if ((selectedKanbanTask.dueDate || "") !== editDueDate.trim()) {
           changes.push(`Sửa hạn chót: "${selectedKanbanTask.dueDate || 'Chưa thiết lập'}" → "${editDueDate.trim() || 'Chưa thiết lập'}"`);
         }
+        if (Number(selectedKanbanTask.salesKpiTarget || 0) !== salesTarget) {
+          changes.push(`Sửa chỉ tiêu doanh số: ${Number(selectedKanbanTask.salesKpiTarget || 0).toLocaleString("vi-VN")}đ → ${salesTarget.toLocaleString("vi-VN")}đ`);
+        }
         if ((selectedKanbanTask.startTime || "") !== editStartTime) {
           changes.push(`Sửa TG bắt đầu: "${selectedKanbanTask.startTime || 'Chưa thiết lập'}" → "${editStartTime || 'Chưa thiết lập'}"`);
         }
@@ -1121,11 +1125,11 @@ export default function KanbanTab({
 
         const updatedFields = {
           title: editTitle.trim(),
-          description: editDescription.trim(),
           assigneeUid: editAssigneeUid,
           assignee: assignedEmp.name,
           assigneeAvatar: assignedEmp.avatar || "👨‍💻",
           dueDate: editDueDate.trim() || "Chưa cập nhật",
+          salesKpiTarget: salesTarget,
           priority: editPriority,
           status: editStatus,
           projectId: editProjectId,
@@ -1244,7 +1248,6 @@ export default function KanbanTab({
         const missing = getMissingDoneFields(taskObj);
         if (missing.length > 0) {
           setQdFields({
-            description: "",
             dueDate: "",
             startTime: getLocalDatetimeString(),
             estTime: "",
@@ -1297,7 +1300,6 @@ export default function KanbanTab({
     if (!quickDone) return;
     const t = quickDone.task;
     const merged = {
-      description: t.description && t.description.trim() ? t.description : qdFields.description.trim(),
       dueDate:
         (t.dueDate || "").trim() && (t.dueDate || "").trim() !== "Chưa cập nhật"
           ? t.dueDate
@@ -1367,7 +1369,6 @@ export default function KanbanTab({
   const doneMissing =
     selectedKanbanTask && editStatus === "Done"
       ? getMissingDoneFields({
-        description: editDescription,
         dueDate: editDueDate,
         startTime: editStartTime,
         estTime: editEstTime === "" ? 0 : Number(editEstTime),
@@ -1566,7 +1567,6 @@ export default function KanbanTab({
                       setSelectedKanbanTask({
                         id: "new",
                         title: "",
-                        description: "",
                         assigneeUid: employees[0]?.id || "",
                         assignee: employees[0]?.name || "",
                         assigneeAvatar: employees[0]?.avatar || "👨‍💻",
@@ -1847,18 +1847,6 @@ export default function KanbanTab({
             </div>
             <p className="text-[11px] text-slate-400 mb-4 line-clamp-1">{quickDone.task.title}</p>
             <div className="space-y-3 text-xs">
-              {quickDone.missing.some((m) => m.key === "description") && (
-                <div>
-                  <label className="block text-slate-600 mb-1">Mô tả</label>
-                  <textarea
-                    value={qdFields.description}
-                    onChange={(e) => setQdFields((f) => ({ ...f, description: e.target.value }))}
-                    placeholder="Nội dung đã thực hiện..."
-                    className="w-full p-2.5 bg-white border border-[#DCE7F4] focus:border-[#00ADFC] rounded-xl outline-none resize-none min-h-[64px]"
-                    autoFocus
-                  />
-                </div>
-              )}
               {quickDone.missing.some((m) => m.key === "dueDate") && (
                 <div>
                   <label className="block text-slate-600 mb-1">Hạn chót</label>
@@ -1945,6 +1933,15 @@ export default function KanbanTab({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2">
+            {selectedKanbanTask.id !== "new" && <KanbanTaskProgress
+              key={selectedKanbanTask.id}
+              task={tasks.find(task => task.id === selectedKanbanTask.id) || selectedKanbanTask}
+              uid={userProfile?.uid || userProfile?.id || ""}
+              manager={isManager}
+              employees={employees}
+              onReload={fetchTasks}
+              onSaved={updated => { setSelectedKanbanTask(updated); void fetchTasks(); void fetchProjects(); }}
+            />}
 
             {/* Editable Title Input */}
             <div className="mb-2">
@@ -1977,7 +1974,7 @@ export default function KanbanTab({
 
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 text-[#00ADFC]" /> Phân loại</span>
-                  <div className="min-w-0 flex-1"><HrFormSelect value={editCategory} onChange={setEditCategory} label="Phân loại" options={categoryOptions} /></div>
+                  <div className="min-w-0 flex-1"><HrFormSelect value={editCategory} onChange={(value) => { setEditCategory(value); if (value !== SALES_TASK_CATEGORY) setEditSalesKpiTarget(""); }} label="Phân loại" options={categoryOptions} disabled={!isManager} /></div>
                   <button
                     type="button"
                     onClick={() => setIsCategoryModalOpen(true)}
@@ -2002,6 +1999,25 @@ export default function KanbanTab({
                     className={missingCls("dueDate", "min-w-0 flex-1")}
                   />
                 </div>
+
+                {editCategory === SALES_TASK_CATEGORY && (
+                  <div className="flex items-center gap-4">
+                    <label htmlFor="edit-sales-kpi-target" className="w-24 shrink-0 text-on-surface-variant">Chỉ tiêu bán hàng (₫)</label>
+                    <input
+                      id="edit-sales-kpi-target"
+                      type="number"
+                      min={1}
+                      max={Number.MAX_SAFE_INTEGER}
+                      step={1}
+                      inputMode="numeric"
+                      value={editSalesKpiTarget}
+                      onChange={(event) => setEditSalesKpiTarget(event.target.value === "" ? "" : Number(event.target.value))}
+                      readOnly={!isManager}
+                      required={isManager}
+                      className="min-w-0 flex-1 rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary/20 read-only:bg-surface-container-low"
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center gap-4">
                   <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-[#00ADFC]" /> Bắt đầu</span>
@@ -2093,17 +2109,6 @@ export default function KanbanTab({
               <label className="mb-2 flex items-center gap-1 text-slate-600 select-none"><Paperclip className="w-3.5 h-3.5 text-[#00ADFC]" /> Tệp, ảnh, video, ghi âm và liên kết</label>
               <AttachmentEditor attachments={editAttachments} onChange={setEditAttachments} />
             </div>
-            {/* Description field */}
-            <div className="flex flex-col py-2 text-xs">
-              <label className="block text-slate-600 mb-1.5 select-none">Mô tả công việc chi tiết</label>
-              <textarea
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                placeholder="Nhập ghi chú chi tiết cho nhân viên thực hiện..."
-                className={missingCls("description", "w-full p-2.5 bg-white border border-[#DCE7F4] focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 rounded-xl outline-none resize-y min-h-[64px] h-[68px]")}
-              />
-            </div>
-
             {/* Task history log */}
             {selectedKanbanTask.id !== "new" && taskHistory.length > 0 && (
               <div className="border-t border-[#E8F0F8] pt-2 max-h-[90px] overflow-y-auto text-[10px]">
@@ -2358,7 +2363,6 @@ function KanbanCard({
       </div>
 
       <div className="space-y-1.5 text-xs text-slate-500">
-        <p className="line-clamp-2 leading-relaxed">{task.description || "Không có mô tả chi tiết."}</p>
         {task.projectId && (
           <div className="flex items-center gap-1 text-xs text-slate-600 select-none">
             <TargetArrowIcon className="w-3 h-3" />

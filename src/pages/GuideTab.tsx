@@ -135,8 +135,8 @@ export default function GuideTab() {
     {
       id: "quan-ly-tai-nguyen",
       tabName: "QUẢN LÝ TÀI NGUYÊN",
-      title: "Quản lý Tài liệu & Đồng bộ Google Drive",
-      shortDesc: "Lưu trữ quy trình nội bộ và liên kết xem file từ Google Drive cá nhân.",
+      title: "Quản lý tài liệu nội bộ",
+      shortDesc: "Lưu trữ, tìm kiếm và chia sẻ tài liệu trong doanh nghiệp.",
       icon: FolderOpen,
       tone: "indigo",
       purpose: "Giúp tập hợp tất cả tài liệu, quy trình làm việc, hợp đồng mẫu của công ty vào một nơi an toàn để nhân viên dễ dàng tìm kiếm và làm việc.",
@@ -148,10 +148,6 @@ export default function GuideTab() {
         {
           title: "Tải lên tài liệu mới",
           desc: "Nếu bạn có quyền, bạn có thể tạo thư mục mới hoặc tải file trực tiếp từ máy tính lên. Hãy đặt tên file rõ ràng, dễ hiểu và chọn đúng thư mục lưu trữ."
-        },
-        {
-          title: "Liên kết với Google Drive cá nhân",
-          desc: "Bấm vào nút 'Kết nối Google Drive', làm theo hướng dẫn đăng nhập tài khoản Google công việc của bạn. Sau khi liên kết thành công, bạn có thể duyệt tìm và mở các file Drive cá nhân của mình trực tiếp ngay trong giao diện ERP."
         }
       ],
       protip: "Thay vì tải file hợp đồng hay quy trình về máy rồi gửi cho đồng nghiệp qua chat, bạn chỉ cần copy link của file đó trong mục Tài nguyên gửi cho đồng nghiệp để đảm bảo mọi người luôn dùng chung một bản cập nhật mới nhất.",
@@ -269,10 +265,6 @@ export default function GuideTab() {
           title: "Phân quyền truy cập theo công việc",
           desc: "Bạn có thể chỉ định quyền hạn: Quản trị tối cao (toàn quyền hệ thống), Quản trị viên (quản lý phân hệ), Trưởng bộ phận hoặc Nhân viên bình thường. Nhân viên chỉ nhìn thấy các chức năng cần thiết cho công việc của họ để bảo mật thông tin nội bộ công ty."
         },
-        {
-          title: "Cài đặt kết nối hệ thống tạo video tự động (HeyGen)",
-          desc: "Để sử dụng tính năng tự động tạo video giới thiệu bằng người ảo thuyết trình phục vụ quảng cáo, hãy nhập mã bảo mật kết nối vào mục cấu hình tương ứng và bấm lưu lại."
-        }
       ],
       protip: "Hãy áp dụng nguyên tắc phân quyền tối thiểu: Nhân viên làm bộ phận nào thì chỉ cấp quyền truy cập vào đúng khu vực đó (Ví dụ: thủ kho chỉ cần quyền vào mục 'KHO & SẢN PHẨM'). Điều này giúp màn hình làm việc gọn gàng và tránh bấm nhầm dữ liệu của nhau.",
       warning: "Tài khoản Quản trị tối cao có thể thay đổi và xóa mọi dữ liệu trên hệ thống. Hãy cân nhắc cực kỳ kỹ trước khi cấp quyền này cho bất kỳ thành viên nào."

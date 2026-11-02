@@ -23,7 +23,7 @@ export function compareRetailReceivableBalances(snapshotRows: Array<{ orderId: s
 export async function reconcileRetailReceivables(scope: RetailBranchScope, actor: any) {
   validateReconciliationScope(scope);
   const [snapshotRows, ledgerRows] = await Promise.all([
-    RetailOrderModel.aggregate([{ $match: { ...scope, status: { $in: ["confirmed", "completed"] }, customerId: { $type: "string" } } }, { $project: { _id: 0, orderId: { $toString: "$_id" }, snapshotDue: "$dueAmount" } }]),
+    RetailOrderModel.aggregate([{ $match: { ...scope, status: { $in: ["confirmed", "completed"] }, customerId: { $type: "string" } } }, { $project: { _id: 0, orderId: { $toString: "$_id" }, snapshotDue: { $max: [0, { $subtract: ["$dueAmount", { $ifNull: ["$pendingTransferAmount", 0] }] }] } } }]),
     RetailReceivableEntryModel.aggregate([{ $match: { ...scope, orderId: { $type: "string" } } }, { $group: { _id: "$orderId", ledgerDue: { $sum: "$signedAmount" } } }, { $project: { _id: 0, orderId: "$_id", ledgerDue: 1 } }]),
   ]);
   const differences = compareRetailReceivableBalances(snapshotRows, ledgerRows);

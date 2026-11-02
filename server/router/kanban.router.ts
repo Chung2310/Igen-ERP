@@ -1,5 +1,6 @@
 ﻿import { Router, Response } from "express";
 import { randomUUID } from "node:crypto";
+import { taskActivityUpdate, taskProgress } from "../service/kanban-task-progress";
 import mongoose from "mongoose";
 import { requireAuth, requirePermission, type AuthenticatedRequest } from "../middleware/auth";
 import { KanbanTaskModel } from "../model/kanban-task.model";
@@ -22,6 +23,7 @@ const STATUS_MAP: Record<string, string> = {
 };
 const VALID_STATUSES = ["Not Started", "In Progress", "Review/Testing", "Done", "Archived"] as const;
 const VALID_PRIORITIES = ["High", "Medium", "Low"] as const;
+const SALES_TASK_CATEGORY = "Bán hàng";
 
 function httpError(statusCode: number, message: string) {
   return Object.assign(new Error(message), { statusCode });
@@ -56,7 +58,7 @@ async function actorName(req: AuthenticatedRequest) {
 
 function toClient(item: any) {
   const plain = typeof item?.toObject === "function" ? item.toObject() : item;
-  return { ...plain, status: normalizeStatus(plain?.status) };
+  return { ...plain, status: normalizeStatus(plain?.status), progress: taskProgress(plain) };
 }
 
 async function validateRelations(companyCode: string, assigneeUid?: string, projectId?: string) {
@@ -165,9 +167,9 @@ async function syncProjectLifecycle(companyCode: string, projectIds: Array<strin
 function changesFor(oldTask: any, update: any) {
   const labels: Record<string, string> = {
     title: "Tên việc",
-    description: "Mô tả",
     assigneeUid: "Người thực hiện",
     dueDate: "Hạn chót",
+    salesKpiTarget: "Chỉ tiêu doanh số",
     priority: "Độ ưu tiên",
     status: "Trạng thái",
     projectId: "Dự án",
@@ -187,6 +189,22 @@ function changesFor(oldTask: any, update: any) {
         ? `${labels[key]}: ${(oldTask[key] || []).length} → ${(update[key] || []).length} file`
         : `${labels[key]}: "${String(oldTask[key] ?? "Chưa thiết lập")}" → "${String(update[key] ?? "Chưa thiết lập")}"`
     );
+}
+
+function isSalesTaskCategory(value: unknown): boolean {
+  return String(value || "").trim().toLocaleLowerCase("vi-VN") === SALES_TASK_CATEGORY.toLocaleLowerCase("vi-VN");
+}
+
+function normalizeSalesKpiTarget(value: unknown, required = false): number {
+  if (value === undefined || value === null || value === "") {
+    if (required) throw httpError(400, "Công việc bán hàng cần có chỉ tiêu lớn hơn 0.");
+    return 0;
+  }
+  const target = Number(value);
+  if (!Number.isSafeInteger(target) || target < 0 || (required && target === 0)) {
+    throw httpError(400, required ? "Công việc bán hàng cần có chỉ tiêu lớn hơn 0." : "Chỉ tiêu bán hàng phải là số tiền nguyên không âm.");
+  }
+  return target;
 }
 
 async function handleError(res: Response, error: any) {
@@ -253,6 +271,8 @@ kanbanRouter.post("/tasks", requirePermission("work:manage") as any, async (req:
   try {
     const companyCode = req.user?.companyCode || "SYSTEM";
     const status = normalizeStatus(req.body.status);
+    const requestedCategory = req.body.category || "Onboarding";
+    const category = isSalesTaskCategory(requestedCategory) ? SALES_TASK_CATEGORY : requestedCategory;
     if (!VALID_STATUSES.includes(status as any)) throw httpError(400, "Trạng thái công việc không hợp lệ.");
     if (!VALID_PRIORITIES.includes(req.body.priority || "Medium")) throw httpError(400, "Độ ưu tiên không hợp lệ.");
     await validateRelations(companyCode, req.body.assigneeUid, req.body.projectId);
@@ -261,14 +281,14 @@ kanbanRouter.post("/tasks", requirePermission("work:manage") as any, async (req:
     const now = new Date();
     const task = await KanbanTaskModel.create({
       title: String(req.body.title || "").trim(),
-      description: String(req.body.description || "").trim(),
       assigneeUid: req.body.assigneeUid,
       assignee: assignee?.displayName || "Thành viên",
       assigneeAvatar: assignee?.photoURL || "",
       dueDate: req.body.dueDate,
+      salesKpiTarget: isSalesTaskCategory(category) ? normalizeSalesKpiTarget(req.body.salesKpiTarget, true) : 0,
       priority: req.body.priority || "Medium",
       status: status as any,
-      category: req.body.category || "Onboarding",
+      category,
       companyCode,
       branchId: req.user?.branchId || req.body.branchId || "",
       creatorUid: req.user?.id,
@@ -300,6 +320,52 @@ kanbanRouter.post("/tasks", requirePermission("work:manage") as any, async (req:
   }
 });
 
+kanbanRouter.patch("/tasks/:id/activity", requirePermission("work:read") as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const scope: any = { _id: req.params.id, ...companyFilter(req) };
+    if (req.user?.branchId) scope.branchId = req.user.branchId;
+    const task = await KanbanTaskModel.findOne(scope).lean();
+    if (!task) throw httpError(404, "Không tìm thấy công việc.");
+    const uid = String(req.user!.id);
+    const manager = isManager(req.user?.role);
+    if (!manager && task.assigneeUid !== uid && task.creatorUid !== uid && !task.helpRequested && !task.helpers?.some(helper => helper.uid === uid)) throw httpError(403, "Bạn không có quyền truy cập công việc.");
+    if (!Number.isInteger(req.body.revision) || req.body.revision !== (task.revision || 0)) throw httpError(409, "Công việc đã thay đổi. Hãy tải lại trước khi cập nhật.");
+    if (req.body.action === "progress" && req.body.progress === 100 && !Number(task.estTime)) {
+      throw httpError(400, "Hoàn thành công việc yêu cầu số giờ dự tính.");
+    }
+    if (req.body.action === "progress" && req.body.progress === 100 && task.startTime && new Date(task.startTime).getTime() > Date.now()) {
+      throw httpError(400, "Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.");
+    }
+    let requestedHelperUid = "";
+    if (req.body.action === "help") {
+      if (req.body.helpers !== undefined) throw httpError(400, "Chỉ được chọn một nhân viên hỗ trợ.");
+      if (req.body.helper !== undefined) {
+        const helperUid = req.body.helper?.uid;
+        if (typeof helperUid !== "string" || !mongoose.isValidObjectId(helperUid)) throw httpError(400, "Nhân viên hỗ trợ không hợp lệ.");
+        const helper = await UserModel.findOne({ _id: helperUid, companyCode: task.companyCode }).select("_id branchId").lean();
+        if (!helper || (task.branchId && String(helper.branchId || "") !== String(task.branchId))) throw httpError(400, "Nhân viên hỗ trợ không thuộc phạm vi công việc.");
+        requestedHelperUid = helperUid;
+      }
+    }
+    const result = taskActivityUpdate(task, req.body, { uid, name: await actorName(req), manager });
+    const revisionFilter = task.revision ? { revision: task.revision } : { $or: [{ revision: 0 }, { revision: { $exists: false } }] };
+    const updated = await KanbanTaskModel.findOneAndUpdate({ ...scope, ...revisionFilter }, { $set: result.update, $push: { history: result.history }, $inc: { revision: 1 } }, { returnDocument: "after", runValidators: true });
+    if (!updated) throw httpError(409, "Công việc đã được cập nhật. Hãy tải lại.");
+    await syncProjectLifecycle(task.companyCode, [task.projectId]);
+    await kanbanAuditService.recordTaskMutation({ action: "updated", actorId: uid, companyCode: task.companyCode, correlationId: correlationId(req), before: task, task: toClient(updated) });
+    emitToCompany(task.companyCode, "kanban:task-updated", { id: String(task._id) });
+    if (req.body.action === "help") {
+      try {
+        const recipients = new Set([task.creatorUid, task.assigneeUid, ...(task.helpers || []).map(helper => helper.uid), requestedHelperUid]);
+        recipients.delete(uid);
+        recipients.delete("");
+        await Promise.all([...recipients].map(recipientUid => notificationService.createNotification({ recipientUid, companyCode: task.companyCode, type: "task", read: false, title: "Công việc cần trợ giúp", body: `${task.title}: ${result.history.action}`, action: { tab: "NHÂN SỰ", subTab: "Giao Việc" } })));
+      } catch (error) { console.error("Task help notification failed", error); }
+    }
+    return res.json({ status: "success", data: toClient(updated) });
+  } catch (error) { return handleError(res, error); }
+});
+
 kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filter = { _id: req.params.id, ...companyFilter(req) };
@@ -310,13 +376,20 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
     const assigned = task.assigneeUid === req.user?.id;
     if (!manager && !assigned) throw httpError(403, "Bạn không có quyền cập nhật công việc này.");
 
-    const managerFields = ["title", "description", "assigneeUid", "dueDate", "priority", "status", "projectId", "startTime", "actualStartTime", "endTime", "estTime", "actualTime", "tags", "linkNote", "attachments", "category"];
+    const managerFields = ["title", "assigneeUid", "dueDate", "salesKpiTarget", "priority", "status", "projectId", "startTime", "actualStartTime", "endTime", "estTime", "actualTime", "tags", "linkNote", "attachments", "category"];
     // Nhân viên được đính kèm file kết quả (ghi âm, hình ảnh, tài liệu…) vào task của mình
-    const staffFields = ["status", "startTime", "actualStartTime", "endTime", "actualTime", "linkNote", "attachments", "description", "dueDate", "estTime"];
+    const staffFields = ["status", "startTime", "actualStartTime", "endTime", "actualTime", "linkNote", "attachments", "dueDate", "estTime"];
     const allowed = manager ? managerFields : staffFields;
     const update: any = {};
     for (const key of allowed) if (req.body[key] !== undefined) update[key] = req.body[key];
+    if (update.category !== undefined && isSalesTaskCategory(update.category)) update.category = SALES_TASK_CATEGORY;
     if (update.attachments !== undefined) update.attachments = sanitizeAttachments(update.attachments) || [];
+    if (update.salesKpiTarget !== undefined || update.category !== undefined) {
+      const category = update.category ?? task.category;
+      update.salesKpiTarget = isSalesTaskCategory(category)
+        ? normalizeSalesKpiTarget(update.salesKpiTarget ?? task.salesKpiTarget, true)
+        : 0;
+    }
 
     if (update.status !== undefined) {
       update.status = normalizeStatus(update.status);
@@ -342,11 +415,17 @@ kanbanRouter.patch("/tasks/:id", async (req: AuthenticatedRequest, res: Response
       if (Number.isFinite(plannedStartAt) && plannedStartAt > Date.now()) {
         throw httpError(400, "Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.");
       }
-      if (!merged.description?.trim() || !merged.startTime || !Number(merged.estTime)) {
-        throw httpError(400, "Hoàn thành công việc yêu cầu mô tả, thời gian bắt đầu và số giờ dự tính.");
+      if (!merged.startTime || !Number(merged.estTime)) {
+        throw httpError(400, "Hoàn thành công việc yêu cầu thời gian bắt đầu và số giờ dự tính.");
       }
       if (!merged.endTime) update.endTime = new Date().toISOString();
       update.completedAt = update.endTime;
+    }
+    if (update.status === "Done") { update.progress = 100; update.helpRequested = false; }
+    else if (update.status && update.status !== "Archived") {
+      update.progress = update.status === "Not Started" ? 0 : Math.max(1, Math.min(99, taskProgress(task)));
+      update.completedAt = "";
+      update.endTime = "";
     }
 
     const changes = changesFor(task, update);

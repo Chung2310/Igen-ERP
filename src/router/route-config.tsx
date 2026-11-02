@@ -1,8 +1,21 @@
-import { lazy } from "react";
+import { lazy as reactLazy } from "react";
 import type { ComponentType, LazyExoticComponent } from "react";
 import type { TabType, UserProfile } from "../types";
+import { canViewAiSubscription } from "../config/modules";
 
-export type LazyPageComponent = LazyExoticComponent<ComponentType<any>>;
+export type LazyPageComponent = LazyExoticComponent<ComponentType>;
+type RouteImport = () => Promise<{ default: ComponentType }>;
+const routeImports = new WeakMap<LazyPageComponent, RouteImport>();
+function lazy(load: RouteImport): LazyPageComponent {
+  const component = reactLazy(load);
+  routeImports.set(component, load);
+  return component;
+}
+export function retryRoute(tab: TabType) {
+  const route = getRouteByTab(tab);
+  const load = routeImports.get(route.component);
+  if (load) route.component = lazy(load);
+}
 
 export type AppRoute = {
   tab: TabType;
@@ -11,6 +24,10 @@ export type AppRoute = {
 };
 
 export const APP_ROUTES: AppRoute[] = [
+  { tab: "OMNI INBOX", component: lazy(() => import("../modules/marketing-suite/message/pages/CRMTab")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "omni-inbox:read", "omni-inbox:manage"].includes(value))) },
+  { tab: "KHO TRI THỨC", component: lazy(() => import("../modules/marketing-suite/knowledge/pages/CompanyKnowledgePage")), canAccess: (user) => ["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "company-knowledge:read", "company-knowledge:manage"].includes(value))) },
+  { tab: "TÍCH HỢP MARKETING", component: lazy(() => import("../modules/marketing-suite/shared/pages/MarketingIntegrationsPage")), canAccess: (user) => Boolean(user.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key))) && (["admin", "superadmin"].includes(user.role) || Boolean(user.permissions?.some((value) => ["*", "social-integration:read", "social-integration:manage"].includes(value)))) },
+  { tab: "GÓI AI & LƯỢT SỬ DỤNG", component: lazy(() => import("../modules/marketing-suite/shared/pages/AiSubscriptionPage")), canAccess: canViewAiSubscription },
   {
     tab: "TỔNG QUAN",
     component: lazy(() => import("../pages/DashboardTab")),
@@ -27,6 +44,12 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../pages/HRTab")),
   },
   {
+    tab: "ĐỐI TÁC LAO ĐỘNG",
+    component: lazy(() => import("../pages/WorkerPartnersTab")),
+    canAccess: (userProfile) => userProfile.role === "superadmin" || userProfile.role === "admin" ||
+      Boolean(userProfile.permissions?.some((permission) => ["*", "labor-partner:read", "labor-partner:manage"].includes(permission))),
+  },
+  {
     tab: "ĐỐI TÁC",
     component: lazy(() => import("../pages/PartnersTab")),
     canAccess: (userProfile) =>
@@ -35,9 +58,7 @@ export const APP_ROUTES: AppRoute[] = [
       Boolean(
         userProfile.permissions?.includes("*") ||
         userProfile.permissions?.some((permission) =>
-          userProfile.businessType === "labor"
-            ? ["labor-partner:read", "labor-partner:manage"].includes(permission)
-            : ["relationship:read", "relationship:manage"].includes(permission),
+           ["relationship:read", "relationship:manage"].includes(permission),
         ),
       ),
   },
@@ -86,6 +107,14 @@ export const APP_ROUTES: AppRoute[] = [
       Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) => permission === "retail:read" || permission === "retail:manage")),
   },
   {
+    tab: "ĐỐI TÁC BÁN LẺ",
+    component: lazy(() => import("../modules/retail/pages/RetailPartnersPage")),
+    canAccess: (userProfile) =>
+      userProfile.role === "superadmin" || userProfile.role === "admin" ||
+      Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.some((permission) =>
+        ["retail-partner:read", "retail-partner:manage", "retail-partner-policy:manage", "retail-partner-self:read"].includes(permission))),
+  },
+  {
     tab: "TÀI CHÍNH",
     component: lazy(() => import("../modules/finance/FinanceTab")),
     canAccess: (userProfile) =>
@@ -118,11 +147,6 @@ export const APP_ROUTES: AppRoute[] = [
     tab: "CÀI ĐẶT",
     component: lazy(() => import("../pages/SettingsTab")),
   },
-  {
-    tab: "HƯỚNG DẪN",
-    component: lazy(() => import("../pages/GuideTab")),
-  },
-
 ];
 
 export const DEFAULT_APP_TAB: TabType = "TỔNG QUAN";

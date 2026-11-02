@@ -3,6 +3,8 @@ export type CustomerType = "regular" | "vat";
 export type CustomerGender = "male" | "female" | "other";
 
 export interface Customer {
+  customerKind?: "individual" | "business";
+  contactName?: string;
   _id: string;
   companyCode: string;
   customerCode: string;
@@ -16,7 +18,8 @@ export interface Customer {
   notes?: string;
   status: CustomerStatus;
   source: "manual" | "pos" | "import";
-  tier?: { code: string; name: string; minSpend: number };
+  tier?: { code: string; name: string; minGrossProfit?: number; minSpend?: number };
+  tierGrossProfit?: number;
   tierTotalSales?: number;
   tierUpdatedAt?: string;
   createdBy: string;
@@ -26,7 +29,7 @@ export interface Customer {
   updatedAt?: string;
 }
 
-export type CustomerInput = Pick<Customer, "name" | "phone"> & Partial<Pick<Customer, "type" | "email" | "dateOfBirth" | "gender" | "address" | "notes">>;
+export type CustomerInput = Pick<Customer, "name" | "phone"> & Partial<Pick<Customer, "type" | "customerKind" | "contactName" | "email" | "dateOfBirth" | "gender" | "address" | "notes" | "source">>;
 export type CustomerListQuery = {
   companyCode?: string;
   q?: string;
@@ -59,9 +62,22 @@ export interface CustomerPurchaseHistoryItem {
   salespersonName?: string;
 }
 
+export interface CustomerPurchaseHistoryDevice {
+  _id: string;
+  productName: string;
+  sku?: string;
+  internalBarcode?: string;
+  serialNumber?: string;
+  soldAt?: string;
+  orderCode?: string;
+  warrantyStartAt?: string;
+  warrantyEndAt?: string;
+}
+
 export interface CustomerPurchaseHistory {
   summary: CustomerPurchaseHistorySummary;
   items: CustomerPurchaseHistoryItem[];
+  devices: CustomerPurchaseHistoryDevice[];
 }
 
 export type CustomerPurchaseHistoryScope = { companyCode: string; branchId: string };

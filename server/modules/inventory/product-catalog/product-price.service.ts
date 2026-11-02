@@ -1,6 +1,9 @@
-﻿import { ProductPriceModel } from "../../../model/product-price.model";
-import { ProductVariantModel } from "../../../model/product-variant.model";
+import { randomUUID } from "node:crypto";
+import { runInTransaction } from "../../../config/database";
+import { publishDomainEvent } from "../../../integrations/shared/event-bus";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
+import { ProductPriceModel } from "../../../model/product-price.model";
+import { ProductVariantModel } from "../../../model/product-variant.model";
 
 export const ProductPriceService = {
   async list(companyCode: string, branchId: string, query: any = {}) {
@@ -17,10 +20,18 @@ export const ProductPriceService = {
     const sellingPrice = Number(input?.sellingPrice);
     const costPrice = Number(input?.costPrice || 0);
     if (!Number.isSafeInteger(sellingPrice) || sellingPrice < 0 || !Number.isSafeInteger(costPrice) || costPrice < 0) throw Object.assign(new Error("Giá bán và giá vốn phải là số nguyên không âm."), { statusCode: 400 });
-    return ProductPriceModel.findOneAndUpdate(
-      { companyCode, branchId, variantId: String(variant._id) },
-      { $set: { productId: String(variant.productId), sku: variant.sku, sellingPrice, costPrice, status: "active", updatedBy: actor }, $setOnInsert: { companyCode, branchId, variantId: String(variant._id), createdBy: actor } },
-      { returnDocument: 'after', upsert: true, runValidators: true },
-    ).lean();
+    return runInTransaction(async (session) => {
+      const price = await ProductPriceModel.findOneAndUpdate(
+        { companyCode, branchId, variantId: String(variant._id) },
+        { $set: { productId: String(variant.productId), sku: variant.sku, sellingPrice, costPrice, status: "active", updatedBy: actor }, $setOnInsert: { companyCode, branchId, variantId: String(variant._id), createdBy: actor } },
+        { returnDocument: "after", upsert: true, runValidators: true, ...(session ? { session } : {}) },
+      ).lean();
+      await publishDomainEvent({
+        eventId: randomUUID(), eventType: "inventory.price.changed", companyCode, branchId,
+        aggregateType: "product-variant", aggregateId: String(variant._id), payload: { variantId: String(variant._id), sku: variant.sku },
+        occurredAt: new Date(), actorId: actor, actorName: actor,
+      }, session);
+      return price;
+    });
   },
 };

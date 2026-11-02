@@ -4,6 +4,7 @@ import type { ISupplier } from "../interface/inventory.interface";
 const SupplierSchema = new Schema<ISupplier>(
   {
     companyCode: { type: String, required: true, trim: true, uppercase: true, index: true },
+    branchId: { type: String, index: true },
     code: { type: String, required: true, trim: true, uppercase: true },
     name: { type: String, required: true, trim: true, index: true },
     taxCode: { type: String, trim: true, uppercase: true, index: true },

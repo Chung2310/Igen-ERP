@@ -8,6 +8,10 @@ export const retailSettingsApi = {
     const response = await apiFetch<{ success: true; data: RetailSettings }>("/retail/settings", { params: params(scope) });
     return response.data;
   },
+  async printConfig(scope: RetailScope): Promise<Pick<RetailSettings, "invoicePaperSize" | "invoiceTemplate" | "defaultTaxRate"> & { storeName: string }> {
+    const response = await apiFetch<{ success: true; data: Pick<RetailSettings, "invoicePaperSize" | "invoiceTemplate" | "defaultTaxRate"> & { storeName: string } }>("/retail/settings/print", { params: params(scope) });
+    return response.data;
+  },
   async update(input: Omit<RetailSettings, "companyCode" | "branchId">, scope: RetailScope): Promise<RetailSettings> {
     const response = await apiFetch<{ success: true; data: RetailSettings }>("/retail/settings", {
       method: "PUT",

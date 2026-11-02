@@ -21,6 +21,11 @@ const listQuerySchema = Joi.object({
   }),
   companyCode: Joi.string().trim().optional(),
   search: Joi.string().trim().allow("").optional(),
+  alertDays: Joi.number().integer().min(1).max(365).optional().messages({
+    "number.base": "Số ngày cảnh báo phải là số.",
+    "number.min": "Số ngày cảnh báo tối thiểu là 1.",
+    "number.max": "Số ngày cảnh báo tối đa là 365.",
+  }),
   page: Joi.number().integer().min(1).default(1).optional().messages({
     "number.base": "Trang phải là số.",
     "number.min": "Trang tối thiểu là 1.",
@@ -40,8 +45,13 @@ const fileMetadata = {
   signedImageMimeType: Joi.string().allow("").max(200),
   signedImageSize: Joi.number().min(0),
   signedImageResourceId: Joi.string().hex().length(24).allow("", null),
+  electronicSignatureName: Joi.string().allow("").max(300),
+  electronicSignatureMimeType: Joi.string().allow("").max(200),
+  electronicSignatureSize: Joi.number().min(0),
+  electronicSignatureResourceId: Joi.string().hex().length(24).allow("", null),
   contractFileUploadToken: Joi.string().guid({ version: ["uuidv4"] }).allow("").optional(),
   signedImageUploadToken: Joi.string().guid({ version: ["uuidv4"] }).allow("").optional(),
+  electronicSignatureUploadToken: Joi.string().guid({ version: ["uuidv4"] }).allow("").optional(),
 };
 const contractBody = Joi.object({
   contractType: Joi.string().trim().max(100).required(),
@@ -53,6 +63,7 @@ const contractBody = Joi.object({
     .required(),
   contractFileUrl: url,
   signedImageUrl: url,
+  electronicSignatureUrl: url,
   ...fileMetadata,
   note: Joi.string().allow("").max(1000),
 });
@@ -64,6 +75,7 @@ const updateBody = Joi.object({
   status: Joi.string().valid("draft", "active", "expired", "terminated"),
   contractFileUrl: url,
   signedImageUrl: url,
+  electronicSignatureUrl: url,
   ...fileMetadata,
   note: Joi.string().allow("").max(1000),
 }).min(1);
@@ -99,7 +111,7 @@ hrContractRouter.post(
         .max(10 * 1024 * 1024)
         .required(),
       kind: Joi.string()
-        .valid("contract", "signed", "extension", "extensionSigned")
+        .valid("contract", "signed", "electronicSignature", "extension", "extensionSigned")
         .required(),
     }),
   }),
@@ -122,6 +134,27 @@ hrContractRouter.patch(
   requirePermission("hr:manage") as any,
   validateRequest({ params: Joi.object({ id }), body: updateBody }),
   hrContractController.update as any,
+);
+hrContractRouter.get(
+  "/settings",
+  requirePermission("hr:read") as any,
+  hrContractController.getSettings as any,
+);
+hrContractRouter.put(
+  "/settings",
+  requirePermission("hr:manage") as any,
+  validateRequest({
+    body: Joi.object({
+      expiryAlertDays: Joi.number().integer().min(1).max(365).required().messages({
+        "number.base": "Số ngày báo trước phải là số.",
+        "number.min": "Số ngày báo trước tối thiểu là 1 ngày.",
+        "number.max": "Số ngày báo trước tối đa là 365 ngày.",
+        "any.required": "Vui lòng nhập số ngày báo trước.",
+      }),
+      notifyManagers: Joi.boolean().optional(),
+    }),
+  }),
+  hrContractController.updateSettings as any,
 );
 hrContractRouter.get(
   "/extensions/list",

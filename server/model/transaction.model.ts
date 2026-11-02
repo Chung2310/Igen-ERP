@@ -1,6 +1,7 @@
 import { Schema, model, Document } from "mongoose";
 
 export interface ITransaction extends Document {
+  idempotencyKey?: string;
   userId: string;
   orderCode: number;
   amount: number;
@@ -22,8 +23,10 @@ const TransactionSchema = new Schema<ITransaction>({
   paymentLinkId: { type: String },
   checkoutUrl: { type: String },
   description: { type: String },
+  idempotencyKey: { type: String, trim: true },
   createdAt: { type: Date, default: Date.now },
   completedAt: { type: Date },
 });
 
+TransactionSchema.index({ idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } });
 export const TransactionModel = model<ITransaction>("Transaction", TransactionSchema);

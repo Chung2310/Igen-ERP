@@ -3,6 +3,8 @@ import { RepairFeedbackModel } from "../repair-feedback.model";
 import { RepairPartModel } from "../repair-part.model";
 import { RepairTicketModel } from "../repair-ticket.model";
 import { pausesSla, type RepairStatus } from "../repair-state";
+import { verifiedRepairRefunds } from './repair-refunds';
+import { validDay } from '../../finance/services/financial-calculations';
 
 export type RepairReportScope = { companyCode: string; branchId?: string };
 export type RepairReportRange = { from: string; to: string };
@@ -12,9 +14,13 @@ export type RepairRevenueGroupBy = "branch" | "technician" | "day";
 const COUNTED_STATUSES: RepairStatus[] = ["done", "delivered"];
 
 function rangeMatch(scope: RepairReportScope, range: RepairReportRange): PipelineStage.Match {
-  const from = new Date(`${range.from}T00:00:00.000Z`);
-  const to = new Date(`${range.to}T23:59:59.999Z`);
-  if (Number.isNaN(from.valueOf()) || Number.isNaN(to.valueOf())) throw Object.assign(new Error("Khoảng thời gian không hợp lệ."), { statusCode: 400 });
+  let from: Date, to: Date;
+  try {
+    from = new Date(`${validDay(range.from)}T00:00:00.000+07:00`);
+    to = new Date(`${validDay(range.to)}T23:59:59.999+07:00`);
+  } catch {
+    throw Object.assign(new Error("Khoảng thời gian không hợp lệ."), { statusCode: 400 });
+  }
   if (from > to) throw Object.assign(new Error("Ngày bắt đầu phải trước ngày kết thúc."), { statusCode: 400 });
   return { $match: { companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}), status: { $in: COUNTED_STATUSES }, completedAt: { $gte: from, $lte: to } } };
 }
@@ -22,7 +28,7 @@ function rangeMatch(scope: RepairReportScope, range: RepairReportRange): Pipelin
 const groupKey: Record<RepairRevenueGroupBy, unknown> = {
   branch: "$branchId",
   technician: { $ifNull: ["$technicianId", ""] },
-  day: { $dateToString: { format: "%Y-%m-%d", date: "$completedAt" } },
+  day: { $dateToString: { format: "%Y-%m-%d", date: "$completedAt", timezone: "+07:00" } },
 };
 
 export function buildRepairRevenuePipeline(scope: RepairReportScope, range: RepairReportRange, groupBy: RepairRevenueGroupBy = "branch"): PipelineStage[] {
@@ -72,7 +78,10 @@ export async function repairRevenueReport(scope: RepairReportScope, range: Repai
     collected: sum.collected + Number(row.collected || 0),
     outstanding: sum.outstanding + Number(row.outstanding || 0),
   }), { ticketCount: 0, warrantyTicketCount: 0, laborRevenue: 0, partRevenue: 0, revenue: 0, collected: 0, outstanding: 0 });
-  return { groupBy, range, items, total };
+  const refundRows = await verifiedRepairRefunds(scope, new Date(`${range.from}T00:00:00+07:00`), new Date(`${range.to}T23:59:59.999+07:00`));
+  const refundedAmount = refundRows.reduce((sum, row) => sum + Number(row.refund.amount || 0), 0);
+  const refundedLabor = refundRows.reduce((sum, row) => sum + Number(row.refund.laborAmount || 0), 0);
+  return { groupBy, range, items, total, refunds: { amount: refundedAmount, laborAmount: refundedLabor, count: refundRows.length, netRevenue: total.revenue - refundedAmount } };
 }
 
 export function buildRepairPartUsagePipeline(scope: RepairReportScope, range: RepairReportRange): PipelineStage[] {

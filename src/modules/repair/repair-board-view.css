@@ -1,0 +1,15 @@
+/* Preserve the retail step colors with readable foregrounds in ERP's class-based dark theme. */
+.dark .repair-board-view {
+  --color-purple-50: var(--color-purple-950);
+  --color-purple-200: var(--color-purple-700);
+  --color-purple-800: var(--color-purple-300);
+  --color-violet-50: var(--color-violet-950);
+  --color-violet-200: var(--color-violet-700);
+  --color-violet-800: var(--color-violet-300);
+  --color-orange-50: var(--color-orange-950);
+  --color-orange-200: var(--color-orange-700);
+  --color-orange-800: var(--color-orange-300);
+  --color-teal-50: var(--color-teal-950);
+  --color-teal-200: var(--color-teal-700);
+  --color-teal-800: var(--color-teal-300);
+}

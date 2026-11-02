@@ -26,5 +26,5 @@ test("inventory ledger stores signed movement and database idempotency key", () 
 test("product variants default to untracked and only expose supported tracking modes", () => {
   const trackingMode = ProductVariantModel.schema.path("trackingMode") as any;
   assert.equal(trackingMode.defaultValue, "none");
-  assert.deepEqual(trackingMode.enumValues, ["none", "quantity", "serial", "lot"]);
+  assert.deepEqual(trackingMode.enumValues, ["none", "quantity", "unit_barcode", "serial", "lot"]);
 });

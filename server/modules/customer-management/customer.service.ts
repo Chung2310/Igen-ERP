@@ -1,6 +1,6 @@
 ﻿import { Types } from "mongoose";
 import { CustomerError } from "./customer-errors";
-import { formatCustomerCode, normalizeCustomerInput } from "./customer-normalization";
+import { formatCustomerCode, normalizeCustomerInput, normalizePhone, phoneLookupVariants } from "./customer-normalization";
 import type { CustomerInput, CustomerStatus, CustomerType, ICustomer } from "./interfaces/customer.interface";
 import { CustomerCounterModel } from "./models/customer-counter.model";
 import { CustomerModel } from "./models/customer.model";
@@ -9,7 +9,7 @@ export type CustomerScope = { companyCode: string };
 export type CustomerActor = { id: string; name: string };
 export type CustomerListQuery = {
   q?: string;
-  status?: CustomerStatus;
+  status?: CustomerStatus | "all";
   type?: CustomerType;
   page?: number;
   limit?: number;
@@ -33,15 +33,20 @@ const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$
 export function buildCustomerListFilter(scope: CustomerScope, query: CustomerListQuery): Record<string, unknown> {
   const filter: Record<string, unknown> = {
     companyCode: scope.companyCode,
-    status: query.status || "active",
+    ...(query.status === "all" ? {} : { status: query.status || "active" }),
     ...(query.type ? { type: query.type } : {}),
   };
   const q = String(query.q || "").trim();
   if (q) {
     const pattern = new RegExp(escapeRegex(q), "i");
+    const isPhoneQuery = /^[\d\s()+.-]+$/.test(q);
+    const normalizedPhoneQuery = isPhoneQuery ? normalizePhone(q) : "";
+    const normalizedPhoneVariants = normalizedPhoneQuery ? phoneLookupVariants(normalizedPhoneQuery) : [];
     filter.$or = [
       { customerCode: pattern }, { name: pattern }, { phone: pattern },
-      { normalizedPhone: pattern }, { email: pattern },
+      { normalizedPhone: pattern },
+      ...normalizedPhoneVariants.map((phone) => ({ normalizedPhone: new RegExp(escapeRegex(phone), "i") })),
+      { email: pattern },
     ];
   }
   return filter;
@@ -79,6 +84,7 @@ export function createCustomerService(repository: CustomerRepository) {
       try {
         return await repository.create({
           ...values,
+          customerKind: values.customerKind || "individual",
           source: values.source || "manual",
           companyCode: scope.companyCode,
           customerCode: formatCustomerCode(scope.companyCode, sequence),
@@ -137,7 +143,7 @@ const mongooseRepository: CustomerRepository = {
     ).lean();
     return counter!.sequence;
   },
-  findByPhone: (scope, normalizedPhone) => CustomerModel.findOne({ ...scope, normalizedPhone }).lean() as any,
+  findByPhone: (scope, normalizedPhone) => CustomerModel.findOne({ ...scope, normalizedPhone: { $in: phoneLookupVariants(normalizedPhone) } }).lean() as any,
   create: async (values) => (await CustomerModel.create(values)).toObject() as any,
   findById: (scope, id) => CustomerModel.findOne({ _id: id, ...scope }).lean() as any,
   updateWithVersion: (scope, id, version, values) => CustomerModel.findOneAndUpdate(

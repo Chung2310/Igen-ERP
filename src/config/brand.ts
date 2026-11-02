@@ -1,6 +1,15 @@
+import { resolvePublicWebsiteUrl } from './publicWebsiteUrl';
+
+// Vite replaces this public value in browser builds; the Node SEO renderer reads APP_URL.
+declare const __ERP_PUBLIC_WEBSITE_URL__: string | undefined;
+
 export const BRAND_NAME = "IGEN ERP";
 export const BRAND_TAGLINE = "";
-export const SERVICE_WEBSITE_URL = "https://erp.igentechsolutions.com";
+
+const configuredUrl = typeof __ERP_PUBLIC_WEBSITE_URL__ !== 'undefined'
+  ? __ERP_PUBLIC_WEBSITE_URL__
+  : typeof process !== 'undefined' ? process.env.APP_URL : undefined;
+export const SERVICE_WEBSITE_URL = resolvePublicWebsiteUrl(configuredUrl, typeof window !== 'undefined' ? window.location.origin : '');
 export const SUPPORT_EMAIL = "igen.work99@gmail.com";
 export const SUPPORT_URL = `${SERVICE_WEBSITE_URL}/#phap-ly`;
 export const PRIVACY_POLICY_URL = `${SERVICE_WEBSITE_URL}/privacy-policy`;

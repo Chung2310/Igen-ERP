@@ -4,8 +4,8 @@ import { AuthRequest } from "../middlewares/auth.middleware";
 import { getAllowedOwnerIds } from "../utils/auth.util";
 import { Batch } from "../models/batch.model";
 import { ModuleSettingsService } from "../services/module-settings.service";
-import { WorkerQrAttendanceService } from "../../../modules/worker-management/services/worker-qr-attendance.service";
-import { WorkerProjectModel } from "../../../modules/worker-management/models/worker-project.model";
+import { WorkerQrAttendanceService } from "../../worker-management/services/worker-qr-attendance.service";
+import { WorkerProjectModel } from "../../worker-management/models/worker-project.model";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 import {
   StudentDeviceService,

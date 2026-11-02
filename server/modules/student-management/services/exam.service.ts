@@ -1,4 +1,5 @@
 ﻿import { Exam } from "../models/exam.model";
+import mongoose from "mongoose";
 import { Student } from "../models/student.model";
 import { Batch } from "../models/batch.model";
 import { BatchEnrollment } from "../models/batch-enrollment.model";
@@ -297,6 +298,90 @@ export class ExamService {
     return await Exam.findOne(query);
   }
 
+  static async getGradeRoster(ownerId: string | string[], id: string, branchId?: string) {
+    const exam = await this.getExamById(ownerId, id, branchId);
+    if (!exam) return null;
+
+    const results = Array.isArray(exam.results) ? exam.results : [];
+    const studentIds = [...new Set(results.map(result => String(result.studentId || "")).filter(Boolean))];
+    if (!studentIds.length) return [];
+
+    // Resolve only the students already registered on this scoped exam. The exam's
+    // owner and branch remain authoritative even when a superadmin can read it.
+    const rosterBranchId = branchId || exam.branchId;
+    const students = await Student.find({
+      _id: { $in: studentIds },
+      ownerId: String(exam.ownerId),
+      ...(rosterBranchId ? { branchId: rosterBranchId } : {}),
+    }).select("fullName phone").lean();
+    const studentsById = new Map(students.map(student => [String(student._id), student]));
+
+    return results.flatMap(result => {
+      const studentId = String(result.studentId || "");
+      const student = studentsById.get(studentId);
+      const name = String(student?.fullName || "").trim();
+      if (!student || !name) return [];
+      return [{
+        _id: studentId,
+        name,
+        phone: String(student.phone || "").trim(),
+        ...(typeof result.score === "number" && Number.isFinite(result.score) ? { score: result.score } : {}),
+        ...(typeof result.outcome === "string" ? { outcome: result.outcome } : {}),
+      }];
+    });
+  }
+
+  static async getAssignedStudents(ownerId: string | string[], id: string, branchId?: string) {
+    const exam = await this.getExamById(ownerId, id, branchId);
+    if (!exam) return null;
+
+    // Match the exact assignment predicate used by unassignStudent and keep the
+    // exam's owner/branch authoritative for admins and superadmins.
+    const rosterBranchId = branchId || exam.branchId;
+    const students = await Student.find({
+      examId: String(exam._id),
+      ownerId: String(exam.ownerId),
+      ...(rosterBranchId ? { branchId: rosterBranchId } : {}),
+    }).select("fullName phone").lean();
+
+    return students.flatMap(student => {
+      const name = String(student.fullName || "").trim();
+      if (!name) return [];
+      return [{ _id: String(student._id), name, phone: String(student.phone || "").trim() }];
+    });
+  }
+
+  static async getEligibleStudents(ownerId: string | string[], id: string, branchId?: string) {
+    const exam = await this.getExamById(ownerId, id, branchId);
+    if (!exam) return null;
+    if (!exam.batchId) return [];
+
+    const rosterBranchId = branchId || exam.branchId;
+    const batch = await Batch.findOne({
+      _id: exam.batchId,
+      ownerId: String(exam.ownerId),
+      ...(rosterBranchId ? { branchId: rosterBranchId } : {}),
+    }).select("learnerIds").lean();
+    const studentIds = [...new Set((batch?.learnerIds || []).map((value: unknown) => String(value || "")).filter(Boolean))];
+    if (!studentIds.length) return [];
+
+    const students = await Student.find({
+      _id: { $in: studentIds },
+      ownerId: String(exam.ownerId),
+      ...(rosterBranchId ? { branchId: rosterBranchId } : {}),
+    }).select("fullName phone fee paidAmount examId exams.id rank").lean();
+
+    return students.flatMap(student => {
+      const fullName = String(student.fullName || "").trim();
+      const totalFee = parseInt(String(student.fee || "0").replace(/\D/g, ""), 10) || 0;
+      const paidAmount = Number(student.paidAmount || 0);
+      const hasExamHistory = (student.exams || []).some((entry: any) => String(entry.id || "") === String(exam._id));
+      if (!fullName || student.examId || hasExamHistory || paidAmount < totalFee) return [];
+      if (!isStudentEligibleForExamRank("general", exam.rank, student.rank)) return [];
+      return [{ _id: String(student._id), name: fullName, phone: String(student.phone || "").trim() }];
+    });
+  }
+
   static async updateExam(
     ownerId: string | string[],
     id: string,
@@ -353,55 +438,98 @@ export class ExamService {
     return deletedExam;
   }
 
-  static async assignStudents(ownerId: string | string[], examId: string, studentIds: string[], branchId?: string): Promise<{ success: boolean }> {
-    logger.info(`[Exam] Assigning ${studentIds.length} students to examId=${examId}, ownerId=${ownerId}`);
+  static async assignStudents(ownerId: string | string[], examId: string, studentIds: string[], branchId?: string): Promise<{ success: boolean; examName: string; assignedCount: number }> {
+    const uniqueStudentIds = [...new Set((studentIds || []).map(id => String(id || "").trim()).filter(Boolean))];
+    if (!uniqueStudentIds.length) throw new Error("Chọn ít nhất một học viên trong danh sách được phép của kỳ thi.");
+    if (uniqueStudentIds.length !== studentIds.length) throw new Error("Danh sách học viên bị trùng hoặc có mã không hợp lệ.");
+
+    logger.info(`[Exam] Assigning ${uniqueStudentIds.length} students to examId=${examId}, ownerId=${ownerId}`);
     const examQuery: Record<string, unknown> = { _id: examId };
-    if (ownerId !== "ALL") {
-      examQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
-    }
+    if (ownerId !== "ALL") examQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
     if (branchId) examQuery.branchId = branchId;
-    const exam = await Exam.findOne(examQuery);
-    if (!exam) {
-      logger.warn(`[Exam] Assign students failed - Exam not found: id=${examId}, ownerId=${ownerId}`);
-      throw new Error("Kỳ thi không tồn tại.");
-    }
 
-    const studentQuery: Record<string, unknown> = { _id: { $in: studentIds } };
-    if (ownerId !== "ALL") {
-      studentQuery.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
-    }
-    if (branchId) studentQuery.branchId = branchId;
+    const session = await mongoose.startSession();
+    let outcome: { examName: string; assignedCount: number } | undefined;
+    try {
+      await session.withTransaction(async () => {
+        const exam = await Exam.findOne(examQuery).session(session);
+        if (!exam) throw new Error("Kỳ thi không tồn tại.");
+        if (!exam.batchId) throw new Error("Kỳ thi chưa gắn với lớp; không thể xác minh học viên được phép.");
 
-    // Update students (assign to exam and add to history)
-    const updateResult = await Student.updateMany(
-      studentQuery,
-      {
-        $set: {
-          examId: exam._id.toString(),
-          examName: exam.name,
-          examDate: exam.tentativeDate,
-          status: ["Đang thi"],
-        },
-        $push: {
-          exams: {
-            id: exam._id.toString(),
-            name: exam.name,
-            date: exam.tentativeDate,
-            type: "Sát hạch",
-            status: "Sắp thi",
-            result: { theory: 0, practice: 0, simulation: 0, overall: "Chưa có" }
+        const rosterBranchId = branchId || exam.branchId;
+        const batch = await Batch.findOne({
+          _id: exam.batchId,
+          ownerId: String(exam.ownerId),
+          ...(rosterBranchId ? { branchId: rosterBranchId } : {}),
+        }).session(session).select("learnerIds").lean();
+        if (!batch) throw new Error("Không tìm thấy lớp thuộc kỳ thi này.");
+        const batchStudentIds = new Set((batch.learnerIds || []).map((value: unknown) => String(value || "")));
+        if (uniqueStudentIds.some(id => !batchStudentIds.has(id))) {
+          throw new Error("Chỉ có thể gán học viên đang thuộc lớp của kỳ thi đã chọn.");
+        }
+
+        const studentQuery: Record<string, unknown> = {
+          _id: { $in: uniqueStudentIds },
+          ownerId: String(exam.ownerId),
+          ...(rosterBranchId ? { branchId: rosterBranchId } : {}),
+        };
+        const students = await Student.find(studentQuery).session(session).select("fullName fee paidAmount examId exams.id rank").lean();
+        if (students.length !== uniqueStudentIds.length) throw new Error("Không tìm thấy toàn bộ học viên trong lớp và chi nhánh của kỳ thi.");
+
+        for (const student of students) {
+          const name = String(student.fullName || "Học viên");
+          if (student.examId) throw new Error(`${name} đã được gán vào một kỳ thi khác hoặc kỳ thi này.`);
+          if ((student.exams || []).some((entry: any) => String(entry.id || "") === String(exam._id))) {
+            throw new Error(`${name} đã có kết quả hoặc lịch sử trong kỳ thi này.`);
+          }
+          const totalFee = parseInt(String(student.fee || "0").replace(/\D/g, ""), 10) || 0;
+          if (Number(student.paidAmount || 0) < totalFee) throw new Error(`${name} chưa hoàn thành học phí nên chưa thể gán vào kỳ thi.`);
+          if (!isStudentEligibleForExamRank("general", exam.rank, student.rank)) {
+            throw new Error(`${name} không phù hợp hạng thi ${exam.rank || "đã chọn"}.`);
           }
         }
-      }
-    );
-    logger.info(`[Exam] Assigned students updated database: matchedCount=${updateResult.matchedCount}, modifiedCount=${updateResult.modifiedCount}`);
 
-    // Update exam student count
-    exam.studentCount += studentIds.length;
-    await exam.save();
-    logger.info(`[Exam] Updated studentCount for examId=${examId} to: ${exam.studentCount}`);
+        const updateResult = await Student.updateMany(
+          { ...studentQuery, examId: { $in: ["", null] }, "exams.id": { $ne: String(exam._id) } },
+          {
+            $set: {
+              examId: String(exam._id),
+              examName: exam.name,
+              examDate: exam.tentativeDate,
+              status: ["Đang thi"],
+            },
+            $push: {
+              exams: {
+                id: String(exam._id),
+                name: exam.name,
+                date: exam.tentativeDate,
+                type: "Sát hạch",
+                status: "Sắp thi",
+                batchId: String(exam.batchId),
+                result: { theory: 0, practice: 0, simulation: 0, overall: "Chưa có" },
+              },
+            },
+          },
+          { session },
+        );
+        if (updateResult.matchedCount !== uniqueStudentIds.length) {
+          throw new Error("Danh sách học viên đã thay đổi; hãy tải lại lựa chọn rồi thử lại.");
+        }
 
-    return { success: true };
+        const resultStudentIds = new Set((exam.results || []).map(result => String(result.studentId || "")));
+        for (const studentId of uniqueStudentIds) {
+          if (!resultStudentIds.has(studentId)) exam.results.push({ studentId, outcome: "Chưa có" });
+        }
+        exam.studentCount = new Set((exam.results || []).map(result => String(result.studentId || "")).filter(Boolean)).size;
+        await exam.save({ session });
+        outcome = { examName: String(exam.name || ""), assignedCount: uniqueStudentIds.length };
+      });
+    } finally {
+      await session.endSession();
+    }
+    if (!outcome) throw new Error("Không thể hoàn tất việc gán học viên vào kỳ thi.");
+    logger.info(`[Exam] Assigned ${outcome.assignedCount} students to examId=${examId}.`);
+    return { success: true, ...outcome };
   }
 
   static async unassignStudent(

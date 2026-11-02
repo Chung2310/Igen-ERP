@@ -1,6 +1,9 @@
 import { io, Socket } from "socket.io-client";
+export type MessengerScope = { channel: "facebook" | "zalo" | "tiktok"; accountId: string };
+export type CampaignSlotUpdatePayload = { slotId: string; campaignId: string; companyCode: string; status: string; updatedAt: string };
 
 class SocketService {
+  private messengerScopes: MessengerScope[] = [];
   private socket: Socket | null = null;
   private messageCallbacks: Array<(data: { message: any; conversation: any }) => void> = [];
   private conversationCallbacks: Array<(conversation: any) => void> = [];
@@ -30,6 +33,7 @@ class SocketService {
     });
 
     this.socket.on("connect", () => {
+      this.socket?.emit("set_messenger_scopes", this.messengerScopes);
       console.log(`[SocketService] Connected successfully (Socket ID: ${this.socket?.id})`);
       this.statusCallbacks.forEach((cb) => cb(true));
       
@@ -71,6 +75,7 @@ class SocketService {
   }
 
   disconnect() {
+    this.messengerScopes = [];
     if (this.socket) {
       console.log("[SocketService] Disconnecting...");
       this.socket.removeAllListeners();
@@ -82,6 +87,15 @@ class SocketService {
 
   isConnected() {
     return !!this.socket?.connected;
+  }
+
+  setMessengerScopes(scopes: MessengerScope[]) {
+    this.messengerScopes = scopes.filter((scope) => scope.accountId.trim());
+    this.socket?.emit("set_messenger_scopes", this.messengerScopes);
+  }
+
+  onCampaignSlotUpdate(callback: (data: CampaignSlotUpdatePayload) => void) {
+    return this.on("campaign:slot-update", callback);
   }
 
   onNewMessage(callback: (data: { message: any; conversation: any }) => void) {

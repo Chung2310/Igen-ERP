@@ -9,6 +9,7 @@ export interface IProductCatalogCategory extends Document {
   name: string;
   normalizedName: string;
   parentCode?: string;
+  defaultTrackingMode?: "none" | "quantity" | "unit_barcode" | "lot" | "serial";
   description?: string;
   status: ProductCatalogResourceStatus;
   createdBy: string;

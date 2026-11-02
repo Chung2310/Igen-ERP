@@ -2,6 +2,7 @@ import "./server/config/timezone"; // PHẢI đứng đầu — cố định TZ 
 import "dotenv/config";
 import { assertSecurityEnv } from "./server/config/env";
 import express from "express";
+import { startMarketingEventRelay } from "./server/modules/marketing-suite/shared/event-relay";
 import helmet from "helmet";
 import path from "path";
 import fs from "fs";
@@ -14,7 +15,10 @@ import { startResourceRetentionScheduler } from "./server/service/resource-reten
 import { startRetailDebtReminderScheduler } from "./server/modules/retail/services/retail-debt-reminder.service";
 import { startRetailReminderRetryScheduler } from "./server/modules/retail/services/retail-reminder-retry.service";
 import { startRetailCustomerTierScheduler } from "./server/modules/retail/services/retail-customer-tier.service";
+import { startRetailCouponAutomationScheduler } from "./server/modules/retail/services/retail-coupon-automation.service";
+import { startRetailPosSessionScheduler } from "./server/modules/retail/services/retail-pos-session-scheduler.service";
 import { startMonthlyKpiScheduler } from "./server/service/kanban-monthly-kpi-scheduler.service";
+import { startPayrollPublicationScheduler } from "./server/service/payroll-publication-scheduler.service";
 import { startDomainEventWorker } from "./server/integrations/shared/domain-event-worker";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
@@ -232,7 +236,10 @@ async function startServer() {
   startRetailDebtReminderScheduler();
   startRetailReminderRetryScheduler();
   startRetailCustomerTierScheduler();
+  startRetailCouponAutomationScheduler();
+  startRetailPosSessionScheduler();
   startMonthlyKpiScheduler();
+  startPayrollPublicationScheduler();
 
   const app = express();
   // Chỉ tin 1 hop proxy (nginx) — dùng số thay vì true để X-Forwarded-For không thể bị client giả mạo
@@ -390,6 +397,7 @@ async function startServer() {
   // Tạo HTTP Server bọc Express để hỗ trợ cả HTTP & Socket.IO
   const httpServer = createServer(app);
   await initSocketServer(httpServer);
+  void startMarketingEventRelay().catch((error: unknown) => console.warn("[Marketing events] Subscriber unavailable", error instanceof Error ? error.message : "unknown"));
 
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Express and Socket.IO server running on http://localhost:${PORT}`);

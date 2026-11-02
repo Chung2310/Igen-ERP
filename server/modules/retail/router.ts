@@ -1,4 +1,7 @@
 import { Router } from "express";
+import { requireAuth } from "../../middleware/auth";
+import { requireModule } from "../../middleware/require-module";
+import { retailCouponRoutes } from "./routes/retail-coupon.routes";
 import { retailSettingsRoutes } from "./routes/retail-settings.routes";
 import { cashierShiftRoutes } from "./routes/cashier-shift.routes";
 import { retailOrderRoutes } from "./routes/retail-order.routes";
@@ -9,8 +12,26 @@ import { retailDebtReminderRoutes } from "./routes/retail-debt-reminder.routes";
 import { registerRetailFinanceSettlementConsumer } from "./consumers/finance-settlement.consumer";
 import { retailWarrantyRoutes } from "./routes/retail-warranty.routes";
 import { retailAfterSaleRoutes } from "./routes/retail-after-sale.routes";
+import { retailPartnerRoutes } from "./routes/retail-partner.routes";
+import { retailPaymentReviewRoutes } from "./routes/retail-payment-review.routes";
+import { retailPointsRoutes } from "./routes/retail-points.routes";
+import { retailFinanceRoutes } from "./routes/retail-finance.routes";
+import { resolveRetailScopeFromRequest } from "./contracts";
 
 export const retailRouter = Router();
+// Scope these guards to retail because this router is mounted at the API root.
+retailRouter.use("/retail", requireAuth as any, requireModule("retail"));
+retailRouter.use("/retail", async (req, _res, next) => {
+  const branchId = String(req.query.branchId || "").trim();
+  if (!branchId || branchId === "all") return next();
+  try {
+    await resolveRetailScopeFromRequest((req as any).user || {}, req.query);
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+});
+retailRouter.use("/retail/coupons", retailCouponRoutes);
 registerRetailFinanceSettlementConsumer();
 retailRouter.use("/retail/settings", retailSettingsRoutes);
 retailRouter.use("/retail/shifts", cashierShiftRoutes);
@@ -21,3 +42,7 @@ retailRouter.use("/retail/receivables", retailReceivableRoutes);
 retailRouter.use("/retail/debt-reminders", retailDebtReminderRoutes);
 retailRouter.use("/retail/warranty", retailWarrantyRoutes);
 retailRouter.use("/retail/after-sales", retailAfterSaleRoutes);
+retailRouter.use("/retail/partners", requireModule("retail-partner"), retailPartnerRoutes);
+retailRouter.use("/retail/payment-review", retailPaymentReviewRoutes);
+retailRouter.use("/retail/points", retailPointsRoutes);
+retailRouter.use("/retail/finance", retailFinanceRoutes);

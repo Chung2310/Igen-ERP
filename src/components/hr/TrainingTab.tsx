@@ -27,20 +27,7 @@ import { HrFormSelect } from "./HrFormSelect";
 const emojiIconPattern = /[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u;
 
 function TrainingBookIcon({ className = "h-6 w-6" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path d="m5 22 19-1.8 3 1.6v4.1L8 27.8l-3-1.6V22Z" fill="#7954D9" stroke="#5737AD" strokeWidth=".8" strokeLinejoin="round" />
-      <path d="m8 23.4 19-1.6v3.2L8 26.7v-3.3Z" fill="#FFF9EF" />
-      <path d="m5 22 19-1.8 3 1.6L8 23.4 5 22Z" fill="#A98AF8" />
-      <path d="m6 15.3 19-1.8 3 1.6v4.1L9 21l-3-1.6v-4.1Z" fill="#F58449" stroke="#CB5B2E" strokeWidth=".8" strokeLinejoin="round" />
-      <path d="m9 16.7 19-1.6v3.2L9 20v-3.3Z" fill="#FFF9EF" />
-      <path d="m6 15.3 19-1.8 3 1.6-19 1.6-3-1.4Z" fill="#FFB667" />
-      <path d="m4 8.6 19-1.8 3 1.6v4.1L7 14.3l-3-1.6V8.6Z" fill="#00A9B7" stroke="#087D95" strokeWidth=".8" strokeLinejoin="round" />
-      <path d="m7 10 19-1.6v3.2L7 13.2V10Z" fill="#FFF9EF" />
-      <path d="m4 8.6 19-1.8 3 1.6L7 10 4 8.6Z" fill="#5CE2D1" />
-      <path d="m9.4 11.3 13.5-1.2M11.4 18 24 16.9M10.4 24.7l13.6-1.2" stroke="#CFD4DE" strokeWidth=".65" strokeLinecap="round" />
-    </svg>
-  );
+  return <BookOpen className={`${className} text-primary`} strokeWidth={1.75} aria-hidden="true" />;
 }
 
 function TrainingProgressIcon({ className = "h-5 w-5" }: { className?: string }) {
@@ -60,13 +47,6 @@ function TrainingProgressIcon({ className = "h-5 w-5" }: { className?: string })
 function displayTrainingIcon(icon: string | undefined, className?: string) {
   return icon && icon !== "book" && !emojiIconPattern.test(icon) ? icon : <TrainingBookIcon className={className} />;
 }
-
-const courseCardThemes = [
-  { border: "border-violet-300 hover:border-violet-400", header: "bg-violet-100", icon: "bg-white ring-violet-300", badge: "bg-white/80 text-violet-900 ring-violet-300" },
-  { border: "border-teal-300 hover:border-teal-400", header: "bg-teal-100", icon: "bg-white ring-teal-300", badge: "bg-white/80 text-teal-900 ring-teal-300" },
-  { border: "border-amber-300 hover:border-amber-400", header: "bg-amber-100", icon: "bg-white ring-amber-300", badge: "bg-white/80 text-amber-900 ring-amber-300" },
-  { border: "border-rose-300 hover:border-rose-400", header: "bg-rose-100", icon: "bg-white ring-rose-300", badge: "bg-white/80 text-rose-900 ring-rose-300" },
-] as const;
 
 type TrainingGlyphName = "clock" | "instructor" | "learners" | "document" | "video" | "tip";
 
@@ -810,57 +790,55 @@ export default function TrainingTab({
   return (
     <>
       <div className="flex-1 overflow-y-auto p-3 md:p-5" id="hr_tab_content">
-        <div className="space-y-4" id="elearning_catalog">
+        <div className="space-y-5" id="elearning_catalog">
           {/* Training section title and supervisor controls */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-normal text-slate-800">Đào tạo nhân sự</h2>
-              <span className="rounded-full bg-[#E8F7FF] px-2.5 py-1 text-xs font-normal text-[#007EB8]">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="text-balance text-xl font-semibold text-on-surface">Đào tạo nhân sự</h2>
+              <span className="rounded-full bg-primary-container px-2.5 py-1 text-xs font-medium text-on-surface-variant tabular-nums">
                 {courses.length} khóa học
               </span>
             </div>
-            <div className="ml-auto flex w-fit max-w-full flex-wrap items-center justify-end gap-2 rounded-2xl border border-[#E1EAF5] bg-white px-3 py-2 shadow-2xs text-left">
-              <div className="flex flex-wrap items-center gap-2">
-                {isSupervisor && (
-                  <>
-                    <div className="w-full min-w-0 text-xs sm:w-[300px]">
-                      <HrFormSelect
-                        value={trainingFilter || ""}
-                        onChange={(value) => setTrainingFilter(value || null)}
-                        label="Giám sát tiến độ học nhân viên"
-                        options={[
-                          { value: "", label: "Giám sát tiến độ học nhân viên" },
-                          ...employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` })),
-                        ]}
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleCloseModal();
-                        setIsAddCourseModalOpen(true);
-                      }}
-                      className="flex items-center gap-1.5 rounded-xl bg-[#00ADFC] px-4 py-2 text-xs font-medium text-white shadow-xs transition-all hover:bg-[#0097dc] active:scale-95 cursor-pointer font-sans"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Tạo Khóa Học Mới
-                    </button>
-                  </>
-                )}
+            {isSupervisor && (
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <div className="w-full text-xs sm:w-64">
+                  <HrFormSelect
+                    value={trainingFilter || ""}
+                    onChange={(value) => setTrainingFilter(value || null)}
+                    label="Giám sát tiến độ học nhân viên"
+                    options={[
+                      { value: "", label: "Giám sát tiến độ học nhân viên" },
+                      ...employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` })),
+                    ]}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCloseModal();
+                    setIsAddCourseModalOpen(true);
+                  }}
+                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-on-primary transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  <Plus className="size-4" aria-hidden="true" />
+                  Tạo khóa học
+                </button>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Course Catalog list */}
-          <div className="grid auto-rows-min grid-cols-1 items-start gap-3 text-left sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 text-left md:grid-cols-2 xl:grid-cols-3">
             {courses.length === 0 ? (
-              <div className="col-span-full rounded-2xl border border-dashed border-[#DCE7F4] bg-white py-12 text-center text-sm text-slate-600 select-none">
-                Chưa có khóa học nào được đăng tải trên học viện.
+              <div className="col-span-full rounded-2xl border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-12 text-center">
+                <BookOpen className="mx-auto size-7 text-primary" aria-hidden="true" />
+                <p className="mt-3 text-sm font-medium text-on-surface">Chưa có khóa học nào</p>
+                <p className="mt-1 text-pretty text-sm text-on-surface-variant">
+                  {isSupervisor ? "Tạo khóa học đầu tiên để nhân viên bắt đầu học." : "Khóa học sẽ xuất hiện tại đây khi được đăng tải."}
+                </p>
               </div>
             ) : (
-              courses.map((course, courseIndex) => {
-                const cardTheme = courseCardThemes[courseIndex % courseCardThemes.length];
+              courses.map((course) => {
                 const targetUid = trainingFilter || userProfile?.uid || "";
 
                 const enrollList = trainingFilter ? supervisorEnrollments : enrollments;
@@ -870,53 +848,48 @@ export default function TrainingTab({
                 const isCompleted = myEnrollment ? myEnrollment.status === "completed" : false;
 
                 return (
-                  <div key={course.id} className={`group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white p-2.5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_14px_30px_-18px_rgba(32,55,110,0.48)] ${cardTheme.border}`}>
-                    <div className="relative space-y-2">
-                      <div className={`-mx-2.5 -mt-2.5 flex items-center gap-2 px-2.5 py-2.5 ${cardTheme.header}`}>
-                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xl shadow-sm ring-1 select-none ${cardTheme.icon}`}>{displayTrainingIcon(course.icon)}</span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex min-w-0 items-center gap-1.5">
-                            <span className={`max-w-full truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${cardTheme.badge}`}>{course.category || "Văn hóa"}</span>
-                            {course.isRequired && <span className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] text-rose-700">Bắt buộc</span>}
-                          </div>
-                          <h4 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-slate-950" title={course.title}>{course.title}</h4>
+                  <article key={course.id} className="flex min-w-0 flex-col rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-container text-xl" aria-hidden="true">{displayTrainingIcon(course.icon, "size-6")}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="max-w-full truncate rounded-full bg-primary-container px-2 py-0.5 text-[11px] font-medium text-on-surface-variant">{course.category || "Văn hóa"}</span>
+                          {course.isRequired && <span className="rounded-full bg-surface-container-low px-2 py-0.5 text-[11px] font-medium text-on-surface-variant">Bắt buộc</span>}
                         </div>
+                        <h3 className="mt-1 line-clamp-2 text-balance text-sm font-semibold leading-snug text-on-surface" title={course.title}>{course.title}</h3>
+                      </div>
                         {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter && (
                           <div className="flex shrink-0 self-start items-center gap-1">
                             <button
                               type="button"
                               onClick={() => handleOpenEditCourse(course)}
-                              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-[#beeaff] bg-white text-[#007eb8] transition-colors hover:bg-[#E8F7FF]"
+                              className="flex size-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
                               title="Sửa khóa học"
                               aria-label={`Sửa khóa học ${course.title}`}
                             >
-                              <Edit2 className="h-3.5 w-3.5" />
+                              <Edit2 className="size-4" aria-hidden="true" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteCourse(course.id)}
-                              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-700 transition-colors hover:bg-rose-50"
+                              className="flex size-8 items-center justify-center rounded-lg text-rose-700 transition-colors hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-rose-600"
                               title="Xóa khóa học"
                               aria-label={`Xóa khóa học ${course.title}`}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="size-4" aria-hidden="true" />
                             </button>
                           </div>
                         )}
-                      </div>
-
-                      {course.description && <p className="truncate text-xs text-slate-700" title={course.description}>{course.description}</p>}
-
-                      <div className="grid grid-cols-2 gap-x-2 gap-y-1 rounded-xl border border-slate-100 bg-white px-2 py-1.5 text-[11px] text-slate-800 shadow-sm select-none">
-                        <div className="flex min-w-0 items-center gap-1" title={`Thời lượng: ${course.duration}`}><TrainingGlyph name="clock" /><span className="truncate">{course.duration}</span></div>
-                        <div className="flex min-w-0 items-center gap-1" title={`Trình bày: ${course.instructor}`}><TrainingGlyph name="instructor" /><span className="truncate">{course.instructor}</span></div>
-                        <div className="flex min-w-0 items-center gap-1" title={`Học viên: ${course.enrolledCount || 0}`}><TrainingGlyph name="learners" /><span className="truncate">{course.enrolledCount || 0} học viên</span></div>
-                        <div className="flex min-w-0 items-center gap-1" title={`Bài giảng: ${(course.lessons || []).length}`}><TrainingBookIcon className="h-4 w-4 shrink-0" /><span className="truncate">{(course.lessons || []).length} bài</span></div>
-                      </div>
-
+                    </div>
+                    {course.description && <p className="mt-3 line-clamp-2 text-pretty text-xs leading-relaxed text-on-surface-variant" title={course.description}>{course.description}</p>}
+                    <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-outline-variant pt-3 text-xs text-on-surface-variant">
+                      <div className="flex min-w-0 items-center gap-2" title={`Thời lượng: ${course.duration}`}><TrainingGlyph name="clock" /><span className="truncate">{course.duration || "Chưa xác định"}</span></div>
+                      <div className="flex min-w-0 items-center gap-2" title={`Giảng viên: ${course.instructor}`}><TrainingGlyph name="instructor" /><span className="truncate">{course.instructor || "Chưa cập nhật"}</span></div>
+                      <div className="flex min-w-0 items-center gap-2" title={`Học viên: ${course.enrolledCount || 0}`}><TrainingGlyph name="learners" /><span className="truncate tabular-nums">{course.enrolledCount || 0} học viên</span></div>
+                      <div className="flex min-w-0 items-center gap-2" title={`Bài giảng: ${(course.lessons || []).length}`}><TrainingGlyph name="document" /><span className="truncate tabular-nums">{(course.lessons || []).length} bài học</span></div>
                     </div>
 
-                    <div className="relative mt-2 flex items-center justify-end gap-2 border-t border-slate-200/70 pt-2">
+                    <div className="mt-auto flex flex-wrap items-center justify-end gap-3 border-t border-outline-variant pt-3">
                       {myEnrollment && (
                         <div className="mr-auto flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
                           <div
@@ -925,14 +898,14 @@ export default function TrainingTab({
                             aria-valuenow={progress}
                             aria-valuemin={0}
                             aria-valuemax={100}
-                            className="h-1.5 w-full max-w-24 overflow-hidden rounded-full bg-[#DDF7FF]"
+                            className="h-1.5 w-full max-w-24 overflow-hidden rounded-full bg-primary-container"
                           >
                             <div
-                              className="h-full rounded-full bg-[#00ADFC] transition-all duration-500"
+                              className="h-full rounded-full bg-primary"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
-                          <span className="shrink-0 text-[10px] text-[#007eb8]">{progress}%</span>
+                          <span className="shrink-0 text-xs text-on-surface-variant tabular-nums">{progress}%</span>
                         </div>
                       )}
                       <div className="shrink-0">
@@ -940,26 +913,26 @@ export default function TrainingTab({
                           type="button"
                           disabled={!!trainingFilter}
                           onClick={() => handleEnrollAndStart(course)}
-                          className="cursor-pointer rounded-xl bg-[#00ADFC] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#0097dc] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="min-h-9 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-on-primary transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
                         </button>
                       </div>
                     </div>
 
-                  </div>
+                  </article>
                 );
               })
             )}
           </div>
           {/* Monitor Training Progress Banner */}
           {trainingFilter && (
-            <div className="flex flex-col gap-2 rounded-xl border border-[#beeaff] bg-[#E8F7FF] px-3 py-2.5 text-left sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 rounded-xl border border-outline-variant bg-primary-container p-3 text-left sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-2.5">
                 <TrainingProgressIcon className="h-8 w-8 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-xs text-[#007eb8]">Tiến trình đào tạo của: {employees.find(e => e.id === trainingFilter)?.name || "Nhân sự"}</p>
-                  <p className="text-xs text-slate-700">Các khóa học chuyên môn nhân sự này đã hoàn thành hoặc đang nghiên cứu phục vụ đánh giá thăng cấp và KPI.</p>
+                  <p className="text-sm font-medium text-on-surface">Tiến độ của {employees.find(e => e.id === trainingFilter)?.name || "Nhân sự"}</p>
+                  <p className="text-pretty text-xs text-on-surface-variant">Đang xem kết quả học tập của nhân viên. Chọn lại bộ lọc để trở về khóa học của bạn.</p>
                 </div>
               </div>
               <button
@@ -967,7 +940,7 @@ export default function TrainingTab({
                 onClick={() => setTrainingFilter(null)}
                 aria-label="Đóng giám sát"
                 title="Đóng giám sát"
-                className="flex h-8 w-8 shrink-0 self-end items-center justify-center rounded-full bg-rose-500 text-white shadow-xs transition-colors hover:bg-rose-600 cursor-pointer sm:self-auto"
+                className="flex size-8 shrink-0 self-end items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-lowest focus-visible:outline-2 focus-visible:outline-primary sm:self-auto"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -1328,50 +1301,50 @@ export default function TrainingTab({
       {/* ACTIVE STUDY PLAYER / E-LEARNING STUDY ROOM */}
       {activeStudyCourse && (
         <div className="fixed inset-0 bg-black/55 backdrop-blur-2xs flex items-center justify-center z-50 p-4">
-          <div className="training-study-popup flex h-[min(90dvh,780px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white font-sans shadow-xl">
+          <div className="training-study-popup flex h-[min(90dvh,780px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest font-sans shadow-xl">
             {/* Player header */}
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-4 py-3 text-slate-900 md:px-5">
-              <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#E8F7FF] text-2xl select-none">{displayTrainingIcon(activeStudyCourse.icon)}</span>
-                <div className="text-left">
-                  <span className="rounded-md border border-sky-100 bg-[#E8F7FF] px-2 py-0.5 text-[10px] text-[#007eb8]">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 py-3 text-on-surface md:px-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-container text-2xl" aria-hidden="true">{displayTrainingIcon(activeStudyCourse.icon)}</span>
+                <div className="min-w-0 text-left">
+                  <span className="rounded-full bg-primary-container px-2 py-0.5 text-[11px] text-on-surface-variant">
                     {activeStudyCourse.category || "Đào tạo"}
                   </span>
-                  <h4 className="mt-1 max-w-md truncate text-sm leading-snug text-slate-900">{activeStudyCourse.title}</h4>
+                  <h4 className="mt-1 truncate text-sm font-semibold leading-snug text-on-surface">{activeStudyCourse.title}</h4>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveStudyCourse(null)}
                 aria-label="Đóng"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer"
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"
               >
-                <X className="h-5 w-5" />
+                <X className="size-5" aria-hidden="true" />
               </button>
             </div>
 
             {/* Main view study space */}
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
               {/* Left sidebar: Course syllabus outline */}
-              <div className="flex max-h-48 w-full shrink-0 flex-col justify-between overflow-y-auto border-b border-[#E1EAF5] bg-[#F8FBFF] p-4 md:max-h-none md:w-56 md:border-b-0 md:border-r">
+              <div className="flex max-h-48 w-full shrink-0 flex-col justify-between overflow-y-auto border-b border-outline-variant bg-surface-container-low p-4 md:max-h-none md:w-60 md:border-b-0 md:border-r">
                 <div className="space-y-4">
                   <div className="text-left select-none">
-                    <span className="block text-sm text-slate-800">Tiến độ hoàn thành</span>
+                    <span className="block text-sm font-medium text-on-surface">Tiến độ hoàn thành</span>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#DDF7FF] shadow-[0_0_8px_rgba(0,173,252,0.22)]">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-primary-container">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#00DFFF] to-[#00ADFC] transition-all duration-300"
+                          className="h-full rounded-full bg-primary"
                           style={{ width: `${enrollments.find(e => e.courseId === activeStudyCourse.id)?.progress ?? 0}%` }}
                         />
                       </div>
-                      <span className="text-xs text-[#007eb8]">
+                      <span className="text-xs text-on-surface-variant tabular-nums">
                         {enrollments.find(e => e.courseId === activeStudyCourse.id)?.progress ?? 0}%
                       </span>
                     </div>
                   </div>
 
-                  <div className="space-y-2 border-t pt-3">
-                    <span className="block text-left text-sm text-slate-800 select-none">Danh sách bài học</span>
+                  <div className="space-y-2 border-t border-outline-variant pt-3">
+                    <span className="block text-left text-sm font-medium text-on-surface">Danh sách bài học</span>
                     <div className="space-y-1 text-xs">
                       {/* Course Overview / Introduction */}
                       <button
@@ -1379,10 +1352,10 @@ export default function TrainingTab({
                           setActiveLessonIndex(-1);
                           setQuizSubmitted(false);
                         }}
-                        className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center gap-2 cursor-pointer ${activeLessonIndex === -1 ? "bg-[#E8F7FF] text-[#007eb8] text-[#007eb8] shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
+                        className={`flex w-full items-center gap-2 rounded-lg p-2.5 text-left font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary ${activeLessonIndex === -1 ? "bg-primary-container text-on-surface" : "text-on-surface-variant hover:bg-surface-container-lowest"
                           }`}
                       >
-                        <BookOpen className="w-4 h-4 text-[#00ADFC] shrink-0" />
+                        <BookOpen className="size-4 shrink-0 text-primary" aria-hidden="true" />
                         <span>Giới thiệu khóa học</span>
                       </button>
 
@@ -1398,7 +1371,7 @@ export default function TrainingTab({
                               setActiveLessonIndex(index);
                               setQuizSubmitted(false);
                             }}
-                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer ${isActive ? "bg-[#E8F7FF] text-[#007eb8] text-[#007eb8] shadow-3xs" : "hover:bg-slate-200/50 text-slate-650"
+                            className={`flex w-full items-center justify-between gap-2 rounded-lg p-2.5 text-left font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary ${isActive ? "bg-primary-container text-on-surface" : "text-on-surface-variant hover:bg-surface-container-lowest"
                               }`}
                           >
                             <div className="flex items-center gap-2 min-w-0">
@@ -1431,9 +1404,9 @@ export default function TrainingTab({
                               setActiveLessonIndex((activeStudyCourse.lessons || []).length);
                             }}
                             disabled={!isLessonsDone}
-                            className={`w-full p-2.5 rounded-xl text-left font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${activeLessonIndex === (activeStudyCourse.lessons || []).length
-                                ? "bg-[#E8F7FF] text-[#007eb8] shadow-3xs border border-[#beeaff]"
-                                : "hover:bg-slate-200/50 text-slate-650"
+                            className={`flex w-full items-center justify-between gap-2 rounded-lg p-2.5 text-left font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 ${activeLessonIndex === (activeStudyCourse.lessons || []).length
+                                ? "bg-primary-container text-on-surface"
+                                : "text-on-surface-variant hover:bg-surface-container-lowest"
                               }`}
                           >
                             <div className="flex items-center gap-2 min-w-0">
@@ -1450,12 +1423,12 @@ export default function TrainingTab({
 
                 {/* Supervisor fast finish bypass */}
                 {isSupervisor && (
-                  <div className="border-t pt-3 mt-4 text-[10px] space-y-2 select-none text-left">
-                    <span className="block font-bold text-gray-400 uppercase tracking-wider">Đặc quyền Quản lý:</span>
+                  <div className="mt-4 space-y-2 border-t border-outline-variant pt-3 text-left">
+                    <span className="block text-xs font-medium text-on-surface-variant">Dành cho quản lý</span>
                     <button
                       type="button"
                       onClick={handleCompleteCourseDirectly}
-                      className="w-full py-1.5 border border-dashed border-emerald-350 hover:bg-emerald-50 text-emerald-705 text-emerald-700 rounded-lg font-bold transition-all cursor-pointer text-center"
+                      className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-center text-xs font-medium text-on-surface-variant transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-primary"
                     >
                       Bỏ qua & Hoàn thành học
                     </button>
@@ -1464,36 +1437,36 @@ export default function TrainingTab({
               </div>
 
               {/* Right panel: Active lesson reader viewport */}
-              <div className="flex min-h-0 flex-1 flex-col justify-between overflow-y-auto bg-[#F8FBFF] p-4 md:p-6">
+              <div className="flex min-h-0 flex-1 flex-col justify-between overflow-y-auto bg-surface p-4 md:p-6">
                 {/* Section 1: Intro Overview display */}
                 {activeLessonIndex === -1 && (
-                  <div className="space-y-6 text-left max-w-2xl mx-auto h-full flex flex-col justify-between py-4">
+                  <div className="mx-auto flex h-full w-full max-w-2xl flex-col justify-between gap-6 py-2 text-left">
                     <div className="space-y-5">
-                      <div className="text-center pb-5 border-b select-none">
-                        <span className="mb-2 flex justify-center text-5xl">{displayTrainingIcon(activeStudyCourse.icon, "h-12 w-12")}</span>
-                        <h2 className="text-xl font-bold text-slate-800 font-sans leading-tight">{activeStudyCourse.title}</h2>
-                        <span className="inline-block text-[10px] font-bold text-gray-400 font-mono uppercase mt-1">Đăng tải bởi: {activeStudyCourse.instructor}</span>
+                      <div className="border-b border-outline-variant pb-5">
+                        <span className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary-container text-2xl" aria-hidden="true">{displayTrainingIcon(activeStudyCourse.icon, "size-7")}</span>
+                        <h2 className="text-balance text-xl font-semibold leading-tight text-on-surface">{activeStudyCourse.title}</h2>
+                        <p className="mt-1 text-sm text-on-surface-variant">Giảng viên: {activeStudyCourse.instructor || "Chưa cập nhật"}</p>
                       </div>
 
                       <div className="space-y-3">
-                        <h5 className="font-bold text-xs text-slate-700 uppercase tracking-wide">1. Giới thiệu tổng quan</h5>
-                        <p className="text-xs text-slate-500 leading-relaxed bg-white border border-gray-150 p-4 rounded-2xl shadow-3xs">{activeStudyCourse.description || "Không có nội dung mô tả."}</p>
+                        <h3 className="text-sm font-semibold text-on-surface">Giới thiệu</h3>
+                        <p className="text-pretty text-sm leading-relaxed text-on-surface-variant">{activeStudyCourse.description || "Khóa học chưa có mô tả."}</p>
                       </div>
 
-                      <div className="space-y-2 select-none">
-                        <h5 className="font-bold text-xs text-slate-700 uppercase tracking-wide">2. Yêu cầu khóa học</h5>
-                        <ul className="text-xs text-slate-650 list-disc list-inside space-y-1 bg-white border border-gray-150 p-4 rounded-2xl shadow-3xs font-medium">
-                          <li>Số bài học: <strong className="text-slate-700">{activeStudyCourse.lessons?.length ?? 0} bài học</strong></li>
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold text-on-surface">Nội dung học</h3>
+                        <ul className="list-inside list-disc space-y-1 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-sm text-on-surface-variant">
+                          <li>{activeStudyCourse.lessons?.length ?? 0} bài học</li>
                           {activeStudyCourse.quizzes && activeStudyCourse.quizzes.length > 0 ? (
-                            <li>Yêu cầu: <strong className="text-emerald-700">Thi trắc nghiệm đạt 100% điểm số</strong></li>
+                            <li>Đạt 100% bài kiểm tra trắc nghiệm</li>
                           ) : (
-                            <li>Yêu cầu: <strong className="text-slate-700">Đọc hết giáo trình</strong></li>
+                            <li>Hoàn thành tất cả bài học</li>
                           )}
                         </ul>
                       </div>
                     </div>
 
-                    <div className="pt-8 border-t flex justify-end shrink-0">
+                    <div className="flex shrink-0 justify-end border-t border-outline-variant pt-4">
                       <button
                         type="button"
                         onClick={() => {
@@ -1505,10 +1478,10 @@ export default function TrainingTab({
                             toast.warning("Khóa học chưa có tài liệu giảng dạy!");
                           }
                         }}
-                        className="px-6 py-2.5 bg-[#00ADFC] hover:bg-[#0097dc] active:scale-95 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5 font-sans"
+                        className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                       >
-                        <Play className="h-4 w-4 fill-white" />
-                        Bắt đầu bài giảng đầu tiên
+                        <Play className="size-4" aria-hidden="true" />
+                        Bắt đầu học
                       </button>
                     </div>
                   </div>

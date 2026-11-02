@@ -9,6 +9,8 @@ const customerId = "507f1f77bcf86cd799439011";
 test("returns a newest-first safe purchase history and calculates only settled-order totals", async () => {
   let receivedFilter: Record<string, unknown> | undefined;
   let receivedSort: Record<string, unknown> | undefined;
+  let receivedDeviceFilter: Record<string, unknown> | undefined;
+  let receivedDeviceSort: Record<string, unknown> | undefined;
   const service = createCustomerPurchaseHistoryService({
     customer: async () => ({ _id: customerId }),
     orders: async (filter, sort) => {
@@ -21,12 +23,28 @@ test("returns a newest-first safe purchase history and calculates only settled-o
         { _id: "cancelled", orderCode: "DH-0", status: "cancelled", businessDate: "2026-08-18", grandTotal: 100, paidAmount: 100, dueAmount: 0, items: [{ quantity: 1 }], salespersonName: "Cuong" },
       ];
     },
+    devices: async (filter, sort) => {
+      receivedDeviceFilter = filter;
+      receivedDeviceSort = sort;
+      return [{
+        _id: "serial-unit-1",
+        productName: "iPhone 15",
+        sku: "IP15-128",
+        internalBarcode: "BC-001",
+        serialNumber: "356000000000001",
+        soldAt: new Date("2026-08-20T00:00:00.000Z"),
+        soldOrderCode: "DH-2",
+        customerWarranty: { startAt: new Date("2026-08-20T00:00:00.000Z"), endAt: new Date("2027-08-20T00:00:00.000Z") },
+      }];
+    },
   });
 
   const result = await service.get(scope, customerId, "branch-a");
 
   assert.deepEqual(receivedFilter, { companyCode: "IGEN", branchId: "branch-a", customerId });
   assert.deepEqual(receivedSort, { businessDate: -1, _id: -1 });
+  assert.deepEqual(receivedDeviceFilter, { companyCode: "IGEN", soldBranchId: "branch-a", customerId, status: "sold" });
+  assert.deepEqual(receivedDeviceSort, { soldAt: -1, _id: -1 });
   assert.deepEqual(result.summary, { orderCount: 4, totalPurchased: 500, totalPaid: 350, currentDebt: 150, lastPurchaseAt: "2026-08-20" });
   assert.deepEqual(result.items, [
     { _id: "draft", orderCode: "DH-3", status: "draft", businessDate: "2026-08-21", grandTotal: 900, paidAmount: 0, dueAmount: 0, itemCount: 4, salespersonName: "Linh" },
@@ -34,10 +52,21 @@ test("returns a newest-first safe purchase history and calculates only settled-o
     { _id: "confirmed", orderCode: "DH-1", status: "confirmed", businessDate: "2026-08-19", grandTotal: 200, paidAmount: 50, dueAmount: 150, itemCount: 2, salespersonName: "Binh" },
     { _id: "cancelled", orderCode: "DH-0", status: "cancelled", businessDate: "2026-08-18", grandTotal: 100, paidAmount: 100, dueAmount: 0, itemCount: 1, salespersonName: "Cuong" },
   ]);
+  assert.deepEqual(result.devices, [{
+    _id: "serial-unit-1",
+    productName: "iPhone 15",
+    sku: "IP15-128",
+    internalBarcode: "BC-001",
+    serialNumber: "356000000000001",
+    soldAt: new Date("2026-08-20T00:00:00.000Z"),
+    orderCode: "DH-2",
+    warrantyStartAt: new Date("2026-08-20T00:00:00.000Z"),
+    warrantyEndAt: new Date("2027-08-20T00:00:00.000Z"),
+  }]);
 });
 
 test("requires a branch and returns CUSTOMER_NOT_FOUND outside the company scope", async () => {
-  const service = createCustomerPurchaseHistoryService({ customer: async () => null, orders: async () => [] });
+  const service = createCustomerPurchaseHistoryService({ customer: async () => null, orders: async () => [], devices: async () => [] });
 
   await assert.rejects(() => service.get(scope, customerId, ""), (error: unknown) => error instanceof CustomerError && error.code === "CUSTOMER_BRANCH_REQUIRED");
   await assert.rejects(() => service.get(scope, customerId, "branch-a"), (error: unknown) => error instanceof CustomerError && error.code === "CUSTOMER_NOT_FOUND" && error.status === 404);
@@ -48,6 +77,7 @@ test("rejects malformed customer IDs before repository lookup", async () => {
   const service = createCustomerPurchaseHistoryService({
     customer: async () => { customerLookedUp = true; return null; },
     orders: async () => [],
+    devices: async () => [],
   });
 
   await assert.rejects(() => service.get(scope, "not-an-object-id", "branch-a"), (error: unknown) => error instanceof CustomerError && error.code === "CUSTOMER_ID_INVALID" && error.status === 400);
@@ -60,6 +90,7 @@ test("uses company-only scope for customer lookup and branch scope only for orde
   const service = createCustomerPurchaseHistoryService({
     customer: async (receivedScope) => { customerScope = receivedScope; return { _id: customerId }; },
     orders: async (filter) => { orderFilter = filter; return []; },
+    devices: async () => [],
   });
 
   await service.get({ companyCode: "IGEN" }, customerId, "branch-a");

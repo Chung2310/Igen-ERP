@@ -7,7 +7,7 @@ function scope(req: Request) { const branchId = String((req as any).user?.branch
 function sendError(res: Response, error: any) { return res.status(Number(error?.statusCode) || 400).json({ status: "error", message: error?.message || "Không thể xử lý dữ liệu nhập hàng." }); }
 
 export const receivingController = {
-  listSuppliers: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await listSuppliers({ companyCode: company(req), q: req.query.q, status: req.query.status }) }); } catch (error) { return sendError(res, error); } },
+  listSuppliers: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await listSuppliers({ ...{ companyCode: company(req) }, q: req.query.q, status: req.query.status }) }); } catch (error) { return sendError(res, error); } },
   createSupplier: async (req: Request, res: Response) => { try { return res.status(201).json({ status: "success", data: await createSupplier({ companyCode: company(req) }, req.body, actor(req)) }); } catch (error) { return sendError(res, error); } },
   updateSupplier: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await updateSupplier({ companyCode: company(req) }, req.params.id, req.body, actor(req)) }); } catch (error) { return sendError(res, error); } },
   deleteSupplier: async (req: Request, res: Response) => { try { return res.json({ status: "success", data: await deleteSupplier({ companyCode: company(req) }, req.params.id) }); } catch (error) { return sendError(res, error); } },

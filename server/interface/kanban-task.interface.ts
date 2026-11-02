@@ -22,6 +22,7 @@ export interface IKanbanTask extends Document {
   assignee: string;
   assigneeAvatar: string;
   dueDate: string;
+  salesKpiTarget?: number;
   priority: "High" | "Medium" | "Low" | "Cao" | "Trung bình" | "Thấp";
   status: "Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived" | "todo" | "doing" | "done";
   category?: string;
@@ -37,6 +38,11 @@ export interface IKanbanTask extends Document {
   actualTime?: number;
   completedAt?: string;
   revision?: number;
+  progress?: number;
+  progressNote?: string;
+  helpRequested?: boolean;
+  helpReason?: string;
+  helpers?: Array<{ uid: string; name: string }>;
   deadlineReminderSentAt?: Date;
   overdueNotifiedAt?: Date;
   tags?: string[];

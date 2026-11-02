@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   FolderOpen,
   LayoutDashboard,
   MessageSquare,
@@ -9,18 +10,34 @@ import {
   Settings,
   Shield,
   Users,
-  BookOpen,
   Lock,
   Handshake,
   BriefcaseBusiness,
   ShoppingCart,
   Landmark,
-  Megaphone,
   Wrench,
   ContactRound,
   GraduationCap,
+  Sparkles,
 } from "lucide-react";
-import { FilledMenu3DIcon, type FilledMenu3DIconShape, type Menu3DIconPalette } from "../components/FilledMenu3DIcon";
+import { BookOpenIcon } from "@phosphor-icons/react/dist/csr/BookOpen";
+import { BriefcaseIcon } from "@phosphor-icons/react/dist/csr/Briefcase";
+import { ChartBarIcon } from "@phosphor-icons/react/dist/csr/ChartBar";
+import { ChatCircleIcon } from "@phosphor-icons/react/dist/csr/ChatCircle";
+import { CubeIcon } from "@phosphor-icons/react/dist/csr/Cube";
+import { FileTextIcon } from "@phosphor-icons/react/dist/csr/FileText";
+import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
+import { GearIcon } from "@phosphor-icons/react/dist/csr/Gear";
+import { HeadsetIcon } from "@phosphor-icons/react/dist/csr/Headset";
+import { MegaphoneIcon } from "@phosphor-icons/react/dist/csr/Megaphone";
+import { ShieldIcon } from "@phosphor-icons/react/dist/csr/Shield";
+import { ShoppingCartIcon } from "@phosphor-icons/react/dist/csr/ShoppingCart";
+import { SparkleIcon } from "@phosphor-icons/react/dist/csr/Sparkle";
+import { StudentIcon } from "@phosphor-icons/react/dist/csr/Student";
+import { UsersIcon } from "@phosphor-icons/react/dist/csr/Users";
+import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
+import { WrenchIcon } from "@phosphor-icons/react/dist/csr/Wrench";
+import type { Icon as PhosphorIcon } from "@phosphor-icons/react/lib";
 import {
   BRAND_FULL_LOGO_PATH,
   BRAND_LOGO_PATH,
@@ -32,7 +49,8 @@ import {
 import type { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import { filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
+import { canViewAiSubscription, filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
+import { MARKETING_SUITE_MENU } from "../modules/marketing-suite/navigation";
 
 interface SidebarProps {
   activeTab: TabType;
@@ -47,11 +65,13 @@ interface MenuItem {
   label: TabType;
   title: string;
   icon: React.ElementType;
-  group: "main" | "operations" | "tools" | "system";
+  group: "main" | "operations" | "marketing" | "subscription" | "tools" | "system";
   locked?: boolean;
 }
 
 const baseMenuItems: MenuItem[] = [
+  { label: "GÓI AI & LƯỢT SỬ DỤNG", title: "Gói AI & lượt sử dụng", icon: Sparkles, group: "subscription" },
+  ...MARKETING_SUITE_MENU.map((item) => ({ ...item, group: "marketing" as const })),
   {
     label: "TỔNG QUAN",
     title: "Tổng quan",
@@ -65,8 +85,14 @@ const baseMenuItems: MenuItem[] = [
     group: "operations",
   },
   {
+    label: "ĐỐI TÁC LAO ĐỘNG",
+    title: "Đối tác lao động",
+    icon: Handshake,
+    group: "operations",
+  },
+  {
     label: "ĐỐI TÁC",
-    title: "Đối tác",
+    title: "Đối tác học viên",
     icon: Handshake,
     group: "operations",
   },
@@ -107,15 +133,15 @@ const baseMenuItems: MenuItem[] = [
     group: "operations",
   },
   {
-    label: "TÀI CHÍNH",
-    title: "Tài chính",
-    icon: Landmark,
+    label: "ĐỐI TÁC BÁN LẺ",
+    title: "Đối tác bán lẻ",
+    icon: Handshake,
     group: "operations",
   },
   {
-    label: "MARKETING",
-    title: "Marketing tự động",
-    icon: Megaphone,
+    label: "TÀI CHÍNH",
+    title: "Tài chính",
+    icon: Landmark,
     group: "operations",
   },
   {
@@ -135,44 +161,40 @@ const baseMenuItems: MenuItem[] = [
 const groupTitles: Record<MenuItem["group"], string> = {
   main: "Tổng quan",
   operations: "Vận hành",
+  marketing: "Marketing",
+  subscription: "Gói dịch vụ",
   tools: "Công cụ",
   system: "Hệ thống",
 };
 
-const brandIconPalette: Menu3DIconPalette = {
-  light: "#86DCFF",
-  dark: "#16ACE7",
-  edge: "#087EB8",
-};
-
-const softBrandIconPalette: Menu3DIconPalette = {
-  light: "#AFE7FA",
-  dark: "#56B9DD",
-  edge: "#2587AD",
-};
-
-const menuIconShapes: Partial<Record<TabType, FilledMenu3DIconShape>> = {
-  "TỔNG QUAN": "overview",
-  "NHÂN SỰ": "people",
-  "ĐỐI TÁC": "partners",
-  "KHO & SẢN PHẨM": "warehouse",
-  "SỬA CHỮA & BẢO HÀNH": "repair",
-  "QUẢN LÝ HỌC VIÊN": "student",
-  "QUẢN LÝ LAO ĐỘNG": "work",
-  "QUẢN LÝ KHÁCH HÀNG": "customer",
-  "BÁN LẺ": "retail",
-  "TÀI CHÍNH": "finance",
-  "MARKETING": "marketing",
-  "QUẢN LÝ TÀI NGUYÊN": "folder",
-  "TRÒ CHUYỆN": "chat",
-  "QUẢN TRỊ USER": "shield",
-  "CÀI ĐẶT": "settings",
-  "HƯỚNG DẪN": "guide",
+const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
+  "TỔNG QUAN": ChartBarIcon,
+  "NHÂN SỰ": UsersIcon,
+  "ĐỐI TÁC": UsersThreeIcon,
+  "ĐỐI TÁC LAO ĐỘNG": UsersThreeIcon,
+  "KHO & SẢN PHẨM": CubeIcon,
+  "SỬA CHỮA & BẢO HÀNH": WrenchIcon,
+  "QUẢN LÝ HỌC VIÊN": StudentIcon,
+  "QUẢN LÝ LAO ĐỘNG": BriefcaseIcon,
+  "QUẢN LÝ KHÁCH HÀNG": HeadsetIcon,
+  "BÁN LẺ": ShoppingCartIcon,
+  "ĐỐI TÁC BÁN LẺ": UsersThreeIcon,
+  "TÀI CHÍNH": FileTextIcon,
+  "OMNI INBOX": ChatCircleIcon,
+  "MARKETING": UsersThreeIcon,
+  "KHO TRI THỨC": BookOpenIcon,
+  "TÍCH HỢP MARKETING": GearIcon,
+  "GÓI AI & LƯỢT SỬ DỤNG": SparkleIcon,
+  "QUẢN LÝ TÀI NGUYÊN": FolderIcon,
+  "TRÒ CHUYỆN": ChatCircleIcon,
+  "QUẢN TRỊ USER": ShieldIcon,
+  "CÀI ĐẶT": GearIcon,
 };
 
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
   const { userProfile, hasPermission } = useAuth();
   const [isCollapsedState, setIsCollapsed] = useState(false);
+  const [isMarketingExpanded, setIsMarketingExpanded] = useState(true);
   const isMobile = useIsMobile();
   const isCollapsed = isCollapsedState && !isMobile;
 
@@ -187,12 +209,13 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
   const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules, userProfile?.businessType));
   const menuItems: MenuItem[] = baseMenuItems
     .filter((item) => enabledTabs.has(item.label))
+    .filter((item) => item.label !== "TÍCH HỢP MARKETING" || userProfile?.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key)))
     .map((item) => {
       const requiredPerms = MODULE_READ_PERMISSIONS[item.label];
       const isPartnerAdmin =
-        item.label === "ĐỐI TÁC" &&
+        ["ĐỐI TÁC", "ĐỐI TÁC LAO ĐỘNG"].includes(item.label) &&
         (userProfile?.role === "admin" || userProfile?.role === "superadmin");
-      const locked = requiredPerms
+      const locked = item.label === "GÓI AI & LƯỢT SỬ DỤNG" ? !canViewAiSubscription(userProfile) : requiredPerms
         ? !isPartnerAdmin && !requiredPerms.some((code) => hasPermission(code))
         : false;
       return { ...item, locked };
@@ -215,14 +238,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
     group: "system",
   });
 
-  menuItems.push({
-    label: "HƯỚNG DẪN",
-    title: "Hướng dẫn sử dụng",
-    icon: BookOpen,
-    group: "system",
-  });
-
-  const groups: MenuItem["group"][] = ["main", "operations", "tools", "system"];
+  const groups: MenuItem["group"][] = ["main", "operations", "marketing", "subscription", "tools", "system"];
 
   return (
     <>
@@ -270,20 +286,48 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
 
             return (
               <div key={groupKey} className="space-y-1">
-                {!isCollapsed ? (
+                {groupKey === "marketing" ? (
+                  <button
+                    type="button"
+                    id="sidebar_marketing_group"
+                    aria-expanded={!isCollapsed && isMarketingExpanded}
+                    aria-controls="sidebar_marketing_children"
+                    title={isCollapsed ? "Marketing" : undefined}
+                    onClick={() => {
+                      if (isCollapsed) {
+                        setIsCollapsed(false);
+                        setIsMarketingExpanded(true);
+                      } else setIsMarketingExpanded((current) => !current);
+                    }}
+                    className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 ${isCollapsed ? "justify-center" : "justify-between"} ${itemsInGroup.some((item) => item.label === activeTab) ? "text-slate-900" : "text-slate-600"}`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <MegaphoneIcon
+                        size={24}
+                        weight={itemsInGroup.some((item) => item.label === activeTab) ? "fill" : "regular"}
+                        className="shrink-0 text-[#00ADFC]"
+                      />
+                      {!isCollapsed && <span>Marketing</span>}
+                    </span>
+                    {!isCollapsed && <ChevronDown className={`h-4 w-4 transition-transform ${isMarketingExpanded ? "" : "-rotate-90"}`} />}
+                  </button>
+                ) : !isCollapsed ? (
                   <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     {groupTitles[groupKey]}
                   </p>
                 ) : null}
 
+                <div
+                  id={groupKey === "marketing" ? "sidebar_marketing_children" : undefined}
+                  role={groupKey === "marketing" ? "group" : undefined}
+                  aria-label={groupKey === "marketing" ? "Các chức năng Marketing" : undefined}
+                  className={groupKey === "marketing"
+                    ? isCollapsed || !isMarketingExpanded ? "hidden" : "ml-3 space-y-1 border-l border-slate-200 pl-2"
+                    : "space-y-1"}
+                >
                 {itemsInGroup.map((item) => {
                   const isActive = activeTab === item.label;
-                  const Icon = item.icon;
-                  const iconShape = menuIconShapes[item.label];
-                  const iconPalette = isActive || groupKey === "main" || groupKey === "operations"
-                    ? brandIconPalette
-                    : softBrandIconPalette;
-
+                  const Icon = menuIcons[item.label] ?? item.icon;
                   return (
                     <button
                       key={item.label}
@@ -293,6 +337,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                         onMobileClose();
                       }}
                       aria-disabled={item.locked}
+                      aria-current={isActive ? "page" : undefined}
                       className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] ${
                         item.locked
                           ? "cursor-not-allowed text-slate-300 opacity-60"
@@ -310,11 +355,11 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-                        {iconShape ? (
-                          <FilledMenu3DIcon shape={iconShape} palette={iconPalette} className="h-6 w-6" />
-                        ) : (
-                          <Icon className={`h-5 w-5 shrink-0 transition-colors ${item.locked ? "text-slate-300" : isActive ? "text-[#00ADFC]" : "text-slate-400 group-hover:text-slate-600"}`} />
-                        )}
+                        <Icon
+                          size={24}
+                          weight={isActive ? "fill" : "regular"}
+                          className={`h-6 w-6 shrink-0 transition-colors ${item.locked ? "text-slate-300" : "text-[#00ADFC]"}`}
+                        />
                         {!isCollapsed ? (
                           <span className="truncate">{item.title}</span>
                         ) : null}
@@ -328,6 +373,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                     </button>
                   );
                 })}
+                </div>
               </div>
             );
           })}

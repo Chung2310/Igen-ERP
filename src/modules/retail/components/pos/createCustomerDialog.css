@@ -1,0 +1,6 @@
+.pos-create-customer-dialog :is(input, select):focus,
+.pos-create-customer-dialog :is(input, select):focus-visible {
+  border-color: #0866f5;
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(8 102 245 / 20%);
+}

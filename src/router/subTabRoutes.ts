@@ -10,9 +10,27 @@ export type SettingsSubTabType =
   | "profile"
   | "security"
   | "erp"
-  | "google-drive"
   | "face-recognition"
   | "branches";
+
+export type DashboardSubTabType =
+  | "DOANH_NGHIEP"
+  | "TAI_CHINH"
+  | "BAN_LE"
+  | "NHAN_SU"
+  | "HOC_VIEN"
+  | "LAO_DONG"
+  | "MARKETING";
+
+export const DASHBOARD_SUB_TAB_ROUTES: SubTabRouteMap<DashboardSubTabType> = [
+  { slug: "doanh-nghiep", value: "DOANH_NGHIEP" },
+  { slug: "tai-chinh", value: "TAI_CHINH" },
+  { slug: "ban-le", value: "BAN_LE" },
+  { slug: "nhan-su", value: "NHAN_SU" },
+  { slug: "hoc-vien", value: "HOC_VIEN" },
+  { slug: "lao-dong", value: "LAO_DONG" },
+  { slug: "marketing", value: "MARKETING" },
+];
 
 // Nguồn slug ?sub= duy nhất cho toàn app — các trang và điều hướng toàn cục
 // (handleSearchNavigation) đều dùng chung để không bao giờ lệch nhau.
@@ -20,6 +38,8 @@ export const HR_SUB_TAB_ROUTES: SubTabRouteMap<HRSubTabType> = [
   { slug: "tuyen-dung", value: "TUYỂN DỤNG" },
   { slug: "email-chuc-mung", value: "EMAIL CHÚC MỪNG" as HRSubTabType },
   { slug: "so-do", value: "SƠ ĐỒ TỔ CHỨC" },
+  { slug: "phong-ban", value: "PHÒNG BAN" },
+  { slug: "chi-nhanh", value: "CHI NHÁNH" },
   { slug: "kanban", value: "Giao Việc" },
   { slug: "dao-tao", value: "ĐÀO TẠO" },
   { slug: "quy-trinh", value: "QUY TRÌNH" },
@@ -35,6 +55,8 @@ export const INVENTORY_SUB_TAB_ROUTES: SubTabRouteMap<InventorySubTabType> = [
   { slug: "kho-hang", value: "KHO HÀNG" },
   { slug: "nhap-hang", value: "NHẬP HÀNG" },
   { slug: "xuat-hang", value: "XUẤT HÀNG" },
+  { slug: "dieu-chuyen", value: "ĐIỀU CHUYỂN" },
+  { slug: "doi-soat-ton-kho", value: "GIAO DỊCH KHO" },
   { slug: "giao-dich-kho", value: "GIAO DỊCH KHO" },
   { slug: "du-bao", value: "DỰ BÁO" },
   { slug: "imei-serial", value: "IMEI / SERIAL" },
@@ -42,14 +64,12 @@ export const INVENTORY_SUB_TAB_ROUTES: SubTabRouteMap<InventorySubTabType> = [
 
 export const RESOURCE_SUB_TAB_ROUTES: SubTabRouteMap<ResourceSubTabType> = [
   { slug: "tai-lieu", value: "TÀI LIỆU KHÁC" },
-  { slug: "google-drive", value: "GOOGLE DRIVE" },
 ];
 
 export const SETTINGS_SUB_TAB_ROUTES: SubTabRouteMap<SettingsSubTabType> = [
   { slug: "ho-so", value: "profile" },
   { slug: "bao-mat", value: "security" },
   { slug: "cau-hinh", value: "erp" },
-  { slug: "google-drive", value: "google-drive" },
   { slug: "nhan-dien-khuon-mat", value: "face-recognition" },
   { slug: "chi-nhanh", value: "branches" },
 ];
@@ -70,6 +90,7 @@ export const STUDENT_SUB_TAB_ROUTES: SubTabRouteMap<string> = [
 ];
 
 const SUB_TAB_ROUTES_BY_TAB: Partial<Record<TabType, SubTabRouteMap<string>>> = {
+  "TỔNG QUAN": DASHBOARD_SUB_TAB_ROUTES as SubTabRouteMap<string>,
   "NHÂN SỰ": HR_SUB_TAB_ROUTES,
   "KHO & SẢN PHẨM": INVENTORY_SUB_TAB_ROUTES,
   "QUẢN LÝ TÀI NGUYÊN": RESOURCE_SUB_TAB_ROUTES,

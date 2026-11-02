@@ -173,7 +173,7 @@ beforeEach(() => {
   localStorage.clear();
   mockedAuth.mockReturnValue({ userProfile: { role: "manager", permissions: ["settings:manage"] } } as ReturnType<typeof useAuth>);
   mockedCustomFields.mockReturnValue(customFieldsResult() as ReturnType<typeof useCustomFields>);
-  mockedBatches.mockReturnValue({ batches: [], loading: false, refetch: vi.fn(async () => undefined) } as ReturnType<typeof useBatches>);
+  mockedBatches.mockReturnValue({ batches: [], loading: false, error: '', refetch: vi.fn(async () => undefined) } as ReturnType<typeof useBatches>);
   mockedEntityLabel.mockReturnValue(entityLabel("student"));
   mockedApiFetch.mockImplementation(async (endpoint: string) => endpoint.startsWith("/partners")
     ? { success: true, partners: [] }

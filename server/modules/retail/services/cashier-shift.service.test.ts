@@ -74,10 +74,11 @@ test("legacy shifts without a snapshot expire at the end of their recorded busin
 
 test("opening snapshots an assigned daytime work schedule", () => {
   const snapshot = buildRetailShiftScheduleSnapshot({
+    source: "employee",
     shift: { _id: "work-1", code: "HC", name: "Hành chính", startTime: "08:00", endTime: "17:00", crossesMidnight: false, workingDays: [1, 2, 3, 4, 5] },
   } as any, "2026-08-13", new Date("2026-08-13T03:00:00.000Z"));
   assert.deepEqual(snapshot, {
-    workShiftId: "work-1", workShiftCode: "HC", workShiftName: "Hành chính",
+    workShiftId: "work-1", workShiftCode: "HC", workShiftName: "Hành chính", workShiftSource: "employee", workShiftBusinessDate: "2026-08-13",
     scheduledStartAt: new Date("2026-08-13T01:00:00.000Z"),
     scheduledEndAt: new Date("2026-08-13T10:00:00.000Z"),
     operationalEndsAt: new Date("2026-08-13T16:59:59.999Z"),

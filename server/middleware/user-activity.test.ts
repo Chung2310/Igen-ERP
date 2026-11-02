@@ -26,6 +26,7 @@ test("builds a sanitized activity event for authenticated mutations", () => {
     sourceIp: "203.0.113.7",
     userAgent: "Browser",
     deviceSummary: "Trình duyệt khác trên Thiết bị khác",
+    statusCode: 200,
   });
   assert.equal("body" in (event as any), false);
   assert.equal(JSON.stringify(event).includes("Bearer"), false);
@@ -36,6 +37,8 @@ test("records reads but skips activity queries and unauthenticated requests", ()
   assert.equal(buildUserActivityFromRequest({ ...base, method: "GET" } as any, 200)?.category, "view");
   assert.equal(buildUserActivityFromRequest({ ...base, method: "POST", route: { path: "/users/:userId/activity" } } as any, 200), null);
   assert.equal(buildUserActivityFromRequest({ ...base, method: "POST", user: undefined } as any, 200), null);
+  assert.equal(buildUserActivityFromRequest({ ...base, method: "GET", baseUrl: "/api/v1/super-admin", route: { path: "/activity/events" } } as any, 200), null);
+  assert.equal(buildUserActivityFromRequest({ ...base, method: "GET", baseUrl: "/api/v1/super-admin", route: { path: "/activity/accounts" } } as any, 200), null);
 });
 
 test("categorizes communication and failed security mutations", () => {
@@ -82,4 +85,18 @@ test("batches routine activity writes", async () => {
   await writer.flush();
   assert.equal(batches.length, 1);
   assert.equal(batches[0].length, 2);
+});
+
+test("identifies CRUD resources and stores only safe target identifiers", () => {
+  const event = buildUserActivityFromRequest({
+    method: "PATCH", baseUrl: "/api/v1/crud", route: { path: "/:modelName/:id" },
+    params: { modelName: "products", id: "507f1f77bcf86cd799439011", token: "secret-token" },
+    user: { id: "user-1", companyCode: "ACME" }, get: () => undefined,
+    body: { password: "secret-password" },
+  } as any, 403);
+  assert.equal(event?.actionType, "inventory.update");
+  assert.equal(event?.entityId, "507f1f77bcf86cd799439011");
+  assert.equal(event?.statusCode, 403);
+  assert.equal(event?.result, "failure");
+  assert.equal(JSON.stringify(event).includes("secret"), false);
 });

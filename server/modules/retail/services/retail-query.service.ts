@@ -9,8 +9,12 @@ const pageValues = (query: any) => {
 
 export function buildOrderListQuery(scope: RetailBranchScope, query: any) {
   const filter: any = { ...scope };
-  for (const key of ["status", "paymentStatus", "customerId", "shiftId"]) if (query?.[key]) filter[key] = String(query[key]);
+  for (const key of ["status", "paymentStatus", "customerId", "shiftId"]) {
+    if (!query?.[key]) continue;
+    if (key !== "status" || String(query.status) !== "draft") filter[key] = String(query[key]);
+  }
   if (query?.heldOnly === "true" || query?.heldOnly === true) filter.status = "draft";
+  else if (!query?.status || String(query.status) === "draft") filter.status = { $ne: "draft" };
   if (query?.ownerId) filter.createdBy = String(query.ownerId);
   if (query?.from || query?.to) filter.businessDate = {
     ...(query.from ? { $gte: String(query.from) } : {}),

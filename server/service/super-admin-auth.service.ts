@@ -10,6 +10,7 @@ import { decryptSecret, encryptSecret, hashOpaque } from "../security/crypto";
 import { createTotpSecret, generateRecoveryCodes, verifyTotp } from "../security/totp";
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
 import { auditService } from "./audit.service";
+import { assertAccountUsable } from "../security/account-access";
 
 const CHALLENGE_MS = 5 * 60_000;
 const SESSION_MS = 8 * 60 * 60_000;
@@ -24,6 +25,7 @@ export function createSuperAdminAuthService(deps: any) {
   const getUser = async (challenge: any) => {
     const user = await deps.users.findSecurityUser(challenge.userId);
     if (!user || user.role !== "superadmin") throw new Error("Super Admin account is unavailable");
+    await assertAccountUsable(user);
     user.superAdminSecurity ||= { totpEnabled: false, recoveryCodeHashes: [], failedTotpAttempts: 0 };
     return user;
   };

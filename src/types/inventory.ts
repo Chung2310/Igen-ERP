@@ -1,4 +1,4 @@
-export type InventorySubTabType = "SẢN PHẨM" | "KHO HÀNG" | "NHẬP HÀNG" | "XUẤT HÀNG" | "GIAO DỊCH KHO" | "DỰ BÁO" | "IMEI / SERIAL" | "PHÂN LOẠI SẢN PHẨM" | "DANH MỤC" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
+export type InventorySubTabType = "ĐIỀU CHUYỂN" | "SẢN PHẨM" | "KHO HÀNG" | "NHẬP HÀNG" | "XUẤT HÀNG" | "GIAO DỊCH KHO" | "DỰ BÁO" | "IMEI / SERIAL" | "PHÂN LOẠI SẢN PHẨM" | "DANH MỤC" | "NHẬP / XUẤT KHO" | "DỰ BÁO AI";
 
 export interface ProductItem {
   id: string;
@@ -63,6 +63,7 @@ export interface StockLog {
   createdAt: string;
   notes: string;
   status: "Thành công" | "Đang xử lý" | "Đang chờ" | "Hoàn thành";
+  warehouseId?: string;
 }
 
 export interface InventoryForecastSeriesPoint {

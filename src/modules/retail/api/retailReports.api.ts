@@ -2,7 +2,7 @@ import { parseApiErrorResponse } from "../../../services/apiClientError";
 import { apiFetch, getAccessToken } from "../../shared/lib/apiFetch";
 import type { RetailReport, RetailReportFilters, RetailScope } from "../types";
 
-const DEFAULT_EXPORT_FILENAME = "bao-cao-ban-le.xlsx";
+const DEFAULT_EXPORT_FILENAME = "bao-cao-ban-hang.xlsx";
 
 function reportParams(scope: RetailScope, filters: RetailReportFilters) {
   const params: Record<string, string> = {

@@ -1,0 +1,92 @@
+import { Document } from "mongoose";
+
+export interface IFacebookIntegration {
+  isConnected: boolean;
+  pageId: string;
+  pageName: string;
+  pageAccessToken: string;
+  appSecret?: string;
+  verifyToken?: string;
+  connectedAt?: Date;
+  isMock?: boolean;
+}
+
+export interface ITikTokIntegration {
+  isConnected: boolean;
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiredAt?: Date;
+  clientKey?: string;
+  clientSecret?: string;
+  scopes?: string[];
+  connectedAt?: Date;
+  privacyLevel?: "PUBLIC_TO_EVERYONE" | "MUTUAL_FOLLOW_FRIENDS" | "SELF_ONLY";
+  isMock?: boolean;
+}
+
+export interface IZaloIntegration {
+  isConnected: boolean;
+  oaId: string;
+  oaName: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiredAt: Date;
+  connectedAt?: Date;
+  isMock?: boolean;
+}
+export interface ICanvaIntegration { connected:boolean; accessToken?:string; refreshToken?:string; tokenExpiresAt?:Date; connectedAt?:Date; oauthState?:string; oauthStateExpiresAt?:Date; oauthCodeVerifier?:string; }
+
+export interface IAiAutoReplyConfig {
+  enabled: boolean;
+  commentReplyEnabled?: boolean;
+  imageReplyEnabled?: boolean;
+  autoClassify: boolean;
+  autoCloseDeal: boolean;
+  autoFeedback: boolean;
+  replyDelay: number;
+  customerAddressStyle?: string;
+  advancedInstructions: string;
+  customerServiceScript?: string;
+  customerServiceScriptFileName?: string;
+  trainingKnowledge: string;
+  model?: string;
+  autoFollowUpEnabled?: boolean;
+  followUpDelayHours?: number;
+  followUpPrompt?: string;
+  disabledAt?: string | null;
+}
+
+
+export interface IElevenLabsAccessConfig {
+  apiKey?: string;
+}
+
+export interface IUser extends Document {
+  email: string;
+  password?: string; // Hashed password
+  displayName: string;
+  photoURL?: string;
+  role: string;
+  createdAt: Date;
+  facebookIntegration?: IFacebookIntegration | null;
+  tiktokIntegration?: ITikTokIntegration | null;
+  zaloIntegration?: IZaloIntegration | null;
+  canvaIntegration?: ICanvaIntegration | null;
+  aiAutoReplyConfig?: IAiAutoReplyConfig | null;
+  elevenlabsAccess?: IElevenLabsAccessConfig | null;
+  
+  // Org Chart & SaaS fields
+  jobTitle?: string;
+  department?: string;
+  phone?: string;
+  level?: number;
+  parentId?: string;
+  status?: "online" | "offline";
+  division?: string;
+  companyCode?: string;
+  companyName?: string;
+  permissions?: string[];
+}

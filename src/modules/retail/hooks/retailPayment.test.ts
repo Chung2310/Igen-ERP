@@ -9,9 +9,9 @@ describe("retail payment composer", () => {
     ], { mode: "partial", customerId: "c1", dueDate: "2026-08-20" })).toEqual({ collected: 300_000, due: 200_000, change: 50_000 });
   });
 
-  it("requires exact collection in full mode", () => {
+  it("allows a fully paid walk-in and requires exact collection in full mode", () => {
     expect(buildPaymentSummary(500_000, [{ method: "cash", amount: 500_000 }], { mode: "full", customerId: "c1" })).toEqual({ collected: 500_000, due: 0, change: 0 });
-    expect(() => buildPaymentSummary(500_000, [{ method: "cash", amount: 500_000 }], { mode: "full" })).toThrow("Vui lòng chọn khách hàng trước khi thanh toán.");
+    expect(buildPaymentSummary(500_000, [{ method: "cash", amount: 500_000 }], { mode: "full" })).toEqual({ collected: 500_000, due: 0, change: 0 });
     expect(() => buildPaymentSummary(500_000, [{ method: "cash", amount: 100_000 }], { mode: "full", customerId: "c1" })).toThrow(/đủ/i);
   });
 

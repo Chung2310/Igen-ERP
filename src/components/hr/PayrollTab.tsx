@@ -8,7 +8,11 @@ import { PAYROLL_FORMULA_LIBRARY_ENABLED } from "../../config/payrollFeatureFlag
 import { MonthPicker } from "../common/MonthPicker";
 import { StyledSelect } from "../common/StyledSelect";
 import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
+import { PayrollSalaryAdvanceDialog, type SalaryAdvancePayload } from "./payroll/PayrollSalaryAdvanceDialog";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
+import { PayrollPayslipReviewPanel } from "./payroll/PayrollPayslipReviewPanel";
+import { PayrollComplaintsPanel } from "./payroll/PayrollComplaintsPanel";
+import { PayrollPublicationSchedule } from "./payroll/PayrollPublicationSchedule";
 import { PayrollReopenModal } from "./payroll/PayrollReopenModal";
 import { canMarkPayrollPaid } from "./payroll/payrollPaidAction";
 import { getPayrollProcessingAction, hasActivePolicyForMonth } from "./payroll/payrollProcessingAction";
@@ -28,6 +32,9 @@ import {
 
 type SortDir = "asc" | "desc";
 const formatVnd = (value: number) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(Number(value) || 0);
+const formatKpiPercent = (value: number | null | undefined) => typeof value === "number" && Number.isFinite(value)
+  ? `${value.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%`
+  : "—";
 
 function EmptyState({ icon: Icon, title, hint }: { icon: typeof Inbox; title: string; hint?: string }) {
   return (
@@ -117,10 +124,11 @@ function isPayrollRun(value: unknown): value is {
     && typeof candidate.version === "number";
 }
 
-export default function PayrollTab({ canManage }: { canManage: boolean }) {
+export default function PayrollTab({ canManage, canPublishPayslips = canManage, canExportPayslips = canManage }: { canManage: boolean; canPublishPayslips?: boolean; canExportPayslips?: boolean }) {
   const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [run, setRun] = useState<any>(null);
   const [results, setResults] = useState<any[]>([]);
+  const [kpiPercentByEmployee, setKpiPercentByEmployee] = useState<Record<string, number | null>>({});
   const [adjustments, setAdjustments] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("employeeName");
@@ -151,6 +159,8 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
   const [adjAmount, setAdjAmount] = useState("");
   const [adjReason, setAdjReason] = useState("");
   const [adjSaving, setAdjSaving] = useState(false);
+  const [advanceOpen, setAdvanceOpen] = useState(false);
+  const [advancePrintRecord, setAdvancePrintRecord] = useState<any>(null);
 
   const loadPolicies = async () => { setPoliciesLoaded(false); try { setPayrollPolicies(await payrollService.getPolicies()); } catch { setPayrollPolicies([]); } finally { setPoliciesLoaded(true); } };
   const loadLineOverrides = async () => {
@@ -189,6 +199,25 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     void reload();
     void loadLineOverrides();
   }, [period]);
+  useEffect(() => {
+    if (!canManage) {
+      setKpiPercentByEmployee({});
+      return;
+    }
+    let active = true;
+    setKpiPercentByEmployee({});
+    void payrollService.getMonthlyTaskKpi(period).then((report: any) => {
+      if (!active) return;
+      const rows = Array.isArray(report?.rows) ? report.rows : [];
+      setKpiPercentByEmployee(Object.fromEntries(rows.map((row: any) => [
+        String(row.employeeId),
+        typeof row.percent === "number" && Number.isFinite(row.percent) ? row.percent : null,
+      ])));
+    }).catch(() => {
+      if (active) setKpiPercentByEmployee({});
+    });
+    return () => { active = false; };
+  }, [period, canManage]);
   useEffect(() => { void loadPolicies(); }, []);
   useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); clearLocalOverrideState(); }, [period]);
 
@@ -361,7 +390,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       toast.error(error instanceof Error ? error.message : "Không thể xuất bảng lương");
     }
   };
-  const publishPayslips = () => { if (run?._id) void action(() => payrollService.publishPayslips(String(run._id), run.lines.map((line: any) => line.employeeId)), "Đã publish payslip"); };
+  const publishPayslips = () => { if (run?._id) void action(() => payrollService.publishPayslips(String(run._id)), "Đã phát hành phiếu lương"); };
   const handleCreateAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adjEmployeeId || !adjAmount || !adjReason.trim()) {
@@ -384,6 +413,11 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     } finally {
       setAdjSaving(false);
     }
+  };
+  const createAdvance = async (payload: SalaryAdvancePayload) => {
+    await payrollService.createAdjustment(period, payload);
+    await reload();
+    toast.success("Đã tạo phiếu tạm ứng lương, đang chờ duyệt.");
   };
 
   const persistedOverride = (employeeId: string) => lineOverrides.find((item: any) => String(item.employeeId) === String(employeeId)) ?? {};
@@ -465,7 +499,10 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
       <MonthPicker value={period} onChange={setPeriod} />
     </div>
 
-    {run?._id && effectiveDataAvailable && <div className="rounded-2xl border border-[#DCE7F4] bg-white p-4"><div className="mb-3 text-sm font-normal text-slate-700">Phiếu lương</div><PayrollPayslipsPanel canManage={canManage} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {run?._id && effectiveDataAvailable && <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4"><div className="mb-3 text-sm font-medium text-on-surface">Phiếu lương</div><PayrollPayslipsPanel canManage={canPublishPayslips} canExport={canExportPayslips} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {run?._id && <PayrollPayslipReviewPanel runId={String(run._id)} canManage={canManage} />}
+    {run?._id && <PayrollComplaintsPanel runId={String(run._id)} runVersion={Number(run.version ?? 0)} canManage={canManage && effectiveDataAvailable} hasUnsavedChanges={Object.keys(inputDrafts).length > 0} onChanged={reload} onEdit={(employeeId) => setSearch(employeeId)} />}
+    <PayrollPublicationSchedule canManage={canManage} />
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {PAYROLL_FORMULA_LIBRARY_ENABLED && canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollCustomVariableManager />}
@@ -476,6 +513,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
           <div className="min-w-0 flex-1">
             <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
               <div className="text-sm font-medium text-[#D75C0A]">Chờ duyệt</div>
+              {(run?.status === "draft" || !run) && <button type="button" disabled={!run?.lines?.length && results.length === 0} onClick={() => setAdvanceOpen(true)} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-outline px-3 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><Plus className="size-4" aria-hidden="true" /> Phiếu tạm ứng lương</button>}
               <button
                 onClick={() => {
                   const empId = run?.lines?.[0]?.employeeId || results?.[0]?.employeeId || "";
@@ -490,7 +528,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                 <Plus size={14} /> Điều chỉnh
               </button>
             </div>
-            <PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} />
+            <PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), item.kind === "advance" ? "Đã duyệt tạm ứng; hãy tính lại bảng lương" : "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} onPrintAdvance={(item) => setAdvancePrintRecord(item)} />
           </div>
         </div>
       </div>
@@ -652,11 +690,12 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <th className="border-l border-slate-200 p-3 text-right font-normal text-slate-500">Hoa hồng</th>
                   <SortHeader label="Tổng khấu trừ" sortKey="deductionTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Thực nhận" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
+                  {canManage && <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap">KPI công việc</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredSortedRunRows.length === 0 ? (
-                  <tr><td colSpan={14 + customVariables.length}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={14 + customVariables.length + (canManage ? 1 : 0)}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
                     <td className="sticky left-0 z-10 border-r border-[#DCE7F4] bg-white p-3 text-center font-normal text-slate-700">
@@ -679,6 +718,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                     <td className="border-l border-slate-100 p-3 text-right text-slate-600">{formatVnd(Number(line.commission))}</td>
                     <td className="p-3 text-right font-normal text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{formatVnd(Number(line.deductionTotal))}</span></td>
                     <td className="p-3 text-right font-normal text-slate-900"><span aria-label={`net-${line.employeeId}`}>{formatVnd(Number(line.net))}</span></td>
+                    {canManage && <td className="border-l border-outline-variant p-3 text-right text-on-surface tabular-nums">{formatKpiPercent(kpiPercentByEmployee[String(line.employeeId)])}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -691,6 +731,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                     <td className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.commission ?? 0), 0))}</td>
                     <td className="p-3 text-right text-rose-700">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.deductionTotal, 0))}</td>
                     <td className="p-3 text-right text-slate-900">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0))}</td>
+                    {canManage && <td className="border-l border-outline-variant p-3 text-right text-on-surface-variant tabular-nums">—</td>}
                   </tr>
                 </tfoot>
               )}
@@ -707,13 +748,14 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <th className="p-3 text-center font-normal text-slate-500">Trạng thái công</th>
+                  {canManage && <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap">KPI công việc</th>}
                 </tr>
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={4}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Tính lương" để đồng bộ công và tạo bảng lương.' /></td></tr>
+                  <tr><td colSpan={4 + (canManage ? 1 : 0)}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Tính lương" để đồng bộ công và tạo bảng lương.' /></td></tr>
                 ) : filteredSortedDraftRows.length === 0 ? (
-                  <tr><td colSpan={4}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={4 + (canManage ? 1 : 0)}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : (
                   filteredSortedDraftRows.map((row: any) => (
                     <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
@@ -727,6 +769,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
                           {row.status === "locked" ? "Đã khóa" : "Bản nháp"}
                         </span>
                       </td>
+                      {canManage && <td className="border-l border-outline-variant p-3 text-right text-on-surface tabular-nums">{formatKpiPercent(kpiPercentByEmployee[String(row.employeeId)])}</td>}
                     </tr>
                   ))
                 )}
@@ -831,6 +874,7 @@ export default function PayrollTab({ canManage }: { canManage: boolean }) {
     )}
 
     {/* Modal Tạo Điều Chỉnh */}
+    {(advanceOpen || advancePrintRecord) && <PayrollSalaryAdvanceDialog periodKey={period} employees={(run?.lines?.length ? run.lines : results).map((line: any) => ({ employeeId: String(line.employeeId), employeeName: String(line.employeeName || line.employeeId) }))} record={advancePrintRecord ? { employeeId: advancePrintRecord.employeeId, employeeName: advancePrintRecord.employeeName, kind: "advance", amount: advancePrintRecord.amount, reason: advancePrintRecord.reason, advanceDetails: advancePrintRecord.advanceDetails } : null} onClose={() => { setAdvanceOpen(false); setAdvancePrintRecord(null); }} onSubmit={createAdvance} />}
     {isAdjOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]" onClick={() => setIsAdjOpen(false)}>
         <form onSubmit={handleCreateAdjustment} className="flex w-full max-w-md max-h-[90dvh] flex-col rounded-2xl bg-white p-4 shadow-[0_20px_60px_rgba(13,48,78,0.2)] sm:p-5" onClick={(e) => e.stopPropagation()}>

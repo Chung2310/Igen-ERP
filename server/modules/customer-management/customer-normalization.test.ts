@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatCustomerCode, normalizeCustomerInput, normalizePhone } from "./customer-normalization";
+import { formatCustomerCode, normalizeCustomerInput, normalizePhone, phoneLookupVariants } from "./customer-normalization";
+
+test('customer kind is independent of VAT and keeps business contact information', () => {
+  const business = normalizeCustomerInput({ name: 'Doanh nghiệp', phone: '0901000001', customerKind: 'business', contactName: '  Người liên hệ  ', type: 'regular' });
+  assert.equal(business.customerKind, 'business'); assert.equal(business.contactName, 'Người liên hệ'); assert.equal(business.type, 'regular');
+  assert.equal(normalizeCustomerInput({ name: 'Cá nhân', phone: '0901000002', customerKind: 'individual', type: 'vat' }).customerKind, 'individual');
+  assert.throws(() => normalizeCustomerInput({ name: 'A', phone: '0901', customerKind: 'vat' }), /cá nhân hoặc doanh nghiệp/);
+});
 
 test("normalizes a company-wide customer identity", () => {
   assert.deepEqual(normalizeCustomerInput({
@@ -13,7 +20,7 @@ test("normalizes a company-wide customer identity", () => {
   }), {
     name: "Nguyễn Văn A",
     phone: "+84 901-234-567",
-    normalizedPhone: "84901234567",
+    normalizedPhone: "0901234567",
     email: "a@example.com",
     type: "regular",
     gender: "male",
@@ -53,6 +60,8 @@ test("rejects invalid enum and calendar date values", () => {
 });
 
 test("normalizes phone and formats a permanent customer code", () => {
-  assert.equal(normalizePhone("(+84) 901.234.567"), "84901234567");
+  assert.equal(normalizePhone("(+84) 901.234.567"), "0901234567");
+  assert.equal(normalizePhone("+84 (0) 901.234.567"), "0901234567");
+  assert.deepEqual(phoneLookupVariants("0901234567"), ["0901234567", "84901234567"]);
   assert.equal(formatCustomerCode(" igen ", 12), "KH-IGEN-000012");
 });

@@ -3,6 +3,7 @@ import { Document } from "mongoose";
 export interface IStockLogItem {
   productId: string;
   variantId?: string;
+  trackingMode?: string;
   sku: string;
   productName: string;
   quantity: number;
@@ -15,7 +16,7 @@ export interface IStockLogItem {
 }
 
 export type StockLogPurpose = "bán" | "nội bộ" | "hủy" | "chuyển kho";
-export type StockLogRefType = "retail-order" | "goods-receipt" | "sales-return" | "supplier-return";
+export type StockLogRefType = "retail-order" | "goods-receipt" | "sales-return" | "supplier-return" | "stock-log-reversal";
 
 export interface IStockLog extends Document {
   type: "nhập" | "xuất";
@@ -38,4 +39,13 @@ export interface IStockLog extends Document {
   refType?: StockLogRefType;
   refId?: string;
   idempotencyKey?: string;
+  requestFingerprint?: string;
+  postingFingerprint?: string;
+  reversalOf?: string;
+  reversalId?: string;
+  reversedAt?: Date;
+  createdById?: string;
+  postedById?: string;
+  postedByName?: string;
+  postedAt?: Date;
 }

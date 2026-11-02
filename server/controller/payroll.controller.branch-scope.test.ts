@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   auditDeleteMany: vi.fn(),
   adjustmentCreate: vi.fn(),
   adjustmentFind: vi.fn(),
+  adjustmentFindOne: vi.fn(),
   adjustmentFindOneAndUpdate: vi.fn(),
   adjustmentDeleteMany: vi.fn(),
   resetPayrollPeriod: vi.fn(),
@@ -48,6 +49,7 @@ vi.mock("../model/payroll-adjustment.model", () => ({
   PayrollAdjustmentModel: {
     create: mocks.adjustmentCreate,
     find: mocks.adjustmentFind,
+    findOne: mocks.adjustmentFindOne,
     findOneAndUpdate: mocks.adjustmentFindOneAndUpdate,
     deleteMany: mocks.adjustmentDeleteMany,
   },
@@ -124,6 +126,7 @@ describe("payrollController.createRun branch scope", () => {
     mocks.profileFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
     mocks.dependentFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
     mocks.adjustmentFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
+    mocks.adjustmentFindOne.mockReturnValue({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue(null) }) });
     mocks.periodInputFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
     mocks.customVariableFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
     mocks.lineOverrideFind.mockReturnValue({ lean: vi.fn().mockResolvedValue([]) });
@@ -387,5 +390,19 @@ describe("payrollController.createRun branch scope", () => {
       expect.any(Object),
       { returnDocument: 'after' },
     );
+  });
+
+  it("does not approve a salary advance after the branch payroll run is closed", async () => {
+    mocks.adjustmentFindOne.mockReturnValue({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue({ kind: "advance" }) }) });
+    mocks.payrollFindOne.mockReturnValue(sortedLean({ status: "closed" }).query);
+    const res = response();
+
+    await payrollController.approveAdjustment({
+      ...requestForBranchA,
+      params: { ...requestForBranchA.params, adjustmentId: "advance-a" },
+    }, res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(mocks.adjustmentFindOneAndUpdate).not.toHaveBeenCalled();
   });
 });

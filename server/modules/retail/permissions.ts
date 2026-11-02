@@ -1,4 +1,4 @@
-export const RETAIL_OPERATE_PERMISSION = "retail:manage" as const;
+export const RETAIL_OPERATE_PERMISSION = "pos:manage" as const;
 export const RETAIL_MANAGER_PERMISSION = "retail:manage" as const;
 
 export type RetailCapability = "operate" | "manager";

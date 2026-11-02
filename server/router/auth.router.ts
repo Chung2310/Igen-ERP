@@ -245,12 +245,6 @@ const registerUserSchema = {
     department: Joi.string().optional().allow(""),
     division: Joi.string().optional().allow(""),
     isLeader: Joi.boolean().optional(),
-    heygenAccess: Joi.object({
-      avatarIds: Joi.array().items(Joi.string().allow("")).optional(),
-      avatarId: Joi.string().optional().allow(""),
-      voiceId: Joi.string().optional().allow(""),
-      apiKey: Joi.string().optional().allow(""),
-    }).optional(),
     monthlySalary: Joi.number().min(0).optional(),
     birthDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow("", null),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({
@@ -412,12 +406,6 @@ const updateUserSchema = {
     companyCode: Joi.string().optional().allow(""),
     companyName: Joi.string().optional().allow(""),
     branchId: Joi.string().regex(/^[0-9a-fA-F]{24}$/).optional().allow("", null),
-    heygenAccess: Joi.object({
-      avatarIds: Joi.array().items(Joi.string().allow("")).optional(),
-      avatarId: Joi.string().optional().allow(""),
-      voiceId: Joi.string().optional().allow(""),
-      apiKey: Joi.string().optional().allow(""),
-    }).optional(),
     monthlySalary: Joi.number().min(0).optional(),
     birthDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow("", null),
     phone: Joi.string().pattern(vnPhoneRegex).optional().allow("").messages({

@@ -23,10 +23,21 @@ import { createCompanyAdminUser } from "../utils/company-admin-user";
 import { ensureDefaultPayrollPolicy } from "./payroll-policy-operations.service";
 
 import { getJwtAccessSecret, getJwtRefreshSecret } from "../config/env";
+import { assertAccountUsable, assertPrivilegedSessionCurrent } from "../security/account-access";
 const TELEGRAM_LINK_CODE_TTL_MS = 5 * 60 * 1000;
 export const REGULAR_SESSION_REPLACED_CODE = "SESSION_REPLACED";
 export const REGULAR_SESSION_REPLACED_EVENT = "auth:session-replaced";
 export const REGULAR_SESSION_REPLACED_MESSAGE = "Phiên đăng nhập đã được sử dụng trên thiết bị khác. Vui lòng đăng nhập lại.";
+const ROLE_CHANGED_SESSION_MESSAGE = "Vai trò tài khoản đã thay đổi. Vui lòng đăng nhập lại.";
+
+async function notifyRoleChangedSession(sessionId?: string) {
+  if (!sessionId) return;
+  const { emitToUserSession } = await import("../socket");
+  emitToUserSession(sessionId, REGULAR_SESSION_REPLACED_EVENT, {
+    code: REGULAR_SESSION_REPLACED_CODE,
+    message: ROLE_CHANGED_SESSION_MESSAGE,
+  });
+}
 
 function isSuperAdminRole(role?: string) {
   return role === "superadmin";
@@ -42,21 +53,6 @@ function assertRegularSessionCurrent(user: IUser, sessionId?: string) {
 
 function generateTelegramLinkCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
-
-/**
- * Chặn đăng nhập/làm mới token cho tài khoản bị vô hiệu hoá hoặc thuộc doanh nghiệp không còn active.
- */
-async function assertAccountUsable(user: IUser): Promise<void> {
-  if (user.disabledAt) {
-    throw new Error("Tài khoản của bạn đã bị vô hiệu hoá.");
-  }
-  if (user.companyCode && user.companyCode !== "SYSTEM") {
-    const company = await CompanyModel.findOne({ code: user.companyCode }).select("lifecycleStatus").lean<{ lifecycleStatus?: string } | null>();
-    if (!company || (company.lifecycleStatus && company.lifecycleStatus !== "active")) {
-      throw new Error("Doanh nghiệp của bạn đang tạm ngưng hoạt động.");
-    }
-  }
 }
 
 export const authService = {
@@ -175,13 +171,8 @@ export const authService = {
 
       await assertAccountUsable(user);
 
-      if (isSuperAdminRole(user.role) && decoded.sid) {
-        const session = await SuperAdminSessionModel.findOne({ sessionId: decoded.sid });
-        const now = Date.now();
-        const idleExpired = session?.lastSeenAt && now - new Date(session.lastSeenAt).getTime() > 30 * 60_000;
-        if (!session || session.revokedAt || idleExpired || new Date(session.expiresAt).getTime() <= now || String(session.userId) !== String(user._id)) {
-          throw new Error("Phiên quản trị đặc quyền đã hết hạn hoặc bị thu hồi.");
-        }
+      if (isSuperAdminRole(user.role)) {
+        await assertPrivilegedSessionCurrent(String(user._id), decoded.sid);
       } else {
         assertRegularSessionCurrent(user, decoded.sid);
       }
@@ -655,6 +646,9 @@ export const authService = {
 
     const validBranch = branchId ? await BranchModel.findOne({ _id: branchId, companyCode: finalCompanyCode, isActive: true }).lean() : null;
     if (branchId && !validBranch) throw new Error("Chi nhánh không hợp lệ hoặc không thuộc công ty.");
+    if (role === "pos_cashier" && (finalCompanyCode === "SYSTEM" || !validBranch)) {
+      throw new Error("Nhân viên bán hàng POS cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
+    }
 
     const salaryValue = monthlySalary === undefined || monthlySalary === null || monthlySalary === "" ? undefined : Number(monthlySalary);
     if (salaryValue !== undefined && (!Number.isFinite(salaryValue) || salaryValue < 0)) {
@@ -662,7 +656,7 @@ export const authService = {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const finalDept = department || (role === "admin" ? "Ban Giám Đốc" : (role === "branch_owner" ? "Quản lý chi nhánh" : (role === "manager" ? "Quản lý" : "Nhân sự")));
+    const finalDept = department || (role === "admin" ? "Ban Giám Đốc" : (role === "branch_owner" ? "Quản lý chi nhánh" : (role === "manager" ? "Quản lý" : (role === "pos_cashier" ? "Bán lẻ" : "Nhân sự"))));
     const newUser = new UserModel({
       email: emailLower,
       password: hashedPassword,
@@ -674,10 +668,10 @@ export const authService = {
       parentId: parentId || undefined,
       level: level || (role === "admin" ? 1 : (role === "branch_owner" ? 2 : (role === "manager" ? 3 : 4))),
       department: finalDept,
-      division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "branch_owner" ? "Quản lý chi nhánh" : (role === "manager" ? "Quản lý" : "Nhân sự"))),
+      division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "branch_owner" ? "Quản lý chi nhánh" : (role === "manager" ? "Quản lý" : (role === "pos_cashier" ? "Bán lẻ" : "Nhân sự")))),
       qualification: qualification?.trim() || "",
       monthlySalary: salaryValue,
-      jobTitle: role === "admin" ? "CEO" : (role === "branch_owner" ? "Chủ chi nhánh" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên")),
+      jobTitle: role === "admin" ? "CEO" : (role === "branch_owner" ? "Chủ chi nhánh" : (role === "manager" ? "Quản lý phòng ban" : (role === "pos_cashier" ? "Nhân viên bán hàng POS" : "Nhân viên"))),
       phone: phone || "Chưa cập nhật",
       jobDescriptionLink: jobDescriptionLink || "",
       birthDate: normalizeBirthDate(birthDate) || undefined,
@@ -752,6 +746,17 @@ export const authService = {
       }
     }
 
+    const effectiveRole = updateData.role || user.role;
+    const effectiveCompanyCode = String(updateData.companyCode || user.companyCode || "").toUpperCase();
+    const effectiveBranchId = updateData.branchId !== undefined ? updateData.branchId : user.branchId;
+    if (effectiveRole === "pos_cashier") {
+      if (effectiveCompanyCode === "SYSTEM" || !effectiveBranchId) {
+        throw new Error("Nhân viên bán hàng POS cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
+      }
+      const activeBranch = await BranchModel.findOne({ _id: effectiveBranchId, companyCode: effectiveCompanyCode, isActive: true }).select("_id").lean();
+      if (!activeBranch) throw new Error("Nhân viên bán hàng POS cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
+    }
+
     if (updateData.role && callerRole !== "superadmin") {
       if (callerRole !== "admin") {
         throw new Error("Chỉ Admin hoặc Superadmin mới có quyền thay đổi vai trò của người dùng.");
@@ -786,7 +791,13 @@ export const authService = {
       }
     }
 
-    return await UserModel.findByIdAndUpdate(userId, { $set: updateData }, { returnDocument: 'after' }).select("-password");
+    const roleChanged = Boolean(updateData.role && updateData.role !== user.role);
+    const previousSessionId = roleChanged ? user.activeSessionId : "";
+    const userUpdate: Record<string, any> = { $set: updateData };
+    if (roleChanged) userUpdate.$set.activeSessionId = "";
+    const updatedUser = await UserModel.findByIdAndUpdate(userId, userUpdate, { returnDocument: 'after' }).select("-password");
+    if (roleChanged) await notifyRoleChangedSession(previousSessionId);
+    return updatedUser;
   },
 
   /**
@@ -844,7 +855,23 @@ export const authService = {
         }
       }
 
-      await UserModel.findByIdAndUpdate(id, { $set: data });
+      const effectiveRole = data.role || user.role;
+      const effectiveCompanyCode = String(data.companyCode || user.companyCode || "").toUpperCase();
+      const effectiveBranchId = data.branchId !== undefined ? data.branchId : user.branchId;
+      if (effectiveRole === "pos_cashier") {
+        if (effectiveCompanyCode === "SYSTEM" || !effectiveBranchId) {
+          throw new Error("Nhân viên bán hàng POS cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
+        }
+        const activeBranch = await BranchModel.findOne({ _id: effectiveBranchId, companyCode: effectiveCompanyCode, isActive: true }).select("_id").lean();
+        if (!activeBranch) throw new Error("Nhân viên bán hàng POS cần được gán vào một chi nhánh đang hoạt động của doanh nghiệp.");
+      }
+
+      const roleChanged = Boolean(data.role && data.role !== user.role);
+      const previousSessionId = roleChanged ? user.activeSessionId : "";
+      const userUpdate: Record<string, any> = { $set: data };
+      if (roleChanged) userUpdate.$set.activeSessionId = "";
+      await UserModel.findByIdAndUpdate(id, userUpdate);
+      if (roleChanged) await notifyRoleChangedSession(previousSessionId);
     }
   },
 

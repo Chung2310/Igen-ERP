@@ -1,0 +1,558 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import { UserModel } from "../../../../model/user.model.ts";
+import { CompanyModel } from "../../../../model/company.model.ts";
+import { RolePermissionModel } from "../../../../model/role-permission.model.ts";
+import { TelegramSessionModel } from "../../../../model/telegram-session.model.ts";
+import { TelegramLinkTokenModel } from "../../../../model/telegram-link-token.model.ts";
+import { DEFAULT_ROLE_LEVELS } from "../middleware/auth";
+import { IUser } from "../interface/user.interface.ts";
+import { ICompany } from "../interface/company.interface.ts";
+import { TelegramLinkStatus } from "../interface/telegram-link.interface.ts";
+
+import { getJwtAccessSecret, getJwtRefreshSecret } from "../../../../config/env";
+
+const TELEGRAM_LINK_CODE_TTL_MS = 30 * 60 * 1000;
+
+function generateTelegramLinkCode() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+export const authService = {
+
+
+  normalizeElevenLabsAccess(elevenlabsAccess?: any) {
+    return {
+      apiKey: String(elevenlabsAccess?.apiKey || "").trim(),
+    };
+  },
+
+  /**
+   * Tạo bộ đôi Access Token và Refresh Token
+   */
+  generateTokens(user: IUser) {
+    const payload = {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      companyCode: user.companyCode,
+    };
+
+    const accessToken = jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" });
+    const refreshToken = jwt.sign(payload, getJwtRefreshSecret(), { expiresIn: "7d" });
+
+    return { accessToken, refreshToken };
+  },
+
+  /**
+   * Đăng ký tài khoản người dùng mới
+   */
+  async register(data: any): Promise<IUser> {
+    const emailLower = data.email.toLowerCase().trim();
+    const existingUser = await UserModel.findOne({ email: emailLower });
+    
+    if (existingUser) {
+      throw new Error("Email này đã được đăng ký sử dụng.");
+    }
+
+    let hashedPassword = undefined;
+    if (data.password) {
+      hashedPassword = await bcrypt.hash(data.password, 10);
+    }
+
+    const newUser = new UserModel({
+      ...data,
+      email: emailLower,
+      password: hashedPassword,
+    });
+
+    return await newUser.save();
+  },
+
+  /**
+   * Đăng nhập tài khoản
+   */
+  async login(email: string, password?: string) {
+    const emailLower = email.toLowerCase().trim();
+    const user = await UserModel.findOne({ email: emailLower });
+
+    if (!user) {
+      throw new Error("Tài khoản hoặc mật khẩu không chính xác.");
+    }
+
+    if (user.password && password) {
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        throw new Error("Tài khoản hoặc mật khẩu không chính xác.");
+      }
+    } else if (user.password && !password) {
+      throw new Error("Yêu cầu mật khẩu để đăng nhập.");
+    }
+
+    const tokens = this.generateTokens(user);
+    return { user, ...tokens };
+  },
+
+  /**
+   * Làm mới Access Token từ Refresh Token
+   */
+  async refresh(token: string) {
+    try {
+      const decoded = jwt.verify(token, getJwtRefreshSecret()) as any;
+      const user = await UserModel.findById(decoded.id);
+
+      if (!user) {
+        throw new Error("Không tìm thấy thông tin tài khoản.");
+      }
+
+      const payload = {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        companyCode: user.companyCode,
+      };
+
+      const accessToken = jwt.sign(payload, getJwtAccessSecret(), { expiresIn: "15m" });
+      return { accessToken };
+    } catch (error) {
+      throw new Error("Mã làm mới (Refresh Token) đã hết hạn hoặc không hợp lệ.");
+    }
+  },
+
+  /**
+   * Lấy thông tin tài khoản hiện tại
+   */
+  async getMe(id: string): Promise<IUser | null> {
+    return await UserModel.findById(id).select("-password");
+  },
+
+  async getTelegramLinkStatus(id: string): Promise<TelegramLinkStatus> {
+    const [session, pendingCode] = await Promise.all([
+      TelegramSessionModel.findOne({ userId: id }).lean(),
+      TelegramLinkTokenModel.findOne({ userId: id }).lean(),
+    ]);
+
+    return {
+      linked: !!session,
+      telegramChatId: session?.telegramChatId ?? null,
+      telegramUserId: session?.telegramUserId ?? null,
+      linkedAt: session?.linkedAt ?? null,
+      pendingCode: pendingCode?.code ?? null,
+      pendingCodeExpiresAt: pendingCode?.expiresAt ?? null,
+      botUsername: String(process.env.TELEGRAM_BOT_USERNAME || "").trim(),
+    };
+  },
+
+  async createTelegramLinkCode(id: string): Promise<TelegramLinkStatus> {
+    const user = await UserModel.findById(id).select("email displayName");
+    if (!user) {
+      throw new Error("Không tìm thấy người dùng.");
+    }
+
+    await TelegramLinkTokenModel.deleteMany({ userId: user._id });
+
+    let created = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        created = await TelegramLinkTokenModel.create({
+          userId: user._id,
+          email: user.email,
+          displayName: user.displayName || user.email,
+          code: generateTelegramLinkCode(),
+          expiresAt: new Date(Date.now() + TELEGRAM_LINK_CODE_TTL_MS),
+        });
+        break;
+      } catch (error: any) {
+        if (error?.code !== 11000) {
+          throw error;
+        }
+      }
+    }
+
+    if (!created) {
+      throw new Error("Không thể tạo mã liên kết Telegram. Vui lòng thử lại.");
+    }
+
+    return this.getTelegramLinkStatus(id);
+  },
+
+  async unlinkTelegram(id: string): Promise<TelegramLinkStatus> {
+    await Promise.all([
+      TelegramSessionModel.deleteMany({ userId: id }),
+      TelegramLinkTokenModel.deleteMany({ userId: id }),
+    ]);
+
+    return this.createTelegramLinkCode(id);
+  },
+
+  /**
+   * Cập nhật thông tin tài khoản người dùng
+   */
+  async updateProfile(id: string, updateData: any): Promise<IUser | null> {
+    return await UserModel.findByIdAndUpdate(id, { $set: updateData }, { returnDocument: "after" }).select("-password");
+  },
+
+  /**
+   * Thay đổi mật khẩu người dùng
+   */
+  async changePassword(id: string, newPassword: string): Promise<void> {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await UserModel.findByIdAndUpdate(id, { $set: { password: hashedPassword } });
+  },
+
+  /**
+   * Đăng ký doanh nghiệp mới và tài khoản admin tương ứng
+   */
+  async registerCompanyAndAdmin(data: any): Promise<any> {
+    const { companyName, companyCode, ownerName, ownerEmail, ownerPassword } = data;
+    const normalizedCode = companyCode.toUpperCase().trim();
+    const emailLower = ownerEmail.toLowerCase().trim();
+
+    // 1. Kiểm tra mã doanh nghiệp
+    const existingCompany = await CompanyModel.findOne({ code: normalizedCode });
+    if (existingCompany) {
+      throw new Error(`Mã doanh nghiệp "${normalizedCode}" đã tồn tại trên hệ thống.`);
+    }
+
+    // 2. Kiểm tra email admin
+    const existingUser = await UserModel.findOne({ email: emailLower });
+    if (existingUser) {
+      throw new Error(`Địa chỉ email "${emailLower}" đã được sử dụng cho một tài khoản khác.`);
+    }
+
+    // 3. Tạo doanh nghiệp
+    const newCompany = new CompanyModel({
+      code: normalizedCode,
+      name: companyName.trim(),
+      ownerEmail: emailLower,
+      createdAt: new Date(),
+    });
+    await newCompany.save();
+
+    // 4. Tạo tài khoản admin của doanh nghiệp đó
+    const hashedPassword = await bcrypt.hash(ownerPassword, 10);
+    const adminUser = new UserModel({
+      email: emailLower,
+      password: hashedPassword,
+      displayName: ownerName.trim(),
+      role: "admin",
+      createdAt: new Date(),
+      companyCode: normalizedCode,
+      companyName: companyName.trim(),
+      jobTitle: "CEO",
+      department: "Ban Giám Đốc",
+      division: "Ban Giám Đốc",
+      level: 1,
+      status: "offline",
+      photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(ownerName.trim())}&background=random&color=fff`
+    });
+
+    await adminUser.save();
+    return { company: newCompany, admin: adminUser };
+  },
+
+  /**
+   * Lấy danh sách người dùng theo bộ lọc, tự động seed cấu trúc sơ đồ mẫu nếu doanh nghiệp mới trống
+   */
+  async getUsers(filter: { companyCode?: string } = {}): Promise<IUser[]> {
+    return await UserModel.find(filter).select("-password").sort({ createdAt: -1 });
+  },
+
+  /**
+   * Lấy danh sách tất cả doanh nghiệp
+   */
+  async getAllCompanies(): Promise<ICompany[]> {
+    return await CompanyModel.find({}).sort({ createdAt: -1 });
+  },
+
+  /**
+   * Cập nhật thông tin doanh nghiệp (Superadmin only)
+   */
+  async updateCompany(companyId: string, updateData: { name?: string; code?: string; ownerEmail?: string;  }): Promise<ICompany> {
+    const company = await CompanyModel.findById(companyId);
+    if (!company) {
+      throw new Error("Không tìm thấy doanh nghiệp trên hệ thống.");
+    }
+
+    const oldCode = company.code;
+    const oldName = company.name;
+
+    const newCode = updateData.code ? updateData.code.toUpperCase().trim() : undefined;
+    const newName = updateData.name ? updateData.name.trim() : undefined;
+    const newOwnerEmail = updateData.ownerEmail ? updateData.ownerEmail.toLowerCase().trim() : undefined;
+
+    // 1. Nếu có thay đổi mã doanh nghiệp, kiểm tra tính duy nhất
+    if (newCode && newCode !== oldCode) {
+      const existingCompany = await CompanyModel.findOne({ code: newCode });
+      if (existingCompany) {
+        throw new Error(`Mã doanh nghiệp "${newCode}" đã tồn tại trên hệ thống.`);
+      }
+    }
+
+    // 2. Cập nhật cơ sở dữ liệu cascade nếu thay đổi mã hoặc tên doanh nghiệp
+    if ((newCode && newCode !== oldCode) || (newName && newName !== oldName)) {
+      const codeToUse = newCode || oldCode;
+      const nameToUse = newName || oldName;
+
+      // Cập nhật Users
+      if (newCode && newCode !== oldCode) {
+        await UserModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode, companyName: nameToUse } });
+      } else if (newName && newName !== oldName) {
+        await UserModel.updateMany({ companyCode: oldCode }, { $set: { companyName: newName } });
+      }
+
+      // Nếu thay đổi code, cập nhật tất cả các collection khác
+      if (newCode && newCode !== oldCode) {
+        const { SocialIntegrationModel } = require("../model/social-integration.model.ts");
+        const { ProductModel } = require("../../../../model/product.model.ts");
+        const { MarketingContentModel } = require("../../campaign/model/marketing-content.model.ts");
+        const { CrmTicketModel } = require("../../message/model/crm-ticket.model.ts");
+        const { CategoryModel } = require("../../../../model/category.model.ts");
+        const { AIReplyLogModel } = require("../../message/model/ai-reply-log.model.ts");
+        const { AIKnowledgeDocumentModel, AIKnowledgeChunkModel } = require("../../knowledge/model/ai-knowledge.model.ts");
+
+        await Promise.all([
+          SocialIntegrationModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          ProductModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          MarketingContentModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          CrmTicketModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          CategoryModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          AIReplyLogModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          AIKnowledgeDocumentModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          AIKnowledgeChunkModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } }),
+          RolePermissionModel.updateMany({ companyCode: oldCode }, { $set: { companyCode: newCode } })
+        ]);
+      }
+    }
+
+    // 3. Thực hiện lưu thông tin doanh nghiệp
+    if (newName !== undefined) company.name = newName;
+    if (newCode !== undefined) company.code = newCode;
+    if (newOwnerEmail !== undefined) company.ownerEmail = newOwnerEmail;
+
+    return await company.save();
+  },
+
+
+
+
+
+  /**
+   * Đăng ký người dùng mới cho doanh nghiệp
+   */
+  async registerUserForCompany(data: any, callerCompanyCode?: string, callerRole?: string): Promise<IUser> {
+    const {
+      displayName,
+      email,
+      password,
+      role,
+      companyCode,
+      companyName,
+      parentId,
+      level,
+      department,
+      division,
+      phone,
+      elevenlabsAccess,
+    } = data;
+
+    const finalCompanyCode = companyCode?.toUpperCase().trim() || "SYSTEM";
+    const emailLower = email.toLowerCase().trim();
+    const existingUser = await UserModel.findOne({ email: emailLower });
+    if (existingUser) {
+      throw new Error(`Địa chỉ email "${emailLower}" đã được sử dụng cho một tài khoản khác.`);
+    }
+
+    // 1. Xác thực vai trò có tồn tại/hợp lệ
+    let targetRoleLevel = DEFAULT_ROLE_LEVELS[role];
+    if (targetRoleLevel === undefined) {
+      const rolePerm = await RolePermissionModel.findOne({
+        companyCode: finalCompanyCode,
+        role,
+      });
+      if (!rolePerm) {
+        throw new Error(`Vai trò "${role}" không tồn tại hoặc chưa được thiết lập phân quyền cho doanh nghiệp.`);
+      }
+      targetRoleLevel = rolePerm.level;
+    }
+
+    // 2. Kiểm tra phân cấp cấp bậc (Hierarchy Level Check) của người gán
+    if (callerRole && callerRole !== "superadmin") {
+      const callerRolePerm = await RolePermissionModel.findOne({
+        companyCode: callerCompanyCode,
+        role: callerRole,
+      });
+      const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
+
+      if (targetRoleLevel < callerLevel) {
+        throw new Error(`Bạn không thể gán vai trò có cấp bậc (${targetRoleLevel}) cao hơn cấp bậc của bạn (${callerLevel}).`);
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new UserModel({
+      email: emailLower,
+      password: hashedPassword,
+      displayName: displayName.trim(),
+      role,
+      companyCode: finalCompanyCode,
+      companyName: companyName?.trim(),
+      parentId: parentId || undefined,
+      level: level || (role === "admin" ? 1 : (role === "manager" ? 3 : targetRoleLevel)),
+      department: department || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
+      division: division || (role === "admin" ? "Ban Giám Đốc" : (role === "manager" ? "Quản lý" : "Nhân sự")),
+      jobTitle: role === "admin" ? "CEO" : (role === "manager" ? "Quản lý phòng ban" : "Nhân viên"),
+      phone: phone || "Chưa cập nhật",
+      elevenlabsAccess: this.normalizeElevenLabsAccess(elevenlabsAccess),
+      createdAt: new Date(),
+      status: "offline",
+      photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName.trim())}&background=random&color=fff`
+    });
+
+    return await newUser.save();
+  },
+
+  /**
+   * Cập nhật thông tin chi tiết một nhân sự (Admin/Superadmin)
+   */
+  async updateUser(userId: string, updateData: any, callerCompanyCode: string, callerRole: string): Promise<IUser | null> {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new Error("Không tìm thấy người dùng");
+    }
+
+    if (callerRole !== "superadmin") {
+      delete updateData.companyCode;
+      delete updateData.companyName;
+      if (user.companyCode !== callerCompanyCode) {
+        throw new Error("Bạn không có quyền chỉnh sửa nhân sự của doanh nghiệp khác.");
+      }
+      if (user.role === "superadmin") {
+        throw new Error("Không thể chỉnh sửa tài khoản Superadmin.");
+      }
+    }
+
+    if (updateData.role && callerRole !== "superadmin") {
+      const callerRolePerm = await RolePermissionModel.findOne({ companyCode: callerCompanyCode, role: callerRole });
+      const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
+
+      let targetLevel = DEFAULT_ROLE_LEVELS[updateData.role];
+      if (targetLevel === undefined) {
+        const targetRolePerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: updateData.role });
+        if (!targetRolePerm) {
+          throw new Error(`Vai trò "${updateData.role}" không tồn tại hoặc chưa được thiết lập cho doanh nghiệp này.`);
+        }
+        targetLevel = targetRolePerm.level;
+      }
+
+      if (targetLevel < callerLevel) {
+        throw new Error("Bạn không thể gán vai trò có cấp bậc cao hơn cấp bậc của bạn.");
+      }
+
+      let currentTargetLevel = DEFAULT_ROLE_LEVELS[user.role];
+      if (currentTargetLevel === undefined) {
+        const currentTargetPerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: user.role });
+        currentTargetLevel = currentTargetPerm ? currentTargetPerm.level : 4;
+      }
+
+      if (currentTargetLevel < callerLevel) {
+        throw new Error("Bạn không có quyền chỉnh sửa tài khoản có vai trò cấp trên.");
+      }
+    }
+
+    if (updateData.elevenlabsAccess) {
+      updateData.elevenlabsAccess = this.normalizeElevenLabsAccess(updateData.elevenlabsAccess);
+    }
+
+    return await UserModel.findByIdAndUpdate(userId, { $set: updateData }, { returnDocument: "after" }).select("-password");
+  },
+
+  /**
+   * Cập nhật hàng loạt thông tin nhân sự (ví dụ: kéo thả thay đổi sơ đồ)
+   */
+  async bulkUpdateUsers(updates: any[], callerCompanyCode: string, callerRole: string): Promise<void> {
+    for (const update of updates) {
+      const { id, ...data } = update;
+      const user = await UserModel.findById(id);
+      if (!user) continue;
+
+      if (callerRole !== "superadmin") {
+        delete data.companyCode;
+        delete data.companyName;
+        if (user.companyCode !== callerCompanyCode) {
+          throw new Error("Bạn không có quyền chỉnh sửa nhân sự của doanh nghiệp khác.");
+        }
+        if (user.role === "superadmin") {
+          throw new Error("Không thể chỉnh sửa tài khoản Superadmin.");
+        }
+      }
+
+      if (data.role && callerRole !== "superadmin") {
+        const callerRolePerm = await RolePermissionModel.findOne({ companyCode: callerCompanyCode, role: callerRole });
+        const callerLevel = callerRolePerm ? callerRolePerm.level : (DEFAULT_ROLE_LEVELS[callerRole] || 4);
+
+        let targetLevel = DEFAULT_ROLE_LEVELS[data.role];
+        if (targetLevel === undefined) {
+          const targetRolePerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: data.role });
+          if (!targetRolePerm) {
+            throw new Error(`Vai trò "${data.role}" không tồn tại hoặc chưa được thiết lập cho doanh nghiệp này.`);
+          }
+          targetLevel = targetRolePerm.level;
+        }
+
+        if (targetLevel < callerLevel) {
+          throw new Error("Bạn không thể gán vai trò có cấp bậc cao hơn cấp bậc của bạn.");
+        }
+
+        let currentTargetLevel = DEFAULT_ROLE_LEVELS[user.role];
+        if (currentTargetLevel === undefined) {
+          const currentTargetPerm = await RolePermissionModel.findOne({ companyCode: user.companyCode, role: user.role });
+          currentTargetLevel = currentTargetPerm ? currentTargetPerm.level : 4;
+        }
+
+        if (currentTargetLevel < callerLevel) {
+          throw new Error("Bạn không có quyền chỉnh sửa tài khoản có vai trò cấp trên.");
+        }
+      }
+
+      await UserModel.findByIdAndUpdate(id, { $set: data });
+    }
+  },
+
+  /**
+   * Xóa nhân sự và điều chuyển cấp dưới trực thuộc
+   */
+  async deleteUser(userId: string, callerCompanyCode: string, callerRole: string): Promise<void> {
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new Error("Không tìm thấy người dùng");
+    }
+
+    if (callerRole !== "superadmin") {
+      if (user.companyCode !== callerCompanyCode) {
+        throw new Error("Bạn không có quyền xóa nhân sự của doanh nghiệp khác.");
+      }
+      if (user.role === "superadmin" || user.role === "admin") {
+        throw new Error("Không thể xóa tài khoản Quản trị viên.");
+      }
+    }
+
+    const parentId = user.parentId || null;
+    let parentLevel = 1;
+    if (parentId) {
+      const parentUser = await UserModel.findById(parentId);
+      parentLevel = parentUser?.level || 1;
+    }
+
+    // Cập nhật tất cả cấp dưới trực thuộc của nhân sự bị xóa
+    const children = await UserModel.find({ parentId: userId });
+    for (const child of children) {
+      child.parentId = parentId || undefined;
+      child.level = parentLevel + 1;
+      await child.save();
+    }
+
+    await UserModel.findByIdAndDelete(userId);
+  }
+};

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { PartnerController } from "../controllers/partner.controller";
-import { authMiddleware } from "../middlewares/auth.middleware";
+import { partnerAuthMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { createPartnerSchema, updatePartnerSchema, createPayoutSchema, createCommissionLevelSchema } from "../validations/partner.validation";
 import { idParamSchema } from "../validations/student.validation";
@@ -9,7 +9,7 @@ import { requirePermission } from "../../../middleware/auth";
 const router = Router();
 const requireManage = requirePermission("relationship:manage") as any;
 
-router.use(authMiddleware);
+router.use(partnerAuthMiddleware);
 
 router.get("/commission-levels", PartnerController.getCommissionLevels);
 router.post("/commission-levels", requireManage, validate(createCommissionLevelSchema), PartnerController.createCommissionLevel);

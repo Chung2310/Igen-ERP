@@ -16,6 +16,7 @@ import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { AttendancePeriodResultModel } from "../model/attendance-period-result.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { TimekeepingAdjustmentAuditModel } from "../model/timekeeping-adjustment-audit.model";
+import { BranchModel } from "../model/branch.model";
 
 /**
  * Chuyển lỗi Mongo duplicate key (E11000) thành lỗi 409 dễ hiểu thay vì để lọt
@@ -213,6 +214,14 @@ export const crudController = {
     try {
       const modelName = req.params.modelName as SupportedModelName;
       const companyCode = req.user?.companyCode || "SYSTEM";
+      let branchId = req.user?.branchId;
+
+      if (["products", "categories", "stock-logs"].includes(modelName) && !branchId && ["admin", "superadmin"].includes(String(req.user?.role || ""))) {
+        branchId = String(req.body?.branchId || "").trim();
+        if (!branchId) throw Object.assign(new Error("Hãy nêu tên chi nhánh để tạo dữ liệu kho."), { statusCode: 400 });
+        const branch = await BranchModel.findOne({ _id: branchId, companyCode, isActive: true }).select("_id").lean();
+        if (!branch) throw Object.assign(new Error("Không tìm thấy chi nhánh đang hoạt động trong công ty."), { statusCode: 400 });
+      }
 
       console.log(`[crudController.create] modelName=${modelName} body:`, req.body);
 
@@ -311,10 +320,10 @@ export const crudController = {
         req.body.status = "pending";
       }
 
-      const item = await crudService.create(modelName, req.body, companyCode, req.user?.branchId);
+      const item = await crudService.create(modelName, req.body, companyCode, branchId, { actor: { id: req.user!.id, name: req.user?.displayName || req.user!.email } });
       await crudResourceFinalizationService.finalize(modelName, { ...req.body, ...item }, {
         companyCode,
-        branchId: req.user?.branchId,
+        branchId,
         actorId: req.user?.id || "",
         actorName: req.user?.email,
       });
@@ -466,6 +475,13 @@ export const crudController = {
               message: "Người tạo đơn không được phép tự duyệt.",
             });
           }
+        } else if (event && !(await canManageTimekeeping(req))) {
+          if (String(event.creatorId) !== String(req.user?.id)) {
+            return res.status(403).json({
+              status: "error",
+              message: "Bạn chỉ có thể chỉnh sửa lịch do chính mình tạo.",
+            });
+          }
         }
       }
 
@@ -517,7 +533,7 @@ export const crudController = {
         }
       }
 
-      const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole, req.user?.branchId);
+      const item = await crudService.update(modelName as SupportedModelName, id, req.body, companyCode, userRole, req.user?.branchId, { actor: { id: req.user!.id, name: req.user?.displayName || req.user!.email } });
       await crudResourceFinalizationService.finalize(modelName, { ...req.body, ...item, _id: (item as any)?._id || id }, {
         companyCode,
         branchId: req.user?.branchId,
@@ -628,6 +644,13 @@ export const crudController = {
             return res.status(403).json({
               status: "error",
               message: "Chỉ quản lý và admin mới có quyền xóa đơn nghỉ phép / làm tại nhà / ngoại lệ.",
+            });
+          }
+        } else if (event && !(await canManageTimekeeping(req))) {
+          if (String(event.creatorId) !== String(req.user?.id)) {
+            return res.status(403).json({
+              status: "error",
+              message: "Bạn chỉ có thể xóa lịch do chính mình tạo.",
             });
           }
         }

@@ -1,145 +1,96 @@
 // @vitest-environment jsdom
 import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { retailShiftsApi } from "../api/retailShifts.api";
 import RetailShiftsPage from "./RetailShiftsPage";
 
-vi.mock("../hooks/useRetailScope", () => ({
-  useRetailScope: () => ({
-    scope: { companyCode: "ACME", branchId: "B1" },
-    userProfile: { uid: "user-1", permissions: ["retail:manage"] },
-  }),
-}));
-
-vi.mock("../api/retailShifts.api", () => ({
-  retailShiftsApi: {
-    current: vi.fn(),
-    list: vi.fn(),
-    open: vi.fn(),
-    movement: vi.fn(),
-    close: vi.fn(),
-    approve: vi.fn(),
-  },
-}));
+vi.mock("../hooks/useRetailScope", () => ({ useRetailScope: () => ({
+  scope: { companyCode: "ACME", branchId: "B1" },
+  userProfile: { uid: "manager-1", permissions: ["retail:manage"] },
+}) }));
+vi.mock("../../../services/socketService", () => ({ socketService: { on: () => vi.fn(), onStatusChange: () => vi.fn() } }));
+vi.mock("../api/retailShifts.api", () => ({ retailShiftsApi: { cashiers: vi.fn(), list: vi.fn(), open: vi.fn(), close: vi.fn() } }));
+vi.mock("./RetailShiftDetailDialog", () => ({ default: () => null }));
 
 const openShift = {
-  _id: "shift-1",
-  shiftCode: "CA-1",
-  cashierId: "user-1",
-  cashierName: "Thu ngân",
-  openingFloat: 500_000,
-  businessDate: "2026-08-13",
-  openedAt: "2026-08-13T01:00:00.000Z",
-  operationalEndsAt: "2026-08-13T16:59:59.999Z",
-  status: "open" as const,
+  _id: "shift-1", shiftCode: "CA-1", cashierId: "cashier-1", cashierName: "Thu ngân",
+  openingFloat: 500_000, businessDate: "2026-08-13", status: "open" as const,
 };
-
-const closedShift = {
-  ...openShift,
-  status: "closed" as const,
-  closedAt: "2026-08-13T10:00:00.000Z",
-  collectedAmount: 1_200_000,
-  refundedAmount: 100_000,
-  netCollectedAmount: 1_100_000,
-  methodTotals: [{ method: "cash" as const, collectedAmount: 900_000, refundedAmount: 50_000 }],
-  expectedCash: 1_350_000,
-  countedCash: 1_300_000,
-  varianceAmount: -50_000,
-  varianceReason: "Rút tiền nộp két chính",
-};
-
 afterEach(cleanup);
-
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(retailShiftsApi.list).mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
+  localStorage.clear();
+  vi.mocked(retailShiftsApi.cashiers).mockResolvedValue([{ id: "cashier-1", name: "Thu ngân" }]);
+  vi.mocked(retailShiftsApi.list).mockResolvedValue({ items: [openShift], total: 1, page: 1, limit: 20 });
+  vi.mocked(retailShiftsApi.open).mockResolvedValue(openShift);
+  vi.mocked(retailShiftsApi.close).mockResolvedValue({ ...openShift, status: "closed" });
 });
 
-describe("RetailShiftsPage currency inputs", () => {
-  it("accepts zero opening cash", async () => {
-    vi.mocked(retailShiftsApi.current).mockResolvedValue(null);
-    vi.mocked(retailShiftsApi.open).mockResolvedValue(openShift);
-    render(<RetailShiftsPage />);
+async function openCloseDialog() {
+  render(<RetailShiftsPage />);
+  await userEvent.click(await screen.findByRole("button", { name: "Đóng phiên" }));
+  return screen.getByRole("dialog", { name: "Đóng phiên POS" });
+}
 
-    const input = await screen.findByRole("textbox", { name: "Tiền đầu ca" }) as HTMLInputElement;
-    const button = screen.getByRole("button", { name: "Mở ca" }) as HTMLButtonElement;
-    expect(input.value).toBe("");
-    expect(button.disabled).toBe(false);
-    fireEvent.click(button);
+describe("RetailShiftsPage POS sessions", () => {
+  it("opens an assigned cashier session with zero opening cash", async () => {
+    render(<RetailShiftsPage />);
+    await userEvent.click(screen.getByRole("button", { name: "Nhân viên bán hàng" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Thu ngân" }));
+    await userEvent.click(screen.getByRole("button", { name: "Mở phiên" }));
     await waitFor(() => expect(retailShiftsApi.open).toHaveBeenCalledWith(
-      { companyCode: "ACME", branchId: "B1" },
-      { openingFloat: 0, terminalId: undefined },
+      { companyCode: "ACME", branchId: "B1" }, { cashierId: "cashier-1", openingFloat: 0 },
     ));
   });
 
-  it("keeps formatted counted cash without movement or approval controls", async () => {
-    vi.mocked(retailShiftsApi.current).mockResolvedValue(openShift);
-    render(<RetailShiftsPage />);
-
-    const countedInput = await screen.findByRole("textbox", { name: "Tiền thực đếm" }) as HTMLInputElement;
-
-    fireEvent.change(countedInput, { target: { value: "1.500.000 ₫" } });
-    expect(countedInput.value).toBe("1.500.000");
-    expect(screen.queryByText("Thu/rút tiền trong ca")).toBeNull();
-    expect(screen.queryByText("Ca chờ duyệt")).toBeNull();
+  it("sends formatted counted cash and a variance reason when closing", async () => {
+    await openCloseDialog();
+    fireEvent.change(screen.getByRole("textbox", { name: "Tiền mặt thực đếm" }), { target: { value: "1.300.000" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /Lý do chênh lệch/ }), { target: { value: "Rút tiền nộp két chính" } });
+    await userEvent.click(screen.getByRole("button", { name: "Xác nhận đóng phiên" }));
+    await waitFor(() => expect(retailShiftsApi.close).toHaveBeenCalledWith(
+      { companyCode: "ACME", branchId: "B1" }, "shift-1", { countedCash: 1_300_000, varianceReason: "Rút tiền nộp két chính" },
+    ));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("shows the completed closing result until the cashier starts a new shift", async () => {
-    vi.mocked(retailShiftsApi.current).mockResolvedValue(openShift);
-    vi.mocked(retailShiftsApi.close).mockResolvedValue(closedShift);
-    render(<RetailShiftsPage />);
-
-    fireEvent.change(await screen.findByRole("textbox", { name: "Tiền thực đếm" }), { target: { value: "1.300.000" } });
-    fireEvent.change(screen.getByRole("textbox", { name: "Lý do chênh lệch (nếu có)" }), { target: { value: "Rút tiền nộp két chính" } });
-    fireEvent.click(screen.getByRole("button", { name: "Gửi kiểm đếm và đóng ca" }));
-
-    expect(await screen.findByRole("heading", { name: "Kết quả đóng ca" })).toBeTruthy();
-    expect(screen.getByText("1.350.000 ₫")).toBeTruthy();
-    expect(screen.getByText("1.300.000 ₫")).toBeTruthy();
-    expect(screen.getByText("-50.000 ₫")).toBeTruthy();
-    expect(screen.getByText("Rút tiền nộp két chính")).toBeTruthy();
-    expect(retailShiftsApi.current).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByRole("button", { name: "Mở ca mới" }));
-    expect(screen.getByRole("heading", { name: "Mở ca mới" })).toBeTruthy();
+  it("can defer counting when closing a session", async () => {
+    await openCloseDialog();
+    await userEvent.click(screen.getByRole("checkbox", { name: /Chỉ đóng phiên/ }));
+    expect(screen.queryByRole("textbox", { name: "Tiền mặt thực đếm" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Xác nhận đóng phiên" }));
+    await waitFor(() => expect(retailShiftsApi.close).toHaveBeenCalledWith(
+      { companyCode: "ACME", branchId: "B1" }, "shift-1", { countedCash: undefined, varianceReason: undefined },
+    ));
   });
 
-  it("preserves the blind count and focuses the reason after a variance error", async () => {
-    vi.mocked(retailShiftsApi.current).mockResolvedValue(openShift);
-    vi.mocked(retailShiftsApi.close).mockRejectedValue(new Error("Vui lòng nhập lý do chênh lệch ca."));
-    render(<RetailShiftsPage />);
-
-    const counted = await screen.findByRole("textbox", { name: "Tiền thực đếm" }) as HTMLInputElement;
+  it("preserves the count so a rejected close can be corrected", async () => {
+    vi.mocked(retailShiftsApi.close).mockRejectedValueOnce(new Error("Vui lòng nhập lý do chênh lệch ca."));
+    await openCloseDialog();
+    const counted = screen.getByRole("textbox", { name: "Tiền mặt thực đếm" }) as HTMLInputElement;
     fireEvent.change(counted, { target: { value: "1.300.000" } });
-    fireEvent.click(screen.getByRole("button", { name: "Gửi kiểm đếm và đóng ca" }));
-
-    const reason = await screen.findByRole("textbox", { name: "Lý do chênh lệch (nếu có)" }) as HTMLInputElement;
-    await waitFor(() => expect(document.activeElement).toBe(reason));
+    await userEvent.click(screen.getByRole("button", { name: "Xác nhận đóng phiên" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Vui lòng nhập lý do chênh lệch ca.");
     expect(counted.value).toBe("1.300.000");
+    expect(screen.getByRole("dialog", { name: "Đóng phiên POS" })).toBeTruthy();
   });
 
-  it("marks an expired shift but still allows closing it", async () => {
-    vi.mocked(retailShiftsApi.current).mockResolvedValue({ ...openShift, operationalEndsAt: "2020-01-01T00:00:00.000Z" });
-    render(<RetailShiftsPage />);
-    expect(await screen.findByText("Ca đã hết thời gian hoạt động")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Gửi kiểm đếm và đóng ca" })).toBeTruthy();
+  it("allows closing an expired open session", async () => {
+    vi.mocked(retailShiftsApi.list).mockResolvedValue({ items: [{ ...openShift, operationalEndsAt: "2020-01-01T00:00:00.000Z" }], total: 1, page: 1, limit: 20 });
+    await openCloseDialog();
+    await userEvent.click(screen.getByRole("button", { name: "Xác nhận đóng phiên" }));
+    await waitFor(() => expect(retailShiftsApi.close).toHaveBeenCalledOnce());
   });
 
-  it("loads read-only history and forwards filters", async () => {
-    vi.mocked(retailShiftsApi.current).mockResolvedValue(null);
-    vi.mocked(retailShiftsApi.list).mockResolvedValue({ items: [closedShift], total: 1, page: 1, limit: 20 });
+  it("forwards the selected date range to session history", async () => {
     render(<RetailShiftsPage />);
-
-    expect(await screen.findByRole("heading", { name: "Lịch sử ca" })).toBeTruthy();
-    expect(await screen.findByText("CA-1")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /duyệt|sửa|mở lại/i })).toBeNull();
-
-    fireEvent.change(screen.getByLabelText("Ngày kinh doanh"), { target: { value: "2026-08-13" } });
-    fireEvent.change(screen.getByLabelText("Trạng thái ca"), { target: { value: "closed" } });
+    await screen.findByText("Thu ngân");
+    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2026-08-12" } });
+    fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "2026-08-13" } });
     await waitFor(() => expect(retailShiftsApi.list).toHaveBeenLastCalledWith(
-      { companyCode: "ACME", branchId: "B1" },
-      expect.objectContaining({ businessDate: "2026-08-13", status: "closed", page: 1, limit: 20 }),
+      { companyCode: "ACME", branchId: "B1" }, expect.objectContaining({ from: "2026-08-12", to: "2026-08-13", page: 1, limit: 20 }),
     ));
   });
 });

@@ -167,7 +167,7 @@ export const authController = {
       const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
       if (!refreshToken) {
-        return res.status(400).json({
+        return res.status(401).json({
           status: "error",
           message: "Yêu cầu mã làm mới (Refresh Token).",
         });
@@ -246,13 +246,14 @@ export const authController = {
       // console.log(`[Auth getMe] Trả về profile cho user ${user.email}. FBConnected=${user.facebookIntegration?.isConnected}, FBPageId=${user.facebookIntegration?.pageId}`);
       const userObj = user.toObject();
       const company = userObj.companyCode && userObj.companyCode !== "SYSTEM"
-        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("enabledModules businessType driveOAuth driveFolderId").lean()
+        ? await CompanyModel.findOne({ code: userObj.companyCode }).select("enabledModules businessType serviceSubscription driveOAuth driveFolderId").lean()
         : null;
       const legacyEntityPreset = company && !company.businessType
         ? (await ModuleSettings.findOne({ tenantId: userObj.companyCode }).select("entityPreset").lean())?.entityPreset
         : undefined;
       userObj.businessType = company?.businessType ?? "general";
-      userObj.enabledModules = resolveProfileEnabledModules(company?.enabledModules, company?.businessType, legacyEntityPreset);
+      userObj.enabledModules = company?.serviceSubscription && (company.serviceSubscription.status !== "active" || company.serviceSubscription.expiresAt <= new Date())
+        ? [] : resolveProfileEnabledModules(company?.enabledModules, company?.businessType, legacyEntityPreset);
       userObj.permissions = await resolveProfilePermissions(userId, userObj.role, userObj.companyCode);
 
       if (company && company.driveOAuth?.refreshToken) {

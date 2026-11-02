@@ -1,3 +1,4 @@
+import { postDepreciationAtomic } from "./depreciation-posting";
 ﻿import type { FinanceBranchScope, FinanceScope } from "../contracts";
 import type { IAssetLifecycleEvent } from "../interfaces/asset.interface";
 import { AssetDepreciationModel } from "../models/asset-depreciation.model";
@@ -8,6 +9,7 @@ import { ConflictError, NotFoundError, ValidationError } from "../../../errors/a
 type Actor = { id?: string; uid?: string; name?: string; displayName?: string };
 
 export interface AssetRepository {
+  postPeriod?(scope: FinanceScope, period: string, actor: Actor): Promise<any>;
   list(scope: FinanceScope, filter: { status?: string; group?: string; search?: string }): Promise<any[]>;
   findById(scope: FinanceScope, id: string): Promise<any | null>;
   findByCodeOrBarcode(companyCode: string, assetCode: string, barcode: string): Promise<any | null>;
@@ -138,9 +140,14 @@ export function createAssetService(repository: AssetRepository) {
       return { period, planned: lines.length, lines };
     },
 
-    listDepreciations: (scope: FinanceScope, period: string) => repository.listDepreciations(scope, period),
+    listDepreciations: async (scope: FinanceScope, period: string) => {
+      const lines = await repository.listDepreciations(scope, period);
+      const assets = await repository.list(scope, {});
+      return lines.map(line => { const asset = assets.find(a => String(a._id) === String(line.assetId)); return { ...line, assetName: asset?.name, assetCode: asset?.assetCode, originalCost: asset?.originalCost }; });
+    },
 
     postDepreciation: async (scope: FinanceScope, period: string, actor: Actor) => {
+      if (repository.postPeriod) return repository.postPeriod(scope, period, actor);
       const scheduled = await repository.listDepreciations(scope, period);
       if (!scheduled.length) throw new NotFoundError("ASSET_PERIOD_NOT_SCHEDULED", "Kỳ khấu hao chưa được lập kế hoạch.");
       const pending = scheduled.filter((line: any) => line.status !== "posted");
@@ -162,6 +169,7 @@ const scopeFilter = (scope: FinanceScope) => ({ companyCode: scope.companyCode, 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const assetRepository: AssetRepository = {
+  postPeriod: postDepreciationAtomic,
   list: (scope, filter) => FixedAssetModel.find({
     ...scopeFilter(scope),
     ...(filter.status ? { status: filter.status } : {}),
@@ -174,7 +182,7 @@ export const assetRepository: AssetRepository = {
   update: (scope, id, update) => FixedAssetModel.findOneAndUpdate({ _id: id, ...scopeFilter(scope) }, update, { returnDocument: 'after' }).lean(),
   listDepreciable: (scope) => FixedAssetModel.find({ ...scopeFilter(scope), status: { $ne: "disposed" } }).lean(),
   findDepreciation: (assetId, period) => AssetDepreciationModel.findOne({ assetId, period }).lean(),
-  upsertDepreciation: (assetId, period, values) => AssetDepreciationModel.findOneAndUpdate({ assetId, period }, { $set: values }, { returnDocument: 'after', upsert: true }).lean(),
+  upsertDepreciation: (assetId, period, values) => AssetDepreciationModel.findOneAndUpdate({ assetId, period }, { $setOnInsert: values }, { returnDocument: 'after', upsert: true }).lean(),
   listDepreciations: (scope, period) => AssetDepreciationModel.find({ ...scopeFilter(scope), period }).lean(),
   markDepreciationPosted: (id, postedBy, postedAt) => AssetDepreciationModel.findOneAndUpdate({ _id: id }, { $set: { status: "posted", postedBy, postedAt } }, { returnDocument: 'after' }).lean(),
 };

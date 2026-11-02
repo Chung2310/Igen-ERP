@@ -1,24 +1,14 @@
-export type DashboardPeriod = "today" | "week" | "month" | "year" | "custom";
+import { businessCalendarRange, businessDateKey } from '../../../shared/business-calendar';
+
+export type DashboardPeriod = "today" | "week" | "month" | "quarter" | "year" | "custom";
 
 export function localDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  return businessDateKey(date);
 }
 
 export function getDashboardRange(period: DashboardPeriod, from: string, to: string, now = new Date()) {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let start = today;
-  let end = now;
-  if (period === "week") {
-    start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
-  } else if (period === "month") {
-    start = new Date(today.getFullYear(), today.getMonth(), 1);
-  } else if (period === "year") {
-    start = new Date(today.getFullYear(), 0, 1);
-  } else if (period === "custom") {
-    start = new Date(`${from}T00:00:00`);
-    end = new Date(`${to}T23:59:59.999`);
-  }
-  return { start, end, valid: !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && start <= end };
+  const range = businessCalendarRange(period, from, to, now);
+  return { start: range?.start || new Date(NaN), end: range?.end || new Date(NaN), valid: Boolean(range) };
 }
 
 export function countCreatedInRange(records: Array<{ createdAt?: unknown }> | null, start: Date, end: Date): number | null {

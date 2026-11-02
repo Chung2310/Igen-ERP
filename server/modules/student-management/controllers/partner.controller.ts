@@ -2,10 +2,11 @@ import { NotFoundError, ValidationError } from "../../../errors/app-error";
 import { Response, NextFunction } from "express";
 import { AuthRequest } from "../middlewares/auth.middleware";
 import { PartnerService } from "../services/partner.service";
-import { getAllowedOwnerIds, resolveCreateOwnerId, requireStudentBranch } from "../utils/auth.util";
+import { getAllowedOwnerIds, resolveCreateOwnerId } from "../utils/auth.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 import { importResourceService } from "../../../service/import-resource.service";
 import { resourceIndexingService } from "../../../service/resource-indexing.service";
+import { resolveCommissionBranchId } from "../utils/commission-branch-scope";
 
 export class PartnerController {
   static async create(req: AuthRequest, res: Response, next: NextFunction) {
@@ -151,7 +152,8 @@ export class PartnerController {
           ? await resolveCreateOwnerId(req.user!)
           : req.user!.uid;
 
-      const levels = await PartnerService.getCommissionLevels(ownerId, req.user!.branchId);
+      const branchId = await resolveCommissionBranchId(req, false);
+      const levels = await PartnerService.getCommissionLevels(ownerId, branchId);
       res.json({ success: true, data: levels });
     } catch (error: unknown) {
       next(error);
@@ -160,9 +162,7 @@ export class PartnerController {
 
   static async createCommissionLevel(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) {
-        requireStudentBranch(req.user!);
-      }
+      const branchId = await resolveCommissionBranchId(req, true);
       let ownerId = req.user!.uid;
 
       if (req.user!.role === "superadmin") {
@@ -175,7 +175,7 @@ export class PartnerController {
         ownerId = await resolveCreateOwnerId(req.user!);
       }
 
-      const level = await PartnerService.createCommissionLevel(ownerId, { ...req.body, branchId: req.user!.branchId });
+      const level = await PartnerService.createCommissionLevel(ownerId, { ...req.body, branchId });
       res.status(201).json({ success: true, data: level });
     } catch (error: unknown) {
       next(error);
@@ -184,8 +184,9 @@ export class PartnerController {
 
   static async deleteCommissionLevel(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const branchId = await resolveCommissionBranchId(req, true);
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const level = await PartnerService.deleteCommissionLevel(ownerId, req.params.id, req.user!.branchId);
+      const level = await PartnerService.deleteCommissionLevel(ownerId, req.params.id, branchId);
       if (!level) {
         throw new NotFoundError("COMMISSION_LEVEL_NOT_FOUND", "Không tìm thấy cấp bậc hoa hồng để xóa.");
       }
@@ -197,13 +198,13 @@ export class PartnerController {
 
   static async updateCommissionLevel(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      if (["admin", "manager", "branch_owner"].includes(req.user!.role)) requireStudentBranch(req.user!);
+      const branchId = await resolveCommissionBranchId(req, true);
       const ownerId = req.user!.role === "superadmin"
         ? await resolveCreateOwnerId(req.user!, req.body.companyCode || req.body.centerId)
         : ["admin", "manager"].includes(req.user!.role)
           ? await resolveCreateOwnerId(req.user!)
           : req.user!.uid;
-      const level = await PartnerService.updateCommissionLevel(ownerId, req.params.id, { ...req.body, branchId: req.user!.branchId });
+      const level = await PartnerService.updateCommissionLevel(ownerId, req.params.id, { ...req.body, branchId });
       if (!level) throw new NotFoundError("COMMISSION_LEVEL_NOT_FOUND", "Không tìm thấy cấp bậc hoa hồng để cập nhật.");
       res.json({ success: true, data: level });
     } catch (error: unknown) { next(error); }

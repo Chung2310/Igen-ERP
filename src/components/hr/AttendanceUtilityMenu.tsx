@@ -3,11 +3,13 @@ import { ChevronDown, FileSpreadsheet } from "lucide-react";
 
 type AttendanceUtilityMenuProps = {
   onExportCoefficients: () => void;
+  onExportHours?: () => void;
   disabled?: boolean;
 };
 
 export default function AttendanceUtilityMenu({
   onExportCoefficients,
+  onExportHours,
   disabled = false,
 }: AttendanceUtilityMenuProps) {
   const [open, setOpen] = useState(false);
@@ -63,6 +65,20 @@ export default function AttendanceUtilityMenu({
             />
             Xuất bảng số công
           </button>
+          {onExportHours && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => run(onExportHours)}
+              className="flex w-full items-center gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <FileSpreadsheet
+                aria-hidden="true"
+                className="h-4 w-4 text-sky-600"
+              />
+              Xuất bảng số giờ
+            </button>
+          )}
         </div>
       )}
     </div>

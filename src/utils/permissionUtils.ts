@@ -31,6 +31,7 @@ export function getRoleDisplayName(role: string, customDisplayName?: string): st
     admin: "Quản trị viên doanh nghiệp",
     branch_owner: "Chủ chi nhánh",
     manager: "Quản lý",
+    pos_cashier: "Nhân viên bán hàng POS",
     user: "Nhân viên",
     staff: "Nhân viên",
     teacher: "Giáo viên",

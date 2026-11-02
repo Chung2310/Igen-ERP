@@ -3,7 +3,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
 vi.mock("../../services/repairService", () => ({
-  repairService: { parts: vi.fn(async () => []) },
+  repairService: { parts: vi.fn(async () => []), reconcilePayments: vi.fn(async () => ({ baseline: 0, ledgerPaid: 0, currentPaid: 0, currentDue: 0, recordedDue: 0, balanced: true, payments: [] })) },
   repairExtras: {
     assignTechnician: vi.fn(),
     notifications: vi.fn(async () => []),
@@ -11,6 +11,8 @@ vi.mock("../../services/repairService", () => ({
     rate: vi.fn(),
   },
 }));
+
+vi.mock("../shared/lib/apiFetch", () => ({ apiFetch: vi.fn(async (endpoint: string) => ({ data: endpoint.includes("/care/customers/") ? { tickets: [], events: [] } : { careCase: { status: "open" }, events: [] } })) }));
 
 vi.mock("../../services/authService", () => ({
   authService: { getColleagues: vi.fn(async () => []) },

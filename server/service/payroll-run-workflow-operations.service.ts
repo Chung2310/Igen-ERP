@@ -2,6 +2,7 @@
 import { PayrollCalculationRevisionModel } from "../model/payroll-calculation-revision.model";
 import { PayrollRunModel } from "../model/payroll-run.model";
 import { PayrollPaymentModel } from "../model/payroll-payment.model";
+import { assertPayrollReconciliationReady } from "./payroll-reconciliation.service";
 import type { ClientSession } from "mongoose";
 import { PayrollOperationError, type PayrollOperationScope } from "./payroll-run-operations.service";
 import { transitionPayrollRun, type PayrollWorkflowAction } from "./payroll-run-workflow.service";
@@ -58,6 +59,7 @@ export function createPayrollRunWorkflowOperations(
             session,
           ).lean();
           periodKey = run?.periodKey ?? "";
+          if (run && (action === "review" || action === "close")) await assertPayrollReconciliationReady(scope, run, session);
           return run;
         },
         apply: async (expectedVersion, from, to, fields) => {

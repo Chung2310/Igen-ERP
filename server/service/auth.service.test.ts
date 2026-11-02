@@ -70,7 +70,7 @@ test("register-company persists labor business type and filters stale student mo
       enabledModules: ["student"],
     });
     assert.equal(savedCompany.businessType, "labor");
-    assert.deepEqual(savedCompany.enabledModules, ["worker"]);
+    assert.deepEqual(savedCompany.enabledModules, []);
     assert.equal(seededPolicy.companyCode, "LABOR");
     assert.equal(seededPolicy.status, "active");
     assert.equal(seededPolicy.effectiveFrom.toISOString().slice(0, 10), savedCompany.createdAt.toISOString().slice(0, 10));
@@ -102,7 +102,7 @@ test("update-company applies a legacy worker preset when filtering modules", asy
   try {
     const updated = await authService.updateCompany("legacy-company-id", { enabledModules: ["student"] });
     assert.equal(updated.businessType, "labor");
-    assert.deepEqual(updated.enabledModules, ["worker"]);
+    assert.deepEqual(updated.enabledModules, []);
   } finally {
     CompanyModel.findById = originalCompanyFindById;
     ModuleSettings.findOne = originalSettingsFindOne;

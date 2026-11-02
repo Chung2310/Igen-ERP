@@ -34,8 +34,18 @@ export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
   feature("timekeeping", "Chấm công", "Nhân sự"),
   feature("work", "Công việc", "Công việc"),
   feature("inventory", "Kho và sản phẩm", "Kho và sản phẩm"),
+  feature("inventory-count-approval", "Duyệt kiểm kê kho", "Kho và sản phẩm"),
   feature("customer", "Khách hàng", "Khách hàng"),
   feature("retail", "Bán lẻ", "Bán lẻ"),
+  feature("retail-coupon", "Mã ưu đãi bán lẻ", "Bán lẻ"),
+  feature("retail-points", "Điểm thưởng khách hàng", "Bán lẻ"),
+  feature("retail-shift-approve", "Duyệt đối soát ca bán lẻ", "Bán lẻ"),
+  feature("retail-shift-assign", "Mở ca bán lẻ cho thu ngân", "Bán lẻ"),
+  feature("retail-payment-review", "Kiểm tra chuyển khoản bán lẻ", "Bán lẻ"),
+  feature("retail-partner", "Đối tác bán lẻ", "Bán lẻ"),
+  feature("retail-partner-policy", "Chính sách hoa hồng bán lẻ", "Bán lẻ"),
+  feature("retail-partner-payout", "Chi trả hoa hồng bán lẻ", "Bán lẻ"),
+  feature("retail-partner-self", "Sao kê đối tác bán lẻ", "Bán lẻ"),
   feature("resource", "Tài nguyên", "Tài nguyên"),
   feature("chat", "Trò chuyện", "Trò chuyện"),
   feature("recruitment", "Tuyển dụng", "Tuyển dụng"),
@@ -55,6 +65,11 @@ export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
 
 PERMISSION_FEATURES.push(feature("repair", "Sửa chữa & bảo hành", "Sửa chữa"));
 PERMISSION_FEATURES.push(feature("marketing", "Marketing tự động", "Marketing"));
+PERMISSION_FEATURES.push(feature("omni-inbox", "Hộp thư đa kênh", "Marketing"));
+PERMISSION_FEATURES.push(feature("company-knowledge", "Kho tri thức doanh nghiệp", "Marketing"));
+PERMISSION_FEATURES.push(feature("social-integration", "Tích hợp mạng xã hội", "Marketing"));
+
+PERMISSION_FEATURES.push(feature("pos", "Quầy POS", "Bán lẻ"));
 
 export const PERMISSION_CATALOG: PermissionCatalogEntry[] = PERMISSION_FEATURES.flatMap((entry) => (
   (["read", "manage"] as const).map((action) => ({

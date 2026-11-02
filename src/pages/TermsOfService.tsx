@@ -8,7 +8,7 @@ import {
   TERMS_OF_SERVICE_URL,
 } from "../config/brand";
 
-const lastUpdated = "June 30, 2026";
+const lastUpdated = "November 2, 2026";
 
 const sections = [
   {
@@ -28,7 +28,8 @@ const sections = [
   {
     title: "3. Connected Platform Integrations",
     body: [
-      "The service may integrate with TikTok Shop, Facebook and other approved third-party platforms through their official authorization mechanisms.",
+      "The service may connect to TikTok Shop for separately enabled shop synchronization, Facebook Pages and Messenger, TikTok Business Messaging and other approved third-party platforms through their authorization mechanisms.",
+      "TikTok Login Kit profile authorization provides basic profile information only. It does not authorize access to TikTok direct messages; that feature requires separate TikTok API for Business Business Messaging authorization.",
       "Your use of any connected platform through the service must also comply with that platform's own developer terms, content policies, commerce policies and community rules.",
       "If you revoke access, remove permissions or disconnect an integration, the related synchronization features may stop immediately.",
     ],
@@ -36,17 +37,18 @@ const sections = [
   {
     title: "4. Customer Content And Lawful Use",
     body: [
-      "You retain responsibility for all text, files, prompts, images, videos, listings, messages and other content submitted through the service.",
-      "You must ensure that your use of the service and any published output does not infringe intellectual property rights, violate privacy rights, mislead users or break any law or platform policy.",
-      "You may not use the service for spam, fraud, unauthorized automation, credential abuse or illegal commercial activity.",
+      "You retain responsibility for messages, comments, files, prompts and other information submitted to or processed through the service.",
+      "When a connected account has the required messaging permissions, you authorize the service to receive supported customer messages or comments and to send replies configured by your workspace. TikTok Login Kit profile authorization alone does not grant message access. The social messaging integration does not publish posts or videos.",
+      "You must ensure that you have the rights and permissions needed to process customer communications and that your replies comply with privacy laws, platform policies and messaging limits.",
+      "You may not use the service for spam, fraud, unsolicited automation, credential abuse or illegal commercial activity. You are responsible for enabling, monitoring and pausing automatic replies.",
     ],
   },
   {
     title: "5. AI-Assisted Features",
     body: [
-      "The service may offer AI-assisted drafting, analysis, prompt generation, media generation and automation support.",
-      "AI outputs are generated from the instructions and materials submitted by the user and may still require human review.",
-      "You are solely responsible for reviewing outputs before publication, advertising, commerce or legal reliance.",
+      "Automatic replies may use Google Gemini to generate response text from an incoming customer message and relevant workspace context.",
+      "If automatic replies are enabled, the generated response may be sent without individual human review. Workspace administrators must configure and monitor this feature and remain responsible for its use.",
+      "AI responses may be inaccurate or inappropriate. You are responsible for reviewing reply history and correcting settings or responses when needed.",
     ],
   },
   {
@@ -100,10 +102,10 @@ export default function TermsOfService() {
               <Scale className="h-4 w-4" />
               <span>Legal</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-balance text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
               Terms of Service
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600">
+            <p className="max-w-2xl text-pretty text-sm leading-6 text-slate-600">
               These terms explain the rules for using {BRAND_NAME}, including social
               platform integrations, AI-assisted features and customer responsibilities.
             </p>
@@ -134,8 +136,8 @@ export default function TermsOfService() {
 
         {sections.map((section) => (
           <section key={section.title} className="space-y-3">
-            <h2 className="text-lg font-bold text-slate-900">{section.title}</h2>
-            <div className="space-y-3 text-sm leading-6 text-slate-600">
+            <h2 className="text-balance text-lg font-bold text-slate-900">{section.title}</h2>
+            <div className="space-y-3 text-pretty text-sm leading-6 text-slate-600">
               {section.body.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}

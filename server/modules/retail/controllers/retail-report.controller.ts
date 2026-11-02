@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { BranchModel } from "../../../model/branch.model";
-import { requireRetailBranch, retailScopeFromRequest, type RetailBranchScope } from "../contracts";
+import { requireRetailBranch, retailScopeFromRequest, RetailScopeError, type RetailScope, type RetailBranchScope } from "../contracts";
 import { hasEffectiveRetailCapability } from "../permissions";
 import { buildRetailReportWorkbook } from "../services/retail-report-export.service";
 import { RetailReportService } from "../services/retail-report.service";
@@ -21,6 +21,17 @@ type RetailReportControllerDependencies = {
   buildWorkbook?: typeof buildRetailReportWorkbook;
 };
 
+export async function retailReportScope(req: Request, findBranchCode = loadRetailReportBranchCode): Promise<RetailScope> {
+  const actor = (req as any).user || {};
+  const requestedBranch = String(req.query.branchId || "").trim();
+  if (actor.role !== "admin" && actor.role !== "superadmin") return scope(req);
+  const companyScope = retailScopeFromRequest(actor, { companyCode: req.query.companyCode });
+  if (requestedBranch === "all") return { companyCode: companyScope.companyCode };
+  const reportScope = requireRetailBranch({ ...companyScope, ...(requestedBranch ? { branchId: requestedBranch } : {}) });
+  if (requestedBranch && requestedBranch !== actor.branchId) await findBranchCode(reportScope);
+  return reportScope;
+}
+
 function scope(req: Request) {
   return requireRetailBranch(retailScopeFromRequest((req as any).user || {}, {
     companyCode: req.query.companyCode,
@@ -32,6 +43,7 @@ export async function loadRetailReportBranchCode(
   reportScope: RetailBranchScope,
   branchModel: BranchLookup = BranchModel as unknown as BranchLookup,
 ): Promise<string> {
+  if (!/^[a-f0-9]{24}$/i.test(reportScope.branchId) && branchModel === (BranchModel as unknown as BranchLookup)) throw new RetailScopeError("Chi nhánh không hợp lệ.", 400);
   const branch = await branchModel.findOne({
     _id: reportScope.branchId,
     companyCode: reportScope.companyCode,
@@ -51,7 +63,7 @@ export function createRetailReportController(dependencies: RetailReportControlle
       try {
         const actor = (req as any).user || {};
         const includeProfit = await dependencies.hasCapability(actor, "manager");
-        const data = await dependencies.summary(scope(req), req.query, includeProfit);
+        const data = await dependencies.summary(await retailReportScope(req, findBranchCode), req.query, includeProfit);
         return res.json({ success: true, data });
       } catch (error) {
         return next(error);
@@ -61,8 +73,8 @@ export function createRetailReportController(dependencies: RetailReportControlle
       try {
         const actor = (req as any).user || {};
         const includeProfit = await dependencies.hasCapability(actor, "manager");
-        const reportScope = scope(req);
-        const branchCode = await findBranchCode(reportScope);
+        const reportScope = await retailReportScope(req, findBranchCode);
+        const branchCode = reportScope.branchId ? await findBranchCode(requireRetailBranch(reportScope)) : "ALL";
         const model = await dependencies.summary(reportScope, req.query, includeProfit);
         const { buffer, filename } = buildWorkbook(model, { includeProfit, branchCode });
         const attachmentFilename = filename.replace(/[^A-Za-z0-9._-]/g, "-");

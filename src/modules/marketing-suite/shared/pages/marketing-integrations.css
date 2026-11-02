@@ -1,0 +1,38 @@
+.marketing-integrations-ui .integration-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Existing forms use 9–11px text. Keep their content readable within this page. */
+.marketing-integrations-ui :is([class~="text-[9px]"], [class~="text-[10px]"], [class~="text-[11px]"]) {
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.marketing-integrations-ui .integration-form label {
+  color: var(--color-slate-600);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.marketing-integrations-ui .integration-form :is(.text-gray-400, .text-gray-450) {
+  color: var(--color-slate-500);
+}
+
+.marketing-integrations-ui .integration-form :is(input:not([type="radio"]):not([type="checkbox"]), select, textarea) {
+  min-height: 42px;
+  font-size: 0.8125rem;
+}
+
+.marketing-integrations-ui .integration-section-body > div {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.marketing-integrations-ui :is(button, a, summary):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}

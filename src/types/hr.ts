@@ -1,4 +1,4 @@
-export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "Giao Việc" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH" | "PAYROLL" | "HỢP ĐỒNG" | "EMAIL CHÚC MỪNG" | "TUYỂN DỤNG";
+export type HRSubTabType = "SƠ ĐỒ TỔ CHỨC" | "Giao Việc" | "ĐÀO TẠO" | "QUY TRÌNH" | "LỊCH" | "PAYROLL" | "HỢP ĐỒNG" | "EMAIL CHÚC MỪNG" | "TUYỂN DỤNG" | "PHÒNG BAN" | "CHI NHÁNH";
 
 /** File/đường dẫn đính kèm vào task: ghi âm, hình ảnh, video, tài liệu, link… */
 export interface TaskAttachment {
@@ -123,9 +123,10 @@ export interface HRTask {
   assignee: string;
   assigneeAvatar: string;
   dueDate: string;
+  salesKpiTarget?: number;
   priority: "High" | "Medium" | "Low" | "Cao" | "Trung bình" | "Thấp";
   status: "Not Started" | "In Progress" | "Review/Testing" | "Done" | "Archived" | "todo" | "doing" | "done";
-  category?: "Onboarding" | "Hướng dẫn nhân viên mới" | "Đào tạo" | "Tuyển dụng" | "Văn hóa";
+  category?: "Onboarding" | "Hướng dẫn nhân viên mới" | "Đào tạo" | "Tuyển dụng" | "Văn hóa" | "Bán hàng";
   companyCode: string;
   creatorUid: string;
   createdAt: any;
@@ -139,6 +140,11 @@ export interface HRTask {
   actualTime?: number;
   completedAt?: string;
   revision?: number;
+  progress?: number;
+  progressNote?: string;
+  helpRequested?: boolean;
+  helpReason?: string;
+  helpers?: Array<{ uid: string; name: string }>;
   tags?: string[];
   linkNote?: string;
   attachments?: TaskAttachment[];

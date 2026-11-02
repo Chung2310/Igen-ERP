@@ -30,7 +30,7 @@ describe("customerApi", () => {
   });
 
   it("loads purchase history scoped to a company branch", async () => {
-    vi.mocked(apiFetch).mockResolvedValue({ success: true, data: { summary: {}, items: [] } });
+    vi.mocked(apiFetch).mockResolvedValue({ success: true, data: { summary: {}, items: [], devices: [] } });
 
     await customerApi.purchaseHistory("c1", { companyCode: "IGEN", branchId: "B1" });
 

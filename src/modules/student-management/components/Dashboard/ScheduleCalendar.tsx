@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useSchedule } from '../../hooks/useSchedule';
+import { StudentLoadState } from '../StudentLoadState';
 import { ScheduleEvent } from '../../types';
 import { ErpCard, ErpFilterTab } from '../Erp/ErpUI';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
@@ -39,7 +40,7 @@ export function ScheduleCalendar({ selectedCenter }: { selectedCenter?: string }
   // Khoảng ngày của tháng đang xem — nạp lịch tổng hợp từ server
   const fromDate = useMemo(() => `${year}-${pad2(month + 1)}-01`, [year, month]);
   const toDate = useMemo(() => `${year}-${pad2(month + 1)}-${pad2(daysInMonth)}`, [year, month, daysInMonth]);
-  const { events } = useSchedule(fromDate, toDate, selectedCenter === 'all' ? undefined : selectedCenter);
+  const { events, loading, error, refetch } = useSchedule(fromDate, toDate, selectedCenter === 'all' ? undefined : selectedCenter);
 
   const firstDayOfMonth = new Date(year, month, 1);
   const startDayOfWeek = firstDayOfMonth.getDay(); // 0 = Chủ nhật
@@ -74,6 +75,8 @@ export function ScheduleCalendar({ selectedCenter }: { selectedCenter?: string }
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 text-left">
+      {error && <div className="xl:col-span-3"><StudentLoadState error={error} onRetry={() => { void refetch(); }} /></div>}
+      {loading && <p role="status" className="text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)] xl:col-span-3">Đang tải lịch tổng hợp…</p>}
       {/* Calendar */}
       <ErpCard className="xl:col-span-2 p-6 space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">

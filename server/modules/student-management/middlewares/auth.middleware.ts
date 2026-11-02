@@ -4,6 +4,11 @@ import { requireStudentBranch } from "../utils/auth.util";
 
 type StudentManagementRole = "superadmin" | "admin" | "branch_owner" | "manager" | "user" | "teacher";
 
+export function requiresAssignedStudentBranch(role: string, branchId?: string, allowUnassignedAdmin = false) {
+  return ["admin", "manager", "branch_owner"].includes(role) && !branchId
+    && !(allowUnassignedAdmin && role === "admin");
+}
+
 export interface AuthRequest extends AuthenticatedRequest {
   user?: {
     uid: string;
@@ -20,7 +25,7 @@ function authenticateStudentRequest(
   req: AuthRequest,
   res: Response,
   next: NextFunction,
-  options: { unassignedAdminOnly?: boolean } = {},
+  options: { unassignedAdminOnly?: boolean; allowUnassignedAdmin?: boolean } = {},
 ) {
   requireAuth(req as unknown as AuthenticatedRequest, res, () => {
     const erpUser = (req as unknown as AuthenticatedRequest).user;
@@ -45,7 +50,7 @@ function authenticateStudentRequest(
       return next();
     }
 
-    if (["admin", "manager", "branch_owner"].includes(req.user.role) && !req.user.branchId) {
+    if (requiresAssignedStudentBranch(req.user.role, req.user.branchId, options.allowUnassignedAdmin)) {
       try {
         requireStudentBranch(req.user);
       } catch (error) {
@@ -63,6 +68,11 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
 
 export function adminUnassignedAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
   return authenticateStudentRequest(req, res, next, { unassignedAdminOnly: true });
+}
+
+/** Partner records are company-owned; only branch-level commission settings need a selected branch. */
+export function partnerAuthMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  return authenticateStudentRequest(req, res, next, { allowUnassignedAdmin: true });
 }
 export function requireRoles(...roles: StudentManagementRole[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {

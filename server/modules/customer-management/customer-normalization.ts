@@ -4,7 +4,7 @@ import type { CustomerGender, CustomerInput, CustomerSource, CustomerStatus, Cus
 const CUSTOMER_TYPES = new Set<CustomerType>(["regular", "vat"]);
 const CUSTOMER_GENDERS = new Set<CustomerGender>(["male", "female", "other"]);
 const CUSTOMER_STATUSES = new Set<CustomerStatus>(["active", "inactive"]);
-const CUSTOMER_SOURCES = new Set<CustomerSource>(["manual", "pos", "import"]);
+const CUSTOMER_SOURCES = new Set<CustomerSource>(["manual", "pos", "import", "page"]);
 
 const optional = (value: unknown): string | undefined => {
   const text = String(value ?? "").trim();
@@ -12,7 +12,21 @@ const optional = (value: unknown): string | undefined => {
 };
 
 export function normalizePhone(value: unknown): string {
-  return String(value ?? "").replace(/\D/g, "");
+  const digits = String(value ?? "").replace(/\D/g, "");
+  const countryPrefix = digits.startsWith("0084") ? "0084" : digits.startsWith("84") ? "84" : "";
+  if (!countryPrefix || digits.length < countryPrefix.length + 3) return digits;
+
+  const nationalNumber = digits.slice(countryPrefix.length);
+  return nationalNumber.startsWith("0") ? nationalNumber : `0${nationalNumber}`;
+}
+
+export function phoneLookupVariants(value: unknown): string[] {
+  const normalized = normalizePhone(value);
+  const variants = [normalized];
+  if (normalized.startsWith("0") && normalized.length > 1) {
+    variants.push(`84${normalized.slice(1)}`);
+  }
+  return [...new Set(variants)];
 }
 
 function normalizeDateOfBirth(value: unknown): Date | undefined {
@@ -38,6 +52,10 @@ export function normalizeCustomerInput(input: CustomerInput | Record<string, unk
 
   const type = String(input.type ?? "regular") as CustomerType;
   if (!CUSTOMER_TYPES.has(type)) throw new CustomerError("CUSTOMER_TYPE_INVALID", "Loại khách hàng không hợp lệ.");
+  const customerKind = optional(input.customerKind);
+  if (customerKind && !["individual", "business"].includes(customerKind)) throw new CustomerError("CUSTOMER_KIND_INVALID", "Chọn khách hàng cá nhân hoặc doanh nghiệp.");
+  const contactName = String(input.contactName ?? "").trim();
+  if (contactName.length > 200) throw new CustomerError("CUSTOMER_CONTACT_INVALID", "Tên người liên hệ tối đa 200 ký tự.");
 
   const genderText = optional(input.gender);
   const gender = genderText as CustomerGender | undefined;
@@ -59,6 +77,8 @@ export function normalizeCustomerInput(input: CustomerInput | Record<string, unk
     name,
     phone,
     normalizedPhone,
+    ...(customerKind ? { customerKind: customerKind as "individual" | "business" } : {}),
+    ...(input.contactName !== undefined ? { contactName } : {}),
     ...(email ? { email } : {}),
     ...(dateOfBirth ? { dateOfBirth } : {}),
     ...(gender ? { gender } : {}),

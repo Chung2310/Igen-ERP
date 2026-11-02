@@ -6,6 +6,7 @@ export const productCatalogRouter = Router();
 productCatalogRouter.get("/prices", requirePermission("inventory:read") as any, productCatalogController.listPrices);
 productCatalogRouter.put("/prices/:variantId", requirePermission("inventory:manage") as any, productCatalogController.upsertPrice);
 
+productCatalogRouter.post("/resources/seed/defaults", requirePermission("inventory:manage") as any, productCatalogController.seedDefaults);
 productCatalogRouter.get("/resources/:kind", requirePermission("inventory:read") as any, productCatalogController.listResources);
 productCatalogRouter.post("/resources/:kind", requirePermission("inventory:manage") as any, productCatalogController.createResource);
 productCatalogRouter.patch("/resources/:kind/:id", requirePermission("inventory:manage") as any, productCatalogController.updateResource);

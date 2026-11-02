@@ -87,7 +87,8 @@ export class RetailDebtReminderService {
       if (error?.code === 11000) return { businessDate: today, cycleKey, skipped: true, overdueOrders: 0, recipients: 0, created: 0, duplicates: 0 };
       throw error;
     }
-    const orders: any[] = await RetailOrderModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, status: { $in: ["confirmed", "completed"] }, dueAmount: { $gt: 0 }, dueDate: { $lt: startOfTodayVietnam } }).select("_id orderCode customerId customerName createdBy dueAmount dueDate").lean();
+    const orderRows: any[] = await RetailOrderModel.find({ companyCode: scope.companyCode, branchId: scope.branchId, status: { $in: ["confirmed", "completed"] }, dueAmount: { $gt: 0 }, dueDate: { $lt: startOfTodayVietnam } }).select("_id orderCode customerId customerName createdBy dueAmount pendingTransferAmount dueDate").lean();
+    const orders = orderRows.map((order) => ({ ...order, dueAmount: Math.max(0, Number(order.dueAmount || 0) - Number(order.pendingTransferAmount || 0)) })).filter((order) => order.dueAmount > 0);
     const customerIds = [...new Set(orders.map((order) => String(order.customerId || "")).filter(Boolean))];
     const creatorIds = [...new Set(orders.map((order) => String(order.createdBy || "")).filter(Boolean))];
     const creators = await UserModel.find({ companyCode: scope.companyCode, _id: { $in: creatorIds }, isActive: { $ne: false } }).select("_id displayName email").lean();
@@ -148,7 +149,7 @@ export class RetailDebtReminderService {
     const today = vietnamBusinessDate(now);
     const startOfTodayVietnam = new Date(`${today}T00:00:00+07:00`);
     const scopes = await RetailOrderModel.aggregate<{ _id: RetailBranchScope }>([
-      { $match: { status: { $in: ["confirmed", "completed"] }, dueAmount: { $gt: 0 }, dueDate: { $lt: startOfTodayVietnam } } },
+      { $match: { status: { $in: ["confirmed", "completed"] }, dueAmount: { $gt: 0 }, dueDate: { $lt: startOfTodayVietnam }, $expr: { $gt: ["$dueAmount", { $ifNull: ["$pendingTransferAmount", 0] }] } } },
       { $group: { _id: { companyCode: "$companyCode", branchId: "$branchId" } } },
     ]);
     return Promise.all(scopes.map(({ _id }) => this.run(_id, now)));

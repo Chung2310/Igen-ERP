@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canonicalPaymentCode, extractPaymentCode, parseSePayTransactionDate, sePayTransactionKey } from "./retail-sepay.service";
+import { canonicalPaymentCode, extractPaymentCode, parseSePayTransactionDate, retailQrAmount, sePayTransactionKey } from "./retail-sepay.service";
+
+test("installment QR requests only the pending upfront transfer", () => {
+  assert.equal(retailQrAmount({ dueAmount: 900_000, pendingTransferAmount: 100_000 }), 100_000);
+  assert.equal(retailQrAmount({ dueAmount: 800_000, pendingTransferAmount: 0 }), 800_000);
+});
 
 test("canonicalizes retail order codes for bank transfer content", () => {
   assert.equal(canonicalPaymentCode("dh-hcm-202608-000001"), "DHHCM202608000001");
@@ -20,4 +25,17 @@ test("requires a stable SePay transaction identifier", () => {
 test("parses SePay Vietnam local timestamps without corrupting ISO timestamps", () => {
   assert.equal(parseSePayTransactionDate("2026-08-22 12:00:00").toISOString(), "2026-08-22T05:00:00.000Z");
   assert.equal(parseSePayTransactionDate("2026-08-22T05:00:00Z").toISOString(), "2026-08-22T05:00:00.000Z");
+});
+
+test("extracts the payment code after common bank transfer descriptions", () => {
+  assert.equal(extractPaymentCode({ content: "CHUYEN KHOAN AKMP1234567890ABCDEF1234567890" }), "AKMP1234567890ABCDEF1234567890");
+  assert.equal(extractPaymentCode({ description: "CHUYEN TIEN DH-HCM-202608-000001" }), "DHHCM202608000001");
+  assert.equal(extractPaymentCode({ content: "CHUYEN KHOAN", description: "Thanh toan AKMDHHCM202608000001" }), "AKMDHHCM202608000001");
+  assert.equal(extractPaymentCode({ content: "CHUYEN KHOAN KHONG CO MA DON" }), "");
+});
+
+test("keeps the supplied timezone when a SePay timestamp uses a space separator", () => {
+  assert.equal(parseSePayTransactionDate("2026-08-22 12:00:00+07:00").toISOString(), "2026-08-22T05:00:00.000Z");
+  assert.equal(parseSePayTransactionDate("2026-08-22 05:00:00Z").toISOString(), "2026-08-22T05:00:00.000Z");
+  assert.throws(() => parseSePayTransactionDate("not-a-date"), /không hợp lệ/);
 });

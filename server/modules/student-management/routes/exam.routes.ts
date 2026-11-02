@@ -22,6 +22,9 @@ router.use(authMiddleware);
 
 router.post("/", requireManage, validate(createExamSchema), ExamController.create);
 router.get("/", ExamController.getList);
+router.get("/:id/eligible-students", validate(idParamSchema, "params"), ExamController.getEligibleStudents);
+router.get("/:id/grade-roster", validate(idParamSchema, "params"), ExamController.getGradeRoster);
+router.get("/:id/assigned-students", validate(idParamSchema, "params"), ExamController.getAssignedStudents);
 router.get("/:id", validate(idParamSchema, "params"), ExamController.getDetail);
 router.patch("/:id", requireManage, validate(idParamSchema, "params"), validate(updateExamSchema), ExamController.update);
 router.delete("/:id", requireManage, validate(idParamSchema, "params"), ExamController.delete);

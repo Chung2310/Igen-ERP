@@ -244,7 +244,7 @@ export class StudentService {
 
     const total = await Student.countDocuments(query);
     const students = await Student.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .skip(skip)
       .limit(limit);
 
@@ -272,7 +272,7 @@ export class StudentService {
       query.$and = [{ $or: [{ fullName: searchRegex }, { phone: searchRegex }] }];
     }
     const total = await Student.countDocuments(query);
-    const students = await Student.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit);
+    const students = await Student.find(query).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit);
     return { students, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 

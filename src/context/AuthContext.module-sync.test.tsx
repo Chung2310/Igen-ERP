@@ -22,6 +22,7 @@ vi.mock("../pages/Toast", () => ({
 
 vi.mock("../modules/student-management/hooks/entityPresetStore", () => ({
   ensureEntityPresetLoaded: vi.fn(() => Promise.resolve()),
+  setEntityPresetScope: vi.fn(),
 }));
 
 const profile = {
@@ -35,8 +36,8 @@ const profile = {
 };
 
 function ProfileProbe() {
-  const { userProfile } = useAuth();
-  return <output aria-label="modules">{userProfile?.enabledModules?.join(",") || "none"}</output>;
+  const { userProfile, initializationError, retryInitialization } = useAuth();
+  return <><output aria-label="modules">{userProfile?.enabledModules?.join(",") || "none"}</output><p role="status" aria-label="Initialization error">{initializationError}</p><button onClick={retryInitialization}>Retry initialization</button></>;
 }
 
 afterEach(cleanup);
@@ -53,12 +54,26 @@ beforeEach(() => {
 });
 
 describe("AuthContext company module sync", () => {
-  it("preloads the student entity preset after restoring the signed-in profile", async () => {
+  it('preserves the token after a temporary bootstrap error and recovers without reloading', async () => {
+    vi.mocked(authService.getMe).mockRejectedValueOnce(new Error('Temporary network failure'));
+    const view = render(<AuthProvider><ProfileProbe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByLabelText('Initialization error').textContent).toBe('Temporary network failure'));
+    expect(localStorage.getItem('accessToken')).toBe('token');
+    await act(async () => { screen.getByRole('button', { name: 'Retry initialization' }).click(); });
+    await waitFor(() => expect(screen.getByLabelText('modules').textContent).toBe('hr,chat'));
+    expect(screen.getByLabelText('Initialization error').textContent).toBe(''); view.unmount();
+  });
+  it("skips student preload when the company only enables HR and chat", async () => {
     render(<AuthProvider><ProfileProbe /></AuthProvider>);
 
     await waitFor(() => expect(screen.getByLabelText("modules").textContent).toBe("hr,chat"));
 
-    expect(ensureEntityPresetLoaded).toHaveBeenCalledTimes(1);
+    expect(ensureEntityPresetLoaded).not.toHaveBeenCalled();
+  });
+  it('preloads the preset for a company with the student module enabled', async () => {
+    vi.mocked(authService.getMe).mockResolvedValue({ ...profile, enabledModules: ['student'] } as any);
+    render(<AuthProvider><ProfileProbe /></AuthProvider>);
+    await waitFor(() => expect(ensureEntityPresetLoaded).toHaveBeenCalledTimes(1));
   });
   it("applies a valid event for the signed-in company immediately", async () => {
     render(<AuthProvider><ProfileProbe /></AuthProvider>);

@@ -8,6 +8,7 @@ import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useBatches } from '../../hooks/useBatches';
+import { StudentLoadState } from '../../components/StudentLoadState';
 import { useCourses } from '../../hooks/useCourses';
 import { getRoadmaps, type LearningRoadmap } from '../../api/learningRoadmap.api';
 import { authService } from '../../../../services/authService';
@@ -285,14 +286,14 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   };
 
   const resolvedCenter = selectedCenter === 'all' ? undefined : selectedCenter;
-  const { batches, loading } = useBatches(resolvedCenter);
-  const { courses } = useCourses(resolvedCenter);
+  const { batches, loading, error: batchLoadError, refetch: reloadBatches } = useBatches(resolvedCenter);
+  const { courses, error: courseLoadError, refetch: reloadCourses } = useCourses(resolvedCenter);
   const [roadmaps, setRoadmaps] = useState<LearningRoadmap[]>([]);
   React.useEffect(() => {
     if (entityLabel.preset === 'worker') return;
     void getRoadmaps().then(setRoadmaps).catch(() => setRoadmaps([]));
   }, [entityLabel.preset, resolvedCenter]);
-  const { resources } = useResources();
+  const { resources, error: resourceLoadError, refetch: reloadResources } = useResources();
   const classrooms = React.useMemo(() => resources.filter(r => r.type === 'Phòng học'), [resources]);
   const [users, setUsers] = useState<any[]>([]);
   React.useEffect(() => {
@@ -699,6 +700,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
 
   return (
     <div className="space-y-4 text-left">
+      {(batchLoadError || courseLoadError || resourceLoadError) && <StudentLoadState error={batchLoadError || courseLoadError || resourceLoadError} onRetry={() => { void Promise.all([reloadBatches(), reloadCourses(), reloadResources()]); }} />}
       <ErpPageHeader
         title={copy.pageTitle}
         action={canManage ? (

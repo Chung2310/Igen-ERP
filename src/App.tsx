@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { Suspense, lazy } from "react";
-import { RefreshCw } from "lucide-react";
 import Sidebar from "./pages/Sidebar";
 import Header from "./pages/Header";
 import { ToastContainer } from "./pages/Toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ChatUnreadProvider, useChatUnread } from "./context/ChatUnreadContext";
-import { BranchProvider } from "./context/BranchContext";
+import { BranchProvider, useBranch } from "./context/BranchContext";
 import type { TabType } from "./types";
 import { SEOHead } from "./seo/SEOHead";
 import { AUTH_SEO, getSeoForTab, tabToPath } from "./seo/seo-config";
@@ -17,13 +16,20 @@ import { NotificationToastContainer } from "./components/notification/Notificati
 import { browserNotificationService } from "./services/browserNotificationService";
 import { pushService } from "./services/pushService";
 import { setFaviconBadge } from "./utils/faviconBadge";
-import SuperAdminShell from "./pages/super-admin/SuperAdminShell";
 import { isSuperAdminPath } from "./router/superAdminRoute";
 import { resolveEnabledTab } from "./config/modules";
+import { ChatbotWidget } from "./components/common/ChatbotWidget";
 
 const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
+const subscribeToPathname = (onChange: () => void) => {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+};
+const getPathnameSnapshot = () => window.location.pathname;
+
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const SuperAdminShell = lazy(() => import("./pages/super-admin/SuperAdminShell"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const UserDataDeletion = lazy(() => import("./pages/UserDataDeletion"));
@@ -33,11 +39,19 @@ const WorkerQRCheckinPage = lazy(() => import("./modules/worker-management/pages
 const SubmitProofPage = lazy(() => import("./pages/SubmitProofPage"));
 const PublicRegisterPage = lazy(() => import("./pages/PublicRegisterPage"));
 const PublicRepairFeedbackPage = lazy(() => import("./modules/repair/pages/PublicRepairFeedbackPage"));
+const PublicSlotApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicSlotApproval"));
+const PublicDailySlotsApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicDailySlotsApproval"));
+const PublicMonthlyApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicMonthlyApproval"));
+const RetailPosEntry = lazy(() => import("./modules/retail/pages/RetailPosEntry"));
 
 function AppContent() {
-  const { user, userProfile, loading } = useAuth();
+  const { user, userProfile, loading, logout, hasPermission, initializationError, retryInitialization } = useAuth();
+  const { activeBranchId, loading: branchLoading, error: branchError, retry: retryBranch } = useBranch();
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
-  const currentPath = normalizePublicPath(window.location.pathname);
+  const pathname = React.useSyncExternalStore(subscribeToPathname, getPathnameSnapshot, getPathnameSnapshot);
+  const requestedPath = normalizePublicPath(pathname);
+  const isPosOnly = userProfile?.role === "pos_cashier";
+  const currentPath = isPosOnly ? "/pos" : requestedPath;
   const isLandingPage = currentPath === "/" || currentPath === "/landing" || currentPath === "/landing.html";
   const isLandingGuestPage = isLandingPage && !(user && userProfile);
   const isPrivacyPage = currentPath === "/privacy-policy" || currentPath === "/privacy-policy.html";
@@ -46,11 +60,14 @@ function AppContent() {
   const isSubmitProofPage = currentPath.startsWith("/public/submit-proof");
   const isPublicRegisterPage = currentPath.startsWith("/public/dang-ky");
   const isLegalPublicPage = isPrivacyPage || isTermsPage || isDeletionPage;
-  const isPublicPage = isLandingGuestPage || isLegalPublicPage || isSubmitProofPage || isPublicRegisterPage;
+  const approvalPath = currentPath.replace(/\.html$/, "");
+  const isCampaignApprovalPage = ["/approve-post", "/approve-posts-day", "/approve-posts-month"].includes(approvalPath);
+  const isPublicPage = isLandingGuestPage || isLegalPublicPage || isSubmitProofPage || isPublicRegisterPage || isCampaignApprovalPage;
+  const isPosRoute = currentPath === "/pos" || isPosOnly;
 
   const { activeTab, setActiveTab } = useTabRouter({
 
-    enabled: !isPublicPage && !loading && Boolean(user && userProfile),
+    enabled: !isPublicPage && !isPosRoute && !loading && Boolean(user && userProfile),
   });
   // Giảng viên chỉ làm việc tại Lớp học. Nếu gõ/thăm lại URL Nhân sự cũ,
   // chuyển thẳng về Quản lý học viên thay vì để trang HR gọi API không có quyền.
@@ -58,6 +75,13 @@ function AppContent() {
     ? "QUẢN LÝ HỌC VIÊN" as TabType
     : activeTab;
   const resolvedActiveTab = resolveEnabledTab(teacherSafeTab, userProfile?.enabledModules, userProfile?.businessType);
+
+  React.useEffect(() => {
+    if (isPosOnly && requestedPath !== "/pos") {
+      window.history.replaceState(null, "", "/pos");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
+  }, [isPosOnly, requestedPath]);
 
   React.useEffect(() => {
     if (resolvedActiveTab !== activeTab) setActiveTab(resolvedActiveTab);
@@ -146,6 +170,12 @@ function AppContent() {
     );
   }
 
+  if (isCampaignApprovalPage) {
+    return <Suspense fallback={<AuthLoader />}>
+      {approvalPath === "/approve-posts-day" ? <PublicDailySlotsApproval /> : approvalPath === "/approve-posts-month" ? <PublicMonthlyApproval /> : <PublicSlotApproval />}
+    </Suspense>;
+  }
+
   if (isSubmitProofPage) {
     return (
       <Suspense fallback={<AuthLoader />}>
@@ -186,20 +216,64 @@ function AppContent() {
     );
   }
 
+  const isAuthPage = currentPath === "/dang-nhap" || currentPath === "/login";
+
+  if (isAuthPage && !user && !loading) {
+    return (
+      <>
+        <SEOHead meta={AUTH_SEO} />
+        <Suspense fallback={<AuthLoader />}>
+          <AuthPage />
+        </Suspense>
+      </>
+    );
+  }
+
+  if (initializationError && !loading) {
+    const handleReLogin = () => {
+      localStorage.removeItem("accessToken");
+      window.dispatchEvent(new Event("unauthorized"));
+      if (currentPath !== "/dang-nhap") {
+        window.history.pushState(null, "", "/dang-nhap");
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      }
+      retryInitialization();
+    };
+
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-surface p-6 text-on-surface">
+        <section className="w-full max-w-lg space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6">
+          <h1 className="text-balance text-lg font-semibold">Chưa thể kết nối hệ thống</h1>
+          <p role="alert" className="text-pretty text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">
+            {initializationError}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={retryInitialization}
+              className="min-h-11 rounded-xl bg-primary px-4 py-2 font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Thử lại kết nối
+            </button>
+            <button
+              type="button"
+              onClick={handleReLogin}
+              className="min-h-11 rounded-xl border border-outline-variant px-4 py-2 font-semibold text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Đăng nhập lại
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   if (loading) {
     return (
       <>
         <SEOHead meta={{ ...AUTH_SEO, title: "Đang tải hệ thống iGen ERP", path: "/khoi-tao-he-thong" }} />
-        <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#f6f8fd] via-[#eef2f7] to-[#e3ecf5] text-center font-sans">
-          <div className="pointer-events-none absolute left-[-10%] top-[-10%] h-[600px] w-[600px] rounded-full bg-blue-400/5 blur-[120px]" />
-          <div className="pointer-events-none absolute bottom-[-10%] right-[-10%] h-[600px] w-[600px] rounded-full bg-indigo-400/5 blur-[120px]" />
-
-          <div className="z-10 flex flex-col items-center">
-            <RefreshCw className="mb-4 h-10 w-10 animate-spin text-blue-600" />
-            <span className="animate-pulse text-xs font-bold uppercase tracking-widest text-slate-500">
-              Đang khởi tạo hệ thống ERP...
-            </span>
-          </div>
+        <div role="status" className="flex min-h-dvh items-center justify-center bg-surface p-6 text-center text-sm font-semibold text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">
+          Đang khởi tạo hệ thống ERP...
         </div>
       </>
     );
@@ -213,6 +287,25 @@ function AppContent() {
           <AuthPage />
         </Suspense>
       </>
+    );
+  }
+
+  if (isPosRoute) {
+    const canAccessPos = userProfile.role === "admin" || userProfile.role === "superadmin" || Boolean(userProfile.permissions?.some((permission) => ["*", "pos:manage", "retail:manage"].includes(permission)));
+    return canAccessPos ? (
+      <>
+        <SEOHead meta={{ ...getSeoForTab("BÁN LẺ"), path: "/pos" }} />
+        <Suspense fallback={<AuthLoader />}><RetailPosEntry /></Suspense>
+        {hasPermission("chat:read") && <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />}
+      </>
+    ) : (
+      <main className="flex min-h-dvh items-center justify-center bg-slate-50 p-6 text-center text-slate-700">
+        <div className="max-w-md space-y-3">
+          <p className="font-semibold">Vai trò thu ngân chưa được cấp quyền sử dụng quầy POS.</p>
+          <p className="text-sm text-slate-500">Liên hệ quản trị viên để kiểm tra quyền “Quản lý quầy POS”.</p>
+          <button type="button" onClick={() => void logout()} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-100">Đăng xuất</button>
+        </div>
+      </main>
     );
   }
 
@@ -259,12 +352,24 @@ function AppContent() {
           }`}
           id="primary_page_container"
         >
-          <AppRouterView activeTab={resolvedActiveTab} userProfile={userProfile} />
+          {branchError && resolvedActiveTab !== "CÀI ĐẶT" ? (
+            <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 text-on-surface">
+              <h1 className="text-balance text-lg font-semibold">Chưa thể tải chi nhánh</h1>
+              <p role="alert" className="text-pretty text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">{branchError}</p>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" onClick={retryBranch} className="min-h-11 rounded-xl bg-primary px-4 py-2 font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thử lại chi nhánh</button>
+                <button type="button" onClick={() => setActiveTab("CÀI ĐẶT")} className="min-h-11 rounded-xl border border-outline-variant px-4 py-2 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Mở cài đặt</button>
+              </div>
+            </section>
+          ) : branchLoading && !activeBranchId && resolvedActiveTab !== "CÀI ĐẶT" ? (
+            <p role="status" className="p-6 text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">Đang tải chi nhánh…</p>
+          ) : <AppRouterView scopeKey={activeBranchId} activeTab={resolvedActiveTab} userProfile={userProfile} />}
         </main>
       </div>
 
       {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
       <NotificationToastContainer onNavigate={handleSearchNavigation} />
+      {hasPermission("chat:read") && <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />}
     </div>
   );
 }
@@ -356,7 +461,7 @@ export default function App() {
   }
 
   if (isSuperAdminPath(window.location.pathname)) {
-    return <><SuperAdminShell /><ToastContainer /></>;
+    return <AppErrorBoundary><Suspense fallback={<AuthLoader />}><SuperAdminShell /></Suspense><ToastContainer /></AppErrorBoundary>;
   }
 
   return (

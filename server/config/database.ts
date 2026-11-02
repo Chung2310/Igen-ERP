@@ -12,6 +12,7 @@ import {
 import { dropLegacyStudentAttendanceUniqueIndex } from "../model/student-attendance-index-migration";
 import { dropLegacyWorkerAttendanceLogIndexes } from "../model/worker-attendance-index-migration";
 import { resetPermissionsForRegistryVersion } from "../model/permission-registry-reset";
+import { seedAiSubscriptionPlans } from "../modules/marketing-suite/shared/service/ai-subscription-seed";
 
 /**
  * Tự động tạo tài khoản Super Admin nếu chưa tồn tại
@@ -154,10 +155,14 @@ export async function connectDB() {
     await dropLegacyWorkerAttendanceLogIndexes();
     await seedSuperAdmin();
     await seedPermissions();
+    const aiPlansCreated = await seedAiSubscriptionPlans();
+    if (aiPlansCreated) console.log(`[Backend Database] Đã thêm ${aiPlansCreated} gói AI mặc định.`);
     const permissionReset = await resetPermissionsForRegistryVersion();
     if (permissionReset.applied) {
       console.warn(`[Backend Database] Permission registry clean-break reset applied: ${permissionReset.rolesReset} role(s), ${permissionReset.usersReset} user(s). Administrators must configure permissions again.`);
     }
+    const { startSubscriptionRecovery } = await import("../modules/marketing-suite/shared/service/subscription-recovery");
+    startSubscriptionRecovery();
   } catch (error) {
     console.error("[Backend Database] Lỗi kết nối MongoDB:", error);
     process.exit(1);

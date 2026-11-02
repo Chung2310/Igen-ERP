@@ -9,6 +9,7 @@ export interface IRetailCustomerTierHistory {
   toTierCode: string;
   toTierName: string;
   totalSales: number;
+  totalGrossProfit?: number;
   reason: string;
   source?: "automatic" | "manual";
   sourceKey?: string;
@@ -28,6 +29,7 @@ const schema = new Schema<IRetailCustomerTierHistory>({
   toTierCode: { type: String, required: true },
   toTierName: { type: String, required: true },
   totalSales: { type: Number, required: true, min: 0 },
+  totalGrossProfit: { type: Number, min: 0 },
   reason: { type: String, required: true },
   source: { type: String, enum: ["automatic", "manual"], default: "automatic" },
   sourceKey: String,

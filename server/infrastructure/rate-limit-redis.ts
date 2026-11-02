@@ -1,5 +1,6 @@
 import Redis from "ioredis";
 import type { Options, Store } from "express-rate-limit";
+import { redisHost } from "../config/redis-host";
 
 export interface RateLimitRedisClient {
   eval(script: string, keyCount: number, ...args: string[]): Promise<unknown>;
@@ -23,7 +24,7 @@ export function getRateLimitRedisClient(): Redis {
   if (sharedClient) return sharedClient;
 
   sharedClient = new Redis({
-    host: process.env.REDIS_HOST || "127.0.0.1",
+    host: redisHost(),
     port: Number(process.env.REDIS_PORT) || 6379,
     password: process.env.REDIS_PASSWORD || undefined,
     enableOfflineQueue: false,
