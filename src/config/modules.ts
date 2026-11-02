@@ -102,6 +102,7 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "ĐỐI TÁC BÁN LẺ": ["retail-partner:read", "retail-partner:manage", "retail-partner-policy:manage", "retail-partner-self:read"],
   "TÀI CHÍNH": ["finance-wallet:read", "finance-wallet:manage", "finance-receivable:read", "finance-receivable:manage", "asset:read", "asset:manage"],
   "TRÒ CHUYỆN": ["chat:read"],
+  "TRỢ LÝ AI": ["chat:read"],
   "MARKETING": ["marketing:read", "marketing:manage"],
   "CHIẾN DỊCH NỘI DUNG": ["marketing:read", "marketing:manage"],
   "OMNI INBOX": ["omni-inbox:read", "omni-inbox:manage"],

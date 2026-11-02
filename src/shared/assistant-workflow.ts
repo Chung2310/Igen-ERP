@@ -77,8 +77,14 @@ export interface AssistantReply {
   link?: string;
 }
 
-export interface AssistantSettings { version: number; windowMode: "window" | "fullscreen"; enterToSend: boolean; showSuggestions: boolean; instructions: string; alwaysConfirm: boolean; speakReplies: boolean; }
-export const defaultAssistantSettings: AssistantSettings = { version: 0, windowMode: "window", enterToSend: true, showSuggestions: true, instructions: "", alwaysConfirm: false, speakReplies: false };
+export interface AssistantTableAttachment {
+  fileName: string;
+  headers: string[];
+  rows: Array<Record<string, string>>;
+}
+
+export interface AssistantSettings { version: number; windowMode: "window" | "fullscreen"; enterToSend: boolean; showSuggestions: boolean; instructions: string; responseRules: string; alwaysConfirm: boolean; speakReplies: boolean; memoryEnabled: boolean; autoMemoryEnabled: boolean; }
+export const defaultAssistantSettings: AssistantSettings = { version: 0, windowMode: "window", enterToSend: true, showSuggestions: true, instructions: "", responseRules: "Trả lời bằng tiếng Việt tự nhiên, thân thiện và ngắn gọn; xưng mình–bạn. Giữ mạch hội thoại, tránh câu mẫu máy móc và không hiển thị JSON thô. Nếu thiếu thông tin, hỏi rõ từng ý cần bổ sung. Chỉ báo thao tác thành công khi hệ thống xác nhận đã hoàn tất; nếu không tìm thấy hoặc chưa hỗ trợ, giải thích nhẹ nhàng và gợi ý bước tiếp theo.", alwaysConfirm: false, speakReplies: false, memoryEnabled: true, autoMemoryEnabled: true };
 
 /** Human-readable source for existing personal workflows and seeded templates. */
 export function workflowToText(workflow: AssistantWorkflow): string {

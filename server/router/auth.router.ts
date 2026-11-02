@@ -273,7 +273,7 @@ authRouter.get("/users/colleagues", requireAuth as any, authController.getCollea
 // Lấy danh sách thành viên doanh nghiệp (yêu cầu Access Token và quyền access:read)
 // hr:read cũng được chấp nhận: xem danh sách nhân sự là một phần tự nhiên của "Xem nhân sự"
 // (sơ đồ tổ chức, lịch, giao việc trong module HR đều cần roster này để hiển thị).
-authRouter.get("/users", requireAuth as any, requirePermission(["access:read", "hr:read"]) as any, validateRequest(getUsersSchema), authController.getUsers as any);
+authRouter.get("/users", requireAuth as any, requirePermission(["access:read", "hr:read", "timekeeping:read"]) as any, validateRequest(getUsersSchema), authController.getUsers as any);
 authRouter.get("/users/:id/activity", requireAuth as any, requireRole(["admin"]) as any, async (req: any, res) => {
   try {
     return res.json(await userActivityService.list({

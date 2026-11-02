@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phương án giao diện Trợ lý AI · iGen ERP</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+      color: #071629;
+      background: #f6f8fd;
+      --primary: #00adfc;
+      --primary-soft: #e0f2fe;
+      --surface: #ffffff;
+      --surface-low: #f1f5fb;
+      --surface-high: #dbe8f8;
+      --text: #071629;
+      --muted: #475569;
+      --outline: #d8e2f0;
+      --success: #15803d;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: #f6f8fd; color: var(--text); }
+    button, a { font: inherit; }
+    a { color: inherit; }
+    .page-header { position: sticky; top: 0; z-index: 5; border-bottom: 1px solid var(--outline); background: rgb(255 255 255 / 94%); backdrop-filter: blur(12px); }
+    .page-header-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; max-width: 1440px; margin: auto; padding: 14px 24px; }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: var(--primary); color: white; font-weight: 700; }
+    .brand-copy strong { display: block; font-size: 14px; }
+    .brand-copy span { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .choice-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+    .choice-nav a { border: 1px solid var(--outline); border-radius: 999px; padding: 8px 12px; background: var(--surface); color: var(--muted); font-size: 13px; text-decoration: none; }
+    .choice-nav a:hover, .choice-nav a:focus-visible { border-color: var(--primary); color: var(--text); outline: 2px solid var(--primary); outline-offset: 2px; }
+    main { max-width: 1440px; margin: auto; padding: 28px 24px 64px; }
+    .intro { max-width: 800px; margin: 0 0 28px; }
+    .intro h1 { margin: 0; font-size: clamp(24px, 3vw, 34px); line-height: 1.2; }
+    .intro h1, .option-heading h2, .welcome h4 { text-wrap: balance; }
+    .intro p { margin: 10px 0 0; color: var(--muted); line-height: 1.6; }
+    .intro p, .option-heading p, .welcome-copy, .assistant-copy p { text-wrap: pretty; }
+    .option { scroll-margin-top: 84px; margin: 0 0 44px; }
+    .option-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 0 0 12px; }
+    .option-number { margin: 0 0 5px; color: #0077b3; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .option-heading h2 { margin: 0; font-size: 20px; }
+    .option-heading p { max-width: 600px; margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .mock-label { flex: 0 0 auto; border: 1px solid var(--outline); border-radius: 999px; padding: 6px 10px; background: var(--surface); color: var(--muted); font-size: 11px; }
+    .app-window { display: flex; height: 760px; flex-direction: column; overflow: hidden; border: 1px solid var(--outline); border-radius: 18px; background: var(--surface); box-shadow: 0 18px 48px rgb(15 23 42 / 10%); }
+    .app-topbar { display: flex; height: 58px; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--outline); padding: 0 18px; background: var(--surface); }
+    .app-top-left, .app-top-right { display: flex; align-items: center; gap: 12px; }
+    .app-name { font-size: 14px; font-weight: 700; }
+    .crumb { color: var(--muted); font-size: 13px; }
+    .workspace-search { display: flex; width: min(250px, 25vw); height: 34px; align-items: center; gap: 8px; border: 1px solid var(--outline); border-radius: 9px; padding: 0 10px; color: #64748b; font-size: 11px; }
+    .workspace-search svg { width: 14px; height: 14px; }
+    .avatar { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: var(--primary-soft); color: #004b73; font-size: 11px; font-weight: 700; }
+    .icon-button { display: inline-flex; min-height: 36px; align-items: center; gap: 7px; border: 1px solid var(--outline); border-radius: 10px; padding: 0 10px; background: var(--surface); color: var(--muted); font-size: 12px; }
+    .icon-button svg { width: 15px; height: 15px; }
+    .workspace { display: flex; min-height: 0; flex: 1; }
+    .erp-nav { display: flex; width: 206px; flex: 0 0 auto; flex-direction: column; border-right: 1px solid var(--outline); padding: 14px 10px 10px; background: #fbfcfe; }
+    .erp-brand { display: flex; align-items: center; gap: 9px; padding: 2px 5px 15px; }
+    .erp-brand-mark { display: grid; width: 31px; height: 31px; flex: 0 0 auto; place-items: center; border-radius: 10px; background: var(--primary); color: white; font-weight: 700; }
+    .erp-brand strong { display: block; font-size: 12px; }
+    .erp-brand small { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; }
+    .erp-search { display: flex; height: 32px; align-items: center; gap: 7px; margin: 0 2px 15px; border: 1px solid var(--outline); border-radius: 8px; padding: 0 8px; color: var(--muted); font-size: 10px; }
+    .erp-nav-label { margin: 9px 8px 6px; color: #64748b; font-size: 9px; font-weight: 700; }
+    .erp-link { display: flex; min-height: 32px; align-items: center; gap: 8px; margin: 1px 0; border-radius: 8px; padding: 6px 8px; color: var(--muted); font-size: 10px; }
+    .erp-link svg { width: 14px; height: 14px; flex: 0 0 auto; }
+    .nav-glyph { display: inline-grid; width: 17px; flex: 0 0 auto; place-items: center; color: #64748b; font-size: 13px; }
+    .erp-link.active { background: var(--primary-soft); color: #004b73; font-weight: 700; }
+    .erp-count { margin-left: auto; border-radius: 999px; padding: 2px 6px; background: var(--surface-high); color: #334155; font-size: 9px; }
+    .erp-nav-footer { margin-top: auto; border-top: 1px solid var(--outline); padding-top: 8px; }
+    .side-nav { display: flex; width: 205px; flex: 0 0 auto; flex-direction: column; border-right: 1px solid var(--outline); padding: 18px 11px 10px; background: var(--surface); }
+    .side-title { margin: 0 10px 12px; color: var(--muted); font-size: 10px; font-weight: 700; }
+    .side-link { display: flex; align-items: center; gap: 10px; margin: 2px 0; border-radius: 10px; padding: 10px; color: var(--muted); font-size: 13px; }
+    .side-link.active { background: var(--primary-soft); color: #004b73; font-weight: 600; }
+    .side-link svg { width: 17px; height: 17px; flex: 0 0 auto; }
+    .recent-block { margin-top: 22px; }
+    .recent-item { border-radius: 9px; padding: 8px 9px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+    .recent-item.current { background: var(--surface-low); color: var(--text); }
+    .recent-item small { display: block; margin-top: 3px; color: #64748b; font-size: 9px; }
+    .side-bottom { margin-top: auto; border-top: 1px solid var(--outline); padding-top: 10px; }
+    .chat-area { display: flex; min-width: 0; flex: 1; flex-direction: column; background: var(--surface); }
+    .chat-heading { display: flex; min-height: 68px; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--outline); padding: 10px 20px; background: var(--surface); }
+    .chat-heading h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; }
+    .chat-heading h3::before { display: grid; width: 29px; height: 29px; place-items: center; border: 1px solid #bfeaff; border-radius: 10px; background: var(--primary-soft); color: #0077b3; content: "✦"; font-size: 15px; }
+    .chat-heading p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .online { display: inline-flex; align-items: center; gap: 6px; color: var(--success); font-size: 11px; }
+    .online::before { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; content: ""; }
+    .messages { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 18px; overflow: auto; padding: 24px clamp(16px, 4vw, 56px); }
+    .messages.with-context { display: grid; grid-template-columns: minmax(0, 1fr) 245px; gap: 0; padding: 0; }
+    .with-context .conversation { overflow: auto; padding: 24px 28px; }
+    .welcome { display: flex; min-height: 0; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 20px 0; text-align: center; }
+    .bot-mark { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid #bfeaff; border-radius: 16px; background: var(--primary-soft); color: #0077b3; }
+    .bot-mark svg { width: 24px; height: 24px; }
+    .eyebrow { margin: 16px 0 7px; color: #0077b3; font-size: 10px; font-weight: 700; }
+    .welcome h4 { margin: 0; font-size: clamp(21px, 2.6vw, 28px); line-height: 1.25; }
+    .welcome-copy { max-width: 570px; margin: 9px 0 20px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .welcome-context { display: inline-flex; align-items: center; gap: 7px; margin: 0 0 18px; border: 1px solid var(--outline); border-radius: 999px; padding: 6px 10px; background: #fbfdff; color: var(--muted); font-size: 9px; }
+    .welcome-context::before { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; content: ""; }
+    .suggestion-label { display: flex; width: min(780px, 100%); align-items: center; justify-content: space-between; margin: 0 0 9px; color: var(--muted); font-size: 10px; font-weight: 600; }
+    .suggestions { display: grid; width: min(780px, 100%); grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .suggestion { display: flex; min-height: 94px; align-items: flex-start; gap: 10px; border: 1px solid var(--outline); border-radius: 13px; padding: 12px; background: var(--surface); text-align: left; box-shadow: 0 2px 7px rgb(15 23 42 / 3%); }
+    .suggestion-icon { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border-radius: 9px; background: var(--primary-soft); color: #0077b3; font-size: 9px; font-weight: 700; }
+    .suggestion-copy { min-width: 0; flex: 1; }
+    .suggestion-copy .category { display: block; margin: 0 0 5px; color: #0077b3; font-size: 8px; font-weight: 700; }
+    .suggestion-copy strong { display: block; font-size: 10px; }
+    .suggestion-copy small { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; line-height: 1.35; }
+    .suggestion-arrow { color: #64748b; font-size: 15px; }
+    .composer-wrap { flex: 0 0 auto; padding: 0 clamp(16px, 4vw, 56px) 16px; }
+    .composer { width: min(850px, 100%); margin: auto; border: 1px solid #b8cce2; border-radius: 16px; background: var(--surface); box-shadow: 0 4px 16px rgb(15 23 42 / 5%); }
+    .composer-text { min-height: 56px; padding: 15px 16px 8px; color: #64748b; font-size: 13px; }
+    .composer-actions { display: flex; align-items: center; gap: 9px; border-top: 1px solid #eef2f7; padding: 8px 10px; }
+    .composer-help { flex: 1; color: var(--muted); font-size: 10px; }
+    .round-control { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--outline); border-radius: 10px; color: #334155; }
+    .round-control svg { width: 16px; height: 16px; }
+    .round-control.primary { border-color: var(--primary); background: var(--primary); color: white; }
+    .mobile-nav { display: none; }
+
+    .conversation { display: flex; flex-direction: column; gap: 18px; }
+    .user-message { max-width: min(650px, 82%); align-self: flex-end; border-radius: 17px 17px 4px 17px; padding: 12px 15px; background: var(--primary); color: white; font-size: 13px; line-height: 1.55; }
+    .assistant-row { display: flex; align-items: flex-start; gap: 10px; }
+    .assistant-row .bot-mark { width: 34px; height: 34px; flex: 0 0 auto; border-radius: 11px; }
+    .assistant-row .bot-mark svg { width: 18px; height: 18px; }
+    .assistant-copy { min-width: 0; max-width: 850px; }
+    .assistant-copy p { margin: 0; font-size: 13px; line-height: 1.65; }
+    .answer-card { margin-top: 12px; border: 1px solid var(--outline); border-radius: 14px; background: #fbfdff; padding: 16px; box-shadow: 0 4px 14px rgb(15 23 42 / 4%); }
+    .answer-card h5 { margin: 0; font-size: 13px; }
+    .answer-card p { margin-top: 6px; color: var(--muted); font-size: 12px; }
+    .result-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--outline); padding: 11px 0; font-size: 12px; }
+    .result-row:first-of-type { margin-top: 9px; }
+    .result-row span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .text-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 9px; color: #0077b3; font-size: 12px; font-weight: 600; text-decoration: none; }
+    .text-link svg { width: 14px; height: 14px; }
+    .confirm-card { margin-top: 12px; border: 1px solid #bfeaff; border-radius: 14px; background: #f5fbff; padding: 15px; }
+    .confirm-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .confirm-title strong { font-size: 13px; }
+    .badge { border-radius: 999px; padding: 4px 8px; background: var(--primary-soft); color: #004b73; font-size: 10px; font-weight: 600; }
+    .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; margin-top: 10px; }
+    .detail { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid #dcecf8; padding: 9px 0; font-size: 11px; }
+    .detail span:first-child { color: var(--muted); }
+    .confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .mock-action { border: 1px solid var(--outline); border-radius: 9px; padding: 8px 11px; background: var(--surface); color: var(--text); font-size: 11px; font-weight: 600; }
+    .mock-action.primary { border-color: var(--primary); background: var(--primary); color: white; }
+    .context-rail { width: 245px; flex: 0 0 auto; border-left: 1px solid var(--outline); padding: 18px 15px; background: #fbfcfe; }
+    .context-rail h4 { margin: 0 0 12px; font-size: 12px; }
+    .context-item { border: 1px solid var(--outline); border-radius: 12px; padding: 11px; background: var(--surface); }
+    .context-item + .context-item { margin-top: 9px; }
+    .context-item span { display: block; color: var(--muted); font-size: 10px; }
+    .context-item strong { display: block; margin-top: 5px; font-size: 12px; }
+    .context-note { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+    .summary-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+    .summary-cell { border-radius: 9px; padding: 9px; background: var(--surface-low); }
+    .summary-cell span { display: block; color: var(--muted); font-size: 9px; }
+    .summary-cell strong { display: block; margin-top: 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .result-head { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--outline); padding: 10px 0 7px; color: var(--muted); font-size: 9px; font-weight: 700; }
+    .confirm-meta { margin-top: 10px; border-top: 1px solid #dcecf8; padding-top: 9px; color: var(--muted); font-size: 9px; }
+    .option-note { margin: 10px 2px 0; color: var(--muted); font-size: 11px; }
+    .source-note { border-top: 1px solid var(--outline); padding-top: 18px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .source-note a { color: #0077b3; }
+
+    @media (max-width: 760px) {
+      .page-header { position: static; }
+      .page-header-inner { align-items: flex-start; flex-direction: column; padding: 12px 16px; }
+      .choice-nav { width: 100%; }
+      .choice-nav a { flex: 1; text-align: center; }
+      main { padding: 22px 12px 40px; }
+      .option-heading { align-items: flex-start; }
+      .mock-label { display: none; }
+      .app-window { height: 740px; border-radius: 14px; }
+      .app-topbar { height: 48px; padding: 0 12px; }
+      .crumb, .workspace-search, .app-top-right .icon-button { display: none; }
+      .erp-nav, .side-nav { display: none; }
+      .chat-heading { min-height: 56px; padding: 8px 13px; }
+      .mobile-nav { display: flex; flex: 0 0 auto; gap: 6px; border-bottom: 1px solid var(--outline); padding: 7px 10px; background: #fbfcfe; }
+      .mobile-nav span { flex: 1; border-radius: 8px; padding: 7px 4px; color: var(--muted); font-size: 10px; text-align: center; }
+      .mobile-nav span:first-child { background: var(--primary-soft); color: #004b73; font-weight: 600; }
+      .messages { padding: 16px 13px; }
+      .messages.with-context { display: flex; padding: 0; }
+      .with-context .conversation { padding: 16px 13px; }
+      .welcome { justify-content: flex-start; padding-top: 38px; }
+      .welcome-copy { margin-bottom: 16px; }
+      .welcome-context { margin-bottom: 14px; }
+      .suggestions { grid-template-columns: 1fr; gap: 7px; }
+      .suggestion { min-height: 0; padding: 10px 11px; }
+      .suggestion-copy small { margin-top: 3px; }
+      .suggestion-label { margin-bottom: 7px; }
+      .composer-wrap { padding: 0 10px 10px; }
+      .composer-text { min-height: 49px; font-size: 12px; }
+      .composer-help { display: none; }
+      .context-rail { display: none; }
+      .details { grid-template-columns: 1fr; }
+      .summary-strip { grid-template-columns: 1fr; }
+      .user-message { max-width: 90%; }
+      .result-row { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <div class="page-header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">i</span>
+        <div class="brand-copy"><strong>iGen ERP · Trợ lý AI</strong><span>Ba phương án nháp để duyệt</span></div>
+      </div>
+      <nav class="choice-nav" aria-label="Chọn phương án giao diện">
+        <a href="#option-ava">01 · Gần AVA</a>
+        <a href="#option-erp">02 · Theo nghiệp vụ</a>
+        <a href="#option-action">03 · Tập trung thao tác</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro" aria-labelledby="page-title">
+      <h1 id="page-title">Chọn hướng giao diện cho Trợ lý AI</h1>
+      <p>Cả ba phương án đều giữ trang chat riêng, tông xanh theo iGen và nút cài đặt mở popup. Nội dung trong hội thoại là dữ liệu minh họa để duyệt bố cục.</p>
+    </section>
+
+    <section class="option" id="option-ava" aria-labelledby="option-ava-title">
+      <div class="option-heading">
+        <div><p class="option-number">Phương án 01</p><h2 id="option-ava-title">Gần MISA AVA · Chat tập trung</h2><p>Màn chào gọn, ba gợi ý rõ ràng, vùng nhập luôn nằm dưới cùng; lịch sử và cài đặt nằm trong thanh bên.</p></div>
+        <span class="mock-label">Ưu tiên bắt đầu nhanh</span>
+      </div>
+      <div class="app-window">
+        <div class="app-topbar"><div class="app-top-left"><span class="app-name">iGen ERP</span><span class="crumb">/ Trợ lý AI</span></div><div class="app-top-right"><span class="workspace-search">⌕ <span>Tìm nghiệp vụ, hồ sơ…</span></span><span class="crumb">Chi nhánh Hà Nội</span><span class="avatar">MA</span></div></div>
+        <div class="workspace">
+          <aside class="erp-nav" aria-label="Mô phỏng menu iGen ERP">
+            <div class="erp-brand"><span class="erp-brand-mark">i</span><div><strong>iGen ERP</strong><small>Quản trị doanh nghiệp</small></div></div>
+            <div class="erp-search">⌕ <span>Tìm chức năng</span></div>
+            <p class="erp-nav-label">TỔNG QUAN</p><div class="erp-link"><span class="nav-glyph">▦</span>Tổng quan</div>
+            <p class="erp-nav-label">VẬN HÀNH</p>
+            <div class="erp-link"><span class="nav-glyph">♙</span>Nhân sự</div><div class="erp-link"><span class="nav-glyph">▤</span>Kho & sản phẩm</div><div class="erp-link"><span class="nav-glyph">◉</span>Tài chính</div>
+            <div class="erp-link active"><span class="nav-glyph">✦</span>Trợ lý AI<span class="erp-count">AI</span></div>
+            <div class="erp-nav-footer"><div class="erp-link"><span class="nav-glyph">⚙</span>Cài đặt hệ thống</div></div>
+          </aside>
+          <aside class="side-nav" aria-label="Mô phỏng điều hướng trợ lý">
+            <p class="side-title">TRỢ LÝ AI</p>
+            <div class="side-link active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/></svg>Trò chuyện</div>
+            <div class="side-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Lịch sử phiên</div>
+            <div class="recent-block"><p class="side-title">GẦN ĐÂY</p><div class="recent-item current">Tạo hồ sơ nhân sự<small>Hôm nay · 10:42</small></div><div class="recent-item">Kiểm tra tồn kho<small>Hôm qua · 16:18</small></div><div class="recent-item">Tra cứu công nợ<small>Thứ Hai · 09:05</small></div></div>
+            <div class="side-bottom"><div class="side-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9z"/></svg>Cài đặt · popup</div></div>
+          </aside>
+          <section class="chat-area" aria-label="Bản nháp giao diện trò chuyện">
+            <header class="chat-heading"><div><h3>Trợ lý AI</h3><p>Hỗ trợ công việc trong iGen ERP</p></div><span class="online">Sẵn sàng</span></header>
+            <div class="mobile-nav" aria-hidden="true"><span>Trò chuyện</span><span>Lịch sử</span><span>Cài đặt</span></div>
+            <div class="messages">
+              <div class="welcome">
+                <span class="bot-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M8 13h.01M16 13h.01M9 17h6"/><path d="m3 12 1 1m17-1-1 1"/></svg></span>
+                <p class="eyebrow">TRỢ LÝ AI · IGEN ERP</p>
+                <h4>Chào Minh Anh, hôm nay tôi giúp gì?</h4>
+                <p class="welcome-copy">Nêu yêu cầu bằng lời tự nhiên. Trợ lý sẽ hỏi thêm khi cần và cho bạn kiểm tra trước khi thực hiện thay đổi.</p>
+                <span class="welcome-context">Chi nhánh Hà Nội · Đang dùng ngữ cảnh hiện tại</span>
+                <div class="suggestion-label"><span>GỢI Ý THEO CÔNG VIỆC</span><span>Phổ biến trong iGen</span></div>
+                <div class="suggestions">
+                  <div class="suggestion"><span class="suggestion-icon">NS</span><span class="suggestion-copy"><span class="category">NHÂN SỰ</span><strong>Tạo hồ sơ nhân sự</strong><small>Bắt đầu với thông tin nhân viên mới</small></span><span class="suggestion-arrow">↗</span></div>
+                  <div class="suggestion"><span class="suggestion-icon">KHO</span><span class="suggestion-copy"><span class="category">KHO HÀNG</span><strong>Kiểm tra tồn kho</strong><small>Tìm mặt hàng cần bổ sung</small></span><span class="suggestion-arrow">↗</span></div>
+                  <div class="suggestion"><span class="suggestion-icon">TC</span><span class="suggestion-copy"><span class="category">TÀI CHÍNH</span><strong>Xem công nợ</strong><small>Tra cứu khoản cần theo dõi</small></span><span class="suggestion-arrow">↗</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="composer-wrap"><div class="composer"><div class="composer-text">Bạn muốn thực hiện việc gì?</div><div class="composer-actions"><span class="round-control" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0m-7 7v3m-4 0h8"/></svg></span><span class="composer-help">Enter để gửi · Shift + Enter để xuống dòng</span><span class="round-control primary" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m22 2-7 20-4-9-9-4zM22 2 11 13"/></svg></span></div></div></div>
+          </section>
+        </div>
+      </div>
+      <p class="option-note">Điểm nhấn: gần cách MISA AVA giới thiệu trợ lý bằng lời chào, gợi ý và ô hỏi đáp.</p>
+    </section>
+
+    <section class="option" id="option-erp" aria-labelledby="option-erp-title">
+      <div class="option-heading">
+        <div><p class="option-number">Phương án 02</p><h2 id="option-erp-title">Theo nghiệp vụ · Có ngữ cảnh ERP</h2><p>Chat vẫn là trung tâm; thanh bên gợi ý phân hệ và bảng ngữ cảnh giúp người dùng hiểu kết quả lấy từ đâu.</p></div>
+        <span class="mock-label">Ưu tiên tra cứu dữ liệu</span>
+      </div>
+      <div class="app-window">
+        <div class="app-topbar"><div class="app-top-left"><span class="app-name">iGen ERP</span><span class="crumb">/ Trợ lý AI</span></div><div class="app-top-right"><span class="workspace-search">⌕ <span>Tìm nghiệp vụ, hồ sơ…</span></span><span class="crumb">Chi nhánh Hà Nội</span><span class="avatar">MA</span></div></div>
+        <div class="workspace">
+          <aside class="erp-nav" aria-label="Mô phỏng menu iGen ERP">
+            <div class="erp-brand"><span class="erp-brand-mark">i</span><div><strong>iGen ERP</strong><small>Quản trị doanh nghiệp</small></div></div>
+            <div class="erp-search">⌕ <span>Tìm chức năng</span></div>
+            <p class="erp-nav-label">TỔNG QUAN</p><div class="erp-link"><span class="nav-glyph">▦</span>Tổng quan</div>
+            <p class="erp-nav-label">VẬN HÀNH</p>
+            <div class="erp-link"><span class="nav-glyph">♙</span>Nhân sự</div><div class="erp-link"><span class="nav-glyph">▤</span>Kho & sản phẩm</div><div class="erp-link"><span class="nav-glyph">◉</span>Tài chính</div>
+            <div class="erp-link active"><span class="nav-glyph">✦</span>Trợ lý AI<span class="erp-count">AI</span></div>
+            <div class="erp-nav-footer"><div class="erp-link"><span class="nav-glyph">⚙</span>Cài đặt hệ thống</div></div>
+          </aside>
+          <aside class="side-nav" aria-label="Mô phỏng phân hệ trợ lý">
+            <p class="side-title">BẮT ĐẦU THEO NGHIỆP VỤ</p>
+            <div class="side-link active">Nhân sự</div><div class="side-link">Kho & sản phẩm</div><div class="side-link">Khách hàng</div><div class="side-link">Tài chính</div>
+            <div class="side-bottom"><div class="side-link">Lịch sử phiên</div><div class="side-link">Cài đặt · popup</div></div>
+          </aside>
+          <section class="chat-area" aria-label="Bản nháp giao diện trò chuyện theo nghiệp vụ">
+            <header class="chat-heading"><div><h3>Trợ lý AI</h3><p>Đang làm việc với dữ liệu iGen ERP</p></div><span class="icon-button">＋ Cuộc trò chuyện mới</span></header>
+            <div class="mobile-nav" aria-hidden="true"><span>Chat</span><span>Nghiệp vụ</span><span>Lịch sử</span></div>
+            <div class="messages with-context">
+              <div class="conversation">
+                <div class="user-message">Cho tôi xem các khách hàng còn công nợ đến hạn.</div>
+                <div class="assistant-row"><span class="bot-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M8 13h.01M16 13h.01M9 17h6"/></svg></span><div class="assistant-copy"><p>Tôi đã tìm thấy một số khoản cần theo dõi. Bạn có thể mở phân hệ để xem chi tiết hoặc tiếp tục yêu cầu lọc danh sách.</p><div class="answer-card"><div class="confirm-title"><h5>Kết quả tra cứu công nợ</h5><span class="badge">3 khoản đến hạn</span></div><p>Dữ liệu minh họa · cập nhật theo chi nhánh đang chọn</p><div class="summary-strip"><div class="summary-cell"><span>Tổng công nợ</span><strong>24.150.000 ₫</strong></div><div class="summary-cell"><span>Khách hàng</span><strong>03 hồ sơ</strong></div><div class="summary-cell"><span>Cần ưu tiên</span><strong>01 khoản</strong></div></div><div class="result-head"><span>KHÁCH HÀNG</span><span>SỐ TIỀN · TRẠNG THÁI</span></div><div class="result-row"><strong>Khách hàng An Phát</strong><span>12.500.000 ₫ · đến hạn</span></div><div class="result-row"><strong>Công ty Minh Long</strong><span>8.200.000 ₫ · quá hạn</span></div><div class="result-row"><strong>Hộ kinh doanh Hoa Mai</strong><span>3.450.000 ₫ · đến hạn</span></div><span class="text-link">Mở danh sách công nợ <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></span></div></div></div>
+              </div>
+              <div class="context-rail"><h4>Ngữ cảnh hiện tại</h4><div class="context-item"><span>Phân hệ</span><strong>Tài chính</strong></div><div class="context-item"><span>Chi nhánh</span><strong>Hà Nội</strong></div><p class="context-note">Trợ lý giữ ngữ cảnh để câu trả lời và liên kết mở đúng khu vực làm việc.</p></div>
+            </div>
+            <div class="composer-wrap"><div class="composer"><div class="composer-text">Hỏi tiếp về công nợ hoặc chọn một thao tác…</div><div class="composer-actions"><span class="round-control" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0m-7 7v3m-4 0h8"/></svg></span><span class="composer-help">Trợ lý sẽ dùng dữ liệu theo quyền của bạn</span><span class="round-control primary" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m22 2-7 20-4-9-9-4zM22 2 11 13"/></svg></span></div></div></div>
+          </section>
+        </div>
+      </div>
+      <p class="option-note">Điểm nhấn: làm rõ mối liên hệ giữa câu trả lời, dữ liệu ERP và lối tắt mở phân hệ.</p>
+    </section>
+
+    <section class="option" id="option-action" aria-labelledby="option-action-title">
+      <div class="option-heading">
+        <div><p class="option-number">Phương án 03</p><h2 id="option-action-title">Tập trung thao tác · Xác nhận rõ ràng</h2><p>Giao diện hội thoại thoáng; khi có thay đổi dữ liệu, phần xem trước và nút xác nhận nổi bật ngay trong luồng chat.</p></div>
+        <span class="mock-label">Ưu tiên thực hiện an toàn</span>
+      </div>
+      <div class="app-window">
+        <div class="app-topbar"><div class="app-top-left"><span class="app-name">iGen ERP</span><span class="crumb">/ Trợ lý AI</span></div><div class="app-top-right"><span class="workspace-search">⌕ <span>Tìm nghiệp vụ, hồ sơ…</span></span><span class="crumb">Chi nhánh Hà Nội</span><span class="avatar">MA</span></div></div>
+        <div class="workspace">
+          <aside class="erp-nav" aria-label="Mô phỏng menu iGen ERP">
+            <div class="erp-brand"><span class="erp-brand-mark">i</span><div><strong>iGen ERP</strong><small>Quản trị doanh nghiệp</small></div></div>
+            <div class="erp-search">⌕ <span>Tìm chức năng</span></div>
+            <p class="erp-nav-label">TỔNG QUAN</p><div class="erp-link"><span class="nav-glyph">▦</span>Tổng quan</div>
+            <p class="erp-nav-label">VẬN HÀNH</p>
+            <div class="erp-link"><span class="nav-glyph">♙</span>Nhân sự</div><div class="erp-link"><span class="nav-glyph">▤</span>Kho & sản phẩm</div><div class="erp-link"><span class="nav-glyph">◉</span>Tài chính</div>
+            <div class="erp-link active"><span class="nav-glyph">✦</span>Trợ lý AI<span class="erp-count">AI</span></div>
+            <div class="erp-nav-footer"><div class="erp-link"><span class="nav-glyph">⚙</span>Cài đặt hệ thống</div></div>
+          </aside>
+          <aside class="side-nav" aria-label="Mô phỏng điều hướng hội thoại">
+            <p class="side-title">KHÔNG GIAN LÀM VIỆC</p><div class="side-link active">Trò chuyện</div><div class="side-link">Lịch sử phiên</div>
+            <div class="recent-block"><p class="side-title">HỘI THOẠI GẦN ĐÂY</p><div class="recent-item current">Tạo hồ sơ nhân sự<small>Đang chờ xác nhận</small></div><div class="recent-item">Báo cáo tồn kho<small>Hôm qua · 16:18</small></div></div>
+            <div class="side-bottom"><div class="side-link">Ghi nhớ</div><div class="side-link">Cài đặt · popup</div></div>
+          </aside>
+          <section class="chat-area" aria-label="Bản nháp giao diện xác nhận thao tác">
+            <header class="chat-heading"><div><h3>Trợ lý AI</h3><p>Phiên mới · Thao tác cần bạn duyệt</p></div><span class="icon-button">••• Tuỳ chọn</span></header>
+            <div class="mobile-nav" aria-hidden="true"><span>Trò chuyện</span><span>Lịch sử</span><span>Cài đặt</span></div>
+            <div class="messages">
+              <div class="conversation">
+                <div class="user-message">Tạo hồ sơ nhân sự mới cho Trần Minh Anh.</div>
+                <div class="assistant-row"><span class="bot-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M8 13h.01M16 13h.01M9 17h6"/></svg></span><div class="assistant-copy"><p>Mình đã chuẩn bị thông tin hồ sơ nhân sự. Bạn xem lại nội dung bên dưới nhé.</p><div class="confirm-card"><div class="confirm-title"><strong>Thông tin hồ sơ mới</strong><span class="badge">Chờ xác nhận</span></div><div class="details"><div class="detail"><span>Họ tên</span><strong>Trần Minh Anh</strong></div><div class="detail"><span>Phòng ban</span><strong>Kinh doanh</strong></div><div class="detail"><span>Email</span><strong>minh.anh@example.vn</strong></div><div class="detail"><span>Lương mặc định</span><strong>0 ₫</strong></div></div><div class="confirm-meta">Tạo hồ sơ trong phân hệ Nhân sự · Chi nhánh Hà Nội</div><div class="confirm-actions"><span class="mock-action primary">Xác nhận thực hiện</span><span class="mock-action">Điều chỉnh thông tin</span></div></div></div></div>
+              </div>
+            </div>
+            <div class="composer-wrap"><div class="composer"><div class="composer-text">Nhập yêu cầu tiếp theo…</div><div class="composer-actions"><span class="round-control" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0m-7 7v3m-4 0h8"/></svg></span><span class="composer-help">Bạn luôn xem trước thao tác trước khi xác nhận</span><span class="round-control primary" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m22 2-7 20-4-9-9-4zM22 2 11 13"/></svg></span></div></div></div>
+          </section>
+        </div>
+      </div>
+      <p class="option-note">Điểm nhấn: ưu tiên bước xem trước và xác nhận cho các thao tác có cập nhật dữ liệu.</p>
+    </section>
+
+    <p class="option-note">Đây là mockup tĩnh để duyệt hướng trình bày. Mục cài đặt được thể hiện như nút mở popup; các số liệu và hội thoại mẫu không phải dữ liệu thật.</p>
+    <footer class="source-note">Tham khảo cách MISA AVA dùng lời chào, gợi ý yêu cầu, nhập giọng nói và liên kết hướng dẫn: <a href="https://helpeshop.misa.vn/v1/kb/tich-hop-tro-ly-ai-misa-ava-tren-phan-mem-misa-eshop">Tài liệu MISA eShop</a>.</footer>
+  </main>
+</body>
+</html>
