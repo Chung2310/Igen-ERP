@@ -41,6 +41,15 @@ const RESOURCE_CODE_PREFIX: Record<ProductCatalogResourceKind, string> = {
   attributes: "ATTR",
 };
 
+function duplicateResourceMessage(kind: ProductCatalogResourceKind, code: string, existing?: { name?: string; status?: string }) {
+  const label = kind === "categories" ? "danh mục" : kind === "brands" ? "thương hiệu" : kind === "units" ? "đơn vị tính" : "thuộc tính";
+  const owner = existing?.name ? ` cho "${existing.name}"` : "";
+  const statusHint = existing?.status === "inactive"
+    ? " Mục này đang ngừng dùng; hãy mở phần quản lý, tìm theo mã và bật lại để sử dụng."
+    : " Hãy tìm và chọn mục hiện có trong danh sách.";
+  return `Mã ${label} "${code}" đã được dùng${owner}.${statusHint}`;
+}
+
 export function assertResourceKind(value: unknown): asserts value is ProductCatalogResourceKind {
   if (!RESOURCE_KINDS.includes(value as ProductCatalogResourceKind)) throw new ProductCatalogValidationError("Loại resource sản phẩm không hợp lệ.");
 }
@@ -136,7 +145,11 @@ export const ProductCatalogResourceService = {
     if (query.status === "active" || query.status === "inactive") filter.status = query.status;
     const search = String(query.q || "").trim();
     if (search) filter.$or = [{ code: { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } }, { name: { $regex: search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } }];
-    return models[kindValue].find(filter).sort({ name: 1 }).limit(200).lean();
+    const requestedLimit = Number(query.limit);
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(1_000, Math.floor(requestedLimit))
+      : 200;
+    return models[kindValue].find(filter).sort({ name: 1 }).limit(limit).lean();
   },
 
   async create(companyCodeValue: unknown, kindValue: unknown, input: unknown, actorValue: unknown): Promise<ResourceDocument> {
@@ -159,6 +172,8 @@ export const ProductCatalogResourceService = {
 
     const code = raw?.code ? normalizeCode(raw.code, "Mã resource") : await resolveNextCatalogCode(models[kindValue], companyCode, RESOURCE_CODE_PREFIX[kindValue], raw?.name);
     const values = { companyCode, ...normalizeResourceInput(kindValue, { ...raw, code }, actor) };
+    const existing = await models[kindValue].findOne({ companyCode, code }).select({ name: 1, status: 1 }).lean();
+    if (existing) throw new ProductCatalogValidationError(duplicateResourceMessage(kindValue, code, existing));
     if (raw?.createSupplierPartner === true) {
       if (kindValue !== "brands") throw new ProductCatalogValidationError("Chỉ tạo kèm nhà cung cấp khi tạo hãng.");
       return runInTransaction(async (session) => {
@@ -172,8 +187,16 @@ export const ProductCatalogResourceService = {
         return brand.toObject() as ResourceDocument;
       });
     }
-    const document = await models[kindValue].create(values);
-    return document.toObject() as ResourceDocument;
+    try {
+      const document = await models[kindValue].create(values);
+      return document.toObject() as ResourceDocument;
+    } catch (error) {
+      if ((error as { code?: number })?.code === 11000) {
+        const duplicate = await models[kindValue].findOne({ companyCode, code }).select({ name: 1, status: 1 }).lean();
+        if (duplicate) throw new ProductCatalogValidationError(duplicateResourceMessage(kindValue, code, duplicate));
+      }
+      throw error;
+    }
   },
 
   async update(companyCodeValue: unknown, kindValue: unknown, id: string, input: unknown, actorValue: unknown): Promise<ResourceDocument> {
