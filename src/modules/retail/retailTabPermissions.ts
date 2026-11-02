@@ -1,6 +1,6 @@
-export type RetailTabSlug = "bao-hanh" | "ban-hang" | "don-hang" | "doi-tra" | "hoa-don" | "bao-cao" | "ca-pos" | "cai-dat" | "ma-uu-dai" | "tai-chinh" | "uu-dai";
+export type RetailTabSlug = "bao-hanh" | "don-hang" | "doi-tra" | "hoa-don" | "bao-cao" | "ca-pos" | "cai-dat" | "ma-uu-dai" | "tai-chinh" | "uu-dai";
 
-const OPERATIONAL_TABS: RetailTabSlug[] = ["ban-hang", "don-hang", "doi-tra", "hoa-don", "bao-cao", "ca-pos"];
+const OPERATIONAL_TABS: RetailTabSlug[] = ["don-hang", "doi-tra", "hoa-don", "bao-cao", "ca-pos"];
 // These tabs have no data-changing workflow; the other retail tabs require retail:manage.
 const READ_SAFE_TABS: RetailTabSlug[] = ["bao-hanh", "doi-tra", "hoa-don", "bao-cao"];
 

@@ -17,7 +17,6 @@ import { setBusinessApiScope } from "./lib/api";
 type StudentSubTab =
   | "BAO_LUU_HOC_LAI"
   | "LO_TRINH_CHO_LOP"
-  | "TỔNG QUAN"
   | "HỌC VIÊN"
   | "KHÓA HỌC"
   | "LỚP HỌC"
@@ -28,7 +27,6 @@ type StudentSubTab =
   | "PHÒNG HỌC"
   | "TÀI NGUYÊN";
 
-const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const StudentsPage = lazy(() => import("./pages/Students/StudentsPage").then((m) => ({ default: m.StudentsPage })));
 const CoursesPage = lazy(() => import("./pages/Courses/CoursesPage").then((m) => ({ default: m.CoursesPage })));
 const BatchesPage = lazy(() => import("./pages/Batches/BatchesPage").then((m) => ({ default: m.BatchesPage })));
@@ -44,7 +42,6 @@ const AddStudentModal = lazy(() => import("./components/Student/AddStudentModal"
 const StudentDetailModal = lazy(() => import("./components/Student/StudentDetailModal").then((m) => ({ default: m.StudentDetailModal })));
 
 const SUB_TAB_ROUTES = [
-  { slug: "tong-quan", value: "TỔNG QUAN" as const, label: "Tổng quan" },
   { slug: "khoa-hoc", value: "KHÓA HỌC" as const, label: "Khóa học" },
   { slug: "lop-hoc", value: "LỚP HỌC" as const, label: "Lớp học" },
   { slug: "chat-luong-hoc-vien", value: "CHẤT LƯỢNG HỌC VIÊN" as const, label: "Chất lượng học viên" },
@@ -100,7 +97,7 @@ export default function StudentManagementTab() {
     return userProfile?.role === "superadmin" ? "all" : centerId || userProfile?.companyCode || "all";
   });
 
-  const defaultSubTab = subTabRoutes[0]?.value || "TỔNG QUAN";
+  const defaultSubTab = subTabRoutes[0]?.value || "HỌC VIÊN";
   const [activeSubTab, setActiveSubTab] = useSubTabRouter<StudentSubTab>(subTabRoutes, defaultSubTab);
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [isAddStudentOpen, setIsAddStudentOpen] = React.useState(false);
@@ -138,15 +135,6 @@ export default function StudentManagementTab() {
       return <LearningRoadmapPage selectedCenter={selectedCenter} canManage={canManage("learning-roadmap")} />;
     }
     switch (activeSubTab) {
-      case "TỔNG QUAN":
-        return (
-          <DashboardPage
-            formattedDate={formatDateLabel()}
-            onSelectStudent={handleOpenStudent}
-            onNavigate={() => { }}
-            selectedCenter={selectedCenter}
-          />
-        );
       case "HỌC VIÊN":
         return (
           <StudentsPage

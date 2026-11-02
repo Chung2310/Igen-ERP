@@ -1,7 +1,6 @@
 import { canReadStudentArea } from "../../utils/studentPermissionPolicy";
 
 const ORDERED_TABS = [
-  ["tong-quan", null],
   ["khoa-hoc", "course"],
   ["lop-hoc", "batch"],
   ["chat-luong-hoc-vien", "student-quality"],
@@ -20,7 +19,6 @@ export function getAllowedStudentTabSlugs(
   preset: "student" | "candidate" | "worker" | "customer",
   role?: string,
 ) {
-  const hasUmbrella = permissions.some((code) => ["*", "people:read", "people:manage", "people:manage"].includes(code));
   const isTeacherOnly = role === "teacher";
   return ORDERED_TABS.flatMap(([slug, area]) => {
     // Các thao tác của giảng viên đều bắt đầu từ lớp học được phân công;
@@ -34,7 +32,6 @@ export function getAllowedStudentTabSlugs(
       "tai-nguyen",
       "thong-bao",
     ].includes(slug)) return [];
-    if (slug === "tong-quan") return hasUmbrella ? [slug] : [];
     if (preset !== "student" && ["lop-hoc", "chat-luong-hoc-vien", "lo-trinh-va-cho-lop", "hoc-phi", "lich-thi", "tai-nguyen", "phong-hoc"].includes(slug)) return [];
     const effectiveArea = preset === "worker" && slug === "khoa-hoc" ? "batch" : area;
     return effectiveArea && canReadStudentArea(permissions, effectiveArea) ? [slug] : [];

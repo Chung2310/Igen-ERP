@@ -8,7 +8,6 @@ import {
   Facebook,
   ChevronDown,
   Sparkles,
-  BarChart3,
 } from "lucide-react";
 import "../../shared/marketing-workspace.css";
 import { MarketingSubTabType, ContentApprovalCard } from "../../shared/types/index";
@@ -23,7 +22,6 @@ import { ModuleNavigation, ModuleNavigationButton } from "../../../../components
 import CustomTimePicker from "../../shared/components/common/CustomTimePicker";
 import { isRenderableVideoUrl } from "../components/marketing/CardWidgets";
 import TikTokPublishModal from "../components/marketing/TikTokPublishModal";
-import ErrorBoundary from "../../shared/components/common/ErrorBoundary";
 import { openContentStudio } from "../../shared/utils/contentStudioNavigation";
 import { openVideoStudio } from "../../shared/utils/videoStudioNavigation";
 import { CAMPAIGN_MEDIA_EVENT, type CampaignMediaLaunch } from "../components/marketing/campaignMedia";
@@ -33,7 +31,6 @@ const IdeationTab = lazy(() => import("../components/marketing/IdeationTab"));
 const CampaignPlannerTab = lazy(() => import("../components/marketing/CampaignPlannerTab"));
 const ApprovalTab = lazy(() => import("../components/marketing/ApprovalTab"));
 const CalendarTab = lazy(() => import("../components/marketing/CalendarTab"));
-const AnalyticsDashboard = lazy(() => import("../components/marketing/AnalyticsDashboard"));
 const CampaignMediaDialog = lazy(() => import("../components/marketing/CampaignMediaDialog"));
 
 export default function MarketingTab() {
@@ -51,7 +48,6 @@ export default function MarketingTab() {
   const MARKETING_SUB_TAB_ROUTES = [
     { slug: "tao-chien-dich", value: "TẠO CHIẾN DỊCH" as MarketingSubTabType, label: "Tạo chiến dịch" },
     { slug: "lich-dang", value: "LỊCH ĐĂNG CONTENT" as MarketingSubTabType, label: "Lịch đăng content" },
-    { slug: "bao-cao", value: "BÁO CÁO" as MarketingSubTabType, label: "Báo cáo" },
   ] as const;
   const [subTab, setSubTab] = useSubTabRouter<MarketingSubTabType>(MARKETING_SUB_TAB_ROUTES as any, "TẠO CHIẾN DỊCH");
 
@@ -627,12 +623,12 @@ export default function MarketingTab() {
       <ModuleNavigation label="Chức năng chiến dịch Marketing" activeValue={subTab} id="marketing_sub_tabs_switch">
         {MARKETING_SUB_TAB_ROUTES.map(tabRoute => {
           const tab = tabRoute.value;
-          const Icon = tab === "TẠO CHIẾN DỊCH" ? Sparkles : tab === "LỊCH ĐĂNG CONTENT" ? Calendar : BarChart3;
+          const Icon = tab === "TẠO CHIẾN DỊCH" ? Sparkles : Calendar;
           return <ModuleNavigationButton key={tab} active={subTab === tab} icon={<Icon />} aria-pressed={subTab === tab} aria-controls="marketing_tab_content" onClick={() => setSubTab(tab)}>{tabRoute.label}</ModuleNavigationButton>;
         })}
       </ModuleNavigation>
 
-      <div className={`flex-1 overflow-y-auto p-6 ${subTab === "BÁO CÁO" ? "bg-[#f8fbff]" : ""}`} id="marketing_tab_content">
+      <div className="flex-1 overflow-y-auto p-6" id="marketing_tab_content">
         <Suspense fallback={<TabLoader label="Đang tải dữ liệu marketing..." />}>
           {/* LÊN Ý TƯỞNG AI */}
           {subTab === "LÊN Ý TƯỞNG AI" && (
@@ -694,12 +690,6 @@ export default function MarketingTab() {
             />
           )}
 
-          {/* BÁO CÁO */}
-          {subTab === "BÁO CÁO" && (
-            <ErrorBoundary fallbackLabel="Không thể hiển thị Báo cáo Marketing">
-              <AnalyticsDashboard />
-            </ErrorBoundary>
-          )}
         </Suspense>
       </div>
 

@@ -20,7 +20,6 @@ type RetailSubTab = (typeof SUB_TABS)[number]["value"];
 
 const SUB_TABS = [
   { slug: "bao-hanh", value: "BẢO HÀNH" as const, label: "Bảo hành", icon: ShieldCheck },
-  { slug: "ban-hang", value: "BÁN HÀNG" as const, label: "Tổng quan", icon: Store },
   { slug: "don-hang", value: "ĐƠN HÀNG" as const, label: "Đơn hàng", icon: ListOrdered },
   { slug: "doi-tra", value: "ĐỔI TRẢ" as const, label: "Đổi trả", icon: RotateCcw },
   { slug: "hoa-don", value: "HÓA ĐƠN" as const, label: "Hóa đơn", icon: FileText },
@@ -39,7 +38,7 @@ export default function RetailWorkspace() {
     userProfile?.role === "admin" || userProfile?.role === "superadmin" ? ["*"] : userProfile?.permissions || [],
   );
   const tabs = SUB_TABS.filter((tab) => allowed.includes(tab.slug as (typeof allowed)[number]));
-  const [activeTab, setActiveTab] = useSubTabRouter<RetailSubTab>(tabs, tabs[0]?.value || "BÁN HÀNG");
+  const [activeTab, setActiveTab] = useSubTabRouter<RetailSubTab>(tabs, tabs[0]?.value || "ĐƠN HÀNG");
 
   const openPos = () => {
     window.history.pushState(null, "", "/pos");
@@ -49,10 +48,6 @@ export default function RetailWorkspace() {
   if (!tabs.length) {
     return <div className="p-6 text-sm font-semibold text-amber-800">Bạn chưa được cấp quyền sử dụng chức năng này.</div>;
   }
-
-  const overviewSections = tabs.filter((tab: (typeof SUB_TABS)[number]) =>
-    ["don-hang", "doi-tra", "hoa-don", "bao-cao", "ca-pos"].includes(tab.slug),
-  );
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-slate-50">
@@ -70,22 +65,6 @@ export default function RetailWorkspace() {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
         <Suspense fallback={<div className="text-sm text-slate-500">Đang tải phân hệ bán hàng...</div>}>
-          {activeTab === "BÁN HÀNG" && <section className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-              <h2 className="text-lg font-semibold text-slate-900">Tổng quan bán hàng</h2>
-              <p className="mt-1 text-sm text-slate-500">Chọn khu vực cần quản lý để xem dữ liệu và xử lý công việc.</p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {overviewSections.map((tab: (typeof SUB_TABS)[number]) => {
-                const Icon = tab.icon;
-                return <button key={tab.slug} type="button" onClick={() => setActiveTab(tab.value as RetailSubTab)} className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-xs transition hover:border-blue-200 hover:shadow-sm">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#edf3ff] to-[#f5f0ff] text-[#0866f5]"><Icon className="h-5 w-5" /></span>
-                  <span className="min-w-0 flex-1 font-semibold text-slate-800">{tab.label}</span>
-                  <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-[#0866f5]" />
-                </button>;
-              })}
-            </div>
-          </section>}
           {activeTab === "ĐƠN HÀNG" && <OrdersPage />}
           {activeTab === "ĐỔI TRẢ" && <ReturnsPage />}
           {activeTab === "HÓA ĐƠN" && <InvoicesPage />}

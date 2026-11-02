@@ -22,7 +22,7 @@ describe("Finance workspace routing and permissions", () => {
   it("does not expose management-only reports to wallet readers", () => {
     expect(getAllowedFinanceTabSlugs(["finance-wallet:read"])).toEqual(["so-quy"]);
     expect(getAllowedFinanceTabSlugs(["finance-wallet:manage"])).toEqual([
-      "tong-quan", "thu-chi", "lai-lo", "vat", "hoa-von", "so-quy",
+      "thu-chi", "lai-lo", "vat", "hoa-von", "so-quy",
     ]);
   });
 
@@ -59,5 +59,10 @@ describe("Finance workspace routing and permissions", () => {
     expect(resolveFinanceSubTab("?sub=tuoi-no", ["cong-no", "tuoi-no", "nhac-no"])).toBe("TUỔI NỢ");
     expect(resolveFinanceSubTab("?sub=nhac-no", ["cong-no"])).toBe("CÔNG NỢ");
     expect(resolveFinanceSubTab("?sub=unknown", ["nhac-no"])).toBe("NHẮC NỢ");
+    expect(resolveFinanceSubTab("?sub=tong-quan", ["thu-chi", "lai-lo", "vat", "hoa-von"])).toBe("THU CHI");
+  });
+
+  it("does not expose a duplicate overview tab in the finance workspace", () => {
+    expect(FINANCE_SUB_TABS.map((tab) => tab.slug)).not.toContain("tong-quan");
   });
 });
