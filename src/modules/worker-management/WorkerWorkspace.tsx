@@ -4,7 +4,6 @@ import {
   Bell,
   BriefcaseBusiness,
   FileSignature,
-  LayoutDashboard,
   Users,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -15,19 +14,15 @@ import {
   useStandardFields,
 } from "./workerRuntime";
 import { workerApiFetch } from "./api/client";
-import { WorkerDetailModal } from "./components/WorkerDetailModal";
 import { StyledSelect } from "../../components/common/StyledSelect";
 import "./worker-ui.css";
-import { useWorkers } from "./hooks/useWorkers";
 import WorkersPage from "./pages/WorkersPage";
 import type {
-  Worker,
   WorkerProfileFieldConfig,
   WorkerProfileFieldKey,
   WorkerProject,
   WorkerProjectSummary,
   WorkerScope,
-  WorkerStatus,
 } from "./types";
 import { canManageWorkerArea } from "./workerPermissionPolicy";
 
@@ -52,9 +47,8 @@ const WORKER_PROFILE_FIELD_KEYS: WorkerProfileFieldKey[] = [
 const isWorkerProfileFieldKey = (key: string): key is WorkerProfileFieldKey =>
   WORKER_PROFILE_FIELD_KEYS.includes(key as WorkerProfileFieldKey);
 
-type WorkerSubTab = "TỔNG QUAN" | "DỰ ÁN" | "LAO ĐỘNG" | "HỢP ĐỒNG" | "THÔNG BÁO";
+type WorkerSubTab = "DỰ ÁN" | "LAO ĐỘNG" | "HỢP ĐỒNG" | "THÔNG BÁO";
 
-const DashboardPage = lazy(() => import("./pages/WorkerDashboardPage").then((module) => ({ default: module.WorkerDashboardPage })));
 const WorkerProjectsPage = lazy(() =>
   import("./pages/WorkerProjectsPage").then((module) => ({
     default: module.WorkerProjectsPage,
@@ -64,12 +58,6 @@ const WorkerContractsPage = lazy(() => import("./pages/WorkerContractsPage"));
 const NotificationsPage = lazy(() => import("./pages/WorkerNotificationsPage").then((module) => ({ default: module.WorkerNotificationsPage })));
 
 const SUB_TABS = [
-  {
-    slug: "tong-quan",
-    value: "TỔNG QUAN" as const,
-    label: "Tổng quan",
-    icon: LayoutDashboard,
-  },
   {
     slug: "du-an",
     value: "DỰ ÁN" as const,
@@ -96,39 +84,11 @@ const SUB_TABS = [
   },
 ];
 
-const formatDate = () =>
-  new Intl.DateTimeFormat("vi-VN", {
-    weekday: "long",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date());
-
 const Loader = () => (
   <div className="flex min-h-[320px] items-center justify-center rounded-[28px] border border-slate-200 bg-white text-sm font-semibold text-slate-500 shadow-sm">
     Đang tải phân hệ lao động...
   </div>
 );
-
-function normalizeDashboardWorker(value: any): Worker {
-  const supportedStatuses: WorkerStatus[] = ["active", "placed", "inactive"];
-  return {
-    _id: String(value?._id || value?.id || ""),
-    fullName: String(value?.fullName || ""),
-    phone: value?.phone,
-    email: value?.email,
-    idCard: value?.idCard,
-    birthday: value?.birthday,
-    registrationDate: value?.registrationDate,
-    address: value?.address,
-    note: value?.note,
-    branchId: value?.branchId,
-    customFields: value?.customFields,
-    status: supportedStatuses.includes(value?.status)
-      ? value.status
-      : "active",
-  };
-}
 
 function WorkerProfilesRuntime({
   selectedCenter,
@@ -162,10 +122,6 @@ export default function WorkerWorkspace() {
   const { activeBranchId } = useBranch();
   const { centers } = useAdminCenters();
   const [ready, setReady] = React.useState(false);
-  const [selectedWorker, setSelectedWorker] = React.useState<Worker | null>(
-    null,
-  );
-
   React.useLayoutEffect(() => { setReady(true); }, []);
 
   const allowedSlugs = getAllowedWorkerTabSlugs(
@@ -183,7 +139,7 @@ export default function WorkerWorkspace() {
   );
   const [activeTab, setActiveTab] = useSubTabRouter<WorkerSubTab>(
     tabs,
-    tabs[0]?.value || "TỔNG QUAN",
+    tabs[0]?.value || "DỰ ÁN",
   );
   const canManage = (area: Parameters<typeof canManageWorkerArea>[1]) =>
     canManageWorkerArea(userProfile?.permissions || [], area);
@@ -201,7 +157,6 @@ export default function WorkerWorkspace() {
     [branchId, center],
   );
 
-  const { workers: workspaceWorkers, updateWorker } = useWorkers(scope);
   const scopeKey = scope ? `${scope.companyCode}:${scope.branchId || ""}` : "";
   const { fields } = useStandardFields(
     "students",
@@ -255,11 +210,6 @@ export default function WorkerWorkspace() {
     };
   }, [scope, scopeKey]);
 
-  const openDashboardWorker = React.useCallback((value: unknown) => {
-    const worker = normalizeDashboardWorker(value);
-    if (worker._id) setSelectedWorker(worker);
-  }, []);
-
   if (!ready) return <Loader />;
   if (!tabs.length) {
     return (
@@ -272,17 +222,7 @@ export default function WorkerWorkspace() {
   }
 
   const page =
-    activeTab === "TỔNG QUAN" ? (
-      <DashboardPage
-        formattedDate={formatDate()}
-        onSelectStudent={openDashboardWorker}
-        onNavigate={(view) => {
-          if (view === "hop-dong") setActiveTab("HỢP ĐỒNG");
-          if (view === "lao-dong") setActiveTab("LAO ĐỘNG");
-        }}
-        selectedCenter={center}
-      />
-    ) : activeTab === "LAO ĐỘNG" ? (
+    activeTab === "LAO ĐỘNG" ? (
       <WorkerProfilesRuntime
         selectedCenter={center}
         branchId={branchId}
@@ -320,18 +260,6 @@ export default function WorkerWorkspace() {
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FBFF] p-3 sm:p-6">
         <Suspense fallback={<Loader />}>{page}</Suspense>
       </div>
-      <WorkerDetailModal
-        worker={selectedWorker}
-        workers={workspaceWorkers}
-        profileFields={profileFields}
-        scope={scope}
-        canManage={canManage("worker-profile")}
-        onClose={() => setSelectedWorker(null)}
-        onSubmit={async (id, input) => {
-          return updateWorker(id, input);
-        }}
-        onSuccess={setSelectedWorker}
-      />
     </div>
   );
 }

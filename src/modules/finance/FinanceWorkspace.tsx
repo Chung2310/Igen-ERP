@@ -16,7 +16,6 @@ import FinanceRemindersPage from "./pages/FinanceRemindersPage";
 import ReceivablesPage from "./pages/ReceivablesPage";
 
 type FinanceSubTab =
-  | "TỔNG QUAN"
   | "THU CHI"
   | "LÃI LỖ"
   | "VAT"
@@ -30,7 +29,6 @@ type FinanceSubTab =
   | "KIỂM KÊ";
 
 export const FINANCE_SUB_TABS = [
-  { slug: "tong-quan", value: "TỔNG QUAN" as const, label: "Tổng quan", icon: ChartNoAxesColumnIncreasing },
   { slug: "thu-chi", value: "THU CHI" as const, label: "Thu - Chi", icon: Landmark },
   { slug: "lai-lo", value: "LÃI LỖ" as const, label: "Lãi lỗ", icon: TrendingDown },
   { slug: "vat", value: "VAT" as const, label: "VAT", icon: Landmark },
@@ -78,7 +76,7 @@ export function getAllowedFinanceTabSlugs(permissions: readonly string[] = []) {
   if (permissions.includes("*")) return FINANCE_SUB_TABS.map((tab) => tab.slug);
   const allowed: Array<(typeof FINANCE_SUB_TABS)[number]["slug"]> = [];
   if (permissions.includes("finance-wallet:manage")) {
-    allowed.push("tong-quan", "thu-chi", "lai-lo", "vat", "hoa-von", "so-quy");
+    allowed.push("thu-chi", "lai-lo", "vat", "hoa-von", "so-quy");
   } else if (permissions.includes("finance-wallet:read")) {
     allowed.push("so-quy");
   }
@@ -152,17 +150,16 @@ export default function FinanceWorkspace() {
       </ModuleNavigation>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-7xl space-y-6">
-          {(["TỔNG QUAN", "THU CHI", "LÃI LỖ", "VAT", "HÒA VỐN"].includes(activeTab)) && (
+          {(["THU CHI", "LÃI LỖ", "VAT", "HÒA VỐN"].includes(activeTab)) && (
             <FinancialManagementPage
               key={activeTab}
               view={
                 ({
-                  "TỔNG QUAN": "overview",
                   "THU CHI": "cash",
                   "LÃI LỖ": "profit",
                   "VAT": "vat",
                   "HÒA VỐN": "breakeven",
-                } as const)[activeTab as "TỔNG QUAN" | "THU CHI" | "LÃI LỖ" | "VAT" | "HÒA VỐN"]
+                } as const)[activeTab as "THU CHI" | "LÃI LỖ" | "VAT" | "HÒA VỐN"]
               }
             />
           )}

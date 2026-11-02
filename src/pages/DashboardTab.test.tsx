@@ -33,6 +33,10 @@ vi.mock("../components/dashboard/HrOverviewSection", () => ({
   default: () => <div data-testid="hr-section">HR Dashboard Content</div>,
 }));
 
+vi.mock("../components/dashboard/MarketingOverviewSection", () => ({
+  default: () => <div data-testid="marketing-section">Marketing Dashboard Content</div>,
+}));
+
 describe("DashboardTab consolidated hub", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/dashboard");
@@ -57,6 +61,12 @@ describe("DashboardTab consolidated hub", () => {
     const hrButtons = screen.getAllByText("Nhân sự");
     fireEvent.click(hrButtons[0]);
     expect(await screen.findByTestId("hr-section")).toBeTruthy();
+  });
+
+  it("keeps the Marketing dashboard in the consolidated overview", async () => {
+    render(<DashboardTab />);
+    fireEvent.click(screen.getAllByRole("button", { name: /Marketing & Nội dung/ })[0]);
+    expect(await screen.findByTestId("marketing-section")).toBeTruthy();
   });
 });
 

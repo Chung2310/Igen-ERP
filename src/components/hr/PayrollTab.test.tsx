@@ -8,7 +8,7 @@ import PayrollTab from "./PayrollTab";
 
 const getRun = vi.hoisted(() => vi.fn());
 const getResults = vi.hoisted(() => vi.fn());
-const getMonthlySalesKpi = vi.hoisted(() => vi.fn());
+const getMonthlyTaskKpi = vi.hoisted(() => vi.fn());
 const getAdjustments = vi.hoisted(() => vi.fn());
 const getPolicies = vi.hoisted(() => vi.fn());
 const getLineOverrides = vi.hoisted(() => vi.fn());
@@ -22,7 +22,7 @@ vi.mock("../../services/payrollService", () => ({
   payrollService: {
     getRun,
     getResults,
-    getMonthlySalesKpi,
+    getMonthlyTaskKpi,
     getAdjustments,
     getPolicies,
     getLineOverrides,
@@ -109,7 +109,7 @@ type PayrollRunFixture = Omit<ReturnType<typeof draftRun>, "effectiveLines"> & {
 function arrange(run: PayrollRunFixture | null = draftRun()) {
   getRun.mockResolvedValue(run);
   getResults.mockResolvedValue([]);
-  getMonthlySalesKpi.mockResolvedValue({ rows: [] });
+  getMonthlyTaskKpi.mockResolvedValue({ rows: [] });
   getAdjustments.mockResolvedValue([]);
   getPolicies.mockResolvedValue([]);
   getLineOverrides.mockResolvedValue([
@@ -151,11 +151,21 @@ describe("PayrollTab editable payroll results", () => {
     expect(screen.queryByText("formula-library-entry-point")).toBeNull();
   });
 
-  it("shows assigned sales KPI as a percentage without changing payroll amounts", async () => {
+  it("hides task KPI from payroll readers without management permission", async () => {
+    arrange(draftRun("review"));
+    render(<PayrollTab canManage={false} />);
+
+    expect(await screen.findByText("Nguyễn Văn A")).toBeTruthy();
+    expect(screen.queryByText("KPI công việc")).toBeNull();
+    expect(getMonthlyTaskKpi).not.toHaveBeenCalled();
+  });
+
+  it("shows task completion KPI as a percentage without changing payroll amounts", async () => {
     arrange();
-    getMonthlySalesKpi.mockResolvedValue({ rows: [{ employeeId: "e1", percent: 125 }] });
+    getMonthlyTaskKpi.mockResolvedValue({ rows: [{ employeeId: "e1", percent: 125 }] });
     render(<PayrollTab canManage />);
 
+    expect((await screen.findAllByText("KPI công việc")).length).toBeGreaterThan(0);
     expect(await screen.findByText("125%")).toBeTruthy();
     expect(screen.getByLabelText("net-e1").textContent).toContain("10.600.000");
   });

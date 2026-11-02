@@ -35,6 +35,8 @@ describe("RetailWorkspace", () => {
   it("uses order warranty in ERP sales", async () => {
     render(<RetailWorkspace />);
     expect(await screen.findByText("Order warranty page")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Tổng quan" })).toBeNull();
+    expect(screen.queryByText("Tổng quan bán hàng")).toBeNull();
     expect(screen.queryByText(/IMEI/)).toBeNull();
   });
 

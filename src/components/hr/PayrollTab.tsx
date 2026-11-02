@@ -200,9 +200,13 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
     void loadLineOverrides();
   }, [period]);
   useEffect(() => {
+    if (!canManage) {
+      setKpiPercentByEmployee({});
+      return;
+    }
     let active = true;
     setKpiPercentByEmployee({});
-    void payrollService.getMonthlySalesKpi(period).then((report: any) => {
+    void payrollService.getMonthlyTaskKpi(period).then((report: any) => {
       if (!active) return;
       const rows = Array.isArray(report?.rows) ? report.rows : [];
       setKpiPercentByEmployee(Object.fromEntries(rows.map((row: any) => [
@@ -213,7 +217,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
       if (active) setKpiPercentByEmployee({});
     });
     return () => { active = false; };
-  }, [period]);
+  }, [period, canManage]);
   useEffect(() => { void loadPolicies(); }, []);
   useEffect(() => { setSearch(""); setSortKey("employeeName"); setSortDir("asc"); clearLocalOverrideState(); }, [period]);
 
@@ -686,12 +690,12 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                   <th className="border-l border-slate-200 p-3 text-right font-normal text-slate-500">Hoa hồng</th>
                   <SortHeader label="Tổng khấu trừ" sortKey="deductionTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Thực nhận" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap">KPI bán hàng</th>
+                  {canManage && <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap">KPI công việc</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredSortedRunRows.length === 0 ? (
-                  <tr><td colSpan={15 + customVariables.length}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={14 + customVariables.length + (canManage ? 1 : 0)}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
                   <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
                     <td className="sticky left-0 z-10 border-r border-[#DCE7F4] bg-white p-3 text-center font-normal text-slate-700">
@@ -714,7 +718,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                     <td className="border-l border-slate-100 p-3 text-right text-slate-600">{formatVnd(Number(line.commission))}</td>
                     <td className="p-3 text-right font-normal text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{formatVnd(Number(line.deductionTotal))}</span></td>
                     <td className="p-3 text-right font-normal text-slate-900"><span aria-label={`net-${line.employeeId}`}>{formatVnd(Number(line.net))}</span></td>
-                    <td className="border-l border-outline-variant p-3 text-right text-on-surface tabular-nums">{formatKpiPercent(kpiPercentByEmployee[String(line.employeeId)])}</td>
+                    {canManage && <td className="border-l border-outline-variant p-3 text-right text-on-surface tabular-nums">{formatKpiPercent(kpiPercentByEmployee[String(line.employeeId)])}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -727,7 +731,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                     <td className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.commission ?? 0), 0))}</td>
                     <td className="p-3 text-right text-rose-700">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.deductionTotal, 0))}</td>
                     <td className="p-3 text-right text-slate-900">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0))}</td>
-                    <td className="border-l border-outline-variant p-3 text-right text-on-surface-variant tabular-nums">—</td>
+                    {canManage && <td className="border-l border-outline-variant p-3 text-right text-on-surface-variant tabular-nums">—</td>}
                   </tr>
                 </tfoot>
               )}
@@ -744,14 +748,14 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <th className="p-3 text-center font-normal text-slate-500">Trạng thái công</th>
-                  <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap">KPI bán hàng</th>
+                  {canManage && <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap">KPI công việc</th>}
                 </tr>
               </thead>
               <tbody>
                 {results.length === 0 ? (
-                  <tr><td colSpan={5}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Tính lương" để đồng bộ công và tạo bảng lương.' /></td></tr>
+                  <tr><td colSpan={4 + (canManage ? 1 : 0)}><EmptyState icon={Inbox} title="Chưa có dữ liệu công" hint='Vui lòng ấn "Tính lương" để đồng bộ công và tạo bảng lương.' /></td></tr>
                 ) : filteredSortedDraftRows.length === 0 ? (
-                  <tr><td colSpan={5}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
+                  <tr><td colSpan={4 + (canManage ? 1 : 0)}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : (
                   filteredSortedDraftRows.map((row: any) => (
                     <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
@@ -765,7 +769,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                           {row.status === "locked" ? "Đã khóa" : "Bản nháp"}
                         </span>
                       </td>
-                      <td className="border-l border-outline-variant p-3 text-right text-on-surface tabular-nums">{formatKpiPercent(kpiPercentByEmployee[String(row.employeeId)])}</td>
+                      {canManage && <td className="border-l border-outline-variant p-3 text-right text-on-surface tabular-nums">{formatKpiPercent(kpiPercentByEmployee[String(row.employeeId)])}</td>}
                     </tr>
                   ))
                 )}

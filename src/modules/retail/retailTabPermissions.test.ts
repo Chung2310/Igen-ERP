@@ -4,7 +4,7 @@ import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
 describe("retail subtab permissions", () => {
   it("allows retail managers to use every retail tab", () => {
     expect(getAllowedRetailTabSlugs(["retail:manage"])).toEqual([
-      "ban-hang", "don-hang", "doi-tra", "hoa-don", "bao-cao", "ca-pos", "bao-hanh", "ma-uu-dai", "tai-chinh", "cai-dat",
+      "don-hang", "doi-tra", "hoa-don", "bao-cao", "ca-pos", "bao-hanh", "ma-uu-dai", "tai-chinh", "cai-dat",
     ]);
   });
 
@@ -16,7 +16,7 @@ describe("retail subtab permissions", () => {
 
   it("treats wildcard permission as manager access", () => {
     expect(getAllowedRetailTabSlugs(["*"])).toEqual([
-      "ban-hang", "don-hang", "doi-tra", "hoa-don", "bao-cao", "ca-pos", "bao-hanh", "ma-uu-dai", "tai-chinh", "uu-dai", "cai-dat",
+      "don-hang", "doi-tra", "hoa-don", "bao-cao", "ca-pos", "bao-hanh", "ma-uu-dai", "tai-chinh", "uu-dai", "cai-dat",
     ]);
   });
 
