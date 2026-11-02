@@ -46,7 +46,7 @@ export const updateExamSchema = Joi.object({
 
 export const assignStudentSchema = Joi.object({
   studentId: objectIdSchema.optional(),
-  studentIds: Joi.array().items(objectIdSchema).optional(),
+  studentIds: Joi.array().items(objectIdSchema).unique().max(100).optional(),
   examId: Joi.string().allow("").optional(),
   examName: Joi.string().allow("").optional(),
   examDate: Joi.string().allow("").optional(),
@@ -66,7 +66,7 @@ export const updateStudentResultSchema = Joi.object({
 });
 
 export const gradeExamSchema = Joi.object({
-  results: Joi.array().items(Joi.object({ studentId: objectIdSchema.required(), score: Joi.number().min(0).required(), note: Joi.string().allow("").max(1000).default("") })).min(1).required(),
+  results: Joi.array().items(Joi.object({ studentId: objectIdSchema.required(), score: Joi.number().min(0).required(), note: Joi.string().allow("").max(1000).default("") })).min(1).unique("studentId").required(),
 });
 
 export const examStudentParamsSchema = Joi.object({

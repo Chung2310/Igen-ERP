@@ -1,5 +1,7 @@
 import { SocialIntegrationModel } from "../../../shared/model/social-integration.model.ts";
 import type { ChatOrderFlow } from "./core/types";
+import { PageChatFlowModel } from "../../model/page-chat-flow.model";
+import { pageIntakeFlow } from "./flows/page-intake";
 import { bakeryDefaultFlow } from "./flows/bakery-default/index";
 
 const FLOW_MODULES: ReadonlyMap<string, ChatOrderFlow> = new Map([
@@ -28,10 +30,17 @@ function resolveFlow(companyCode?: string | null) {
 export const chatOrderFlowRegistry = {
   resolve: resolveFlow,
 
+  async resolveForCompanyPage(companyCode: string, pageId: string) {
+    const configured = await PageChatFlowModel.findOne({ companyCode, pageId, status: "active" }).select("flowKey").lean();
+    if (configured?.flowKey === "bakery-default") return bakeryDefaultFlow;
+    if (configured) return pageIntakeFlow;
+    return resolveFlow(companyCode);
+  },
+
   async resolveForPage(pageId: string) {
     const integration = await SocialIntegrationModel.findOne({ platform: "Facebook", username: pageId })
       .select("companyCode")
       .lean();
-    return resolveFlow(integration?.companyCode);
+    return integration?.companyCode ? this.resolveForCompanyPage(integration.companyCode, pageId) : undefined;
   },
 };

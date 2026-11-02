@@ -18,6 +18,7 @@ export interface ChatOrderFlowInput extends ChatOrderScope {
   imageUrls: string[];
   observation?: ChatImageObservation;
   visualMode?: boolean;
+  simulationMode?: boolean;
   freshImage?: boolean;
   replyDeadlineAt?: number;
   businessContext?: string;

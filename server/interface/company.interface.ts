@@ -51,6 +51,7 @@ export interface ICompany extends Document {
   businessType?: "education" | "labor" | "service" | "recruitment" | "general";
   /** Các module nghiệp vụ được bật cho doanh nghiệp. Rỗng/thiếu = bật tất cả. */
   enabledModules?: string[];
+  serviceSubscription?: { planId: unknown; planName: string; priceVnd: number; modules: string[]; startsAt: Date; expiresAt: Date; status: "active" | "cancelled"; assignedBy: string } | null;
   /** Link thư mục Google Drive dùng chung cho toàn công ty (tài liệu). */
   driveFolderLink?: string;
   /** OAuth Google Drive riêng của công ty (mỗi công ty kết nối tài khoản Google của họ). */

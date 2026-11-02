@@ -130,9 +130,17 @@ export const WorkerProjectService = {
     return project.save();
   },
 
-  async update(scope: WorkerScope, id: string, input: WorkerProjectInput) {
-    const normalized = normalizeWorkerProjectInput(input);
+  async update(scope: WorkerScope, id: string, input: Partial<WorkerProjectInput>) {
     const baseQuery = buildWorkerProjectQuery(scope);
+    const projectFilter = { _id: new Types.ObjectId(id), ...baseQuery };
+    const current = await WorkerProjectModel.findOne(projectFilter).lean();
+    if (!current) throw new Error("Không tìm thấy dự án hoặc bạn không có quyền chỉnh sửa.");
+    const normalized = normalizeWorkerProjectInput({
+      ...current,
+      ...input,
+      name: input.name ?? current.name,
+      workerIds: input.workerIds ?? current.workerIds.map(workerId => String(workerId)),
+    });
     
     // Check code uniqueness per company if changed
     const existing = await WorkerProjectModel.findOne({
@@ -148,7 +156,7 @@ export const WorkerProjectService = {
     await assertWorkersInScope(scope, normalized.workerIds);
 
     const project = await WorkerProjectModel.findOneAndUpdate(
-      { _id: new Types.ObjectId(id), ...baseQuery },
+      projectFilter,
       { $set: normalized },
       { returnDocument: 'after' }
     );

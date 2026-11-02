@@ -31,6 +31,7 @@ payrollRouter.patch("/formulas/:id", requirePermission("payroll-policy:manage") 
 payrollRouter.post("/formulas/:id/activate", requirePermission("payroll-policy:manage") as any, payrollFormulaController.activate as any);
 payrollRouter.post("/formulas/:id/retire", requirePermission("payroll-policy:manage") as any, payrollFormulaController.retire as any);
 payrollRouter.post("/formulas/:id/clone", requirePermission("payroll-policy:manage") as any, payrollFormulaController.clone as any);
+payrollRouter.get("/runs", requirePermission(["payroll-period:read", "payroll-period:manage"]) as any, payrollController.listOperationalRuns as any);
 payrollRouter.post("/runs", requirePermission("payroll-period:manage") as any, payrollController.createOperationalRun as any);
 payrollRouter.post("/runs/:id/sync-attendance", requirePermission("payroll-period:manage") as any, payrollController.syncAttendance as any);
 payrollRouter.post("/runs/:id/lock-attendance", requirePermission("payroll-period:manage") as any, payrollController.lockAttendance as any);

@@ -1,13 +1,13 @@
 import { financeTreasuryService as treasury } from "../services/finance-treasury.service";
 ﻿import { Router } from "express";
 import { requirePermission } from "../../../middleware/auth";
-import { financeScopeFromRequest, requireFinanceBranch } from "../contracts";
+import { resolveFinanceScopeFromRequest, requireFinanceBranch } from "../contracts";
 import { financialReportingService as service } from "../services/financial-reporting.service";
 export const financialReportingRoutes = Router();
 const read = requirePermission(["finance-wallet:read", "finance-wallet:manage"]) as any;
 const manage = requirePermission("finance-wallet:manage") as any;
 const route = (fn: (scope: any, req: any, actor: string) => Promise<any>) => async (req: any, res: any, next: any) => {
-  try { const scope = requireFinanceBranch(financeScopeFromRequest(req.user || {}, req.query)); res.json({ success: true, data: await fn(scope, req, String(req.user?.id || "")) }); }
+  try { const scope = requireFinanceBranch(await resolveFinanceScopeFromRequest(req.user || {}, req.query)); res.json({ success: true, data: await fn(scope, req, String(req.user?.id || "")) }); }
   catch (error: any) { if (error.code === 11000) return res.status(409).json({ message: "Chứng từ đã tồn tại hoặc phiên bản đã thay đổi. Vui lòng tải lại." }); next(error); }
 };
 financialReportingRoutes.get("/debts", read, route((s, r) => service.debts(s, r.query)));

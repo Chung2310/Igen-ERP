@@ -83,6 +83,21 @@ export class BatchController {
     }
   }
 
+  static async getAttendanceLearners(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const result = await BatchService.getAttendanceLearners(
+        ownerId,
+        req.params.id,
+        req.user!.branchId,
+        String(req.query.search || ""),
+        Number(req.query.limit || 100),
+      );
+      if (!result) return res.status(404).json({ success: false, error: "Không tìm thấy lớp học." });
+      return res.json({ success: true, data: result });
+    } catch (error: unknown) { next(error); }
+  }
+
   static async update(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
@@ -172,6 +187,24 @@ export class BatchController {
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
       res.status(400).json({ success: false, error: msg });
+    }
+  }
+
+  static async updateAttendanceRecord(req: AuthRequest, res: Response) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const result = await BatchService.updateAttendanceRecord(
+        ownerId,
+        req.params.id,
+        req.body.date,
+        req.body.studentId,
+        req.body.status,
+        req.user!.branchId,
+      );
+      return res.json({ success: true, data: result });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
+      return res.status(400).json({ success: false, error: msg });
     }
   }
 

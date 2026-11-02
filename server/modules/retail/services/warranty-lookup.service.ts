@@ -34,12 +34,46 @@ export async function listWarrantyGapRisk(scope: RetailScope, at = new Date()) {
   return units.filter((unit) => { const months = monthsFor(unit); return unit.supplierWarranty?.endAt && months > 0 && new Date(unit.supplierWarranty.endAt) < computeWarrantyEnd(at, months); }).map((unit) => { const months = monthsFor(unit); return { ...unit, gapMonths: Math.max(0, Math.ceil((computeWarrantyEnd(at, months).getTime() - new Date(unit.supplierWarranty.endAt).getTime()) / (30 * 86_400_000))) }; });
 }
 
-export async function updateWarranty(scope: RetailScope, id: string, input: { kind: "supplier" | "customer"; startAt: string; months: number }, actor: { id: string; name: string }) {
-  const startAt = new Date(input.startAt); const months = Number(input.months);
-  if (Number.isNaN(startAt.valueOf()) || !Number.isFinite(months) || months < 0 || months > 1200) throw Object.assign(new Error("Ngày bắt đầu hoặc số tháng bảo hành không hợp lệ."), { statusCode: 400 });
-  const unit: any = await SerialUnitModel.findOne({ _id: id, companyCode: scope.companyCode }); if (!unit) throw Object.assign(new Error("Không tìm thấy IMEI/serial."), { statusCode: 404 });
+type WarrantyUpdateInput = { kind: "supplier" | "customer"; startAt: string; months: number };
+type WarrantyUpdateActor = { id: string; name: string };
+
+function validateWarrantyUpdate(input: WarrantyUpdateInput) {
+  const startAt = new Date(String(input?.startAt || "")); const months = Number(input?.months);
+  if (!input || !["supplier", "customer"].includes(input.kind) || Number.isNaN(startAt.valueOf()) || !Number.isInteger(months) || months < 0 || months > 1200) throw Object.assign(new Error("Loại bảo hành, ngày bắt đầu hoặc số tháng bảo hành không hợp lệ."), { statusCode: 400 });
+  return { startAt, months };
+}
+
+async function saveWarrantyUpdate(unit: any, input: WarrantyUpdateInput, actor: WarrantyUpdateActor) {
+  const { startAt, months } = validateWarrantyUpdate(input);
   const field = input.kind === "supplier" ? "supplierWarranty" : "customerWarranty"; const current = unit[field] || {};
   unit[field] = { ...current, months, startAt, endAt: computeWarrantyEnd(startAt, months), startSource: "manual", source: "manual" }; unit.updatedBy = actor.id; await unit.save();
-  await SerialEventModel.create({ companyCode: scope.companyCode, branchId: unit.branchId, serialUnitId: String(unit._id), serialNumber: unit.serialNumber, eventType: "warranty_adjusted", toStatus: unit.status, reason: `${input.kind}:${months} tháng`, actorId: actor.id, actorName: actor.name });
+  await SerialEventModel.create({ companyCode: String(unit.companyCode || ""), branchId: unit.branchId, serialUnitId: String(unit._id), serialNumber: unit.serialNumber, eventType: "warranty_adjusted", toStatus: unit.status, reason: `${input.kind}:${months} tháng`, actorId: actor.id, actorName: actor.name });
   return unit.toObject();
+}
+
+export async function updateWarranty(scope: RetailScope, id: string, input: WarrantyUpdateInput, actor: WarrantyUpdateActor) {
+  validateWarrantyUpdate(input);
+  const unit: any = await SerialUnitModel.findOne({ _id: id, companyCode: scope.companyCode, ...(scope.branchId ? { branchId: scope.branchId } : {}) });
+  if (!unit) throw Object.assign(new Error("Không tìm thấy IMEI/serial trong phạm vi đã chọn."), { statusCode: 404 });
+  return saveWarrantyUpdate(unit, input, actor);
+}
+
+export async function updateWarrantyByCode(scope: RetailScope, code: string, input: WarrantyUpdateInput, actor: WarrantyUpdateActor) {
+  validateWarrantyUpdate(input);
+  const visibleCode = String(code || "").trim();
+  if (!visibleCode) throw Object.assign(new Error("Hãy nhập IMEI, số sê-ri hoặc mã vạch hợp lệ."), { statusCode: 400 });
+  const normalizedSerial = normalizeSerialNumber(visibleCode);
+  const normalizedBarcode = normalizeInternalBarcode(visibleCode);
+  const filter = {
+    companyCode: scope.companyCode,
+    ...(scope.branchId ? { branchId: scope.branchId } : {}),
+    $or: [
+      ...(normalizedSerial ? [{ normalizedSerialNumber: normalizedSerial }, { normalizedImeis: normalizedSerial }] : []),
+      ...(normalizedBarcode ? [{ normalizedInternalBarcode: normalizedBarcode }, { normalizedBarcodeAliases: normalizedBarcode }] : []),
+    ],
+  };
+  const units: any[] = await SerialUnitModel.find(filter).limit(2);
+  if (!units.length) throw Object.assign(new Error("Không tìm thấy IMEI/serial trong phạm vi đã chọn."), { statusCode: 404 });
+  if (units.length > 1) throw Object.assign(new Error("Mã này khớp với nhiều thiết bị; hãy dùng IMEI, số sê-ri hoặc mã vạch chính xác hơn."), { statusCode: 409 });
+  return saveWarrantyUpdate(units[0], input, actor);
 }

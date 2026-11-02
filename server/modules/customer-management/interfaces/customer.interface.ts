@@ -1,7 +1,7 @@
 export type CustomerStatus = "active" | "inactive";
 export type CustomerType = "regular" | "vat";
 export type CustomerGender = "male" | "female" | "other";
-export type CustomerSource = "manual" | "pos" | "import";
+export type CustomerSource = "manual" | "pos" | "import" | "page";
 
 /** Hạng hiện tại, do hệ thống tính lại tự động dựa trên lợi nhuận gộp. */
 export interface ICustomerTierState {

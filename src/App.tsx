@@ -18,6 +18,7 @@ import { pushService } from "./services/pushService";
 import { setFaviconBadge } from "./utils/faviconBadge";
 import { isSuperAdminPath } from "./router/superAdminRoute";
 import { resolveEnabledTab } from "./config/modules";
+import { ChatbotWidget } from "./components/common/ChatbotWidget";
 
 const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
@@ -44,7 +45,7 @@ const PublicMonthlyApproval = lazy(() => import("./modules/marketing-suite/campa
 const RetailPosEntry = lazy(() => import("./modules/retail/pages/RetailPosEntry"));
 
 function AppContent() {
-  const { user, userProfile, loading, logout, initializationError, retryInitialization } = useAuth();
+  const { user, userProfile, loading, logout, hasPermission, initializationError, retryInitialization } = useAuth();
   const { activeBranchId, loading: branchLoading, error: branchError, retry: retryBranch } = useBranch();
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const pathname = React.useSyncExternalStore(subscribeToPathname, getPathnameSnapshot, getPathnameSnapshot);
@@ -247,6 +248,7 @@ function AppContent() {
       <>
         <SEOHead meta={{ ...getSeoForTab("BÁN LẺ"), path: "/pos" }} />
         <Suspense fallback={<AuthLoader />}><RetailPosEntry /></Suspense>
+        {hasPermission("chat:read") && <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />}
       </>
     ) : (
       <main className="flex min-h-dvh items-center justify-center bg-slate-50 p-6 text-center text-slate-700">
@@ -319,6 +321,7 @@ function AppContent() {
 
       {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
       <NotificationToastContainer onNavigate={handleSearchNavigation} />
+      {hasPermission("chat:read") && <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />}
     </div>
   );
 }

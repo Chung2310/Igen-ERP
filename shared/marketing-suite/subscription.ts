@@ -13,6 +13,8 @@ export interface AiSubscriptionPlan {
 export interface AiSubscriptionSummary {
   _id: string;
   companyCode: string;
+  scope?: "company" | "user";
+  userId?: string;
   planId: string;
   planName: string;
   priceVnd?: number | null;

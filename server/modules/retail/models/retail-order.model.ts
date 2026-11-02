@@ -22,9 +22,10 @@ RetailOrderSchema.index(
 );
 RetailOrderSchema.add({ collaboratorId: String, commissionSnapshot: Schema.Types.Mixed });
 RetailOrderSchema.add({ couponCode: { type: String, default: "" }, couponSnapshot: { type: new Schema({ id: String, code: String, name: String, amount: Number, version: Number }, { _id: false }), default: null } });
-RetailOrderSchema.add({ salesChannel: { type: String, enum: ["tiktok-shop"] }, externalOrderId: String, externalShopId: String, externalShopCipher: String, externalOrderStatus: String });
+RetailOrderSchema.add({ salesChannel: { type: String, enum: ["tiktok-shop", "facebook-page"] }, externalOrderId: String, externalShopId: String, externalShopCipher: String, externalOrderStatus: String, isSimulation: { type: Boolean, default: false, index: true } });
 RetailOrderSchema.index({ companyCode: 1, branchId: 1, status: 1, completedAt: 1 });
 RetailOrderSchema.index({ companyCode: 1, externalShopCipher: 1, externalOrderId: 1 }, { unique: true, partialFilterExpression: { salesChannel: "tiktok-shop", externalOrderId: { $type: "string" } } });
+RetailOrderSchema.index({ companyCode: 1, salesChannel: 1, externalShopId: 1, externalOrderId: 1 }, { unique: true, partialFilterExpression: { salesChannel: "facebook-page", externalOrderId: { $type: "string" } } });
 RetailOrderSchema.add({ retailPartnerId: { type: String, index: true }, retailPartnerSnapshot: { type: new Schema({ partnerId: String, code: String, name: String }, { _id: false }) } });
 RetailOrderSchema.add({ manualOrderDiscount: { type: Number, min: 0 }, pointsToRedeem: { type: Number, min: 0 }, pointsRedeemed: { type: Number, default: 0, min: 0 }, pointsDiscount: { type: Number, default: 0, min: 0 } });
 RetailOrderSchema.add({ createRequestKey: String, createRequestFingerprint: String, lastUpdateRequestKey: String, lastUpdateRequestFingerprint: String });

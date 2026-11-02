@@ -2,18 +2,18 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import Joi from 'joi';
 import { requirePermission, type AuthenticatedRequest } from '../../../middleware/auth';
-import { requireRetailBranch, retailScopeFromRequest } from '../../retail/contracts';
+import { requireRetailBranch, resolveRetailScopeFromRequest } from '../../retail/contracts';
 import { WarehouseModel } from '../../../model/warehouse.model';
 import { AuditInputError, reconcileInventory, type Finding } from './reconciliation.service';
 
 export const inventoryReconciliationRouter = Router();
 const read = requirePermission('inventory:read');
 const bodySchema = Joi.object({ warehouseId: Joi.string().hex().length(24).allow(''), baseline: Joi.object().unknown(true), ledgerComplete: Joi.boolean().default(false) });
-const scopeOf = (req: AuthenticatedRequest) => requireRetailBranch(retailScopeFromRequest(req.user || {}, req.query));
+const scopeOf = async (req: AuthenticatedRequest) => requireRetailBranch(await resolveRetailScopeFromRequest(req.user || {}, req.query));
 
 inventoryReconciliationRouter.get('/warehouses', read, async (req, res, next) => {
   try {
-    const scope = scopeOf(req);
+    const scope = await scopeOf(req);
     const warehouses = await WarehouseModel.find({ ...scope, $or: [{ kind: { $ne: 'transit' } }, { isActive: true }] }).select('name code kind isActive branchId').sort({ kind: 1, name: 1 }).limit(2000).lean();
     res.json({ success: true, data: warehouses });
   } catch (error) { next(error); }
@@ -22,8 +22,8 @@ inventoryReconciliationRouter.get('/warehouses', read, async (req, res, next) =>
 inventoryReconciliationRouter.post('/runs', read, async (req, res, next) => {
   const { value, error } = bodySchema.validate(req.body, { abortEarly: false });
   if (error) { res.status(400).json({ success: false, message: 'Chọn kho và dữ liệu tồn đầu kỳ hợp lệ.' }); return; }
-  let scope: ReturnType<typeof scopeOf>;
-  try { scope = scopeOf(req); } catch (problem) { next(problem); return; }
+  let scope: Awaited<ReturnType<typeof scopeOf>>;
+  try { scope = await scopeOf(req); } catch (problem) { next(problem); return; }
   let session: mongoose.mongo.ClientSession | undefined;
   const cancellation = new AbortController();
   const abort = () => cancellation.abort();

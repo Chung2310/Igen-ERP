@@ -26,6 +26,9 @@ import { companyTelegramOrderRouter } from "./message/router/company-telegram-or
 import { companyCakeCatalogRouter } from "./message/router/company-cake-catalog.router";
 import { companyProductCatalogRouter } from "./message/router/company-cake-catalog.router";
 import { companySepayRouter } from "./message/router/company-sepay.router";
+import { registerRetailOrderCustomerNotificationConsumers } from "./message/consumers/retail-order-customer-notification.consumer";
+
+registerRetailOrderCustomerNotificationConsumers();
 
 export const marketingSuiteRouter = Router();
 marketingSuiteRouter.use(suiteAccess);

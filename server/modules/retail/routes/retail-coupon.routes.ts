@@ -39,6 +39,15 @@ retailCouponRoutes.get("/available", operate, async (req: Request, res: Response
     res.json({ success: true, data: await retailCouponService.available(scope, String(customer._id)) });
   } catch (error: any) { res.status(error.status || 400).json({ success: false, error: error.message }); }
 });
+retailCouponRoutes.get("/assistant-options", operate, async (req: Request, res: Response) => {
+  try {
+    const scope = requireRetailBranch(retailScopeFromRequest((req as any).user || {}, req.query));
+    const coupons = await retailCouponService.selectable(scope, req.query.customerId);
+    res.json({ success: true, data: coupons.map(({ code, name, discountType, value, minSubtotal, maxDiscount }) => ({
+      code, name, discountType, value, minSubtotal, maxDiscount,
+    })) });
+  } catch (error: any) { res.status(error.status || 400).json({ success: false, error: error.message }); }
+});
 for (const method of ["get", "post", "put"] as const) {
   retailCouponRoutes[method](method === "put" ? "/automations/:id" : "/automations", manage, async (req: Request, res: Response) => {
     try {

@@ -52,6 +52,39 @@ export class ExamController {
     }
   }
 
+  static async getGradeRoster(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const roster = await ExamService.getGradeRoster(ownerId, req.params.id, req.user!.branchId);
+      if (!roster) return res.status(404).json({ success: false, error: "Không tìm thấy kỳ thi." });
+      return res.json({ success: true, data: roster });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  static async getAssignedStudents(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const students = await ExamService.getAssignedStudents(ownerId, req.params.id, req.user!.branchId);
+      if (!students) return res.status(404).json({ success: false, error: "Không tìm thấy kỳ thi." });
+      return res.json({ success: true, data: students });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  static async getEligibleStudents(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const ownerId = await getAllowedOwnerIds(req.user!);
+      const students = await ExamService.getEligibleStudents(ownerId, req.params.id, req.user!.branchId);
+      if (students === null) return res.status(404).json({ success: false, error: "Không tìm thấy kỳ thi." });
+      return res.json({ success: true, data: students });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   static async update(req: AuthRequest, res: Response) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
@@ -99,8 +132,8 @@ export class ExamController {
         return res.status(400).json({ success: false, error: "Thiếu ID học viên." });
       }
 
-      await ExamService.assignStudents(ownerId, examId, idsToAssign, req.user!.branchId);
-      res.json({ success: true, message: "Đã thêm học viên vào kỳ thi thành công." });
+      const result = await ExamService.assignStudents(ownerId, examId, idsToAssign, req.user!.branchId);
+      res.json({ success: true, message: "Đã thêm học viên vào kỳ thi thành công.", examName: result.examName, assignedCount: result.assignedCount });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Lỗi không xác định.";
       res.status(400).json({ success: false, error: msg });

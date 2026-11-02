@@ -32,6 +32,7 @@ import { getEffectivePermissions } from "../middleware/auth";
 import {
   createRun as createOperationalPayrollRun,
   listIssues as listOperationalPayrollIssues,
+  listRuns as listOperationalPayrollRuns,
   lockAttendance as lockOperationalPayrollAttendance,
   PayrollOperationError,
   syncAttendance as syncOperationalPayrollAttendance,
@@ -66,6 +67,7 @@ import {
   auditQuerySchema,
   calculateRunSchema,
   createOperationalRunSchema,
+  listOperationalRunsQuerySchema,
   createPaymentSchema,
   createPolicySchema,
   updatePolicySchema,
@@ -278,6 +280,18 @@ export const payrollController = {
     try {
       const run = await createOperationalPayrollRun(scope, req.user!.id, value);
       return res.status(201).json({ status: "success", data: run });
+    } catch (operationError) {
+      return operationFailure(res, operationError);
+    }
+  },
+  async listOperationalRuns(req: AuthenticatedRequest, res: Response) {
+    const scope = operationalScope(req);
+    if (!scope) return validationFailure(res, "Authenticated company and branch are required");
+    const { error, value } = listOperationalRunsQuerySchema.validate(req.query, { abortEarly: false, convert: true });
+    if (error) return validationFailure(res, error.message);
+    try {
+      const runs = await listOperationalPayrollRuns(scope, value);
+      return res.json({ status: "success", data: runs });
     } catch (operationError) {
       return operationFailure(res, operationError);
     }

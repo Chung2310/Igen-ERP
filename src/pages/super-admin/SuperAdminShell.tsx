@@ -180,7 +180,7 @@ export default function SuperAdminShell() {
     { id: "users" as const, label: "Quản trị tài khoản", icon: UsersRound },
     { id: "admins" as const, label: "Tài khoản Super Admin", icon: ShieldCheck },
     { id: "tenants" as const, label: "Quản lý doanh nghiệp", icon: Building2 },
-    { id: "subscriptions" as const, label: "Gói AI & Subscription", icon: FileText },
+    { id: "subscriptions" as const, label: "Gói cước & hạn mức", icon: FileText },
     { id: "sessions" as const, label: "Quản lý phiên làm việc", icon: Monitor },
   ];
 

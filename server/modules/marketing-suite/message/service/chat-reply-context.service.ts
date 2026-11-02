@@ -1,4 +1,5 @@
 import { aiKnowledgeService } from "../../knowledge/service/ai-knowledge.service.ts";
+import { getPageErpContext } from "./page-erp-context.service";
 import { analyzeChatImages, getChatImageUrls, isImagePriceInquiry, splitHistoryAndPendingInboundMessages } from "./chat-image-context";
 import { prepareChatImages, type ChatImageReference, type ChatVisualInput, type ChatVisualResult, type PreparedChatImage } from "./chat-visual-context";
 import { chatVisualMemory, CHAT_VISUAL_SESSION_MS, type ChatVisualScope } from "./chat-visual-memory.service.ts";
@@ -135,7 +136,7 @@ export async function prepareChatReplyContext(input: {
     ? input.message + "\nKhách gửi ảnh sản phẩm cần tư vấn: " + observation.description
     : visualInput?.previous ? input.message + "\nMẫu khách đang tham khảo: " + visualInput.previous.summary
       : visualInput ? input.message + "\nKhách cần tư vấn mẫu trong ảnh đính kèm." : input.message;
-  const [ragContext, pricingContextText, checkout] = await Promise.all([
+  const [ragContext, pricingContextText, checkout, erpContext] = await Promise.all([
     aiKnowledgeService.prepareChatContext({
       companyCode: input.companyCode, message: retrievalMessage, history: input.history, channel: input.channel,
       pageId: input.channel === "facebook" ? input.platformId : undefined, trainingKnowledge: input.aiConfig.trainingKnowledge,
@@ -147,6 +148,7 @@ export async function prepareChatReplyContext(input: {
       ? CakeCheckoutModel.findOne({ companyCode: memoryScope.companyCode, pageId: memoryScope.platformId,
         conversationId: memoryScope.conversationId, ...(input.sessionId ? { sessionId: input.sessionId } : {}) }).lean()
       : Promise.resolve(null),
+    input.channel === "facebook" && input.platformId ? getPageErpContext(input.companyCode, input.message) : Promise.resolve(""),
   ]);
   const orderContext = checkout ? JSON.stringify({
     state: checkout.state, details: checkout.details,
@@ -156,7 +158,7 @@ export async function prepareChatReplyContext(input: {
     ragContext: { ...ragContext, imageObservation: observation, imageDescription: observation?.description,
       visualInput, visualContext: visualInput?.previous, pricingContextText,
       replyDeadlineAt: input.deadlineAt,
-      contextText: [ragContext.contextText, orderContext ? "Dữ liệu đơn hiện tại từ backend: " + orderContext : ""].filter(Boolean).join("\n\n") },
+      contextText: [ragContext.contextText, erpContext, orderContext ? "Dữ liệu đơn hiện tại từ backend: " + orderContext : ""].filter(Boolean).join("\n\n") },
     visualInput, memoryScope, memoryImages, sourceMessageId: input.messageId, sourceTimestamp: timestamp, resetMemory,
   };
 }

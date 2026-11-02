@@ -993,6 +993,37 @@ export const campaignAssetOrderService = {
     ).lean();
   },
 
+  async listAssistantFillAllAIJobSummaries(
+    companyCode: string,
+    campaignId: string,
+    options: { status?: CampaignAssetOrderAIJobStatus; limit?: number } = {}
+  ) {
+    await assertCampaign(companyCode, campaignId);
+    const filter: Record<string, unknown> = { companyCode, campaignId };
+    if (options.status) filter.status = options.status;
+    const limit = Math.max(1, Math.min(100, Math.trunc(options.limit || 20)));
+    const jobs = await CampaignAssetOrderAIJobModel.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limit)
+      .select("_id status totalItems completedItems failedItems skippedItems conflictedItems progress startedAt completedAt createdAt updatedAt")
+      .lean();
+    return jobs.map((job) => ({
+      _id: String(job._id),
+      operation: "fill_all" as const,
+      status: job.status,
+      totalItems: job.totalItems,
+      completedItems: job.completedItems,
+      failedItems: job.failedItems,
+      skippedItems: job.skippedItems,
+      conflictedItems: job.conflictedItems,
+      progress: job.progress,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+    }));
+  },
+
   async getFillAllAIJob(companyCode: string, campaignId: string, jobId: string) {
     await assertCampaign(companyCode, campaignId);
     const job = await CampaignAssetOrderAIJobModel.findOne({ _id: jobId, companyCode, campaignId }).lean();
@@ -1057,6 +1088,39 @@ export const campaignAssetOrderService = {
         slot: order.slotId ? slotMap.get(String(order.slotId)) : undefined,
       })),
     };
+  },
+
+  async listAssistantSummaries(
+    companyCode: string,
+    campaignId: string,
+    options: { search?: string; status?: CampaignAssetOrderStatus; limit?: number } = {}
+  ) {
+    await assertCampaign(companyCode, campaignId);
+    const filter: Record<string, unknown> = { companyCode, campaignId };
+    const search = cleanText(options.search, 100);
+    if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(escaped, "i");
+      filter.$or = [{ title: pattern }, { contentGroup: pattern }, { headline: pattern }];
+    }
+    if (options.status) filter.status = options.status;
+    const limit = Math.max(1, Math.min(100, Math.trunc(options.limit || 20)));
+    const orders = await CampaignAssetOrderModel.find(filter)
+      .sort({ updatedAt: -1, _id: -1 })
+      .limit(limit)
+      .select("_id title contentGroup headline status format quantitySuggestion revision updatedAt")
+      .lean();
+    return orders.map((order) => ({
+      _id: String(order._id),
+      title: order.title,
+      contentGroup: order.contentGroup,
+      headline: order.headline,
+      status: order.status,
+      format: order.format,
+      quantitySuggestion: order.quantitySuggestion,
+      revision: order.revision,
+      updatedAt: order.updatedAt,
+    }));
   },
 
   async previewDriveImport(companyCode: string, campaignId: string, googleDriveFolderUrl: string) {

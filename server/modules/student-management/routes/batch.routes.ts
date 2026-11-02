@@ -2,7 +2,7 @@ import { Router } from "express";
 import { BatchController } from "../controllers/batch.controller";
 import { authMiddleware } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
-import { createBatchSchema, updateBatchSchema, addLearnerSchema, updateEnrollmentStatusSchema, batchProgressColorsSchema } from "../validations/batch.validation";
+import { createBatchSchema, updateBatchSchema, addLearnerSchema, updateEnrollmentStatusSchema, updateAttendanceRecordSchema, batchProgressColorsSchema } from "../validations/batch.validation";
 import { idParamSchema, enrollmentStatusParamsSchema } from "../validations/student.validation";
 import { requireAnyPermission } from "../../../middleware/auth";
 import { STUDENT_AREA_PERMISSIONS } from "../permissions";
@@ -24,6 +24,8 @@ router.get("/:id/enrollments", validate(idParamSchema, "params"), BatchControlle
 router.post("/:id/learners", requireManage, validate(idParamSchema, "params"), validate(addLearnerSchema), BatchController.addLearner);
 router.delete("/:id/learners/:studentId", requireManage, BatchController.removeLearner);
 router.patch("/:id/learners/:studentId/enrollment-status", requireManage, validate(enrollmentStatusParamsSchema, "params"), validate(updateEnrollmentStatusSchema), BatchController.updateEnrollmentStatus);
+router.get("/:id/attendance/learners", validate(idParamSchema, "params"), BatchController.getAttendanceLearners);
+router.patch("/:id/attendance/learner", requireTeacherOperation, validate(idParamSchema, "params"), validate(updateAttendanceRecordSchema), BatchController.updateAttendanceRecord);
 router.put("/:id/attendance", requireTeacherOperation, validate(idParamSchema, "params"), BatchController.saveAttendance);
 router.delete("/:id/attendance", requireTeacherOperation, validate(idParamSchema, "params"), BatchController.deleteAttendanceByDate);
 

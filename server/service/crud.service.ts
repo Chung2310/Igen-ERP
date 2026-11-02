@@ -329,9 +329,10 @@ function sanitizeInventoryResult(modelName: string, item: any) {
 const WRITE_PROTECTED_MODELS = new Set<string>(["users", "kanban-tasks", "projects"]);
 const INVENTORY_MODELS = new Set<SupportedModelName>(["products", "categories", "stock-logs"]);
 
-export function requireInventoryBranch(modelName: SupportedModelName, branchId?: string): string | undefined {
+export function requireInventoryBranch(modelName: SupportedModelName, branchId?: string, userRole?: string): string | undefined {
   if (!INVENTORY_MODELS.has(modelName)) return undefined;
   if (!branchId) {
+    if (["admin", "superadmin"].includes(String(userRole || ""))) return undefined;
     const error: Error & { statusCode?: number } = new Error("Vui lòng chọn chi nhánh trước khi thao tác.");
     error.statusCode = 400;
     throw error;
@@ -412,6 +413,7 @@ export const crudService = {
     const inventoryBranch = requireInventoryBranch(
       modelName,
       typeof options.filters?.branchId === "string" ? options.filters.branchId : undefined,
+      userRole,
     );
 
     // Áp dụng các bộ lọc động truyền từ client (loại bỏ key nguy hiểm trước khi merge)
@@ -475,7 +477,7 @@ export const crudService = {
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
       query.companyCode = companyCode;
     }
-    const inventoryBranch = requireInventoryBranch(modelName, branchId);
+    const inventoryBranch = requireInventoryBranch(modelName, branchId, userRole);
     if (inventoryBranch) query.branchId = inventoryBranch;
     if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
@@ -630,7 +632,7 @@ export const crudService = {
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
       query.companyCode = companyCode;
     }
-    const inventoryBranch = requireInventoryBranch(modelName, branchId);
+    const inventoryBranch = requireInventoryBranch(modelName, branchId, userRole);
     if (inventoryBranch) query.branchId = inventoryBranch;
     if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
@@ -748,7 +750,7 @@ export const crudService = {
     if (userRole !== "superadmin" || (companyCode && companyCode !== "SYSTEM")) {
       query.companyCode = companyCode;
     }
-    const inventoryBranch = requireInventoryBranch(modelName, branchId);
+    const inventoryBranch = requireInventoryBranch(modelName, branchId, userRole);
     if (inventoryBranch) query.branchId = inventoryBranch;
     if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
