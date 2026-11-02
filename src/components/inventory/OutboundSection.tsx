@@ -1,17 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Eye,
-  Printer,
   Pencil,
   Trash2,
   Clock,
   ArrowRight,
   Warehouse as WarehouseIcon,
-  Search,
 } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
-import { DatePeriodFilter } from "../common/DatePeriodFilter";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
 import {
   inventoryReceivingService,
@@ -20,11 +18,10 @@ import {
 import { OutboundCreateModal } from "./outbound/OutboundCreateModal";
 import { OutboundDetailModal } from "./outbound/OutboundDetailModal";
 import {
-  printOutboundVoucher,
   purposeLabel,
   type OutboundTicket,
 } from "./outbound/printOutboundVoucher";
-import type { StockLog, StockLogPurpose } from "../../types";
+import type { StockLog } from "../../types";
 import { useConfirmation } from "../../context/ConfirmationContext";
 import { emptyDatePeriodFilter, getDatePeriodRange, isDateInPeriod, type DatePeriodFilterValue } from "../../utils/datePeriodFilter";
 
@@ -53,7 +50,6 @@ export function OutboundSection({
   const requestConfirmation = useConfirmation();
   // Warehouses list
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [warehousesLoading, setWarehousesLoading] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,19 +69,16 @@ export function OutboundSection({
 
   // Tải danh sách kho hàng
   const loadWarehouses = async () => {
-    setWarehousesLoading(true);
     try {
       const whList = await inventoryReceivingService.listWarehouses();
       setWarehouses(whList);
     } catch {
       setWarehouses([]);
-    } finally {
-      setWarehousesLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadWarehouses();
+    void Promise.resolve().then(() => void loadWarehouses());
   }, []);
 
   // Chuẩn hóa một StockLog thành OutboundTicket
@@ -211,8 +204,7 @@ export function OutboundSection({
     selectedWarehouseFilter,
     selectedPurposeFilter,
     selectedStatusFilter,
-    dateRange.from,
-    dateRange.to,
+    dateRange,
   ]);
 
   // Phân trang
@@ -223,7 +215,9 @@ export function OutboundSection({
   }, [filteredLogs, page, pageSize]);
 
   useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
+    if (page > totalPages) {
+      void Promise.resolve().then(() => setPage(totalPages));
+    }
   }, [page, totalPages]);
 
   // Xử lý tạo / cập nhật phiếu
@@ -239,15 +233,6 @@ export function OutboundSection({
     setEditingTicket(null);
   };
 
-  // In nhanh từ danh sách
-  const handleQuickPrint = (ticket: OutboundTicket) => {
-    const wh = warehouses.find((w) => w._id === ticket.warehouseId);
-    printOutboundVoucher({
-      ticket,
-      warehouse: wh,
-      includeSerials: true,
-    });
-  };
 
   // Mở sửa phiếu
   const handleOpenEdit = (ticket: OutboundTicket) => {

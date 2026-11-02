@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FileSignature,
   Pencil,
   Plus,
   RefreshCw,
   Search,
+  Settings,
   Upload,
   X,
 } from "lucide-react";
@@ -107,9 +108,9 @@ const daysUntilExpiry = (value: string, now = new Date()) => {
   );
   return Math.ceil((expiryUtc - todayUtc) / 86_400_000);
 };
-const isExpiringSoon = (contract: Contract) => {
+const isExpiringSoon = (contract: Contract, alertDays = 20) => {
   const remaining = daysUntilExpiry(contract.endDate);
-  return contract.status === "active" && remaining >= 1 && remaining <= 20;
+  return contract.status === "active" && remaining >= 1 && remaining <= alertDays;
 };
 const emptyContract = {
   contractType: "Hợp đồng xác định thời hạn",
@@ -183,6 +184,10 @@ export default function ContractsTab({
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [expiryAlerts, setExpiryAlerts] = useState<ContractExpiryAlert[]>([]);
   const [expiryAlertTotal, setExpiryAlertTotal] = useState(0);
+  const [expiryAlertDays, setExpiryAlertDays] = useState(20);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingDays, setSettingDays] = useState(20);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [extensions, setExtensions] = useState<Extension[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,7 +207,7 @@ export default function ContractsTab({
   const [previewItem, setPreviewItem] = useState<ResourceItem | null>(null);
   const suffix = `?companyCode=${encodeURIComponent(companyCode)}${branchId ? `&branchId=${encodeURIComponent(branchId)}` : ""}`;
 
-  const load = async (currentPage = page, currentSearch = debouncedSearch) => {
+  const load = useCallback(async (currentPage = page, currentSearch = debouncedSearch) => {
     setLoading(true);
     try {
       const contractSuffix = `${suffix}&page=${currentPage}&limit=${limit}${currentSearch ? `&search=${encodeURIComponent(currentSearch)}` : ""}`;
@@ -218,6 +223,8 @@ export default function ContractsTab({
       setContracts(ar.data?.contracts || []);
       setExpiryAlerts(ar.data?.expiryAlerts || []);
       setExpiryAlertTotal(ar.data?.expiryAlertTotal || 0);
+      setExpiryAlertDays(ar.data?.expiryAlertDays || 20);
+      setSettingDays(ar.data?.expiryAlertDays || 20);
       setEmployees(ar.data?.employees || []);
       setTotal(ar.data?.total || 0);
       setExtensions(br.data || []);
@@ -226,7 +233,7 @@ export default function ContractsTab({
     } finally {
       setLoading(false);
     }
-  };
+  }, [suffix, page, limit, debouncedSearch]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -237,23 +244,14 @@ export default function ContractsTab({
   }, [search]);
 
   useEffect(() => {
-    load(page, debouncedSearch);
-  }, [companyCode, branchId, page, debouncedSearch]);
-  const contractsByEmployee = useMemo(
-    () =>
-      new Map(
-        employees.map((e) => [
-          e._id,
-          contracts.filter((c) => c.employeeId === e._id),
-        ]),
-      ),
-    [employees, contracts],
-  );
-  const visibleEmployees = employees.filter((e) =>
-    `${e.displayName || ""} ${e.email} ${e.department || ""}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) void load(page, debouncedSearch);
+    });
+    return () => {
+      active = false;
+    };
+  }, [load, page, debouncedSearch]);
   const openContract = (contract?: Contract) => {
     setEditing(contract || "new");
     setContractForm(
@@ -287,6 +285,34 @@ export default function ContractsTab({
         : emptyContract,
     );
   };
+
+  const saveSettings = async () => {
+    const days = Number(settingDays);
+    if (!Number.isInteger(days) || days < 1 || days > 365) {
+      toast.error("Số ngày báo trước phải là số nguyên từ 1 đến 365 ngày.");
+      return;
+    }
+    setSavingSettings(true);
+    try {
+      const res = await fetch(`/api/v1/hr-contracts/settings${suffix}`, {
+        method: "PUT",
+        headers: headers(),
+        body: JSON.stringify({ expiryAlertDays: days }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || "Không thể cập nhật cấu hình.");
+      const updatedDays = result.data?.expiryAlertDays || days;
+      setExpiryAlertDays(updatedDays);
+      toast.success(`Đã cập nhật cảnh báo: báo trước ${updatedDays} ngày.`);
+      setSettingsOpen(false);
+      await load(page, debouncedSearch);
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, "Không thể lưu cài đặt."));
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const saveContract = async () => {
     setSaving(true);
     try {
@@ -562,13 +588,27 @@ export default function ContractsTab({
             </div>
           </div>
           {canManage && tab === "contracts" && (
-            <button
-              onClick={() => openContract()}
-              className="flex items-center gap-1.5 rounded-xl bg-[#00A4E8] px-4 py-2.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#008FCB]"
-            >
-              <Plus size={15} />
-              Tạo hợp đồng
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingDays(expiryAlertDays);
+                  setSettingsOpen(true);
+                }}
+                className="flex items-center gap-1.5 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-xs font-medium text-slate-700 shadow-xs transition-colors hover:bg-slate-50 hover:text-slate-900"
+                title="Cài đặt thời gian cảnh báo hợp đồng sắp hết hạn"
+              >
+                <Settings size={14} className="text-[#00A4E8]" />
+                <span>Báo trước: <strong className="tabular-nums">{expiryAlertDays} ngày</strong></span>
+              </button>
+              <button
+                onClick={() => openContract()}
+                className="flex items-center gap-1.5 rounded-xl bg-[#00A4E8] px-4 py-2.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#008FCB]"
+              >
+                <Plus size={15} />
+                Tạo hợp đồng
+              </button>
+            </div>
           )}
         </div>
         <div className="flex w-fit gap-1 rounded-xl border border-[#DCE7F4] bg-[#F0F6FB] p-1">
@@ -594,23 +634,38 @@ export default function ContractsTab({
         ) : tab === "contracts" ? (
           <>
             {expiryAlertTotal > 0 && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-amber-800">
-                <p className="text-xs font-medium">
-                  Có {expiryAlertTotal} hợp đồng sắp hết hạn trong 20
-                  ngày tới
-                </p>
-                <p className="mt-1 text-[11px] text-amber-700">
-                  {expiryAlerts
-                    .slice(0, 5)
-                    .map(
-                      (contract) =>
-                        `${contract.employeeName} (${contract.daysRemaining} ngày)`,
-                    )
-                    .join(" · ")}
-                  {expiryAlertTotal > 5
-                    ? ` · và ${expiryAlertTotal - 5} hợp đồng khác`
-                    : ""}
-                </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-amber-800">
+                <div>
+                  <p className="text-xs font-medium">
+                    Có {expiryAlertTotal} hợp đồng sắp hết hạn trong {expiryAlertDays}{" "}
+                    ngày tới
+                  </p>
+                  <p className="mt-1 text-[11px] text-amber-700">
+                    {expiryAlerts
+                      .slice(0, 5)
+                      .map(
+                        (contract) =>
+                          `${contract.employeeName} (${contract.daysRemaining} ngày)`,
+                      )
+                      .join(" · ")}
+                    {expiryAlertTotal > 5
+                      ? ` · và ${expiryAlertTotal - 5} hợp đồng khác`
+                      : ""}
+                  </p>
+                </div>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingDays(expiryAlertDays);
+                      setSettingsOpen(true);
+                    }}
+                    className="flex shrink-0 items-center gap-1.5 rounded-xl border border-amber-300 bg-white/80 px-3 py-1.5 text-xs font-medium text-amber-900 transition hover:bg-white"
+                  >
+                    <Settings size={13} />
+                    Cài đặt báo trước ({expiryAlertDays} ngày)
+                  </button>
+                )}
               </div>
             )}
             <div className="relative max-w-sm">
@@ -641,7 +696,7 @@ export default function ContractsTab({
                 <tbody className="divide-y divide-[#E8EEF5]">
                   {contracts.map((c) => {
                     const remainingDays = daysUntilExpiry(c.endDate);
-                    const expiringSoon = isExpiringSoon(c);
+                    const expiringSoon = isExpiringSoon(c, expiryAlertDays);
                     const emp = employees.find((e) => e._id === c.employeeId);
                     return (
                       <tr
@@ -1188,6 +1243,69 @@ export default function ContractsTab({
                   Đã tải: {extensionForm.signedImageName}
                 </span>
               )}
+            </div>
+          </div>
+        </Modal>
+      )}
+      {settingsOpen && (
+        <Modal
+          title="Cài đặt cảnh báo hợp đồng sắp hết hạn"
+          close={() => setSettingsOpen(false)}
+          save={saveSettings}
+          saving={savingSettings}
+          valid={Number.isInteger(Number(settingDays)) && Number(settingDays) >= 1 && Number(settingDays) <= 365}
+        >
+          <div className="space-y-4 text-xs text-slate-700">
+            <div>
+              <p className="font-medium text-slate-800">
+                Chọn mốc thời gian báo trước:
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                Hệ thống sẽ lọc danh sách cảnh báo và đánh dấu các hợp đồng có ngày hết hạn trong khoảng này.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[7, 15, 20, 30, 45, 60, 90].map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => setSettingDays(days)}
+                    className={`rounded-xl px-3 py-2 text-xs font-medium transition ${
+                      Number(settingDays) === days
+                        ? "border border-[#00A4E8] bg-[#E8F7FF] text-[#007EB8] shadow-xs"
+                        : "border border-[#DCE7F4] bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {days} ngày {days === 30 ? "(Luật LĐ)" : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-[#E8EEF5] pt-3">
+              <label htmlFor="custom-alert-days" className="mb-1.5 block font-medium text-slate-800">
+                Hoặc nhập số ngày tùy chỉnh (1 – 365 ngày):
+              </label>
+              <div className="relative max-w-xs">
+                <input
+                  id="custom-alert-days"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={settingDays || ""}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setSettingDays(isNaN(val) ? 0 : Math.max(1, Math.min(365, val)));
+                  }}
+                  className={input + " pr-12 text-sm font-semibold tabular-nums text-slate-800"}
+                  placeholder="20"
+                />
+                <span className="pointer-events-none absolute right-3 top-2.5 text-xs font-medium text-slate-400">
+                  ngày
+                </span>
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-500">
+                Cấu hình sẽ áp dụng cho toàn bộ thông báo hạn hợp đồng của công ty.
+              </p>
             </div>
           </div>
         </Modal>

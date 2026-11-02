@@ -59,6 +59,14 @@ const CompanyVietqrConfigSchema = new Schema(
   { _id: false }
 );
 
+const CompanyContractConfigSchema = new Schema(
+  {
+    expiryAlertDays: { type: Number, default: 20, min: 1, max: 365 },
+    notifyManagers: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
 const CompanySchema = new Schema<ICompany>({
   code: { type: String, required: true, unique: true, index: true, uppercase: true },
   name: { type: String, required: true },
@@ -75,6 +83,7 @@ const CompanySchema = new Schema<ICompany>({
   smtpConfig: { type: CompanySmtpConfigSchema, default: undefined },
   celebrationConfig: { type: CompanyCelebrationConfigSchema, default: () => ({}) },
   vietqrConfig: { type: CompanyVietqrConfigSchema, default: () => ({}) },
+  contractConfig: { type: CompanyContractConfigSchema, default: () => ({ expiryAlertDays: 20, notifyManagers: true }) },
   lifecycleStatus: { type: String, enum: ["active", "suspended", "archived", "scheduled-deletion"], default: "active", index: true },
   lifecycleChangedAt: { type: Date, default: Date.now },
   deletionScheduledAt: { type: Date, default: null },

@@ -65,7 +65,7 @@ export const CRUD_MODEL_PERMISSION_POLICY: Record<string, {
   "training-enrollments": { read: "self-service", manage: "self-service" },
   workflows: { read: "hr:read", manage: "hr:manage" },
   users: { read: "access:read", manage: "access:manage" },
-  "hr-calendar-events": { read: "timekeeping:read", manage: "timekeeping:manage" },
+  "hr-calendar-events": { read: "self-service", manage: "self-service" },
   "hr-leave-templates": { read: "self-service", manage: "timekeeping:manage" },
   "hr-leave-applications": { read: "self-service", manage: "self-service" },
   "timekeeping-logs": {

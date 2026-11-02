@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { retailScopeFromRequest, requireRetailBranch } from "../contracts";
-import { lookupWarranty, listExpiringWarranty, listWarrantyGapRisk, updateWarranty } from "../services/warranty-lookup.service";
+import { lookupWarranty, lookupWarrantyByPhone, listExpiringWarranty, listWarrantyGapRisk, updateWarranty } from "../services/warranty-lookup.service";
 import { getEffectivePermissions } from "../../../middleware/auth";
 import { listOrderWarranties } from "../services/order-warranty.service";
 
@@ -21,6 +21,17 @@ export const retailWarrantyController = {
     const { supplierId: _supplierId, supplierName: _supplierName, ...supplierWarranty } = result.supplierWarranty || {};
     const { orderId: _orderId, branchId: _branchId, customerId: _customerId, customerCode: _customerCode, customerName: _customerName, customerPhone: _customerPhone, ...sold } = result.sold || {};
     res.json({ success: true, data: { ...result, sold: result.sold ? sold : undefined, supplierWarranty } });
+  },
+  lookupByPhone: async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user || {};
+      const scope = retailScopeFromRequest(user, { companyCode: req.query.companyCode, branchId: req.query.branchId });
+      const phone = String(req.params.phone || req.query.phone || "");
+      const result = await lookupWarrantyByPhone(scope, phone);
+      return res.json({ success: true, data: result });
+    } catch (error: any) {
+      return res.status(Number(error.status || error.statusCode) || 500).json({ success: false, message: error.message });
+    }
   },
   expiring: async (req: Request, res: Response) => { const scope = retailScopeFromRequest((req as any).user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId }); res.json({ success: true, data: await listExpiringWarranty(scope, String(req.query.scope || "customer") as any, Number(req.query.days || 30)) }); },
   gapRisk: async (req: Request, res: Response) => { const scope = retailScopeFromRequest((req as any).user || {}, { companyCode: req.query.companyCode, branchId: req.query.branchId }); res.json({ success: true, data: await listWarrantyGapRisk(scope) }); },

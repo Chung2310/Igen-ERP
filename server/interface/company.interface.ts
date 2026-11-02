@@ -29,13 +29,15 @@ export interface ICompanySmtpConfig { host: string; port: number; secure: boolea
 export interface ICelebrationTemplate { subject: string; html: string; }
 export interface ICompanyCelebrationConfig { birthdayEnabled: boolean; holidayEnabled: boolean; sendTime: string; birthdayTemplate: ICelebrationTemplate; holidayTemplate: ICelebrationTemplate; holidayOverrides?: Array<{ date: string; enabled: boolean; subject?: string; html?: string }>; }
 
-export interface ICompanySmtpConfig { host: string; port: number; secure: boolean; user: string; passwordEncrypted: string; fromEmail: string; fromName: string; updatedAt?: Date; }
-export interface ICelebrationTemplate { subject: string; html: string; }
-export interface ICompanyCelebrationConfig { birthdayEnabled: boolean; holidayEnabled: boolean; sendTime: string; birthdayTemplate: ICelebrationTemplate; holidayTemplate: ICelebrationTemplate; holidayOverrides?: Array<{ date: string; enabled: boolean; subject?: string; html?: string }>; }
 export interface ICompanyVietqrConfig {
   bankId: string;
   accountNo: string;
   accountName: string;
+}
+
+export interface ICompanyContractConfig {
+  expiryAlertDays: number;
+  notifyManagers?: boolean;
 }
 
 export interface ICompany extends Document {
@@ -63,6 +65,7 @@ export interface ICompany extends Document {
   smtpConfig?: ICompanySmtpConfig;
   celebrationConfig?: ICompanyCelebrationConfig;
   vietqrConfig?: ICompanyVietqrConfig;
+  contractConfig?: ICompanyContractConfig;
 
   lifecycleStatus?: "active" | "suspended" | "archived" | "scheduled-deletion";
   lifecycleChangedAt?: Date;

@@ -124,27 +124,33 @@ export const authService = {
         },
       });
 
-      if (res.status === 401) {
-        // Nếu token hết hạn, thử làm mới bằng refresh-token (cookie)
-        const refreshedToken = await refreshAccessToken();
-        if (refreshedToken) {
-            
-            // Gọi lại API me với access token mới
-            const retryRes = await fetch("/api/v1/auth/me", {
-              signal,
-              headers: {
-                "Authorization": `Bearer ${refreshedToken}`,
-              },
-            });
-            if (retryRes.ok) {
-              const retryData = await retryRes.json();
-              assertCurrentSession();
-              return {
-                ...retryData.user,
-                uid: retryData.user._id,
-              };
+      if (res.status === 401 || res.status === 403) {
+        // Nếu token hết hạn hoặc không hợp lệ, thử làm mới bằng refresh-token (cookie)
+        if (res.status === 401) {
+          try {
+            const refreshedToken = await refreshAccessToken();
+            if (refreshedToken) {
+              // Gọi lại API me với access token mới
+              const retryRes = await fetch("/api/v1/auth/me", {
+                signal,
+                headers: {
+                  "Authorization": `Bearer ${refreshedToken}`,
+                },
+              });
+              if (retryRes.ok) {
+                const retryData = await retryRes.json();
+                assertCurrentSession();
+                return {
+                  ...retryData.user,
+                  uid: retryData.user._id,
+                };
+              }
             }
+          } catch (refreshErr) {
+            console.warn("[authService.getMe] Không thể làm mới token:", refreshErr);
+          }
         }
+        localStorage.removeItem("accessToken");
         return null;
       }
 

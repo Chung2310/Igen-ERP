@@ -16,7 +16,7 @@ export function refreshAccessToken(fetcher: typeof fetch = window.fetch): Promis
   const request = withRequestTimeout(async (signal) => {
     const response = await fetcher('/api/v1/auth/refresh-token', { method: 'POST', signal });
     if (signal.aborted || localStorage.getItem('accessToken') !== previous) throw new Error('Phiên đăng nhập đã thay đổi. Hãy thử lại.');
-    if (response.status === 401 || response.status === 403) {
+    if (response.status >= 400 && response.status < 500) {
       localStorage.removeItem('accessToken');
       window.dispatchEvent(new Event('unauthorized'));
       return null;

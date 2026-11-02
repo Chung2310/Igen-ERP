@@ -171,6 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const result = await authService.loginWithEmail(email, password);
+      setInitializationError('');
       const profile: UserProfile = {
         ...result.user,
         uid: result.user._id,

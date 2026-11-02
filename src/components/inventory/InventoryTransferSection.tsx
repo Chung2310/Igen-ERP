@@ -122,58 +122,64 @@ export function InventoryTransferSection({
   // Fetch transfer documents
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    inventoryTransferService
-      .list(branchId, page, status, controller.signal, dateRange)
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setDocuments(data.items);
-          setTotal(data.total);
-        }
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) {
-          setDocuments([]);
-          toast.error(error.message);
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
+    void Promise.resolve().then(() => {
+      if (controller.signal.aborted) return;
+      setLoading(true);
+      inventoryTransferService
+        .list(branchId, page, status, controller.signal, dateRange)
+        .then((data) => {
+          if (!controller.signal.aborted) {
+            setDocuments(data.items);
+            setTotal(data.total);
+          }
+        })
+        .catch((error) => {
+          if (!controller.signal.aborted) {
+            setDocuments([]);
+            toast.error(error.message);
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
+    });
     return () => controller.abort();
-  }, [branchId, page, status, revision, dateRange.from, dateRange.to]);
+  }, [branchId, page, status, revision, dateRange]);
 
   // Fetch available balances from chosen warehouse
   useEffect(() => {
     const controller = new AbortController();
-    setBalances([]);
     loadedSerialKeys.current.clear();
-    setSerialCache({});
-    if (!fromWarehouseId || !open) {
-      setBalancesLoading(false);
-      return () => controller.abort();
-    }
-    setBalancesLoading(true);
-    apiFetch<{ data: InventoryBalance[] }>("/inventory/warehouses/balances", {
-      params: { warehouseId: fromWarehouseId },
-      headers: { "x-branch-id": branchId },
-      signal: controller.signal,
-    })
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setBalances(
-            data.data.filter(
-              (item) => item.variantId && item.quantity > item.reservedQuantity && item.trackingMode !== "lot"
-            )
-          );
-        }
+    void Promise.resolve().then(() => {
+      if (controller.signal.aborted) return;
+      setBalances([]);
+      setSerialCache({});
+      if (!fromWarehouseId || !open) {
+        setBalancesLoading(false);
+        return;
+      }
+      setBalancesLoading(true);
+      apiFetch<{ data: InventoryBalance[] }>("/inventory/warehouses/balances", {
+        params: { warehouseId: fromWarehouseId },
+        headers: { "x-branch-id": branchId },
+        signal: controller.signal,
       })
-      .catch((error) => {
-        if (!controller.signal.aborted) toast.error(error.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setBalancesLoading(false);
-      });
+        .then((data) => {
+          if (!controller.signal.aborted) {
+            setBalances(
+              data.data.filter(
+                (item) => item.variantId && item.quantity > item.reservedQuantity && item.trackingMode !== "lot"
+              )
+            );
+          }
+        })
+        .catch((error) => {
+          if (!controller.signal.aborted) toast.error(error.message);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setBalancesLoading(false);
+        });
+    });
     return () => controller.abort();
   }, [branchId, fromWarehouseId, open]);
 

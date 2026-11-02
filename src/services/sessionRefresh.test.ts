@@ -58,6 +58,10 @@ describe('bounded shared session refresh', () => {
       await expect(refreshAccessToken(vi.fn(async () => new Response('{}', { status: 401 })))).resolves.toBeNull();
       expect(localStorage.getItem('accessToken')).toBeNull();
       expect(expired).toHaveBeenCalledOnce();
+      localStorage.setItem('accessToken', 'retry-token');
+      await expect(refreshAccessToken(vi.fn(async () => new Response('{}', { status: 400 })))).resolves.toBeNull();
+      expect(localStorage.getItem('accessToken')).toBeNull();
+      expect(expired).toHaveBeenCalledTimes(2);
     } finally { window.removeEventListener('unauthorized', expired); }
   });
 });

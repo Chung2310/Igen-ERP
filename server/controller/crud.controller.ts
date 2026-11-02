@@ -466,6 +466,13 @@ export const crudController = {
               message: "Người tạo đơn không được phép tự duyệt.",
             });
           }
+        } else if (event && !(await canManageTimekeeping(req))) {
+          if (String(event.creatorId) !== String(req.user?.id)) {
+            return res.status(403).json({
+              status: "error",
+              message: "Bạn chỉ có thể chỉnh sửa lịch do chính mình tạo.",
+            });
+          }
         }
       }
 
@@ -628,6 +635,13 @@ export const crudController = {
             return res.status(403).json({
               status: "error",
               message: "Chỉ quản lý và admin mới có quyền xóa đơn nghỉ phép / làm tại nhà / ngoại lệ.",
+            });
+          }
+        } else if (event && !(await canManageTimekeeping(req))) {
+          if (String(event.creatorId) !== String(req.user?.id)) {
+            return res.status(403).json({
+              status: "error",
+              message: "Bạn chỉ có thể xóa lịch do chính mình tạo.",
             });
           }
         }
