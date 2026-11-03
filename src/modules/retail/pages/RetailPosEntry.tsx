@@ -116,7 +116,7 @@ export default function RetailPosEntry() {
       <section role="dialog" aria-modal="true" aria-labelledby="pos-close-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#edf3ff] text-[#0866f5]"><LockKeyhole className="h-5 w-5" /></span><h2 id="pos-close-title" className="text-lg font-bold text-slate-950">Bạn có muốn đóng phiên này không?</h2></div>
-          <button type="button" disabled={busy} aria-label="Đóng" onClick={() => setShowCloseForm(false)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"><X className="h-4 w-4" /></button>
+          <button type="button" disabled={busy} aria-label="Đóng" onClick={() => setShowCloseForm(false)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50" data-erp-modal-close><X className="h-4 w-4" /></button>
         </div>
         {error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
         <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">

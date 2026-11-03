@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { Suspense, lazy } from "react";
-import Sidebar from "./pages/Sidebar";
 import Header from "./pages/Header";
 import { ToastContainer } from "./pages/Toast";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -29,6 +28,7 @@ const subscribeToPathname = (onChange: () => void) => {
 const getPathnameSnapshot = () => window.location.pathname;
 
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const ModuleLauncher = lazy(() => import("./pages/ModuleLauncher"));
 const SuperAdminShell = lazy(() => import("./pages/super-admin/SuperAdminShell"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
@@ -47,7 +47,6 @@ const RetailPosEntry = lazy(() => import("./modules/retail/pages/RetailPosEntry"
 function AppContent() {
   const { user, userProfile, loading, logout, hasPermission, initializationError, retryInitialization } = useAuth();
   const { activeBranchId, loading: branchLoading, error: branchError, retry: retryBranch } = useBranch();
-  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const pathname = React.useSyncExternalStore(subscribeToPathname, getPathnameSnapshot, getPathnameSnapshot);
   const requestedPath = normalizePublicPath(pathname);
   const isPosOnly = userProfile?.role === "pos_cashier";
@@ -290,6 +289,15 @@ function AppContent() {
     );
   }
 
+  if ((currentPath === "/modules" || isAuthPage) && !isPosOnly && userProfile.role !== "superadmin") {
+    return (
+      <>
+        <SEOHead meta={{ ...AUTH_SEO, title: "Danh sách chức năng", path: "/modules" }} />
+        <Suspense fallback={<AuthLoader />}><ModuleLauncher /></Suspense>
+      </>
+    );
+  }
+
   if (isPosRoute) {
     const canAccessPos = userProfile.role === "admin" || userProfile.role === "superadmin" || Boolean(userProfile.permissions?.some((permission) => ["*", "pos:manage", "retail:manage"].includes(permission)));
     return canAccessPos ? (
@@ -332,27 +340,21 @@ function AppContent() {
   return (
     <div className="flex h-dvh w-full min-w-0 overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
       <SEOHead meta={getSeoForTab(resolvedActiveTab)} />
-      <Sidebar
-        activeTab={resolvedActiveTab}
-        setActiveTab={setActiveTab}
-        mobileOpen={mobileNavOpen}
-        onMobileClose={() => setMobileNavOpen(false)}
-      />
-
       <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden" id="main_content_area">
         <Header
           currentTab={resolvedActiveTab}
           onSearchSelect={handleSearchNavigation}
-          onMenuClick={() => setMobileNavOpen(true)}
         />
 
         <main
-          className={`min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-surface ${
-            activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-6" : "p-3 sm:p-6"
+          className={`min-w-0 flex-1 bg-surface ${
+            resolvedActiveTab === "TRỢ LÝ AI"
+              ? "flex min-h-0 flex-col overflow-hidden p-0"
+              : `overflow-x-hidden overflow-y-auto ${activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-2" : "p-2"}`
           }`}
           id="primary_page_container"
         >
-          {branchError && resolvedActiveTab !== "CÀI ĐẶT" ? (
+          {branchError && resolvedActiveTab !== "CÀI ĐẶT" && resolvedActiveTab !== "TRỢ LÝ AI" ? (
             <section className="space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 text-on-surface">
               <h1 className="text-balance text-lg font-semibold">Chưa thể tải chi nhánh</h1>
               <p role="alert" className="text-pretty text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">{branchError}</p>
@@ -361,7 +363,7 @@ function AppContent() {
                 <button type="button" onClick={() => setActiveTab("CÀI ĐẶT")} className="min-h-11 rounded-xl border border-outline-variant px-4 py-2 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Mở cài đặt</button>
               </div>
             </section>
-          ) : branchLoading && !activeBranchId && resolvedActiveTab !== "CÀI ĐẶT" ? (
+          ) : branchLoading && !activeBranchId && resolvedActiveTab !== "CÀI ĐẶT" && resolvedActiveTab !== "TRỢ LÝ AI" ? (
             <p role="status" className="p-6 text-sm text-on-surface-variant [--color-on-surface-variant:var(--color-slate-600)]">Đang tải chi nhánh…</p>
           ) : <AppRouterView scopeKey={activeBranchId} activeTab={resolvedActiveTab} userProfile={userProfile} />}
         </main>
@@ -369,7 +371,7 @@ function AppContent() {
 
       {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
       <NotificationToastContainer onNavigate={handleSearchNavigation} />
-      {hasPermission("chat:read") && <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />}
+      {hasPermission("chat:read") && resolvedActiveTab !== "TRỢ LÝ AI" && <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />}
     </div>
   );
 }

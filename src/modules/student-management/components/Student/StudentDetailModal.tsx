@@ -282,7 +282,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                       onClick={onClose}
                       title="Đóng"
                       className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
-                    >
+                     data-erp-modal-close>
                       <X className="h-4 w-4" />
                     </button>
                   </div>

@@ -2935,7 +2935,7 @@ export default function ResourceTab() {
                 setLinkUrl("");
               }}
               className="absolute right-4 top-4 rounded-full p-1 text-slate-400 hover:bg-slate-100 transition cursor-pointer z-10"
-            >
+             data-erp-modal-close aria-label="Đóng">
               <X className="h-5 w-5" />
             </button>
 
@@ -3030,7 +3030,7 @@ export default function ResourceTab() {
                   setNoteContent("");
                 }}
                 className="rounded-full p-1 text-slate-400 hover:bg-slate-100 transition cursor-pointer"
-              >
+               data-erp-modal-close aria-label="Đóng">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -3383,7 +3383,7 @@ export default function ResourceTab() {
               <button
                 onClick={() => setShowShareModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 hover:text-gray-800 transition active:scale-95"
-              >
+               data-erp-modal-close aria-label="Đóng">
                 <X className="h-5 w-5" />
               </button>
             </div>

@@ -124,7 +124,7 @@ export default function RetailShiftDetailDialog({ scope, shift, onClose, onRecon
   return (
     <div className="fixed inset-0 z-[80] flex items-start justify-center bg-slate-950/70 p-0 backdrop-blur-sm animate-in fade-in duration-200 sm:px-4 sm:py-3 lg:px-4" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section role="dialog" aria-modal="true" aria-labelledby="retail-shift-detail-title" className="relative flex h-[100dvh] w-full max-w-7xl flex-col overflow-hidden bg-slate-50 shadow-2xl animate-in slide-in-from-top-8 duration-300 sm:h-[calc(90dvh-24px)] sm:min-h-[480px] sm:max-h-[880px] sm:rounded-3xl motion-reduce:animate-none">
-        <button type="button" aria-label="Đóng chi tiết phiên" onClick={onClose} className="absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white/95 text-slate-500 shadow-sm transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"><X className="h-5 w-5" /></button>
+        <button type="button" aria-label="Đóng chi tiết phiên" onClick={onClose} className="absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white/95 text-slate-500 shadow-sm transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20" data-erp-modal-close><X className="h-5 w-5" /></button>
         <div className="min-h-0 flex-1 overflow-y-auto">
           <header className="border-b border-slate-200 bg-white">
             <div className="px-4 py-3 pr-16 sm:px-6 sm:py-4 sm:pr-20">

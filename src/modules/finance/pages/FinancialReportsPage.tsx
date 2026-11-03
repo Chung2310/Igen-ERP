@@ -66,7 +66,7 @@ export function EntryDialog({ title, fields, initial, onClose, onSave, note, sub
             disabled={busy}
             onClick={onClose}
             className="rounded-xl border border-outline-variant p-2 text-on-surface-variant transition-colors hover:bg-surface-container-lowest hover:text-on-surface"
-          >
+           data-erp-modal-close>
             <X size={16} />
           </button>
         </div>

@@ -710,7 +710,7 @@ export default function UserAdminTab() {
 
 
   return (
-    <div className="user-admin-ui flex h-full max-h-[85vh] flex-col overflow-hidden rounded-2xl bg-white" id="user_admin_tab_wrapper">
+    <div className="user-admin-ui flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-white" id="user_admin_tab_wrapper">
       <h1 className="sr-only">Quản trị Hệ thống & Phân quyền - {activeTab}</h1>
       
       <UserAdminHeader
@@ -1086,7 +1086,7 @@ export default function UserAdminTab() {
       {activityUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-label="Lịch sử hoạt động người dùng">
           <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-slate-900 p-5 text-white shadow-2xl">
-            <div className="mb-4 flex items-center justify-between"><div><h3 className="font-bold">Lịch sử hoạt động</h3><p className="text-sm text-slate-400">{activityUser.displayName || activityUser.email}</p></div><button type="button" onClick={() => setActivityUser(null)} aria-label="Đóng lịch sử hoạt động" className="rounded-lg p-2 hover:bg-white/10"><X className="h-5 w-5" /></button></div>
+            <div className="mb-4 flex items-center justify-between"><div><h3 className="font-bold">Lịch sử hoạt động</h3><p className="text-sm text-slate-400">{activityUser.displayName || activityUser.email}</p></div><button type="button" onClick={() => setActivityUser(null)} aria-label="Đóng lịch sử hoạt động" className="rounded-lg p-2 hover:bg-white/10" data-erp-modal-close><X className="h-5 w-5" /></button></div>
             <UserActivityTimeline tenantId={activityUser.companyCode || userProfile?.companyCode || ""} userId={activityUser.uid} loadActivity={userProfile?.role === "superadmin" ? undefined : async (_tenantId, userId, filters) => authService.getUserActivity(userId, filters as any)} />
           </div>
         </div>

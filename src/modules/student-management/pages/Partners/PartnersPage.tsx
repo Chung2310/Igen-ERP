@@ -290,6 +290,7 @@ export function PartnersPage({ selectedCenter, canManagePartners }: PartnersPage
         ) : partners.length === 0 ? (
           <ErpEmptyState
             icon={Handshake}
+            illustration="partner"
             title="Không tìm thấy đối tác nào"
             subtitle="Không có đối tác nào khớp với bộ lọc tìm kiếm hoặc chưa có đối tác nào được khai báo."
           />

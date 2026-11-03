@@ -166,7 +166,7 @@ export function WorkerContractFormModal({
       <div role="dialog" aria-modal="true" aria-label={title} className="worker-contract-form-dialog relative flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white shadow-[0_24px_70px_rgba(11,65,99,0.18)]">
         <div className="flex shrink-0 items-center justify-between border-b border-[#E7EFF7] px-5 py-4 sm:px-6">
           <h2 className="border-l-[3px] border-[#00ADFC] pl-3 text-xl font-medium text-slate-900">{title}</h2>
-          <button type="button" aria-label="Đóng" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
+          <button type="button" aria-label="Đóng" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600" data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>

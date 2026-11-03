@@ -380,7 +380,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
           <button
             onClick={onClose}
             className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
-          >
+           data-erp-modal-close aria-label="Đóng">
             <X className="h-5 w-5" />
           </button>
         </div>

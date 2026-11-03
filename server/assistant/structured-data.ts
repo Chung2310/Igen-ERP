@@ -4,7 +4,8 @@ const protectedKey = /^(?:__proto__|prototype|constructor|companyCode|companyId|
 export const isProtectedAssistantKey = (key: string) => protectedKey.test(key);
 const isInternalIdentifierKey = (key: string) => key.toLowerCase() !== "appid" && (key === "id" || key === "_id" || key.toLowerCase() === "uid" || /(?:Id|Uid|Ids|Uids)$/.test(key));
 export function validateStructuredField(field: AssistantField, value: unknown): string {
-  if (typeof value !== "string" || value.length > 4000) throw new Error(`${field.label}: cần dữ liệu JSON tối đa 4.000 ký tự.`);
+  const maxLength = field.structure?.type === "array" ? 1_000_000 : 4_000;
+  if (typeof value !== "string" || value.length > maxLength) throw new Error(`${field.label}: cần dữ liệu JSON tối đa ${maxLength.toLocaleString("vi-VN")} ký tự.`);
   let data: unknown;
   try { data = JSON.parse(value); } catch { throw new Error(`${field.label}: dữ liệu JSON không hợp lệ.`); }
   function check(item: unknown, shape: AssistantDataShape | undefined, depth: number) {

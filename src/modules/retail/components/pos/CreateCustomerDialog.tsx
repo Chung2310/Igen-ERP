@@ -158,7 +158,7 @@ export default function CreateCustomerDialog({ scope, initialPhone = "", initial
             <h2 className="text-lg font-bold">Tạo khách hàng mới</h2>
             <p className="text-sm text-on-surface-variant text-pretty">Khách hàng sẽ được chọn vào đơn hiện tại sau khi lưu.</p>
           </div>
-          <button type="button" aria-label="Đóng" disabled={saving} onClick={onClose} className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">
+          <button type="button" aria-label="Đóng" disabled={saving} onClick={onClose} className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" data-erp-modal-close>
             <X className="size-5" aria-hidden="true" />
           </button>
         </div>

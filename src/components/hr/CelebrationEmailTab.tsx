@@ -6,6 +6,7 @@ import { authService } from "../../services/authService";
 import type { TemplateVariableConfig } from "../template-editor/templateEditorTypes";
 import { toFriendlyTokens } from "../template-editor/templateTokenCodec";
 import { HR_BIRTHDAY_TEMPLATE_VARIABLES, HR_HOLIDAY_TEMPLATE_VARIABLES } from "./hrCelebrationVariableRegistry";
+import { HrPageTitle } from "./HrPageTitle";
 
 function RichTextEditor({
   value,
@@ -222,10 +223,10 @@ export default function CelebrationEmailTab() {
   };
 
   return (
-    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gradient-to-br from-[#F7FAFF] via-[#F2F8FF] to-[#F7FBFD] p-4 md:p-5">
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-[#142547]">Email chúc mừng</h2>
+          <HrPageTitle>Email chúc mừng</HrPageTitle>
           <p className="mt-0.5 text-sm text-[#536B8F]">Thiết lập lời chúc gửi đến nhân sự.</p>
         </div>
         <button
@@ -288,7 +289,7 @@ export default function CelebrationEmailTab() {
                 aria-label="Đóng bản xem trước"
                 onClick={() => setPreview(null)}
                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
-              >
+               data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>

@@ -29,7 +29,7 @@ export function StepUpDialog({ isOpen, submitting, error, onCancel, onConfirm }:
             <ShieldCheck className="h-5 w-5 text-cyan-400" />
             <h3 id="step-up-dialog-title" className="text-base font-bold">Xác thực lại để tiếp tục</h3>
           </div>
-          <button type="button" aria-label="Đóng" onClick={onCancel} disabled={submitting} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-40">
+          <button type="button" aria-label="Đóng" onClick={onCancel} disabled={submitting} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-40" data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </header>

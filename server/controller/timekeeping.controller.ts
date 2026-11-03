@@ -11,6 +11,8 @@ import { AttendanceAttemptModel } from "../model/attendance-attempt.model";
 import { BranchAttendanceGateError, validateBranchAttendance } from "../service/branch-attendance-gate.service";
 import { getRequestPublicIp } from "../utils/request-ip";
 import { isAttendanceLogActiveOnDate } from "../service/active-attendance-log.service";
+import { buildBranchRosterFilter } from "../utils/branch-roster-filter";
+import { buildAttendanceReportRows } from "../utils/attendance-report";
 
 const attendanceAction = (req: AuthenticatedRequest) => req.path.includes("check-out") ? "check-out" as const : "check-in" as const;
 async function enforceBranchAttendance(req: AuthenticatedRequest, latitude: number, longitude: number) {
@@ -149,6 +151,40 @@ function calculateShiftStatus(checkInTime: Date, checkOutTime: Date | null, sche
 }
 
 export const timekeepingController = {
+  /**
+   * GET /api/v1/timekeeping/records
+   * Company/branch scoped daily roster and attendance summary.
+   */
+  async listAttendanceRecords(req: AuthenticatedRequest, res: Response) {
+    try {
+      const companyCode = req.user?.companyCode || "SYSTEM";
+      const date = typeof req.query.date === "string" && req.query.date
+        ? req.query.date
+        : vietnamWorkDate();
+      const parsedDate = new Date(`${date}T00:00:00.000Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate.valueOf()) || parsedDate.toISOString().slice(0, 10) !== date) {
+        return res.status(400).json({ status: "error", message: "Ngày cần tra cứu phải theo định dạng YYYY-MM-DD." });
+      }
+
+      const rosterScope = buildBranchRosterFilter(req.user?.branchId);
+      const employees = await UserModel.find({ companyCode, ...rosterScope })
+        .select("_id displayName")
+        .sort({ displayName: 1 })
+        .lean();
+      const employeeIds = employees.map(employee => String(employee._id));
+      const logs = employeeIds.length
+        ? await TimekeepingLogModel.find({ companyCode, date, uid: { $in: employeeIds }, ...rosterScope })
+          .select("uid status checkIn.time checkOut.time")
+          .lean()
+        : [];
+
+      return res.status(200).json({ status: "success", data: buildAttendanceReportRows(date, employees, logs) });
+    } catch (error: any) {
+      console.error("[timekeepingController.listAttendanceRecords] Error:", error);
+      return res.status(500).json({ status: "error", message: "Không thể tải bảng chấm công nhân sự." });
+    }
+  },
+
   /**
    * GET /api/v1/timekeeping/today
    */

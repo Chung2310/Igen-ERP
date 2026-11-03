@@ -334,9 +334,9 @@ export function AiCommentReplyManager({
             status: "success",
             latencyMs: 1450,
             createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-            customerMessage: "Tư vấn cho mình gói tự động đăng bài với",
-            aiResponse: "Chào bạn! iGen Marketing đã gửi thông tin chi tiết các gói đăng bài tự động vào hộp thư tin nhắn của bạn. Vui lòng check tin nhắn hỗ trợ nhé!",
-            contextPreview: "[iGen Facebook Post Scheduler] Hỗ trợ lên lịch đăng bài hàng loạt trên nhiều Fanpage...",
+            customerMessage: "Mình muốn hỏi về dịch vụ chăm sóc khách hàng",
+            aiResponse: "Chào bạn! Mình đã gửi thông tin về dịch vụ chăm sóc khách hàng qua tin nhắn để bạn tham khảo nhé.",
+            contextPreview: "[Chăm sóc khách hàng] Tư vấn và trả lời câu hỏi của khách hàng qua tin nhắn...",
             contextMatches: 2,
             commentId: "fb_cmt_1",
             feedback: "good"

@@ -6,7 +6,7 @@ type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "res
 type ResultRecord = Record<string, unknown>;
 
 const collectionKeys = ["items", "records", "results", "rows", "transactions", "vouchers", "workers", "partners", "students", "assets", "campaigns", "data"];
-const moneyKey = /(?:amount|salary|price|cost|paid|due|remaining|refund|total|tuition|bookValue|depreciation|grossPay|grossProfit|deductions|netPay|cashNet|bankNet|expectedCash|countedCash|balance)/i;
+const moneyKey = /(?:amount|salary|price|cost|paid|due|remaining|refund|total|tuition|fee|bookValue|depreciation|grossPay|grossProfit|deductions|netPay|cashNet|bankNet|expectedCash|countedCash|balance)/i;
 const bulkCreateJobOperationIds = ["marketing.bulk-create.jobs.list", "marketing.bulk-create.jobs.detail", "marketing.bulk-create.jobs.cancel", "marketing.bulk-create.jobs.retry"];
 const bulkCreateTemplateOperationIds = ["marketing.bulk-create.templates.list", "marketing.bulk-create.templates.detail"];
 const labels: Record<string, string> = {
@@ -27,6 +27,7 @@ const labels: Record<string, string> = {
 };
 
 Object.assign(labels, { entityPreset: "Loại hồ sơ", isRequired: "Bắt buộc", isVisible: "Đang hiển thị", isArchived: "Đã lưu trữ", placeholder: "Gợi ý nhập" });
+Object.assign(labels, { registrationDate: "Ngày đăng ký", fee: "Học phí", isGroup: "Phòng nhóm" });
 Object.assign(labels, { contentGroup: "Nhóm nội dung", shootingContent: "Nội dung cần quay/chụp", productionRequirements: "Yêu cầu sản xuất", quantitySuggestion: "Số lượng đề xuất", headline: "Tiêu đề hiển thị", subheadline: "Mô tả ngắn", cta: "Lời kêu gọi hành động", visualBrief: "Mô tả hình ảnh", videoScript: "Kịch bản video", format: "Định dạng", revision: "Phiên bản", warnings: "Lưu ý" });
 Object.assign(labels, { operation: "Loại thao tác", totalItems: "Tổng số mục", completedItems: "Đã xong", failedItems: "Lỗi", skippedItems: "Bỏ qua", conflictedItems: "Xung đột", progress: "Tiến độ" });
 Object.assign(labels, { grossPay: "Tổng thu nhập", deductions: "Khấu trừ" });
@@ -45,6 +46,7 @@ Object.assign(labels, { agreedSalary: "Lương thỏa thuận", reconciledDays: 
 Object.assign(labels, { paymentCode: "Mã thanh toán", receivedAmount: "Số tiền nhận", appliedAmount: "Số tiền đã hạch toán", reviewReason: "Lý do chờ rà soát", reviewNote: "Kết quả rà soát", transactionDate: "Thời điểm giao dịch", reviewedAt: "Rà soát lúc" });
 Object.assign(labels, { displayName: "Tên hiển thị", platform: "Kênh", isConnected: "Đã kết nối", updated: "Đã cập nhật", isWorkingDay: "Ngày làm việc", dayLabel: "Lịch làm việc", attendanceStatus: "Trạng thái chấm công", checkIn: "Giờ vào", checkOut: "Giờ ra", addressName: "Địa chỉ chấm công", allowedRadius: "Bán kính cho phép (m)", checkInLimit: "Giờ vào ca", checkOutLimit: "Giờ ra ca", lunchBreakStart: "Bắt đầu nghỉ trưa", lunchBreakEnd: "Kết thúc nghỉ trưa", annualLeaveDays: "Phép năm mặc định", workDays: "Ngày làm việc trong tuần", dayTypeLabel: "Loại ngày", isApplied: "Đã áp dụng" });
 Object.assign(labels, { department: "Phòng ban", jobTitle: "Chức danh", qualification: "Trình độ" });
+Object.assign(labels, { expiryAlertDays: "Số ngày báo trước", notifyManagers: "Gửi thông báo cho quản lý", salesKpiTarget: "Chỉ tiêu doanh số" });
 Object.assign(labels, { extractedCount: "Số FAQ được tạo hoặc cập nhật", candidates: "Các câu hỏi đề xuất", candidate: "Câu hỏi FAQ", question: "Câu hỏi", category: "Nhóm câu hỏi" });
 Object.assign(labels, { batchCode: "Mã lớp", batchName: "Lớp", studentName: "Học viên" });
 Object.assign(labels, { linked: "Đã liên kết Telegram", linkedAt: "Liên kết lúc", botUsername: "Tài khoản bot Telegram" });
@@ -64,6 +66,7 @@ Object.assign(labels, { totalCount: "Tổng lượt gửi", sentCount: "Đã g�
 Object.assign(labels, { configured: "Đã cài đặt", birthdayEnabled: "Gửi email sinh nhật", holidayEnabled: "Gửi email ngày lễ", sendTime: "Giờ gửi", holidayOverridesCount: "Số ngày ngoại lệ" });
 
 Object.assign(labels, { partnerName: "Đối tác", partnerCode: "Mã đối tác", periodStart: "Từ ngày", periodEnd: "Đến ngày", balanceAmount: "Còn lại", version: "Phiên bản" });
+Object.assign(labels, { isDeleted: "Đã xóa mềm", headcount: "Số lượng tuyển", requirements: "Yêu cầu ứng viên", benefits: "Quyền lợi", employmentType: "Hình thức làm việc", workplaceType: "Nơi làm việc", applicationDeadline: "Hạn nhận hồ sơ", salaryMin: "Lương tối thiểu", salaryMax: "Lương tối đa", showSalary: "Hiển thị mức lương" });
 Object.assign(labels, { effectiveTo: "Có hiệu lực đến", commissionScheme: "Cơ chế hoa hồng", confirmationSource: "Nguồn xác nhận", referredAt: "Ngày giới thiệu", employmentStartDate: "Ngày bắt đầu làm" });
 Object.assign(labels, { account: "Tài khoản", direction: "Chiều thu chi", profitCategory: "Loại phiếu", cashNet: "Chênh lệch tiền mặt", bankNet: "Chênh lệch ngân hàng", count: "Số giao dịch", entries: "Khoản thu chi", shiftsReconciliation: "Đối soát ca", expectedCash: "Tiền mặt theo sổ", countedCash: "Tiền mặt đã đếm", varianceAmount: "Chênh lệch ca", balanced: "Khớp kỳ quỹ đã chốt", period: "Kỳ quỹ", reason: "Lý do" });
 
@@ -87,6 +90,30 @@ Object.assign(labels, { category: "Nhóm giọng", stability: "Độ ổn địn
 Object.assign(labels, { windowMode: "Chế độ cửa sổ", enterToSend: "Enter để gửi", showSuggestions: "Hiện gợi ý", alwaysConfirm: "Luôn yêu cầu xác nhận", speakReplies: "Phát âm thanh câu trả lời" });
 
 function labelFor(operation: ResultOperation, key: string): string {
+  if (operation.id.startsWith("task.") && key === "category") return "Danh mục công việc";
+  if (operation.id.startsWith("recruitment.job.") && key === "code") return "Mã vị trí tuyển dụng";
+  if (operation.id === "department.list") {
+    const departmentLabels: Record<string, string> = {
+      name: "T\u00EAn",
+      code: "M\u00E3 ph\u00F2ng ban",
+      managerName: "Tr\u01B0\u1EDFng ph\u00F2ng",
+      isActive: "Tr\u1EA1ng th\u00E1i",
+      employeeCount: "S\u1ED1 nh\u00E2n s\u1EF1",
+    };
+    if (departmentLabels[key]) return departmentLabels[key];
+  }
+  if (["employee.list", "employee.detail"].includes(operation.id)) {
+    const employeeLabels: Record<string, string> = {
+      displayName: "H\u1ECD v\u00E0 t\u00EAn",
+      email: "Email",
+      birthDate: "Ng\u00E0y sinh",
+      phone: "S\u1ED1 \u0111i\u1EC7n tho\u1EA1i",
+      department: "Ph\u00F2ng ban",
+      division: "B\u1ED9 ph\u1EADn",
+      qualification: "Tr\u00ECnh \u0111\u1ED9 chuy\u00EAn m\u00F4n",
+    };
+    if (employeeLabels[key]) return employeeLabels[key];
+  }
   if (["marketing.video-caption.project.list", "marketing.video-caption.project.detail"].includes(operation.id)) {
     const projectLabels: Record<string, string> = {
       name: "Tên dự án", mode: "Chế độ phụ đề", status: "Trạng thái", currentVersion: "Phiên bản",
@@ -227,6 +254,8 @@ function parseJsonText(value: string): unknown {
 function formatValue(operation: ResultOperation, key: string, value: unknown, depth = 0): string {
   if (value === null || value === undefined || value === "") return "";
   if (typeof value === "boolean") {
+    if (operation.id.startsWith("recruitment.job.") && key === "isDeleted") return value ? "Đã xóa mềm" : "Chưa xóa";
+    if (operation.id === "department.list" && key === "isActive") return value ? "\u0110ang ho\u1EA1t \u0111\u1ED9ng" : "\u0110\u00E3 ng\u1EEBng ho\u1EA1t \u0111\u1ED9ng";
     if (operation.id.startsWith("notification.") && key === "read") return value ? "Có" : "Chưa đọc";
     if (operation.id === "notification.mark-all-read" && key === "success") return value ? "Hoàn tất" : "Chưa hoàn tất";
     if (operation.id === "notification.delete" && key === "deleted") return value ? "Có" : "Không";
@@ -242,9 +271,20 @@ function formatValue(operation: ResultOperation, key: string, value: unknown, de
     if (bulkCreateTemplateOperationIds.includes(operation.id) && ["version", "useCount"].includes(key)) return formatted;
     if (key === "accessoryBps" || key === "repairBps") return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(value / 100)}%`;
     if (operation.id.startsWith("omni-inbox.leads.") && key === "value") return `${formatted} ₫`;
-    return moneyKey.test(key) && operation.id !== "leave.balance.me" ? `${formatted} ₫` : formatted;
+    const countOrMeasure = /(?:count|days?|hours?|minutes?|quantity|stock|percent|rate|items)$/i.test(key);
+    return moneyKey.test(key) && !countOrMeasure && operation.id !== "leave.balance.me" ? `${formatted} ₫` : formatted;
   }
   if (typeof value === "string") {
+    if (operation.id === "employee.detail" && key === "birthDate") {
+      const date = new Date(value);
+      return Number.isNaN(date.valueOf()) ? value : new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(date);
+    }
+    if (operation.id === "student.list" && key === "fee" && /^\d+(?:\.\d+)?$/.test(value.trim())) {
+      return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value))} \u20AB`;
+    }
+    if (operation.id.startsWith("recruitment.job.") && key === "status") return ({ draft: "Bản nháp", open: "Đang tuyển", paused: "Tạm dừng", closed: "Đã đóng" } as Record<string, string>)[value] || value;
+    if (operation.id.startsWith("recruitment.job.") && key === "employmentType") return ({ full_time: "Toàn thời gian", part_time: "Bán thời gian", contract: "Hợp đồng", internship: "Thực tập" } as Record<string, string>)[value] || value;
+    if (operation.id.startsWith("recruitment.job.") && key === "workplaceType") return ({ onsite: "Tại văn phòng", hybrid: "Kết hợp", remote: "Từ xa" } as Record<string, string>)[value] || value;
     if (key === "tierEvaluationMetric" && value === "gross_profit") return "Lợi nhuận gộp";
     if (key === "evaluationWindow" && value === "rolling12Months") return "12 tháng gần nhất";
     if (operation.id.startsWith("marketing.video-caption.project.") && key === "status") return ({
@@ -400,8 +440,15 @@ function formatRecord(operation: ResultOperation, value: unknown): string {
   const displayRecord = (operation.id === "worker.partner.settlements.list" || operation.id === "worker.partner.worker-referral.list") && populatedPartner
     ? { ...record, partnerName: populatedPartner.name, partnerCode: populatedPartner.code }
     : record;
-  return operation.resultFields
-    .filter(key => Object.hasOwn(displayRecord, key))
+  const resultFields = operation.id === "department.list"
+    ? ["name", "code", "managerName", "isActive", "employeeCount"]
+    : operation.id === "employee.list"
+      ? ["displayName", "department", "division"]
+      : ["recruitment.job.delete", "recruitment.job.restore"].includes(operation.id)
+        ? ["code", "title", "status"]
+      : operation.resultFields;
+  return resultFields
+    .filter(key => Object.hasOwn(displayRecord, key) && displayRecord[key] !== null && displayRecord[key] !== undefined && displayRecord[key] !== "")
     .slice(0, 8)
     .map(key => {
       const value = displayRecord[key];
@@ -451,6 +498,134 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   const redacted = redactAssistantResult(input);
   const recalculatedSettlement = operation.id === "worker.partner.settlement.recalculate" ? recordOf(recordOf(redacted)?.settlement) : null;
   const safeResult = recalculatedSettlement || redacted;
+  if (["retail.points.policy.get", "retail.points.policy.update"].includes(operation.id)) {
+    const wrapped = recordOf(safeResult);
+    const policy = recordOf(wrapped?.data) || wrapped || {};
+    const money = (value: unknown) => Number.isFinite(Number(value))
+      ? `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value))} ₫`
+      : "Chưa cài đặt";
+    const percent = Number.isFinite(Number(policy.maxRedeemPercent))
+      ? `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(Number(policy.maxRedeemPercent))}%`
+      : "Chưa cài đặt";
+    return [
+      operation.title,
+      `Tích điểm: ${policy.enabled === true ? "Đang bật" : policy.enabled === false ? "Đang tắt" : "Chưa cài đặt"}`,
+      `Chi tiêu để nhận 1 điểm: ${money(policy.earnVndPerPoint)}`,
+      `Giá trị quy đổi mỗi điểm: ${money(policy.redeemVndPerPoint)}`,
+      `Giới hạn thanh toán bằng điểm: tối đa ${percent} giá trị đơn hàng`,
+    ].join("\n");
+  }
+  if (operation.id === "api.get.f741231162e2386f") {
+    const wrapped = recordOf(safeResult);
+    const result = recordOf(wrapped?.data) || wrapped || {};
+    const workers = recordOf(result.workersByStatus) || {};
+    const projects = recordOf(result.projectsByStatus) || {};
+    const alerts = recordOf(result.contractAlerts) || {};
+    const count = (value: unknown) => Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? new Intl.NumberFormat("vi-VN").format(Number(value)) : "0";
+    const topProjects = Array.isArray(result.topProjects) ? result.topProjects : [];
+    const shownProjects = topProjects.slice(0, 4).flatMap((value: unknown) => {
+      const project = recordOf(value);
+      if (!project || typeof project.name !== "string") return [];
+      return [`- ${project.name} · ${count(project.allocated)} người${project.quota ? ` / chỉ tiêu ${count(project.quota)}` : ""}`];
+    });
+    const lines = [
+      `Người lao động: ${count(result.totalWorkers)} · Đang hoạt động: ${count(result.activeWorkers)}`,
+      `Theo trạng thái: đang hoạt động ${count(workers.active)} · tạm ngừng ${count(workers.inactive)} · đã bố trí ${count(workers.placed)}`,
+      `Dự án: ${count(result.projects)} · đang triển khai ${count(projects.active)} · dự kiến ${count(projects.planned)} · hoàn thành ${count(projects.completed)}`,
+      `Hợp đồng sắp hết hạn: ${count(alerts.expiringCount)} · đã hết hạn: ${count(alerts.expiredCount)}`,
+      ...(shownProjects.length ? ["Dự án có phân bổ:", ...shownProjects] : []),
+    ];
+    return [operation.title, ...lines].join("\n");
+  }
+  if (operation.id === "api.get.0c557a74cbc907f9") {
+    const wrapped = recordOf(safeResult);
+    const result = recordOf(wrapped?.data) || wrapped || {};
+    const contracts = Array.isArray(result.contracts) ? result.contracts : [];
+    const alerts = Array.isArray(result.expiryAlerts) ? result.expiryAlerts : [];
+    const date = (value: unknown) => {
+      if (typeof value !== "string" && !(value instanceof Date)) return "";
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.valueOf()) ? "" : new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(parsed);
+    };
+    const statuses: Record<string, string> = { draft: "Bản nháp", active: "Đang hiệu lực", expired: "Đã hết hạn", terminated: "Đã chấm dứt" };
+    const total = Number.isSafeInteger(Number(result.total)) ? Number(result.total) : contracts.length;
+    const lines = [
+      `Hợp đồng: ${total}`,
+      ...contracts.slice(0, 5).flatMap((value: unknown) => {
+        const item = recordOf(value);
+        if (!item) return [];
+        const employee = typeof item.employeeName === "string" ? item.employeeName : "Người lao động";
+        const kind = typeof item.contractType === "string" ? ` · ${item.contractType}` : "";
+        const range = [date(item.startDate), date(item.endDate)].filter(Boolean).join(" đến ");
+        const status = typeof item.status === "string" ? statuses[item.status] || item.status : "";
+        return [`- ${employee}${kind}${range ? ` · ${range}` : ""}${status ? ` · ${status}` : ""}`];
+      }),
+      `Hợp đồng sắp hết hạn: ${Number.isSafeInteger(Number(result.expiryAlertTotal)) ? Number(result.expiryAlertTotal) : alerts.length}`,
+      ...alerts.slice(0, 5).flatMap((value: unknown) => {
+        const item = recordOf(value);
+        if (!item || typeof item.employeeName !== "string") return [];
+        const remaining = Number.isFinite(Number(item.daysRemaining)) ? ` · Còn ${Number(item.daysRemaining)} ngày` : "";
+        return [`- ${item.employeeName}${typeof item.contractType === "string" ? ` · ${item.contractType}` : ""}${date(item.endDate) ? ` · Hết hạn ${date(item.endDate)}` : ""}${remaining}`];
+      }),
+      ...(total === 0 && alerts.length === 0 ? ["Hiện chưa có hợp đồng trong phạm vi đã chọn."] : []),
+    ];
+    return [operation.title, ...lines].join("\n");
+  }
+  if (operation.id === "api.get.b44c64519e939e0a") {
+    const rows = Array.isArray(safeResult) ? safeResult : collection(safeResult) || [];
+    if (rows.length === 0) return `${operation.title}\nHiện chưa có lịch sử gia hạn hợp đồng phù hợp.`;
+    const date = (value: unknown) => {
+      if (typeof value !== "string" && !(value instanceof Date)) return "";
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.valueOf()) ? "" : new Intl.DateTimeFormat("vi-VN", { dateStyle: "short", timeZone: "Asia/Ho_Chi_Minh" }).format(parsed);
+    };
+    const shown = rows.slice(0, 8).flatMap((value: unknown) => {
+      const item = recordOf(value);
+      if (!item) return [];
+      const employee = typeof item.employeeName === "string" ? item.employeeName : "Người lao động";
+      const previous = date(item.previousEndDate);
+      const current = date(item.newEndDate);
+      const reason = typeof item.reason === "string" && item.reason.trim() ? ` · ${item.reason.trim().slice(0, 120)}` : "";
+      return [`${employee}${previous || current ? ` · ${previous || "?"} → ${current || "?"}` : ""}${reason}`];
+    });
+    return [`Lịch sử gia hạn: ${rows.length}`, ...shown].join("\n");
+  }
+  if (operation.id === "api.get.a0937fb0c693e329") {
+    const wrapped = recordOf(safeResult);
+    const result = recordOf(wrapped?.data) || wrapped || {};
+    const tasks = Array.isArray(result.overdueTasks) ? result.overdueTasks : [];
+    const approvals = Array.isArray(result.pendingApprovals) ? result.pendingApprovals : [];
+    const lowStock = Array.isArray(result.lowStockAlerts) ? result.lowStockAlerts : [];
+    const lines = [
+      `C\u00F4ng vi\u1EC7c qu\u00E1 h\u1EA1n: ${tasks.length}`,
+      ...tasks.slice(0, 4).flatMap((value: unknown) => {
+        const item = recordOf(value);
+        if (!item || typeof item.title !== "string") return [];
+        return [`- ${item.title}${typeof item.dueDate === "string" && item.dueDate ? ` \u00B7 H\u1EA1n: ${item.dueDate}` : ""}`];
+      }),
+      `Y\u00EAu c\u1EA7u ch\u1EDD duy\u1EC7t: ${approvals.length}`,
+      ...approvals.slice(0, 4).flatMap((value: unknown) => {
+        const item = recordOf(value);
+        return item && typeof item.employeeName === "string" ? [`- Ngh\u1EC9 ph\u00E9p c\u1EE7a ${item.employeeName}`] : [];
+      }),
+      `C\u1EA3nh b\u00E1o t\u1ED3n kho: ${lowStock.length}`,
+      ...lowStock.slice(0, 4).flatMap((value: unknown) => {
+        const item = recordOf(value);
+        if (!item || typeof item.name !== "string") return [];
+        const sku = typeof item.sku === "string" && item.sku ? ` (${item.sku})` : "";
+        const stock = Number.isFinite(Number(item.stock)) ? ` \u00B7 C\u00F2n ${new Intl.NumberFormat("vi-VN").format(Number(item.stock))}` : "";
+        return [`- ${item.name}${sku}${stock}`];
+      }),
+      ...(tasks.length + approvals.length + lowStock.length === 0 ? ["Hi\u1EC7n ch\u01B0a c\u00F3 vi\u1EC7c n\u00E0o c\u1EA7n x\u1EED l\u00FD."] : []),
+    ];
+    return [operation.title, ...lines].join("\n");
+  }
+  if (operation.id === "worker.create") {
+    const wrapper = recordOf(safeResult);
+    const created = recordOf(wrapper?.worker) || recordOf(recordOf(wrapper?.data)?.worker) || recordOf(wrapper?.data);
+    const summary = created ? formatRecord(operation, created) : "";
+    return summary ? `${operation.title}\n${summary}` : `${operation.title} đã hoàn tất.`;
+  }
   if (operation.id === "company-email.celebration.preview") {
     const wrapped = recordOf(safeResult);
     const result = recordOf(wrapped?.data) || wrapped || {};
@@ -819,4 +994,67 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   return summary
     ? `${operation.title}\n${summary}`
     : `${operation.title} đã hoàn tất. Mở phân hệ để xem chi tiết.`;
+}
+
+/** Add a natural Vietnamese conversational frame to the already-filtered result. */
+export function formatFriendlyAssistantResult(operation: ResultOperation & { method?: string }, input: unknown): string {
+  const formatted = formatAssistantResult(operation, input);
+  const lines = formatted.split("\n");
+  const firstLine = lines[0] || "";
+  const listMatch = firstLine.match(/·\s*(\d+)\s+kết quả/i);
+  let details = formatted;
+
+  if (firstLine === operation.title) {
+    details = lines.slice(1).join("\n").trim();
+  } else if (firstLine.startsWith(`${operation.title} ·`)) {
+    details = [firstLine.slice(operation.title.length).replace(/^\s*[·:]\s*/, ""), ...lines.slice(1)]
+      .filter(Boolean).join("\n").trim();
+  } else if (firstLine.startsWith(`${operation.title} `)) {
+    details = [firstLine.slice(operation.title.length).trim(), ...lines.slice(1)]
+      .filter(Boolean).join("\n").trim();
+  }
+
+  if (operation.id === "employee.detail" && operation.method === "GET") {
+    const rows = collection(redactAssistantResult(input)) || [];
+    if (!rows.length) return "Mình chưa tìm thấy hồ sơ nhân sự phù hợp. Bạn kiểm tra lại tên, email hoặc số điện thoại giúp mình nhé.";
+    const records = rows.slice(0, 8).map(recordOf).filter((record): record is ResultRecord => Boolean(record));
+    if (records.length === 1) {
+      const record = records[0];
+      const fields = operation.resultFields
+        .filter(key => Object.hasOwn(record, key) && record[key] !== null && record[key] !== undefined && record[key] !== "")
+        .map(key => `${labelFor(operation, key)}: ${formatValue(operation, key, record[key])}`);
+      return [`Mình tìm thấy hồ sơ của ${String(record.displayName || "nhân sự này")}:`, ...fields].join("\n");
+    }
+    const options = records.map((record, index) => {
+      const name = String(record.displayName || "Chưa có tên");
+      const department = typeof record.department === "string" && record.department.trim() ? ` · Phòng ban: ${record.department}` : "";
+      const division = typeof record.division === "string" && record.division.trim() ? ` · Bộ phận: ${record.division}` : "";
+      return `${index + 1}. ${name}${department}${division}`;
+    });
+    if (rows.length > records.length) options.push(`Còn ${rows.length - records.length} kết quả khác.`);
+    return [`Mình tìm thấy ${rows.length} hồ sơ phù hợp. Bạn cho mình biết họ tên đầy đủ hoặc phòng ban để chọn đúng người nhé.`, ...options].join("\n");
+  }
+
+  if (operation.method === "GET") {
+    if (formatted.includes("Không có kết quả phù hợp.")) {
+      return "Mình kiểm tra rồi, hiện chưa thấy bản ghi nào phù hợp trong phạm vi dữ liệu đang xem. Bạn muốn tìm theo tên/mã cụ thể hoặc đổi chi nhánh không?";
+    }
+    if (listMatch) {
+      const total = Number(listMatch[1]);
+      const shown = firstLine.match(/hiển thị\s+(\d+)/i);
+      const opening = total === 1
+        ? "Mình tìm thấy một kết quả phù hợp cho bạn."
+        : `Mình tìm thấy ${new Intl.NumberFormat("vi-VN").format(total)} kết quả phù hợp cho bạn.`;
+      const note = shown && Number(shown[1]) < total
+        ? ` Mình liệt kê ${shown[1]} mục đầu tiên bên dưới nhé.`
+        : "";
+      return [opening + note, lines.slice(1).join("\n").trim()].filter(Boolean).join("\n");
+    }
+    return details ? `Mình kiểm tra giúp bạn rồi nhé:\n${details}` : "Mình đã kiểm tra xong cho bạn rồi nhé.";
+  }
+
+  const action = operation.title.charAt(0).toLocaleLowerCase("vi") + operation.title.slice(1);
+  return details
+    ? `Xong rồi bạn nhé, mình đã ${action}.\n${details}`
+    : `Xong rồi bạn nhé, mình đã ${action}.`;
 }

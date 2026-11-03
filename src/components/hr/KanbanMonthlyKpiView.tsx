@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
 import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { getAccessToken } from "../../services/authService";
@@ -161,7 +162,7 @@ export default function KanbanMonthlyKpiView({ activeBranchId, initialPeriod }: 
               ))}
             </tbody>
           </table>
-          {!report?.rows.length && <p className="p-8 text-center text-sm text-slate-500">Chưa có nhân viên trong phạm vi này.</p>}
+          {!report?.rows.length && <div className="flex flex-col items-center p-8 text-center text-sm text-slate-500"><HrEmptyIllustration kind="organization" /><p className="mt-1">Chưa có nhân viên trong phạm vi này.</p></div>}
         </div>
       )}
     </section>

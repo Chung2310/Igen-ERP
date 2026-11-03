@@ -572,18 +572,26 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   const localHost = req.socket.localAddress === "::1" ? "[::1]" : "127.0.0.1";
   if (!req.socket.localPort) throw new AssistantError("Không xác định được máy chủ nghiệp vụ.", 503);
   const url = new URL(`/api/v1${route}`, `http://${localHost}:${req.socket.localPort}`);
-  for (const field of op.fields) if (field.source === "query" && input[field.key] !== undefined) url.searchParams.set(field.apiKey!, String(input[field.key]));
+  const strictPayrollRunList = op.id === "payroll.run.list";
+  // These schemas reject otherwise implicit query scope; auth claims and x-branch-id remain authoritative.
+  const rejectsImplicitScopeQuery = op.path === "/student-quality" || op.path === "/learning-roadmaps/waitlist";
+  for (const field of op.fields) if (field.source === "query" && input[field.key] !== undefined) {
+    if (strictPayrollRunList && field.apiKey === "branchId") continue;
+    url.searchParams.set(field.apiKey!, String(input[field.key]));
+  }
   if (op.contextQuery?.includes("terminalId") && typeof req.headers["x-device-id"] === "string") url.searchParams.set("terminalId", req.headers["x-device-id"]);
   if (op.adapter === "contract") {
-    if (branchScopedOperation && effectiveBranchId) url.searchParams.set("branchId", effectiveBranchId);
-    else if (req.user?.branchId) url.searchParams.set("branchId", req.user.branchId);
+    if (!strictPayrollRunList && !rejectsImplicitScopeQuery) {
+      if (branchScopedOperation && effectiveBranchId) url.searchParams.set("branchId", effectiveBranchId);
+      else if (req.user?.branchId) url.searchParams.set("branchId", req.user.branchId);
+    }
   }
-  url.searchParams.set("companyCode", companyCode);
-  if (op.id === "employee.list") {
+  if (!strictPayrollRunList && !rejectsImplicitScopeQuery) url.searchParams.set("companyCode", companyCode);
+  if (["employee.list", "employee.detail"].includes(op.id)) {
     const employeeBranchId = req.user?.branchId || (typeof input.branchId === "string" ? input.branchId : "");
     if (employeeBranchId) url.searchParams.set("branchId", employeeBranchId);
   }
-  if (op.adapter !== "contract" && op.method === "GET" && !["employee.list", "department.list"].includes(op.id)) {
+  if (op.adapter !== "contract" && op.method === "GET" && !["employee.list", "employee.detail", "department.list"].includes(op.id)) {
     if (!url.searchParams.has("limit")) url.searchParams.set("limit", "100");
     if (!url.searchParams.has("page")) url.searchParams.set("page", "1");
   }
@@ -1083,7 +1091,10 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   }
   if (!response.ok || !result || result.success === false || result.status === "error") {
     if (op.method !== "GET" && (response.status >= 500 || !result)) throw new UncertainExecutionError("API nghiệp vụ chưa xác nhận kết quả. Hãy kiểm tra dữ liệu trước khi tạo yêu cầu mới; yêu cầu này không được tự chạy lại.");
-    throw new AssistantError(String(result?.details || result?.message || result?.error || "API nghiệp vụ từ chối thao tác.") + (result?.errors ? " " + JSON.stringify(result.errors).slice(0, 2000) : ""), response.status >= 400 && response.status < 500 ? response.status : 502);
+    const formatFailure = (value: unknown) => typeof value === "string" ? value.trim()
+      : value && typeof value === "object" ? JSON.stringify(value).slice(0, 1000) : "";
+    const message = [result?.details, result?.message, result?.error].map(formatFailure).filter(Boolean).join(" ") || "API nghiệp vụ từ chối thao tác.";
+    throw new AssistantError(message + (result?.errors ? " " + JSON.stringify(result.errors).slice(0, 2000) : ""), response.status >= 400 && response.status < 500 ? response.status : 502);
   }
   if (op.id === "student.exam.assigned-students.list") {
     const rows = Array.isArray(result?.data) ? result.data : [];
@@ -2693,6 +2704,15 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       checkOut: log?.checkOut,
     } };
   }
+  if (op.id === "timekeeping.records.list" && Array.isArray(result?.data)) {
+    return { ...result, data: result.data.map((record: any) => ({
+      date: record?.date,
+      employeeName: record?.employeeName,
+      attendanceStatus: record?.attendanceStatus,
+      checkIn: record?.checkIn,
+      checkOut: record?.checkOut,
+    })) };
+  }
   if (op.id === "timekeeping.company.location" && result?.data) {
     return { ...result, data: safeCompanyLocation(result.data) };
   }
@@ -3266,9 +3286,14 @@ function referenceOptionLabel(record: Record<string, any>, records: Record<strin
   if (!differentiators.length) return `${label} [trùng tên, cần thêm thông tin]`;
   return `${label} [${differentiators.map(({ label: key, value }) => `${key}: ${value}`).join("; ")}]`;
 }
-function matchesReference(record: Record<string, any>, search: string) {
+export function matchesReference(record: Record<string, any>, search: string) {
   const query = normalize(search);
   const displayedParts = search.split(/\s+[—–]\s+/u);
+  const branchSuffix = displayedParts[1]?.replace(/^chi nhánh\s+/i, "").trim();
+  const matchesDisplayedBranch = displayedParts.length === 2
+    && /^chi nhánh\s+/i.test(displayedParts[1] || "")
+    && normalize(referenceLabel(record).split(/\s+[—–]\s+/u)[0] || "") === normalize(displayedParts[0])
+    && normalize(String(record.branchName || "").replace(/^chi nhánh\s+/i, "").trim()) === normalize(branchSuffix || "");
   const matchesDisplayedPhone = displayedParts.length === 2
     && typeof (record.__assistantReferencePhone || record.phone) === "string"
     && normalize(referenceLabel(record).split(/\s+[—–]\s+/u)[0] || "") === normalize(displayedParts[0])
@@ -3288,6 +3313,7 @@ function matchesReference(record: Record<string, any>, search: string) {
   return referenceValues(record).some(value => normalize(value) === query)
     || normalize(referenceLabel(record)) === query
     || matchesDisambiguators
+    || matchesDisplayedBranch
     || matchesDisplayedPhone
     || (typeof record.employeeName === "string" && typeof record.amount === "number" && normalize(referenceLabel(record)).includes(query));
 }
@@ -3350,7 +3376,10 @@ async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOpe
       continue;
     }
     const apiKey = String(listField.apiKey || listField.key).toLowerCase();
-    if (searchField?.key === listField.key) input[listField.key] = values[field.key];
+    if (searchField?.key === listField.key) {
+      const selectedReference = String(values[field.key] || "");
+      input[listField.key] = isRecordIdentifier(selectedReference) ? "" : selectedReference;
+    }
     else if (listField.source === "query") {
       const referenceContextValue = field.referenceContext?.[`query_${listField.apiKey || listField.key}`]
         ?? field.referenceContext?.[listField.key];
@@ -3414,11 +3443,17 @@ async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOpe
 
 export async function lookupRecords(req: AuthenticatedRequest, operationId: string, search = "", extraValues: Record<string, AssistantValue> = {}) {
   const op = await assertOperation(req, operationId);
-  const input: Record<string, AssistantValue> = { ...extraValues, search };
+  // Some list APIs search business labels, not internal ObjectIds. When a
+  // confirmed action rechecks a pinned ID, fetch the scoped page and match it
+  // locally instead of sending the ID through a name/code search filter.
+  const searchByInternalId = (isRecruitmentOperation(op) || op.id.endsWith(".list")) && isRecordIdentifier(search);
+  const input: Record<string, AssistantValue> = { ...extraValues, search: searchByInternalId ? "" : search };
   const searchField = op.id === "inventory.serial.list"
     ? op.fields.find(field => field.source === "query" && field.apiKey === "serial")
+    : ["category.list", "training.list"].includes(op.id)
+      ? op.fields.find(field => field.key === "search")
     : op.fields.find(field => field.source === "query" && /(?:search|keyword|term|^q$)/i.test(`${field.key} ${field.apiKey || ""}`));
-  if (searchField && input[searchField.key] === undefined) input[searchField.key] = search;
+  if (searchField && input[searchField.key] === undefined) input[searchField.key] = searchByInternalId ? "" : search;
   for (const field of op.fields) if (field.source === "query" && input[field.key] === undefined) {
     const apiKey = String(field.apiKey || field.key).toLowerCase();
     if (/page$/.test(apiKey)) input[field.key] = 1;

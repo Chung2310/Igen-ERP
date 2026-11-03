@@ -327,7 +327,7 @@ export function ImportWorkerModal({ isOpen, onClose, onSuccess, onImport, projec
               <h2 className="border-l-[3px] border-[#00ADFC] pl-3 text-lg font-medium text-slate-900">Nhập danh sách lao động</h2>
               <p className="mt-1 pl-3 text-xs text-slate-500">Hỗ trợ định dạng Excel (.xlsx, .xls, .csv)</p>
             </div>
-            <button type="button" aria-label="Đóng" onClick={onClose} disabled={uploading} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50">
+            <button type="button" aria-label="Đóng" onClick={onClose} disabled={uploading} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50" data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </div>

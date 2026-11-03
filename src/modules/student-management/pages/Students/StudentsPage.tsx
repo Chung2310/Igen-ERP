@@ -15,6 +15,7 @@ import { toast } from '../../../../pages/Toast';
 import { Student, Batch } from '../../types';
 import { apiFetch } from '../../lib/api';
 import { StudentLoadState } from '../../components/StudentLoadState';
+import { StudentEmptyIllustration } from '../../components/Erp/StudentEmptyIllustration';
 import { Pagination } from '../../components/ui/Pagination';
 import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
 import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
@@ -510,13 +511,13 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-3 sm:p-4">
       {loadError && <StudentLoadState error={loadError} onRetry={() => { void refetch(); }} />}
       {(batchLoadError || courseLoadError || categoryLoadError) && <StudentLoadState error={batchLoadError || courseLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadBatches(), reloadCourses(), reloadCategories()]); }} />}
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-medium tracking-tight text-slate-900">{entityLabel.tabLabel}</h1>
+        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
+          <h1 className="text-balance text-xl font-medium text-on-surface">{entityLabel.tabLabel}</h1>
           <p className="mt-0.5 text-xs font-normal text-slate-500">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -679,7 +680,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
               {loading ? (
                 <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-16 text-center text-slate-400 text-xs italic">Đang nạp dữ liệu...</td></tr>
               ) : paginatedStudents.length === 0 ? (
-                <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</td></tr>
+                <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-8 text-center"><div className="flex flex-col items-center"><StudentEmptyIllustration kind="student" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</p></div></td></tr>
               ) : paginatedStudents.map((student) => (
                 <tr key={student.id} className="group transition-colors hover:bg-sky-50/40">
                   <td className="px-3 py-1.5 no-print">
@@ -907,7 +908,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                   Sẽ xóa <strong className="text-emerald-600">{bulkDeletePreview.deletableCount}</strong> {entityLabel.singular}, dữ liệu lớp học/điểm danh/điểm số liên quan; phiếu thu vẫn được giữ lại.
                 </p>
               </div>
-              <button disabled={isBulkDeleting} onClick={() => setBulkDeletePreview(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50" aria-label="Đóng">
+              <button disabled={isBulkDeleting} onClick={() => setBulkDeletePreview(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50" aria-label="Đóng" data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>

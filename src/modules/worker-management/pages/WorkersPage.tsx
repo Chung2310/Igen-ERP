@@ -951,7 +951,7 @@ function RegistrationQrModal({
               Chia sẻ liên kết đăng ký hồ sơ Lao động.
             </p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Đóng QR" className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
+          <button type="button" onClick={onClose} aria-label="Đóng QR" className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600" data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>

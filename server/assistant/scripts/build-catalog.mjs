@@ -49,7 +49,7 @@ function fields(schema,source){if(!schema)return [];if(schema.type!=='object'||(
  if(v.type==='array'&&!v.items)return null;
  const nested=v.type==='array'||v.type==='object';
  const type=nested?'json':v.type==='string'?(key==='email'||v.format==='email'?'email':key==='phone'?'phone':'text'):v.type==='date'?'date':v.type;
- out.push({key:source==='query'?(v.apiKey==='branchId'&&v.reference==='branch.list'?'targetBranch':'query_'+key):key,label:v.label||labels[key]||key,type,systemRequired:!!v.required,required:!!v.required,...(v.requiredWhen?{requiredWhen:v.requiredWhen}:{}),...(v.options&&v.type==='string'?{options:v.options}:{}),...(v.min!==undefined?{min:v.min}:{}),...(v.exclusiveMin?{exclusiveMin:true}:{}),...(v.max!==undefined?{max:v.max}:{}),...(v.integer?{integer:true}:{}),...(v.pattern?{pattern:v.pattern}:{}),...(v.defaultValue!==undefined?{defaultValue:nested?JSON.stringify(v.defaultValue):v.defaultValue}:{}),...(v.reference?{reference:v.reference}:{}),...(v.referenceValueKey?{referenceValueKey:v.referenceValueKey}:{}),...(v.referenceParentKey?{referenceParentKey:v.referenceParentKey}:{}),...(v.referenceContext?{referenceContext:v.referenceContext}:{}),...(nested?{structure:v}:{}),source,apiKey:v.apiKey||key});
+ out.push({key:source==='query'?((key==='branchId'||v.apiKey==='branchId')&&v.reference==='branch.list'?'targetBranch':'query_'+key):key,label:v.label||labels[key]||key,type,systemRequired:!!v.required,required:!!v.required,...(v.requiredWhen?{requiredWhen:v.requiredWhen}:{}),...(v.options&&v.type==='string'?{options:v.options}:{}),...(v.min!==undefined?{min:v.min}:{}),...(v.exclusiveMin?{exclusiveMin:true}:{}),...(v.max!==undefined?{max:v.max}:{}),...(v.integer?{integer:true}:{}),...(v.pattern?{pattern:v.pattern}:{}),...(v.defaultValue!==undefined?{defaultValue:nested?JSON.stringify(v.defaultValue):v.defaultValue}:{}),...(v.reference?{reference:v.reference}:{}),...(v.referenceValueKey?{referenceValueKey:v.referenceValueKey}:{}),...(v.referenceParentKey?{referenceParentKey:v.referenceParentKey}:{}),...(v.referenceContext?{referenceContext:v.referenceContext}:{}),...(nested?{structure:v}:{}),source,apiKey:v.apiKey||key});
  }return out;}
 const operations=[],coverage=[];
 for(const e of inventory.endpoints){
@@ -125,5 +125,5 @@ if(inventory.unresolved.length)unsupportedLines.push('## Khai báo route động
 else unsupportedLines.push('## Route được sinh động','','Các route khai báo bằng vòng lặp và helper đã được mở rộng thành method/path cụ thể trong inventory; không còn khai báo route động chưa phân giải.','');
 for(const entry of inventory.unresolved)unsupportedLines.push(`- \`${entry.file}:${entry.line}\``);
 unsupportedLines.push('');
-fs.writeFileSync('server/assistant/UNSUPPORTED.md',unsupportedLines.join('\n'));
+fs.writeFileSync('server/assistant/UNSUPPORTED.md',unsupportedLines.join('\n').trimEnd()+'\n');
 console.log(JSON.stringify({operations:operations.length,manualRoutes:connectedManualRoutes,connectedRoutes,modules:[...new Set(operations.map(o=>o.module))],reviewPending,intentionallyUnsupported}));

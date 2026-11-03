@@ -54,7 +54,7 @@ export function TenantCreateDialog({ onClose, onCreated }: { onClose: () => void
       <dialog ref={dialogRef} aria-labelledby="tenant-create-title" onCancel={(event) => { event.preventDefault(); if (!submitting) onClose(); }} className="m-auto w-full max-w-lg rounded-2xl border border-outline-variant bg-surface p-6 text-on-surface shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain">
         <div className="flex items-center justify-between border-b border-outline-variant pb-4">
           <h3 id="tenant-create-title" className="text-balance text-lg font-bold">Tạo doanh nghiệp mới</h3>
-          <button aria-label="Đóng" disabled={submitting} onClick={onClose} className="text-on-surface/70 hover:text-on-surface"><X className="h-5 w-5" /></button>
+          <button aria-label="Đóng" disabled={submitting} onClick={onClose} className="text-on-surface/70 hover:text-on-surface" data-erp-modal-close><X className="h-5 w-5" /></button>
         </div>
         <div className="mt-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -20,6 +20,14 @@ it('keeps the shell available after a route exception and recovers on retry', as
   fireEvent.click(screen.getByRole('button', { name: 'Thử lại phân hệ' }));
   expect(await screen.findByText('Page ready')).toBeTruthy();
 });
+it('retries a failed dynamic import once without requiring a click', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  mock.route.component = () => { throw new TypeError('Failed to fetch dynamically imported module'); };
+  mock.retry.mockImplementation(() => { mock.route.component = () => <p>Schedule ready</p>; });
+  render(<AppRouterView activeTab="TỔNG QUAN" userProfile={profile} />);
+  expect(await screen.findByText('Schedule ready')).toBeTruthy();
+  expect(mock.retry).toHaveBeenCalledTimes(1);
+});
 it('offers recovery when a lazy module never settles', async () => {
   vi.useFakeTimers();
   mock.route.component = lazy(() => new Promise(() => {}));

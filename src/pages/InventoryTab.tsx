@@ -667,7 +667,7 @@ function InventoryWorkspace() {
   };
 
   return (
-    <div className="flex h-full max-h-[85vh] flex-col overflow-hidden bg-surface" id="inventory_tab_wrapper">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface" id="inventory_tab_wrapper">
       <h1 className="sr-only">Quản lý Kho & Sản phẩm - {subTab}</h1>
       <ModuleNavigation
         label="Mục Kho & Sản phẩm"

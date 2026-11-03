@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  BookOpen,
-  BriefcaseBusiness,
   Eye,
   LayoutGrid,
   List,
@@ -22,7 +20,6 @@ import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
 import { useAuth } from '../../../../context/AuthContext';
 import { Course } from '../../types';
 import {
-  ErpCard,
   ErpConfirmModal,
   ErpEmptyState,
   ErpField,
@@ -470,7 +467,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const paginatedCourses = filteredCourses.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="space-y-5 rounded-2xl bg-[#F8FBFF] px-3 py-5 text-left sm:px-5 sm:py-6">
+    <div className="space-y-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-sm sm:p-4">
       {(courseLoadError || categoryLoadError) && <StudentLoadState error={courseLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadCourses(), reloadCategories()]); }} />}
       <ErpPageHeader
         title={copy.pageTitle}
@@ -494,7 +491,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
         ) : undefined}
       />
 
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 rounded-2xl border border-[#DFECF5] bg-white p-3 shadow-sm shadow-[#DCECF5]/40 [&_input]:border-[#DFECF5]">
+      <div className="flex flex-col items-stretch justify-between gap-2.5 border-b border-outline-variant pb-3 md:flex-row md:items-center [&_input]:border-outline-variant">
         <ErpSearchBar value={searchTerm} onChange={setSearchTerm} placeholder={copy.searchPlaceholder} />
         <div className="flex flex-wrap items-center gap-3">
           <ErpFilterRail>
@@ -540,18 +537,14 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
       </div>
 
       {loading && courses.length === 0 ? (
-        <ErpCard className="border-[#DFECF5] shadow-sm shadow-[#DCECF5]/40"><ErpLoadingState message={copy.loadingMessage} /></ErpCard>
+        <ErpLoadingState message={copy.loadingMessage} />
       ) : filteredCourses.length === 0 ? (
-        <ErpCard className="border-[#DFECF5] shadow-sm shadow-[#DCECF5]/40">
-          <ErpEmptyState
-            icon={entityLabel.preset === 'worker' || entityLabel.preset === 'customer' ? BriefcaseBusiness : BookOpen}
-            title={copy.emptyTitle}
-            subtitle={copy.emptySubtitle}
-          />
-        </ErpCard>
+        <section aria-label={copy.emptyTitle}>
+          <ErpEmptyState illustration="course" title={copy.emptyTitle} subtitle={copy.emptySubtitle} />
+        </section>
       ) : viewMode === 'grid' ? (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
             {paginatedCourses.map((course) => (
               <div
                 key={course.id}
@@ -648,7 +641,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
               </div>
             ))}
           </div>
-          <ErpCard className="overflow-hidden border-[#DFECF5] shadow-sm shadow-[#DCECF5]/40">
+          <div className="border-t border-outline-variant pt-3">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -657,10 +650,10 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
               pageSize={pageSize}
               itemName={copy.paginationItemName}
             />
-          </ErpCard>
+          </div>
         </div>
       ) : (
-        <ErpCard className="overflow-hidden border-[#DFECF5] shadow-sm shadow-[#DCECF5]/40">
+        <div className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left border-collapse [&_thead_tr]:border-[#DFECF5] [&_thead_tr]:bg-[#F4FAFE] [&_th]:font-medium [&_th]:text-slate-600">
               <ErpTableHead columns={['Mã', copy.tableTitleColumn, copy.categoryLabel, copy.durationLabel, courseFeeLabel, copy.tableCapacityColumn, 'Trạng thái', 'Thao tác']} />
@@ -741,7 +734,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
             pageSize={pageSize}
             itemName={copy.paginationItemName}
           />
-        </ErpCard>
+        </div>
       )}
 
       {showAddModal && (

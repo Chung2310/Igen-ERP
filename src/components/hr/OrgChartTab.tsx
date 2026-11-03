@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
 import {
   Users,
   Search,
@@ -34,6 +35,7 @@ import { ConfirmDialog } from "../common/ConfirmDialog";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { filterOrgChartEmployees, getManagerForEmployee } from "./orgChartUtils";
 import { useIsMobile } from "../../hooks/useMediaQuery";
+import { cn } from "../../modules/student-management/lib/utils";
 
 interface OrgChartTabProps {
   userProfile: any;
@@ -184,7 +186,7 @@ export default function OrgChartTab({
   activeBranchId,
 }: OrgChartTabProps) {
   const isMobile = useIsMobile();
-  const [zoomLevel, setZoomLevel] = useState<number>(0.65);
+  const [zoomLevel, setZoomLevel] = useState<number>(0.7);
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
   const [isSafari, setIsSafari] = useState<boolean>(false);
   const [departments, setDepartments] = useState<HrDepartment[]>([]);
@@ -1273,7 +1275,7 @@ export default function OrgChartTab({
         }}
       />}
       {/* Division filter and search bar for Org Chart tab */}
-      <div data-testid="org-chart-toolbar" className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 bg-white p-3 md:px-5 md:py-3.5 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
+      <div data-testid="org-chart-toolbar" className="flex shrink-0 flex-col gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 md:px-5 md:py-3.5 min-[1200px]:flex-row min-[1200px]:items-center min-[1200px]:justify-between">
         <div data-testid="org-chart-filters" className="grid w-full flex-1 grid-cols-1 items-stretch gap-2.5 min-[640px]:grid-cols-2 min-[1200px]:max-w-md">
           <div className="relative w-full">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -1322,8 +1324,8 @@ export default function OrgChartTab({
               {canManageDepartments && <button
                 type="button"
                 onClick={() => setIsDepartmentManagerOpen(true)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#00ADFC]/30 bg-[#00ADFC]/5 px-3 py-2 text-xs font-normal text-[#007EB8] transition-colors hover:bg-[#00ADFC]/10 min-[1200px]:w-auto"
-              ><Building2 className="h-4 w-4" /> Quản lý phòng ban</button>}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-primary bg-surface-container-lowest px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary min-[1200px]:w-auto"
+              ><Building2 className="size-4" aria-hidden="true" /> Quản lý phòng ban</button>}
               <button
                 data-testid="org-chart-add-button"
                 type="button"
@@ -1339,11 +1341,11 @@ export default function OrgChartTab({
       </div>
 
       {/* Primary Sub Tab Layout View */}
-      <div className="flex-1 p-3 md:p-6 overflow-y-auto" id="hr_tab_content">
+      <div className="min-h-0 flex-1 overflow-y-auto pt-2" id="hr_tab_content">
         <div className="grid grid-cols-1 gap-6 h-full min-h-[500px]" id="org_chart_block">
 
           {viewMode === "list" && (
-            <div className="col-span-1 bg-white border border-gray-200 rounded-2xl overflow-hidden min-h-[500px] flex flex-col justify-between">
+            <div className="col-span-1 flex min-h-[500px] flex-col justify-between overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest">
               {isMobile ? (
                 <div className="divide-y divide-slate-100 p-2">
                   {paginatedEmployees.map((employee) => {
@@ -1381,7 +1383,7 @@ export default function OrgChartTab({
                     );
                   })}
                   {visibleEmployees.length === 0 && (
-                    <div className="py-16 text-center text-sm text-slate-400">Không tìm thấy nhân viên</div>
+                    <div className="flex flex-col items-center py-16 text-center text-sm text-slate-400"><HrEmptyIllustration kind="search" /><p className="mt-1">Không tìm thấy nhân viên</p></div>
                   )}
                 </div>
               ) : (
@@ -1424,13 +1426,11 @@ export default function OrgChartTab({
                               <div className="text-[10px] text-slate-400">{employee.phone || missingValue}</div>
                             </td>
                             <td className="px-4 py-3">
-                              <span
-                                className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                  employee.status === "online"
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                    : "bg-slate-50 text-slate-500 border border-slate-200"
-                                }`}
-                              >
+                              <span className={cn(
+                                "inline-flex items-center gap-1.5 rounded-full border bg-surface-container-lowest px-2.5 py-1 text-xs font-normal",
+                                employee.status === "online" ? "border-primary text-primary" : "border-outline-variant text-on-surface-variant",
+                              )}>
+                                <span className={cn("size-1.5 rounded-full", employee.status === "online" ? "bg-primary" : "bg-outline")} aria-hidden="true" />
                                 {employee.status === "online" ? "Đang hoạt động" : "Ngoại tuyến"}
                               </span>
                             </td>
@@ -1440,7 +1440,7 @@ export default function OrgChartTab({
                     </tbody>
                   </table>
                   {visibleEmployees.length === 0 && (
-                    <div className="py-16 text-center text-sm text-slate-400">Không tìm thấy nhân viên</div>
+                    <div className="flex flex-col items-center py-16 text-center text-sm text-slate-400"><HrEmptyIllustration kind="search" /><p className="mt-1">Không tìm thấy nhân viên</p></div>
                   )}
                 </div>
               )}
@@ -1528,7 +1528,7 @@ export default function OrgChartTab({
           )}
 
           {/* Interactive Tree viewport diagram - full width */}
-          <div ref={chartViewportRef} className={`relative col-span-1 flex min-h-[580px] flex-col overflow-hidden rounded-2xl border border-[#E1EAF5] bg-gradient-to-b from-white via-[#F8FBFF] to-[#F2F7FD] ${isChartFullscreen ? "h-dvh w-dvw rounded-none border-0" : ""} ${viewMode === "tree" ? "" : "hidden"}`} id="tree_viewport">
+          <div ref={chartViewportRef} className={`relative col-span-1 flex min-h-[580px] flex-col overflow-hidden rounded-2xl border border-outline-variant bg-gradient-to-b from-white via-[#F8FBFF] to-[#F2F7FD] ${isChartFullscreen ? "h-dvh w-dvw rounded-none border-0" : ""} ${viewMode === "tree" ? "" : "hidden"}`} id="tree_viewport">
             <div className="absolute right-3 top-3 z-20">
               <button
                 type="button"
@@ -1568,7 +1568,7 @@ export default function OrgChartTab({
               >
                 {employees.length === 0 ? (
                   <div className="text-center py-20 text-gray-400">
-                    <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <HrEmptyIllustration kind="organization" className="mx-auto" />
                     <p className="text-sm font-bold">Chưa có cơ cấu nhân sự</p>
                     <p className="text-xs mt-1">Vui lòng thêm thành viên mới đầu tiên</p>
                   </div>
@@ -1600,7 +1600,7 @@ export default function OrgChartTab({
                   onClick={() => setIsEditing(false)}
                   aria-label="Đóng popup chỉnh sửa nhân sự"
                   className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
-                >
+                 data-erp-modal-close>
                   <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
@@ -1796,7 +1796,7 @@ export default function OrgChartTab({
                   type="button"
                   onClick={closeDetailModal}
                   className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
-                >
+                 data-erp-modal-close aria-label="Đóng">
                   <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
@@ -2000,14 +2000,14 @@ export default function OrgChartTab({
                 onClick={() => setIsAddModalOpen(false)}
                 aria-label="Đóng popup thêm nhân sự"
                 className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
-              >
+               data-erp-modal-close>
                 <X className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
 
             <div className="grid min-h-0 grid-cols-1 gap-x-4 gap-y-3 overflow-y-auto pr-1 text-xs sm:grid-cols-2">
               <div>
-                <label className="block font-bold text-gray-500 mb-1">Họ tên *</label>
+                <label className="block font-normal text-on-surface-variant mb-1">Họ tên *</label>
                 <input
                   type="text"
                   required
@@ -2019,7 +2019,7 @@ export default function OrgChartTab({
               </div>
 
               <div>
-                <label className="block font-bold text-gray-500 mb-1">Trình độ</label>
+                <label className="block font-normal text-on-surface-variant mb-1">Trình độ</label>
                 <input
                   type="text"
                   placeholder="Ví dụ: TESOL, Cử nhân Sư phạm"
@@ -2030,11 +2030,11 @@ export default function OrgChartTab({
               </div>
 
               <div>
-                <label className="block font-bold text-gray-500 mb-1">Lương tháng (VND)</label>
+                <label className="block font-normal text-on-surface-variant mb-1">Lương tháng (VND)</label>
                 <input type="number" min="0" step="1000" value={addMonthlySalary} onChange={(e) => setAddMonthlySalary(e.target.value)} className="no-number-spinner w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#00ADFC]/20 focus:border-[#00ADFC]" placeholder="26000000" />
               </div>
               <div>
-                <label className="block font-bold text-gray-500 mb-1">Email *</label>
+                <label className="block font-normal text-on-surface-variant mb-1">Email *</label>
                 <input
                   type="email"
                   required
@@ -2045,7 +2045,7 @@ export default function OrgChartTab({
                 />
               </div>
               <div>
-                <label className="block font-bold text-gray-500 mb-1">Số điện thoại</label>
+                <label className="block font-normal text-on-surface-variant mb-1">Số điện thoại</label>
                 <input
                   type="text"
                   placeholder="090XXXXXXXX"
@@ -2056,7 +2056,7 @@ export default function OrgChartTab({
               </div>
 
               <div>
-                <label className="block font-bold text-gray-500 mb-1">Mật khẩu khởi tạo *</label>
+                <label className="block font-normal text-on-surface-variant mb-1">Mật khẩu khởi tạo *</label>
                 <input
                   type="password"
                   required
@@ -2068,7 +2068,7 @@ export default function OrgChartTab({
               </div>
 
               <div>
-                <label className="block font-bold text-gray-500 mb-1">Quyền hạn (Role) *</label>
+                <label className="block font-normal text-on-surface-variant mb-1">Quyền hạn (Role) *</label>
                 <HrFormSelect
                   value={addRole}
                   onChange={(nextRole) => setAddRole(nextRole as typeof addRole)}
@@ -2083,7 +2083,7 @@ export default function OrgChartTab({
 
               {addRole !== "admin" && (
                 <div>
-                  <label className="block font-bold text-gray-500 mb-1">Quản lý trực tiếp (Báo cáo cho)</label>
+                  <label className="block font-normal text-on-surface-variant mb-1">Quản lý trực tiếp (Báo cáo cho)</label>
                   <HrFormSelect
                     value={addParentId}
                     onChange={setAddParentId}
@@ -2124,7 +2124,7 @@ export default function OrgChartTab({
 
               {(addRole === "user" || addRole === "manager") && (
                 <div>
-                  <label className="block font-bold text-gray-500 mb-1">
+                  <label className="block font-normal text-on-surface-variant mb-1">
                     {addRole === "manager" ? "Phòng ban quản lý *" : "Phòng ban *"}
                   </label>
                   <HrFormSelect
@@ -2155,7 +2155,7 @@ export default function OrgChartTab({
               )}
 
               <div>
-                <label className="block font-bold text-gray-500 mb-1">Link mô tả công việc</label>
+                <label className="block font-normal text-on-surface-variant mb-1">Link mô tả công việc</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="url"
@@ -2245,7 +2245,7 @@ export default function OrgChartTab({
                   type="button"
                   onClick={() => setShowJobDescriptionPreview(false)}
                   className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
-                >
+                 data-erp-modal-close aria-label="Đóng">
                   <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>

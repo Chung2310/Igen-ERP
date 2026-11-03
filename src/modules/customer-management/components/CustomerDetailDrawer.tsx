@@ -37,7 +37,7 @@ export default function CustomerDetailDrawer({ customer, branchId, canManage, on
       <aside className="absolute inset-y-0 right-0 flex w-full max-w-2xl flex-col bg-surface-container-lowest text-on-surface shadow-xl">
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-outline-variant px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-4 sm:px-6">
           <div className="flex min-w-0 items-start gap-3"><span className="mt-1 h-8 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" /><div className="min-w-0"><h2 id="customer-detail-title" className="break-words text-xl font-semibold text-on-surface text-balance">{customer.name}</h2><p className="mt-1 text-sm text-on-surface-variant">Hồ sơ dùng chung toàn công ty</p></div></div>
-          <button type="button" aria-label="Đóng chi tiết" onClick={onClose} className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><X className="h-4 w-4" aria-hidden="true" /></button>
+          <button type="button" aria-label="Đóng chi tiết" onClick={onClose} className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" data-erp-modal-close><X className="h-4 w-4" aria-hidden="true" /></button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
           <h3 className="mb-3 text-sm font-semibold text-on-surface text-balance">Thông tin khách hàng</h3>

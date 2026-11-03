@@ -8,6 +8,7 @@ import { PayrollPolicyFormModal } from "./PayrollPolicyFormModal";
 import type { PayrollPolicyDefinition } from "./payrollPolicyForm";
 import { getPayrollPolicyActions, type PayrollPolicyAction } from "./payrollPolicyActions";
 import { canRecalculateAfterPolicySave } from "./payrollPolicySaveDecision";
+import { primaryCreateButtonClass } from "../../common/primaryCreateButton";
 
 const editableDefinition = (policy: any) => Object.fromEntries(Object.entries(policy).filter(([key]) => !["_id", "companyCode", "status", "createdBy", "activatedBy", "activatedAt", "retiredBy", "createdAt", "updatedAt", "version", "__v"].includes(key)));
 const formatEffectiveDate = (value: unknown) => {
@@ -112,7 +113,7 @@ export function PayrollPolicyManager({ canManage, onPoliciesChanged, runStatus, 
     <div className="flex items-start gap-2.5">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D9EEFF] text-[#087BDF]" aria-hidden="true"><Settings2 size={18} /></span>
       <div className="min-w-0 flex-1">
-        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-medium text-[#15396C]">Cách tính lương</h3>{canManage && <button onClick={() => setEditor({ mode: "create" })} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#087BDF] px-3 text-xs font-medium text-white transition-colors hover:bg-[#006CC6]"><Plus size={14}/>Tạo cách tính</button>}</div>
+        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-medium text-[#15396C]">Cách tính lương</h3>{canManage && <button type="button" onClick={() => setEditor({ mode: "create" })} className={primaryCreateButtonClass}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" />Tạo cách tính</button>}</div>
         <div className="space-y-2">{items.length === 0 ? <p className="rounded-xl bg-[#E8F6FF] px-3 py-2 text-sm text-slate-500">Chưa có công thức lương.</p> : items.map((policy) => <div key={policy._id} data-policy-status={policy.status} className={`flex flex-wrap items-center justify-between gap-2 rounded-xl px-3 py-2 ${policy.status === "active" ? "bg-[#E5F4FD]" : "bg-[#F5F8FC]"}`}><div><div className="flex flex-wrap items-center gap-2 text-sm font-medium text-[#15396C]">{policy.name}{policy.status === "active" && <span className="rounded-full bg-[#CEEAFE] px-2 py-0.5 text-[11px] font-normal text-[#087BDF]">Đang áp dụng</span>}</div><div className="mt-0.5 text-xs text-[#536B8F]">Áp dụng: {formatEffectiveDate(policy.effectiveFrom)}{policy.effectiveTo ? ` → ${formatEffectiveDate(policy.effectiveTo)}` : ""}</div></div><div className="flex flex-wrap gap-1.5">{getPayrollPolicyActions(canManage, policy.status).map((action) => { const Icon = icons[action]; return <button key={action} onClick={() => void act(action, policy)} className={`inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium transition-colors ${actionColors[action]}`}><Icon size={12}/>{labels[action]}</button>; })}</div></div>)}</div>
       </div>
     </div>

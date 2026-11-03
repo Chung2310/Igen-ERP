@@ -1,28 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Bell, LogOut, Search, Settings, Wallet, Info, X, Image, Video, Volume2, FileText,
-  Package, Megaphone, Sparkles, CheckCheck, ShoppingCart, AlertTriangle, Send, Sun, Moon,
-  Briefcase, GraduationCap, LayoutGrid, LayoutDashboard, Users, MessageSquareShare,
-  FolderOpen, MessageSquare, Shield, LineChart, Menu, FolderTree, Calendar, Clock, User,
-  LogIn, LogOut as LogOutIcon, Handshake, BriefcaseBusiness, ChevronDown, Landmark, ContactRound
+  Bell, LogOut, Search, Settings, X, Package, CheckCheck, Send, Sun, Moon,
+  Briefcase, GraduationCap, Clock, LogIn, LogOut as LogOutIcon,
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
 import { authService } from "../services/authService";
-import { isTabHidden, filterEnabledTabs } from "../config/modules";
+import { isTabHidden } from "../config/modules";
+import { HEADER_MODULE_LABELS } from "../config/header-module-label";
 import { toast } from "./Toast";
 import { notificationService, WebNotification } from "../services/notificationService";
 import { socketService } from "../services/socketService";
 import AttendanceCameraModal from "../components/attendance/AttendanceCameraModal";
 import { ATTENDANCE_FACE_CHECK_ENABLED } from "../config/attendanceFaceCheck";
 import BranchSwitcher from "../components/BranchSwitcher";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
+import { ModuleLauncherLogo } from "../components/common/ModuleLauncherLogo";
+import { ModuleQuickMenu } from "../components/common/ModuleQuickMenu";
 
 interface HeaderProps {
   currentTab: TabType;
   onSearchSelect: (tab: TabType, subTab?: string) => void;
-  onMenuClick?: () => void;
+  variant?: "default" | "launcher";
 }
 
 const searchIndex = [
@@ -40,15 +41,19 @@ const searchIndex = [
   { label: "Hộp thư đa kênh", tab: "SALES CRM" as TabType, subTab: "OMNI-INBOX CHAT", keywords: "chat vip mailbox tro ly ai" },
 ];
 
-export default function Header({ currentTab, onSearchSelect, onMenuClick }: HeaderProps) {
+export default function Header({ currentTab, onSearchSelect, variant = "default" }: HeaderProps) {
+  const isLauncher = variant === "launcher";
   const { userProfile, logout } = useAuth();
   const { branches, activeBranchId, setActiveBranchId } = useBranch();
   const [searchQuery, setSearchQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showUtilities, setShowUtilities] = useState(false);
-  const [expandedUtilityTab, setExpandedUtilityTab] = useState<string | null>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showModuleMenu, setShowModuleMenu] = useState(false);
+  const [logoutSubmitting, setLogoutSubmitting] = useState(false);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
+  const moduleButtonRef = useRef<HTMLButtonElement>(null);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [telegramLink, setTelegramLink] = useState<any>(null);
   const [telegramLoading, setTelegramLoading] = useState(false);
@@ -57,6 +62,21 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem("theme") === "dark" || document.documentElement.classList.contains("dark");
   });
+  const closeLogoutConfirm = useCallback(() => {
+    setShowLogoutConfirm(false);
+    requestAnimationFrame(() => profileButtonRef.current?.focus());
+  }, []);
+  const confirmLogout = async () => {
+    setLogoutSubmitting(true);
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+    } catch {
+      toast.error("Không thể đăng xuất. Vui lòng thử lại.");
+    } finally {
+      setLogoutSubmitting(false);
+    }
+  };
 
   // ─── Attendance (Chấm công) ──────────────────────────────────
   const [todayTimekeeping, setTodayTimekeeping] = useState<any>(null);
@@ -334,26 +354,31 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-18 min-w-0 items-center justify-between gap-2 border-b border-gray-100 bg-white px-3 shadow-xs sm:gap-4 sm:px-6" id="app_header">
-        <div className="relative flex min-w-0 flex-1 items-center sm:max-w-2xl">
-          {onMenuClick && (
-            <button
-              onClick={onMenuClick}
-              className="mr-3 md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-50 active:scale-95 cursor-pointer shrink-0"
-              title="Mở menu"
-              id="header_menu_btn"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-          )}
-          <div className="relative hidden w-full sm:block" id="search_container">
+      <header className={isLauncher ? "relative z-40 flex min-w-0 flex-1 items-center justify-end" : "sticky top-0 z-40 flex h-18 min-w-0 items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest pl-1 pr-3 shadow-xs sm:gap-4 sm:pr-6"} id={isLauncher ? "launcher_header_controls" : "app_header"}>
+        {!isLauncher && <div className="relative flex min-w-0 flex-1 items-center sm:max-w-2xl">
+          <div className="ml-3 flex shrink-0 items-center sm:ml-4">
+            {userProfile?.role !== "superadmin" && (
+              <button ref={moduleButtonRef} type="button" onClick={() => setShowModuleMenu(true)} aria-label="Mở danh sách phân hệ" aria-haspopup="dialog" aria-expanded={showModuleMenu} className="flex size-11 -translate-y-2 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  {[5.5, 12, 18.5].flatMap((cy) =>
+                    [5.5, 12, 18.5].map((cx) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.7" />),
+                  )}
+                </svg>
+              </button>
+            )}
+            <span className="mr-3 flex shrink-0 flex-col items-start justify-center gap-0.5 sm:mr-4">
+              <ModuleLauncherLogo compact />
+              <span className="font-sans text-xs font-semibold leading-tight text-on-surface">{HEADER_MODULE_LABELS[currentTab]}</span>
+            </span>
+          </div>
+          <div className="relative mx-auto hidden min-w-0 w-full max-w-sm sm:block" id="search_container">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-              <Search className="h-5 w-5 text-gray-400" />
+              <Search className="size-5 text-on-surface-variant" />
             </div>
             <input
               type="text"
               placeholder="Tìm kiếm trong ERP..."
-              className="block h-12 w-full rounded-full border border-gray-200 bg-white pl-12 pr-5 text-sm text-gray-900 shadow-[0_8px_24px_rgba(15,23,42,0.05)] outline-none transition-all placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              className="block h-11 w-full rounded-full border border-outline-variant bg-surface-container-lowest pl-12 pr-5 text-sm text-on-surface shadow-md outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/10"
               value={searchQuery}
               onChange={(event) => {
                 setSearchQuery(event.target.value);
@@ -395,9 +420,9 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
             )}
             {showResults && <div className="fixed inset-0 z-[-1]" onClick={() => setShowResults(false)} />}
           </div>
-        </div>
+        </div>}
 
-        <div className="ml-1 flex shrink-0 items-center gap-1 sm:ml-6 sm:gap-3" id="header_controls">
+        <div className={isLauncher ? "flex min-w-0 items-center gap-1 sm:gap-3" : "ml-1 flex shrink-0 items-center gap-1 sm:ml-6 sm:gap-3"} id="header_controls">
 
           {userProfile?.role === "admin" && branches.length > 0 && (
             <BranchSwitcher branches={branches} activeBranchId={activeBranchId} onChange={setActiveBranchId} />
@@ -457,6 +482,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
 
           {/* Dark Mode Toggle Button */}
           <button
+            type="button"
             onClick={() => {
               const nextDark = !isDark;
               setIsDark(nextDark);
@@ -473,208 +499,19 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
             }}
             className="hidden items-center justify-center rounded-full p-2 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600 active:scale-95 sm:flex"
             title={isDark ? "Giao diện sáng" : "Giao diện tối"}
+            aria-label={isDark ? "Giao diện sáng" : "Giao diện tối"}
             id="header_darkmode_btn"
           >
             {isDark ? <Sun className="h-4.5 w-4.5 shrink-0 text-amber-500" /> : <Moon className="h-4.5 w-4.5 shrink-0" />}
           </button>
 
-          {/* Utilities (App Launcher) Button */}
-          <div className="relative" id="header_utilities_dropdown">
-            <button
-              onClick={() => setShowUtilities(!showUtilities)}
-              className={`flex items-center justify-center p-2 rounded-full transition-all active:scale-95 cursor-pointer ${showUtilities ? "bg-blue-50 text-blue-600" : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"}`}
-              title="Tiện ích — mở nhanh các chức năng"
-              id="header_utilities_btn"
-            >
-              <LayoutGrid className="h-4.5 w-4.5 shrink-0" />
-            </button>
-
-            {showUtilities && (
-              <div className={`fixed inset-x-3 top-[4.75rem] z-50 max-h-[calc(100dvh-5.5rem)] overflow-y-auto rounded-3xl p-4 shadow-2xl font-sans animate-fade-in border sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-3 sm:max-h-[80vh] sm:w-[360px] sm:p-5 ${isDark ? "bg-[#18181b] text-neutral-100 border-neutral-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" : "bg-white text-slate-800 border-gray-150"}`}>
-                {/* Header */}
-                <div className={`flex items-center justify-between border-b pb-3.5 mb-4 ${isDark ? "border-neutral-800" : "border-gray-100"}`}>
-                  <span className={`text-base font-bold tracking-wide ${isDark ? "text-white" : "text-slate-800"}`}>Tiện ích hệ thống</span>
-                  <button
-                    onClick={() => setShowUtilities(false)}
-                    className={`p-1.5 rounded-full transition-all active:scale-90 ${isDark ? "text-neutral-400 hover:text-white hover:bg-neutral-800/50" : "text-gray-400 hover:text-slate-800 hover:bg-gray-100"}`}
-                    aria-label="Đóng Menu"
-                  >
-                    <X className="h-4.5 w-4.5" />
-                  </button>
-                </div>
-
-                {/* Clean Grid Layout */}
-                <div className="grid grid-cols-3 gap-3 pr-1">
-                  {(() => {
-                    const TAB_SUBTABS_MAP: Record<string, { label: string; subTab?: string }[]> = {
-                      "NHÂN SỰ": [
-                        { label: "Tuyển dụng", subTab: "TUYỂN DỤNG" },
-                        { label: "Sơ đồ tổ chức", subTab: "SƠ ĐỒ TỔ CHỨC" },
-                        { label: "Giao việc", subTab: "Giao Việc" },
-                        { label: "Quy trình công việc", subTab: "QUY TRÌNH" },
-                        { label: "Đào tạo e-Learning", subTab: "ĐÀO TẠO" },
-                        { label: "Lịch cá nhân", subTab: "LỊCH" },
-                        { label: "Tính lương (Payroll)", subTab: "PAYROLL" },
-                        { label: "Hợp đồng", subTab: "HỢP ĐỒNG" },
-                        { label: "Email chúc mừng", subTab: "EMAIL CHÚC MỪNG" },
-                      ],
-                      "KHO & SẢN PHẨM": [
-                        { label: "Danh mục", subTab: "DANH MỤC" },
-                        { label: "Nhập / Xuất", subTab: "NHẬP / XUẤT KHO" },
-                        { label: "Dự báo AI", subTab: "DỰ BÁO AI" },
-                      ],
-                      "QUẢN LÝ TÀI NGUYÊN": [
-                        { label: "Tài liệu cục bộ", subTab: "TÀI LIỆU KHÁC" },
-                      ],
-                      "QUẢN LÝ HỌC VIÊN": [
-                        { label: "Tổng quan", subTab: "TỔNG QUAN" },
-                        { label: "Khóa học", subTab: "KHÓA HỌC" },
-                        { label: "Lớp học", subTab: "LỚP HỌC" },
-                        { label: "Chất lượng học viên", subTab: "CHẤT LƯỢNG HỌC VIÊN" },
-                        { label: "Học viên", subTab: "HỌC VIÊN" },
-                        { label: "Học phí", subTab: "HỌC PHÍ" },
-                      ],
-                      "CÀI ĐẶT": [
-                        { label: "Hồ sơ cá nhân", subTab: "profile" },
-                        { label: "Cấu hình ERP", subTab: "erp" },
-                        { label: "Nhận diện khuôn mặt", subTab: "face-recognition" },
-                      ],
-                    };
-
-                    const tabConfig: Record<TabType, { title: string; icon: React.ElementType }> = {
-                      "TỔNG QUAN": { title: "Tổng quan", icon: LayoutDashboard },
-                      "NHÂN SỰ": { title: "Nhân sự", icon: Users },
-                      "ĐỐI TÁC": { title: "Đối tác học viên", icon: Handshake },
-                      "ĐỐI TÁC LAO ĐỘNG": { title: "Đối tác lao động", icon: Handshake },
-                      "KHO & SẢN PHẨM": { title: "Kho hàng", icon: Package },
-                      "QUẢN LÝ HỌC VIÊN": { title: "Học viên", icon: GraduationCap },
-                      "QUẢN LÝ LAO ĐỘNG": { title: "Lao động", icon: BriefcaseBusiness },
-                      "QUẢN LÝ KHÁCH HÀNG": { title: "Khách hàng", icon: ContactRound },
-                      "BÁN LẺ": { title: "Bán lẻ", icon: ShoppingCart },
-                      "TÀI CHÍNH": { title: "Tài chính", icon: Landmark },
-                      "MARKETING": { title: "Marketing", icon: Megaphone },
-                      "QUẢN LÝ TÀI NGUYÊN": { title: "Tài nguyên", icon: FolderOpen },
-                      "TRÒ CHUYỆN": { title: "Trò chuyện", icon: MessageSquare },
-                      "QUẢN TRỊ USER": { title: "Thành viên", icon: Shield },
-                      "CÀI ĐẶT": { title: "Cài đặt", icon: Settings },
-                    } as any;
-
-                    const allTabs: TabType[] = [
-                      "TỔNG QUAN",
-                      "NHÂN SỰ",
-                      "ĐỐI TÁC",
-                      "ĐỐI TÁC LAO ĐỘNG",
-                      "KHO & SẢN PHẨM",
-                      "QUẢN LÝ HỌC VIÊN",
-                      "QUẢN LÝ LAO ĐỘNG",
-                      "QUẢN LÝ KHÁCH HÀNG",
-                      "BÁN LẺ",
-                      "TÀI CHÍNH",
-                      "MARKETING",
-                      "QUẢN LÝ TÀI NGUYÊN",
-                      "TRÒ CHUYỆN",
-                      ...((userProfile?.role === "superadmin" || userProfile?.role === "admin")
-                        ? ["QUẢN TRỊ USER" as TabType]
-                        : []),
-                      "CÀI ĐẶT",
-                    ];
-
-                    const enabledTabs = filterEnabledTabs(
-                      allTabs.filter(t => !isTabHidden(t)),
-                      userProfile?.enabledModules,
-                      userProfile?.businessType
-                    );
-
-                    return enabledTabs.map((tab, index) => {
-                      const normalizedTab = tab.normalize("NFC");
-                      const cfg = tabConfig[normalizedTab];
-                      if (!cfg) return null;
-                      const Icon = cfg.icon;
-                      const hasSubtabs = !!TAB_SUBTABS_MAP[normalizedTab];
-
-                      return (
-                        <div
-                          key={`${tab}-${index}`}
-                          onClick={() => {
-                            onSearchSelect(tab);
-                            setShowUtilities(false);
-                          }}
-                          className={`group relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-350 cursor-pointer text-center gap-2 min-h-24 ${
-                            isDark 
-                              ? "bg-neutral-800/40 border-neutral-800 hover:bg-neutral-800/80" 
-                              : "bg-slate-50/50 border-gray-100 hover:bg-slate-100 hover:border-indigo-100 hover:shadow-xs"
-                          }`}
-                        >
-                          <div className={`p-2.5 rounded-xl border transition-all ${
-                            isDark 
-                              ? "bg-neutral-800/80 border-neutral-800 text-neutral-400 group-hover:text-white" 
-                              : "bg-white border-gray-150 text-slate-500 group-hover:text-indigo-650 group-hover:border-indigo-100 group-hover:bg-white"
-                          }`}>
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          
-                          <div className="flex items-center justify-center gap-1 w-full min-w-0">
-                            <span className={`text-[11px] font-extrabold transition-colors leading-tight truncate ${
-                              isDark ? "text-neutral-300 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"
-                            }`}>
-                              {cfg.title}
-                            </span>
-                            {hasSubtabs && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedUtilityTab(expandedUtilityTab === tab ? null : tab);
-                                }}
-                                className={`p-0.5 rounded-md transition cursor-pointer shrink-0 ${
-                                  isDark ? "hover:bg-neutral-700 text-neutral-400 hover:text-white" : "hover:bg-slate-200 text-slate-400 hover:text-slate-700"
-                                }`}
-                                aria-label="Hiện danh sách con"
-                              >
-                                <ChevronDown className={`h-3 w-3 transition-transform duration-250 ${expandedUtilityTab === tab ? "rotate-180" : ""}`} />
-                              </button>
-                            )}
-                          </div>
-
-                          {hasSubtabs && expandedUtilityTab === tab && (
-                            <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-1.5 min-w-[160px] max-w-[200px] rounded-2xl border flex flex-col z-[60] shadow-xl text-left divide-y divide-slate-100/85 dark:divide-neutral-800/80 overflow-hidden p-1.5 animate-fade-in ${
-                              isDark 
-                                ? "bg-neutral-900 border-neutral-800 text-neutral-100 shadow-[0_10px_35px_rgba(0,0,0,0.6)]" 
-                                : "bg-white border-slate-150 text-slate-800 shadow-[0_10px_30px_rgba(79,70,229,0.12)]"
-                            }`}>
-                              {TAB_SUBTABS_MAP[normalizedTab].map((sub, sIdx) => (
-                                <button
-                                  key={sIdx}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onSearchSelect(tab, sub.subTab);
-                                    setShowUtilities(false);
-                                  }}
-                                  className={`text-[10px] font-extrabold py-2 px-2.5 rounded-xl text-left truncate transition cursor-pointer ${
-                                    isDark 
-                                      ? "text-neutral-400 hover:bg-neutral-850 hover:text-white" 
-                                      : "text-slate-650 hover:bg-indigo-50/60 hover:text-indigo-650"
-                                  }`}
-                                >
-                                  {sub.label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-            )}
-            {showUtilities && <div className="fixed inset-0 z-[-1]" onClick={() => setShowUtilities(false)} />}
-          </div>
-
           <div className="relative" id="notification_dropdown_button">
             <button
+              type="button"
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative rounded-xl p-2.5 text-gray-600 transition-all hover:bg-gray-50 active:scale-95 hidden sm:block"
+              aria-label="Thông báo"
+              aria-expanded={showNotifications}
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
@@ -774,16 +611,20 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           </div>
 
           <div className="relative" id="user_profile_container">
-            <div
-              className="flex cursor-pointer select-none items-center gap-3 border-l border-gray-200 pl-4 transition-transform active:scale-98"
+            <button
+              ref={profileButtonRef}
+              type="button"
+              className="flex cursor-pointer select-none items-center gap-3 border-l border-gray-200 bg-transparent pl-4 transition-transform active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               id="user_profile_box"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
+              aria-label={`Tài khoản ${userProfile?.displayName || "iGen Administrator"}`}
+              aria-expanded={showProfileMenu}
             >
-              <div className="hidden text-right lg:block">
-                <p className="text-sm font-semibold text-gray-800 transition-colors hover:text-blue-600">
+              <span className="hidden text-right lg:block">
+                <span className="text-sm font-semibold text-gray-800 transition-colors hover:text-blue-600">
                   {userProfile ? userProfile.displayName : "iGen Administrator"}
-                </p>
-              </div>
+                </span>
+              </span>
               {userProfile?.photoURL && (userProfile.photoURL.startsWith("http") || userProfile.photoURL.startsWith("/")) ? (
                 <img
                   src={userProfile.photoURL}
@@ -791,11 +632,11 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                   className="h-9 w-9 rounded-full border border-gray-200 object-cover shadow-md ring-2 ring-blue-50 transition-all hover:ring-blue-100"
                 />
               ) : (
-                <div className="flex h-9 w-9 select-none items-center justify-center rounded-full bg-blue-600 text-sm font-bold tracking-wide text-white shadow-md ring-2 ring-blue-50 transition-all hover:ring-blue-100">
+                <span className="flex h-9 w-9 select-none items-center justify-center rounded-full bg-blue-600 text-sm font-bold tracking-wide text-white shadow-md ring-2 ring-blue-50 transition-all hover:ring-blue-100">
                   {userProfile ? userProfile.displayName.slice(0, 2).toUpperCase() : "AD"}
-                </div>
+                </span>
               )}
-            </div>
+            </button>
 
             {showProfileMenu && (
               <>
@@ -847,9 +688,10 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
                       <span>Cài đặt cá nhân</span>
                     </button>
                     <button
-                      onClick={async () => {
+                      type="button"
+                      onClick={() => {
                         setShowProfileMenu(false);
-                        await logout();
+                        setShowLogoutConfirm(true);
                       }}
                       className="mt-1 flex w-full cursor-pointer items-center gap-2.5 rounded-xl border-t border-gray-50 px-3 py-2 pt-2 text-left text-xs font-semibold text-red-600 transition-colors hover:bg-red-50/80"
                     >
@@ -870,7 +712,7 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
               <button
                 onClick={() => setShowTelegramModal(false)}
                 className="absolute right-4 top-4 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-              >
+               data-erp-modal-close aria-label="Đóng">
                 <X className="h-4 w-4" />
               </button>
 
@@ -963,6 +805,22 @@ export default function Header({ currentTab, onSearchSelect, onMenuClick }: Head
           </div>
         )}
       </header>
+
+      <ConfirmDialog
+        appearance="erp"
+        isOpen={showLogoutConfirm}
+        isSubmitting={logoutSubmitting}
+        icon="question"
+        tone="danger"
+        title="Bạn có chắc đăng xuất không?"
+        description="Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng iGen ERP."
+        cancelLabel="Ở lại"
+        confirmLabel="Đăng xuất"
+        onClose={closeLogoutConfirm}
+        onConfirm={confirmLogout}
+      />
+
+      {showModuleMenu && <ModuleQuickMenu currentTab={currentTab} onClose={() => { setShowModuleMenu(false); requestAnimationFrame(() => moduleButtonRef.current?.focus()); }} />}
 
       {timekeepingCameraAction && (
         <AttendanceCameraModal

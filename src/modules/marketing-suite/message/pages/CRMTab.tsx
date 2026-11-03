@@ -1533,7 +1533,7 @@ export default function CRMTab() {
       <h1 className="sr-only">Hệ thống Sales CRM - {subTab}</h1>
 
       {/* Sub tabs selector bar */}
-      <ModuleNavigation label="Mục Message Facebook" activeValue={subTab} id="crm_sub_tabs_switch" actions={hasSelectableChannels && <div className="flex items-center gap-2 relative">
+      <ModuleNavigation label="Mục CRM" activeValue={subTab} id="crm_sub_tabs_switch" actions={hasSelectableChannels && <div className="flex items-center gap-2 relative">
           <div className="flex items-center gap-1.5" id="inbox_channel_filters">
             {/* Unified Account Selector Button */}
             <div className="relative">

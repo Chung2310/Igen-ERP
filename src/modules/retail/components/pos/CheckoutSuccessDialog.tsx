@@ -19,7 +19,7 @@ export default function CheckoutSuccessDialog({ result, paperSize = "80mm", onNe
               <p className="mt-1 text-xs text-slate-500">POS chỉ in hóa đơn này một lần.</p>
             </div>
           </div>
-          <button type="button" aria-label="Đóng kết quả" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={onClose}><X className="h-4 w-4" /></button>
+          <button type="button" aria-label="Đóng kết quả" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={onClose} data-erp-modal-close><X className="h-4 w-4" /></button>
         </div>
         <div role="region" aria-label="Hóa đơn thanh toán" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary">
           <p className="text-sm text-slate-500">{result.order.orderCode}</p>

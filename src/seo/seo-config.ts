@@ -165,6 +165,15 @@ export const TAB_SEO_MAP: Partial<Record<TabType, SeoMeta>> & Record<string, Seo
     priority: "0.7",
     changeFrequency: "weekly",
   },
+  "TRỢ LÝ AI": {
+    title: "Trợ lý AI - iGen ERP",
+    description: "Trao đổi với trợ lý AI và thực hiện các thao tác ERP theo quyền của tài khoản.",
+    keywords: "trợ lý AI, trợ lý ERP, iGen ERP",
+    path: "/tro-ly-ai",
+    robots: "noindex, nofollow",
+    priority: "0.5",
+    changeFrequency: "monthly",
+  },
   "QUẢN LÝ HỌC VIÊN": {
     title: "Quản lý học viên - Đào tạo, lớp học, lịch thi và học phí",
     description:
