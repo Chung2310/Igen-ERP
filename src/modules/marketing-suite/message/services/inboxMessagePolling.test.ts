@@ -50,4 +50,16 @@ describe("Facebook reply reconciliation", () => {
     expect(refresh).not.toHaveBeenCalled();
     stop();
   });
+
+  it("periodically imports Facebook replies missing from DB even while the socket remains connected", async () => {
+    vi.useFakeTimers();
+    const refresh = vi.fn<(_: boolean) => Promise<void>>().mockResolvedValue(undefined);
+    const stop = startInboxMessagePolling({ channel: "facebook", isVisible: () => true,
+      isSocketConnected: () => true, refresh, onError: vi.fn() });
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(refresh.mock.calls.map(call => call[0])).toEqual([false, false, false, true]);
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(refresh).toHaveBeenLastCalledWith(false);
+    stop();
+  });
 });

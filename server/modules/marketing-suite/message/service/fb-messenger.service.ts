@@ -1222,22 +1222,17 @@ export const fbMessengerService = {
       filter.timestamp = { $lt: beforeDate };
     }
 
-    let existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
-
     if (!beforeDate && options?.sync && conversation.recipientId && this.shouldSync(`messages:${pageId}:${conversation._id}`, MESSAGE_SYNC_TTL_MS)) {
-      if (existingMessages.length === 0) {
+      try {
+        // A sync request must include newly imported outbound replies in its response.
+        // Returning cached rows first made recovery depend on the same socket event that was missed.
         await this.syncMessagesFromFacebook(pageId, conversation.recipientId, options?.tokenContext);
-        existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
-      } else {
-        this.syncMessagesFromFacebook(pageId, conversation.recipientId, options?.tokenContext)
-          .then((syncedMsgs) => {
-            console.log(`[FB Service getMessages] Đồng bộ ngầm thành công ${syncedMsgs.length} tin nhắn cho conversation: ${conversation._id}`);
-          })
-          .catch((err) => {
-            console.error(`[FB Service getMessages] Đồng bộ ngầm thất bại cho conversation ${conversation._id}:`, err);
-          });
+      } catch (error) {
+        console.error(`[FB Service getMessages] Đồng bộ thất bại cho conversation ${conversation._id}, trả lịch sử đã lưu:`, error);
       }
     }
+
+    const existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
 
     const hasMore = existingMessages.length > limit;
     const trimmedMessages = hasMore ? existingMessages.slice(0, limit) : existingMessages;
