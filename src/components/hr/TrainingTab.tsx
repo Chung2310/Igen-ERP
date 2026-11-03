@@ -18,7 +18,8 @@ import {
   Edit2,
   Upload,
   Paperclip,
-  Search
+  Search,
+  CalendarDays
 } from "lucide-react";
 import { EmployeeNode, TrainingCourse, TrainingEnrollment, Lesson, QuizQuestion } from "../../types";
 import { getAccessToken, authService } from "../../services/authService";
@@ -27,6 +28,7 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { HrFormSelect } from "./HrFormSelect";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
+import { cn } from "../../modules/student-management/lib/utils";
 
 function TrainingProgressIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
@@ -88,6 +90,18 @@ function TrainingCardInfoIcon({ name }: { name: TrainingCardInfoIconName }) {
   };
 
   return <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shape[name]}</svg>;
+}
+
+function formatCourseDate(value: TrainingCourse["createdAt"]): string | null {
+  if (!value) return null;
+  const date = typeof value?.toDate === "function"
+    ? value.toDate()
+    : value?.seconds
+      ? new Date(value.seconds * 1000)
+      : new Date(value);
+  return date instanceof Date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString("vi-VN")
+    : null;
 }
 
 function TrainingTipIcon() {
@@ -828,7 +842,7 @@ export default function TrainingTab({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto" id="hr_tab_content">
-        <div className="min-h-full space-y-5 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6" id="elearning_catalog">
+        <div className="min-h-full space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6" id="elearning_catalog">
           {/* Training section title and supervisor controls */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2.5">
@@ -878,7 +892,7 @@ export default function TrainingTab({
           </label>
 
           {/* Course Catalog list */}
-          <div className="grid grid-cols-1 gap-4 text-left md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 items-start gap-3 text-left md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {courses.length === 0 ? (
               <div className="col-span-full rounded-2xl border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-12 text-center">
                 <HrEmptyIllustration kind="training" className="mx-auto" />
@@ -902,55 +916,32 @@ export default function TrainingTab({
                 const progress = myEnrollment ? myEnrollment.progress : 0;
                 const isCompleted = myEnrollment ? myEnrollment.status === "completed" : false;
                 const category = course.category || "Văn hóa";
+                const additionalTags = [...new Set((course.tags || []).map((tag) => tag.trim()).filter(Boolean))]
+                  .filter((tag) => tag.toLocaleLowerCase("vi") !== category.trim().toLocaleLowerCase("vi"));
+                const createdAtLabel = formatCourseDate(course.createdAt);
+                const statusLabel = isCompleted ? "Hoàn thành" : myEnrollment?.status === "in_progress" ? "Đang học" : "Chưa bắt đầu";
 
                 return (
-                  <article key={course.id} className="flex min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
-                    <div className="flex w-24 shrink-0 items-center justify-center border-r border-outline-variant bg-primary/5 p-2 sm:w-28">
-                      <TrainingCourseIllustration category={category} className="size-20 max-w-full text-primary" />
+                  <article key={course.id} className="min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 shadow-sm">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-on-surface" title={course.title}>{course.title}</h3>
+                      <span className="max-w-24 shrink-0 truncate rounded-full bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary" title={category}>{category}</span>
+                      <span className={cn("ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium", statusLabel === "Chưa bắt đầu" ? "border-outline-variant text-on-surface-variant" : "border-primary text-primary")}>{statusLabel}</span>
                     </div>
-                    <div className="flex min-w-0 flex-1 flex-col p-3">
-                    <div className="flex min-w-0 items-start gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="max-w-full truncate rounded-full border border-primary bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary">{category}</span>
-                          {course.isRequired && <span className="rounded-full bg-surface-container-low px-2 py-0.5 text-[11px] font-medium text-on-surface-variant">Bắt buộc</span>}
-                        </div>
-                        <h3 className="mt-1 line-clamp-2 text-balance text-sm font-semibold leading-snug text-on-surface" title={course.title}>{course.title}</h3>
+                    <div className="mt-2 flex min-w-0 items-center gap-3 text-xs text-on-surface-variant">
+                      {createdAtLabel && <span className="inline-flex shrink-0 items-center gap-1 tabular-nums"><CalendarDays className="size-3.5" aria-hidden="true" />{createdAtLabel}</span>}
+                      <span className="inline-flex min-w-0 items-center gap-1" title={`Giảng viên: ${course.instructor}`}><TrainingCardInfoIcon name="instructor" /><span className="truncate">{course.instructor || "Chưa cập nhật"}</span></span>
+                    </div>
+                    {(course.isRequired || additionalTags.length > 0) && (
+                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+                        {course.isRequired && <span className="rounded-full bg-surface-container-low px-2 py-0.5 text-[11px] text-on-surface-variant">Bắt buộc</span>}
+                        {additionalTags.slice(0, 2).map((tag) => <span key={tag} className="max-w-20 truncate rounded-full bg-surface-container-low px-2 py-0.5 text-[11px] text-on-surface-variant" title={tag}>{tag}</span>)}
+                        {additionalTags.length > 2 && <span className="text-[11px] text-on-surface-variant tabular-nums">+{additionalTags.length - 2}</span>}
                       </div>
-                        {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter && (
-                          <div className="flex shrink-0 self-start items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditCourse(course)}
-                              className="flex size-8 items-center justify-center rounded-lg text-on-surface transition-colors hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"
-                              title="Sửa khóa học"
-                              aria-label={`Sửa khóa học ${course.title}`}
-                            >
-                              <Edit2 className="size-4" aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteCourse(course.id)}
-                              className="flex size-8 items-center justify-center rounded-lg text-rose-700 transition-colors hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-rose-600"
-                              title="Xóa khóa học"
-                              aria-label={`Xóa khóa học ${course.title}`}
-                            >
-                              <Trash2 className="size-4" aria-hidden="true" />
-                            </button>
-                          </div>
-                        )}
-                    </div>
-                    {course.description && <p className="mt-3 line-clamp-2 text-pretty text-xs leading-relaxed text-on-surface" title={course.description}>{course.description}</p>}
-                    <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-outline-variant pt-3 text-xs text-on-surface">
-                      <div className="flex min-w-0 items-center gap-2" title={`Thời lượng: ${course.duration}`}><TrainingCardInfoIcon name="duration" /><span className="truncate">{course.duration || "Chưa xác định"}</span></div>
-                      <div className="flex min-w-0 items-center gap-2" title={`Giảng viên: ${course.instructor}`}><TrainingCardInfoIcon name="instructor" /><span className="truncate">{course.instructor || "Chưa cập nhật"}</span></div>
-                      <div className="flex min-w-0 items-center gap-2" title={`Học viên: ${course.enrolledCount || 0}`}><TrainingCardInfoIcon name="learners" /><span className="truncate tabular-nums">{course.enrolledCount || 0} học viên</span></div>
-                      <div className="flex min-w-0 items-center gap-2" title={`Bài giảng: ${(course.lessons || []).length}`}><TrainingCardInfoIcon name="lessons" /><span className="truncate tabular-nums">{(course.lessons || []).length} bài học</span></div>
-                    </div>
-
-                    <div className="mt-auto flex flex-wrap items-center justify-end gap-3 border-t border-outline-variant pt-3">
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant pt-2">
                       {myEnrollment && (
-                        <div className="mr-auto flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
                           <div
                             role="progressbar"
                             aria-label={`Tiến độ học khóa ${course.title}`}
@@ -967,7 +958,13 @@ export default function TrainingTab({
                           <span className="shrink-0 text-xs text-on-surface tabular-nums">{progress}%</span>
                         </div>
                       )}
-                      <div className="shrink-0">
+                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                        {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter && (
+                          <>
+                            <button type="button" onClick={() => handleOpenEditCourse(course)} className="flex size-8 items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary" title="Sửa khóa học" aria-label={`Sửa khóa học ${course.title}`}><Edit2 className="size-4" aria-hidden="true" /></button>
+                            <button type="button" onClick={() => handleDeleteCourse(course.id)} className="flex size-8 items-center justify-center rounded-lg text-rose-700 hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-rose-600" title="Xóa khóa học" aria-label={`Xóa khóa học ${course.title}`}><Trash2 className="size-4" aria-hidden="true" /></button>
+                          </>
+                        )}
                         <button
                           type="button"
                           disabled={!!trainingFilter}
@@ -977,8 +974,6 @@ export default function TrainingTab({
                           {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
                         </button>
                       </div>
-                    </div>
-
                     </div>
                   </article>
                 );

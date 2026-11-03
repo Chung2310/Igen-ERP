@@ -14,7 +14,7 @@ type FormState = Required<Pick<BranchInput, "code" | "name">> & Pick<BranchInput
 const emptyForm: FormState = { code: "", name: "", address: "", phone: "", latitude: "", longitude: "", allowedRadius: "100", allowedPublicIps: "" };
 
 function BranchCardIllustration() {
-  return <svg aria-hidden="true" focusable="false" viewBox="0 0 112 144" fill="none" className="h-28 w-24 max-w-full text-primary">
+  return <svg aria-hidden="true" focusable="false" viewBox="0 0 112 144" fill="none" className="h-20 w-16 max-w-full text-primary">
     <circle cx="78" cy="46" r="27" fill="currentColor" opacity="0.08" />
     <path d="M12 120h88M25 120V52l31-15 31 15v68M35 57h42M56 37V24m-8 0h16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     <path d="M32 63h12v13H32zM50 63h12v13H50zM68 63h12v13H68zM32 83h12v13H32zM68 83h12v13H68zM50 120v-21h12v21" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
@@ -161,26 +161,26 @@ export default function BranchManagementTab() {
     </div>
     <div className="mt-4 flex flex-col gap-3 sm:flex-row"><label className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Tìm kiếm chi nhánh" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã hoặc tên" className="h-10 w-full rounded-xl border border-sky-100 bg-white pl-9 pr-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10" /></label><div className="w-full sm:w-48"><RoadmapPicker ariaLabel="Lọc trạng thái" value={status} onChange={(value) => setStatus(value as typeof status)} placeholder="Tất cả trạng thái" allowClear={false} portal options={[{ value: "all", label: "Tất cả trạng thái" }, { value: "active", label: "Đang hoạt động" }, { value: "inactive", label: "Đã vô hiệu hóa" }]} /></div></div>
     {loading ? <p className="py-10 text-center text-sm text-slate-500">Đang tải chi nhánh...</p> : filtered.length === 0 ? <div className="flex flex-col items-center py-10 text-center text-sm text-slate-500"><HrEmptyIllustration kind={query || status !== "all" ? "search" : "branch"} /><p className="mt-1">Chưa có chi nhánh phù hợp.</p></div> : (
-      <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="mt-4 grid grid-cols-1 items-start gap-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {filtered.map((branch) => (
-          <li key={branch._id} className="flex min-h-40 min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
-            <div className="flex w-24 shrink-0 items-center justify-center border-r border-outline-variant bg-primary/5 p-2 sm:w-28">
+          <li key={branch._id} className="flex min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+            <div className="flex w-20 shrink-0 items-center justify-center border-r border-outline-variant bg-primary/5 p-1.5">
               <BranchCardIllustration />
             </div>
-            <div className="flex min-w-0 flex-1 flex-col p-3">
+            <div className="flex min-w-0 flex-1 flex-col p-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="line-clamp-2 text-sm font-semibold text-on-surface" title={branch.name}>{branch.name}</h3>
-                  <p className="mt-1 truncate font-mono text-xs text-primary" title={branch.code}>{branch.code}</p>
+                  <h3 className="truncate text-sm font-semibold text-on-surface" title={branch.name}>{branch.name}</h3>
+                  <p className="mt-0.5 truncate font-mono text-xs text-primary" title={branch.code}>{branch.code}</p>
                 </div>
                 <span aria-hidden="true" className={`mt-1 size-2.5 shrink-0 rounded-full ${branch.isActive ? "bg-primary" : "bg-outline"}`} />
               </div>
-              <p className="mt-2 flex min-w-0 items-start gap-1.5 text-pretty text-xs text-on-surface-variant" title={branch.address || undefined}>
+              <p className="mt-1.5 flex min-w-0 items-start gap-1.5 text-pretty text-xs text-on-surface-variant" title={branch.address || undefined}>
                 <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                <span className="line-clamp-2">{branch.address || "Chưa có địa chỉ"}</span>
+                <span className="truncate">{branch.address || "Chưa có địa chỉ"}</span>
               </p>
               {branch.phone && <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-on-surface-variant"><Phone className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{branch.phone}</span></p>}
-              <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-3">
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5">
                 <span className={`rounded-full border px-2 py-0.5 text-xs ${branch.isActive ? "border-primary text-primary" : "border-outline-variant text-on-surface-variant"}`}>{branch.isActive ? "Đang hoạt động" : "Đã vô hiệu hóa"}</span>
                 <div className="flex items-center gap-1.5">
                   <button type="button" title="Sửa chi nhánh" aria-label={`Sửa chi nhánh ${branch.name}`} onClick={() => openEdit(branch)} className="flex size-8 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-primary/5 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"><Edit3 className="size-4" aria-hidden="true" /></button>
