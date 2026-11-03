@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ conversation: vi.fn(), messages: vi.fn() }));
+const mocks = vi.hoisted(() => ({ conversation: vi.fn(), conversationUpdate: vi.fn(), messages: vi.fn(), latest: vi.fn(), persist: vi.fn(), emit: vi.fn(), send: vi.fn(), trigger: vi.fn() }));
 vi.mock("../model/fb-messenger.model.ts", () => ({
-  FBConversationModel: { findOne: mocks.conversation }, FBMessageModel: { find: mocks.messages },
+  FBConversationModel: { findOne: mocks.conversation, findOneAndUpdate: mocks.conversationUpdate }, FBMessageModel: { find: mocks.messages, findOne: mocks.latest, findOneAndUpdate: mocks.persist },
 }));
 vi.mock("../../../../model/user.model.ts", () => ({ UserModel: {} }));
-vi.mock("../../shared/socket", () => ({ emitToMessengerAccount: vi.fn() }));
-vi.mock("./ai-auto-reply.service.ts", () => ({ aiAutoReplyService: {} }));
-vi.mock("./facebook-comment.service.ts", () => ({ facebookCommentService: {} }));
+vi.mock("../../shared/socket", () => ({ emitToMessengerAccount: mocks.emit }));
+vi.mock("../../shared/service/facebook-send-request", () => ({ facebookSendRequest: mocks.send }));
+vi.mock("./ai-auto-reply.service.ts", () => ({ aiAutoReplyService: { triggerAutoReply: mocks.trigger } }));
+vi.mock("../webhook-access", () => ({ canProcessMessengerWebhook: async () => true }));
+vi.mock("./facebook-comment.service.ts", () => ({ facebookCommentService: { processPendingComments: async () => {} } }));
 vi.mock("../../shared/model/social-integration.model.ts", () => ({ SocialIntegrationModel: {} }));
 vi.mock("./messenger-order.service.ts", () => ({ messengerOrderService: {} }));
 vi.mock("./company-product-catalog.service.ts", () => ({ companyProductCatalogService: {} }));
@@ -17,12 +19,14 @@ const inbound = { messageId: "in", direction: "inbound", timestamp: new Date("20
 const outbound = { messageId: "out", direction: "outbound", text: "Dạ chào mình nè, em đây ạ", timestamp: new Date("2026-11-03T08:56:20Z") };
 let rows = [inbound];
 beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.emit.mockResolvedValue(undefined);
   rows = [inbound];
   mocks.conversation.mockResolvedValue({ _id: "conversation", recipientId: "customer", unreadCount: 0 });
   mocks.messages.mockImplementation(() => ({ sort: () => ({ limit: async () => [...rows].reverse() }) }));
   vi.spyOn(fbMessengerService, "shouldSync").mockReturnValue(true);
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 it("returns the Facebook reply in the same sync response even when cached inbound messages already exist", async () => {
   vi.spyOn(fbMessengerService, "syncMessagesFromFacebook").mockImplementation(async () => {
@@ -45,4 +49,69 @@ it("does not synchronize Facebook when reading DB-only history or older pages", 
   await fbMessengerService.getMessages("page", "conversation", {});
   await fbMessengerService.getMessages("page", "conversation", { sync: true, before: "2026-11-03T08:56:00Z" });
   expect(sync).not.toHaveBeenCalled();
+});
+
+it.each(["text", "image"])("retains and emits an accepted Facebook %s reply when updating the conversation summary fails", async (kind) => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(fbMessengerService, "getPageAccessTokenByPageId").mockResolvedValue("test-token");
+  const save = vi.fn().mockRejectedValue(new Error("conversation metadata write failed"));
+  mocks.conversation.mockResolvedValue({ _id: "conversation", pageId: "page", recipientId: "customer", save });
+  mocks.latest.mockReturnValue({ sort: async () => ({ timestamp: new Date() }) });
+  mocks.send.mockResolvedValue(new Response(JSON.stringify({ message_id: "facebook-reply" }), { status: 200 }));
+  mocks.persist.mockResolvedValue({ messageId: "facebook-reply", conversationId: "conversation", direction: "outbound" });
+
+  const sent = kind === "text"
+    ? fbMessengerService.sendReply("page", "conversation", "AI đã trả lời", "ai")
+    : fbMessengerService.sendImage("page", "conversation", "https://example.com/image.png");
+  await expect(sent).resolves.toMatchObject({ status: "success", messageId: "facebook-reply" });
+  expect(mocks.persist).toHaveBeenCalledOnce();
+  expect(mocks.emit).toHaveBeenCalledWith("facebook", "page", "new_message", expect.objectContaining({ message: expect.objectContaining({ messageId: "facebook-reply" }) }));
+  expect(mocks.persist.mock.invocationCallOrder[0]).toBeLessThan(save.mock.invocationCallOrder[0]);
+});
+
+it("ingests outbound echoes through webhook and emits them without triggering AI", async () => {
+  const conversation = { _id: "conversation", pageId: "page", recipientId: "customer" };
+  mocks.conversationUpdate.mockResolvedValue(conversation);
+  mocks.persist.mockResolvedValue({ ...outbound, senderType: "ai", conversationId: "conversation" });
+  await fbMessengerService.handleWebhookEvent({ object: "page", entry: [{ id: "page", messaging: [{
+    sender: { id: "page" }, recipient: { id: "customer" }, timestamp: Date.now(),
+    message: { is_echo: true, mid: "out", text: outbound.text, metadata: "igen-erp:ai" },
+  }] }] });
+  expect(mocks.persist).toHaveBeenCalledWith({ messageId: "out" }, { $setOnInsert: expect.objectContaining({
+    direction: "outbound", senderType: "ai", conversationId: "conversation", text: outbound.text,
+  }) }, expect.objectContaining({ upsert: true }));
+  expect(mocks.emit).toHaveBeenCalledWith("facebook", "page", "new_message", expect.objectContaining({ message: expect.objectContaining({ messageId: "out" }) }));
+  expect(mocks.trigger).not.toHaveBeenCalled();
+});
+
+it("preserves existing AI attribution on duplicate external echoes and guards the newer conversation preview", async () => {
+  mocks.conversationUpdate.mockResolvedValue({ _id: "conversation" });
+  mocks.persist.mockResolvedValue({ ...outbound, senderType: "ai" });
+  const timestamp = new Date("2026-11-03T08:56:20Z");
+  const echo = { sender: { id: "page" }, recipient: { id: "customer" }, timestamp: timestamp.getTime(), message: { is_echo: true, mid: "out", text: outbound.text } };
+  await fbMessengerService.processMessageEcho(echo, "page");
+  await fbMessengerService.processMessageEcho(echo, "page");
+  for (const [filter, update] of mocks.persist.mock.calls) {
+    expect(filter).toEqual({ messageId: "out" });
+    expect(update.$setOnInsert).not.toHaveProperty("senderType");
+    expect(update).not.toHaveProperty("$set");
+  }
+  expect(mocks.conversationUpdate).toHaveBeenCalledWith({ _id: "conversation", pageId: "page", lastMessageAt: { $lte: timestamp } }, expect.anything(), expect.anything());
+  expect(mocks.trigger).not.toHaveBeenCalled();
+});
+
+it("ignores echoes with a mismatched Page sender", async () => {
+  await fbMessengerService.processMessageEcho({ sender: { id: "other-page" }, recipient: { id: "customer" },
+    message: { is_echo: true, mid: "out", text: "wrong page" } }, "page");
+  expect(mocks.persist).not.toHaveBeenCalled();
+});
+
+it("subscribes to outbound echoes once per Page/token instead of on every history refresh", async () => {
+  const fetch = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ success: true }), { status: 200 }));
+  vi.stubGlobal("fetch", fetch);
+  await fbMessengerService.subscribePageWebhooks("subscription-page", "token");
+  await fbMessengerService.subscribePageWebhooks("subscription-page", "token");
+  expect(fetch).toHaveBeenCalledOnce();
+  expect(new URL(fetch.mock.calls[0][0]).searchParams.get("subscribed_fields")?.split(",")).toContain("message_echoes");
 });

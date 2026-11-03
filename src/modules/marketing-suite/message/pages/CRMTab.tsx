@@ -828,9 +828,17 @@ export default function CRMTab() {
   // Track Socket.IO connection status
   useEffect(() => {
     const unsubscribeStatus = socketService.onStatusChange(setSocketConnected);
+    const unsubscribeScopes = socketService.onMessengerScopesChange(() => {
+      const customer = activeCustomerRef.current;
+      if (!customer || !socketService.isMessengerScopeReady(customer.channel, customer.accountId)) return;
+      // Recover the small gap before room authorization completed, using DB history once.
+      void loadConversationMessages(customer.id, "replace", customer.channel, { accountId: customer.accountId })
+        .catch(error => console.error("[FE CRMTab] Không thể tải lịch sử sau khi đăng ký realtime:", error));
+    });
 
     return () => {
       unsubscribeStatus();
+      unsubscribeScopes();
     };
   }, []);
 
@@ -1029,7 +1037,14 @@ export default function CRMTab() {
 
     const runFetch = () => {
       if (!document.hidden) {
-        fetchOmniConversations(false, { syncFacebook: true });
+        const scopes = [
+          { channel: "facebook" as const, accountId: selectedFacebookPageId },
+          { channel: "zalo" as const, accountId: selectedZaloAccountId },
+          { channel: "tiktok" as const, accountId: selectedTiktokAccountId },
+        ].filter(scope => scope.accountId);
+        if (scopes.length && scopes.every(scope => socketService.isMessengerScopeReady(scope.channel, scope.accountId))) return;
+        // Missing realtime falls back to local data; Graph sync is done on open/reconnect.
+        fetchOmniConversations(false, { syncFacebook: false });
       }
     };
 
@@ -1058,7 +1073,7 @@ export default function CRMTab() {
     const stopPolling = startInboxMessagePolling({
       channel: activeCustomer.channel,
       isVisible: () => !document.hidden,
-      isSocketConnected: () => socketConnectedRef.current,
+      isSocketConnected: () => socketConnectedRef.current && socketService.isMessengerScopeReady(activeCustomer.channel, activeCustomer.accountId),
       refresh: (syncChannel) => loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel, accountId: activeCustomer.accountId }),
       onError: (error) => console.error("[FE CRMTab] Lỗi khi tải tin nhắn:", error),
     });

@@ -4,16 +4,16 @@ import { startInboxMessagePolling } from "./inboxMessagePolling";
 describe("Facebook reply reconciliation", () => {
   afterEach(() => vi.useRealTimers());
 
-  it("recovers persisted AI replies when the socket stays connected but misses the event", async () => {
+  it("does not poll history when the selected realtime subscription is confirmed", async () => {
     vi.useFakeTimers();
     const refresh = vi.fn(async () => {});
     const stop = startInboxMessagePolling({ channel: "facebook", isVisible: () => true,
       isSocketConnected: () => true, refresh, onError: vi.fn() });
-    await vi.advanceTimersByTimeAsync(15000);
-    expect(refresh).toHaveBeenCalledWith(false); // DB reconciliation without a Graph API sync.
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(refresh).not.toHaveBeenCalled();
     stop();
     await vi.advanceTimersByTimeAsync(30000);
-    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("skips hidden tabs, prevents overlapping requests, and retries after errors", async () => {
@@ -37,7 +37,7 @@ describe("Facebook reply reconciliation", () => {
     expect(onError).toHaveBeenCalledOnce();
     await vi.advanceTimersByTimeAsync(15000);
     expect(refresh).toHaveBeenCalledTimes(3);
-    expect(refresh).toHaveBeenLastCalledWith(true);
+    expect(refresh).toHaveBeenLastCalledWith(false);
     stop();
   });
 
@@ -51,15 +51,17 @@ describe("Facebook reply reconciliation", () => {
     stop();
   });
 
-  it("periodically imports Facebook replies missing from DB even while the socket remains connected", async () => {
+  it("uses only DB fallback before subscription confirmation and stops after recovery", async () => {
     vi.useFakeTimers();
+    let ready = false;
     const refresh = vi.fn<(_: boolean) => Promise<void>>().mockResolvedValue(undefined);
     const stop = startInboxMessagePolling({ channel: "facebook", isVisible: () => true,
-      isSocketConnected: () => true, refresh, onError: vi.fn() });
+      isSocketConnected: () => ready, refresh, onError: vi.fn() });
     await vi.advanceTimersByTimeAsync(60000);
-    expect(refresh.mock.calls.map(call => call[0])).toEqual([false, false, false, true]);
-    await vi.advanceTimersByTimeAsync(15000);
-    expect(refresh).toHaveBeenLastCalledWith(false);
+    expect(refresh.mock.calls.map(call => call[0])).toEqual([false, false, false, false]);
+    ready = true;
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(refresh).toHaveBeenCalledTimes(4);
     stop();
   });
 });
