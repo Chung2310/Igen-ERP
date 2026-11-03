@@ -165,17 +165,22 @@ export const fbMessengerController = {
       if (!(await verifyFacebookWebhookSignature(req))) {
         return res.status(401).send("INVALID_SIGNATURE");
       }
+
+      // Persist comment events before acknowledging the webhook so Meta retries if MongoDB is unavailable.
+      await fbMessengerService.enqueueIncomingCommentEvents(body);
       
       // Phản hồi nhanh chóng cho Meta để tránh timeout
       res.status(200).send("EVENT_RECEIVED");
 
       // Xử lý không đồng bộ dưới background
-      fbMessengerService.handleWebhookEvent(body).catch((err) => {
+      void fbMessengerService.processPendingComments();
+      fbMessengerService.handleWebhookEvent(body, { commentsAlreadyQueued: true }).catch((err) => {
         console.error("[Facebook Webhook Event] Lỗi nghiêm trọng khi xử lý event dưới nền:", err);
       });
     } catch (error: any) {
       console.error("[Facebook Webhook Event] Lỗi tiếp nhận webhook:", error);
-      res.status(200).send("EVENT_RECEIVED_WITH_ERROR");
+      if (!res.headersSent) return res.status(503).send("WEBHOOK_TEMPORARILY_UNAVAILABLE");
+      return res.status(200).send("EVENT_RECEIVED_WITH_ERROR");
     }
   },
 
