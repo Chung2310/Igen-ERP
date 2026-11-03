@@ -369,7 +369,25 @@ export const fbMessengerService = {
   /**
    * Xử lý dữ liệu Webhook Event (POST request) từ Facebook gửi tới khi có tin nhắn mới
    */
-  async handleWebhookEvent(body: any) {
+  async enqueueIncomingCommentEvents(body: any) {
+    const normalizedBody = this.normalizeWebhookBody(body);
+    if (normalizedBody.object !== "page") return;
+    const { canProcessMessengerWebhook } = await import("../webhook-access");
+    for (const entry of normalizedBody.entry || []) {
+      if (!await canProcessMessengerWebhook("Facebook", String(entry.id || ""))) continue;
+      for (const change of entry.changes || []) {
+        if (change.field === "feed" && change.value?.item === "comment" && change.value?.verb === "add") {
+          await facebookCommentService.enqueueIncomingComment(String(entry.id || ""), change.value);
+        }
+      }
+    }
+  },
+
+  async processPendingComments() {
+    return facebookCommentService.processPendingComments();
+  },
+
+  async handleWebhookEvent(body: any, options: { commentsAlreadyQueued?: boolean } = {}) {
     const normalizedBody = this.normalizeWebhookBody(body);
 
     if (normalizedBody.object !== "page") {
@@ -424,14 +442,15 @@ export const fbMessengerService = {
           if (change.field === "feed") {
             const value = change.value;
             if (value && value.item === "comment" && value.verb === "add") {
-              facebookCommentService.handleIncomingComment(entry.id, value).catch((err) => {
-                console.error("[FB Service] Lỗi khi xử lý bình luận tự động:", err.message || err);
-              });
+              if (!options.commentsAlreadyQueued) {
+                await facebookCommentService.enqueueIncomingComment(String(entry.id || ""), value);
+              }
             }
           }
         }
       }
     }
+    void facebookCommentService.processPendingComments();
   },
 
   /**
@@ -746,8 +765,8 @@ export const fbMessengerService = {
           return;
         }
 
-        if (!orderFlowEnabled && !orderFlowActive && messengerOrderService.isConfirmationMessage(text)) {
-          const order = await messengerOrderService.captureConfirmedOrder(resolvedPageId, conversationId, messageId, text);
+        if (!orderFlowEnabled && !orderFlowActive && messengerOrderService.isConfirmationMessage(text, actionPayload)) {
+          const order = await messengerOrderService.captureConfirmedOrder(resolvedPageId, conversationId, messageId, text, actionPayload);
           if (order) {
             const depositRequest = await messengerOrderService.getDepositRequest(order.orderId);
             if (depositRequest) {

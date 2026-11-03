@@ -9,6 +9,7 @@ import fs from "fs";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { connectDB } from "./server/config/database";
+import { facebookCommentService } from "./server/modules/marketing-suite/message/service/facebook-comment.service";
 import { startCelebrationScheduler } from "./server/service/celebration-scheduler.service";
 import { startMarketingScheduler } from "./server/modules/marketing/services/marketing-scan.service";
 import { startResourceRetentionScheduler } from "./server/service/resource-retention.service";
@@ -229,6 +230,7 @@ async function startServer() {
 
   // Kết nối cơ sở dữ liệu MongoDB
   await connectDB();
+  facebookCommentService.startWorker();
   startDomainEventWorker();
   startCelebrationScheduler();
   startMarketingScheduler();

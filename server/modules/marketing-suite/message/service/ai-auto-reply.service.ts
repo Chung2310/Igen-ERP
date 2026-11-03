@@ -489,7 +489,7 @@ async function resolveAutoReplyOwnerUnchecked(
   };
 }
 
-/** Keep Facebook Messenger and comment auto-reply enabled together. */
+/** Resolve the configured owner and module state for an auto-reply channel. */
 export async function resolveAutoReplyOwner(
   channel: "facebook" | "zalo" | "tiktok",
   platformId: string
@@ -510,12 +510,10 @@ export async function ensureFacebookAutoReplyEnabled(
   const enabledConfig = {
     ...currentConfig,
     enabled: true,
-    commentReplyEnabled: true,
     disabledAt: null,
   };
   const needsPersistence =
     currentConfig.enabled !== true ||
-    currentConfig.commentReplyEnabled !== true ||
     !!currentConfig.disabledAt;
 
   if (needsPersistence) {

@@ -51,9 +51,12 @@ function normalizeText(value: string) {
     .trim();
 }
 
-function hasExplicitConfirmation(value: string) {
+function hasExplicitConfirmation(value: string, actionPayload = "") {
   const text = normalizeText(value);
-  return /(^|\s)(chot|xac nhan|dong y|dung roi|ok chot|dat hang|lay don|len don)(\s|$|[.!?])/.test(text);
+  const payload = normalizeText(actionPayload).replace(/-/g, "_");
+  const naturalLanguageConfirmation = /(^|\s)(chot|xac nhan|dong y|dung roi|ok chot|dat hang|lay don|len don)(\s|$|[.!?])/.test(text);
+  const confirmationPayload = /(^|[^a-z0-9])(?:confirm_order|order_confirm|xac_nhan_don(?:_hang)?)(?=$|[^a-z0-9])/.test(payload);
+  return naturalLanguageConfirmation || confirmationPayload;
 }
 
 function finiteMoney(value: unknown) {
@@ -322,8 +325,8 @@ export const messengerOrderService = {
   syncConfirmedDepositOrder: syncOrder,
   isConfirmationMessage: hasExplicitConfirmation,
 
-  async captureConfirmedOrder(pageId: string, conversationId: string, sourceMessageId: string, latestText: string) {
-    if (!hasExplicitConfirmation(latestText)) return null;
+  async captureConfirmedOrder(pageId: string, conversationId: string, sourceMessageId: string, latestText: string, actionPayload = "") {
+    if (!hasExplicitConfirmation(latestText, actionPayload)) return null;
     console.log(`[Messenger Order] Bắt đầu xử lý xác nhận: pageId=${pageId}, conversationId=${conversationId}, messageId=${sourceMessageId}`);
     const integration = await SocialIntegrationModel.findOne({
       platform: "Facebook",
