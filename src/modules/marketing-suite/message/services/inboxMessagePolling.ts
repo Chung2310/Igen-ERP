@@ -9,13 +9,17 @@ export function startInboxMessagePolling(options: {
   onError: (error: unknown) => void;
 }) {
   let pending = false;
+  let lastChannelSyncAt = Date.now();
   const timer = setInterval(async () => {
     if (pending || !options.isVisible()) return;
     const connected = options.isSocketConnected();
     if (connected && options.channel !== "facebook") return;
     pending = true;
     try {
-      await options.refresh(!connected);
+      // DB polling cannot recover a reply that reached Facebook but was never stored locally.
+      const syncChannel = !connected || (options.channel === "facebook" && Date.now() - lastChannelSyncAt >= 60000);
+      await options.refresh(syncChannel);
+      if (syncChannel) lastChannelSyncAt = Date.now();
     } catch (error) {
       options.onError(error);
     } finally {
