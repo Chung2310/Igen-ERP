@@ -763,7 +763,7 @@ function PaymentQrDialog({ qr, onClose }: { qr: RetailPaymentQr; onClose: () => 
             aria-label="Đóng QR thanh toán"
             onClick={onClose}
             className="flex size-11 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-primary"
-          >
+           data-erp-modal-close>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -842,7 +842,7 @@ function InvoiceDialog({
             </button>
             <button type="button" aria-label="In lại hóa đơn" className={cn(actionClass, "border-primary bg-primary text-on-primary hover:bg-primary/90")} onClick={onReprint}><Printer className="size-4" aria-hidden="true" />In lại</button>
           </div>}
-          <button type="button" aria-label="Đóng hóa đơn" onClick={onClose} className={cn(actionClass, "size-11 p-0")}><X className="size-5" aria-hidden="true" /></button>
+          <button type="button" aria-label="Đóng hóa đơn" onClick={onClose} className={cn(actionClass, "size-11 p-0")} data-erp-modal-close><X className="size-5" aria-hidden="true" /></button>
         </header>
 
         <div role="region" aria-label="Nội dung hóa đơn" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2 sm:p-6">

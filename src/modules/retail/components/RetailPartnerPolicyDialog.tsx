@@ -156,7 +156,7 @@ export default function RetailPartnerPolicyDialog({ partner, companyCode, scope,
             <h2 id="retail-partner-policy-title" className="text-balance text-lg font-semibold">Chính sách hoa hồng bán lẻ</h2>
             {partner && <p className="mt-1 text-pretty text-sm text-on-surface-variant">{partner.code} · {partner.name}</p>}
           </div>
-          <button type="button" aria-label="Đóng chính sách hoa hồng" onClick={close} disabled={saving} className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><X aria-hidden="true" className="size-4" /></button>
+          <button type="button" aria-label="Đóng chính sách hoa hồng" onClick={close} disabled={saving} className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50" data-erp-modal-close><X aria-hidden="true" className="size-4" /></button>
         </header>
 
         {!scope ? <p role="alert" className="rounded-lg border border-error/30 bg-error-container p-3 text-sm text-on-error-container">{error}</p> : <>

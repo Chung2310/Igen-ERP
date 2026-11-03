@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarDays, Plus, RefreshCw, X } from "lucide-react";
+import { Plus, RefreshCw, X } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { companyWorkCalendarService, type WorkCalendarDay, type WorkCalendarDayType } from "../../services/companyWorkCalendarService";
+import { DateInput24 } from "../common/TimeInput24";
+import { StyledSelect } from "../common/StyledSelect";
+import { HrPageTitle } from "../hr/HrPageTitle";
 
 const TYPE_LABELS: Record<WorkCalendarDayType, string> = {
   holiday: "Ngày nghỉ lễ", substitute_holiday: "Ngày nghỉ bù", working_override: "Ngày làm bù",
@@ -42,6 +45,7 @@ export default function CompanyWorkCalendarTab() {
   };
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!form.date) { toast.error("Vui lòng chọn ngày."); return; }
     try { if (editingId) await companyWorkCalendarService.update(editingId, form); else await companyWorkCalendarService.create(form); setFormOpen(false); setEditingId(null); setForm({ date: `${year}-01-01`, name: "", dayType: "holiday" }); await load(); toast.success(editingId ? "Đã cập nhật ngày." : "Đã thêm ngày vào lịch công ty."); }
     catch (error) { toast.error((error as Error).message); }
   };
@@ -51,12 +55,12 @@ export default function CompanyWorkCalendarTab() {
 
   return <div className="space-y-4 text-left">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
-      <div><h3 className="flex items-center gap-2 text-base font-bold text-gray-800"><CalendarDays className="h-5 w-5 text-indigo-500" />Lịch nghỉ lễ & ngày làm bù</h3><p className="mt-1 text-[10px] text-gray-500">Áp dụng cho toàn bộ công ty.</p></div>
+      <div><HrPageTitle level={3}>Lịch nghỉ lễ & ngày làm bù</HrPageTitle><p className="mt-1 text-[10px] text-gray-500">Áp dụng cho toàn bộ công ty.</p></div>
       <div className="flex gap-2"><select aria-label="Năm lịch" value={year} onChange={(e) => setYear(Number(e.target.value))} className="rounded-lg border px-3 py-2 text-xs"><option value={2026}>2026</option></select><button onClick={sync} className="flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-bold"><RefreshCw className="h-3.5 w-3.5" />Đồng bộ</button><button onClick={openCreate} className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white"><Plus className="h-3.5 w-3.5" />Thêm ngày</button></div>
     </div>
     {loading ? <p className="py-5 text-center text-xs text-gray-500">Đang tải lịch...</p> : <div className="overflow-x-auto rounded-xl border"><table className="w-full text-xs"><thead className="bg-gray-50 text-gray-500"><tr><th className="p-3">Ngày</th><th className="p-3">Tên</th><th className="p-3">Loại</th><th className="p-3">Nguồn</th><th className="p-3">Áp dụng</th><th className="p-3">Thao tác</th></tr></thead><tbody>{days.map((day) => <tr key={day._id} className={!day.isApplied ? "opacity-50" : ""}><td className="p-3">{day.date.split("-").reverse().join("/")}</td><td className="p-3 font-semibold">{day.name}</td><td className="p-3">{TYPE_LABELS[day.dayType]}</td><td className="p-3"><span className="rounded-full bg-gray-100 px-2 py-1">{day.source === "system" ? "Hệ thống" : "Admin"}</span></td><td className="p-3"><input aria-label={`Áp dụng ${day.name}`} type="checkbox" checked={day.isApplied} onChange={() => void toggle(day)} /></td><td className="p-3">{day.source === "admin" && <button aria-label={`Sửa ${day.name}`} onClick={() => openEdit(day)} className="font-semibold text-indigo-600">Sửa</button>}</td></tr>)}</tbody></table></div>}
     {formOpen && createPortal(
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <form
           onSubmit={save}
           className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto text-left"
@@ -70,20 +74,14 @@ export default function CompanyWorkCalendarTab() {
               onClick={() => setFormOpen(false)}
               className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
               aria-label="Đóng"
-            >
+             data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </div>
           <div className="space-y-3 pt-2">
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Ngày</label>
-              <input
-                type="date"
-                required
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="w-full rounded-xl border border-gray-200 p-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
+              <DateInput24 required ariaLabel="Ngày công ty" value={form.date} onChange={(date) => setForm({ ...form, date })} />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Tên ngày</label>
@@ -97,17 +95,7 @@ export default function CompanyWorkCalendarTab() {
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Loại ngày</label>
-              <select
-                value={form.dayType}
-                onChange={(e) => setForm({ ...form, dayType: e.target.value as WorkCalendarDayType })}
-                className="w-full rounded-xl border border-gray-200 p-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer"
-              >
-                {Object.entries(TYPE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              <StyledSelect appearance="erp" ariaLabel="Loại ngày" value={form.dayType} onChange={(dayType) => setForm({ ...form, dayType: dayType as WorkCalendarDayType })} options={Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }))} />
             </div>
           </div>
           <button className="w-full rounded-xl bg-indigo-600 p-2.5 font-bold text-xs text-white hover:bg-indigo-700 transition active:scale-95 shadow-md shadow-indigo-600/10 mt-4 cursor-pointer">
@@ -118,7 +106,7 @@ export default function CompanyWorkCalendarTab() {
       document.body
     )}
     {reasonTarget && createPortal(
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto text-left">
           <div className="flex justify-between items-center pb-3 border-b border-slate-100">
             <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-800 font-sans">
@@ -129,7 +117,7 @@ export default function CompanyWorkCalendarTab() {
               onClick={() => setReasonTarget(null)}
               className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
               aria-label="Đóng"
-            >
+             data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </div>

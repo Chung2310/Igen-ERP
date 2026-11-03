@@ -13,6 +13,7 @@ const props = { userProfile: null, selectedCompanyCode: "ACME", usersList: [], e
 describe("HR schedule navigation", () => {
   it("keeps configuration tabs hidden for employees and available to authorized managers", () => {
     const { rerender } = render(<HrScheduleTab {...props} />);
+    expect(screen.getByRole("navigation", { name: "Mục Lịch và ca làm việc" }).parentElement?.parentElement?.getAttribute("data-layout")).toBe("horizontal");
     expect(screen.getByText("Chấm công")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Ca làm việc" })).toBeNull();
     rerender(<HrScheduleTab {...props} canManageTimekeeping canManageCalendar />);

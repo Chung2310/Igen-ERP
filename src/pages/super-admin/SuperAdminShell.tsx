@@ -274,7 +274,7 @@ export default function SuperAdminShell() {
               onClick={() => setSidebarOpen(false)}
               className="rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 p-2 text-slate-400 hover:text-white transition-all"
               aria-label="Đóng menu"
-            >
+             data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </div>

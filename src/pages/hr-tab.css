@@ -1,0 +1,26 @@
+.hr-schedule-label {
+  white-space: nowrap;
+}
+
+.hr-schedule-attention:is(:hover, :focus-visible, [aria-current="page"]) .hr-schedule-flame-path {
+  fill: var(--module-nav-icon-gradient);
+  stroke: var(--module-nav-icon-gradient);
+}
+
+@media (min-width: 1024px) {
+  :is(div, section, main):has(> #hr_sub_tabs_bar:not([data-collapsed="true"])) {
+    padding-left: 15.75rem;
+  }
+
+  #primary_page_container #hr_sub_tabs_bar:not([data-collapsed="true"]) {
+    width: 15.5rem;
+  }
+
+  #hr_tab_wrapper[data-flush-card="true"]:has(> #hr_sub_tabs_bar:not([data-collapsed="true"])) {
+    padding-left: 16rem;
+  }
+
+  #hr_tab_wrapper[data-flush-card="true"]:has(> #hr_sub_tabs_bar[data-collapsed="true"]) {
+    padding-left: 5rem;
+  }
+}

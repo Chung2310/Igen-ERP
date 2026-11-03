@@ -297,7 +297,7 @@ export default function FixedAssetsPage({
                 aria-label="Đóng popup"
                 onClick={closeCreateDialog}
                 className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-              >
+               data-erp-modal-close>
                 <X className="h-5 w-5" />
               </button>
             </div>

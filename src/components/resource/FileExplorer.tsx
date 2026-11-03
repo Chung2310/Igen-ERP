@@ -1902,7 +1902,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               <button
                 onClick={() => setShowShareModal(false)}
                 className="p-1.5 hover:bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 transition"
-              >
+               data-erp-modal-close aria-label="Đóng">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1992,7 +1992,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               <button
                 onClick={() => setShowPickerModal(false)}
                 className="p-1.5 hover:bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 transition"
-              >
+               data-erp-modal-close aria-label="Đóng">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -2163,7 +2163,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
                 <button
                   onClick={() => setShowSendToChatModal(false)}
                   className="p-1.5 hover:bg-slate-50 rounded-xl text-slate-400 hover:text-slate-600 transition"
-                >
+                 data-erp-modal-close aria-label="Đóng">
                   <X className="h-5 w-5" />
                 </button>
               </div>

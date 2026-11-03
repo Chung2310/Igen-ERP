@@ -674,7 +674,7 @@ export function OutboundCreateModal({
             onClick={onClose}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/70 hover:text-slate-700 transition-colors"
             title="Đóng"
-          >
+           data-erp-modal-close>
             <X className="h-5 w-5" />
           </button>
         </div>

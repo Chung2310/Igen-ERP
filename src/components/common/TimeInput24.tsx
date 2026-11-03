@@ -62,6 +62,18 @@ export function TimeInput24({
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isOpen]);
+
   useLayoutEffect(() => {
     if (!isOpen) return;
     const updatePosition = () => {
@@ -120,6 +132,8 @@ export function TimeInput24({
         ref={triggerRef}
         type="button"
         aria-label={ariaLabel}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
         disabled={disabled}
         aria-required={required}
         onClick={() => setIsOpen(!isOpen)}
@@ -136,7 +150,7 @@ export function TimeInput24({
       </button>
 
       {isOpen && createPortal(
-        <div ref={menuRef} className="fixed z-[200] bg-white border border-[#DCE7F4] rounded-2xl shadow-xl p-3.5 flex flex-col w-[170px] select-none animate-fade-in animate-scale-in" style={menuPosition}>
+        <div ref={menuRef} role="dialog" aria-label={ariaLabel ? `Chọn ${ariaLabel.toLowerCase()}` : "Chọn giờ"} className="fixed z-[200] bg-white border border-[#DCE7F4] rounded-2xl shadow-xl p-3.5 flex flex-col w-[170px] select-none animate-fade-in animate-scale-in" style={menuPosition}>
           <div className="grid grid-cols-2 text-center text-xs font-normal text-slate-500 mb-2 font-sans">
             <div>Giờ</div>
             <div>Phút</div>

@@ -53,7 +53,7 @@ export function CompanyModal({
               </p>
             </div>
           </div>
-          <button type="button" aria-label="Đóng" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white">
+          <button type="button" aria-label="Đóng" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-800 hover:text-white" data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>

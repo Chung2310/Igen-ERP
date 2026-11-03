@@ -269,7 +269,7 @@ export function ImageDetailEditor({
             <h2 className="text-sm font-bold">Chỉnh sửa chi tiết</h2>
             <p className="text-[11px] text-slate-400">Prompt là yêu cầu chính; vùng khoanh và phác họa chỉ dẫn vị trí cần sửa.</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-300 transition hover:bg-white/10 hover:text-white" title="Đóng">
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-300 transition hover:bg-white/10 hover:text-white" title="Đóng" data-erp-modal-close>
             <X className="h-5 w-5" />
           </button>
         </header>

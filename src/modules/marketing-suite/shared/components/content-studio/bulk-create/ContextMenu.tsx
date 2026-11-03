@@ -280,7 +280,7 @@ export function ContextMenu({
                   onClick={onClose}
                   className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
                   title="Đóng"
-                >
+                 data-erp-modal-close>
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -416,7 +416,7 @@ export function ContextMenu({
                   onClick={() => setBindingDialogOpen(false)}
                   className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
                   title="Đóng"
-                >
+                 data-erp-modal-close>
                   <X className="h-5 w-5" />
                 </button>
               </div>

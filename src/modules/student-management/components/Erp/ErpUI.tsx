@@ -2,6 +2,7 @@
 import React from 'react';
 import { Plus, Search, LucideIcon, Trash2, ChevronDown, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { StudentEmptyIllustration, type StudentEmptyIllustrationKind } from './StudentEmptyIllustration';
 /**
  * Bộ UI primitives dùng chung cho các trang Khóa học / Lớp / Giảng viên / Tài nguyên.
  * Giao diện hợp nhất dùng nền sáng cố định (theme dark của bản demo ERP đã bỏ).
@@ -28,9 +29,9 @@ export function ErpPageHeader({ title, subtitle, action }: { title: string; subt
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div className="flex items-center gap-2.5">
-        <div className="h-5 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
+        <div className="h-5 w-1 shrink-0 rounded-full bg-primary" />
         <div>
-          <h1 className={cn("text-xl font-medium tracking-tight normal-case", darkMode ? "text-white" : "text-slate-900")}>{title}</h1>
+          <h1 className={cn("text-balance text-xl font-medium normal-case", darkMode ? "text-white" : "text-on-surface")}>{title}</h1>
           {subtitle && <p className={cn("text-xs font-medium mt-0.5", darkMode ? "text-slate-400" : "text-slate-500")}>{subtitle}</p>}
         </div>
       </div>
@@ -101,8 +102,8 @@ export function ErpSearchBar({ value, onChange, placeholder }: { value: string; 
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={cn(
-          "w-full h-9 border rounded-xl pl-9 pr-3 text-xs font-normal outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/10 transition-all shadow-xs",
-          darkMode ? "bg-slate-900/60 border-slate-800/80 text-white" : "bg-white border-slate-200 text-slate-800 placeholder:text-slate-400"
+          "w-full h-9 border border-outline-variant rounded-xl pl-9 pr-3 text-xs font-normal outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/10 transition-all shadow-xs",
+          darkMode ? "bg-slate-900/60 text-white" : "bg-white text-slate-800 placeholder:text-slate-400"
         )}
       />
     </div>
@@ -180,7 +181,7 @@ export function ErpModal({
             onClick={onClose}
             className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
             title="Đóng"
-          >
+           data-erp-modal-close>
             <X className="w-4 h-4 stroke-[2.5]" />
           </button>
         </div>
@@ -248,15 +249,17 @@ export function ErpSubmitButton({ children, ...props }: React.ButtonHTMLAttribut
   );
 }
 
-export function ErpEmptyState({ icon: Icon, title, subtitle }: { icon: LucideIcon; title: string; subtitle?: string }) {
+export function ErpEmptyState({ icon: Icon, illustration, title, subtitle }: { icon?: LucideIcon; illustration?: StudentEmptyIllustrationKind; title: string; subtitle?: string }) {
   const { darkMode } = useErpTheme();
   return (
-    <div className="p-16 text-center text-slate-400 space-y-3">
-      <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-xs", darkMode ? "bg-slate-800 text-slate-300" : "bg-[#E8F7FF] text-[#00ADFC]")}>
-        <Icon className="w-7 h-7" />
-      </div>
-      <p className={cn("text-sm font-bold tracking-tight", darkMode ? "text-white" : "text-slate-900")}>{title}</p>
-      {subtitle && <p className="text-xs text-slate-500 font-normal max-w-md mx-auto">{subtitle}</p>}
+    <div className={cn('text-center', illustration ? 'flex flex-col items-center justify-center px-4 py-4' : 'space-y-3 p-16 text-slate-400')}>
+      {illustration ? <StudentEmptyIllustration kind={illustration} /> : Icon ? (
+        <div className={cn("mx-auto flex size-14 items-center justify-center rounded-2xl shadow-xs", darkMode ? "bg-slate-800 text-slate-300" : "bg-[#E8F7FF] text-[#00ADFC]")}>
+          <Icon className="size-7" aria-hidden="true" />
+        </div>
+      ) : null}
+      <p className={cn(illustration ? 'mt-1 text-balance text-sm font-semibold' : 'text-sm font-bold tracking-tight', darkMode ? 'text-white' : 'text-on-surface')}>{title}</p>
+      {subtitle && <p className={cn('mx-auto max-w-md text-xs font-normal text-on-surface-variant', illustration ? 'mt-1 text-pretty' : '')}>{subtitle}</p>}
     </div>
   );
 }

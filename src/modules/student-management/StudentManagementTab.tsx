@@ -13,6 +13,7 @@ import { StudentNavIcon } from "./StudentNavIcon";
 import { canManageStudentArea, canReadStudentArea } from "../../utils/studentPermissionPolicy";
 import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
 import { setBusinessApiScope } from "./lib/api";
+import { cn } from "./lib/utils";
 
 type StudentSubTab =
   | "BAO_LUU_HOC_LAI"
@@ -190,7 +191,7 @@ export default function StudentManagementTab() {
         {subTabRoutes.map(item => <ModuleNavigationButton key={item.value} active={activeSubTab === item.value} onClick={() => setActiveSubTab(item.value)} icon={<StudentNavIcon slug={item.slug === "khoa-hoc" && entityLabel.preset !== "student" ? "cong-viec" : item.slug} />}>{item.label}</ModuleNavigationButton>)}
       </ModuleNavigation>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
+      <div className={cn('min-h-0 flex-1 overflow-y-auto px-3 pb-3 sm:pb-4', entityLabel.preset === 'student' ? 'pt-1' : 'pt-3 sm:px-6 sm:pt-6 sm:pb-6')}>
         <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>
       </div>
 

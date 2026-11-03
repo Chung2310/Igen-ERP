@@ -139,7 +139,7 @@ export function UserFormModal({
             type="button"
             onClick={onClose}
             className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer"
-          >
+           data-erp-modal-close aria-label="Đóng">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -447,7 +447,7 @@ export function UserFormModal({
                   type="button"
                   onClick={() => setShowJobDescriptionPreview(false)}
                   className="p-2 hover:bg-gray-200 rounded-xl text-gray-500 hover:text-gray-800 transition cursor-pointer"
-                >
+                 data-erp-modal-close aria-label="Đóng">
                   <X className="h-5 w-5" />
                 </button>
               </div>

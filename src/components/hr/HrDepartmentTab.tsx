@@ -11,6 +11,9 @@ type Props = {
   canManage?: boolean;
 };
 
+const pageFrameClass = "min-h-0 flex-1 overflow-y-auto bg-surface";
+const pageCardClass = "min-h-full rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6";
+
 export default function HrDepartmentTab({ companyCode, fetchUsers, canManage = true }: Props) {
   const [departments, setDepartments] = useState<HrDepartment[]>([]);
   const [managerUsers, setManagerUsers] = useState<UserProfile[]>([]);
@@ -69,40 +72,44 @@ export default function HrDepartmentTab({ companyCode, fetchUsers, canManage = t
   };
 
   if (loading) {
-    return <div role="status" className="text-pretty p-4 text-sm text-on-surface-variant sm:p-6">Đang tải danh sách phòng ban...</div>;
+    return <div className={pageFrameClass}><div role="status" className={`${pageCardClass} text-pretty text-sm text-on-surface-variant`}>Đang tải danh sách phòng ban...</div></div>;
   }
 
   if (error) {
     return (
-      <div className="m-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-5 sm:m-6">
-        <p role="alert" className="text-pretty text-sm text-on-surface">{error}</p>
-        <button type="button" onClick={() => void loadDepartments()} className="mt-3 rounded-lg border border-outline px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary">
-          Thử tải lại
-        </button>
+      <div className={pageFrameClass}>
+        <div className={pageCardClass}>
+          <p role="alert" className="text-pretty text-sm text-on-surface">{error}</p>
+          <button type="button" onClick={() => void loadDepartments()} className="mt-3 rounded-lg border border-outline px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary">
+            Thử tải lại
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto bg-surface p-4 sm:p-6">
-      {error && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-error bg-error-container p-3 text-sm text-on-error-container">
-          <p role="alert" className="text-pretty">Không thể làm mới danh sách phòng ban: {error}</p>
-          <button type="button" onClick={() => void loadDepartments()} className="rounded-lg border border-error px-3 py-2 focus-visible:outline-2 focus-visible:outline-primary">
-            Tải lại danh sách
-          </button>
-        </div>
-      )}
-      <HrDepartmentManager
-        presentation="inline"
-        canManage={canManage}
-        companyCode={companyCode}
-        departments={departments}
-        managers={managerUsers.map((user) => ({ id: user.uid, name: user.displayName || user.email || user.uid }))}
-        managersLoading={managersLoading}
-        managerError={managerError}
-        onChanged={handleChanged}
-      />
+    <div className={pageFrameClass}>
+      <section aria-label="Quản lý phòng ban" className={pageCardClass}>
+        {error && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-error bg-error-container p-3 text-sm text-on-error-container">
+            <p role="alert" className="text-pretty">Không thể làm mới danh sách phòng ban: {error}</p>
+            <button type="button" onClick={() => void loadDepartments()} className="rounded-lg border border-error px-3 py-2 focus-visible:outline-2 focus-visible:outline-primary">
+              Tải lại danh sách
+            </button>
+          </div>
+        )}
+        <HrDepartmentManager
+          presentation="inline"
+          canManage={canManage}
+          companyCode={companyCode}
+          departments={departments}
+          managers={managerUsers.map((user) => ({ id: user.uid, name: user.displayName || user.email || user.uid }))}
+          managersLoading={managersLoading}
+          managerError={managerError}
+          onChanged={handleChanged}
+        />
+      </section>
     </div>
   );
 }

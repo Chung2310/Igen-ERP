@@ -654,7 +654,7 @@ export default function RetailSettingsPage() {
           <div role="dialog" aria-modal="true" aria-label="In thử hóa đơn" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
             <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
               <div><h2 className="font-bold text-slate-900">In thử hóa đơn</h2><p className="mt-0.5 text-xs text-slate-500">Dữ liệu mẫu · Khổ giấy {settings.invoicePaperSize}</p></div>
-              <button type="button" aria-label="Đóng xem trước" onClick={() => setTestInvoice(null)} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"><X className="h-4 w-4" /></button>
+              <button type="button" aria-label="Đóng xem trước" onClick={() => setTestInvoice(null)} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50" data-erp-modal-close><X className="h-4 w-4" /></button>
             </header>
             <div className="max-h-[65vh] overflow-y-auto bg-slate-100 p-4 sm:p-6">
               <ReceiptPrintView invoice={testInvoice} paperSize={settings.invoicePaperSize} />

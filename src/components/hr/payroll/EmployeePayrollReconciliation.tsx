@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Calendar, ChevronDown, Clock, FileText, Inbox, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertCircle, Calendar, ChevronDown, Clock, FileText, RefreshCw, ShieldCheck } from "lucide-react";
+import { HrEmptyIllustration } from "../HrEmptyIllustration";
 import { payrollService } from "../../../services/payrollService";
 import type { PayrollReconciliation } from "../../../shared/payrollReconciliation";
 import { PayrollReconciliationConversation } from "./PayrollReconciliationConversation";
@@ -69,7 +70,7 @@ export function EmployeePayrollReconciliation() {
 
       {!loading && !error && !items.length && (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-          <Inbox size={28} className="text-slate-300" />
+          <HrEmptyIllustration kind="payroll" />
           <p className="text-sm font-semibold text-on-surface-variant">Chưa có bảng tạm tính được phát hành cho bạn</p>
           <p className="text-xs text-slate-400">
             Khi phòng nhân sự/kế toán phát hành số liệu tạm tính của kỳ, bạn sẽ nhận được thông báo để đối soát tại đây.

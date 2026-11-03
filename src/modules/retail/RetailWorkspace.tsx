@@ -59,10 +59,10 @@ export default function RetailWorkspace() {
           </div>
           {canOpenPos && <button type="button" onClick={openPos} className="inline-flex items-center gap-2 rounded-xl bg-[#0866f5] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0758d5]"><Store className="h-4 w-4" />Mở quầy POS<ArrowUpRight className="h-4 w-4" /></button>}
         </div>
-        <ModuleNavigation label="Mục Bán hàng" activeValue={activeTab}>
-          {tabs.map(tab => <ModuleNavigationButton key={tab.slug} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
-        </ModuleNavigation>
       </div>
+      <ModuleNavigation label="Mục Bán hàng" activeValue={activeTab}>
+        {tabs.map(tab => <ModuleNavigationButton key={tab.slug} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
+      </ModuleNavigation>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
         <Suspense fallback={<div className="text-sm text-slate-500">Đang tải phân hệ bán hàng...</div>}>
           {activeTab === "ĐƠN HÀNG" && <OrdersPage />}

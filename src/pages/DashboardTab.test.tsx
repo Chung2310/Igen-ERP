@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardTab from "./DashboardTab";
+
+const mockAuth = vi.hoisted(() => ({ enabledModules: ["hr", "finance", "retail", "student", "worker", "marketing"] }));
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({
@@ -10,7 +12,7 @@ vi.mock("../context/AuthContext", () => ({
       uid: "u1",
       companyCode: "ACME",
       role: "admin",
-      enabledModules: ["hr", "finance", "retail", "student", "worker", "marketing"],
+      enabledModules: mockAuth.enabledModules,
       permissions: ["*"],
     },
     hasPermission: () => true,
@@ -38,13 +40,16 @@ vi.mock("../components/dashboard/MarketingOverviewSection", () => ({
 }));
 
 describe("DashboardTab consolidated hub", () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     window.history.replaceState(null, "", "/dashboard");
+    mockAuth.enabledModules = ["hr", "finance", "retail", "student", "worker", "marketing"];
   });
 
   it("renders the sidebar and defaults to Doanh nghiệp section", async () => {
     render(<DashboardTab />);
-    expect(screen.getByText("Tổng quan hệ thống")).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Phân hệ Tổng quan" }).textContent).not.toContain("Tổng quan hệ thống");
     expect(screen.getAllByText("Doanh nghiệp").length).toBeGreaterThan(0);
     expect(await screen.findByTestId("business-section")).toBeTruthy();
   });
@@ -67,6 +72,16 @@ describe("DashboardTab consolidated hub", () => {
     render(<DashboardTab />);
     fireEvent.click(screen.getAllByRole("button", { name: /Marketing & Nội dung/ })[0]);
     expect(await screen.findByTestId("marketing-section")).toBeTruthy();
+  });
+
+  it("hides unchecked finance, retail and HR sections even for an admin", () => {
+    mockAuth.enabledModules = ["student", "worker"];
+    render(<DashboardTab />);
+    const navigation = screen.getByRole("navigation", { name: "Phân hệ Tổng quan" });
+    expect(navigation.textContent).not.toContain("Tài chính");
+    expect(navigation.textContent).not.toContain("Bán lẻ & POS");
+    expect(navigation.textContent).not.toContain("Nhân sự");
+    expect(navigation.textContent).toContain("Học viên & Đào tạo");
   });
 });
 

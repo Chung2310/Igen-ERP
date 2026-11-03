@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  FileSignature,
   Pencil,
   Plus,
   RefreshCw,
@@ -15,6 +14,9 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import { FilePreviewModal } from "../resource/FilePreviewModal";
 import { DateInput24 } from "../common/TimeInput24";
 import { HrFormSelect } from "./HrFormSelect";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
+import { HrPageTitle } from "./HrPageTitle";
 import { ContractSignaturePad } from "./ContractSignaturePad";
 import type { ResourceItem } from "../../types";
 
@@ -45,6 +47,7 @@ type Contract = {
   note?: string;
 };
 type ContractExpiryAlert = { id: string; employeeName: string; endDate: string; daysRemaining: number };
+
 type Employee = {
   _id: string;
   displayName?: string;
@@ -571,17 +574,12 @@ export default function ContractsTab({
     });
   };
   return (
-    <div className="min-h-0 flex-1 overflow-auto bg-[#F5F8FC] p-4 text-left md:p-5">
-      <div className="mx-auto max-w-7xl space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#DCE7F4] bg-white px-4 py-3 shadow-sm">
+    <div className="min-h-0 flex-1 overflow-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-left sm:p-6">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8F7FF] text-[#00A4E8]">
-              <FileSignature size={19} />
-            </span>
             <div>
-              <h2 className="text-base font-medium text-slate-800">
-                Quản lý hợp đồng
-              </h2>
+              <HrPageTitle>Quản lý hợp đồng</HrPageTitle>
               <p className="mt-0.5 text-xs text-slate-500">
                 Theo dõi hợp đồng và lịch sử gia hạn của từng nhân viên.
               </p>
@@ -602,30 +600,45 @@ export default function ContractsTab({
                 <span>Báo trước: <strong className="tabular-nums">{expiryAlertDays} ngày</strong></span>
               </button>
               <button
+                type="button"
                 onClick={() => openContract()}
-                className="flex items-center gap-1.5 rounded-xl bg-[#00A4E8] px-4 py-2.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#008FCB]"
+                className={primaryCreateButtonClass}
               >
-                <Plus size={15} />
+                <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
                 Tạo hợp đồng
               </button>
             </div>
           )}
         </div>
-        <div className="flex w-fit gap-1 rounded-xl border border-[#DCE7F4] bg-[#F0F6FB] p-1">
-          <button
-            type="button"
-            onClick={() => setTab("contracts")}
-            className={`rounded-lg px-4 py-2 text-xs font-normal transition-colors ${tab === "contracts" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
-          >
-            Danh sách hợp đồng
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("extensions")}
-            className={`rounded-lg px-4 py-2 text-xs font-normal transition-colors ${tab === "extensions" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
-          >
-            Gia hạn hợp đồng
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-[#DCE7F4] bg-[#F0F6FB] p-1">
+            <button
+              type="button"
+              onClick={() => setTab("contracts")}
+              className={`shrink-0 rounded-lg px-4 py-2 text-xs font-normal transition-colors ${tab === "contracts" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
+            >
+              Danh sách hợp đồng
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("extensions")}
+              className={`shrink-0 rounded-lg px-4 py-2 text-xs font-normal transition-colors ${tab === "extensions" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
+            >
+              Gia hạn hợp đồng
+            </button>
+          </div>
+          {!loading && tab === "contracts" && (
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-3 text-slate-400" size={15} aria-hidden="true" />
+              <input
+                aria-label="Tìm nhân viên, email hoặc phòng ban"
+                className={input + " pl-9"}
+                placeholder="Tìm nhân viên, email, phòng ban..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          )}
         </div>
         {loading ? (
           <div className="rounded-2xl border border-[#DCE7F4] bg-white p-12 text-center text-xs text-slate-500">
@@ -668,18 +681,6 @@ export default function ContractsTab({
                 )}
               </div>
             )}
-            <div className="relative max-w-sm">
-              <Search
-                className="absolute left-3 top-3 text-slate-400"
-                size={15}
-              />
-              <input
-                className={input + " pl-9"}
-                placeholder="Tìm nhân viên, email, phòng ban..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
             <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4] bg-white shadow-sm">
               <table className="w-full min-w-[820px] text-xs text-slate-700">
                 <thead className="bg-[#F1F8FC] text-slate-600">
@@ -783,9 +784,9 @@ export default function ContractsTab({
                         colSpan={7}
                         className="p-10 text-center text-slate-500"
                       >
-                        <div className="mx-auto flex max-w-xs flex-col items-center gap-2">
-                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E8F7FF] text-[#00A4E8]"><FileSignature size={19} /></span>
-                          <span>Chưa có hợp đồng nào.</span>
+                        <div className="mx-auto flex max-w-xs flex-col items-center gap-1">
+                          <HrEmptyIllustration kind={search ? "search" : "contract"} />
+                          <span className="text-sm text-on-surface-variant">Chưa có hợp đồng nào.</span>
                         </div>
                       </td>
                     </tr>
@@ -942,7 +943,7 @@ export default function ContractsTab({
                         className="p-10 text-center text-slate-500"
                       >
                         <div className="mx-auto flex max-w-xs flex-col items-center gap-2">
-                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E8F7FF] text-[#00A4E8]"><RefreshCw size={18} /></span>
+                          <HrEmptyIllustration kind="contract" />
                           <span>Chưa có lịch sử gia hạn hợp đồng.</span>
                         </div>
                       </td>
@@ -1339,7 +1340,7 @@ function Modal({
       <div role="dialog" aria-modal="true" aria-labelledby="contract-modal-title" className="flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white text-slate-800 shadow-[0_20px_60px_rgba(15,45,75,0.2)]">
         <div className="flex items-center justify-between gap-4 border-b border-[#E8EEF5] bg-[#F8FBFF] px-5 py-4">
           <h3 id="contract-modal-title" className="text-base font-medium text-slate-800">{title}</h3>
-          <button type="button" aria-label="Đóng" onClick={close} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm transition-colors hover:bg-rose-600">
+          <button type="button" aria-label="Đóng" onClick={close} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm transition-colors hover:bg-rose-600" data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>

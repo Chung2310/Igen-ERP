@@ -1,14 +1,27 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Building2, Edit3, LocateFixed, Plus, Power, Search, X } from "lucide-react";
+import { Building2, Edit3, LocateFixed, MapPin, Phone, Plus, Power, Search, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { branchService, type BranchInput, type BranchRecord } from "../../services/branchService";
 import { toast } from "../../pages/Toast";
 import { toAttendanceNetwork } from "../../utils/attendanceNetwork";
 import { RoadmapPicker } from "../../modules/student-management/components/ui/RoadmapPicker";
 import { UserFormModal } from "../user-admin/UserFormModal";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
+import { HrPageTitle } from "../hr/HrPageTitle";
+import { HrEmptyIllustration } from "../hr/HrEmptyIllustration";
 
 type FormState = Required<Pick<BranchInput, "code" | "name">> & Pick<BranchInput, "address" | "phone"> & { latitude: string; longitude: string; allowedRadius: string; allowedPublicIps: string };
 const emptyForm: FormState = { code: "", name: "", address: "", phone: "", latitude: "", longitude: "", allowedRadius: "100", allowedPublicIps: "" };
+
+function BranchCardIllustration() {
+  return <svg aria-hidden="true" focusable="false" viewBox="0 0 112 144" fill="none" className="h-28 w-24 max-w-full text-primary">
+    <circle cx="78" cy="46" r="27" fill="currentColor" opacity="0.08" />
+    <path d="M12 120h88M25 120V52l31-15 31 15v68M35 57h42M56 37V24m-8 0h16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M32 63h12v13H32zM50 63h12v13H50zM68 63h12v13H68zM32 83h12v13H32zM68 83h12v13H68zM50 120v-21h12v21" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M12 120V84h13M87 90h13v30M17 91h4m-4 8h4m-4 8h4m70-10h4m-4 8h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
+    <circle cx="56" cy="48" r="2.5" fill="currentColor" />
+  </svg>;
+}
 
 function geolocationErrorMessage(reason: unknown) {
   const code = typeof reason === "object" && reason !== null && "code" in reason
@@ -141,15 +154,46 @@ export default function BranchManagementTab() {
   };
 
   if (userProfile?.role !== "admin") return null;
-  return <section className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+  return <section className="min-h-full rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-6">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3"><div className="rounded-xl bg-sky-50 p-2.5 text-brand-primary"><Building2 className="h-5 w-5" /></div><div><h2 className="text-base font-medium text-slate-800">Quản lý chi nhánh</h2></div></div>
-      <button type="button" onClick={openCreate} className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-medium text-white transition hover:bg-sky-600"><Plus className="h-4 w-4" />Thêm chi nhánh</button>
+      <HrPageTitle>Quản lý chi nhánh</HrPageTitle>
+      <button type="button" onClick={openCreate} className={primaryCreateButtonClass}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" />Thêm chi nhánh</button>
     </div>
     <div className="mt-4 flex flex-col gap-3 sm:flex-row"><label className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Tìm kiếm chi nhánh" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã hoặc tên" className="h-10 w-full rounded-xl border border-sky-100 bg-white pl-9 pr-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10" /></label><div className="w-full sm:w-48"><RoadmapPicker ariaLabel="Lọc trạng thái" value={status} onChange={(value) => setStatus(value as typeof status)} placeholder="Tất cả trạng thái" allowClear={false} portal options={[{ value: "all", label: "Tất cả trạng thái" }, { value: "active", label: "Đang hoạt động" }, { value: "inactive", label: "Đã vô hiệu hóa" }]} /></div></div>
-    {loading ? <p className="py-10 text-center text-sm text-slate-500">Đang tải chi nhánh...</p> : filtered.length === 0 ? <p className="py-10 text-center text-sm text-slate-500">Chưa có chi nhánh phù hợp.</p> : <ul className="mt-4 divide-y divide-slate-100 border-y border-slate-100">{filtered.map((branch) => <li key={branch._id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-2"><div><div className="flex items-center gap-2"><span className="font-mono text-xs font-medium text-brand-primary">{branch.code}</span><span className={`rounded-full border px-2 py-0.5 text-xs font-normal ${branch.isActive ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>{branch.isActive ? "Đang hoạt động" : "Đã vô hiệu hóa"}</span></div><h3 className="mt-1 text-sm font-medium text-slate-800">{branch.name}</h3><p className="mt-1 text-xs text-slate-500">{branch.address || "Chưa có địa chỉ"}{branch.phone ? ` · ${branch.phone}` : ""}</p></div><div className="flex items-center gap-1.5"><button type="button" title="Sửa chi nhánh" aria-label={`Sửa chi nhánh ${branch.name}`} onClick={() => openEdit(branch)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-white text-slate-500 transition hover:bg-sky-50 hover:text-brand-primary"><Edit3 className="h-4 w-4" /></button><button type="button" title={branch.isActive ? "Vô hiệu hóa" : "Bật lại"} aria-label={branch.isActive ? "Vô hiệu hóa" : "Bật lại"} onClick={() => void toggle(branch)} className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${branch.isActive ? "border-rose-200 bg-white text-rose-600 hover:bg-rose-50" : "border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"}`}><Power className="h-4 w-4" /></button></div></li>)}</ul>}
+    {loading ? <p className="py-10 text-center text-sm text-slate-500">Đang tải chi nhánh...</p> : filtered.length === 0 ? <div className="flex flex-col items-center py-10 text-center text-sm text-slate-500"><HrEmptyIllustration kind={query || status !== "all" ? "search" : "branch"} /><p className="mt-1">Chưa có chi nhánh phù hợp.</p></div> : (
+      <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {filtered.map((branch) => (
+          <li key={branch._id} className="flex min-h-40 min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+            <div className="flex w-24 shrink-0 items-center justify-center border-r border-outline-variant bg-primary/5 p-2 sm:w-28">
+              <BranchCardIllustration />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="line-clamp-2 text-sm font-semibold text-on-surface" title={branch.name}>{branch.name}</h3>
+                  <p className="mt-1 truncate font-mono text-xs text-primary" title={branch.code}>{branch.code}</p>
+                </div>
+                <span aria-hidden="true" className={`mt-1 size-2.5 shrink-0 rounded-full ${branch.isActive ? "bg-primary" : "bg-outline"}`} />
+              </div>
+              <p className="mt-2 flex min-w-0 items-start gap-1.5 text-pretty text-xs text-on-surface-variant" title={branch.address || undefined}>
+                <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                <span className="line-clamp-2">{branch.address || "Chưa có địa chỉ"}</span>
+              </p>
+              {branch.phone && <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-on-surface-variant"><Phone className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{branch.phone}</span></p>}
+              <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-3">
+                <span className={`rounded-full border px-2 py-0.5 text-xs ${branch.isActive ? "border-primary text-primary" : "border-outline-variant text-on-surface-variant"}`}>{branch.isActive ? "Đang hoạt động" : "Đã vô hiệu hóa"}</span>
+                <div className="flex items-center gap-1.5">
+                  <button type="button" title="Sửa chi nhánh" aria-label={`Sửa chi nhánh ${branch.name}`} onClick={() => openEdit(branch)} className="flex size-8 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-primary/5 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"><Edit3 className="size-4" aria-hidden="true" /></button>
+                  <button type="button" title={branch.isActive ? "Vô hiệu hóa" : "Bật lại"} aria-label={branch.isActive ? "Vô hiệu hóa" : "Bật lại"} onClick={() => void toggle(branch)} className={`flex size-8 items-center justify-center rounded-lg border bg-surface-container-lowest focus-visible:outline-2 focus-visible:outline-primary ${branch.isActive ? "border-error/30 text-error hover:bg-error/5" : "border-outline-variant text-on-surface-variant hover:bg-primary/5 hover:text-primary"}`}><Power className="size-4" aria-hidden="true" /></button>
+                </div>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
     {formOpen && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4"><form onSubmit={save} className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-sky-100 bg-white p-5 shadow-2xl">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3"><div className="flex items-center gap-3"><span className="h-6 w-1 rounded-full bg-brand-primary" aria-hidden="true" /><h3 className="text-base font-medium text-slate-800">{editing ? "Sửa chi nhánh" : "Tạo chi nhánh"}</h3></div><button type="button" aria-label="Đóng" onClick={closeForm} className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition hover:bg-rose-600"><X className="h-4 w-4" /></button></div>
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3"><div className="flex items-center gap-3"><span className="h-6 w-1 rounded-full bg-brand-primary" aria-hidden="true" /><h3 className="text-base font-medium text-slate-800">{editing ? "Sửa chi nhánh" : "Tạo chi nhánh"}</h3></div><button type="button" aria-label="Đóng" onClick={closeForm} className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition hover:bg-rose-600" data-erp-modal-close><X className="h-4 w-4" /></button></div>
       <div className="mt-4 space-y-3">
         <label className="block text-xs font-medium text-slate-600">Mã chi nhánh<input required value={form.code} disabled={!!editing} onChange={(event) => setForm({ ...form, code: event.target.value.toUpperCase() })} className="mt-1.5 h-9 w-full rounded-xl border border-sky-100 px-3 text-sm font-normal text-slate-800 outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 disabled:bg-slate-50 disabled:text-slate-500" /></label>
         <label className="block text-xs font-medium text-slate-600">Tên chi nhánh<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-1.5 h-9 w-full rounded-xl border border-sky-100 px-3 text-sm font-normal text-slate-800 outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10" /></label>
