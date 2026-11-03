@@ -336,7 +336,7 @@ export default function CRMTab() {
   // AI assistant configurations
   const [aiConfig, setAIConfig] = useState<AIChatConfig>({
     enabled: true,
-    commentReplyEnabled: true,
+    commentReplyEnabled: false,
     imageReplyEnabled: false,
     autoClassify: true,
     autoCloseDeal: true,
@@ -372,7 +372,7 @@ export default function CRMTab() {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the existing account/user configuration precedence and normalization across Page changes.
       setAIConfig({
         enabled: config.enabled ?? true,
-        commentReplyEnabled: config.commentReplyEnabled ?? true,
+        commentReplyEnabled: config.commentReplyEnabled ?? false,
         imageReplyEnabled: config.imageReplyEnabled ?? false,
         autoClassify: true,
         autoCloseDeal: true,
@@ -396,7 +396,7 @@ export default function CRMTab() {
       const fallbackConfig = targetIntegration ? undefined : userProfile?.aiAutoReplyConfig;
       setAIConfig({
         enabled: fallbackConfig?.enabled ?? true,
-        commentReplyEnabled: fallbackConfig?.commentReplyEnabled ?? true,
+        commentReplyEnabled: fallbackConfig?.commentReplyEnabled ?? false,
         imageReplyEnabled: fallbackConfig?.imageReplyEnabled ?? false,
         autoClassify: true,
         autoCloseDeal: true,
