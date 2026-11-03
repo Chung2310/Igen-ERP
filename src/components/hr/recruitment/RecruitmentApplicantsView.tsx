@@ -158,33 +158,34 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
         </div>
       )}
       {!loading && mode === "kanban" && (
-        <div className="grid min-w-[900px] grid-flow-col auto-cols-[280px] gap-3 overflow-x-auto pb-3">
+        <div className="grid grid-flow-col auto-cols-[minmax(160px,1fr)] gap-2 overflow-x-auto pb-2">
           {pipeline?.stages
             .filter((s) => s.isActive)
             .map((stage) => (
               <section
                 key={stage.id}
-                className="min-h-[360px] rounded-2xl bg-[#F0F7FC] p-2"
+                className="min-h-72 min-w-0 rounded-2xl bg-[#F0F7FC] p-1.5"
               >
-                <h3 className="flex h-10 items-center justify-between px-2 text-sm font-medium text-[#15396C]">
-                  <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.color }} />{stage.name}</span>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#087BDF]">
+                <h3 className="flex h-9 items-center justify-between gap-1 px-1.5 text-sm font-medium text-[#15396C]">
+                  <span className="flex min-w-0 items-center gap-1.5"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: stage.color }} /><span className="truncate" title={stage.name}>{stage.name}</span></span>
+                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs text-[#087BDF]">
                     {applicants.filter((a) => a.stageId === stage.id).length}
                   </span>
                 </h3>
-                <div className="grid gap-2 px-2">
+                <div className="grid gap-1.5 px-0.5">
                   {applicants
                     .filter((a) => a.stageId === stage.id)
                     .map((a) => (
                       <button
                         key={a._id}
+                        type="button"
                         onClick={() => setSelected(a)}
-                        className="rounded-xl bg-white p-3 text-left shadow-[0_2px_10px_rgba(33,84,123,0.07)] transition-colors hover:bg-[#F9FCFF]"
+                        className="rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-2 text-left transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-primary"
                       >
-                        <div className="font-medium text-[#15396C]">
+                        <div className="truncate font-medium text-on-surface" title={a.fullName}>
                           {a.fullName}
                         </div>
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="mt-0.5 truncate text-xs text-on-surface-variant">
                           {jobs.find((j) => j._id === a.jobId)?.title}
                         </div>
                       </button>
