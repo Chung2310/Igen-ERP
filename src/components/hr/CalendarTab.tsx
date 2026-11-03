@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
+import { HrPageTitle } from "./HrPageTitle";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ModuleNavigation, ModuleNavigationButton } from "../common/ModuleNavigation";
 import {
@@ -934,8 +936,8 @@ export default function CalendarTab({
               // Collapsible Employee Card List for Mobile
               <div className="flex flex-col gap-3 p-4">
                 {paginatedGridEmployees.length === 0 ? (
-                  <div className="px-6 py-16 text-center text-slate-400 font-medium">
-                    Không tìm thấy nhân viên nào.
+                  <div className="flex flex-col items-center px-6 py-16 text-center text-slate-400 font-medium">
+                    <HrEmptyIllustration kind="search" /><p className="mt-1">Không tìm thấy nhân viên nào.</p>
                   </div>
                 ) : (
                   paginatedGridEmployees.map((emp, empIdx) => {
@@ -1109,7 +1111,7 @@ export default function CalendarTab({
                   {paginatedGridEmployees.length === 0 ? (
                     <tr>
                       <td colSpan={5 + daysInMonth} className="px-6 py-16 text-center text-slate-400 font-medium">
-                        Không tìm thấy nhân viên nào.
+                        <div className="flex flex-col items-center"><HrEmptyIllustration kind="search" /><p className="mt-1">Không tìm thấy nhân viên nào.</p></div>
                       </td>
                     </tr>
                   ) : (
@@ -1440,13 +1442,13 @@ export default function CalendarTab({
 
   return (
     <div
-      className={`flex min-h-0 flex-col h-full bg-white p-3 md:p-4 ${
+      className={`flex min-h-0 flex-col h-full bg-white px-2 pb-2 pt-0 md:px-3 md:pb-3 ${
         currentSubTab === "attendance" ? "overflow-hidden" : "overflow-y-auto"
       }`}
       id="calendar_tab_wrapper"
     >
       {/* Subtab Switcher */}
-      <ModuleNavigation label="Mục Lịch và chấm công" activeValue={currentSubTab} className="mb-3">
+      <ModuleNavigation label="Mục Lịch và chấm công" activeValue={currentSubTab} layout="horizontal" className="mb-2">
         <ModuleNavigationButton active={currentSubTab === "schedule"} icon={<CalendarIcon />} onClick={() => setCurrentSubTab("schedule")}>Lịch trình</ModuleNavigationButton>
         <ModuleNavigationButton active={currentSubTab === "attendance"} icon={<Clock />} onClick={() => setCurrentSubTab("attendance")}>Lịch sử chấm công</ModuleNavigationButton>
         <ModuleNavigationButton active={currentSubTab === "requests"} icon={<CheckCircle />} onClick={() => setCurrentSubTab("requests")}>Đơn từ</ModuleNavigationButton>
@@ -1481,8 +1483,7 @@ export default function CalendarTab({
           <div className="mb-2 shrink-0 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-left font-normal">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <CalendarIcon className="h-4 w-4 shrink-0 text-[#00ADFC]" />
-                <h2 className="whitespace-nowrap text-base font-normal text-slate-800">Lịch làm việc</h2>
+                <HrPageTitle>Lịch làm việc</HrPageTitle>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={handlePrevMonth} className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#007EB8] transition-colors hover:bg-[#D7F1FF]" title="Tháng trước" aria-label="Tháng trước"><ChevronLeft className="h-4 w-4" /></button>
                   <DateInput24 value={formatLocalDate(currentDate)} onChange={(date) => { if (date) setCurrentDate(new Date(`${date}T00:00:00`)); }} ariaLabel="Chọn ngày xem lịch" required className="!min-h-9 !w-36 !rounded-lg !px-1.5" />
@@ -1752,7 +1753,7 @@ export default function CalendarTab({
                 onClick={() => setIsDetailModalOpen(false)}
                 aria-label="Đóng"
                 className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white shadow-sm transition-colors hover:bg-rose-600"
-              >
+               data-erp-modal-close>
                 <X className="h-4.5 w-4.5" />
               </button>
             </div>
@@ -1761,9 +1762,7 @@ export default function CalendarTab({
             <div className="flex min-h-32 flex-col gap-3 overflow-y-auto p-4 sm:p-5">
               {filteredItems.filter((item) => itemMatchesDay(item, selectedDayDate)).length === 0 && (
                 <div className="flex min-h-32 flex-col items-center justify-center rounded-xl bg-[#F8FBFF] px-4 py-6 text-center">
-                  <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#E8F7FF] text-[#00A4E8]">
-                    <CalendarIcon className="h-5 w-5" />
-                  </span>
+                  <HrEmptyIllustration kind="calendar" />
                   <p className="text-sm text-slate-700">Chưa có lịch trình</p>
                   <p className="mt-1 text-xs text-slate-500">Ngày này chưa có lịch trình nào.</p>
                 </div>

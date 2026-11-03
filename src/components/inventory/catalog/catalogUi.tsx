@@ -105,7 +105,7 @@ export function Modal({
       <div role="dialog" aria-modal="true" className={`max-h-[92vh] w-full overflow-y-auto rounded-lg bg-white shadow-xl ${wide ? "max-w-5xl" : "max-w-xl"}`}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
           <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-          <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100" title="Đóng">
+          <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100" title="Đóng" data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>

@@ -1,0 +1,30 @@
+import type { TabType } from "../types";
+
+/** Name of the parent area shown beneath the ERP wordmark. */
+export const HEADER_MODULE_LABELS: Record<TabType, string> = {
+  "TỔNG QUAN": "TỔNG QUAN",
+  "NHÂN SỰ": "NHÂN SỰ",
+  "QUẢN LÝ HỌC VIÊN": "HỌC VIÊN",
+  "ĐỐI TÁC": "HỌC VIÊN",
+  "QUẢN LÝ LAO ĐỘNG": "LAO ĐỘNG",
+  "ĐỐI TÁC LAO ĐỘNG": "LAO ĐỘNG",
+  "QUẢN LÝ KHÁCH HÀNG": "KHÁCH HÀNG",
+  "BÁN LẺ": "BÁN LẺ",
+  "ĐỐI TÁC BÁN LẺ": "BÁN LẺ",
+  "KHO & SẢN PHẨM": "KHO & SẢN PHẨM",
+  "SỬA CHỮA & BẢO HÀNH": "SỬA CHỮA & BẢO HÀNH",
+  "TÀI CHÍNH": "TÀI CHÍNH",
+  "OMNI INBOX": "CRM",
+  "MARKETING": "CRM",
+  "KHO TRI THỨC": "CRM",
+  "TÍCH HỢP MARKETING": "CRM",
+  "CHIẾN DỊCH NỘI DUNG": "CRM",
+  "GÓI AI & LƯỢT SỬ DỤNG": "CRM",
+  "TRỢ LÝ AI": "TRỢ LÝ AI",
+  "QUẢN LÝ TÀI NGUYÊN": "TÀI NGUYÊN",
+  "TÀI NGUYÊN": "TÀI NGUYÊN",
+  "TRÒ CHUYỆN": "TRÒ CHUYỆN",
+  "PHÂN TÍCH & BÁO CÁO": "BÁO CÁO",
+  "QUẢN TRỊ USER": "HỆ THỐNG",
+  "CÀI ĐẶT": "HỆ THỐNG",
+};

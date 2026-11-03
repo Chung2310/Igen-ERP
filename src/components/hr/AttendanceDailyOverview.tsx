@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
 import { DateInput24 } from "../common/TimeInput24";
 import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Clock3, Home, LogIn, LogOut, MapPin, ScanFace, ShieldAlert, UserCheck, Users, WifiOff } from "lucide-react";
 import {
@@ -116,7 +117,7 @@ export default function AttendanceDailyOverview({ date, onDateChange, result, lo
                 <p className="text-[11px] text-slate-500">{visibleEmployees.length} nhân viên</p>
               </div>
               {visibleEmployees.length === 0 ? (
-                <div className="px-4 py-12 text-center text-sm font-normal text-slate-400">Không có nhân viên phù hợp.</div>
+                <div className="flex flex-col items-center px-4 py-12 text-center text-sm font-normal text-slate-400"><HrEmptyIllustration kind="search" /><p className="mt-1">Không có nhân viên phù hợp.</p></div>
               ) : (
                 <div className="divide-y divide-[#edf3f9]">
                   {visibleEmployees.map((employee) => (

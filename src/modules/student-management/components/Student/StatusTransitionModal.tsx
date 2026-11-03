@@ -103,7 +103,7 @@ export function StatusTransitionModal({ student, isOpen, onClose }: StatusTransi
                 </div>
                 <h3 className="text-base font-bold text-slate-800">Xác nhận</h3>
               </div>
-              <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-full transition-colors">
+              <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-full transition-colors" data-erp-modal-close aria-label="Đóng">
                 <X className="w-4 h-4 text-slate-400" />
               </button>
             </div>

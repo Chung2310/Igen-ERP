@@ -167,7 +167,7 @@ export function ContractSignaturePad({ value, onSave, saving = false }: Contract
           title="Đóng"
           disabled={saving || busy}
           className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-surface-container-lowest px-2.5 py-1.5 text-[11px] font-bold text-cyan-700 hover:bg-cyan-50"
-        >
+         data-erp-modal-close>
           <X className="h-3.5 w-3.5" />
         </button>
         <button
@@ -279,7 +279,7 @@ export function SignatureZoomModal({ url, onClose }: SignatureZoomModalProps) {
             aria-label="Đóng xem chữ ký"
             onClick={onClose}
             className="ml-2 rounded-lg bg-surface-container-lowest/10 p-2 hover:bg-surface-container-lowest/20"
-          >
+           data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>

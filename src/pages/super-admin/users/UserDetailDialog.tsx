@@ -90,7 +90,7 @@ export function UserDetailDialog({ tenantId, userId, onClose }: Props) {
             <h3 id="user-detail-dialog-title" className="mt-1 text-xl font-bold">{user?.displayName || user?.email || "Chi tiết người dùng"}</h3>
             {user && <p className="mt-1 text-sm text-slate-400">{user.email}</p>}
           </div>
-          <button type="button" aria-label="Đóng popup" onClick={onClose} disabled={busy} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-40"><X className="h-5 w-5" /></button>
+          <button type="button" aria-label="Đóng popup" onClick={onClose} disabled={busy} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-40" data-erp-modal-close><X className="h-5 w-5" /></button>
         </header>
 
         {loading && !user ? <p className="py-10 text-center text-sm text-slate-400">Đang tải thông tin người dùng…</p> : null}

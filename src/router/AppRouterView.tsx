@@ -14,16 +14,25 @@ export function AppRouterView({ activeTab, userProfile, remountKey = 0, scopeKey
   const PageComponent = route.component;
   const retry = () => { retryRoute(activeTab); setAttempt((value) => value + 1); };
   const key = JSON.stringify([activeTab, userProfile.uid, userProfile.companyCode, scopeKey, remountKey, attempt]);
-  return <RouteErrorBoundary key={key} onRetry={retry}>
+  return <RouteErrorBoundary key={key} onRetry={retry} autoRetry={attempt === 0}>
     <Suspense fallback={<RoutePending onRetry={retry} />}>
       <PageComponent key={key} />
     </Suspense>
   </RouteErrorBoundary>;
 }
 
-class RouteErrorBoundary extends Component<{ children: ReactNode; onRetry: () => void }, { failed: boolean }> {
+function isModuleLoadFailure(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk .* failed/i.test(error.message);
+}
+
+class RouteErrorBoundary extends Component<{ children: ReactNode; onRetry: () => void; autoRetry: boolean }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: Error) {
+    console.error("Không thể hiển thị phân hệ:", error);
+    if (this.props.autoRetry && isModuleLoadFailure(error)) this.props.onRetry();
+  }
   render() {
     if (!this.state.failed) return this.props.children;
     return <RouteRecovery title="Chưa thể hiển thị phân hệ" message="Mạng có thể bị gián đoạn hoặc ứng dụng đã có phiên bản mới. Bạn có thể thử lại hoặc chọn phân hệ khác trên thanh điều hướng." onRetry={this.props.onRetry} />;

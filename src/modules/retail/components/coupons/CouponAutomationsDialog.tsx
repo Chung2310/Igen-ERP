@@ -49,7 +49,7 @@ export default function CouponAutomationsDialog({ scope, onClose }: { scope: Ret
       <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-6 py-4.5">
         <div className="flex items-center gap-2.5"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600"><Sparkles className="h-5 w-5" /></div>
           <div><h2 id={titleId} className="text-base font-bold text-slate-900">Tự động tặng mã ưu đãi</h2><p className="text-xs text-slate-500">Thiết lập chương trình theo hoạt động của khách hàng</p></div></div>
-        <button type="button" aria-label="Đóng chương trình tự động" disabled={Boolean(busy)} onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        <button type="button" aria-label="Đóng chương trình tự động" disabled={Boolean(busy)} onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" data-erp-modal-close><X className="h-5 w-5" /></button>
       </header>
       <div className="space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-slate-500">Có thể bật nhiều chương trình cùng lúc tại chi nhánh này.</p>

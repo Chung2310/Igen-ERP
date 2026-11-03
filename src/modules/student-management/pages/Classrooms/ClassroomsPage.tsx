@@ -541,7 +541,7 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
   }, [searchTerm, viewMode]);
 
   return (
-    <div className="space-y-6 text-left">
+    <div className="space-y-6 p-3 text-left sm:p-4">
       <ErpPageHeader
         title="Quản lý Phòng học"
         subtitle={
@@ -730,6 +730,7 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
         <ErpCard>
           <ErpEmptyState
             icon={School}
+            illustration="room"
             title="Chưa có phòng học nào"
             subtitle="Bấm 'Khai báo phòng học mới' để thêm phòng học vào danh sách."
           />

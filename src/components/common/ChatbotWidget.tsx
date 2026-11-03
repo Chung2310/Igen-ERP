@@ -571,9 +571,9 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
       aria-controls="erp-chatbot-panel"
       title="Trợ lý ảo AI"
       style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))", right: "calc(1rem + env(safe-area-inset-right))" }}
-      className={cn("fixed z-40 flex size-14 items-center justify-center rounded-full border border-outline-variant bg-primary text-on-primary shadow-lg hover:bg-primary/90", focusClass)}
+      className={cn("assistant-launcher-button fixed z-40 flex size-14 items-center justify-center rounded-full border-2 border-primary bg-transparent text-on-surface shadow-[0_0_8px_1px_rgba(0,173,252,0.25)]", focusClass)}
     >
-      {isOpen ? <X className="size-6" aria-hidden="true" /> : <Bot className="size-6" aria-hidden="true" />}
+      {isOpen ? <X className="size-6" aria-hidden="true" /> : <img src="/assistant-igen-head.webp" alt="" aria-hidden="true" className="pointer-events-none size-full object-contain" />}
     </button>}
     <section
       id="erp-chatbot-panel"
@@ -770,7 +770,7 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
           <div className="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col">
             <header className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 py-3">
               <div className="min-w-0"><p className="text-xs font-medium text-on-surface/70">TRỢ LÝ AI · IGEN ERP</p><h2 id="assistant-settings-title" className="text-balance text-base font-semibold">Cài đặt trợ lý</h2></div>
-              <button type="button" aria-label="Đóng cài đặt trợ lý" onClick={() => setIsSettingsDialogOpen(false)} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container-high", focusClass)}><X className="size-5" aria-hidden="true" /></button>
+              <button type="button" aria-label="Đóng cài đặt trợ lý" onClick={() => setIsSettingsDialogOpen(false)} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container-high", focusClass)} data-erp-modal-close><X className="size-5" aria-hidden="true" /></button>
             </header>
             <nav aria-label="Cấu hình trợ lý" className="grid shrink-0 grid-cols-3 gap-2 border-b border-outline-variant bg-surface-container-lowest px-3 py-2">
               <button type="button" aria-pressed={configView === "workflows"} onClick={() => setConfigView("workflows")} className={cn("min-h-10 rounded-xl px-2 py-2 text-xs font-medium sm:px-3 sm:text-sm", configView === "workflows" ? "bg-primary text-on-primary" : "hover:bg-surface-container-low", focusClass)}>Workflow nghiệp vụ</button>

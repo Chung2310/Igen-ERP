@@ -355,7 +355,7 @@ function isHexObjectId(str?: string): boolean {
               onClick={onClose}
               aria-label="Đóng"
               className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
-            >
+             data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </div>

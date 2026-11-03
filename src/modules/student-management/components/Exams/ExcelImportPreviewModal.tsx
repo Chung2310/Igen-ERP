@@ -79,7 +79,7 @@ export function ExcelImportPreviewModal({
               <h3 className="flex items-center gap-2 text-base font-medium text-slate-900 before:w-1 before:h-5 before:rounded-full before:bg-brand-primary">Kết quả kiểm tra dữ liệu Excel</h3>
               <p className="text-xs text-slate-500 mt-0.5">Vui lòng kiểm tra lại danh sách trước khi đưa lên hệ thống</p>
             </div>
-            <button type="button" onClick={onClose} aria-label="Đóng" className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 transition-colors">
+            <button type="button" onClick={onClose} aria-label="Đóng" className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 transition-colors" data-erp-modal-close>
               <X className="w-4 h-4" />
             </button>
           </div>

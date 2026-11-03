@@ -1289,7 +1289,7 @@ const getSelectedVoice = () => {
                            setIsVoicePickerView(false);
                         }}
                         className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                     >
+                      data-erp-modal-close aria-label="Đóng">
                         <X className="h-4.5 w-4.5" />
                      </button>
                   </div>
@@ -1696,7 +1696,7 @@ const getSelectedVoice = () => {
                      <button
                         onClick={() => setIsCreateModalOpen(false)}
                         className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                     >
+                      data-erp-modal-close aria-label="Đóng">
                         <X className="h-4.5 w-4.5" />
                      </button>
                   </div>

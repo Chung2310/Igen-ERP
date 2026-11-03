@@ -189,7 +189,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
               onClick={onClose}
               className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
               title="Đóng (Esc)"
-            >
+             data-erp-modal-close>
               <X className="w-5 h-5" />
             </button>
           </div>

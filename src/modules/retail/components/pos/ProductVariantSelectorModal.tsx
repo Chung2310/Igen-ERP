@@ -440,7 +440,7 @@ export function ProductVariantSelectorModal({
               aria-label="Đóng"
               onClick={onClose}
               className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition cursor-pointer"
-            >
+             data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </div>

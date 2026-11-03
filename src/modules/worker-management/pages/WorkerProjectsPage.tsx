@@ -1335,7 +1335,7 @@ function Modal({
               aria-label="Đóng"
               onClick={onClose}
               className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
-            >
+             data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </div>

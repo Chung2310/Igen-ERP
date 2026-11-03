@@ -39,6 +39,14 @@ Dùng vai trò màu theo ngữ cảnh: `primary` cho hành động chính, `surf
 | outline | `#475569` |
 | outline-variant | `#242834` |
 
+## Search fields
+
+Thanh tìm kiếm trong các màn hình nghiệp vụ dùng viền 1 px màu `outline-variant` (`#d8e2f0` ở giao diện sáng), theo ô tìm kiếm của trang Phòng ban. Khi focus, viền dùng `primary`. Giữ kích thước và bố cục riêng của từng màn hình. Ô “Tìm kiếm trong ERP...” trên header giữ kiểu hiện tại.
+
+## Empty states
+
+Các vùng nội dung rỗng trong phân hệ Nhân sự dùng `HrEmptyIllustration`: SVG nét xám, kích thước 160 × 96, họa tiết nền mờ và hình theo từng nghiệp vụ. Kết quả tìm kiếm không khớp dùng biến thể `search`. Giữ nguyên câu thông báo và chỉ đặt minh họa ở vùng đủ rộng, tránh các dòng gợi ý nhỏ.
+
 ## Typography
 
 Dùng `font-sans` của ứng dụng cho nội dung tiếng Việt. Các trang nghiệp vụ giữ tiêu đề và nhãn đủ rõ để phân biệt thao tác, trạng thái và số liệu.

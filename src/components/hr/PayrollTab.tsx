@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Coins, FileSpreadsheet, Inbox, Lock, Play, Plus, RefreshCw, Search, Trash2, UserRound, UserRoundMinus, UsersRound, X } from "lucide-react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
+import { HrPageTitle } from "./HrPageTitle";
 import * as XLSX from "xlsx";
 import { toast } from "../../pages/Toast";
 import { payrollService } from "../../services/payrollService";
@@ -7,6 +9,7 @@ import { buildPayrollDetails } from "./payrollDetails";
 import { PAYROLL_FORMULA_LIBRARY_ENABLED } from "../../config/payrollFeatureFlags";
 import { MonthPicker } from "../common/MonthPicker";
 import { StyledSelect } from "../common/StyledSelect";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import { PayrollReviewQueue } from "./payroll/PayrollReviewQueue";
 import { PayrollSalaryAdvanceDialog, type SalaryAdvancePayload } from "./payroll/PayrollSalaryAdvanceDialog";
 import { PayrollPayslipsPanel } from "./payroll/PayrollPayslipsPanel";
@@ -39,7 +42,7 @@ const formatKpiPercent = (value: number | null | undefined) => typeof value === 
 function EmptyState({ icon: Icon, title, hint }: { icon: typeof Inbox; title: string; hint?: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-1.5 px-5 py-8 text-center">
-      <Icon size={28} className="text-[#A1B5D1]" />
+      {Icon === Lock ? <Icon size={28} className="text-[#A1B5D1]" /> : <HrEmptyIllustration kind={Icon === Search ? "search" : "payroll"} />}
       <p className="text-sm font-medium text-[#172B4D]">{title}</p>
       {hint && <p className="text-xs text-slate-400 max-w-sm">{hint}</p>}
     </div>
@@ -491,10 +494,10 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
   const effectiveDataAvailable = !effectiveError;
   const canSeeTable = (canManage || !!run) && effectiveDataAvailable;
 
-  return <section className="flex-1 space-y-2.5 overflow-auto bg-gradient-to-br from-[#F7FAFF] via-[#F2F8FF] to-[#F7FBFD] p-4 md:p-5">
+  return <section className="min-h-0 flex-1 space-y-2.5 overflow-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 className="text-xl font-semibold text-[#142547]">Bảng lương</h2>
+        <HrPageTitle>Bảng lương</HrPageTitle>
       </div>
       <MonthPicker value={period} onChange={setPeriod} />
     </div>
@@ -515,6 +518,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
               <div className="text-sm font-medium text-[#D75C0A]">Chờ duyệt</div>
               {(run?.status === "draft" || !run) && <button type="button" disabled={!run?.lines?.length && results.length === 0} onClick={() => setAdvanceOpen(true)} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-outline px-3 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><Plus className="size-4" aria-hidden="true" /> Phiếu tạm ứng lương</button>}
               <button
+                type="button"
                 onClick={() => {
                   const empId = run?.lines?.[0]?.employeeId || results?.[0]?.employeeId || "";
                   setAdjEmployeeId(empId);
@@ -523,9 +527,9 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                   setAdjReason("");
                   setIsAdjOpen(true);
                 }}
-                className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-lg bg-[#087BDF] px-3 text-xs font-medium text-white transition-colors hover:bg-[#006CC6]"
+                className={primaryCreateButtonClass}
               >
-                <Plus size={14} /> Điều chỉnh
+                <Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Điều chỉnh
               </button>
             </div>
             <PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), item.kind === "advance" ? "Đã duyệt tạm ứng; hãy tính lại bảng lương" : "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} onPrintAdvance={(item) => setAdvancePrintRecord(item)} />
@@ -851,7 +855,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
     {formulaRow && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]" onClick={() => setFormulaRow(null)}>
         <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-[0_20px_60px_rgba(13,48,78,0.2)] [&_b]:font-medium sm:p-5" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between gap-3"><div className="min-w-0"><h3 className="font-normal text-slate-900">Chi tiết công thức lương</h3><p className="truncate text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button aria-label="Đóng" onClick={() => setFormulaRow(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer"><X size={17} /></button></div>
+          <div className="flex justify-between gap-3"><div className="min-w-0"><h3 className="font-normal text-slate-900">Chi tiết công thức lương</h3><p className="truncate text-xs text-slate-500">{formulaRow.employeeName || formulaRow.employeeId}</p></div><button aria-label="Đóng" onClick={() => setFormulaRow(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer" data-erp-modal-close><X size={17} /></button></div>
           {(() => { const detail = buildPayrollDetails(formulaRow.attendance, formulaRow.calculation, formulaRow.vietnam); const money = (value: number) => value.toLocaleString() + " đ"; return <div className="mt-4 space-y-4 text-sm">{formulaLoading && <p className="text-xs text-[#007EB8]">Đang tải snapshot bảng lương mới nhất...</p>}
             <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 sm:p-4">
               <div><span className="text-xs text-slate-500">Lương cơ bản</span><b className="block">{money(detail.monthlySalary)}</b></div>
@@ -880,7 +884,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
         <form onSubmit={handleCreateAdjustment} className="flex w-full max-w-md max-h-[90dvh] flex-col rounded-2xl bg-white p-4 shadow-[0_20px_60px_rgba(13,48,78,0.2)] sm:p-5" onClick={(e) => e.stopPropagation()}>
           <div className="flex justify-between items-center gap-3 border-b border-[#E8F0F8] pb-3">
             <h3 className="text-base font-medium text-[#143963]">Thêm khoản lương</h3>
-            <button type="button" aria-label="Đóng" onClick={() => setIsAdjOpen(false)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer"><X size={17} /></button>
+            <button type="button" aria-label="Đóng" onClick={() => setIsAdjOpen(false)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer" data-erp-modal-close><X size={17} /></button>
           </div>
           <div className="-mx-1 flex-1 space-y-3 overflow-y-auto overscroll-contain px-1 py-3 text-sm">
             <div>

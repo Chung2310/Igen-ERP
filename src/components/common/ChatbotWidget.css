@@ -11,6 +11,34 @@
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 @media (max-width: 639px) {
+.assistant-launcher-button::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 2px solid var(--color-primary);
+  border-radius: 9999px;
+  box-shadow: 0 0 14px 3px color-mix(in srgb, var(--color-primary) 55%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.assistant-launcher-button[aria-expanded="false"]::before {
+  animation: assistant-launcher-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes assistant-launcher-glow {
+  0%, 100% { opacity: .18; transform: scale(.94); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-launcher-button[aria-expanded="false"]::before {
+    animation: none;
+    opacity: .6;
+    transform: none;
+  }
+}
+
   .assistant-workspace {
     inset: 0;
     width: 100%;

@@ -73,7 +73,7 @@ export default function SePayPaymentPendingDialog({
               <h2 className="mt-2 text-xl font-extrabold text-slate-900">Quét QR để chuyển khoản</h2>
             </div>
           </div>
-          <button type="button" aria-label="Đóng màn hình chờ" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={onDismiss}><X className="h-4 w-4" /></button>
+          <button type="button" aria-label="Đóng màn hình chờ" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={onDismiss} data-erp-modal-close><X className="h-4 w-4" /></button>
         </div>
 
         <div role="region" aria-label="Chi tiết thanh toán SePay" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary sm:px-6">

@@ -330,7 +330,7 @@ export function AddStudentModal({ isOpen, onClose, onSuccess, students, selected
                 disabled={isSubmitting}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50"
                 aria-label="Đóng"
-              >
+               data-erp-modal-close>
                 <X className="w-4 h-4" />
               </button>
             </div>

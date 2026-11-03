@@ -1,0 +1,7 @@
+.module-launcher-logo-erp-dark {
+  display: none;
+}
+
+.dark .module-launcher-logo-erp-dark {
+  display: inline;
+}

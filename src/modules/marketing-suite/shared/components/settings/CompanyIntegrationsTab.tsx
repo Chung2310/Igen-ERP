@@ -1335,7 +1335,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                   <p className="mt-1 text-sm text-gray-500">Quản lý tài khoản doanh nghiệp và xem tài khoản của thành viên.</p>
                 </div>
                 <button type="button" aria-label="Đóng danh sách tài khoản" onClick={() => setShowAccounts(false)}
-                  className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800">
+                  className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800" data-erp-modal-close>
                   <X className="h-5 w-5" />
                 </button>
               </div>

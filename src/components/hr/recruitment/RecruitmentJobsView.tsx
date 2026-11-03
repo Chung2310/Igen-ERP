@@ -25,6 +25,7 @@ import { jobStatusLabels } from "./recruitmentLabels";
 import { ConfirmDialog } from "../../common/ConfirmDialog";
 import { DateInput24 } from "../../common/TimeInput24";
 import { StyledSelect } from "../../common/StyledSelect";
+import { primaryCreateButtonClass } from "../../common/primaryCreateButton";
 
 const emptyJob = {
   code: "",
@@ -149,10 +150,11 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
         <StyledSelect ariaLabel="Lọc trạng thái tin tuyển dụng" value={status} onChange={setStatus} className="sm:!w-48" options={[{ value: "", label: "Mọi trạng thái" }, ...Object.entries(statusLabel).map(([value, label]) => ({ value, label }))]} />
         {canManage && (
           <button
-            className={`${primaryButton} ml-auto`}
+            type="button"
+            className={`${primaryCreateButtonClass} ml-auto`}
             onClick={() => setEditing(null)}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
             Tạo tin
           </button>
         )}

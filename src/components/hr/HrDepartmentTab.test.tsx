@@ -44,7 +44,8 @@ describe("HrDepartmentTab manager options", () => {
     await user.click(await screen.findByRole("button", { name: "Thêm phòng ban" }));
 
     const dialog = screen.getByRole("dialog", { name: "Thêm phòng ban" });
-    const managerSelect = within(dialog).getByRole("combobox", { name: "Người quản lý (không bắt buộc)" });
-    expect(within(managerSelect).getByRole("option", { name: "Nguyễn An" })).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "Người quản lý (không bắt buộc)" }));
+    const managerOptions = within(dialog).getByRole("listbox", { name: "Người quản lý (không bắt buộc)" });
+    expect(within(managerOptions).getByRole("option", { name: "Nguyễn An" })).toBeTruthy();
   });
 });

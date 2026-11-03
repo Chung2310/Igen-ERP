@@ -364,7 +364,7 @@ export function CartPanel({
                 onClick={() => setShowDiscountModal(false)}
                 aria-label="Đóng giảm giá và điều chỉnh đơn"
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
-              >
+               data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -474,7 +474,7 @@ export function CartPanel({
                   onClick={() => setShowCollaboratorModal(false)}
                   aria-label="Đóng người giới thiệu"
                   className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-primary"
-                >
+                 data-erp-modal-close>
                   <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
@@ -530,7 +530,7 @@ export function CartPanel({
                 onClick={() => setShowNoteModal(false)}
                 aria-label="Đóng ghi chú đơn hàng"
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
-              >
+               data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -606,7 +606,7 @@ export function CartPanel({
                 onClick={() => setShowInstallmentModal(false)}
                 aria-label="Đóng hồ sơ trả góp"
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
-              >
+               data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>

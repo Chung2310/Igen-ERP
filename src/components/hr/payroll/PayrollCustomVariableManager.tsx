@@ -3,6 +3,7 @@ import { Plus, WalletCards } from "lucide-react";
 import { StyledSelect } from "../../common/StyledSelect";
 import { payrollService } from "../../../services/payrollService";
 import { toast } from "../../../pages/Toast";
+import { primaryCreateButtonClass } from "../../common/primaryCreateButton";
 
 export function PayrollCustomVariableManager() {
   const [items, setItems] = useState<any[]>([]);
@@ -40,14 +41,17 @@ export function PayrollCustomVariableManager() {
           <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-medium text-[#08734E]">Khoản bổ sung</h3>
             <button
+              type="button"
+              aria-expanded={open}
+              aria-controls="payroll-add-variable-form"
               onClick={() => setOpen(!open)}
-              className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#DDF6EA] px-3 text-xs font-medium text-[#008C67] transition-colors hover:bg-[#C9F0DE]"
+              className={primaryCreateButtonClass}
             >
-              <Plus size={14} /> Thêm khoản
+              <Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Thêm khoản
             </button>
           </div>
           {open && (
-            <div className="mb-2 grid gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px_minmax(0,1fr)_auto]">
+            <div id="payroll-add-variable-form" className="mb-2 grid gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px_minmax(0,1fr)_auto]">
               <input aria-label="Mã khoản" className="h-9 min-w-0 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15" placeholder="Mã khoản" value={form.code} onChange={event => setForm({ ...form, code: event.target.value })} />
               <input aria-label="Tên khoản" className="h-9 min-w-0 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15" placeholder="Tên khoản" value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} />
               <StyledSelect className="!h-9" value={form.unit} onChange={value => setForm({ ...form, unit: value })} ariaLabel="Đơn vị khoản" options={[{ value: "money", label: "Tiền" }, { value: "number", label: "Số" }, { value: "days", label: "Ngày" }, { value: "hours", label: "Giờ" }, { value: "minutes", label: "Phút" }, { value: "percent", label: "%" }]} />

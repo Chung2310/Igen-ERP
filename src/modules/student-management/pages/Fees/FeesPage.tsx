@@ -13,6 +13,7 @@ import { AddPaymentModal } from '../../components/Fees/AddPaymentModal';
 import { Pagination } from '../../components/ui/Pagination';
 import { apiFetch } from '../../lib/api';
 import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
+import { StudentEmptyIllustration } from '../../components/Erp/StudentEmptyIllustration';
 import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
 
 type PaymentRecord = { studentId: string; studentName?: string; amount: number; date: string; method: string; paidOn?: string };
@@ -188,11 +189,11 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
   }, [searchQuery, debtFilter, startDate, endDate]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-3 sm:p-4">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-medium tracking-tight text-slate-900">Học phí</h1>
+        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
+          <h1 className="text-balance text-xl font-medium text-on-surface">Học phí</h1>
           <p className="mt-1 text-xs font-normal text-slate-500">Số liệu theo kỳ: {toDisplayDate(appliedStartDate) || 'Tất cả lịch sử'} đến {toDisplayDate(appliedEndDate) || 'hiện tại'}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -322,8 +323,8 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                 </tr>
               ) : paginatedStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={hasRankData ? 8 : 7} className="px-6 py-20 text-center text-slate-400 italic font-medium tracking-tight">
-                    Không tìm thấy dữ liệu học phí phù hợp.
+                  <td colSpan={hasRankData ? 8 : 7} className="px-6 py-8 text-center">
+                    <div className="flex flex-col items-center"><StudentEmptyIllustration kind="fee" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Không tìm thấy dữ liệu học phí phù hợp.</p></div>
                   </td>
                 </tr>
               ) : paginatedStudents.map((student) => {

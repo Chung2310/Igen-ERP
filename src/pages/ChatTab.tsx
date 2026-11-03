@@ -3418,7 +3418,7 @@ export default function ChatTab() {
                 <Users className="h-5 w-5 text-[#0099df]" />
                 Tạo nhóm trò chuyện
               </h3>
-              <button type="button" onClick={() => setShowCreateGroupModal(false)} aria-label="Đóng" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-500 transition-colors hover:bg-rose-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400">
+              <button type="button" onClick={() => setShowCreateGroupModal(false)} aria-label="Đóng" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-500 transition-colors hover:bg-rose-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400" data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -3512,7 +3512,7 @@ export default function ChatTab() {
                 <Users className="h-5 w-5 text-indigo-600" />
                 Thêm thành viên vào nhóm
               </h3>
-              <button onClick={() => setShowAddMemberModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setShowAddMemberModal(false)} className="text-gray-400 hover:text-gray-600" data-erp-modal-close aria-label="Đóng">
                 <X className="h-5 w-5" />
               </button>
             </div>

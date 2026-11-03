@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Clock, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
+import { DateInput24, TimeInput24 } from "../common/TimeInput24";
+import { StyledSelect } from "../common/StyledSelect";
+import { HrPageTitle } from "../hr/HrPageTitle";
 
 interface WorkHoursConfig {
   useCustom: boolean;
@@ -131,10 +134,9 @@ export default function EmployeeWorkHoursTab() {
 
   return (
     <div>
-      <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
-        <Clock className="h-5 w-5 text-indigo-500" />
-        Giờ làm việc riêng của nhân viên
-      </h3>
+      <div className="mb-4 border-b border-gray-100 pb-3">
+        <HrPageTitle level={3}>Giờ làm việc riêng của nhân viên</HrPageTitle>
+      </div>
 
       <div className="relative mb-4">
         <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -213,11 +215,11 @@ export default function EmployeeWorkHoursTab() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Trạng thái nhân sự</label>
-                <select value={form.employmentStatus || "official"} onChange={(e) => setForm((f) => ({ ...f, employmentStatus: e.target.value as WorkHoursConfig["employmentStatus"] }))} className={inputClass}><option value="official">Chính thức</option><option value="probation">Thử việc</option><option value="internship">Thực tập</option></select>
+                <StyledSelect appearance="erp" ariaLabel="Trạng thái nhân sự" value={form.employmentStatus || "official"} onChange={(employmentStatus) => setForm((f) => ({ ...f, employmentStatus: employmentStatus as WorkHoursConfig["employmentStatus"] }))} options={[{ value: "official", label: "Chính thức" }, { value: "probation", label: "Thử việc" }, { value: "internship", label: "Thực tập" }]} />
               </div>
               <div className="space-y-1.5 text-left">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ngày chính thức</label>
-                <input type="date" value={form.officialDate || ""} onChange={(e) => setForm((f) => ({ ...f, officialDate: e.target.value }))} className={inputClass} />
+                <DateInput24 ariaLabel="Ngày chính thức" value={form.officialDate || ""} onChange={(officialDate) => setForm((f) => ({ ...f, officialDate }))} />
               </div>
               <div className="space-y-1.5 text-left col-span-2">
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Phép năm custom (để trống = theo công ty)</label>
@@ -233,19 +235,19 @@ export default function EmployeeWorkHoursTab() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5 text-left">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Giờ vào (Check-in)</label>
-                  <input type="text" value={form.checkInLimit || ""} onChange={(e) => setForm((f) => ({ ...f, checkInLimit: e.target.value }))} placeholder="08:30" className={inputClass} />
+                  <TimeInput24 ariaLabel="Giờ vào (Check-in)" variant="compact" className="w-full" value={form.checkInLimit || ""} onChange={(value) => setForm((f) => ({ ...f, checkInLimit: value }))} />
                 </div>
                 <div className="space-y-1.5 text-left">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Giờ ra (Check-out)</label>
-                  <input type="text" value={form.checkOutLimit || ""} onChange={(e) => setForm((f) => ({ ...f, checkOutLimit: e.target.value }))} placeholder="17:30" className={inputClass} />
+                  <TimeInput24 ariaLabel="Giờ ra (Check-out)" variant="compact" className="w-full" value={form.checkOutLimit || ""} onChange={(value) => setForm((f) => ({ ...f, checkOutLimit: value }))} />
                 </div>
                 <div className="space-y-1.5 text-left">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Bắt đầu nghỉ trưa</label>
-                  <input type="text" value={form.lunchBreakStart || ""} onChange={(e) => setForm((f) => ({ ...f, lunchBreakStart: e.target.value }))} placeholder="12:00" className={inputClass} />
+                  <TimeInput24 ariaLabel="Bắt đầu nghỉ trưa" variant="compact" className="w-full" value={form.lunchBreakStart || ""} onChange={(value) => setForm((f) => ({ ...f, lunchBreakStart: value }))} />
                 </div>
                 <div className="space-y-1.5 text-left">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Kết thúc nghỉ trưa</label>
-                  <input type="text" value={form.lunchBreakEnd || ""} onChange={(e) => setForm((f) => ({ ...f, lunchBreakEnd: e.target.value }))} placeholder="13:00" className={inputClass} />
+                  <TimeInput24 ariaLabel="Kết thúc nghỉ trưa" variant="compact" className="w-full" value={form.lunchBreakEnd || ""} onChange={(value) => setForm((f) => ({ ...f, lunchBreakEnd: value }))} />
                 </div>
                 <div className="col-span-2 space-y-2 text-left">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Ngày làm việc</label>
