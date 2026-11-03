@@ -35,7 +35,10 @@ export async function emitToMessengerAccount(channel: MessengerChannel, accountI
   // An ambiguous account must be reconciled before messages can be routed.
   if (companies.size !== 1) return;
   const companyCode = [...companies][0];
-  const object = payload && typeof payload === "object" ? payload : { data: payload };
+  // Spreading a Mongoose document exposes _doc/$__ instead of its public fields.
+  const object = payload && typeof payload === "object"
+    ? ("toObject" in payload && typeof payload.toObject === "function" ? payload.toObject() : payload)
+    : { data: payload };
   relayMarketingEvent({ kind: "account", id: messengerRoom(companyCode, channel, accountId) }, event, { ...object, channel, accountId });
 }
 export function emitToPage(pageId: string, event: string, payload: unknown) {
