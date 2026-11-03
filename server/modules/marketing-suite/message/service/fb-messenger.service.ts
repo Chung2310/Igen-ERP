@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model.ts";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import { UserModel } from "../../../../model/user.model.ts";
@@ -32,6 +32,13 @@ export type FacebookTokenContext = {
 
 function normalizeFacebookId(value: any) {
   return String(value || "").trim();
+}
+
+function createPostbackMessageId(pageId: string, event: any, title: string, payload: string) {
+  const identity = [pageId, event.sender?.id, event.timestamp, title, payload]
+    .map((value) => String(value || "").trim())
+    .join("\u0000");
+  return `fb_postback_${createHash("sha256").update(identity).digest("hex")}`;
 }
 
 function normalizeOptionalFacebookConversationId(value: any): string | undefined {
@@ -381,11 +388,29 @@ export const fbMessengerService = {
         for (const event of messagingEvents) {
           if (event.message && !event.message.is_echo) {
             const attachmentCount = Array.isArray(event.message?.attachments) ? event.message.attachments.length : 0;
-            const quickReplyPayload = String(event.message?.quick_reply?.payload || "").trim();
             console.log(
               `[FB Service] Nhận tin nhắn mới: sender=${event.sender?.id}, textLength=${String(event.message.text || "").length}, attachments=${attachmentCount}`
             );
             await this.processIncomingMessage(event, entry.id);
+          } else if (event.postback) {
+            const title = String(event.postback?.title || "").trim();
+            const payload = String(event.postback?.payload || "").trim();
+            if (!title && !payload) {
+              console.warn(`[FB Service] Bỏ qua postback rỗng: sender=${event.sender?.id || "unknown"}`);
+              continue;
+            }
+            const messageId = createPostbackMessageId(String(entry.id || ""), event, title, payload);
+            console.log(
+              `[FB Service] Nhận postback: sender=${event.sender?.id || "unknown"}, payloadLength=${payload.length}`
+            );
+            await this.processIncomingMessage({
+              ...event,
+              message: {
+                mid: messageId,
+                text: title,
+                actionPayload: payload,
+              },
+            }, entry.id);
           } else if (event.read) {
             await this.processReadReceipt(event);
           }
@@ -532,11 +557,16 @@ export const fbMessengerService = {
    * Lưu tin nhắn đến vào DB và tạo cuộc hội thoại nếu chưa có
    */
   async processIncomingMessage(event: any, pageId?: string) {
-    const senderId = event.sender.id; // PSID của khách hàng
-    const recipientId = event.recipient.id; // ID của Fanpage mình (pageId)
+    const senderId = String(event.sender?.id || "").trim(); // PSID của khách hàng
+    const recipientId = String(event.recipient?.id || pageId || "").trim(); // ID của Fanpage mình (pageId)
+    if (!senderId || !recipientId) {
+      console.warn("[FB Service processIncomingMessage] Bỏ qua event thiếu sender hoặc recipient.");
+      return;
+    }
     const message = event.message;
     const messageId = String(message?.mid || `fb_in_${recipientId}_${senderId}_${randomUUID()}`).trim();
-    const timestamp = new Date(event.timestamp);
+    const eventTimestamp = Number(event.timestamp);
+    const timestamp = Number.isFinite(eventTimestamp) ? new Date(eventTimestamp) : new Date();
 
     const resolvedPageId = pageId || recipientId;
     if (senderId === resolvedPageId || event.message?.is_echo) {
@@ -544,15 +574,16 @@ export const fbMessengerService = {
       return;
     }
 
-    const text = String(message?.text || "").trim();
+    const messageText = String(message?.text || "").trim();
     const rawAttachments = Array.isArray(message?.attachments) ? message.attachments : [];
     const attachments = rawAttachments.map((att: any) => ({
       type: att?.type || "attachment",
       url: att?.payload?.url || "",
     }));
-    const quickReplyPayload = String(message?.quick_reply?.payload || "").trim();
+    const actionPayload = String(message?.actionPayload || message?.quick_reply?.payload || "").trim();
+    const text = messageText || (actionPayload ? "Đã chọn tùy chọn" : "");
 
-    if (!text && attachments.length === 0 && !quickReplyPayload) {
+    if (!text && attachments.length === 0 && !actionPayload) {
       return;
     }
 
@@ -624,6 +655,7 @@ export const fbMessengerService = {
             recipientId,
             direction: "inbound",
             text,
+            ...(actionPayload ? { actionPayload } : {}),
             attachments,
             messageId,
             timestamp,

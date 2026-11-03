@@ -42,6 +42,24 @@ const FACEBOOK_REPLY_WORKER_INTERVAL_MS = 10 * 1000;
 let facebookReplyWorkerTimer: NodeJS.Timeout | undefined;
 let facebookReplyWorkerRunning = false;
 const HUMAN_INTERVENTION_GUARD_ENABLED = true;
+
+function getFacebookAIContextText(text: unknown, actionPayload: unknown): string {
+  const messageText = String(text || "").trim();
+  const payload = String(actionPayload || "").trim();
+  if (!payload) return messageText;
+  const payloadContext = `Facebook action payload: ${payload}`;
+  return messageText ? `${messageText}\n${payloadContext}` : payloadContext;
+}
+
+function withFacebookActionPayload(messages: any[]) {
+  return messages.map((message: any) => {
+    const plainMessage = typeof message?.toObject === "function" ? message.toObject() : message;
+    return {
+      ...plainMessage,
+      text: getFacebookAIContextText(plainMessage?.text, plainMessage?.actionPayload),
+    };
+  });
+}
 const DEFAULT_MESSAGE_GROUPING_DELAY_MS = 7000;
 const DEFAULT_BUBBLE_DELAY_MS = 2000;
 
@@ -870,7 +888,8 @@ export const aiAutoReplyService = {
               lastMessageDirection = latestDbMessage.direction;
             }
 
-            const grouped = splitHistoryAndPendingInboundMessages(dbMsgs);
+            const aiContextMessages = withFacebookActionPayload(dbMsgs);
+            const grouped = splitHistoryAndPendingInboundMessages(aiContextMessages);
             visualSourceMessages = dbMsgs;
             groupedCustomerMessage = grouped.combinedText || normalizedIncomingText;
             pendingImageUrls = grouped.imageUrls;
@@ -1046,7 +1065,8 @@ export const aiAutoReplyService = {
               if (customerSession) {
                 const sessionMessages = await FBMessageModel.find({ conversationId, consultationSessionId: customerSession.sessionId })
                   .sort({ timestamp: -1 }).limit(60).lean();
-                const grouped = splitHistoryAndPendingInboundMessages(sessionMessages.reverse());
+                const aiContextMessages = withFacebookActionPayload(sessionMessages.reverse());
+                const grouped = splitHistoryAndPendingInboundMessages(aiContextMessages);
                 visualSourceMessages = sessionMessages;
                 groupedCustomerMessage = grouped.combinedText || latestDbMessage.text || normalizedIncomingText;
                 pendingImageUrls = grouped.imageUrls;
