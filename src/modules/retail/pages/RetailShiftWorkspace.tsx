@@ -247,7 +247,7 @@ export default function RetailShiftWorkspace() {
                 <p className="mt-0.5 truncate text-sm text-slate-500">{operation.shift.cashierName} <span className="text-slate-300">·</span> {operation.shift.businessDate}</p>
               </div>
             </div>
-            <button type="button" aria-label="Đóng cửa sổ" disabled={busy} onClick={() => setOperation(null)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50">
+            <button type="button" aria-label="Đóng cửa sổ" disabled={busy} onClick={() => setOperation(null)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50" data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </header>

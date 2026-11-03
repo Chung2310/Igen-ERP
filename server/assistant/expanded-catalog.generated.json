@@ -3073,186 +3073,6 @@
     "adapter": "contract"
   },
   {
-    "id": "marketing.tiktok.publish",
-    "title": "Đăng video TikTok đã lưu",
-    "description": "Đăng một video đã lưu trong kênh TikTok. Chọn bài TikTok theo tên và, nếu muốn, chọn tài khoản TikTok đang kết nối theo tên. Hệ thống kiểm tra bài thuộc doanh nghiệp và đúng kênh; phải cung cấp các tuỳ chọn đăng và xác nhận điều khoản TikTok trước khi đăng. Luôn xem lại quyền riêng tư, khai báo thương mại và xác nhận trước khi gửi.",
-    "module": "social-marketing",
-    "permissions": [
-      "marketing:post"
-    ],
-    "permissionGroups": [
-      [
-        "marketing:post"
-      ]
-    ],
-    "method": "POST",
-    "path": "/tiktok/publish",
-    "fields": [
-      {
-        "key": "cardId",
-        "label": "Bài TikTok đã lưu",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "reference": "marketing.content.list",
-        "referenceValueKey": "id",
-        "referenceContext": {
-          "channel": "TikTok"
-        },
-        "source": "body",
-        "apiKey": "cardId"
-      },
-      {
-        "key": "caption",
-        "label": "Chú thích",
-        "type": "text",
-        "systemRequired": false,
-        "required": false,
-        "max": 2200,
-        "source": "body",
-        "apiKey": "caption"
-      },
-      {
-        "key": "videoUrl",
-        "label": "Liên kết video đã lưu",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "pattern": "^https?://\\S+$",
-        "source": "body",
-        "apiKey": "videoUrl"
-      },
-      {
-        "key": "privacyLevel",
-        "label": "Mức riêng tư",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "options": [
-          "PUBLIC_TO_EVERYONE",
-          "MUTUAL_FOLLOW_FRIENDS",
-          "FOLLOWER_OF_CREATOR",
-          "SELF_ONLY"
-        ],
-        "source": "body",
-        "apiKey": "privacyLevel"
-      },
-      {
-        "key": "allowComment",
-        "label": "Cho phép bình luận",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "allowComment"
-      },
-      {
-        "key": "allowDuet",
-        "label": "Cho phép song ca",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "allowDuet"
-      },
-      {
-        "key": "allowStitch",
-        "label": "Cho phép ghép video",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "allowStitch"
-      },
-      {
-        "key": "brandContentToggle",
-        "label": "Bật khai báo nội dung thương mại",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "brandContentToggle"
-      },
-      {
-        "key": "brandContent",
-        "label": "Nội dung có thương hiệu",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "brandContent"
-      },
-      {
-        "key": "brandOrganic",
-        "label": "Nội dung tự nhiên",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "brandOrganic"
-      },
-      {
-        "key": "isAigc",
-        "label": "Nội dung do AI tạo",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "isAigc"
-      },
-      {
-        "key": "videoDurationSeconds",
-        "label": "Thời lượng video (giây)",
-        "type": "number",
-        "systemRequired": true,
-        "required": true,
-        "min": 0.001,
-        "exclusiveMin": true,
-        "source": "body",
-        "apiKey": "videoDurationSeconds"
-      },
-      {
-        "key": "consentAccepted",
-        "label": "Đã đọc và chấp thuận điều khoản TikTok",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "consentAccepted"
-      },
-      {
-        "key": "scheduledTime",
-        "label": "Thời điểm dự kiến đăng",
-        "type": "text",
-        "systemRequired": false,
-        "required": false,
-        "source": "body",
-        "apiKey": "scheduledTime"
-      },
-      {
-        "key": "integrationId",
-        "label": "Tài khoản TikTok đã kết nối",
-        "type": "text",
-        "systemRequired": false,
-        "required": false,
-        "reference": "marketing.account.list",
-        "referenceValueKey": "id",
-        "referenceContext": {
-          "platform": "TikTok"
-        },
-        "source": "body",
-        "apiKey": "integrationId"
-      }
-    ],
-    "link": "/chien-dich-noi-dung",
-    "confirmation": true,
-    "resultFields": [
-      "status",
-      "message"
-    ],
-    "adapter": "contract"
-  },
-  {
     "id": "marketing.tiktok.creator-info",
     "title": "Tra cứu điều kiện đăng của tài khoản TikTok",
     "description": "Tra thông tin nhà sáng tạo và các lựa chọn đăng của tài khoản TikTok đang kết nối. Có thể chọn tài khoản theo tên; nếu bỏ trống, máy chủ dùng tài khoản TikTok của người đang đăng nhập. Không thay đổi dữ liệu.",
@@ -3293,186 +3113,6 @@
       "duetDisabled",
       "stitchDisabled",
       "maxVideoPostDurationSec"
-    ],
-    "adapter": "contract"
-  },
-  {
-    "id": "marketing.tiktok-business.publish",
-    "title": "Đăng video TikTok doanh nghiệp đã lưu",
-    "description": "Đăng video TikTok đã lưu của doanh nghiệp. Chọn bài theo tên và, nếu muốn, chọn tài khoản TikTok doanh nghiệp đã kết nối theo tên. Hệ thống kiểm tra công ty và kênh của bài; phải cung cấp các tuỳ chọn đăng, chấp thuận điều khoản TikTok và xác nhận trước khi gửi.",
-    "module": "social-marketing",
-    "permissions": [
-      "marketing:post"
-    ],
-    "permissionGroups": [
-      [
-        "marketing:post"
-      ]
-    ],
-    "method": "POST",
-    "path": "/tiktok-business/publish",
-    "fields": [
-      {
-        "key": "cardId",
-        "label": "Bài TikTok đã lưu",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "reference": "marketing.content.list",
-        "referenceValueKey": "id",
-        "referenceContext": {
-          "channel": "TikTok"
-        },
-        "source": "body",
-        "apiKey": "cardId"
-      },
-      {
-        "key": "caption",
-        "label": "Chú thích",
-        "type": "text",
-        "systemRequired": false,
-        "required": false,
-        "max": 2200,
-        "source": "body",
-        "apiKey": "caption"
-      },
-      {
-        "key": "videoUrl",
-        "label": "Liên kết video đã lưu",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "pattern": "^https?://\\S+$",
-        "source": "body",
-        "apiKey": "videoUrl"
-      },
-      {
-        "key": "privacyLevel",
-        "label": "Mức riêng tư",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "options": [
-          "PUBLIC_TO_EVERYONE",
-          "MUTUAL_FOLLOW_FRIENDS",
-          "FOLLOWER_OF_CREATOR",
-          "SELF_ONLY"
-        ],
-        "source": "body",
-        "apiKey": "privacyLevel"
-      },
-      {
-        "key": "allowComment",
-        "label": "Cho phép bình luận",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "allowComment"
-      },
-      {
-        "key": "allowDuet",
-        "label": "Cho phép song ca",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "allowDuet"
-      },
-      {
-        "key": "allowStitch",
-        "label": "Cho phép ghép video",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "allowStitch"
-      },
-      {
-        "key": "brandContentToggle",
-        "label": "Bật khai báo nội dung thương mại",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "brandContentToggle"
-      },
-      {
-        "key": "brandContent",
-        "label": "Nội dung có thương hiệu",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "brandContent"
-      },
-      {
-        "key": "brandOrganic",
-        "label": "Nội dung tự nhiên",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "brandOrganic"
-      },
-      {
-        "key": "isAigc",
-        "label": "Nội dung do AI tạo",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "isAigc"
-      },
-      {
-        "key": "videoDurationSeconds",
-        "label": "Thời lượng video (giây)",
-        "type": "number",
-        "systemRequired": true,
-        "required": true,
-        "min": 0.001,
-        "exclusiveMin": true,
-        "source": "body",
-        "apiKey": "videoDurationSeconds"
-      },
-      {
-        "key": "consentAccepted",
-        "label": "Đã đọc và chấp thuận điều khoản TikTok",
-        "type": "boolean",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "consentAccepted"
-      },
-      {
-        "key": "scheduledTime",
-        "label": "Thời điểm dự kiến đăng",
-        "type": "text",
-        "systemRequired": false,
-        "required": false,
-        "source": "body",
-        "apiKey": "scheduledTime"
-      },
-      {
-        "key": "integrationId",
-        "label": "Tài khoản TikTok đã kết nối",
-        "type": "text",
-        "systemRequired": false,
-        "required": false,
-        "reference": "marketing.account.list",
-        "referenceValueKey": "id",
-        "referenceContext": {
-          "platform": "TikTok"
-        },
-        "source": "body",
-        "apiKey": "integrationId"
-      }
-    ],
-    "link": "/chien-dich-noi-dung",
-    "confirmation": true,
-    "resultFields": [
-      "status",
-      "message"
     ],
     "adapter": "contract"
   },
@@ -10669,6 +10309,44 @@
     "adapter": "contract"
   },
   {
+    "id": "timekeeping.records.list",
+    "title": "Tra cứu chấm công nhân sự trong ngày",
+    "description": "Xem giờ vào/ra và trạng thái chấm công theo tên của toàn bộ nhân sự trong phạm vi công ty hoặc chi nhánh của tài khoản. Bỏ trống ngày để xem hôm nay. Nhân sự chưa có bản ghi được hiển thị là “Chưa ghi nhận”. Kết quả không chứa mã nhân viên, vị trí GPS hoặc thông tin lương.",
+    "module": "hr",
+    "permissions": [
+      "timekeeping:read"
+    ],
+    "permissionGroups": [
+      [
+        "timekeeping:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/timekeeping/records",
+    "fields": [
+      {
+        "key": "query_date",
+        "label": "Ngày cần xem (YYYY-MM-DD); bỏ trống để xem hôm nay",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+        "source": "query",
+        "apiKey": "date"
+      }
+    ],
+    "link": "/nhan-su",
+    "confirmation": false,
+    "resultFields": [
+      "date",
+      "employeeName",
+      "attendanceStatus",
+      "checkIn",
+      "checkOut"
+    ],
+    "adapter": "contract"
+  },
+  {
     "id": "api.get.d2e63aaeb8682c88",
     "title": "Tra cứu lần chấm công bị từ chối",
     "description": "Xem các lần vào/ra ca bị từ chối hoặc lỗi trong ngày của chi nhánh gắn với tài khoản. Chỉ hiển thị tên nhân viên, thao tác, lý do, thời điểm và khoảng cách nếu có; không trả email, tọa độ GPS, địa chỉ IP, mã nhân viên hoặc dữ liệu ảnh.",
@@ -17251,8 +16929,8 @@
   },
   {
     "id": "api.get.0c557a74cbc907f9",
-    "title": "Tra cứu hr hợp đồng",
-    "description": "Tra cứu hr hợp đồng. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "title": "Tra cứu hợp đồng nhân sự",
+    "description": "Tìm hợp đồng theo tên nhân sự hoặc loại hợp đồng. Có thể chọn khoảng cảnh báo từ 1 đến 365 ngày; nếu không nêu, hệ thống dùng số ngày đã cài cho công ty. Kết quả gồm hợp đồng và danh sách sắp hết hạn, không hiển thị mã nhân viên.",
     "module": "hr",
     "permissions": [
       "hr:read"
@@ -17266,15 +16944,6 @@
     "path": "/hr-contracts",
     "fields": [
       {
-        "key": "query_employeeId",
-        "label": "Mã nhân viên",
-        "type": "text",
-        "systemRequired": false,
-        "required": false,
-        "source": "query",
-        "apiKey": "employeeId"
-      },
-      {
         "key": "query_search",
         "label": "Từ khóa",
         "type": "text",
@@ -17284,12 +16953,25 @@
         "apiKey": "search"
       },
       {
+        "key": "query_alertDays",
+        "label": "Số ngày báo trước khi hợp đồng hết hạn",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 1,
+        "max": 365,
+        "integer": true,
+        "source": "query",
+        "apiKey": "alertDays"
+      },
+      {
         "key": "query_page",
         "label": "Trang",
         "type": "number",
         "systemRequired": false,
         "required": false,
         "min": 1,
+        "integer": true,
         "defaultValue": 1,
         "source": "query",
         "apiKey": "page"
@@ -17302,6 +16984,7 @@
         "required": false,
         "min": 1,
         "max": 100,
+        "integer": true,
         "defaultValue": 10,
         "source": "query",
         "apiKey": "limit"
@@ -17309,7 +16992,13 @@
     ],
     "link": "/nhan-su",
     "confirmation": false,
-    "resultFields": [],
+    "resultFields": [
+      "contracts",
+      "total",
+      "expiryAlerts",
+      "expiryAlertTotal",
+      "expiryAlertDays"
+    ],
     "adapter": "contract"
   },
   {
@@ -17496,6 +17185,76 @@
       "startDate",
       "endDate",
       "status"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "hr.contract.settings.get",
+    "title": "Xem cài đặt cảnh báo hợp đồng nhân sự",
+    "description": "Xem số ngày báo trước khi hợp đồng hết hạn và trạng thái gửi thông báo cho quản lý của công ty hiện tại.",
+    "module": "hr",
+    "permissions": [
+      "hr:read"
+    ],
+    "permissionGroups": [
+      [
+        "hr:read"
+      ]
+    ],
+    "method": "GET",
+    "path": "/hr-contracts/settings",
+    "fields": [],
+    "link": "/nhan-su",
+    "confirmation": false,
+    "resultFields": [
+      "expiryAlertDays",
+      "notifyManagers"
+    ],
+    "adapter": "contract"
+  },
+  {
+    "id": "hr.contract.settings.update",
+    "title": "Cập nhật cài đặt cảnh báo hợp đồng nhân sự",
+    "description": "Cập nhật số ngày báo trước (1–365) và việc gửi thông báo cho quản lý. API ghi cả hai cài đặt cùng lúc; hãy hỏi rõ bật hay tắt thông báo nếu người dùng chỉ yêu cầu đổi số ngày. Cần xác nhận trước khi lưu.",
+    "module": "hr",
+    "permissions": [
+      "hr:manage"
+    ],
+    "permissionGroups": [
+      [
+        "hr:manage"
+      ]
+    ],
+    "method": "PUT",
+    "path": "/hr-contracts/settings",
+    "fields": [
+      {
+        "key": "expiryAlertDays",
+        "label": "Số ngày báo trước khi hợp đồng hết hạn",
+        "type": "number",
+        "systemRequired": true,
+        "required": true,
+        "min": 1,
+        "max": 365,
+        "integer": true,
+        "source": "body",
+        "apiKey": "expiryAlertDays"
+      },
+      {
+        "key": "notifyManagers",
+        "label": "Gửi thông báo cho quản lý",
+        "type": "boolean",
+        "systemRequired": true,
+        "required": true,
+        "source": "body",
+        "apiKey": "notifyManagers"
+      }
+    ],
+    "link": "/nhan-su",
+    "confirmation": true,
+    "resultFields": [
+      "expiryAlertDays",
+      "notifyManagers"
     ],
     "adapter": "contract"
   },
@@ -21281,9 +21040,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.get.3d687522518ab16e",
+    "id": "task.list",
     "title": "Tra cứu công việc",
-    "description": "Tra cứu công việc. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "description": "Xem công việc trong phạm vi được cấp quyền. Có thể chọn chi nhánh theo tên; quản trị viên không gắn chi nhánh có thể xem danh sách toàn công ty nếu không lọc chi nhánh.",
     "module": "hr",
     "permissions": [
       "work:read"
@@ -21295,17 +21054,29 @@
     ],
     "method": "GET",
     "path": "/kanban/tasks",
-    "fields": [],
+    "fields": [
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh công việc",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
+      }
+    ],
     "link": "/nhan-su",
     "confirmation": false,
     "resultFields": [
       "title",
-      "description",
-      "assigneeUid",
       "assignee",
       "dueDate",
       "priority",
       "status",
+      "category",
+      "salesKpiTarget",
       "projectId"
     ],
     "adapter": "contract"
@@ -21313,7 +21084,7 @@
   {
     "id": "api.post.f2b2178c81901b8e",
     "title": "Tạo công việc",
-    "description": "Tạo công việc. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "description": "Tạo công việc và giao cho nhân sự đã chọn theo tên. Nếu chọn danh mục “Bán hàng”, cần nhập chỉ tiêu doanh số lớn hơn 0 đồng; với danh mục khác, chỉ tiêu mặc định bằng 0. Cần xác nhận trước khi tạo.",
     "module": "hr",
     "permissions": [
       "work:manage"
@@ -21334,15 +21105,6 @@
         "required": true,
         "source": "body",
         "apiKey": "title"
-      },
-      {
-        "key": "description",
-        "label": "Mô tả",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "body",
-        "apiKey": "description"
       },
       {
         "key": "assigneeUid",
@@ -21406,12 +21168,27 @@
         "apiKey": "category"
       },
       {
+        "key": "salesKpiTarget",
+        "label": "Chỉ tiêu doanh số (VND)",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "requiredWhen": {
+          "field": "category",
+          "equals": "Bán hàng"
+        },
+        "min": 1,
+        "integer": true,
+        "source": "body",
+        "apiKey": "salesKpiTarget"
+      },
+      {
         "key": "projectId",
         "label": "Mã dự án",
         "type": "text",
         "systemRequired": false,
         "required": false,
-        "reference": "api.get.8e53379f0ff1bf95",
+        "reference": "project.list",
         "source": "body",
         "apiKey": "projectId"
       },
@@ -21431,6 +21208,7 @@
         "systemRequired": false,
         "required": false,
         "min": 0,
+        "integer": true,
         "source": "body",
         "apiKey": "estTime"
       },
@@ -21441,6 +21219,7 @@
         "systemRequired": false,
         "required": false,
         "min": 0,
+        "integer": true,
         "source": "body",
         "apiKey": "actualTime"
       },
@@ -21475,11 +21254,12 @@
     "confirmation": true,
     "resultFields": [
       "title",
-      "description",
       "assignee",
       "dueDate",
       "priority",
       "status",
+      "category",
+      "salesKpiTarget",
       "projectId"
     ],
     "adapter": "contract"
@@ -22864,6 +22644,16 @@
         "apiKey": "instructions"
       },
       {
+        "key": "responseRules",
+        "label": "Quy tắc trả lời",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "max": 2000,
+        "source": "body",
+        "apiKey": "responseRules"
+      },
+      {
         "key": "alwaysConfirm",
         "label": "Luôn yêu cầu xác nhận",
         "type": "boolean",
@@ -22880,6 +22670,15 @@
         "required": false,
         "source": "body",
         "apiKey": "speakReplies"
+      },
+      {
+        "key": "autoMemoryEnabled",
+        "label": "Tự động lưu thông tin hữu ích",
+        "type": "boolean",
+        "systemRequired": false,
+        "required": false,
+        "source": "body",
+        "apiKey": "autoMemoryEnabled"
       }
     ],
     "link": "/tro-chuyen",
@@ -23675,8 +23474,8 @@
   },
   {
     "id": "student.detail",
-    "title": "Xem hồ sơ học viên",
-    "description": "Tra cứu hồ sơ theo tên, số điện thoại hoặc email trong phạm vi công ty/chi nhánh. Chỉ trả thông tin liên hệ và trạng thái cơ bản; mã giấy tờ, địa chỉ, ghi chú sức khỏe, tài chính chi tiết và ID nội bộ không hiển thị.",
+    "title": "Xem thông tin học viên",
+    "description": "Xem thông tin cơ bản của một học viên đã chọn theo tên, số điện thoại hoặc email trong phạm vi công ty/chi nhánh. Nếu chưa nêu học viên cụ thể, hãy hỏi tên, số điện thoại hoặc email trước khi tra cứu. Chỉ trả thông tin liên hệ và trạng thái cơ bản; mã giấy tờ, địa chỉ, ghi chú sức khỏe, tài chính chi tiết và ID nội bộ không hiển thị.",
     "module": "student",
     "permissions": [
       "people:read"
@@ -33709,9 +33508,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.get.206d0a4aee78f0a6",
-    "title": "Tra cứu kho hàng / nhập kho / phiếu nhập",
-    "description": "Tra cứu kho hàng / nhập kho / phiếu nhập. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "id": "inventory.receipt.list",
+    "title": "Tra cứu phiếu nhập kho",
+    "description": "Tìm phiếu nhập theo chi nhánh, mã phiếu, nhà cung cấp, mã đơn, trạng thái và khoảng ngày. Quản trị viên không gắn chi nhánh cần chọn chi nhánh theo tên; tài khoản thuộc chi nhánh chỉ truy cập chi nhánh của mình.",
     "module": "inventory",
     "permissions": [
       "inventory:read"
@@ -33723,16 +33522,104 @@
     ],
     "method": "GET",
     "path": "/inventory/receiving/receipts",
-    "fields": [],
+    "fields": [
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh kho",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
+      },
+      {
+        "key": "query_q",
+        "label": "Mã phiếu, nhà cung cấp hoặc mã đơn hàng",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "q"
+      },
+      {
+        "key": "query_status",
+        "label": "Trạng thái",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "draft",
+          "pending",
+          "receiving",
+          "confirmed",
+          "cancelled"
+        ],
+        "source": "query",
+        "apiKey": "status"
+      },
+      {
+        "key": "query_from",
+        "label": "Từ ngày",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "from"
+      },
+      {
+        "key": "query_to",
+        "label": "Đến ngày",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "to"
+      },
+      {
+        "key": "query_page",
+        "label": "Trang",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 1,
+        "integer": true,
+        "defaultValue": 1,
+        "source": "query",
+        "apiKey": "page"
+      },
+      {
+        "key": "query_limit",
+        "label": "Số kết quả",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 1,
+        "max": 100,
+        "integer": true,
+        "defaultValue": 20,
+        "source": "query",
+        "apiKey": "limit"
+      }
+    ],
     "link": "/kho-san-pham",
     "confirmation": false,
-    "resultFields": [],
+    "resultFields": [
+      "receiptCode",
+      "status",
+      "supplierName",
+      "orderCode",
+      "subtotal",
+      "notes",
+      "createdAt"
+    ],
     "adapter": "contract"
   },
   {
-    "id": "api.post.a0f47fe662a971fe",
+    "id": "inventory.receipt.create",
     "title": "Tạo phiếu nhập kho",
-    "description": "Lập phiếu nhập nháp theo nhà cung cấp, kho và các SKU. Phiếu chỉ cập nhật tồn sau khi hoàn tất bước nhận hàng và xác nhận.",
+    "description": "Lập phiếu nhập nháp trong chi nhánh đã chọn, theo nhà cung cấp, kho và các SKU. Hãy chọn chi nhánh và kho theo tên; kho gợi ý được lọc theo chi nhánh. Phiếu chỉ cập nhật tồn sau khi hoàn tất bước nhận hàng và xác nhận.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -33745,6 +33632,17 @@
     "method": "POST",
     "path": "/inventory/receiving/receipts",
     "fields": [
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh kho",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
+      },
       {
         "key": "supplierId",
         "label": "Tên hoặc mã nhà cung cấp",
@@ -33762,6 +33660,8 @@
         "systemRequired": false,
         "required": false,
         "reference": "inventory.warehouse.locations.list",
+        "referenceValueKey": "id",
+        "referenceParentKey": "targetBranch",
         "source": "body",
         "apiKey": "warehouseId"
       },
@@ -33884,9 +33784,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.patch.7fde6ff34040ed36",
+    "id": "inventory.receipt.update",
     "title": "Cập nhật phiếu nhập kho",
-    "description": "Cập nhật phiếu nhập kho. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "description": "Cập nhật phiếu nhập đã chọn theo mã hiển thị trong chi nhánh. Chỉ phiếu còn ở trạng thái phù hợp mới được sửa; các SKU và nhà cung cấp được chọn theo tên. Cần xác nhận.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -33901,12 +33801,25 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Mã bản ghi",
+        "label": "Mã phiếu nhập hoặc nhà cung cấp",
         "type": "text",
         "systemRequired": true,
         "required": true,
         "source": "path",
-        "apiKey": "id"
+        "apiKey": "id",
+        "reference": "inventory.receipt.list",
+        "referenceParentKey": "targetBranch"
+      },
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh kho",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
       },
       {
         "key": "supplierId",
@@ -34058,9 +33971,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.post.9fffd9f1416c8a89",
+    "id": "inventory.receipt.submit",
     "title": "Gửi phiếu nhập xác nhận",
-    "description": "Gửi phiếu nhập xác nhận. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "description": "Gửi phiếu nhập đã chọn sang bước kiểm tra trước khi nhận hàng.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -34075,12 +33988,25 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Mã bản ghi",
+        "label": "Phiếu nhập cần gửi",
         "type": "text",
         "systemRequired": true,
         "required": true,
         "source": "path",
-        "apiKey": "id"
+        "apiKey": "id",
+        "reference": "inventory.receipt.list",
+        "referenceParentKey": "targetBranch"
+      },
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh kho",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
       }
     ],
     "link": "/kho-san-pham",
@@ -34092,7 +34018,7 @@
     "adapter": "contract"
   },
   {
-    "id": "api.post.7dc3b15d5e875338",
+    "id": "inventory.receipt.start",
     "title": "Bắt đầu nhận hàng vào kho",
     "description": "Bắt đầu nhận hàng vào kho. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
     "module": "inventory",
@@ -34109,12 +34035,25 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Mã bản ghi",
+        "label": "Phiếu nhập cần bắt đầu nhận",
         "type": "text",
         "systemRequired": true,
         "required": true,
         "source": "path",
-        "apiKey": "id"
+        "apiKey": "id",
+        "reference": "inventory.receipt.list",
+        "referenceParentKey": "targetBranch"
+      },
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh kho",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
       }
     ],
     "link": "/kho-san-pham",
@@ -34126,9 +34065,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.post.b1251f40c4a19779",
+    "id": "inventory.receipt.confirm",
     "title": "Xác nhận nhập kho và cập nhật tồn",
-    "description": "Xác nhận phiếu đang ở trạng thái Đang nhập kho; ghi tăng tồn và tạo công nợ nhà cung cấp nếu có điều khoản thanh toán. Cần xác nhận.",
+    "description": "Chỉ xác nhận phiếu đang ở trạng thái Đang nhận hàng; thao tác ghi tăng tồn và có thể tạo công nợ nhà cung cấp. Cần xác nhận trước khi thực hiện.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -34143,12 +34082,25 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Mã bản ghi",
+        "label": "Phiếu nhập đang nhận hàng",
         "type": "text",
         "systemRequired": true,
         "required": true,
         "source": "path",
-        "apiKey": "id"
+        "apiKey": "id",
+        "reference": "inventory.receipt.list",
+        "referenceParentKey": "targetBranch"
+      },
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh kho",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
       }
     ],
     "link": "/kho-san-pham",
@@ -34161,9 +34113,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.post.36d91c1b612e1f2a",
+    "id": "inventory.receipt.cancel",
     "title": "Hủy phiếu nhập kho",
-    "description": "Hủy phiếu nhập kho. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "description": "Hủy phiếu nhập đã chọn nếu trạng thái cho phép. Cần nêu lý do và xác nhận trước khi hủy.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -34178,12 +34130,25 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Mã bản ghi",
+        "label": "Phiếu nhập cần hủy",
         "type": "text",
         "systemRequired": true,
         "required": true,
         "source": "path",
-        "apiKey": "id"
+        "apiKey": "id",
+        "reference": "inventory.receipt.list",
+        "referenceParentKey": "targetBranch"
+      },
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh kho",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
       },
       {
         "key": "reason",
@@ -35272,8 +35237,8 @@
         "key": "targetBranch",
         "label": "Chi nhánh gửi hoặc nhận",
         "type": "text",
-        "systemRequired": false,
-        "required": false,
+        "systemRequired": true,
+        "required": true,
         "reference": "branch.list",
         "referenceValueKey": "id",
         "source": "query",
@@ -35288,10 +35253,29 @@
         "options": [
           "in_transit",
           "received",
-          "cancelled"
+          "cancelled",
+          "reversed"
         ],
         "source": "query",
         "apiKey": "status"
+      },
+      {
+        "key": "query_from",
+        "label": "Từ ngày",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "from"
+      },
+      {
+        "key": "query_to",
+        "label": "Đến ngày",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "to"
       },
       {
         "key": "query_page",
@@ -35301,6 +35285,7 @@
         "required": false,
         "min": 1,
         "integer": true,
+        "defaultValue": 1,
         "source": "query",
         "apiKey": "page"
       }
@@ -35349,8 +35334,8 @@
         "key": "targetBranch",
         "label": "Chi nhánh gửi hoặc nhận",
         "type": "text",
-        "systemRequired": false,
-        "required": false,
+        "systemRequired": true,
+        "required": true,
         "reference": "branch.list",
         "referenceValueKey": "id",
         "source": "query",
@@ -35390,8 +35375,8 @@
         "key": "targetBranch",
         "label": "Chi nhánh gửi",
         "type": "text",
-        "systemRequired": false,
-        "required": false,
+        "systemRequired": true,
+        "required": true,
         "reference": "branch.list",
         "referenceValueKey": "id",
         "source": "query",
@@ -35531,8 +35516,8 @@
         "key": "targetBranch",
         "label": "Chi nhánh nhận hàng",
         "type": "text",
-        "systemRequired": false,
-        "required": false,
+        "systemRequired": true,
+        "required": true,
         "reference": "branch.list",
         "referenceValueKey": "id",
         "source": "query",
@@ -35582,8 +35567,8 @@
         "key": "targetBranch",
         "label": "Chi nhánh gửi hàng",
         "type": "text",
-        "systemRequired": false,
-        "required": false,
+        "systemRequired": true,
+        "required": true,
         "reference": "branch.list",
         "referenceValueKey": "id",
         "source": "query",
@@ -35751,7 +35736,7 @@
         "reference": "inventory.stock-log.list"
       },
       {
-        "key": "query_branchId",
+        "key": "targetBranch",
         "label": "Chi nhánh kho",
         "type": "text",
         "systemRequired": true,
@@ -39728,7 +39713,7 @@
     "path": "/retail/orders",
     "fields": [
       {
-        "key": "query_branchId",
+        "key": "targetBranch",
         "label": "Chi nhánh bán lẻ",
         "type": "text",
         "systemRequired": false,
@@ -41530,6 +41515,45 @@
     "adapter": "contract"
   },
   {
+    "id": "retail.warranty.lookup.phone",
+    "title": "Tra cứu bảo hành theo số điện thoại khách hàng",
+    "description": "Tìm thông tin khách hàng và các thiết bị đã bán/bảo hành theo số điện thoại trong doanh nghiệp. Chỉ tài khoản có quyền quản lý bán lẻ hoặc sửa chữa mới dùng được; ID nội bộ sẽ bị ẩn.",
+    "module": "retail",
+    "permissions": [
+      "retail:manage"
+    ],
+    "permissionGroups": [
+      [
+        "retail:manage"
+      ],
+      [
+        "repair:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/retail/warranty/lookup-phone/:phone",
+    "fields": [
+      {
+        "key": "path_phone",
+        "label": "Số điện thoại khách hàng",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "phone"
+      }
+    ],
+    "link": "/ban-le",
+    "confirmation": false,
+    "resultFields": [
+      "found",
+      "customer",
+      "totalDevices",
+      "devices"
+    ],
+    "adapter": "contract"
+  },
+  {
     "id": "api.get.5ac7dee040f9bb15",
     "title": "Tra cứu bán lẻ / warranty / expiring",
     "description": "Tra cứu bán lẻ / warranty / expiring. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
@@ -41974,6 +41998,7 @@
     "description": "Tra cứu bán lẻ / đối tác / collaborators. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
     "module": "retail-partner",
     "permissions": [
+      "pos:manage",
       "retail:manage",
       "repair:manage",
       "retail-partner:read",
@@ -41981,6 +42006,7 @@
     ],
     "permissionGroups": [
       [
+        "pos:manage",
         "retail:manage",
         "repair:manage",
         "retail-partner:read",
@@ -43707,7 +43733,7 @@
     "path": "/finance/management/vouchers",
     "fields": [
       {
-        "key": "query_branchId",
+        "key": "targetBranch",
         "label": "Chi nhánh hạch toán",
         "type": "text",
         "systemRequired": false,
@@ -44042,7 +44068,7 @@
         "reference": "retail.invoice.list"
       },
       {
-        "key": "query_branchId",
+        "key": "targetBranch",
         "label": "Chi nhánh tài chính",
         "type": "text",
         "systemRequired": true,
@@ -44085,7 +44111,7 @@
     "path": "/finance/management/tax",
     "fields": [
       {
-        "key": "query_branchId",
+        "key": "targetBranch",
         "label": "Chi nhánh tài chính",
         "type": "text",
         "systemRequired": false,
@@ -44311,7 +44337,7 @@
         "reference": "branch.list"
       },
       {
-        "key": "query_branchId",
+        "key": "targetBranch",
         "label": "Chi nhánh tài chính",
         "type": "text",
         "systemRequired": false,
@@ -46996,7 +47022,7 @@
         "reference": "finance.receivable.list"
       },
       {
-        "key": "query_branchId",
+        "key": "targetBranch",
         "label": "Chi nhánh hạch toán",
         "type": "text",
         "systemRequired": false,
@@ -47360,7 +47386,7 @@
         "reference": "finance.receivable.detail"
       },
       {
-        "key": "query_branchId",
+        "key": "targetBranch",
         "label": "Chi nhánh hạch toán",
         "type": "text",
         "systemRequired": true,
@@ -50507,9 +50533,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.post.479b054fb833c67d",
-    "title": "Thực hiện worker quản lý / lao động",
-    "description": "Thực hiện worker quản lý / lao động. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "id": "worker.create",
+    "title": "Tạo hồ sơ lao động",
+    "description": "Tạo một hồ sơ lao động trong phạm vi doanh nghiệp/chi nhánh của tài khoản. Họ và tên là bắt buộc; các thông tin hồ sơ khác có thể bổ sung sau. Nếu chọn dự án, hãy nêu tên dự án để trợ lý đề xuất lựa chọn. Cần xác nhận trước khi tạo.",
     "module": "worker",
     "permissions": [
       "people:manage"
@@ -50677,7 +50703,12 @@
     ],
     "link": "/quan-ly-lao-dong",
     "confirmation": true,
-    "resultFields": [],
+    "resultFields": [
+      "fullName",
+      "status",
+      "laborType",
+      "registrationDate"
+    ],
     "adapter": "contract"
   },
   {

@@ -256,7 +256,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
         >
           <div className="flex shrink-0 items-center justify-between border-b border-sky-100 px-5 py-4">
             <h3 className="border-l-4 border-brand-primary pl-3 text-base font-medium text-slate-900">Thanh toán học phí</h3>
-            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" aria-label="Đóng">
+            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" aria-label="Đóng" data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -390,7 +390,7 @@ export function AddPaymentModal({ student, isOpen, onClose, onSuccess }: AddPaym
         </motion.div>
         {showTransferQr && paymentMethod === 'Chuyển khoản' && (
           <div className="absolute z-10 w-full max-w-sm rounded-2xl border border-sky-100 bg-white p-5 text-center shadow-2xl">
-            <button type="button" onClick={() => { setShowTransferQr(false); onClose(); }} className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" aria-label="Đóng"><X className="h-4 w-4" /></button>
+            <button type="button" onClick={() => { setShowTransferQr(false); onClose(); }} className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" aria-label="Đóng" data-erp-modal-close><X className="h-4 w-4" /></button>
             <QrCode className="mx-auto mb-2 h-7 w-7 text-brand-primary" />
             <h4 className="text-base font-medium text-slate-900">Quét mã để chuyển khoản</h4>
             <p className="text-xs text-slate-500 mt-1">Sau khi SePay nhận tiền, học phí sẽ được ghi nhận tự động.</p>

@@ -64,6 +64,8 @@ export default function AuthPage() {
         window.location.href = "/super-admin";
         return;
       }
+      window.history.replaceState(null, "", "/modules");
+      window.dispatchEvent(new PopStateEvent("popstate"));
     } catch (caught: unknown) {
       setError(parseFirebaseError(caught, "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin."));
     } finally {

@@ -83,6 +83,11 @@ export const APP_ROUTES: AppRoute[] = [
     component: lazy(() => import("../pages/ChatTab")),
   },
   {
+    tab: "TRỢ LÝ AI",
+    component: lazy(() => import("../pages/AssistantPage")),
+    canAccess: (userProfile) => Boolean(userProfile.permissions?.includes("*") || userProfile.permissions?.includes("chat:read")),
+  },
+  {
     tab: "QUẢN LÝ HỌC VIÊN",
     component: lazy(() => import("../modules/student-management/StudentManagementTab")),
   },

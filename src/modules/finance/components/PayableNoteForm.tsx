@@ -36,7 +36,7 @@ export default function PayableNoteForm({ receipts, onSaved, onClose }: {
       }}>
         <div className="flex items-center justify-between">
           <h2 id="payable-note-title" className="text-lg font-bold">Tạo phiếu ghi nợ</h2>
-          <button type="button" aria-label="Đóng" disabled={busy} onClick={onClose}><X size={20} /></button>
+          <button type="button" aria-label="Đóng" disabled={busy} onClick={onClose} data-erp-modal-close><X size={20} /></button>
         </div>
         <p className="text-sm text-on-surface-variant">Chọn phiếu nhập kho đã xác nhận để ghi nhận khoản phải trả nhà cung cấp.</p>
         <fieldset disabled={busy} className="space-y-4">

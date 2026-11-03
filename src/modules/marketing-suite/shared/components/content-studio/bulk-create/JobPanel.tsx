@@ -189,7 +189,7 @@ export function JobPanel({
             className="fixed right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg hover:bg-slate-100"
             title="Đóng"
             aria-label="Đóng ảnh"
-          >
+           data-erp-modal-close>
             <X className="h-5 w-5" />
           </button>
           <img

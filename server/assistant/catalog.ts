@@ -48,6 +48,19 @@ entity({ id: "employee", title: "nhân sự", module: "hr", permissions: ["acces
   fields: [text("displayName", "Họ và tên", true), { ...date("birthDate", "Ngày sinh"), required: true }, { ...email, systemRequired: true, required: true }, phone, { ...ref("department", "Phòng ban", "department.list", false), referenceValueKey: "name" }, text("division", "Bộ phận"), number("monthlySalary", "Lương tháng", 0), text("qualification", "Trình độ chuyên môn")],
   resultFields: ["displayName", "email", "birthDate", "phone", "department", "division", "monthlySalary", "qualification"],
 });
+operations.push({
+  id: "employee.detail",
+  title: "Xem thông tin chi tiết nhân sự",
+  description: "Tra cứu hồ sơ nhân sự theo tên, email hoặc số điện thoại trong phạm vi được phép. Chỉ hiển thị thông tin hồ sơ cơ bản; không hiển thị lương hoặc dữ liệu đăng nhập.",
+  module: "hr",
+  permissions: ["access:read", "hr:read"],
+  permissionGroups: [["access:read", "hr:read"]],
+  method: "GET",
+  path: "/auth/users",
+  link: "/nhan-su",
+  fields: [text("search", "Tên, email hoặc số điện thoại nhân sự cần xem", true)],
+  resultFields: ["displayName", "email", "birthDate", "phone", "department", "division", "qualification"],
+});
 entity({ id: "department", title: "phòng ban", module: "hr", permissions: ["hr:manage", "access:manage"], readPermissions: ["hr:read", "access:read", "hr:manage", "access:manage"], path: "/hr/departments", link: "/nhan-su?sub=phong-ban", update: true, remove: true,
   resultFields: ["name", "code", "description", "managerName", "sortOrder", "isActive", "employeeCount"],
   fields: [text("name", "Tên phòng ban", true), text("code", "Mã phòng ban"), description, ref("managerUid", "Trưởng phòng", "employee.list", false), number("sortOrder", "Thứ tự hiển thị", 0), { key: "isActive", label: "Đang hoạt động", type: "boolean", defaultValue: true }] });
@@ -67,8 +80,13 @@ if (departmentDelete) {
 entity({ id: "project", title: "dự án", module: "hr", permissions: ["work:manage"], readPermissions: ["work:read"], path: "/kanban/projects", link: "/nhan-su?sub=kanban", update: true, remove: true,
   fields: [text("name", "Tên dự án", true), choice("priority", "Độ ưu tiên", ["low", "medium", "high"], "medium"), date("startAt", "Ngày bắt đầu"), date("dueAt", "Hạn hoàn thành")] });
 entity({ id: "task", title: "công việc", module: "hr", permissions: ["work:manage"], readPermissions: ["work:read"], path: "/kanban/tasks", link: "/nhan-su?sub=kanban", update: true, remove: true,
-  fields: [text("title", "Tên công việc", true), description, ref("assigneeUid", "Người được giao", "employee.list"), date("dueDate", "Hạn hoàn thành", true), choice("priority", "Độ ưu tiên", ["High", "Medium", "Low"], "Medium"), choice("status", "Trạng thái", ["Not Started", "In Progress", "Done", "Archived"], "Not Started"), ref("projectId", "Dự án", "project.list", false), { ...date("startTime", "Thời gian bắt đầu"), type: "datetime" }, number("estTime", "Số giờ dự tính")],
-  resultFields: ["title", "description", "assigneeUid", "assignee", "dueDate", "priority", "status", "projectId", "startTime", "estTime", "progress", "revision"] });
+  fields: [text("title", "Tên công việc", true), ref("assigneeUid", "Người được giao", "employee.list"), date("dueDate", "Hạn hoàn thành", true), choice("priority", "Độ ưu tiên", ["High", "Medium", "Low"], "Medium"), choice("status", "Trạng thái", ["Not Started", "In Progress", "Review/Testing", "Done", "Archived"], "Not Started"), { ...text("category", "Danh mục công việc"), defaultValue: "Onboarding" }, { ...number("salesKpiTarget", "Chỉ tiêu doanh số (VND)"), min: 1, requiredWhen: { field: "category", equals: "Bán hàng" } }, ref("projectId", "Dự án", "project.list", false), { ...date("startTime", "Thời gian bắt đầu"), type: "datetime" }, number("estTime", "Số giờ dự tính"), number("actualTime", "Số giờ thực tế"), text("linkNote", "Ghi chú kết quả")],
+  resultFields: ["title", "assignee", "dueDate", "priority", "status", "category", "salesKpiTarget", "startTime", "estTime", "progress"] });
+const taskListOperation = operations.find(op => op.id === "task.list");
+if (taskListOperation) {
+  taskListOperation.description = "Xem công việc trong phạm vi được cấp quyền. Có thể chọn chi nhánh theo tên; quản trị viên không gắn chi nhánh có thể xem danh sách toàn công ty nếu không lọc chi nhánh.";
+  taskListOperation.fields = [queryField(ref("targetBranch", "Chi nhánh công việc", "branch.list", false), "branchId")];
+}
 entity({ id: "customer", title: "khách hàng", module: "customer", permissions: ["customer:manage"], readPermissions: ["customer:read"], path: "/customers", link: "/quan-ly-khach-hang",
   fields: [text("name", "Tên khách hàng", true), { ...phone, systemRequired: true, required: true }, email, choice("type", "Phân loại hồ sơ", ["regular", "vat"], "regular"), choice("customerKind", "Loại khách hàng", ["individual", "business"]), text("contactName", "Người liên hệ"), date("dateOfBirth", "Ngày sinh"), choice("gender", "Giới tính", ["male", "female", "other"]), choice("status", "Trạng thái", ["active", "inactive"], "active"), text("address", "Địa chỉ"), text("notes", "Ghi chú")], resultFields: ["customerCode", "name", "phone", "status"] });
 const customerList = operations.find(op => op.id === "customer.list");
@@ -666,6 +684,7 @@ operations.push(...expandedOperations.map(op => {
     ...(op.method === "GET" && op.path === "/worker-management/partners/policies/:policyId" ? { id: "worker.partner.policy.detail" } : {}),
     fields: (() => {
       const mapped = fields.filter(field => !(field.apiKey === "centerId" && (op.path === "/partners" || op.path.startsWith("/partners/commission-levels"))));
+      if (workerList) return [queryField(text("query_search", "Tên, mã hoặc số điện thoại lao động"), "search"), ...mapped.filter(field => field.apiKey !== "search")];
       if (assignmentList || (op.method === "GET" && op.path === "/assignments/:id/submissions")) {
         return [queryField(ref("query_batchId", "Tên hoặc mã lớp", "batch.list"), "batchId"), ...mapped.filter(field => field.apiKey !== "batchId")];
       }

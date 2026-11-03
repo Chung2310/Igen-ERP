@@ -459,7 +459,7 @@ function OrderDialog({
             <h2 className="text-balance text-lg font-semibold text-slate-900">Đơn hàng</h2>
             <span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-semibold", order.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : order.status === "cancelled" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-blue-200 bg-blue-50 text-blue-700")}>{order.status === "completed" ? "Hoàn tất" : order.status === "cancelled" ? "Đã hủy" : "Còn xử lý"}</span>
           </div>
-          <button type="button" aria-label="Đóng chi tiết đơn hàng" onClick={onClose} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 focus-visible:outline-2 focus-visible:outline-primary"><X className="size-5" aria-hidden="true" /></button>
+          <button type="button" aria-label="Đóng chi tiết đơn hàng" onClick={onClose} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 focus-visible:outline-2 focus-visible:outline-primary" data-erp-modal-close><X className="size-5" aria-hidden="true" /></button>
         </header>
         <div role="region" aria-label="Nội dung đơn hàng" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary sm:p-6">
           <h3 className="text-balance font-semibold [overflow-wrap:anywhere]">{order.orderCode || "Đơn hàng"}</h3>
@@ -688,7 +688,7 @@ export function AfterSalesForm({
             onClick={close}
             aria-label="Đóng hậu mãi"
             className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-primary"
-          >
+           data-erp-modal-close>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -986,7 +986,7 @@ export function CancelDialog({
             type="button"
             onClick={onClose}
             className="rounded-xl border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50"
-          >
+           data-erp-modal-close aria-label="Đóng">
             <X className="h-5 w-5" />
           </button>
         </div>

@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
+import { HrPageTitle } from "./HrPageTitle";
 import { KanbanTaskProgress } from "./KanbanTaskProgress";
+import { cn } from "../../modules/student-management/lib/utils";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import {
   Briefcase,
   MapPin,
@@ -526,7 +530,7 @@ function TaskTable({
           {tasks.length === 0 ? (
             <tr>
               <td colSpan={showProjectColumn ? 12 : 11} className="text-center py-8 text-gray-450 italic bg-white">
-                Không có công việc nào.
+                <div className="flex flex-col items-center"><HrEmptyIllustration kind="task" /><p className="mt-1">Không có công việc nào.</p></div>
               </td>
             </tr>
           ) : (
@@ -1493,12 +1497,12 @@ export default function KanbanTab({
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4" id="hr_tab_content">
-        <div className="space-y-4 rounded-2xl bg-white p-3 text-left text-slate-800 sm:p-4" id="job_delegation_kanban">
+      <div className="min-h-0 flex-1 overflow-y-auto" id="hr_tab_content">
+        <div className="min-h-full space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-left text-on-surface sm:p-6" id="job_delegation_kanban">
           {/* Header section */}
-          <div className="flex flex-col gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-              <h2 data-testid="kanban-header-title" className="shrink-0 whitespace-nowrap font-sans text-lg font-normal text-slate-800">Công việc</h2>
+              <HrPageTitle testId="kanban-header-title">Công việc</HrPageTitle>
 
               {/* Tab buttons */}
               <div className="min-w-0 select-none">
@@ -1583,9 +1587,9 @@ export default function KanbanTab({
                         category: DEFAULT_TASK_CATEGORY
                       });
                     }}
-                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] px-3 py-2 text-xs font-normal text-white shadow-xs transition-all cursor-pointer"
+                    className={cn(primaryCreateButtonClass, "whitespace-nowrap")}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
                     Giao việc mới
                   </button>
                 </div>
@@ -1598,7 +1602,7 @@ export default function KanbanTab({
             <div className="space-y-4">
               {projects.length === 0 && tasks.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#DCE7F4] bg-[#F8FCFF] px-4 py-16 text-center text-slate-500 select-none">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E8F7FF] text-[#00ADFC]"><Briefcase className="h-7 w-7" /></div>
+                  <HrEmptyIllustration kind="task" className="mx-auto" />
                   <p className="text-base font-normal text-slate-800">Chưa có dự án và công việc nào</p>
                   {isManager && <p className="text-sm mt-1">Dùng “Tạo dự án & Lĩnh vực” hoặc “Giao việc mới” để bắt đầu.</p>}
                 </div>
@@ -2189,7 +2193,7 @@ export default function KanbanTab({
           <form onSubmit={handleAddCategory} role="dialog" aria-modal="true" aria-labelledby="task-category-dialog-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white text-slate-800 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#E8F0F8] px-5 py-4">
               <h3 id="task-category-dialog-title" className="flex items-center gap-2 text-base font-normal"><Tag className="h-4 w-4 text-[#00ADFC]" /> Tạo nhãn phân loại</h3>
-              <button type="button" onClick={() => { setIsCategoryModalOpen(false); setNewCategoryName(""); }} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 cursor-pointer"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => { setIsCategoryModalOpen(false); setNewCategoryName(""); }} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 cursor-pointer" data-erp-modal-close><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-3 px-5 py-4">
               <label htmlFor="new-task-category" className="block text-sm">Tên nhãn</label>
@@ -2220,7 +2224,7 @@ export default function KanbanTab({
                 type="button"
                 onClick={() => setIsNewProjectModalOpen(false)}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 cursor-pointer"
-              >
+               data-erp-modal-close aria-label="Đóng">
                 <X className="h-4 w-4" />
               </button>
             </div>

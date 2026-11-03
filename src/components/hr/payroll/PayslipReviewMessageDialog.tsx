@@ -63,7 +63,7 @@ export function PayslipReviewMessageDialog({ title, description, label, submitLa
             <h2 id={titleId} className="text-balance text-lg font-semibold">{title}</h2>
             <p id={descriptionId} className="mt-1 text-pretty text-sm text-on-surface-variant">{description}</p>
           </div>
-          <button type="button" aria-label="Đóng" disabled={busy} onClick={onClose} className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">
+          <button type="button" aria-label="Đóng" disabled={busy} onClick={onClose} className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" data-erp-modal-close>
             <X className="size-4" aria-hidden="true" />
           </button>
         </header>

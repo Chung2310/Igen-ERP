@@ -11,7 +11,7 @@ export default function PosShortcutHelp({ onClose }: { onClose(): void }) {
             onClick={onClose}
             aria-label="Đóng phím tắt POS"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-          >
+           data-erp-modal-close>
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>

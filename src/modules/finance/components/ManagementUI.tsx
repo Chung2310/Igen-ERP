@@ -370,7 +370,7 @@ export function EntryForm({ title, fields, onSave, onClose }: {
       <form onSubmit={save} className="max-h-[90dvh] space-y-4 overflow-y-auto p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-balance text-lg font-semibold">{title}</h2>
-          <button type="button" disabled={busy} onClick={onClose} aria-label="Đóng" className="rounded-lg p-2 focus-visible:outline-2 focus-visible:outline-primary">
+          <button type="button" disabled={busy} onClick={onClose} aria-label="Đóng" className="rounded-lg p-2 focus-visible:outline-2 focus-visible:outline-primary" data-erp-modal-close>
             <X size={20} aria-hidden="true" />
           </button>
         </div>

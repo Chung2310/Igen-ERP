@@ -15,7 +15,7 @@ const tabs = [
 
 export default function RecruitmentTab({ canManage = false }: { canManage?: boolean }) {
   const [view, setView] = useState<View>("jobs");
-  return <section className="recruitment-screen flex min-h-0 flex-1 flex-col bg-gradient-to-br from-[#F7FAFF] via-[#F2F8FF] to-[#F7FBFD]" aria-label="Quản lý tuyển dụng">
+  return <section className="recruitment-screen flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" aria-label="Quản lý tuyển dụng">
     <ModuleNavigation label="Mục Tuyển dụng" activeValue={view}>
       {tabs.map(({ id, label, icon: Icon }) => <ModuleNavigationButton key={id} active={view === id} icon={<Icon />} aria-pressed={view === id} onClick={() => setView(id)}>{label}</ModuleNavigationButton>)}
     </ModuleNavigation>

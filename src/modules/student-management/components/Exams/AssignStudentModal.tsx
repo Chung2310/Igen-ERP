@@ -96,7 +96,7 @@ export function AssignStudentModal({ exam, isOpen, onClose, onSuccess }: AssignS
           <div className="px-5 py-3 border-b border-slate-100">
             <div className="flex items-center justify-between mb-1">
               <h3 className="flex items-center gap-2 text-base font-medium text-slate-900 before:w-1 before:h-5 before:rounded-full before:bg-brand-primary">Thêm {entityLabel.singular} vào đợt thi</h3>
-              <button type="button" onClick={onClose} aria-label="Đóng" className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
+              <button type="button" onClick={onClose} aria-label="Đóng" className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" data-erp-modal-close>
                 <X className="w-4 h-4" />
               </button>
             </div>

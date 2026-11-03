@@ -68,7 +68,7 @@ export default function BirthdayCouponSettings({ scope, onClose }: { scope: Reta
             </div>
           </div>
           <button type="button" aria-label="Đóng cài đặt sinh nhật" disabled={busy} onClick={onClose}
-            className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50">
+            className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50" data-erp-modal-close>
             <X className="h-5 w-5" />
           </button>
         </div>

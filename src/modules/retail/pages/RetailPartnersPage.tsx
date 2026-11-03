@@ -213,7 +213,7 @@ export default function RetailPartnersPage() {
                 <span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
                 <h2 id="retail-partner-form-title" className="text-balance text-sm font-bold tracking-tight text-slate-900">{editingId ? "Cập nhật đối tác" : "Thêm đối tác mới"}</h2>
               </div>
-              <button type="button" aria-label="Đóng biểu mẫu đối tác" onClick={() => setShowForm(false)} disabled={saving} className="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><X aria-hidden="true" className="size-4" /></button>
+              <button type="button" aria-label="Đóng biểu mẫu đối tác" onClick={() => setShowForm(false)} disabled={saving} className="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50" data-erp-modal-close><X aria-hidden="true" className="size-4" /></button>
             </div>
             <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
               <section className="space-y-3">

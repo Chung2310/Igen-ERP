@@ -365,7 +365,7 @@ export function AddExamModal({ isOpen, onClose, onSuccess, initialData, tenantId
               disabled={isSubmitting}
               aria-label="Đóng"
               className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 transition-colors disabled:opacity-50"
-            >
+             data-erp-modal-close>
               <X className="w-4 h-4" />
             </button>
           </div>

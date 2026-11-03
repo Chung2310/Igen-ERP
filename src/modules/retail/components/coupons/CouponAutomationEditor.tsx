@@ -61,7 +61,7 @@ export default function CouponAutomationEditor({ scope, initial, onClose, onSave
             </div>
           </div>
           <button type="button" aria-label="Đóng chương trình tặng mã" disabled={busy} onClick={onClose}
-            className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50">
+            className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50" data-erp-modal-close>
             <X className="h-5 w-5" />
           </button>
         </div>

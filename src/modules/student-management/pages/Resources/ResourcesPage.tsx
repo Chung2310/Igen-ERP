@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { List, LayoutGrid, Tags, Warehouse } from 'lucide-react';
+import { List, LayoutGrid, Tags } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useResources } from '../../hooks/useResources';
 import { StudentLoadState } from '../../components/StudentLoadState';
+import { StudentEmptyIllustration } from '../../components/Erp/StudentEmptyIllustration';
 import { useResourceCategories } from '../../hooks/useResourceCategories';
 import { ResourceItem } from '../../types';
 import {
@@ -119,7 +120,7 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
   };
 
   return (
-    <div className="space-y-4 text-left">
+    <div className="space-y-4 p-3 text-left sm:p-4">
       {(resourceLoadError || categoryLoadError) && <StudentLoadState error={resourceLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadResources(), reloadCategories()]); }} />}
       <ErpPageHeader
         title={forceType === 'Phòng học' ? "Quản lý phòng học" : "Quản lý thiết bị & tài nguyên"}
@@ -190,9 +191,7 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
       ) : filteredResources.length === 0 ? (
         <ErpCard className="overflow-hidden">
           <div className="flex min-h-[220px] flex-col items-center justify-center px-5 py-8 text-center">
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-brand-primary">
-              <Warehouse className="h-5 w-5" />
-            </div>
+            <StudentEmptyIllustration kind="resource" />
             <h2 className="text-base font-medium text-slate-800">Chưa có tài nguyên nào</h2>
             <p className="mt-1 max-w-lg text-sm font-normal text-slate-500">
               Bấm “Khai báo tài nguyên mới” để thêm phòng học, thiết bị hoặc công cụ giảng dạy.

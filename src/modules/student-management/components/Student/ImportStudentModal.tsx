@@ -399,7 +399,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
               <h2 className="text-base font-medium text-slate-900">Nhập danh sách {entityLabel.singular}</h2>
               <p className="mt-1 text-xs font-normal text-slate-500">Hỗ trợ định dạng file Excel (.xlsx, .xls, .csv)</p>
             </div>
-            <button onClick={handleClose} disabled={isUploading || isValidating} className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50" aria-label="Đóng">
+            <button onClick={handleClose} disabled={isUploading || isValidating} className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50" aria-label="Đóng" data-erp-modal-close>
               <X className="w-4 h-4" />
             </button>
           </div>

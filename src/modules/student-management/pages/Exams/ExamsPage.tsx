@@ -21,6 +21,7 @@ import { toast } from '../../../../pages/Toast';
 import { getApiErrorMessage } from '../../../../utils/errorMessage';
 import { Pagination } from '../../components/ui/Pagination';
 import { ErpModal } from '../../components/Erp/ErpUI';
+import { StudentEmptyIllustration } from '../../components/Erp/StudentEmptyIllustration';
 import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
 import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
 import { getBatchProgression, getWaitlist, placeWaitlist, saveProgression, type BatchProgression } from '../../api/learningRoadmap.api';
@@ -271,12 +272,12 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-3 sm:p-4">
       {(examLoadError || batchLoadError || resourceLoadError) && <StudentLoadState error={examLoadError || batchLoadError || resourceLoadError} onRetry={() => { void Promise.all([reloadExams(), reloadBatches(), reloadResources()]); }} />}
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-medium tracking-tight text-slate-900">Lịch thi</h1>
+        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
+          <h1 className="text-balance text-xl font-medium text-on-surface">Lịch thi</h1>
         </div>
         <div className="flex items-center gap-1.5">
           <button
@@ -310,47 +311,52 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
       </div>
 
       {/* Tabs and filters */}
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-2 xl:flex-row xl:items-end xl:justify-between no-print">
+      <div className="flex flex-col gap-2 border-b border-outline-variant pb-2 xl:flex-row xl:items-end xl:justify-between no-print">
         <div className="flex shrink-0 items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar">
           <button
+            type="button"
             onClick={() => setActiveTab('exams')}
+            aria-pressed={activeTab === 'exams'}
             className={cn(
-              "flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors relative whitespace-nowrap cursor-pointer",
+              "relative flex items-center gap-1.5 whitespace-nowrap px-2 py-2 text-sm font-medium transition-colors cursor-pointer focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-primary",
               activeTab === 'exams' ? "text-brand-primary" : "text-slate-500 hover:text-slate-700"
             )}
           >
-            <ClipboardList className="w-3.5 h-3.5" /> Đợt thi
-            {activeTab === 'exams' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
+            <ClipboardList className="size-3.5" aria-hidden="true" /> Đợt thi
+            {activeTab === 'exams' && <motion.div aria-hidden="true" layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab('students')}
+            aria-pressed={activeTab === 'students'}
             className={cn(
-              "flex items-center gap-1.5 px-2 py-2 text-sm font-medium transition-colors relative whitespace-nowrap cursor-pointer",
+              "relative flex items-center gap-1.5 whitespace-nowrap px-2 py-2 text-sm font-medium transition-colors cursor-pointer focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-primary",
               activeTab === 'students' ? "text-brand-primary" : "text-slate-500 hover:text-slate-700"
             )}
           >
-            <UsersIcon className="w-3.5 h-3.5" /> HV chưa có lịch
-            {activeTab === 'students' && <motion.div layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
+            <UsersIcon className="size-3.5" aria-hidden="true" /> HV chưa có lịch
+            {activeTab === 'students' && <motion.div aria-hidden="true" layoutId="tabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />}
           </button>
         </div>
 
-        {activeTab === 'exams' && (
-          <div className="flex flex-wrap items-end gap-2 xl:justify-end">
-            <div className="w-[160px] sm:w-[175px]">
+        <div className="flex min-h-12 min-w-0 items-end overflow-x-auto no-scrollbar xl:justify-end">
+          {activeTab === 'exams' && <div className="flex min-w-max flex-nowrap items-end gap-2">
+            <div className="shrink-0">
               <FilterItem label="Từ ngày">
                 <VietnameseDatePicker ariaLabel="Từ ngày" value={fromDate} max={toDate || undefined} onChange={setFromDate} selectionOnly variant="filter" />
               </FilterItem>
             </div>
-            <div className="w-[160px] sm:w-[175px]">
+            <div className="shrink-0">
               <FilterItem label="Đến ngày">
                 <VietnameseDatePicker ariaLabel="Đến ngày" value={toDate} min={fromDate || undefined} onChange={setToDate} selectionOnly variant="filter" />
               </FilterItem>
             </div>
-            {hasRankData && <div className="w-[160px] sm:w-[175px]"><FilterSelect label="Hạng bằng" value={rankFilter} onChange={setRankFilter} options={rankOptions} /></div>}
-            <div className="w-[160px] sm:w-[175px]">
+            {hasRankData && <div className="shrink-0"><FilterSelect label="Hạng bằng" value={rankFilter} onChange={setRankFilter} options={rankOptions} /></div>}
+            <div className="shrink-0">
               <FilterSelect label="Trạng thái" value={statusFilter} onChange={setStatusFilter} options={['Tất cả', 'Sắp diễn ra', 'Đã xác nhận', 'Đã hoàn thành']} />
             </div>
             <button
+              type="button"
               onClick={() => {
                 setRankFilter('Tất cả hạng');
                 setStatusFilter('Tất cả');
@@ -358,12 +364,12 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
                 setFromDate('');
                 setToDate('');
               }}
-              className="flex h-9 items-center gap-1 px-1 text-xs font-medium text-slate-500 transition-colors hover:text-brand-primary"
+              className="flex h-9 items-center gap-1 whitespace-nowrap px-1 text-xs font-medium text-on-surface-variant transition-colors hover:text-primary focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-primary"
             >
-              <X className="w-3 h-3" /> Xóa lọc
+              <X className="size-3" aria-hidden="true" /> Xóa lọc
             </button>
-          </div>
-        )}
+          </div>}
+        </div>
       </div>
 
       {activeTab === 'exams' ? (
@@ -374,7 +380,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
             {examsLoading ? (
               <div className="py-20 text-center text-slate-400 text-sm italic">Đang nạp dữ liệu đợt thi...</div>
             ) : paginatedExams.length === 0 ? (
-              <div className="py-14 bg-white rounded-2xl border border-sky-100 text-center text-slate-500 text-sm">Không tìm thấy đợt thi nào.</div>
+              <div className="flex flex-col items-center rounded-2xl border border-outline-variant bg-surface-container-lowest px-4 py-8 text-center"><StudentEmptyIllustration kind="exam" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Không tìm thấy đợt thi nào.</p></div>
             ) : paginatedExams.map((exam) => (
               <ExamCard
                 key={exam.id}
@@ -447,7 +453,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
           />
         </>
       ) : (
-        <div className="py-14 bg-white rounded-2xl border border-sky-100 text-center text-slate-500 text-sm">Danh sách học viên chưa có lịch thi.</div>
+        <div className="flex flex-col items-center rounded-2xl border border-outline-variant bg-surface-container-lowest px-4 py-8 text-center"><StudentEmptyIllustration kind="student" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Danh sách học viên chưa có lịch thi.</p></div>
       )}
 
       {/* Add Exam Modal */}
@@ -486,7 +492,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
           >
             <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
               <h3 className="flex items-center gap-2 text-base font-medium text-slate-900 before:w-1 before:h-5 before:rounded-full before:bg-brand-primary">Xóa đợt thi</h3>
-              <button type="button" onClick={() => setDeleteModalExam(null)} aria-label="Đóng" className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
+              <button type="button" onClick={() => setDeleteModalExam(null)} aria-label="Đóng" className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -688,9 +694,9 @@ interface FilterItemProps {
 
 function FilterItem({ label, children }: FilterItemProps) {
   return (
-    <div className="space-y-0.5">
-      <label className="text-xs font-normal text-slate-700">{label}</label>
-      <div className="relative">
+    <div className="flex items-center gap-2">
+      <span className="shrink-0 whitespace-nowrap text-xs font-normal text-on-surface-variant">{label}</span>
+      <div className="relative w-40 shrink-0">
         {children}
       </div>
     </div>
@@ -706,9 +712,11 @@ interface FilterSelectProps {
 
 function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
   return (
-    <div className="space-y-0.5">
-      <label className="text-xs font-normal text-slate-700">{label}</label>
-      <RoadmapPicker value={value} placeholder={options[0]} allowClear={false} options={options.map((opt) => ({ value: opt, label: opt }))} onChange={onChange} />
+    <div className="flex items-center gap-2">
+      <span className="shrink-0 whitespace-nowrap text-xs font-normal text-on-surface-variant">{label}</span>
+      <div className="w-40 shrink-0">
+        <RoadmapPicker ariaLabel={label} portal value={value} placeholder={options[0]} allowClear={false} options={options.map((opt) => ({ value: opt, label: opt }))} onChange={onChange} />
+      </div>
     </div>
   );
 }

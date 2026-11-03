@@ -46,7 +46,7 @@ export function EditPaymentModal({
           >
             <div className="flex shrink-0 items-center justify-between border-b border-sky-100 px-5 py-4">
               <h3 className="border-l-4 border-brand-primary pl-3 text-base font-medium text-slate-900">Chỉnh sửa đợt thanh toán</h3>
-              <button onClick={() => setEditingPayment(null)} className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" aria-label="Đóng">
+              <button onClick={() => setEditingPayment(null)} className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" aria-label="Đóng" data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>

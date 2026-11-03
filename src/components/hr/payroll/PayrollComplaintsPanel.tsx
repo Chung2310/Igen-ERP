@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HrEmptyIllustration } from "../HrEmptyIllustration";
 import {
   AlertCircle,
   CheckCircle2,
   Clock,
   ExternalLink,
   Filter,
-  Inbox,
   MessageSquare,
   RefreshCw,
   Search,
@@ -277,7 +277,7 @@ export function PayrollComplaintsPanel({ runId, runVersion, canManage, hasUnsave
                     <tr>
                       <td colSpan={6} className="p-10 text-center">
                         <div className="flex flex-col items-center justify-center gap-2">
-                          <Inbox size={32} className="text-slate-300" />
+                          <HrEmptyIllustration kind={all.length ? "search" : "payroll"} />
                           <p className="text-sm font-semibold text-on-surface-variant">
                             {all.length ? "Không tìm thấy khiếu nại phù hợp bộ lọc" : "Chưa có khiếu nại nào trong kỳ lương này"}
                           </p>

@@ -850,7 +850,7 @@ export function InventoryTransferSection({
                 className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
                 onClick={() => !busy && setOpen(false)}
                 title="Đóng popup"
-              >
+               data-erp-modal-close>
                 <X className="h-5 w-5" />
               </button>
             </div>

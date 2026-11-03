@@ -961,7 +961,7 @@ function ScopedImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, i
               onClick={() => setShowZoomModal(false)}
               className="absolute top-4 right-4 bg-slate-950/60 hover:bg-slate-950 text-white/90 hover:text-white p-2.5 rounded-full border border-white/10 transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95 flex items-center justify-center"
               title="Đóng"
-            >
+             data-erp-modal-close>
               <X className="h-5 w-5" />
             </button>
 
@@ -1034,7 +1034,7 @@ function ScopedImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, i
                 type="button"
                 onClick={() => setShowLibraryModal(false)}
                 className="rounded-full border border-slate-100 bg-slate-50 p-2 text-slate-650 transition hover:bg-slate-100 cursor-pointer"
-              >
+               data-erp-modal-close aria-label="Đóng">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1150,7 +1150,7 @@ function ScopedImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, i
               onClick={() => setPreviewImageUrl(null)}
               className="absolute top-4 right-4 bg-slate-950/60 hover:bg-slate-950 text-white/90 hover:text-white p-2.5 rounded-full border border-white/10 transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95 flex items-center justify-center"
               title="Đóng"
-            >
+             data-erp-modal-close>
               <X className="h-5 w-5" />
             </button>
           </div>

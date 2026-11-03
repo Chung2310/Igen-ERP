@@ -699,7 +699,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   );
 
   return (
-    <div className="space-y-4 text-left">
+    <div className="space-y-4 p-3 text-left sm:p-4">
       {(batchLoadError || courseLoadError || resourceLoadError) && <StudentLoadState error={batchLoadError || courseLoadError || resourceLoadError} onRetry={() => { void Promise.all([reloadBatches(), reloadCourses(), reloadResources()]); }} />}
       <ErpPageHeader
         title={copy.pageTitle}
@@ -760,6 +760,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         <ErpCard>
           <ErpEmptyState
             icon={School}
+            illustration="batch"
             title={copy.emptyTitle}
             subtitle={copy.emptySubtitle}
           />

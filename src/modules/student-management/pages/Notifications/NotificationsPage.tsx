@@ -4,7 +4,7 @@ import {
   Send, History, UserCheck, 
   SendHorizontal,
   AlertCircle, MessageCircle, Smartphone, Mail,
-  Inbox, Loader2, CheckCircle2, X, Trash2, Lock,
+  Loader2, CheckCircle2, X, Trash2, Lock,
   Plus, Minus, ToggleLeft, ToggleRight, Banknote, BadgeCheck, Check
 } from 'lucide-react';
 import { cn, parseVND, getVietQRBankCode } from '../../lib/utils';
@@ -19,6 +19,7 @@ import { AddPaymentModal } from '../../components/Fees/AddPaymentModal';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { getWorkerOperationalCopy } from '../../config/workerRecruitmentCopy';
 import { PartnerFormDropdown } from '../Partners/components/PartnerFormDropdown';
+import { StudentEmptyIllustration } from '../../components/Erp/StudentEmptyIllustration';
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
 
@@ -946,7 +947,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
   const totalInstallmentPercent = installmentPlan.reduce((s, p) => s + p.percent, 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-3 sm:p-4">
       {/* Send Progress Modal */}
       <AnimatePresence>
         {sendProgress.showModal && (
@@ -979,7 +980,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                   </div>
                 </div>
                 {!isSubmitting && (
-                  <button onClick={closeResults} aria-label="Đóng kết quả gửi" className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600">
+                  <button onClick={closeResults} aria-label="Đóng kết quả gửi" className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600" data-erp-modal-close>
                     <X className="h-4 w-4" />
                   </button>
                 )}
@@ -1096,8 +1097,8 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
 
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-medium tracking-tight text-slate-900 text-left">BOT Thông báo</h1>
+        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
+          <h1 className="text-balance text-xl font-medium text-on-surface text-left">BOT Thông báo</h1>
           <p className="text-slate-400 text-[11px] font-medium mt-0.5 text-left">{operationalCopy.notificationSubtitle}</p>
         </div>
       </div>
@@ -1417,9 +1418,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
               </div>
             ) : history.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 py-12">
-                <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center">
-                  <Inbox className="w-7 h-7 text-slate-200" />
-                </div>
+                <StudentEmptyIllustration kind="notification" />
                 <p className="text-sm font-normal text-slate-500">Chưa có thông báo nào</p>
               </div>
             ) : (

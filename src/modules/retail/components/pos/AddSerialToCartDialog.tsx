@@ -107,7 +107,7 @@ export default function AddSerialToCartDialog({
             onClick={onClose}
             aria-label="Đóng"
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-200/70 hover:text-slate-700 cursor-pointer"
-          >
+           data-erp-modal-close>
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>

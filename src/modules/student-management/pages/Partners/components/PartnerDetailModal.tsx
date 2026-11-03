@@ -77,7 +77,7 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
       {loading ? (
         <ErpLoadingState message="Đang tải hồ sơ đối tác..." />
       ) : !partner ? (
-        <ErpEmptyState icon={Handshake} title="Không tìm thấy đối tác" />
+        <ErpEmptyState icon={Handshake} illustration="partner" title="Không tìm thấy đối tác" />
       ) : (
         <div className="space-y-6 text-left">
           {/* Header Stats Overview */}
@@ -216,6 +216,7 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
                 {partner.referredStudents.length === 0 ? (
                   <ErpEmptyState
                     icon={Users}
+                    illustration="student"
                     title={`Chưa giới thiệu ${entityLabel.singular} nào`}
                     subtitle={`Tài khoản này chưa được gán giới thiệu cho bất kỳ ${entityLabel.singular} nào trong hệ thống.`}
                   />
@@ -266,6 +267,7 @@ export function PartnerDetailModal({ isOpen, onClose, partnerId, onMutation, ent
                   {(!partner.payoutHistory || partner.payoutHistory.length === 0) ? (
                     <ErpEmptyState
                       icon={Landmark}
+                      illustration="fee"
                       title="Chưa có lịch sử thanh toán"
                       subtitle="Bấm nút 'Ghi nhận chi trả' để ghi chép lại các lần chuyển tiền hoa hồng cho đối tác này."
                     />

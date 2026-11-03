@@ -267,7 +267,7 @@ export default function TikTokProductPublishDialog({ connections, onClose, onPub
       <section role="dialog" aria-modal="true" aria-labelledby="tiktok-product-publish-title" className="max-h-[92dvh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
         <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
           <div><h2 id="tiktok-product-publish-title" className="flex items-center gap-2 text-lg font-bold text-slate-900"><PackagePlus className="h-5 w-5 text-pink-600" />Đăng sản phẩm mới lên TikTok Shop</h2><p className="mt-1 text-xs text-slate-500">Chọn sản phẩm chưa liên kết, hoàn tất thông tin theo danh mục và kho của shop.</p></div>
-          <button type="button" disabled={submitting} onClick={onClose} aria-label="Đóng" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"><X className="h-5 w-5" /></button>
+          <button type="button" disabled={submitting} onClick={onClose} aria-label="Đóng" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50" data-erp-modal-close><X className="h-5 w-5" /></button>
         </header>
 
         <form noValidate onSubmit={publish} className="space-y-5 p-5">

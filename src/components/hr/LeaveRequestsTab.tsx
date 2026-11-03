@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
 import { createPortal } from "react-dom";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import {
@@ -594,10 +595,11 @@ export default function LeaveRequestsTab({
                 <span className="text-xs">Đang tải danh sách đơn từ...</span>
               </div>
             ) : filteredApplications.length === 0 ? (
-              <div className="px-6 py-12 text-center text-sm font-normal text-slate-500">
-                {applications.length === 0
+              <div className="flex flex-col items-center px-6 py-12 text-center text-sm font-normal text-slate-500">
+                <HrEmptyIllustration kind={applications.length === 0 ? "leave" : "search"} />
+                <p className="mt-1">{applications.length === 0
                   ? "Chưa có đơn từ nào được đăng ký."
-                  : "Không tìm thấy đơn từ nào khớp với bộ lọc."}
+                  : "Không tìm thấy đơn từ nào khớp với bộ lọc."}</p>
               </div>
             ) : (
               filteredApplications.map((app) => {
@@ -757,9 +759,9 @@ export default function LeaveRequestsTab({
                 ) : filteredApplications.length === 0 ? (
                   <tr>
                     <td colSpan={isLeaveAdmin ? 9 : 7} className="px-5 py-12 text-center font-normal text-slate-500">
-                      {applications.length === 0
+                      <div className="flex flex-col items-center"><HrEmptyIllustration kind={applications.length === 0 ? "leave" : "search"} /><p className="mt-1">{applications.length === 0
                         ? "Chưa có đơn từ nào được đăng ký."
-                        : "Không tìm thấy đơn từ nào khớp với bộ lọc."}
+                        : "Không tìm thấy đơn từ nào khớp với bộ lọc."}</p></div>
                     </td>
                   </tr>
                 ) : (
@@ -883,7 +885,7 @@ export default function LeaveRequestsTab({
                 onClick={() => setIsAppFormOpen(false)}
                 aria-label="Đóng"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
-              >
+               data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -999,7 +1001,7 @@ export default function LeaveRequestsTab({
                   onClick={() => setIsTemplateListModalOpen(false)}
                   aria-label="Đóng"
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
-                >
+                 data-erp-modal-close>
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -1108,7 +1110,7 @@ export default function LeaveRequestsTab({
                 onClick={() => setIsTemplateFormOpen(false)}
                 aria-label="Đóng"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
-              >
+               data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1181,7 +1183,7 @@ export default function LeaveRequestsTab({
                 onClick={() => setAppRejectModalOpen(false)}
                 aria-label="Đóng"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
-              >
+               data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>

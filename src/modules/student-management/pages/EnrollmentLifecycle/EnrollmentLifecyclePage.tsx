@@ -1,17 +1,19 @@
 import React from "react";
 import { PauseCircle, Pencil, RotateCcw, Save, Users } from "lucide-react";
 import { apiFetch } from "../../lib/api";
+import { cn } from "../../lib/utils";
 import { useBatches } from "../../hooks/useBatches";
 import { useStudents } from "../../hooks/useStudents";
 import { ErpCard, ErpModal } from "../../components/Erp/ErpUI";
+import { StudentEmptyIllustration } from "../../components/Erp/StudentEmptyIllustration";
 import { toast } from "../../../../pages/Toast";
 import { getRoadmaps, type LearningRoadmap } from "../../api/learningRoadmap.api";
 import { PartnerFormDropdown } from "../Partners/components/PartnerFormDropdown";
 import { VietnameseDatePicker } from "../../components/Batches/VietnameseDatePicker";
 
 const TABS = [
-  { value: "Bảo lưu", label: "Bảo lưu", icon: PauseCircle, activeClass: "bg-[#00ADFC] text-white" },
-  { value: "Chờ xếp học lại", label: "Chờ xếp học lại", icon: RotateCcw, activeClass: "bg-[#00ADFC] text-white" },
+  { value: "Bảo lưu", label: "Bảo lưu", icon: PauseCircle },
+  { value: "Chờ xếp học lại", label: "Chờ xếp học lại", icon: RotateCcw },
 ] as const;
 type LifecycleStatus = (typeof TABS)[number]["value"];
 const formatDate = (value?: string | Date | null) => value ? new Intl.DateTimeFormat("vi-VN").format(new Date(value)) : "Chưa xác định";
@@ -46,8 +48,6 @@ export function EnrollmentLifecyclePage() {
 
   const studentsById = React.useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);
   const roadmapsById = React.useMemo(() => new Map(roadmaps.map((roadmap) => [roadmap.id, roadmap])), [roadmaps]);
-  const activeTab = TABS.find((tab) => tab.value === status)!;
-  const ActiveIcon = activeTab.icon;
   const isRetakeQueue = status === "Chờ xếp học lại";
   const refresh = () => window.dispatchEvent(new Event("batch-mutation"));
 
@@ -66,10 +66,10 @@ export function EnrollmentLifecyclePage() {
   const learningLabel = (row: any) => { const roadmap = row.batch.roadmapId ? roadmapsById.get(row.batch.roadmapId) : undefined; const step = roadmap?.steps.find((item) => item.id === row.batch.roadmapStepId) || roadmap?.steps.find((item) => item.courseId === row.batch.courseId); return { course: row.batch.courseTitle || row.batch.courseCode || "Chưa xác định khóa học", roadmap: roadmap ? `${roadmap.name}${step ? ` · Chặng ${step.order}` : ""}` : "Học lẻ (không theo lộ trình)" }; };
 
   return (
-    <div className="space-y-4 p-5 text-left">
+    <div className="space-y-4 p-3 text-left sm:p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-      <h1 className="text-xl font-medium tracking-tight text-slate-900">Bảo lưu & học lại</h1>
+        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
+          <h1 className="text-balance text-xl font-medium text-on-surface">Bảo lưu & học lại</h1>
           <p className="mt-1 text-sm text-slate-500">Điều phối học viên theo khóa học hoặc combo/lộ trình đã đăng ký.</p>
         </div>
         <span className="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
@@ -78,7 +78,7 @@ export function EnrollmentLifecyclePage() {
         </span>
       </div>
 
-      <div role="tablist" aria-label="Trạng thái học viên" className="flex w-fit max-w-full flex-wrap items-center gap-1 rounded-xl bg-slate-100/70 p-1">
+      <div role="group" aria-label="Trạng thái học viên" className="flex w-fit max-w-full flex-wrap items-center gap-2 border-b border-outline-variant">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = status === tab.value;
@@ -87,12 +87,12 @@ export function EnrollmentLifecyclePage() {
               key={tab.value}
               type="button"
               onClick={() => setStatus(tab.value)}
-              aria-selected={isActive}
-              role="tab"
-              className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${isActive ? tab.activeClass : "text-slate-600 hover:bg-white hover:text-slate-800"}`}
+              aria-pressed={isActive}
+              className={cn('relative flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary', isActive ? 'text-primary' : 'text-on-surface hover:text-primary')}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="size-4" aria-hidden="true" />
               {tab.label}
+              {isActive ? <span aria-hidden="true" className="absolute bottom-0 left-1/2 h-0.5 w-4/5 -translate-x-1/2 rounded-full bg-primary" /> : null}
             </button>
           );
         })}
@@ -106,10 +106,8 @@ export function EnrollmentLifecyclePage() {
           </div>
         ) : rows.length === 0 ? (
           <div className="flex min-h-48 flex-col items-center justify-center p-8 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-50 text-sky-500">
-              <ActiveIcon className="h-6 w-6" />
-            </div>
-            <p className="mt-3 text-sm font-medium text-slate-700">Không có học viên {isRetakeQueue ? "chờ xếp học lại" : "bảo lưu"}.</p>
+            <StudentEmptyIllustration kind="enrollment" />
+            <p className="mt-1 text-pretty text-sm font-medium text-on-surface-variant">Không có học viên {isRetakeQueue ? "chờ xếp học lại" : "bảo lưu"}.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

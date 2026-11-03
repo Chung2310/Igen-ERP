@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
+import { HrPageTitle } from "./HrPageTitle";
 import { renderAsync } from "docx-preview";
 import {
   Plus,
@@ -37,6 +39,7 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { AttachmentEditor } from "./KanbanTab";
 import { HrFormSelect } from "./HrFormSelect";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 
 interface WorkflowTabProps {
   userProfile: UserProfile | null;
@@ -514,20 +517,13 @@ export default function WorkflowTab({
 
   if (view === "list") {
     return (
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-white" id="workflow_tab">
-        <div className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dce7f4] bg-white px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-[#e8f7ff] p-2.5 text-[#009fdf]">
-              <Layers className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-medium text-slate-800">
-                Quy trình làm việc
-                <span className="rounded-full border border-[#bceaff] bg-[#f0faff] px-2.5 py-0.5 text-xs font-normal text-[#008dcc]">
-                  {workflows.length}
-                </span>
-              </h2>
-            </div>
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6">
+          <div className="flex items-center gap-2.5">
+            <HrPageTitle>Quy trình làm việc</HrPageTitle>
+            <span className="rounded-full border border-[#bceaff] bg-[#f0faff] px-2.5 py-0.5 text-xs font-normal text-[#008dcc]">
+              {workflows.length}
+            </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -546,15 +542,16 @@ export default function WorkflowTab({
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </button>
             <button
+              type="button"
               onClick={() => {
                 setWizardData(null);
                 setWizardNewCategory("");
                 setWizardOpen(true);
               }}
               disabled={!canEdit}
-              className="flex items-center gap-1.5 rounded-xl bg-[#00adfc] px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0097df] disabled:opacity-40"
+               className={primaryCreateButtonClass}
             >
-              <Plus className="h-4 w-4" /> Quy trình mới
+               <Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Quy trình mới
             </button>
           </div>
         </div>
@@ -582,7 +579,7 @@ export default function WorkflowTab({
                   <span className="rounded-xl bg-[#e8f7ff] p-2 text-[#009fdf]"><Tag className="h-4 w-4" /></span>
                   <h2 id="workflow-category-title" className="text-base font-normal text-slate-800">Tạo nhãn phân loại</h2>
                 </div>
-                <button type="button" onClick={() => setCategoryDialogOpen(false)} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600"><X className="h-4 w-4" /></button>
+                <button type="button" onClick={() => setCategoryDialogOpen(false)} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" data-erp-modal-close><X className="h-4 w-4" /></button>
               </div>
               <div className="px-5 py-5">
                 <label htmlFor="workflow-category-name" className="mb-1.5 block text-sm font-normal text-slate-700">Tên nhãn</label>
@@ -599,8 +596,8 @@ export default function WorkflowTab({
         <div className="flex-1 overflow-y-auto p-5">
           {workflows.length === 0 ? (
             <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-[#dce7f4] bg-[#f8fbff] px-5 text-center">
-              <span className="rounded-2xl bg-[#e8f7ff] p-3 text-[#00a4ee]"><WorkflowIcon className="h-7 w-7" /></span>
-              <p className="mt-3 text-sm font-medium text-slate-700">
+              <HrEmptyIllustration kind="workflow" />
+              <p className="mt-1 text-sm font-medium text-slate-700">
                 Chưa có quy trình nào
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -679,7 +676,7 @@ export default function WorkflowTab({
 
   // =================== VIEW: CHI TIẾT (BẢNG CỘT) ===================
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden" id="workflow_tab">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
       {/* Thanh tiêu đề chính nổi bật */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-2xs">
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -746,8 +743,8 @@ export default function WorkflowTab({
       {/* Bảng sơ đồ Snake Layout + Danh sách giai đoạn (giống giao diện Thiết lập giai đoạn) */}
       {steps.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center text-center p-8">
-          <Layers className="h-8 w-8 text-slate-300" />
-          <p className="mt-2 text-sm font-medium text-slate-400">
+          <HrEmptyIllustration kind="workflow" />
+          <p className="mt-1 text-sm font-medium text-slate-400">
             Chưa có bước nào trong quy trình
           </p>
           <p className="text-xs text-slate-400 mt-1">
@@ -1060,7 +1057,7 @@ export function WorkflowReader({
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-white" id="workflow_tab">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
         <div className="mx-5 mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#dce7f4] bg-white px-4 py-3 shadow-sm">
           <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-[#f1f8fd]">
             <ArrowLeft className="h-4 w-4" /> Danh sách quy trình
@@ -1212,7 +1209,7 @@ function WorkflowStepDetailModal({
             <p className="text-xs font-normal text-[#008dcc]">Bước {stepIndex + 1}</p>
             <h2 id="workflow-step-detail-title" className="mt-1 text-xl font-medium text-slate-800">{step.title || `Bước ${stepIndex + 1}`}</h2>
           </div>
-          <button onClick={onClose} className="rounded-full bg-rose-500 p-2 text-white hover:bg-rose-600" aria-label="Đóng"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="rounded-full bg-rose-500 p-2 text-white hover:bg-rose-600" aria-label="Đóng" data-erp-modal-close><X className="h-4 w-4" /></button>
         </div>
         {step.description && <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-700">{step.description}</p>}
         {step.note && <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"><strong>Lưu ý:</strong> {step.note}</div>}
@@ -1470,7 +1467,7 @@ function NewWorkflowWizard({
             onClick={onClose}
             aria-label="Đóng popup quy trình"
             className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white shadow-sm transition-colors hover:bg-rose-600"
-          >
+           data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -2111,7 +2108,7 @@ function WizardStepEditorModal({
             onClick={onClose}
             aria-label="Đóng chỉnh sửa giai đoạn"
             className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
-          >
+           data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>

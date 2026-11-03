@@ -276,7 +276,7 @@ export function CreateMeetingModal({
             disabled={submitting}
             aria-label="Đóng hộp thoại"
             className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition"
-          >
+           data-erp-modal-close>
             <X className="size-4" />
           </button>
         </header>

@@ -7,7 +7,6 @@ import {
   GraduationCap,
   BriefcaseBusiness,
   Megaphone,
-  LayoutDashboard,
   AlertCircle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -17,6 +16,7 @@ import {
   type DashboardSubTabType,
 } from "../router/subTabRoutes";
 import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
+import { HrSidebarIcon, type HrSidebarIconName } from "../components/common/HrSidebarIcon";
 import BusinessDashboardTab from "./BusinessDashboardTab";
 
 // Lazy-loaded secondary dashboard sections
@@ -86,8 +86,8 @@ const ALL_SECTIONS: SectionConfig[] = [
   {
     value: "LAO_DONG",
     slug: "lao-dong",
-    label: "Lao động & Xuất khẩu",
-    subtitle: "Hồ sơ, Tuyển dụng & Xuất cảnh",
+    label: "Lao động",
+    subtitle: "Hồ sơ, Tiếp nhận & Dự án",
     icon: BriefcaseBusiness,
   },
   {
@@ -167,7 +167,7 @@ export default function DashboardTab() {
           return true;
         case "TAI_CHINH":
           return (
-            (isAdmin || modules.includes("finance")) &&
+            modules.includes("finance") &&
             (isAdmin ||
               checkPerm("finance:read") ||
               checkPerm("finance:manage") ||
@@ -176,14 +176,14 @@ export default function DashboardTab() {
           );
         case "BAN_LE":
           return (
-            (isAdmin || modules.includes("retail")) &&
+            modules.includes("retail") &&
             (isAdmin ||
               checkPerm("retail:read") ||
               checkPerm("retail:manage"))
           );
         case "NHAN_SU":
           return (
-            (isAdmin || modules.includes("hr")) &&
+            modules.includes("hr") &&
             (isManager ||
               checkPerm("hr:read") ||
               checkPerm("access:read") ||
@@ -289,21 +289,18 @@ export default function DashboardTab() {
         activeValue={resolvedSubTab}
         className="mb-3"
         id="dashboard_sub_tabs_bar"
-        actions={
-          <div className="flex items-center gap-2 text-xs font-medium text-on-surface-variant">
-            <LayoutDashboard className="size-4 shrink-0 text-primary" aria-hidden="true" />
-            <span className="hidden sm:inline">Tổng quan hệ thống</span>
-          </div>
-        }
       >
         {allowedSections.map((tab) => {
           const isActive = resolvedSubTab === tab.value;
-          const Icon = tab.icon;
+          const iconName = ({
+            DOANH_NGHIEP: 'business', TAI_CHINH: 'finance', BAN_LE: 'retail',
+            NHAN_SU: 'people', HOC_VIEN: 'students', LAO_DONG: 'labor', MARKETING: 'marketing',
+          } as Partial<Record<DashboardSubTabType, HrSidebarIconName>>)[tab.value];
           return (
             <ModuleNavigationButton
               key={tab.value}
               active={isActive}
-              icon={<Icon />}
+              icon={iconName ? <HrSidebarIcon name={iconName} /> : <tab.icon />}
               onClick={() => setActiveSubTab(tab.value)}
             >
               {tab.label}

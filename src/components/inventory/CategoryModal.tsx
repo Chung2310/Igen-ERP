@@ -42,7 +42,7 @@ export function CategoryModal({
           <button 
             onClick={onClose} 
             className="rounded-full p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-650"
-          >
+           data-erp-modal-close aria-label="Đóng">
             <X className="h-5 w-5" />
           </button>
         </div>
