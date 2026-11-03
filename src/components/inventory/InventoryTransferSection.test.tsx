@@ -34,6 +34,33 @@ afterEach(cleanup);
 async function expand() { fireEvent.click(await screen.findByText(/CK-1/)); }
 async function choose(label: string, option: string | RegExp) { fireEvent.click(screen.getByRole("button", { name: label })); fireEvent.click(await screen.findByRole("option", { name: option })); }
 
+it("keeps the in-flight list request stable while searching or rerendering the parent", async () => {
+  vi.mocked(inventoryTransferService.destinations).mockReturnValue(new Promise(() => {}));
+  vi.mocked(inventoryTransferService.list).mockReturnValue(new Promise(() => {}));
+  const view = render(<InventoryTransferSection branchId="A" canManage />);
+  await waitFor(() => expect(inventoryTransferService.list).toHaveBeenCalledTimes(1));
+  const signal = vi.mocked(inventoryTransferService.list).mock.calls[0][3]!;
+
+  fireEvent.change(screen.getByRole("textbox", { name: "Tìm phiếu điều chuyển kho" }), { target: { value: "CK" } });
+  view.rerender(<InventoryTransferSection branchId="A" canManage={false} />);
+
+  expect(signal.aborted).toBe(false);
+  expect(inventoryTransferService.list).toHaveBeenCalledTimes(1);
+});
+
+it("settles after loading and reloads once when the status filter changes", async () => {
+  render(<InventoryTransferSection branchId="A" canManage />);
+  await screen.findByText(/CK-1/);
+  expect(inventoryTransferService.list).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText("Đang tải phiếu điều chuyển…")).toBeNull();
+
+  await choose("Lọc trạng thái điều chuyển", "Đã nhận");
+  await waitFor(() => expect(inventoryTransferService.list).toHaveBeenLastCalledWith("A", 1, "received", expect.any(AbortSignal), {}));
+  await screen.findByText(/CK-1/);
+  expect(inventoryTransferService.list).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText("Đang tải phiếu điều chuyển…")).toBeNull();
+});
+
 it("only allows the receiver to accept the full document", async () => {
   render(<InventoryTransferSection branchId="B" canManage />);
   await expand();
