@@ -50,6 +50,49 @@
   height: 3rem;
 }
 
+#hr_tab_wrapper .payroll-table-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--color-outline-variant) var(--color-surface-container-low) !important;
+}
+
+#hr_tab_wrapper .payroll-table-scroll::-webkit-scrollbar-track {
+  background: var(--color-surface-container-low) !important;
+}
+
+#hr_tab_wrapper .payroll-table-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant) !important;
+}
+
+#hr_tab_wrapper .payroll-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline) !important;
+}
+
+/* Mirror the four statistic gradients in the Department screen. */
+#hr_tab_wrapper .payroll-stat-card {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%),
+    linear-gradient(105deg, var(--payroll-gradient-start), var(--payroll-gradient-end));
+}
+
+#hr_tab_wrapper .payroll-stat-card--total {
+  --payroll-gradient-start: #7950e9;
+  --payroll-gradient-end: #6247e1;
+}
+
+#hr_tab_wrapper .payroll-stat-card--employees {
+  --payroll-gradient-start: #4269f0;
+  --payroll-gradient-end: #2a60eb;
+}
+
+#hr_tab_wrapper .payroll-stat-card--shortage {
+  --payroll-gradient-start: #d85c27;
+  --payroll-gradient-end: #f47835;
+}
+
+#hr_tab_wrapper .payroll-stat-card--base {
+  --payroll-gradient-start: #0b92be;
+  --payroll-gradient-end: #06b2e6;
+}
+
 #hr_sub_tabs_bar nav > button:is(:hover, :focus-visible, [aria-current="page"]) > span:last-child {
   background: linear-gradient(
     90deg,

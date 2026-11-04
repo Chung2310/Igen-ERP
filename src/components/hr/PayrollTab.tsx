@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Coins, FileSpreadsheet, Inbox, Lock, Play, Plus, RefreshCw, Search, Trash2, UserRound, UserRoundMinus, UsersRound, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Coins, FileSpreadsheet, Inbox, Lock, Maximize2, Minimize2, Play, Plus, RefreshCw, Search, Trash2, UserRoundMinus, UsersRound, X } from "lucide-react";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
 import { HrPageTitle } from "./HrPageTitle";
 import * as XLSX from "xlsx";
@@ -135,6 +135,8 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
   const [kpiPercentByEmployee, setKpiPercentByEmployee] = useState<Record<string, number | null>>({});
   const [adjustments, setAdjustments] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [tableFullscreen, setTableFullscreen] = useState(false);
+  const tableCardRef = useRef<HTMLDivElement>(null);
   const [sortKey, setSortKey] = useState("employeeName");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [formulaRow, setFormulaRow] = useState<any>(null);
@@ -495,7 +497,22 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
   const effectiveDataAvailable = !effectiveError;
   const canSeeTable = (canManage || !!run) && effectiveDataAvailable;
 
-  return <section className="min-h-0 flex-1 space-y-2.5 overflow-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
+  useEffect(() => {
+    const syncFullscreen = () => setTableFullscreen(document.fullscreenElement === tableCardRef.current);
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
+
+  const toggleTableFullscreen = async () => {
+    try {
+      if (document.fullscreenElement === tableCardRef.current) await document.exitFullscreen();
+      else await tableCardRef.current?.requestFullscreen();
+    } catch {
+      toast.error("Không thể mở bảng lương toàn màn hình.");
+    }
+  };
+
+  return <section className="min-h-0 flex-1 space-y-2 overflow-auto rounded-lg border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <HrPageTitle>Bảng lương</HrPageTitle>
@@ -518,13 +535,13 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
           const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
           tabs[next]?.focus();
           tabs[next]?.click();
-        }} className={`shrink-0 border-b-2 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-primary ${activePayrollSection === key ? "border-primary font-medium text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}>{label}</button>
+        }} className={`shrink-0 border-b-2 px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary ${activePayrollSection === key ? "border-primary font-medium text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}>{label}</button>
       ))}
     </div>
-    <div id="payroll-section-panel" role="tabpanel" tabIndex={0} aria-labelledby={`payroll-tab-${activePayrollSection}`} className="space-y-3 pt-3 focus-visible:outline-2 focus-visible:outline-primary">
+    <div id="payroll-section-panel" role="tabpanel" tabIndex={0} aria-labelledby={`payroll-tab-${activePayrollSection}`} className="space-y-4 focus-visible:outline-2 focus-visible:outline-primary">
 
     {activePayrollSection === "publication" && <>
-    {run?._id && effectiveDataAvailable && <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4"><div className="mb-3 text-sm font-medium text-on-surface">Phiếu lương</div><PayrollPayslipsPanel canManage={canPublishPayslips} canExport={canExportPayslips} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
+    {run?._id && effectiveDataAvailable && <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-4"><div className="mb-3 border-b border-outline-variant pb-3 text-base font-medium text-on-surface">Phiếu lương</div><PayrollPayslipsPanel canManage={canPublishPayslips} canExport={canExportPayslips} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {run?._id && <PayrollPayslipReviewPanel runId={String(run._id)} canManage={canManage} />}
     {run?._id && <PayrollComplaintsPanel runId={String(run._id)} runVersion={Number(run.version ?? 0)} canManage={canManage && effectiveDataAvailable} hasUnsavedChanges={Object.keys(inputDrafts).length > 0} onChanged={reload} onEdit={(employeeId) => setSearch(employeeId)} />}
     <PayrollPublicationSchedule canManage={canManage} />
@@ -536,12 +553,11 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
     </>}
     {activePayrollSection === "approval" && <>
     {canManage && (
-      <div className="rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-        <div className="flex items-start gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFE9D5] text-[#F27417]" aria-hidden="true"><UserRound size={18} /></span>
-          <div className="min-w-0 flex-1">
-            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-              <div className="text-sm font-medium text-[#D75C0A]">Chờ duyệt</div>
+      <div className="rounded-lg border border-outline-variant bg-surface-container-lowest">
+        <div className="border-b border-outline-variant px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-base font-medium text-on-surface text-balance">Chờ duyệt</h3>
+              <div className="flex flex-wrap items-center gap-2">
               {(run?.status === "draft" || !run) && <button type="button" disabled={!run?.lines?.length && results.length === 0} onClick={() => setAdvanceOpen(true)} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-outline px-3 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><Plus className="size-4" aria-hidden="true" /> Phiếu tạm ứng lương</button>}
               <button
                 type="button"
@@ -557,14 +573,34 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
               >
                 <Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Điều chỉnh
               </button>
+              </div>
             </div>
-            <PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), item.kind === "advance" ? "Đã duyệt tạm ứng; hãy tính lại bảng lương" : "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} onPrintAdvance={(item) => setAdvancePrintRecord(item)} />
-          </div>
         </div>
+        <PayrollReviewQueue adjustments={adjustments} onApprove={(item) => void action(() => payrollService.approveAdjustment(period, item._id), item.kind === "advance" ? "Đã duyệt tạm ứng; hãy tính lại bảng lương" : "Đã duyệt điều chỉnh")} onReject={(item) => void action(() => payrollService.rejectAdjustment(period, item._id), "Đã từ chối điều chỉnh")} onPrintAdvance={(item) => setAdvancePrintRecord(item)} />
       </div>
     )}
     </>}
     {activePayrollSection === "overview" && <>
+    {canSeeTable && (
+      <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${run ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
+        {run && <div className="payroll-stat-card payroll-stat-card--total flex min-w-0 items-center justify-between gap-3 rounded-lg p-3 text-on-primary shadow-sm">
+          <div className="min-w-0"><p className="text-xs font-medium">Tổng thực nhận</p><p className="tabular-nums text-xl font-semibold leading-tight">{formatVnd(totalNet)}</p></div>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-on-primary/15" aria-hidden="true"><Coins className="size-5" /></span>
+        </div>}
+        <div className="payroll-stat-card payroll-stat-card--employees flex min-w-0 items-center justify-between gap-3 rounded-lg p-3 text-on-primary shadow-sm">
+          <div className="min-w-0"><p className="text-xs font-medium">Số nhân viên</p><p className="tabular-nums text-xl font-semibold leading-tight">{headcount}</p></div>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-on-primary/15" aria-hidden="true"><UsersRound className="size-5" /></span>
+        </div>
+        <div className="payroll-stat-card payroll-stat-card--shortage flex min-w-0 items-center justify-between gap-3 rounded-lg p-3 text-on-primary shadow-sm">
+          <div className="min-w-0"><p className="text-xs font-medium">Người thiếu công</p><p className="tabular-nums text-xl font-semibold leading-tight">{shortageCount}</p></div>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-on-primary/15" aria-hidden="true"><UserRoundMinus className="size-5" /></span>
+        </div>
+        <div className="payroll-stat-card payroll-stat-card--base flex min-w-0 items-center justify-between gap-3 rounded-lg p-3 text-on-primary shadow-sm">
+          <div className="min-w-0"><p className="text-xs font-medium">Tổng lương cơ bản</p><p className="tabular-nums text-xl font-semibold leading-tight">{formatVnd(run ? totalBase : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0))}</p></div>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-on-primary/15" aria-hidden="true"><Coins className="size-5" /></span>
+        </div>
+      </div>
+    )}
     {/* Quy trình xử lý kỳ lương */}
     <div className="px-2 py-1 sm:px-4">
       <ol className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
@@ -603,28 +639,6 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
         <p className="font-normal">Không thể xác thực số liệu bảng lương</p>
         <p className="mt-1">Trạng thái kỳ lương vẫn được cập nhật, nhưng số liệu đang được ẩn để tránh hiển thị dữ liệu không đáng tin cậy. Vui lòng liên hệ quản trị viên.</p>
         <p className="mt-1 text-xs font-mono">{effectiveError.code || "PAYROLL_EFFECTIVE_UNAVAILABLE"}</p>
-      </div>
-    )}
-
-    {/* Thẻ tổng quan */}
-    {canSeeTable && (
-      <div className={`grid grid-cols-2 gap-3 ${run ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
-        {run && <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D8F5E7] text-[#009965]" aria-hidden="true"><Coins size={18} /></span>
-          <div><p className="text-xs text-[#536B8F]">Tổng thực nhận</p><p className="mt-0.5 text-lg font-medium text-[#142547]">{formatVnd(totalNet)}</p></div>
-        </div>}
-        <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D9EEFF] text-[#087BDF]" aria-hidden="true"><UsersRound size={18} /></span>
-          <div><p className="text-xs text-[#536B8F]">Số nhân viên</p><p className="mt-0.5 text-lg font-medium text-[#142547]">{headcount}</p></div>
-        </div>
-        <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFDFEA] text-[#F02E67]" aria-hidden="true"><UserRoundMinus size={18} /></span>
-          <div><p className="text-xs text-[#536B8F]">Người thiếu công</p><p className="mt-0.5 text-lg font-medium text-[#ED2B66]">{shortageCount}</p></div>
-        </div>
-        <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D8F5E7] text-[#009965]" aria-hidden="true"><Coins size={18} /></span>
-          <div><p className="text-xs text-[#536B8F]">Tổng lương cơ bản</p><p className="mt-0.5 text-lg font-medium text-[#142547]">{formatVnd(run ? totalBase : draftRows.reduce((s: number, r: any) => s + r.monthlySalary, 0))}</p></div>
-        </div>
       </div>
     )}
 
@@ -674,24 +688,35 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
       </div>
     )}
 
-    <div className="rounded-2xl bg-white p-4 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+    <div ref={tableCardRef} className={`rounded-lg border border-outline-variant bg-surface-container-lowest p-4 ${tableFullscreen ? "flex h-dvh w-screen flex-col overflow-hidden rounded-none border-0 sm:p-6" : ""}`}>
       <div className="mb-3 flex flex-wrap justify-between gap-3 text-sm items-center">
-        <span className="text-[#172B4D] font-medium">Trạng thái kỳ lương:</span>
-        <div className="flex items-center gap-3">
+        <h3 className="text-base font-medium text-on-surface text-balance">Bảng lương kỳ {period}</h3>
+        <div className="flex flex-wrap items-center gap-3">
           {canSeeTable && (
             <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={14} aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
               <input
+                aria-label="Tìm nhân viên theo tên hoặc mã"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Tìm theo tên hoặc mã..."
-                className="rounded-lg rounded-xl border border-[#DCE7F4] bg-white pl-8 pr-3 py-1.5 text-xs text-slate-700 outline-none focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15 w-52"
+                className="w-52 rounded-lg border border-outline-variant bg-surface-container-lowest py-1.5 pl-8 pr-3 text-xs text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
             </div>
           )}
           <span className={`rounded-full px-3 py-1 text-xs font-medium ${payrollStatusColors[(run?.status as (typeof STEPS)[number]["key"]) || "draft"] || payrollStatusColors.draft}`}>
             {run?.status === "paid" ? "Đã trả lương" : run?.status === "closed" ? "Đã chốt kỳ" : run?.status === "review" ? "Kiểm tra" : "Chuẩn bị"}
           </span>
+          {canSeeTable && <button
+            type="button"
+            onClick={() => void toggleTableFullscreen()}
+            aria-label={tableFullscreen ? "Thu nhỏ bảng lương" : "Phóng to bảng lương toàn màn hình"}
+            aria-pressed={tableFullscreen}
+            title={tableFullscreen ? "Thoát toàn màn hình" : "Xem bảng lương toàn màn hình"}
+            className="flex size-9 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            {tableFullscreen ? <Minimize2 className="size-4" aria-hidden="true" /> : <Maximize2 className="size-4" aria-hidden="true" />}
+          </button>}
         </div>
       </div>
 
@@ -704,11 +729,11 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
         </div>
       )}
 
-      {effectiveDataAvailable && <div className="overflow-auto rounded-xl border border-[#E5ECF5] max-h-[60vh]">
-        <table className="w-full text-left text-sm border-collapse">
+      {effectiveDataAvailable && <div role="region" aria-label="Bảng lương có thể cuộn ngang và dọc" tabIndex={0} className={`payroll-table-scroll visible-scrollbar overflow-auto overscroll-contain rounded-lg border border-outline-variant ${tableFullscreen ? "min-h-0 flex-1" : "max-h-[60vh]"}`}>
+        <table className="w-full min-w-max border-collapse text-left text-sm">
           {run ? (
             <>
-              <thead className="sticky top-0 z-10 bg-[#F7FAFE]">
+              <thead className="sticky top-0 z-10 bg-surface-container-low">
                 <tr className="hidden">
                   <th rowSpan={2} className="sticky left-0 z-20 min-w-[180px] border-r border-[#DCE7F4] bg-slate-50 p-3 text-center font-normal">Thông tin nhân viên</th>
                   <th colSpan={PAYROLL_RESULT_FIELDS.length + customVariables.length} className={`border-l p-2 text-center font-normal ${inlineEditable ? "border-[#B8E8FF] bg-[#F1FAFE] text-[#007EB8]" : "border-slate-200 bg-slate-100 text-slate-800"}`}>{inlineEditable ? "Các khoản có thể chỉnh sửa" : "Kết quả bảng lương"}</th>
@@ -774,7 +799,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
             </tbody>
           ) : (
             <>
-              <thead className="sticky top-0 z-10 bg-[#F7FAFE]">
+              <thead className="sticky top-0 z-10 bg-surface-container-low">
                 <tr className="border-b text-xs text-slate-500">
                   <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
