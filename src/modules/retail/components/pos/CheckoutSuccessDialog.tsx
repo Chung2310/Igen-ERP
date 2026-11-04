@@ -15,7 +15,7 @@ export default function CheckoutSuccessDialog({ result, paperSize = "80mm", onNe
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="h-5 w-5" /></span>
             <div className="min-w-0">
-              <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+              <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
               <p className="mt-1 text-xs text-slate-500">POS chỉ in hóa đơn này một lần.</p>
             </div>
           </div>
@@ -27,7 +27,7 @@ export default function CheckoutSuccessDialog({ result, paperSize = "80mm", onNe
           <ReceiptPrintView invoice={result.invoice} paperSize={paperSize} />
         </div>
         <div className="retail-no-print shrink-0 border-t border-slate-100 p-4">
-          <button className="w-full rounded-xl bg-[#0866f5] px-3 py-3 font-bold text-white hover:bg-[#0758d5]" onClick={onNewOrder}>Đơn mới</button>
+          <button className="w-full rounded-xl bg-[#0866f5] px-3 py-3 font-semibold text-white hover:bg-[#0758d5]" onClick={onNewOrder}>Đơn mới</button>
         </div>
       </div>
     </div>

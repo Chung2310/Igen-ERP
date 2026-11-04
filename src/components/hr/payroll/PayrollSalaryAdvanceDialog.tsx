@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Printer, X } from "lucide-react";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
+import { PayrollDatePicker } from "./PayrollDatePicker";
 
 export type SalaryAdvancePayload = {
   employeeId: string;
@@ -72,7 +73,7 @@ export function PayrollSalaryAdvanceDialog({ periodKey, employees, record, onClo
     <form onSubmit={(event) => void save(event)} className="space-y-4 p-5">
       {!preview ? <>
         <label className="block text-sm font-medium">Nhân viên tạm ứng<select required disabled={busy} value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className={fieldClass}>{employees.map((employee) => <option key={employee.employeeId} value={employee.employeeId}>{employee.employeeName}</option>)}</select></label>
-        <div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-medium">Số tiền tạm ứng (đ)<input ref={amountRef} required type="number" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} className={fieldClass} /></label><label className="block text-sm font-medium">Ngày chi<input required type="date" value={date} onChange={(event) => setDate(event.target.value)} className={fieldClass} /></label></div>
+        <div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-medium">Số tiền tạm ứng (đ)<input ref={amountRef} required type="number" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} className={fieldClass} /></label><div className="text-sm font-medium"><span>Ngày chi</span><PayrollDatePicker label="Ngày chi" value={date} onChange={setDate} clearable={false} portalTarget={() => dialogRef.current} /></div></div>
         <label className="block text-sm font-medium">Hình thức chi<select value={method} onChange={(event) => setMethod(event.target.value as typeof method)} className={fieldClass}><option value="transfer">Chuyển khoản</option><option value="cash">Tiền mặt</option></select></label>
         <label className="block text-sm font-medium">Lý do tạm ứng<textarea required rows={3} maxLength={1000} value={reason} onChange={(event) => setReason(event.target.value)} className={`${fieldClass} py-2`} /></label>
         <label className="block text-sm font-medium">Ghi chú (tùy chọn)<input maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} className={fieldClass} /></label>

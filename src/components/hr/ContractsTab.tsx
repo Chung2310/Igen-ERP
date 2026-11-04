@@ -17,6 +17,7 @@ import { HrFormSelect } from "./HrFormSelect";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
 import { HrPageTitle } from "./HrPageTitle";
+import { HrStatusBadge } from "./HrStatusBadge";
 import { ContractSignaturePad } from "./ContractSignaturePad";
 import type { ResourceItem } from "../../types";
 
@@ -167,11 +168,11 @@ const statusLabel: Record<ContractStatus, string> = {
   expired: "Hết hạn",
   terminated: "Đã chấm dứt",
 };
-const statusStyle: Record<ContractStatus, string> = {
-  draft: "bg-slate-100 text-slate-600",
-  active: "bg-emerald-50 text-emerald-700",
-  expired: "bg-amber-50 text-amber-700",
-  terminated: "bg-rose-50 text-rose-700",
+const statusTone: Record<ContractStatus, "neutral" | "success" | "warning" | "danger"> = {
+  draft: "neutral",
+  active: "success",
+  expired: "warning",
+  terminated: "danger",
 };
 
 export default function ContractsTab({
@@ -579,9 +580,11 @@ export default function ContractsTab({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div>
-              <HrPageTitle>Quản lý hợp đồng</HrPageTitle>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Theo dõi hợp đồng và lịch sử gia hạn của từng nhân viên.
+              <HrPageTitle>{tab === "extensions" ? "Gia hạn hợp đồng" : "Quản lý hợp đồng"}</HrPageTitle>
+              <p className="mt-0.5 text-sm text-on-surface-variant">
+                {tab === "extensions"
+                  ? "Theo dõi lịch sử gia hạn hợp đồng của từng nhân viên."
+                  : "Theo dõi hợp đồng của từng nhân viên."}
               </p>
             </div>
           </div>
@@ -613,18 +616,20 @@ export default function ContractsTab({
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-[#DCE7F4] bg-[#F0F6FB] p-1">
+          <div className="flex max-w-full gap-5 overflow-x-auto border-b border-outline-variant">
             <button
               type="button"
               onClick={() => setTab("contracts")}
-              className={`shrink-0 rounded-lg px-4 py-2 text-xs font-normal transition-colors ${tab === "contracts" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
+              aria-pressed={tab === "contracts"}
+              className={`shrink-0 border-b-2 px-1 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary ${tab === "contracts" ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}
             >
               Danh sách hợp đồng
             </button>
             <button
               type="button"
               onClick={() => setTab("extensions")}
-              className={`shrink-0 rounded-lg px-4 py-2 text-xs font-normal transition-colors ${tab === "extensions" ? "bg-white text-[#007EB8] shadow-sm" : "text-slate-600 hover:bg-white/70"}`}
+              aria-pressed={tab === "extensions"}
+              className={`shrink-0 border-b-2 px-1 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary ${tab === "extensions" ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}
             >
               Gia hạn hợp đồng
             </button>
@@ -683,20 +688,20 @@ export default function ContractsTab({
                 )}
               </div>
             )}
-            <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4] bg-white shadow-sm">
-              <table className="w-full min-w-[820px] text-xs text-slate-700">
-                <thead className="bg-[#F1F8FC] text-slate-600">
+            <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest">
+              <table className="w-full min-w-[820px] border-collapse text-left text-sm text-on-surface">
+                <thead className="bg-surface text-xs text-on-surface-variant">
                   <tr>
-                    <th className="border-r border-[#E8EEF5] p-3 text-left font-medium">Nhân viên</th>
-                    <th className="border-r border-[#E8EEF5] p-3 text-left font-medium">Loại hợp đồng</th>
-                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Bắt đầu</th>
-                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Hết hạn</th>
-                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Trạng thái</th>
-                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Tài liệu</th>
-                    <th className="p-3 font-normal"></th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium">Nhân viên</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium">Loại hợp đồng</th>
+                    <th scope="col" className="px-4 py-3 text-center font-medium">Bắt đầu</th>
+                    <th scope="col" className="px-4 py-3 text-center font-medium">Hết hạn</th>
+                    <th scope="col" className="px-4 py-3 text-center font-medium">Trạng thái</th>
+                    <th scope="col" className="px-4 py-3 text-center font-medium">Tài liệu</th>
+                    <th scope="col" className="px-4 py-3 text-center font-medium">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E8EEF5]">
+                <tbody className="divide-y divide-outline-variant">
                   {contracts.map((c) => {
                     const remainingDays = daysUntilExpiry(c.endDate);
                     const expiringSoon = isExpiringSoon(c, expiryAlertDays);
@@ -704,21 +709,21 @@ export default function ContractsTab({
                     return (
                       <tr
                         key={c._id}
-                        className={`transition-colors hover:bg-[#F8FCFF] ${expiringSoon ? "bg-amber-50/50" : ""}`}
+                        className={`hover:bg-surface/60 ${expiringSoon ? "bg-amber-50/50" : ""}`}
                       >
-                        <td className="border-r border-[#EEF3F8] p-3">
-                          <span className="font-medium text-slate-800">{c.employeeName}</span>
+                        <td className="px-4 py-3">
+                          <span className="block max-w-48 truncate font-medium text-slate-800" title={c.employeeName}>{c.employeeName}</span>
                           {emp && (
-                            <div className="text-[10px] text-slate-400">
+                            <div className="max-w-48 truncate text-[10px] text-slate-400" title={emp.department}>
                               {emp.department}
                             </div>
                           )}
                         </td>
-                        <td className="border-r border-[#EEF3F8] p-3">{c.contractType}</td>
-                        <td className="border-r border-[#EEF3F8] p-3 text-center">
+                        <td className="px-4 py-3"><span className="block max-w-64 truncate" title={c.contractType}>{c.contractType}</span></td>
+                        <td className="px-4 py-3 text-center tabular-nums">
                           {date(c.startDate)}
                         </td>
-                        <td className="border-r border-[#EEF3F8] p-3 text-center">
+                        <td className="px-4 py-3 text-center tabular-nums">
                           <div>{date(c.endDate)}</div>
                           {expiringSoon && (
                             <span className="mt-1 inline-block rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-normal text-amber-700">
@@ -726,14 +731,10 @@ export default function ContractsTab({
                             </span>
                           )}
                         </td>
-                        <td className="border-r border-[#EEF3F8] p-3 text-center">
-                          <span
-                            className={`rounded-full px-2.5 py-1 text-[10px] font-normal ${statusStyle[c.status]}`}
-                          >
-                            {statusLabel[c.status]}
-                          </span>
+                        <td className="px-4 py-3 text-center">
+                          <HrStatusBadge tone={statusTone[c.status]}>{statusLabel[c.status]}</HrStatusBadge>
                         </td>
-                        <td className="border-r border-[#EEF3F8] p-3 text-center">
+                        <td className="px-4 py-3 text-center">
                           {c.contractFileUrl && (
                             <button
                               type="button"
@@ -753,7 +754,7 @@ export default function ContractsTab({
                             </button>
                           )}
                         </td>
-                        <td className="p-3">
+                        <td className="px-4 py-3">
                           <div className="flex justify-center gap-1.5">
                             {canManage && (
                               <>
@@ -879,33 +880,33 @@ export default function ContractsTab({
           </>
         ) : (
           <div className="space-y-3">
-            <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4] bg-white shadow-sm">
-              <table className="w-full min-w-[760px] text-xs text-slate-700">
-                <thead className="bg-[#F1F8FC] text-slate-600">
+            <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest">
+              <table className="w-full min-w-[760px] border-collapse text-left text-sm text-on-surface">
+                <thead className="bg-surface text-xs text-on-surface-variant">
                   <tr>
-                    <th className="border-r border-[#E8EEF5] p-3 text-left font-medium">Nhân viên</th>
-                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Ngày gia hạn</th>
-                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Hạn cũ</th>
-                    <th className="border-r border-[#E8EEF5] p-3 font-medium">Hạn mới</th>
-                    <th className="border-r border-[#E8EEF5] p-3 text-left font-medium">Lý do</th>
-                    <th className="p-3 font-medium">Tài liệu</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium">Nhân viên</th>
+                    <th scope="col" className="px-4 py-3 text-center font-medium">Ngày gia hạn</th>
+                    <th scope="col" className="px-4 py-3 text-center font-medium">Hạn cũ</th>
+                    <th scope="col" className="px-4 py-3 text-center font-medium">Hạn mới</th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium">Lý do</th>
+                    <th scope="col" className="px-4 py-3 text-center font-medium">Tài liệu</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E8EEF5]">
+                <tbody className="divide-y divide-outline-variant">
                   {extensions.map((x) => (
-                    <tr key={x._id} className="transition-colors hover:bg-[#F8FCFF]">
-                      <td className="border-r border-[#EEF3F8] p-3 font-medium text-slate-800">{x.employeeName}</td>
-                      <td className="border-r border-[#EEF3F8] p-3 text-center">
+                    <tr key={x._id} className="hover:bg-surface/60">
+                      <td className="px-4 py-3 font-medium text-slate-800">{x.employeeName}</td>
+                      <td className="px-4 py-3 text-center tabular-nums">
                         {date(x.extensionDate)}
                       </td>
-                      <td className="border-r border-[#EEF3F8] p-3 text-center">
+                      <td className="px-4 py-3 text-center tabular-nums">
                         {date(x.previousEndDate)}
                       </td>
-                      <td className="border-r border-[#EEF3F8] p-3 text-center text-emerald-700">
+                      <td className="px-4 py-3 text-center tabular-nums text-emerald-700">
                         {date(x.newEndDate)}
                       </td>
-                      <td className="border-r border-[#EEF3F8] p-3">{x.reason || "—"}</td>
-                      <td className="p-3 text-center">
+                      <td className="px-4 py-3">{x.reason || "—"}</td>
+                      <td className="px-4 py-3 text-center">
                         {x.extensionFileUrl && (
                           <a
                             href={x.extensionFileUrl}
@@ -962,7 +963,7 @@ export default function ContractsTab({
           )}
         >
           <div className="grid grid-cols-2 gap-3">
-            <label className="col-span-2 space-y-1.5 text-xs text-slate-600">
+            <label className="col-span-2 flex flex-col gap-2 text-xs text-slate-600">
               Nhân viên
               <HrFormSelect
                 value={contractForm.employeeId}
@@ -979,7 +980,7 @@ export default function ContractsTab({
                 ]}
               />
             </label>
-            <label className="col-span-2 space-y-1.5 text-xs text-slate-600">
+            <label className="col-span-2 flex flex-col gap-2 text-xs text-slate-600">
               Loại hợp đồng
               <input
                 className={input}
@@ -992,7 +993,7 @@ export default function ContractsTab({
                 }
               />
             </label>
-            <label className="space-y-1.5 text-xs text-slate-600">
+            <label className="flex flex-col gap-2 text-xs text-slate-600">
               Ngày bắt đầu
               <DateInput24
                 ariaLabel="Ngày bắt đầu"
@@ -1005,7 +1006,7 @@ export default function ContractsTab({
                 }
               />
             </label>
-            <label className="space-y-1.5 text-xs text-slate-600">
+            <label className="flex flex-col gap-2 text-xs text-slate-600">
               Ngày hết hạn
               <DateInput24
                 ariaLabel="Ngày hết hạn"
@@ -1015,7 +1016,7 @@ export default function ContractsTab({
                 }
               />
             </label>
-            <label className="space-y-1.5 text-xs text-slate-600">
+            <label className="flex flex-col gap-2 text-xs text-slate-600">
               Trạng thái
               <HrFormSelect
                 value={contractForm.status}
@@ -1032,7 +1033,7 @@ export default function ContractsTab({
             <div className="text-xs text-slate-600">
               <span>File hợp đồng (PDF, DOC, DOCX)</span>
               <label
-                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 bg-[#F8FCFF] font-normal text-[#007EB8] hover:bg-[#E8F7FF]`}
+                className={`${input} mt-2 flex cursor-pointer items-center justify-center gap-2 bg-[#F8FCFF] font-normal text-[#007EB8] hover:bg-[#E8F7FF]`}
               >
                 <Upload size={14} />
                 {uploading === "contract"
@@ -1064,7 +1065,7 @@ export default function ContractsTab({
             <div className="text-xs text-slate-600">
               <span>Ảnh hợp đồng đã ký</span>
               <label
-                className={`${input} mt-1 flex cursor-pointer items-center justify-center gap-2 bg-[#F8FCFF] font-normal text-[#007EB8] hover:bg-[#E8F7FF]`}
+                className={`${input} mt-2 flex cursor-pointer items-center justify-center gap-2 bg-[#F8FCFF] font-normal text-[#007EB8] hover:bg-[#E8F7FF]`}
               >
                 <Upload size={14} />
                 {uploading === "signed" ? "Đang tải lên..." : "Chọn ảnh đã ký"}
@@ -1098,7 +1099,7 @@ export default function ContractsTab({
                 onSave={(file) => uploadContractFile(file, "electronicSignature")}
               />
             </div>
-            <label className="col-span-2 space-y-1.5 text-xs text-slate-600">
+            <label className="col-span-2 flex flex-col gap-2 text-xs text-slate-600">
               Ghi chú
               <textarea
                 className={input}

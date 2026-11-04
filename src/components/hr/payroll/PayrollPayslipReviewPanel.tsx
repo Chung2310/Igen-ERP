@@ -32,9 +32,9 @@ export function PayrollPayslipReviewPanel({ runId, canManage }: Props) {
   };
 
   return (
-    <section className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-on-surface" aria-labelledby="payslip-review-heading">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="payslip-review-heading" className="text-balance text-base font-semibold">Yêu cầu kiểm tra lại phiếu lương</h3>
+    <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-4 text-on-surface" aria-labelledby="payslip-review-heading">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-3">
+        <h3 id="payslip-review-heading" className="text-balance text-base font-medium">Yêu cầu kiểm tra lại phiếu lương</h3>
         <div className="flex items-center gap-2">
           <span className="text-sm tabular-nums text-on-surface-variant">{items.filter((item) => item.status === "open").length} đang chờ</span>
           <button type="button" aria-label="Tải lại yêu cầu kiểm tra lương" disabled={loading} onClick={() => setReloadVersion((value) => value + 1)} className="flex size-11 items-center justify-center rounded-lg border border-outline text-on-surface-variant hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"><RefreshCw size={16} aria-hidden="true" /></button>

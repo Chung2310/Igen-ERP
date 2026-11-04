@@ -128,10 +128,10 @@ export default function RetailShiftDetailDialog({ scope, shift, onClose, onRecon
         <div className="min-h-0 flex-1 overflow-y-auto">
           <header className="border-b border-slate-200 bg-white">
             <div className="px-4 py-3 pr-16 sm:px-6 sm:py-4 sm:pr-20">
-              <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-cyan-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-cyan-800">Chi tiết phiên bán hàng</span><SessionStatus status={session.status} /></div>
+              <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-cyan-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-cyan-800">Chi tiết phiên bán hàng</span><SessionStatus status={session.status} /></div>
               <div className="mt-2 flex min-w-0 items-center gap-2.5">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600"><UserRound className="h-4 w-4" /></span>
-                <div className="min-w-0"><h2 id="retail-shift-detail-title" className="truncate text-lg font-bold leading-5 text-slate-950">{session.cashierName || shift.cashierName}</h2></div>
+                <div className="min-w-0"><h2 id="retail-shift-detail-title" className="truncate text-lg font-semibold leading-5 text-slate-950">{session.cashierName || shift.cashierName}</h2></div>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5"><InfoPill icon={<CalendarDays className="h-3.5 w-3.5" />}>Ngày kinh doanh · {session.businessDate}</InfoPill><InfoPill icon={<Clock3 className="h-3.5 w-3.5" />}>Mở lúc · {dateTime(session.openedAt)}</InfoPill></div>
               {session.workShiftName && <p className="mt-2 truncate text-xs text-slate-500" title={session.workShiftName}><span className="font-semibold text-slate-600">Ca làm việc:</span> {session.workShiftName} · {session.workShiftSource ? scheduleSourceLabels[session.workShiftSource] : ""} · {dateTime(session.scheduledStartAt)}–{dateTime(session.scheduledEndAt)}</p>}
@@ -156,11 +156,11 @@ export default function RetailShiftDetailDialog({ scope, shift, onClose, onRecon
               {session.status === "closed" && onReconcile && <form onSubmit={(event) => void submitReconciliation(event)} className="rounded-xl border border-amber-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
                   <SectionHeading icon={<Wallet className="h-4 w-4" />} title="Đối soát phiên" />
-                  <p className="text-xs text-slate-500">Tiền dự kiến trong két: <b className="tabular-nums text-slate-800">{session.expectedCash == null ? "—" : money(session.expectedCash)}</b></p>
+                  <p className="text-xs text-slate-500">Tiền dự kiến trong két: <b className="tabular-nums text-cyan-700">{session.expectedCash == null ? "—" : money(session.expectedCash)}</b></p>
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-end">
-                  <label className="block text-xs font-semibold text-slate-600">Tiền thực tế trong két<SharedCurrencyInput aria-label="Tiền thực tế trong két" value={countedCash} onChange={(value) => setCountedCash(value)} className="mt-1.5 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-sm font-bold text-slate-900 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20" /></label>
-                  <div className="rounded-lg bg-slate-50 px-3 py-2"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Chênh lệch</p><p className={"mt-0.5 text-sm font-bold tabular-nums " + (session.expectedCash == null ? "text-slate-500" : countedCash - session.expectedCash === 0 ? "text-slate-900" : countedCash - session.expectedCash > 0 ? "text-emerald-700" : "text-rose-700")}>{session.expectedCash == null ? "—" : money(countedCash - session.expectedCash)}</p></div>
+                  <label className="block text-xs font-semibold text-slate-600">Tiền thực tế trong két<SharedCurrencyInput aria-label="Tiền thực tế trong két" value={countedCash} onChange={(value) => setCountedCash(value)} className="mt-1.5 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-sm font-semibold text-slate-900 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20" /></label>
+                  <div className="rounded-lg bg-slate-50 px-3 py-2"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Chênh lệch</p><p className={"mt-0.5 text-sm font-semibold tabular-nums " + (session.expectedCash == null ? "text-slate-500" : countedCash - session.expectedCash === 0 ? "text-slate-900" : countedCash - session.expectedCash > 0 ? "text-emerald-700" : "text-rose-700")}>{session.expectedCash == null ? "—" : money(countedCash - session.expectedCash)}</p></div>
                   <label className="block text-xs font-semibold text-slate-600">Ghi chú (nếu có)<input aria-label="Ghi chú đối soát" value={varianceReason} onChange={(event) => setVarianceReason(event.target.value)} className="mt-1.5 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-900 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20" /></label>
                 </div>
                 {reconcileError && <p role="alert" className="mt-2 text-sm text-rose-700">{reconcileError}</p>}
@@ -172,7 +172,7 @@ export default function RetailShiftDetailDialog({ scope, shift, onClose, onRecon
                   <SectionHeading icon={<Package className="h-4 w-4" />} title="Sản phẩm đã bán" meta={products.length.toLocaleString("vi-VN") + " mặt hàng"} />
                   <div className="mt-2">
                     <div className="grid grid-cols-[minmax(0,1fr)_48px_108px] gap-2 rounded-md bg-slate-50 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:grid-cols-[minmax(0,1fr)_64px_140px]"><span>Sản phẩm</span><span className="text-right">SL</span><span className="text-right">Tiền hàng</span></div>
-                    {products.length ? <div className="divide-y divide-slate-100 px-2">{products.map((product, index) => <div key={product.name + "-" + index} className="grid grid-cols-[minmax(0,1fr)_48px_108px] items-center gap-2 py-2.5 text-sm sm:grid-cols-[minmax(0,1fr)_64px_140px]"><p className="truncate font-semibold text-slate-800" title={product.name}>{product.name}</p><span className="text-right tabular-nums text-slate-600">{product.quantity}</span><span className="text-right font-semibold tabular-nums text-slate-900">{money(product.sales)}</span></div>)}</div> : <p className="px-2 py-3 text-sm text-slate-500">Chưa có sản phẩm bán.</p>}
+                    {products.length ? <div className="divide-y divide-slate-100 px-2">{products.map((product, index) => <div key={product.name + "-" + index} className="grid grid-cols-[minmax(0,1fr)_48px_108px] items-center gap-2 py-2.5 text-sm sm:grid-cols-[minmax(0,1fr)_64px_140px]"><p className="truncate font-semibold text-slate-800" title={product.name}>{product.name}</p><span className="text-right tabular-nums text-slate-600">{product.quantity}</span><span className="text-right font-semibold tabular-nums text-cyan-700">{money(product.sales)}</span></div>)}</div> : <p className="px-2 py-3 text-sm text-slate-500">Chưa có sản phẩm bán.</p>}
                   </div>
                 </section>
 
@@ -192,8 +192,8 @@ export default function RetailShiftDetailDialog({ scope, shift, onClose, onRecon
                 <div className="border-b border-slate-200 pb-2"><SectionHeading icon={<RotateCcw className="h-4 w-4" />} title="Trả hàng / thu mua" meta={(detail.afterSalesTotal || 0).toLocaleString("vi-VN") + " phiếu"} /></div>
                 <div className="mt-2 divide-y divide-slate-200">
                   {(detail.afterSales || []).map((receipt) => <details key={receipt._id} className="group py-2">
-                    <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden"><div className="min-w-0 flex-1"><p className="font-semibold text-slate-900">{receipt.type === "return" ? "Trả hàng" : "Thu mua"}</p><p className="mt-0.5 text-xs text-slate-500">{dateTime(receipt.createdAt)} · {receipt.customerName || "Khách lẻ"}</p></div><div className="flex items-center gap-2"><div className="text-right"><p className="text-sm font-semibold tabular-nums text-slate-900">{money(receipt.totalAmount)}</p><p className="text-xs text-slate-500">{methodLabels[receipt.paymentMethod]}</p></div><ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" /></div></summary>
-                    <div className="border-t border-slate-100 pt-2">{receipt.reason && <p className="mb-2 text-xs text-slate-500">Lý do: {receipt.reason}</p>}{receipt.items.map((item, index) => <div key={index} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><p className="min-w-0 font-medium text-slate-800">{item.productName} · SL {item.quantity}</p><p className="text-sm tabular-nums text-slate-700">{money(item.lineAmount)}</p></div>)}</div>
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden"><div className="min-w-0 flex-1"><p className="font-semibold text-slate-900">{receipt.type === "return" ? "Trả hàng" : "Thu mua"}</p><p className="mt-0.5 text-xs text-slate-500">{dateTime(receipt.createdAt)} · {receipt.customerName || "Khách lẻ"}</p></div><div className="flex items-center gap-2"><div className="text-right"><p className={"text-sm font-semibold tabular-nums " + (receipt.type === "return" ? "text-orange-700" : "text-emerald-700")}>{money(receipt.totalAmount)}</p><p className="text-xs text-slate-500">{methodLabels[receipt.paymentMethod]}</p></div><ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" /></div></summary>
+                    <div className="border-t border-slate-100 pt-2">{receipt.reason && <p className="mb-2 text-xs text-slate-500">Lý do: {receipt.reason}</p>}{receipt.items.map((item, index) => <div key={index} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><p className="min-w-0 font-medium text-slate-800">{item.productName} · SL {item.quantity}</p><p className={"text-sm tabular-nums " + (receipt.type === "return" ? "text-orange-700" : "text-emerald-700")}>{money(item.lineAmount)}</p></div>)}</div>
                   </details>)}
                 </div>
                 <TablePagination currentPage={afterSalesPage} totalPages={Math.ceil((detail.afterSalesTotal || 0) / 20)} pageSize={20} pageSizeOptions={[20]} totalItems={detail.afterSalesTotal || 0} itemLabel="phiếu" onPageChange={setAfterSalesPage} onPageSizeChange={() => undefined} />
@@ -221,7 +221,7 @@ export default function RetailShiftDetailDialog({ scope, shift, onClose, onRecon
 function Summary({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return <div className="min-w-0">
     <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-    <p className="mt-0.5 truncate text-base font-bold tabular-nums text-slate-950 sm:text-lg" title={value}>{value}</p>
+    <p className={"mt-0.5 truncate text-base font-semibold tabular-nums sm:text-lg " + (value.includes("₫") ? "text-cyan-700" : "text-slate-950")} title={value}>{value}</p>
     {hint && <p className="mt-0.5 truncate text-[11px] text-slate-500" title={hint}>{hint}</p>}
   </div>;
 }
@@ -229,7 +229,7 @@ function Summary({ label, value, hint }: { label: string; value: string; hint?: 
 function SectionHeading({ icon, title, meta }: { icon: React.ReactNode; title: string; meta?: string }) {
   return <div className="flex min-w-0 items-center gap-2">
     <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-cyan-50 text-cyan-700">{icon}</span>
-    <h3 className="text-sm font-bold text-slate-900">{title}</h3>{meta && <span className="text-xs text-slate-500">· {meta}</span>}
+    <h3 className="text-sm font-semibold text-slate-900">{title}</h3>{meta && <span className="text-xs text-slate-500">· {meta}</span>}
   </div>;
 }
 
@@ -244,7 +244,7 @@ function SessionStatus({ status }: { status: RetailShift["status"] }) {
 }
 
 function AmountCell({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0"><p className="text-[10px] font-medium text-slate-500">{label}</p><p className="truncate text-xs font-semibold tabular-nums text-slate-800 sm:text-sm">{value}</p></div>;
+  return <div className="min-w-0"><p className="text-[10px] font-medium text-slate-500">{label}</p><p className={"truncate text-xs font-semibold tabular-nums sm:text-sm " + (label === "Đã hoàn" ? "text-rose-700" : label === "Đã thu" ? "text-emerald-700" : "text-orange-700")}>{value}</p></div>;
 }
 function OrderRow({ order, shiftId }: { order: RetailShiftOrderDetail; shiftId: string }) {
   const [expanded, setExpanded] = React.useState(false);
@@ -259,7 +259,7 @@ function OrderRow({ order, shiftId }: { order: RetailShiftOrderDetail; shiftId: 
   return <article className="border-b border-slate-200 px-2 last:border-b-0">
     <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="w-full py-2.5 text-left transition hover:bg-slate-50/70">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold text-slate-900">Đơn hàng</span><span className={"rounded-full px-2 py-0.5 text-[10px] font-semibold " + statusTone}>{status}</span></div><p className="mt-0.5 text-xs text-slate-500">{dateTime(order.createdAt)}{methods ? " · " + methods : ""}</p></div>
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold text-slate-900">Đơn hàng</span><span className={"rounded-full px-2 py-0.5 text-[10px] font-semibold " + statusTone}>{status}</span></div><p className="mt-0.5 text-xs text-slate-500">{dateTime(order.createdAt)}{methods ? " · " + methods : ""}</p></div>
         <ChevronDown className={"mt-1 h-4 w-4 shrink-0 text-slate-400 transition " + (expanded ? "rotate-180" : "")} />
       </div>
       <div className="mt-2 grid grid-cols-2 divide-x divide-slate-200 rounded-lg bg-slate-50 py-2 sm:grid-cols-4">
@@ -271,7 +271,7 @@ function OrderRow({ order, shiftId }: { order: RetailShiftOrderDetail; shiftId: 
     </button>
     {expanded && <div className="space-y-3 border-t border-slate-200 bg-slate-50/70 px-2 py-3 sm:px-3">
       <div><p className="mb-1 text-xs font-semibold text-slate-600">Sản phẩm trong đơn</p><div className="divide-y divide-slate-100">
-        {order.items.map((item, index) => <div key={index} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><div className="min-w-0"><p className="font-medium text-slate-800">{item.productName}</p><p className="text-xs text-slate-500">SL {item.quantity} · Đơn giá {money(item.unitPrice)} · Giảm {money(item.discountAmount)}</p></div><p className="whitespace-nowrap font-semibold tabular-nums text-slate-900">{money(item.lineTotal)}</p></div>)}
+        {order.items.map((item, index) => <div key={index} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><div className="min-w-0"><p className="font-medium text-slate-800">{item.productName}</p><p className="text-xs text-slate-500">SL {item.quantity} · Đơn giá {money(item.unitPrice)} · Giảm {money(item.discountAmount)}</p></div><p className="whitespace-nowrap font-semibold tabular-nums text-cyan-700">{money(item.lineTotal)}</p></div>)}
       </div></div>
       {(order.payments || []).length > 0 && <div><p className="mb-1 text-xs font-semibold text-slate-600">Lịch sử thu tiền</p><div className="divide-y divide-slate-100">{(order.payments || []).map((payment, index) => <div key={"p" + index} className="flex flex-wrap justify-between gap-2 py-2 text-xs"><span className="text-slate-600">{methodLabels[payment.method]} · {dateTime(payment.paidAt)} · {payment.receivedByName || "—"}</span><b className="whitespace-nowrap text-emerald-700">{money(payment.amount)}</b></div>)}</div></div>}
       {(order.refunds || []).length > 0 && <div><p className="mb-1 text-xs font-semibold text-slate-600">Lịch sử hoàn tiền</p><div className="divide-y divide-slate-100">{(order.refunds || []).map((refund, index) => <div key={"r" + index} className="flex flex-wrap justify-between gap-2 py-2 text-xs"><span className="text-slate-600">{methodLabels[refund.method]} · {dateTime(refund.refundedAt)} · {refund.refundedByName}{refund.reason ? " · " + refund.reason : ""}</span><b className="whitespace-nowrap text-rose-700">{money(refund.amount)}</b></div>)}</div></div>}
@@ -282,5 +282,5 @@ function OrderRow({ order, shiftId }: { order: RetailShiftOrderDetail; shiftId: 
 }
 
 function OrderValue({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return <div className="min-w-0 px-2 first:pl-0"><p className="text-[10px] font-medium text-slate-500">{label}</p><p className={"truncate text-xs sm:text-sm " + (strong ? "font-semibold tabular-nums text-slate-900" : "text-slate-700")} title={value}>{value}</p></div>;
+  return <div className="min-w-0 px-2 first:pl-0"><p className="text-[10px] font-medium text-slate-500">{label}</p><p className={"truncate text-xs sm:text-sm " + (strong ? "font-semibold tabular-nums text-cyan-700" : "text-slate-700")} title={value}>{value}</p></div>;
 }

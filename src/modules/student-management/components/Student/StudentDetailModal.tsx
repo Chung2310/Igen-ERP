@@ -240,19 +240,19 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="relative flex h-full w-full max-w-6xl flex-col overflow-hidden bg-slate-50 shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
+            className="relative flex h-full w-full max-w-6xl flex-col overflow-hidden bg-surface shadow-lg sm:h-auto sm:max-h-[92vh] sm:rounded-md"
           >
             {/* Header Section */}
-            <div className="flex-shrink-0 border-b border-sky-100 bg-white px-4 py-3 sm:px-6 sm:py-4">
+            <div className="flex-shrink-0 border-b border-outline-variant bg-surface-container-lowest px-4 py-3 sm:px-6 sm:py-4">
               <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-primary text-base font-medium text-white">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-base font-medium text-on-primary">
                     {student.fullName.charAt(0)}
                   </div>
                   <div className="min-w-0">
-                    <h2 className="truncate text-lg font-medium tracking-tight text-slate-900">{student.fullName}</h2>
+                    <h2 className="truncate text-lg font-semibold text-on-surface">{student.fullName}</h2>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-normal text-slate-500">{student.phone}</span>
+                      <span className="text-xs font-normal text-on-surface-variant">{student.phone}</span>
                     </div>
                   </div>
                 </div>
@@ -273,12 +273,16 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                   </div>
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
+                      aria-label="In thông tin"
                       title="In thông tin"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-white text-slate-500 transition-colors hover:bg-sky-50 hover:text-brand-primary"
+                      className="flex size-8 items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
                     >
                       <Printer className="h-4 w-4" />
                     </button>
                     <button
+                      type="button"
+                      aria-label="Đóng"
                       onClick={onClose}
                       title="Đóng"
                       className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
@@ -290,18 +294,20 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
               </div>
 
               {/* Tab Navigation */}
-              <div className="mt-3 flex items-center gap-2">
-                <button type="button" title="Tab trước" onClick={() => scrollTabs("left")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronLeft className="h-4 w-4" /></button>
+              <div className="mt-3 flex items-center gap-2 border-b border-outline-variant">
+                <button type="button" aria-label="Tab trước" title="Tab trước" onClick={() => scrollTabs("left")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-primary"><ChevronLeft className="h-4 w-4" /></button>
                 <div ref={tabsRef} className="no-scrollbar flex min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto scroll-smooth">
                   {tabs.map((tab) => (
                     <button
                       key={tab}
+                      type="button"
+                      aria-current={activeTab === tab ? 'page' : undefined}
                       onClick={() => setActiveTab(tab)}
                       className={cn(
-                        "flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm",
+                        "relative flex min-h-10 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs font-medium text-on-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary sm:text-sm",
                         activeTab === tab
-                          ? "bg-brand-primary text-white"
-                          : "text-slate-600 hover:bg-sky-50 hover:text-brand-primary"
+                          ? "text-primary after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-primary"
+                          : ""
                       )}
                     >
                       <TabIcon tab={tab} />
@@ -309,12 +315,12 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                     </button>
                   ))}
                 </div>
-                <button type="button" title="Tab sau" onClick={() => scrollTabs("right")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100"><ChevronRight className="h-4 w-4" /></button>
+                <button type="button" aria-label="Tab sau" title="Tab sau" onClick={() => scrollTabs("right")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-primary"><ChevronRight className="h-4 w-4" /></button>
               </div>
             </div>
 
             {/* Body Content */}
-            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/50 p-3 sm:p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-surface p-3 sm:p-5">
               <motion.div
                 key={activeTab}
                 initial={{ opacity: 0, y: 10 }}
@@ -350,7 +356,7 @@ export function StudentDetailModal({ student: initialStudent, selectedCenter, on
                   activeTab !== 'Khuôn mặt' &&
                   activeTab !== 'Lịch sử học tập' &&
                   activeTab !== 'Lịch sử' && (
-                    <div className="flex flex-col items-center justify-center py-20 px-4 bg-white rounded-[2rem] border border-slate-100">
+                    <div className="flex flex-col items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-20">
                       <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 mb-4">
                         <TabIcon tab={activeTab} size={32} />
                       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../../shared/lib/apiFetch";
 import type { RetailScope } from "../../types";
+import { Dropdown } from "../../../../components/common/Dropdown";
 
 type Collaborator = { _id: string; code: string; name: string };
 
@@ -18,12 +19,7 @@ export default function RetailCollaboratorSelect({ scope, value, onChange }: { s
   }, [scope.companyCode, scope.branchId]);
 
   return <div className="space-y-1">
-    <label htmlFor="retail-collaborator" className="block text-sm font-medium text-on-surface">Cộng tác viên bán lẻ</label>
-    <select id="retail-collaborator" value={value} onChange={(event) => onChange(event.target.value)} aria-describedby={error ? "retail-collaborator-error" : undefined} className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary">
-      <option value="">Không có CTV bán lẻ</option>
-      {items.map((item) => <option key={item._id} value={item._id}>{item.name} ({item.code})</option>)}
-      {value && !items.some((item) => item._id === value) && <option value={value}>CTV bán lẻ đã chọn không còn hoạt động</option>}
-    </select>
+    <Dropdown id="retail-collaborator" label="Cộng tác viên bán lẻ" aria-describedby={error ? "retail-collaborator-error" : undefined} value={value} onChange={onChange} options={[{ value: "", label: "Không có CTV bán lẻ" }, ...items.map((item) => ({ value: item._id, label: `${item.name} (${item.code})` })), ...(value && !items.some((item) => item._id === value) ? [{ value, label: "CTV bán lẻ đã chọn không còn hoạt động" }] : [])]} variant="form" size="md" className="w-full" searchable />
     {error && <p id="retail-collaborator-error" role="alert" className="text-sm text-error">{error}</p>}
   </div>;
 }

@@ -10,7 +10,6 @@ import {
   RefreshCw,
   Search,
   Send,
-  ShieldCheck,
   User,
   Users,
   X,
@@ -77,13 +76,13 @@ export function PayrollComplaintsPanel({ runId, runVersion, canManage, hasUnsave
   return (
     <section aria-label="Danh sách khiếu nại lương" className="space-y-4">
       {/* Tiêu đề & Tác vụ */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-outline-variant/80 bg-surface-container-lowest p-4 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <MessageSquare size={20} />
+          <div className="flex size-8 items-center justify-center text-primary">
+            <MessageSquare size={20} aria-hidden="true" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-on-surface">Khiếu nại & Đối soát của nhân viên</h3>
+            <h3 className="text-base font-medium text-on-surface text-balance">Khiếu nại & Đối soát của nhân viên</h3>
             <p className="text-xs text-on-surface-variant">
               Tiếp nhận các thắc mắc về công, phụ cấp, hoa hồng, khấu trừ trong kỳ lương và phản hồi trực tiếp tới nhân viên.
             </p>
@@ -94,7 +93,7 @@ export function PayrollComplaintsPanel({ runId, runVersion, canManage, hasUnsave
             type="button"
             disabled={loading || publishing}
             onClick={() => void load().then(() => onChanged())}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:border-slate-300 disabled:opacity-50 cursor-pointer shadow-2xs transition-colors"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
           >
             <RefreshCw size={13} className={loading ? "animate-spin text-primary" : "text-on-surface-variant"} />
             Tải lại khiếu nại
@@ -119,63 +118,51 @@ export function PayrollComplaintsPanel({ runId, runVersion, canManage, hasUnsave
       {data && (
         <>
           {/* Thẻ thống kê KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {/* Chưa giải quyết */}
-            <div className="rounded-xl border border-amber-200/70 bg-amber-50 p-3.5 shadow-xs">
+            <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-amber-800">Chưa giải quyết</span>
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100/80 text-amber-700">
-                  <AlertCircle size={15} />
-                </span>
+                <span className="text-xs text-on-surface-variant">Chưa giải quyết</span>
               </div>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-2xl font-bold  text-amber-900">{openCount}</span>
-                <span className="text-xs text-amber-700">vấn đề cần xử lý</span>
+                <span className="text-xl font-semibold tabular-nums text-on-surface">{openCount}</span>
+                <span className="text-xs text-on-surface-variant">vấn đề cần xử lý</span>
               </div>
             </div>
 
             {/* Đã giải quyết */}
-            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50 p-3.5 shadow-xs">
+            <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-emerald-800">Đã giải quyết</span>
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100/80 text-emerald-700">
-                  <CheckCircle2 size={15} />
-                </span>
+                <span className="text-xs text-on-surface-variant">Đã giải quyết</span>
               </div>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-2xl font-bold  text-emerald-900">{resolvedCount}</span>
-                <span className="text-xs text-emerald-700">khiếu nại đã xong</span>
+                <span className="text-xl font-semibold tabular-nums text-on-surface">{resolvedCount}</span>
+                <span className="text-xs text-on-surface-variant">khiếu nại đã xong</span>
               </div>
             </div>
 
             {/* Nhân viên xác nhận */}
-            <div className="rounded-xl border border-primary/30 bg-primary/10 p-3.5 shadow-xs">
+            <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-primary">Nhân viên xác nhận</span>
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                  <ShieldCheck size={15} />
-                </span>
+                <span className="text-xs text-on-surface-variant">Nhân viên xác nhận</span>
               </div>
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="text-2xl font-bold  text-on-surface">{confirmed}</span>
-                <span className="text-xs text-on-surface-variant font-medium">/ {totalEmployees} nhân sự ({confirmPercent}%)</span>
+                <span className="text-xl font-semibold tabular-nums text-on-surface">{confirmed}</span>
+                <span className="text-xs text-on-surface-variant">/ {totalEmployees} nhân sự ({confirmPercent}%)</span>
               </div>
-              <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-colors" style={{ width: `${Math.min(100, confirmPercent)}%` }} />
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-container-low">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, confirmPercent)}%` }} />
               </div>
             </div>
 
             {/* Tổng số khiếu nại */}
-            <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-xs">
+            <div className="rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-on-surface-variant">Tổng trao đổi</span>
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-on-surface-variant">
-                  <Users size={15} />
-                </span>
+                <span className="text-xs text-on-surface-variant">Tổng trao đổi</span>
               </div>
               <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-2xl font-bold  text-on-surface">{all.length}</span>
-                <span className="text-xs text-slate-400">luồng đối soát</span>
+                <span className="text-xl font-semibold tabular-nums text-on-surface">{all.length}</span>
+                <span className="text-xs text-on-surface-variant">luồng đối soát</span>
               </div>
             </div>
           </div>
@@ -197,7 +184,7 @@ export function PayrollComplaintsPanel({ runId, runVersion, canManage, hasUnsave
 
           {/* Thanh phát hành bảng đối soát */}
           {canManage && data.runStatus === "draft" && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/10 p-3.5 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
               <div className="flex items-center gap-2 text-xs">
                 <Send size={15} className="text-primary shrink-0" />
                 <div>

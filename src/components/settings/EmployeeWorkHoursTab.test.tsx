@@ -21,6 +21,10 @@ describe("EmployeeWorkHoursTab", () => {
     render(<EmployeeWorkHoursTab />);
 
     expect(await screen.findByText("Nguyễn An")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Nhân viên" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Email" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Giờ làm việc" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Thao tác" })).toBeTruthy();
     expect(screen.getAllByText("an@igen.com")).toHaveLength(1);
     expect(screen.getAllByText("a@gmail.com")).toHaveLength(1);
   });

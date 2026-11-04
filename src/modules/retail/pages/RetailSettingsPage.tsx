@@ -16,7 +16,6 @@ import {
   Save,
   Settings,
   ShieldCheck,
-  Sliders,
   Sparkles,
   Store,
   X,
@@ -63,7 +62,7 @@ export default function RetailSettingsPage() {
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-amber-200 bg-amber-50/70 p-12 text-center text-amber-800">
         <Store className="mb-3 h-12 w-12 text-amber-500" />
-        <h3 className="text-base font-bold text-amber-900">Chưa chọn chi nhánh</h3>
+        <h3 className="text-base font-semibold text-amber-900">Chưa chọn chi nhánh</h3>
         <p className="mt-1 text-xs text-amber-700 max-w-sm">
           Vui lòng chọn chi nhánh làm việc từ thanh điều hướng phía trên để thiết lập cấu hình bán hàng.
         </p>
@@ -242,18 +241,12 @@ export default function RetailSettingsPage() {
 
   return (
     <div className="w-full space-y-6 pb-12">
-      {/* Top Header Card */}
-      <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
-        <div className="absolute right-0 top-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-gradient-to-br from-cyan-100/50 to-blue-100/30 blur-2xl pointer-events-none" />
-
-        <div className="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+      <div className="border-b border-outline-variant pb-4">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-600/20">
-              <Sliders className="h-6 w-6" />
-            </div>
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-xl font-bold text-slate-900">Cài đặt bán hàng</h1>
+                <h1 className="retail-page-title text-balance text-lg font-semibold text-on-surface">Cài đặt bán hàng</h1>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50/80 px-3 py-0.5 text-xs font-semibold text-cyan-800">
                   <Store className="h-3.5 w-3.5" />
                   {activeBranch?.name || `Chi nhánh: ${activeBranchId}`}
@@ -268,7 +261,7 @@ export default function RetailSettingsPage() {
                 type="button"
                 onClick={handleReset}
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 cursor-pointer disabled:opacity-50"
+                className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3.5 text-xs font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 Khôi phục
@@ -278,7 +271,7 @@ export default function RetailSettingsPage() {
               type="button"
               disabled={saving || !hasChanges}
               onClick={() => void save()}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 disabled:shadow-none cursor-pointer"
+              className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
               {saving ? "Đang lưu…" : "Lưu cài đặt"}
@@ -303,7 +296,7 @@ export default function RetailSettingsPage() {
                 <Package className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Vận hành kho & Bán hàng</h2>
+                <h2 className="text-sm font-semibold text-slate-900">Vận hành kho & Bán hàng</h2>
                 <p className="text-[11px] text-slate-500">Quy tắc xuất bán và kiểm soát tồn kho tại quầy</p>
               </div>
             </div>
@@ -318,14 +311,14 @@ export default function RetailSettingsPage() {
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900">Cho phép bán âm kho</span>
+                    <span className="text-xs font-semibold text-slate-900">Cho phép bán âm kho</span>
                     {settings.allowNegativeStock ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
                         <AlertTriangle className="h-3 w-3" />
                         Đang bật
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
                         <CheckCircle2 className="h-3 w-3" />
                         Đang khóa
                       </span>
@@ -352,11 +345,11 @@ export default function RetailSettingsPage() {
               {/* Ngưỡng chênh lệch kiểm quỹ ca */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="varianceReasonThreshold" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <label htmlFor="varianceReasonThreshold" className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                     <Coins className="h-3.5 w-3.5 text-slate-400" />
                     Ngưỡng giải trình lệch quỹ kết ca (₫)
                   </label>
-                  <span className="text-[11px] font-mono font-bold text-cyan-700">
+                  <span className="text-[11px] font-mono font-semibold text-cyan-700">
                     {(settings.varianceReasonThreshold || 0).toLocaleString("vi-VN")} ₫
                   </span>
                 </div>
@@ -391,7 +384,7 @@ export default function RetailSettingsPage() {
                 <Percent className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Chiết khấu & Thuế VAT</h2>
+                <h2 className="text-sm font-semibold text-slate-900">Chiết khấu & Thuế VAT</h2>
                 <p className="text-[11px] text-slate-500">Giới hạn giảm giá tay và tỷ lệ thuế suất tự động</p>
               </div>
             </div>
@@ -400,7 +393,7 @@ export default function RetailSettingsPage() {
               {/* Giảm giá tối đa */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="maxDiscountPercent" className="text-xs font-bold text-slate-700">
+                  <label htmlFor="maxDiscountPercent" className="text-xs font-semibold text-slate-700">
                     Giảm giá tối đa (%)
                   </label>
                   <div className="flex items-center gap-1.5">
@@ -409,7 +402,7 @@ export default function RetailSettingsPage() {
                         key={pct}
                         type="button"
                         onClick={() => update("maxDiscountPercent", pct)}
-                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition cursor-pointer ${settings.maxDiscountPercent === pct
+                        className={`rounded-md px-2 py-0.5 text-[10px] font-semibold transition cursor-pointer ${settings.maxDiscountPercent === pct
                             ? "bg-emerald-600 text-white"
                             : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
@@ -431,7 +424,7 @@ export default function RetailSettingsPage() {
                     onChange={(event) => update("maxDiscountPercent", Number(event.target.value))}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 shadow-xs transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 pr-8"
                   />
-                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400 pointer-events-none">%</span>
+                  <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">%</span>
                 </div>
                 <p className="text-[11px] text-slate-400">
                   Hạn mức % chiết khấu tối đa mà thu ngân được phép tự nhập tại màn hình thanh toán POS.
@@ -441,7 +434,7 @@ export default function RetailSettingsPage() {
               {/* Thuế suất mặc định */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="defaultTaxRate" className="text-xs font-bold text-slate-700">
+                  <label htmlFor="defaultTaxRate" className="text-xs font-semibold text-slate-700">
                     Thuế suất mặc định (%)
                   </label>
                   <div className="flex items-center gap-1.5">
@@ -450,7 +443,7 @@ export default function RetailSettingsPage() {
                         key={rate}
                         type="button"
                         onClick={() => update("defaultTaxRate", rate)}
-                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition cursor-pointer ${settings.defaultTaxRate === rate
+                        className={`rounded-md px-2 py-0.5 text-[10px] font-semibold transition cursor-pointer ${settings.defaultTaxRate === rate
                             ? "bg-cyan-600 text-white"
                             : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
@@ -472,7 +465,7 @@ export default function RetailSettingsPage() {
                     onChange={(event) => update("defaultTaxRate", Number(event.target.value))}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 shadow-xs transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 pr-8"
                   />
-                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400 pointer-events-none">%</span>
+                  <span className="absolute right-3 top-2.5 text-xs font-semibold text-slate-400 pointer-events-none">%</span>
                 </div>
                 <p className="text-[11px] text-slate-400">
                   Tự động áp dụng thuế GTGT (VAT) này vào tổng thanh toán đơn hàng mới tạo.
@@ -495,7 +488,7 @@ export default function RetailSettingsPage() {
                 <Hash className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Định dạng mã chứng từ</h2>
+                <h2 className="text-sm font-semibold text-slate-900">Định dạng mã chứng từ</h2>
                 <p className="text-[11px] text-slate-500">Tiền tố nhận diện đơn hàng và hóa đơn bán hàng</p>
               </div>
             </div>
@@ -504,7 +497,7 @@ export default function RetailSettingsPage() {
               <div className="grid grid-cols-2 gap-3">
                 {/* Prefix mã đơn */}
                 <div className="space-y-1.5">
-                  <label htmlFor="orderPrefix" className="text-xs font-bold text-slate-700">
+                  <label htmlFor="orderPrefix" className="text-xs font-semibold text-slate-700">
                     Prefix mã đơn
                   </label>
                   <input
@@ -512,7 +505,7 @@ export default function RetailSettingsPage() {
                     aria-label="Prefix mã đơn"
                     type="text"
                     maxLength={8}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-xs font-bold uppercase text-slate-800 shadow-xs transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-xs font-semibold uppercase text-slate-800 shadow-xs transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
                     placeholder="DH"
                     value={settings.orderPrefix}
                     onChange={(event) => update("orderPrefix", event.target.value.toUpperCase())}
@@ -522,7 +515,7 @@ export default function RetailSettingsPage() {
 
                 {/* Prefix hóa đơn */}
                 <div className="space-y-1.5">
-                  <label htmlFor="invoicePrefix" className="text-xs font-bold text-slate-700">
+                  <label htmlFor="invoicePrefix" className="text-xs font-semibold text-slate-700">
                     Prefix hóa đơn
                   </label>
                   <input
@@ -530,7 +523,7 @@ export default function RetailSettingsPage() {
                     aria-label="Prefix hóa đơn"
                     type="text"
                     maxLength={8}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-xs font-bold uppercase text-slate-800 shadow-xs transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-xs font-semibold uppercase text-slate-800 shadow-xs transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
                     placeholder="HD"
                     value={settings.invoicePrefix}
                     onChange={(event) => update("invoicePrefix", event.target.value.toUpperCase())}
@@ -541,17 +534,17 @@ export default function RetailSettingsPage() {
 
               {/* Live Preview Box */}
               <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 p-4 space-y-2">
-                <span className="text-[11px] font-bold text-indigo-900 block">Xem trước mã sinh tự động:</span>
+                <span className="text-[11px] font-semibold text-indigo-900 block">Xem trước mã sinh tự động:</span>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-xl bg-white p-2.5 border border-indigo-100 shadow-xs">
                     <span className="text-[10px] text-slate-400 block">Mã đơn hàng</span>
-                    <span className="font-mono font-bold text-slate-800 text-xs">
+                    <span className="font-mono font-semibold text-slate-800 text-xs">
                       {settings.orderPrefix || "DH"}-{todayStr}-0001
                     </span>
                   </div>
                   <div className="rounded-xl bg-white p-2.5 border border-indigo-100 shadow-xs">
                     <span className="text-[10px] text-slate-400 block">Số hóa đơn</span>
-                    <span className="font-mono font-bold text-slate-800 text-xs">
+                    <span className="font-mono font-semibold text-slate-800 text-xs">
                       {settings.invoicePrefix || "HD"}-{todayStr}-0001
                     </span>
                   </div>
@@ -569,7 +562,7 @@ export default function RetailSettingsPage() {
                 <Printer className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900">In ấn & Hóa đơn</h2>
+                <h2 className="text-sm font-semibold text-slate-900">In ấn & Hóa đơn</h2>
                 <p className="text-[11px] text-slate-500">Kích thước khổ giấy và mẫu biểu xuất in</p>
               </div>
             </div>
@@ -577,7 +570,7 @@ export default function RetailSettingsPage() {
             <div className="space-y-4 pt-5">
               {/* Khổ giấy hóa đơn */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 block">
+                <label className="text-xs font-semibold text-slate-700 block">
                   Khổ giấy in hóa đơn
                 </label>
 
@@ -596,7 +589,7 @@ export default function RetailSettingsPage() {
                         key={item.id}
                         onClick={() => update("invoicePaperSize", item.id as RetailSettings["invoicePaperSize"])}
                         className={`flex flex-col items-center justify-center rounded-2xl border p-3 text-center cursor-pointer transition select-none ${active
-                            ? "border-cyan-500 bg-cyan-50/70 text-cyan-950 font-bold shadow-xs ring-2 ring-cyan-500/20"
+                            ? "border-cyan-500 bg-cyan-50/70 text-cyan-950 font-semibold shadow-xs ring-2 ring-cyan-500/20"
                             : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50/60"
                           }`}
                       >
@@ -624,7 +617,7 @@ export default function RetailSettingsPage() {
 
               {/* Mẫu hóa đơn */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 block">
+                <label className="text-xs font-semibold text-slate-700 block">
                   Mẫu hóa đơn
                 </label>
                 <select
@@ -639,7 +632,7 @@ export default function RetailSettingsPage() {
 
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-100 bg-cyan-50/50 p-3.5">
                 <p className="max-w-md text-[11px] leading-relaxed text-slate-600">In hóa đơn mẫu để kiểm tra nội dung và khổ giấy đang chọn. Không tạo đơn bán thật.</p>
-                <button type="button" onClick={openTestReceipt} className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-cyan-700 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-500/25">
+                <button type="button" onClick={openTestReceipt} className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-cyan-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-500/25">
                   <Printer className="h-4 w-4" />
                   In thử hóa đơn
                 </button>
@@ -653,7 +646,7 @@ export default function RetailSettingsPage() {
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
           <div role="dialog" aria-modal="true" aria-label="In thử hóa đơn" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
             <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-              <div><h2 className="font-bold text-slate-900">In thử hóa đơn</h2><p className="mt-0.5 text-xs text-slate-500">Dữ liệu mẫu · Khổ giấy {settings.invoicePaperSize}</p></div>
+              <div><h2 className="font-semibold text-slate-900">In thử hóa đơn</h2><p className="mt-0.5 text-xs text-slate-500">Dữ liệu mẫu · Khổ giấy {settings.invoicePaperSize}</p></div>
               <button type="button" aria-label="Đóng xem trước" onClick={() => setTestInvoice(null)} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50" data-erp-modal-close><X className="h-4 w-4" /></button>
             </header>
             <div className="max-h-[65vh] overflow-y-auto bg-slate-100 p-4 sm:p-6">
@@ -661,7 +654,7 @@ export default function RetailSettingsPage() {
             </div>
             <footer className="flex justify-end gap-2 border-t border-slate-100 bg-white px-5 py-4">
               <button type="button" onClick={() => setTestInvoice(null)} className="min-h-10 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Đóng</button>
-              <button type="button" onClick={() => void printTestReceipt()} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-cyan-700 px-4 py-2 text-sm font-bold text-white hover:bg-cyan-800"><Printer className="h-4 w-4" />In thử</button>
+              <button type="button" onClick={() => void printTestReceipt()} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-cyan-700 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-800"><Printer className="h-4 w-4" />In thử</button>
             </footer>
           </div>
         </div>
@@ -694,7 +687,7 @@ export default function RetailSettingsPage() {
               type="button"
               disabled={saving}
               onClick={() => void save()}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500 cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500 cursor-pointer disabled:opacity-50"
             >
               <Save className="h-3.5 w-3.5" />
               {saving ? "Đang lưu…" : "Lưu thay đổi"}

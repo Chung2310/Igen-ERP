@@ -7,7 +7,7 @@ export default function BarcodeScannerDialog({ onScan, onClose, title = "Quét m
   return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs">
     <div role="dialog" aria-modal="true" aria-label={title} className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
       <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-        <h2 className="flex items-center gap-2.5 font-bold text-slate-900"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#edf3ff] text-[#0866f5]"><Camera className="h-4 w-4" /></span>{title}</h2>
+        <h2 className="flex items-center gap-2.5 font-semibold text-slate-900"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#edf3ff] text-[#0866f5]"><Camera className="h-4 w-4" /></span>{title}</h2>
         <button type="button" onClick={onClose} aria-label="Đóng quét mã" className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" data-erp-modal-close><X className="h-4 w-4" /></button>
       </div>
       <div className="p-5"><video ref={videoRef} className="aspect-video w-full rounded-2xl bg-black object-cover" muted playsInline />{error && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{error}</p>}<p className="mt-3 text-center text-sm text-slate-500">Đưa mã vào giữa khung hình.</p></div>

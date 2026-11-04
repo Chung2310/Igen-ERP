@@ -137,10 +137,10 @@
   }
 
   [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] > [data-module-navigation-toggle] {
-    justify-self: start;
+    justify-self: center;
     margin-inline-start: 0;
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
   }
 
   [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] > [data-module-navigation-header-action] {

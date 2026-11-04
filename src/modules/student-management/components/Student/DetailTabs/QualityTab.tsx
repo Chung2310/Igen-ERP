@@ -54,6 +54,6 @@ export function QualityTab({ student }: { student: Student }) {
 }
 
 function Summary({ icon: Icon, label, value, tone = "slate" }: { icon: typeof GraduationCap; label: string; value: number; tone?: "slate" | "cyan" | "emerald" }) {
-  const color = tone === "cyan" ? "bg-cyan-50 text-cyan-700" : tone === "emerald" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600";
-  return <div className="border border-slate-200 bg-white p-3"><div className={`flex h-8 w-8 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></div><p className="mt-3 text-xs font-semibold text-slate-500">{label}</p><p className="mt-0.5 text-lg font-bold text-slate-900">{value}</p></div>;
+  const color = tone === "cyan" ? "cyan" : tone === "emerald" ? "green" : "purple";
+  return <div className={`student-stat-card student-stat-card--${color} flex min-w-0 items-center justify-between gap-3 rounded-md p-3`}><div className="min-w-0"><p className="text-pretty text-xs font-medium">{label}</p><p className="mt-0.5 break-words text-lg font-semibold tabular-nums sm:text-xl">{value}</p></div><span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15"><Icon className="size-5" aria-hidden="true" /></span></div>;
 }

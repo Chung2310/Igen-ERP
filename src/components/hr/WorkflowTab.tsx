@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
 import { HrPageTitle } from "./HrPageTitle";
+import { HrStatusBadge } from "./HrStatusBadge";
 import { renderAsync } from "docx-preview";
 import {
   Plus,
@@ -653,12 +654,12 @@ export default function WorkflowTab({
                 const total = wf.steps?.length || 0;
                 return (
                   <tr key={wf.id} className="hover:bg-surface/60">
-                    <td className="max-w-72 px-4 py-2.5">
-                      <button type="button" onClick={() => openDetail(wf)} className="block max-w-full truncate text-left font-medium text-on-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary" title={wf.name}>{wf.name}</button>
+                    <td className="px-4 py-2.5">
+                      <button type="button" onClick={() => openDetail(wf)} className="block max-w-72 truncate text-left font-medium text-on-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary" title={wf.name}>{wf.name}</button>
                     </td>
-                    <td className="max-w-40 truncate px-4 py-2.5 text-on-surface-variant" title={wf.category || undefined}>{wf.category || "—"}</td>
+                    <td className="max-w-40 px-4 py-2.5 text-on-surface-variant">{wf.category ? <HrStatusBadge tone="info" className="max-w-36" title={wf.category}>{wf.category}</HrStatusBadge> : "—"}</td>
                     <td className="px-4 py-2.5 text-center tabular-nums text-on-surface">{total}</td>
-                    <td className="max-w-80 truncate px-4 py-2.5 text-on-surface-variant" title={wf.description || undefined}>{wf.description || "—"}</td>
+                    <td className="px-4 py-2.5 text-on-surface-variant"><span className="block max-w-80 truncate" title={wf.description || undefined}>{wf.description || "—"}</span></td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center justify-end gap-1">
                           <button

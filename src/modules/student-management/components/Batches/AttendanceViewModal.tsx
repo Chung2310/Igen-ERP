@@ -107,40 +107,34 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
       <div className="space-y-4 text-left">
 
         {/* ── Tóm tắt gọn ── */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl bg-cyan-50/60 border border-cyan-100 p-3.5 text-center">
-            <p className="text-xl font-black text-cyan-800">{takenCount}<span className="text-sm font-semibold text-cyan-600/60">/{allDates.length}</span></p>
-            <p className="text-[10px] text-cyan-700 font-bold mt-0.5">Buổi đã điểm danh</p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-md border border-primary/15 bg-primary/10 p-3.5 text-center">
+            <p className="text-xl font-semibold text-primary">{takenCount}<span className="text-sm font-medium">/{allDates.length}</span></p>
+            <p className="mt-0.5 text-xs font-medium text-primary">Buổi đã điểm danh</p>
           </div>
-          <div className={cn(
-            'rounded-2xl border p-3.5 text-center',
-            missedCount > 0 ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'
-          )}>
-            <p className={cn('text-xl font-black', missedCount > 0 ? 'text-amber-700' : 'text-slate-400')}>{missedCount}</p>
-            <p className={cn('text-[10px] font-bold mt-0.5', missedCount > 0 ? 'text-amber-600' : 'text-slate-400')}>Buổi bỏ sót</p>
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3.5 text-center">
+            <p className="text-xl font-semibold text-amber-600">{missedCount}</p>
+            <p className="mt-0.5 text-xs font-medium text-amber-700">Buổi bỏ sót</p>
           </div>
-          <div className={cn(
-            'rounded-2xl border p-3.5 text-center',
-            topAbsentees.length > 0 ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'
-          )}>
-            <p className={cn('text-xl font-black', topAbsentees.length > 0 ? 'text-rose-700' : 'text-slate-400')}>
+          <div className="rounded-md border border-rose-200 bg-rose-50 p-3.5 text-center">
+            <p className="text-xl font-semibold text-rose-600">
               {Object.keys(absentMap).length}
             </p>
-            <p className={cn('text-[10px] font-bold mt-0.5', topAbsentees.length > 0 ? 'text-rose-500' : 'text-slate-400')}>HV có vắng mặt</p>
+            <p className="mt-0.5 text-xs font-medium text-rose-700">HV có vắng mặt</p>
           </div>
         </div>
 
         {/* ── Nội dung 2 cột ── */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
 
           {/* Cột trái: Danh sách buổi */}
           <div className="flex flex-col gap-2">
-            <p className="text-[10px] font-black uppercase tracking-wider text-cyan-700 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-cyan-500" /> Chọn buổi để xem chi tiết
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+              <Calendar className="h-3.5 w-3.5" /> Chọn buổi để xem chi tiết
             </p>
 
             {relevantDates.length === 0 ? (
-              <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-cyan-200 rounded-2xl py-8 gap-2">
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-outline-variant py-8">
                 <p className="text-xs text-slate-400">Chưa có buổi học nào.</p>
               </div>
             ) : (
@@ -161,12 +155,12 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                       disabled={!hasTaken}
                       onClick={() => hasTaken && setSelectedDate(date === selectedDate ? null : date)}
                       className={cn(
-                        'w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-left transition-all',
+                        'flex w-full items-center justify-between rounded-md border px-3 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-primary',
                         isSelected
-                          ? 'bg-cyan-500 border-cyan-500 text-white shadow-md shadow-cyan-500/20'
+                          ? 'border-primary bg-primary/10 text-primary'
                           : hasTaken
-                            ? 'bg-white border-cyan-100 hover:border-cyan-300 hover:bg-cyan-50/50 cursor-pointer'
-                            : 'bg-slate-50/60 border-slate-100 opacity-50 cursor-not-allowed'
+                            ? 'cursor-pointer border-outline-variant bg-surface-container-lowest hover:border-primary hover:bg-primary/5'
+                            : 'cursor-not-allowed border-outline-variant bg-surface-container-lowest opacity-60'
                       )}
                     >
                       <div className="flex items-center gap-2.5">
@@ -178,17 +172,17 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                         <div>
                           <span className={cn(
                             'text-xs font-black',
-                            isSelected ? 'text-white' : 'text-slate-700'
+                            isSelected ? 'text-primary' : 'text-on-surface'
                           )}>
                             {formatShortDate(date)}
                           </span>
                           {isToday && !isSelected && (
-                            <span className="ml-1.5 text-[9px] font-black bg-sky-500 text-white px-1.5 py-0.5 rounded-md">
+                            <span className="ml-1.5 rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-semibold text-on-primary">
                               Hôm nay
                             </span>
                           )}
                           {isToday && isSelected && (
-                            <span className="ml-1.5 text-[9px] font-black bg-white/20 text-white px-1.5 py-0.5 rounded-md">
+                            <span className="ml-1.5 rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-semibold text-on-primary">
                               Hôm nay
                             </span>
                           )}
@@ -199,7 +193,7 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
                           <>
                             <span className={cn(isSelected ? 'text-emerald-300' : 'text-emerald-600')}>{presentCount} ✓</span>
                             {absentCount > 0 && <span className={cn(isSelected ? 'text-rose-300' : 'text-rose-600')}>{absentCount} ✗</span>}
-                            <ChevronRight className={cn('w-3 h-3', isSelected ? 'text-white/50 rotate-90' : 'text-slate-300')} />
+                            <ChevronRight className={cn('h-3 w-3', isSelected ? 'rotate-90 text-primary' : 'text-on-surface-variant')} />
                           </>
                         ) : isPast || isToday ? (
                           <span className="text-[9px] text-amber-500 font-bold">Bỏ sót</span>

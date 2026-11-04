@@ -124,7 +124,7 @@ const labelToArtwork: Record<string, keyof typeof artwork> = {
   'Phiếu sửa chữa & Bảo hành': 'request', 'Báo cáo doanh thu & KTV': 'chart',
   'Lịch trình': 'clock', 'Lịch sử chấm công': 'history', 'Đơn từ': 'request',
   'Chấm công & Lịch làm việc': 'clock', 'Lịch nghỉ lễ': 'gift',
-  'Giờ làm việc nhân viên': 'history', 'Tin tuyển dụng': 'document', 'Ứng viên': 'user', 'Phỏng vấn': 'chat',
+  'Giờ làm việc riêng': 'history', 'Tin tuyển dụng': 'document', 'Ứng viên': 'user', 'Phỏng vấn': 'chat',
   'Danh sách khách hàng': 'list', 'Cài đặt khách hàng': 'settings',
   'Lịch sử giao dịch': 'history', 'Mua hàng & bảo hành': 'bag', 'Dịch vụ & bảo hành': 'shield',
   'Công nợ': 'debt', 'Điểm thưởng': 'gift', 'Hồ sơ VAT': 'vat',

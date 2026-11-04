@@ -140,7 +140,7 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
   };
   return (
     <div className="space-y-4 px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full min-w-0 sm:w-80">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#91A6BF]" />
           <input
@@ -173,22 +173,22 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
         }
       />
       {!loading && jobs.length > 0 && (
-        <div className="overflow-x-auto rounded-2xl bg-white shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-          <table className="w-full min-w-[820px] text-left text-base text-on-surface">
-            <thead className="bg-surface-container-low text-sm font-normal text-on-surface-variant">
+        <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest">
+          <table className="w-full min-w-[820px] border-collapse text-left text-sm text-on-surface">
+            <thead className="bg-surface text-xs text-on-surface-variant">
               <tr>
-                <th className="px-4 py-3">Vị trí</th>
-                <th className="px-4 py-3">Phòng ban</th>
-                <th className="px-4 py-3">Số lượng</th>
-                <th className="px-4 py-3">Hạn nộp</th>
-                <th className="px-4 py-3">Trạng thái</th>
-                {canManage && <th className="px-4 py-3 text-right">Thao tác</th>}
+                <th scope="col" className="px-4 py-3 font-medium">Vị trí</th>
+                <th scope="col" className="px-4 py-3 font-medium">Phòng ban</th>
+                <th scope="col" className="px-4 py-3 font-medium">Số lượng</th>
+                <th scope="col" className="px-4 py-3 font-medium">Hạn nộp</th>
+                <th scope="col" className="px-4 py-3 font-medium">Trạng thái</th>
+                {canManage && <th scope="col" className="px-4 py-3 text-right font-medium">Thao tác</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant">
               {jobs.map((job) => (
-                <tr key={job._id} className="hover:bg-[#F8FCFF]">
-                  <td className="px-4 py-3">
+                <tr key={job._id} className="hover:bg-surface/60">
+                  <td className="px-4 py-2">
                     {canManage ? (
                       <button
                         className="font-medium text-on-surface hover:underline"
@@ -199,26 +199,26 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
                     ) : (
                       <div className="font-medium text-on-surface">{job.title || "Chưa đặt tên"}</div>
                     )}
-                    <div className="text-sm text-on-surface-variant">{job.code}</div>
+                    <div className="text-xs text-on-surface-variant">{job.code}</div>
                   </td>
-                  <td className="px-4 py-3">{job.department || "-"}</td>
-                  <td className="px-4 py-3">{job.headcount}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2">{job.department || "-"}</td>
+                  <td className="px-4 py-2 tabular-nums">{job.headcount}</td>
+                  <td className="px-4 py-2 tabular-nums">
                     {job.applicationDeadline
                       ? new Date(job.applicationDeadline).toLocaleDateString(
                           "vi-VN",
                         )
                       : "-"}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2">
                     {canManage ? (
-                      <StyledSelect ariaLabel={`Trạng thái ${job.code}`} className="min-w-32" appearance="erp" value={job.status} disabled={changingStatusJobId === job._id} onChange={(value) => void changeStatus(job, value as RecruitmentJobStatus)} options={Object.entries(statusLabel).map(([value, label]) => ({ value, label }))} />
+                      <StyledSelect ariaLabel={`Trạng thái ${job.code}`} className="h-9 min-w-32 rounded-md" appearance="erp" value={job.status} disabled={changingStatusJobId === job._id} onChange={(value) => void changeStatus(job, value as RecruitmentJobStatus)} options={Object.entries(statusLabel).map(([value, label]) => ({ value, label }))} />
                     ) : (
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusTone[job.status]}`}>{statusLabel[job.status]}</span>
                     )}
                   </td>
                   {canManage && (
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       <div className="flex justify-end gap-1">
                         <button
                           type="button"

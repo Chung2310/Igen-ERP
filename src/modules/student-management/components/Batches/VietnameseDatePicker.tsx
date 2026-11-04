@@ -34,9 +34,12 @@ interface VietnameseDatePickerProps {
   min?: string;
   max?: string;
   portalTarget?: HTMLElement | null | (() => HTMLElement | null);
+  disabled?: boolean;
+  ariaInvalid?: boolean;
+  ariaDescribedBy?: string;
 }
 
-export function VietnameseDatePicker({ value, onChange, required, ariaLabel, selectionOnly = false, variant = 'default', min, max, portalTarget }: VietnameseDatePickerProps) {
+export function VietnameseDatePicker({ value, onChange, required, ariaLabel, selectionOnly = false, variant = 'default', min, max, portalTarget, disabled = false, ariaInvalid, ariaDescribedBy }: VietnameseDatePickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const [displayValue, setDisplayValue] = useState(() => toDisplayDate(value));
@@ -113,6 +116,9 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
         readOnly={selectionOnly}
         autoComplete="off"
         required={required}
+        disabled={disabled}
+        aria-invalid={ariaInvalid || undefined}
+        aria-describedby={ariaDescribedBy}
         aria-label={ariaLabel}
         placeholder="dd/MM/yyyy"
         value={displayValue}
@@ -123,7 +129,9 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
         onBlur={(event) => {
           const text = event.currentTarget.value.trim();
           const iso = parseDisplayDate(text);
-          if (iso) {
+          if (iso && ((min && iso < min) || (max && iso > max))) {
+            event.currentTarget.setCustomValidity('Ngày nằm ngoài khoảng cho phép.');
+          } else if (iso) {
             if (iso !== value) onChange(iso);
             setDisplayValue(toDisplayDate(iso));
             event.currentTarget.setCustomValidity('');
@@ -141,9 +149,10 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
         className={cn(
           'h-9 w-full cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20',
           variant === 'filter' ? 'pl-3 pr-10' : 'pl-9 pr-10',
+          disabled && 'cursor-not-allowed opacity-60',
         )}
       />
-      <button type="button" onClick={() => { setVisibleMonth(toLocalDate(value)); setOpen((current) => !current); }} aria-label={`Chọn ${ariaLabel.toLowerCase()}`} aria-expanded={open} className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-on-surface-variant hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+      <button type="button" disabled={disabled} onClick={() => { setVisibleMonth(toLocalDate(value)); setOpen((current) => !current); }} aria-label={`Chọn ${ariaLabel.toLowerCase()}`} aria-expanded={open} className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-on-surface-variant hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60">
         <CalendarDays className="h-4 w-4" aria-hidden="true" />
       </button>
       {open && createPortal(

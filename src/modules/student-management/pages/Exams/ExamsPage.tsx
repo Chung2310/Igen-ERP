@@ -673,16 +673,15 @@ interface StatCardProps {
   bgColor: string;
 }
 
-function StatCard({ label, value, icon: Icon, color, bgColor }: StatCardProps) {
+function StatCard({ label, value, icon: Icon, color }: StatCardProps) {
+  const tone = color.includes('orange') ? 'orange' : color.includes('emerald') ? 'green' : color.includes('purple') ? 'purple' : color.includes('sky') ? 'blue' : 'cyan';
   return (
-    <div className="bg-white p-2.5 px-3 rounded-xl border border-sky-100 shadow-sm flex items-center gap-2.5">
-      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", bgColor)}>
-        <Icon className={cn("w-3.5 h-3.5", color)} />
+    <div className={cn("student-stat-card flex min-w-0 items-center justify-between gap-3 rounded-md p-3", `student-stat-card--${tone}`)}>
+      <div className="min-w-0">
+        <p className="text-pretty text-xs font-medium">{label}</p>
+        <p className="mt-0.5 break-words text-lg font-semibold leading-tight tabular-nums sm:text-xl">{value}</p>
       </div>
-      <div>
-        <p className="text-base font-medium text-slate-900 leading-none">{value}</p>
-        <p className="text-xs font-normal text-slate-600 mt-0.5">{label}</p>
-      </div>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15"><Icon className="size-5" aria-hidden="true" /></span>
     </div>
   );
 }

@@ -34,7 +34,7 @@ function formatDate(value?: string): string {
 }
 
 const headingClass =
-  "whitespace-nowrap px-4 py-3.5 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500";
+  "whitespace-nowrap px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500";
 const cellClass = "whitespace-nowrap px-4 py-3.5 text-xs text-slate-700";
 
 export default function RetailReportTables({ report }: RetailReportTablesProps) {
@@ -47,7 +47,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
         <table aria-label={title} className="w-full">
           <thead className="bg-slate-50/75 border-b border-slate-100">
             <tr>
-              <th className="w-12 px-4 py-3 text-center text-[11px] font-bold text-slate-400">#</th>
+              <th className="w-12 px-4 py-3 text-center text-[11px] font-semibold text-slate-400">#</th>
               <th className={headingClass}>SKU</th>
               <th className={headingClass}>Sản phẩm</th>
               <th className={headingClass}>Danh mục</th>
@@ -63,17 +63,17 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
             {rows.length > 0 ? (
               rows.map((row, index) => (
                 <tr key={row.productId} className="transition-colors hover:bg-slate-50/60">
-                  <td className="px-4 py-3.5 text-center text-xs font-bold text-slate-400">
+                  <td className="px-4 py-3.5 text-center text-xs font-semibold text-slate-400">
                     {index === 0 ? (
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[10px] font-black text-amber-800">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-[10px] font-semibold text-amber-800">
                         1
                       </span>
                     ) : index === 1 ? (
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-black text-slate-700">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-700">
                         2
                       </span>
                     ) : index === 2 ? (
-                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-50 text-[10px] font-black text-amber-700">
+                      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-50 text-[10px] font-semibold text-amber-700">
                         3
                       </span>
                     ) : (
@@ -81,7 +81,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
                     )}
                   </td>
                   <td className={cellClass}>
-                    <span className="font-mono text-[11px] font-bold rounded-md bg-slate-100 px-2 py-0.5 text-slate-700">
+                    <span className="font-mono text-[11px] font-semibold rounded-md bg-slate-100 px-2 py-0.5 text-slate-700">
                       {row.sku}
                     </span>
                   </td>
@@ -93,7 +93,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
                   <td className={`${cellClass} text-right font-semibold`}>
                     {numberFormatter.format(row.netQuantity)}
                   </td>
-                  <td className={`${cellClass} text-right font-bold text-slate-900`}>
+                  <td className={`${cellClass} text-right font-semibold text-cyan-700`}>
                     {moneyFormatter.format(row.netSales)}
                   </td>
                   {row.profit !== undefined && (
@@ -139,7 +139,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
                 </div>
               )}
               <div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-800">
                   Chênh lệch Retail – Analytics
                 </h2>
                 <p className="text-[11px] text-slate-500">
@@ -151,13 +151,13 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
             </div>
             <div className="flex flex-wrap items-center gap-3 text-xs">
               <span className="rounded-xl bg-white px-3 py-1.5 shadow-xs border border-slate-200/60">
-                Retail: <strong className="text-slate-900">{moneyFormatter.format(report.analyticsReconciliation.retailNetSales)}</strong>
+                Retail: <strong className="text-cyan-700">{moneyFormatter.format(report.analyticsReconciliation.retailNetSales)}</strong>
               </span>
               <span className="rounded-xl bg-white px-3 py-1.5 shadow-xs border border-slate-200/60">
-                Analytics: <strong className="text-slate-900">{moneyFormatter.format(report.analyticsReconciliation.analyticsNetSales)}</strong>
+                Analytics: <strong className="text-cyan-700">{moneyFormatter.format(report.analyticsReconciliation.analyticsNetSales)}</strong>
               </span>
               <span
-                className={`rounded-xl px-3 py-1.5 font-bold shadow-xs ${
+                className={`rounded-xl px-3 py-1.5 font-semibold shadow-xs ${
                   report.analyticsReconciliation.matched
                     ? "bg-emerald-600 text-white"
                     : "bg-amber-600 text-white"
@@ -178,11 +178,11 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Hiệu suất thu ngân</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Hiệu suất thu ngân</h2>
               <p className="text-xs text-slate-500">Kết quả bán hàng chi tiết theo người tạo đơn</p>
             </div>
           </div>
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
             {report.cashiers.length} nhân viên
           </span>
         </div>
@@ -204,7 +204,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
                 report.cashiers.map((cashier) => (
                   <tr key={cashier.cashierId} className="transition-colors hover:bg-slate-50/60">
                     <td className={`${cellClass} font-semibold text-slate-900 flex items-center gap-2`}>
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-100 text-cyan-800 text-[10px] font-bold">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-100 text-cyan-800 text-[10px] font-semibold">
                         {cashier.cashierName.slice(0, 1)}
                       </div>
                       {cashier.cashierName}
@@ -212,16 +212,16 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
                     <td className={`${cellClass} text-right font-medium`}>
                       {numberFormatter.format(cashier.orderCount)}
                     </td>
-                    <td className={`${cellClass} text-right`}>
+                    <td className={`${cellClass} text-right font-medium text-cyan-700`}>
                       {moneyFormatter.format(cashier.grossSales)}
                     </td>
                     <td className={`${cellClass} text-right text-rose-600 font-medium`}>
                       {moneyFormatter.format(cashier.refunds)}
                     </td>
-                    <td className={`${cellClass} text-right font-bold text-slate-900`}>
+                    <td className={`${cellClass} text-right font-semibold text-cyan-700`}>
                       {moneyFormatter.format(cashier.netSales)}
                     </td>
-                    <td className={`${cellClass} text-right font-medium text-slate-600`}>
+                    <td className={`${cellClass} text-right font-medium text-violet-700`}>
                       {moneyFormatter.format(cashier.averageOrderValue)}
                     </td>
                   </tr>
@@ -247,11 +247,11 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
                 <Receipt className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Công nợ khách hàng</h2>
+                <h2 className="text-sm font-semibold text-slate-900">Công nợ khách hàng</h2>
                 <p className="text-xs text-slate-500">Các khoản còn phải thu tại chi nhánh hiện tại</p>
               </div>
             </div>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
               {report.debt.customers.length} khách nợ
             </span>
           </div>
@@ -301,12 +301,12 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
                 className={`rounded-2xl border p-3.5 transition ${bg} ${border}`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                     {label}
                   </span>
                   <Icon className={`h-4 w-4 ${iconColor}`} />
                 </div>
-                <p className={`text-base font-black tracking-tight ${tone}`}>
+                <p className={`text-base font-semibold tracking-tight ${tone}`}>
                   {moneyFormatter.format(Number(value))}
                 </p>
               </div>
@@ -343,10 +343,10 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
                         "—"
                       )}
                     </td>
-                    <td className={`${cellClass} text-right font-bold text-slate-900`}>
+                    <td className={`${cellClass} text-right font-semibold text-orange-700`}>
                       {moneyFormatter.format(customer.totalDebt)}
                     </td>
-                    <td className={`${cellClass} text-right font-bold text-rose-700`}>
+                    <td className={`${cellClass} text-right font-semibold text-rose-700`}>
                       {customer.overdueDebt > 0 ? (
                         <span className="inline-block rounded-md bg-rose-50 px-2 py-0.5 border border-rose-200">
                           {moneyFormatter.format(customer.overdueDebt)}
@@ -392,10 +392,10 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-900">
+                <h2 className="text-sm font-semibold text-slate-900">
                   {productTab === "top" ? "Sản phẩm bán chạy" : "Sản phẩm bán chậm"}
                 </h2>
-                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600">
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
                   {productTab === "top"
                     ? `${(report.products || []).length} mặt hàng`
                     : `${(report.slowProducts || []).length} mặt hàng`}
@@ -410,7 +410,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
             <button
               type="button"
               onClick={() => setProductTab("top")}
-              className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
                 productTab === "top"
                   ? "bg-white text-slate-900 shadow-xs"
                   : "text-slate-500 hover:text-slate-900"
@@ -419,7 +419,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
               <TrendingUp className={`h-3.5 w-3.5 ${productTab === "top" ? "text-cyan-600" : "text-slate-400"}`} />
               <span>Sản phẩm bán chạy</span>
               <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   productTab === "top"
                     ? "bg-cyan-50 text-cyan-700"
                     : "bg-slate-200/60 text-slate-600"
@@ -432,7 +432,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
             <button
               type="button"
               onClick={() => setProductTab("slow")}
-              className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
                 productTab === "slow"
                   ? "bg-white text-slate-900 shadow-xs"
                   : "text-slate-500 hover:text-slate-900"
@@ -441,7 +441,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
               <TrendingDown className={`h-3.5 w-3.5 ${productTab === "slow" ? "text-amber-600" : "text-slate-400"}`} />
               <span>Sản phẩm bán chậm</span>
               <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   productTab === "slow"
                     ? "bg-amber-50 text-amber-700"
                     : "bg-slate-200/60 text-slate-600"

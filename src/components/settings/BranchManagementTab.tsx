@@ -11,6 +11,7 @@ import { HrPageTitle } from "../hr/HrPageTitle";
 import { HrEmptyIllustration } from "../hr/HrEmptyIllustration";
 import { BranchCardIllustration, getBranchIllustrationKind } from "./BranchCardIllustration";
 import "./BranchManagementTab.css";
+import { HrStatusBadge } from "../hr/HrStatusBadge";
 
 type FormState = Required<Pick<BranchInput, "code" | "name">> & Pick<BranchInput, "address" | "phone"> & { latitude: string; longitude: string; allowedRadius: string; allowedPublicIps: string };
 const emptyForm: FormState = { code: "", name: "", address: "", phone: "", latitude: "", longitude: "", allowedRadius: "100", allowedPublicIps: "" };
@@ -174,11 +175,11 @@ export default function BranchManagementTab({ presentation = "cards" }: { presen
           <tbody className="divide-y divide-outline-variant">
             {filtered.map((branch) => (
               <tr key={branch._id} className="hover:bg-surface/60">
-                <td className="max-w-64 truncate px-4 py-3 font-medium text-on-surface" title={branch.name}>{branch.name}</td>
-                <td className="px-4 py-3 font-mono text-xs text-primary">{branch.code}</td>
-                <td className="max-w-80 truncate px-4 py-3 text-on-surface-variant" title={branch.address || undefined}>{branch.address || "Chưa có địa chỉ"}</td>
-                <td className="px-4 py-3 tabular-nums text-on-surface-variant">{branch.phone || "—"}</td>
-                <td className="px-4 py-3"><span className={`inline-flex items-center gap-1.5 text-xs ${branch.isActive ? "text-on-surface" : "text-on-surface-variant"}`}><span className={`size-1.5 rounded-full ${branch.isActive ? "bg-primary" : "bg-outline"}`} aria-hidden="true" />{branch.isActive ? "Đang hoạt động" : "Đã vô hiệu hóa"}</span></td>
+                <td className="px-4 py-3 font-medium text-on-surface"><span className="block max-w-64 truncate" title={branch.name}>{branch.name}</span></td>
+                <td className="px-4 py-3 font-mono text-xs text-primary"><span className="block max-w-32 truncate" title={branch.code}>{branch.code}</span></td>
+                <td className="px-4 py-3 text-on-surface-variant"><span className="block max-w-80 truncate" title={branch.address || undefined}>{branch.address || "Chưa có địa chỉ"}</span></td>
+                <td className="px-4 py-3 tabular-nums text-on-surface-variant"><span className="block max-w-36 truncate" title={branch.phone || undefined}>{branch.phone || "—"}</span></td>
+                <td className="px-4 py-3"><HrStatusBadge tone={branch.isActive ? "info" : "neutral"}>{branch.isActive ? "Đang hoạt động" : "Đã vô hiệu hóa"}</HrStatusBadge></td>
                 <td className="px-4 py-2"><div className="flex items-center justify-end gap-1">
                   <button type="button" title="Sửa chi nhánh" aria-label={`Sửa chi nhánh ${branch.name}`} onClick={() => openEdit(branch)} className="flex size-8 items-center justify-center rounded-md text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"><Edit3 className="size-4" aria-hidden="true" /></button>
                   <button type="button" title={branch.isActive ? "Vô hiệu hóa" : "Bật lại"} aria-label={`${branch.isActive ? "Vô hiệu hóa" : "Bật lại"} chi nhánh ${branch.name}`} onClick={() => void toggle(branch)} className="flex size-8 items-center justify-center rounded-md text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"><Power className="size-4" aria-hidden="true" /></button>

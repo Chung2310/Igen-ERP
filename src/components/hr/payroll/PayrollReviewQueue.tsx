@@ -17,7 +17,7 @@ export function PayrollReviewQueue({ adjustments, onApprove, onReject, onPrintAd
   onReject: (adjustment: Adjustment) => void;
   onPrintAdvance?: (adjustment: Adjustment) => void;
 }) {
-  if (!adjustments.length) return <p className="rounded-xl bg-surface-container-low px-3 py-3 text-pretty text-sm text-on-surface-variant">Chưa có phiếu điều chỉnh. Có thể tạo phiếu tạm ứng hoặc khoản điều chỉnh cho kỳ này.</p>;
+  if (!adjustments.length) return <p className="px-4 py-8 text-pretty text-center text-sm text-on-surface-variant">Chưa có phiếu điều chỉnh. Có thể tạo phiếu tạm ứng hoặc khoản điều chỉnh cho kỳ này.</p>;
 
   // Sort: pending first
   const sorted = [...adjustments].sort((a, b) => {
@@ -27,19 +27,28 @@ export function PayrollReviewQueue({ adjustments, onApprove, onReject, onPrintAd
   });
 
   return (
-    <div className="space-y-2">
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-2xl text-left text-sm">
+        <thead className="bg-surface-container-low text-on-surface-variant">
+          <tr>
+            <th scope="col" className="px-4 py-3 font-medium">Nhân viên</th>
+            <th scope="col" className="px-4 py-3 font-medium">Khoản điều chỉnh</th>
+            <th scope="col" className="px-4 py-3 text-right font-medium">Số tiền</th>
+            <th scope="col" className="px-4 py-3 text-right font-medium">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-outline-variant">
       {sorted.map((item) => (
-        <div key={item._id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3">
-          <div className="min-w-0">
-            <p className="font-medium text-on-surface">{item.employeeName || item.employeeId}</p>
-            <p className="text-pretty text-xs text-on-surface-variant">
+        <tr key={item._id} className="hover:bg-surface-container-low">
+          <td className="px-4 py-3 font-medium text-on-surface">{item.employeeName || item.employeeId}</td>
+          <td className="px-4 py-3 text-on-surface-variant">
               {item.kind === "bonus" ? "Thưởng / Cộng thêm" : item.kind === "deduction" ? "Khấu trừ / Phạt" : item.kind === "advance" ? "Tạm ứng lương" : item.kind} · {item.reason}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-4">
-            <strong className={`font-medium tabular-nums ${item.kind === "deduction" || item.kind === "advance" ? "text-error" : "text-on-surface"}`}>
+          </td>
+          <td className={`whitespace-nowrap px-4 py-3 text-right font-medium tabular-nums ${item.kind === "deduction" || item.kind === "advance" ? "text-error" : "text-on-surface"}`}>
               {item.kind === "deduction" || item.kind === "advance" ? "-" : ""}{item.amount.toLocaleString()} đ
-            </strong>
+          </td>
+          <td className="px-4 py-2 text-right">
+            <div className="flex items-center justify-end gap-1">
             {item.kind === "advance" && onPrintAdvance && <button type="button" aria-label={`In phiếu tạm ứng của ${item.employeeName || item.employeeId}`} onClick={() => onPrintAdvance(item)} className="flex size-10 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"><Printer className="size-4" aria-hidden="true" /></button>}
             {item.status === "pending" ? (
               <div className="flex items-center gap-2">
@@ -71,9 +80,12 @@ export function PayrollReviewQueue({ adjustments, onApprove, onReject, onPrintAd
                 Đã từ chối
               </span>
             )}
-          </div>
-        </div>
+            </div>
+          </td>
+        </tr>
       ))}
+        </tbody>
+      </table>
     </div>
   );
 }
