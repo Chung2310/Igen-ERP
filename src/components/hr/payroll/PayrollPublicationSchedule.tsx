@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Calendar, Clock, RefreshCw, Save } from "lucide-react";
+import { Clock, RefreshCw, Save } from "lucide-react";
+import { StyledSelect } from "../../common/StyledSelect";
 import { payrollService } from "../../../services/payrollService";
 import type { PayrollPublicationSchedule as Schedule } from "../../../shared/payrollPublicationSchedule";
 
@@ -91,31 +92,41 @@ export function PayrollPublicationSchedule({ canManage }: { canManage: boolean }
               />
             </label>
 
-            <label className="flex items-center gap-1.5 font-medium text-on-surface-variant">
-              Giờ phát hành
-              <input
-                type="time"
-                required
-                value={`${String(schedule.hour).padStart(2, "0")}:${String(schedule.minute).padStart(2, "0")}`}
-                onChange={event => {
-                  const [hour, minute] = event.target.value.split(":").map(Number);
-                  update({ hour, minute });
-                }}
-                className="rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs text-on-surface outline-none focus:border-indigo-500 font-bold"
+            <div className="flex items-center gap-1.5 font-medium text-on-surface-variant">
+              <span>Giờ phát hành</span>
+              <StyledSelect
+                appearance="erp"
+                ariaLabel="Giờ phát hành"
+                value={String(schedule.hour).padStart(2, "0")}
+                options={Array.from({ length: 24 }, (_, hour) => ({ value: String(hour).padStart(2, "0"), label: String(hour).padStart(2, "0") }))}
+                disabled={!canManage || busy}
+                onChange={value => update({ hour: Number(value) })}
+                className="h-9 w-20 rounded-lg px-2 text-xs tabular-nums"
               />
-            </label>
+              <span aria-hidden="true">:</span>
+              <StyledSelect
+                appearance="erp"
+                ariaLabel="Phút phát hành"
+                value={String(schedule.minute).padStart(2, "0")}
+                options={Array.from({ length: 60 }, (_, minute) => ({ value: String(minute).padStart(2, "0"), label: String(minute).padStart(2, "0") }))}
+                disabled={!canManage || busy}
+                onChange={value => update({ minute: Number(value) })}
+                className="h-9 w-20 rounded-lg px-2 text-xs tabular-nums"
+              />
+            </div>
 
-            <label className="flex items-center gap-1.5 font-medium text-on-surface-variant">
-              Kỳ lương được phát hành
-              <select
-                value={schedule.periodOffset}
-                onChange={event => update({ periodOffset: Number(event.target.value) as 0 | -1 })}
-                className="rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs text-on-surface outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value={0}>Tháng hiện tại</option>
-                <option value={-1}>Tháng trước</option>
-              </select>
-            </label>
+            <div className="flex items-center gap-1.5 font-medium text-on-surface-variant">
+              <span>Kỳ lương được phát hành</span>
+              <StyledSelect
+                appearance="erp"
+                ariaLabel="Kỳ lương được phát hành"
+                value={String(schedule.periodOffset)}
+                options={[{ value: "0", label: "Tháng hiện tại" }, { value: "-1", label: "Tháng trước" }]}
+                onChange={value => update({ periodOffset: Number(value) as 0 | -1 })}
+                disabled={!canManage || busy}
+                className="h-9 w-40 rounded-lg px-2.5 text-xs"
+              />
+            </div>
 
             {canManage && (
               <button

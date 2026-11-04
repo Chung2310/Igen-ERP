@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
-import { HrPageTitle } from "./HrPageTitle";
 import { KanbanTaskProgress } from "./KanbanTaskProgress";
 import { cn } from "../../modules/student-management/lib/utils";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
@@ -510,12 +509,12 @@ function TaskTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-[#E7EEF5] bg-white">
-        <table className={`w-full border-collapse text-left text-[11px] [&_th]:border-r [&_td]:border-r [&_th]:border-[#EEF3F8] [&_td]:border-[#F0F4F8] [&_th]:font-normal [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 ${showProjectColumn ? "min-w-[1180px]" : "min-w-[1080px]"}`}>
+        <table className={`w-full border-collapse text-left text-sm [&_th]:border-r [&_td]:border-r [&_th]:border-[#EEF3F8] [&_td]:border-[#F0F4F8] [&_th]:font-medium [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 ${showProjectColumn ? "min-w-[1460px]" : "min-w-[1360px]"}`}>
         <thead>
           <tr className="select-none border-b border-[#EEF3F8] bg-[#F8FBFE] text-slate-600">
-            <th className="w-[146px] px-2 py-2.5">Công việc</th>
+            <th className="w-[180px] px-2 py-2">Công việc</th>
             {showProjectColumn && <th className="w-[96px] px-2 py-2.5">Dự án</th>}
-            <th className="w-[86px] px-2 py-2.5">Phân loại</th>
+            <th className="w-[120px] px-2 py-2">Phân loại</th>
             <th className="w-[68px] px-2 py-2.5">Ưu tiên</th>
             <th className="w-[82px] px-2 py-2.5">Trạng thái</th>
             <th className="w-[92px] px-2 py-2.5">Giao cho</th>
@@ -544,8 +543,8 @@ function TaskTable({
                   className="hover:bg-slate-50/70 cursor-pointer transition-colors bg-white"
                 >
                   {/* Công việc */}
-                  <td className="px-2 py-2 text-slate-800">
-                    <div className="flex max-w-[146px] items-start gap-1.5">
+                  <td className="px-2 py-1.5 text-slate-800">
+                    <div className="flex max-w-[180px] items-center gap-1.5">
                       <div className="mt-0.5 shrink-0">
                         {task.status === "Done" || task.status === "done" ? (
                           <CheckCircle className="h-3.5 w-3.5 text-[#16A34A]" />
@@ -553,8 +552,8 @@ function TaskTable({
                           <Clock className="h-3.5 w-3.5 text-slate-400" />
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-[11px] text-slate-850" title={task.title}>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium text-slate-850" title={task.title}>
                           {task.title}
                         </div>
                       </div>
@@ -569,13 +568,13 @@ function TaskTable({
                   )}
 
                   {/* Phân loại */}
-                  <td className="px-2 py-2 font-sans text-[#007EB8]">
-                    {formatTaskCategory(task.category)}
+                  <td className="px-2 py-1.5 font-sans text-[#007EB8]">
+                    <span className="block max-w-28 truncate" title={formatTaskCategory(task.category)}>{formatTaskCategory(task.category)}</span>
                   </td>
 
                   {/* Ưu tiên */}
                   <td className="select-none px-2 py-2">
-                    <span className={`rounded-md px-2 py-0.5 text-[10px] whitespace-nowrap ${task.priority === "High" ? "bg-[#FEE2E2] text-[#DC2626]" :
+                    <span className={`inline-flex whitespace-nowrap rounded-sm px-2 py-0.5 text-xs font-semibold uppercase ${task.priority === "High" ? "bg-[#FEE2E2] text-[#DC2626]" :
                       task.priority === "Low" ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#FEF3C7] text-[#B45309]"
                       }`}>
                       {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
@@ -584,7 +583,7 @@ function TaskTable({
 
                   {/* Trạng thái */}
                   <td className="select-none px-2 py-2">
-                    <span className={`rounded-full px-2 py-1 text-[10px] whitespace-nowrap ${task.status === "Done" || task.status === "done" ? "bg-[#DCFCE7] text-[#15803D]" :
+                    <span className={`inline-flex whitespace-nowrap rounded-sm px-2 py-0.5 text-xs font-semibold uppercase ${task.status === "Done" || task.status === "done" ? "bg-[#DCFCE7] text-[#15803D]" :
                       task.status === "Review/Testing" ? "bg-violet-100 text-violet-800" :
                         task.status === "In Progress" || task.status === "doing" ? "bg-sky-100 text-sky-800" : "bg-slate-100 text-slate-700"
                       }`}>
@@ -603,13 +602,13 @@ function TaskTable({
                   </td>
 
                   {/* Hạn chót */}
-                  <td className="whitespace-nowrap px-2 py-2 text-[10px] tabular-nums text-gray-650">{formatDatetime(task.dueDate)}</td>
+                  <td className="whitespace-nowrap px-2 py-2 text-xs tabular-nums text-gray-650">{formatDatetime(task.dueDate)}</td>
 
                   {/* Bắt đầu */}
-                  <td className="whitespace-nowrap px-2 py-2 text-[10px] tabular-nums text-gray-650">{formatDatetime(task.startTime)}</td>
+                  <td className="whitespace-nowrap px-2 py-2 text-xs tabular-nums text-gray-650">{formatDatetime(task.startTime)}</td>
 
                   {/* Kết thúc */}
-                  <td className="whitespace-nowrap px-2 py-2 text-[10px] tabular-nums text-gray-650">{formatDatetime(task.endTime)}</td>
+                  <td className="whitespace-nowrap px-2 py-2 text-xs tabular-nums text-gray-650">{formatDatetime(task.endTime)}</td>
 
                   {/* Dự tính */}
                   <td className="px-2 py-2 text-center tabular-nums text-slate-700">{task.estTime ?? 0}h</td>
@@ -620,13 +619,13 @@ function TaskTable({
                   {/* Đánh giá KPI */}
                   <td className="select-none px-2 py-2">
                     {!kpi ? (
-                      <span className="text-gray-400 italic text-[10px]">-</span>
+                      <span className="text-xs italic text-gray-400">-</span>
                     ) : kpi.status === "ontime" ? (
-                      <span className="inline-flex items-center gap-0.5 rounded bg-[#DCFCE7] px-2 py-0.5 text-[10px] text-[#15803D]" title={kpi.text}>
+                      <span className="inline-flex items-center gap-0.5 rounded-sm bg-[#DCFCE7] px-2 py-0.5 text-xs text-[#15803D]" title={kpi.text}>
                         ✓ Đúng hạn
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-0.5 rounded bg-rose-100 px-2 py-0.5 text-[10px] text-rose-800" title={kpi.text}>
+                      <span className="inline-flex items-center gap-0.5 rounded-sm bg-rose-100 px-2 py-0.5 text-xs text-rose-800" title={kpi.text}>
                         ⚠️ Trễ {kpi.diff}h
                       </span>
                     )}
@@ -1501,40 +1500,40 @@ export default function KanbanTab({
       <div className="min-h-0 flex-1 overflow-y-auto" id="hr_tab_content">
         <div className="flex min-h-full flex-col gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-left text-on-surface sm:p-6" id="job_delegation_kanban">
           {/* Header section */}
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-              <HrPageTitle testId="kanban-header-title">Công việc</HrPageTitle>
-
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:border-b lg:border-outline-variant">
+            <div className="min-w-0 lg:flex-1">
               {/* Tab buttons */}
               <div className="min-w-0 select-none">
-                <div
+                <nav
                   data-testid="kanban-view-tabs"
-                  className="flex min-w-0 gap-0.5 overflow-x-auto rounded-xl border border-[#DCE7F4] bg-[#F5FAFE] p-1 text-xs font-normal scrollbar-none"
+                  aria-label="Chế độ xem công việc"
+                  className="flex min-w-0 gap-1 overflow-x-auto border-b border-outline-variant text-sm scrollbar-none lg:border-b-0"
                 >
                   {(["By project", "Board", "All tasks", "Monthly KPI"] as const).map((vt) => (
                     <button
                       key={vt}
+                      type="button"
                       ref={(element) => {
                         tabRefs.current[vt] = element;
                       }}
                       onClick={() => selectKanbanViewTab(vt)}
-                      className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg transition-all cursor-pointer shrink-0 ${
-                        kanbanViewTab === vt
-                          ? "bg-white text-[#007EB8] shadow-xs"
-                          : "text-slate-600 hover:text-[#007EB8]"
-                      }`}
+                      aria-current={kanbanViewTab === vt ? "page" : undefined}
+                      className={cn(
+                        "relative min-h-11 shrink-0 cursor-pointer whitespace-nowrap px-3.5 py-2 font-medium text-on-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary",
+                        kanbanViewTab === vt && "text-primary after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-primary",
+                      )}
                     >
                       {vt === "By project" ? "Theo dự án" :
                         vt === "Board" ? "Bảng công việc" : vt === "All tasks" ? "Tất cả công việc" : "KPI tháng"}
                     </button>
                   ))}
-                </div>
+                </nav>
               </div>
             </div>
 
             {/* Filter and Add Task controls */}
             <div data-testid="kanban-header-controls" className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
-              <div data-testid="kanban-person-filter" className="w-full min-w-40 text-xs sm:w-44">
+              <div data-testid="kanban-person-filter" className="w-full min-w-40 text-sm sm:w-44">
                 <HrFormSelect
                   value={kanbanFilter || ""}
                   onChange={(value) => setKanbanFilter(value || null)}
@@ -1548,7 +1547,7 @@ export default function KanbanTab({
                   <button
                     type="button"
                     onClick={() => setIsCategoryModalOpen(true)}
-                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#DCE7F4] px-3 py-2 text-xs font-normal text-[#007EB8] transition-colors hover:bg-[#E8F7FF] cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#DCE7F4] px-3 py-2 text-sm font-normal text-[#007EB8] transition-colors hover:bg-[#E8F7FF] cursor-pointer"
                   >
                     <Tag className="h-4 w-4" />
                     Tạo nhãn
@@ -1556,7 +1555,7 @@ export default function KanbanTab({
                   <button
                     type="button"
                     onClick={() => { setEditingProjectId(null); setNewProjectName(""); setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]); setIsNewProjectModalOpen(true); }}
-                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#DCE7F4] px-3 py-2 text-xs font-normal text-[#007EB8] transition-all hover:bg-[#E8F7FF] active:scale-95 cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#DCE7F4] px-3 py-2 text-sm font-normal text-[#007EB8] transition-all hover:bg-[#E8F7FF] active:scale-95 cursor-pointer"
                   >
                     <FolderPlus className="size-4 text-primary" aria-hidden="true" />
                     Tạo dự án & lĩnh vực
@@ -1619,17 +1618,17 @@ export default function KanbanTab({
                         {/* Project Header toggle bar */}
                         <div
                           onClick={() => setExpandedProjects(p => ({ ...p, [proj.id]: !isExpanded }))}
-                          className="bg-[#F5FAFE] px-5 py-3.5 flex items-center justify-between cursor-pointer select-none hover:bg-[#E8F7FF] transition-colors"
+                          className="bg-[#F5FAFE] px-4 py-2 flex items-center justify-between cursor-pointer select-none hover:bg-[#E8F7FF] transition-colors"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <ChevronRight className={`h-4.5 w-4.5 text-slate-550 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                             <FolderOpen className="size-4 shrink-0 text-primary" aria-hidden="true" />
-                            <div className="min-w-0 flex-1"><h3 className="truncate text-sm text-slate-800">{proj.name}</h3><KanbanProjectSummary project={proj} /></div>
+                            <div className="min-w-0 flex-1"><h3 className="truncate text-base font-medium text-slate-800">{proj.name}</h3><KanbanProjectSummary project={proj} /></div>
                             <span className="rounded-full bg-[#E8F7FF] px-2 py-0.5 text-xs text-[#007EB8]">
                               {projTasks.length} việc
                             </span>
                           </div>
-                          <div className="flex items-center gap-4 text-[10px] font-normal text-gray-400">
+                          <div className="flex items-center gap-4 text-xs font-normal text-gray-400">
                             <span>Tạo ngày: {new Date(proj.createdAt).toLocaleDateString("vi-VN")}</span>
                             {isManager && (
                               <><button type="button" onClick={(e) => { e.stopPropagation(); setEditingProjectId(proj.id); setNewProjectName(proj.name); setNewProjectStatus(proj.status || "not_started"); setNewProjectPriority(proj.priority || "medium"); setNewProjectStartAt(proj.startAt ? getLocalDatetimeString(new Date(proj.startAt)) : ""); setNewProjectDueAt(proj.dueAt ? getLocalDatetimeString(new Date(proj.dueAt)) : ""); setNewProjectAttachments(proj.attachments || []); setIsNewProjectModalOpen(true); }} className="p-1.5 rounded-lg text-[#007EB8] hover:bg-[#E8F7FF]" title="Sửa dự án"><FileText className="h-3.5 w-3.5" /></button><button
@@ -1649,7 +1648,7 @@ export default function KanbanTab({
 
                         {/* Project Tasks Body */}
                         {isExpanded && (
-                          <div className="p-3 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
+                          <div className="p-2 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
                             <TaskTable
                               tasks={projTasks}
                               showProjectColumn={false}
@@ -1666,7 +1665,7 @@ export default function KanbanTab({
                   <div className="border border-[#DCE7F4] rounded-2xl overflow-hidden shadow-2xs">
                     <div
                       onClick={() => setExpandedProjects(p => ({ ...p, unassigned: !expandedProjects.unassigned }))}
-                      className="bg-[#F5FAFE] px-5 py-3.5 flex items-center justify-between cursor-pointer select-none hover:bg-[#E8F7FF] transition-colors"
+                      className="bg-[#F5FAFE] px-4 py-2 flex items-center justify-between cursor-pointer select-none hover:bg-[#E8F7FF] transition-colors"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <ChevronRight className={`h-4.5 w-4.5 text-slate-550 transition-transform ${expandedProjects.unassigned ? "rotate-90" : ""}`} />
@@ -1678,7 +1677,7 @@ export default function KanbanTab({
                       </div>
                     </div>
                     {expandedProjects.unassigned && (
-                      <div className="p-4 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
+                      <div className="p-2 bg-white border-t border-gray-150 max-h-[400px] overflow-y-auto">
                         <TaskTable
                           tasks={visibleTasks.filter(t => !t.projectId)}
                           showProjectColumn={false}
@@ -2360,7 +2359,7 @@ function KanbanCard({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       className={cn(
-        "group relative min-w-0 space-y-2 rounded-sm border border-outline-variant border-l-2 bg-surface-container-lowest p-3 text-left shadow-sm transition-[box-shadow,opacity] duration-200 hover:shadow-md",
+        "group relative min-w-0 space-y-1.5 rounded-sm border border-outline-variant border-l-2 bg-surface-container-lowest p-2.5 text-left shadow-sm transition-[box-shadow,opacity] duration-200 hover:shadow-md",
         cardAccent,
         isDragging ? "opacity-45" : "cursor-grab active:cursor-grabbing",
       )}
@@ -2375,23 +2374,23 @@ function KanbanCard({
           className="flex size-6 shrink-0 items-center justify-center rounded-full bg-error-container text-error focus-visible:outline-2 focus-visible:outline-primary"
         ><X className="size-3.5" aria-hidden="true" /></button>}
       </div>
-      <div className="flex min-w-0 items-center gap-1.5 text-[11px] select-none">
-        <span className="min-w-0 max-w-40 truncate rounded-md border border-outline-variant bg-surface-container-low px-2 py-0.5 font-medium text-on-surface/80" title={formatTaskCategory(task.category)}>{formatTaskCategory(task.category)}</span>
+      <div className="flex min-w-0 items-center gap-1 text-[10px] select-none">
+        <span className="min-w-0 max-w-32 truncate rounded-sm border border-outline-variant bg-surface-container-low px-1.5 py-0.5 font-medium text-on-surface/80" title={formatTaskCategory(task.category)}>{formatTaskCategory(task.category)}</span>
         {projectName && (
-          <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-md border border-outline-variant bg-surface-container-low px-2 py-0.5 text-on-surface/80" title={projectName}>
+          <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-sm border border-outline-variant bg-surface-container-low px-1.5 py-0.5 text-on-surface/80" title={projectName}>
             <FolderOpen className="size-3 shrink-0" aria-hidden="true" />
             <span className="truncate">{projectName}</span>
           </span>
         )}
       </div>
-      <div className="flex min-w-0 items-center gap-1 border-t border-on-surface/10 pt-2 text-[11px] text-on-surface/75">
+      <div className="flex min-w-0 items-center gap-1 border-t border-on-surface/10 pt-1.5 text-[10px] text-on-surface/75">
         <span className="inline-flex min-w-0 items-center gap-1 tabular-nums" title={task.dueDate ? `Hạn: ${formatDatetime(task.dueDate)}` : "Chưa đặt hạn"}>
           <Calendar className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="truncate">{task.dueDate ? `Hạn ${formatDatetime(task.dueDate)}` : "Chưa đặt hạn"}</span>
         </span>
       </div>
-      <div className="flex min-w-0 items-center justify-between gap-2 text-[11px] text-on-surface/80">
-        <span className={cn("shrink-0 px-2 py-0.5 text-[10px] font-semibold leading-tight uppercase", priorityTone)}>
+      <div className="flex min-w-0 items-center justify-between gap-2 text-[10px] text-on-surface/80">
+        <span className={cn("shrink-0 px-1.5 py-0.5 text-[10px] font-semibold leading-tight uppercase", priorityTone)}>
           {priorityLabel}
         </span>
         <div className="flex min-w-0 items-center gap-2">

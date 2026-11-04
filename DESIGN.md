@@ -43,6 +43,10 @@ Dùng vai trò màu theo ngữ cảnh: `primary` cho hành động chính, `surf
 
 Thanh tìm kiếm trong các màn hình nghiệp vụ dùng viền 1 px màu `outline-variant` (`#d8e2f0` ở giao diện sáng), theo ô tìm kiếm của trang Phòng ban. Khi focus, viền dùng `primary`. Giữ kích thước và bố cục riêng của từng màn hình. Tìm kiếm toàn ERP mở từ biểu tượng kính lúp ở hàng đầu sidebar phân hệ; header không có ô tìm kiếm.
 
+## Dropdowns
+
+Dùng dropdown chọn phòng ban trong Sơ đồ tổ chức Nhân sự làm mẫu cho toàn ERP. Ô chọn có nền `surface-container-lowest`, viền 1 px `outline-variant`, bo góc nhẹ và chữ thường, không in đậm. Menu có cùng nền và viền, bóng nhẹ; mục đang chọn dùng nền pha khoảng 10% `primary` và chữ xanh đủ tương phản. Mục chưa chọn dùng màu `on-surface`, khi rê chuột chỉ đổi sang nền xanh rất nhạt. Giữ kiểu dáng này cho dropdown tự vẽ và `select` gốc; không thay đổi kích thước hay nghiệp vụ riêng của từng màn hình.
+
 ## Empty states
 
 Các vùng nội dung rỗng trong phân hệ Nhân sự dùng `HrEmptyIllustration`: SVG nét xám, kích thước 160 × 96, họa tiết nền mờ và hình theo từng nghiệp vụ. Kết quả tìm kiếm không khớp dùng biến thể `search`. Giữ nguyên câu thông báo và chỉ đặt minh họa ở vùng đủ rộng, tránh các dòng gợi ý nhỏ.

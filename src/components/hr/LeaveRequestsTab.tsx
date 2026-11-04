@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
 import { createPortal } from "react-dom";
-import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { HrStatusBadge } from "./HrStatusBadge";
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,6 +13,7 @@ import {
   Check,
   XCircle,
   Send,
+  Search,
 } from "lucide-react";
 import { UserProfile, EmployeeNode } from "../../types";
 import { getAccessToken } from "../../services/authService";
@@ -30,13 +31,6 @@ export const REQUEST_KIND_OPTIONS: { value: RequestKind; label: string }[] = [
   { value: "wfh", label: "Làm tại nhà" },
   { value: "exception", label: "Ngoại lệ" },
 ];
-
-const REQUEST_KIND_BADGE: Record<RequestKind, string> = {
-  event: "bg-[#e8f7ff] text-[#007eb8]",
-  leave: "bg-[#e8f7ff] text-[#007eb8]",
-  wfh: "bg-[#eafaf7] text-teal-700",
-  exception: "bg-[#f1f8fd] text-slate-600",
-};
 
 const getRequestKindLabel = (kind?: string) =>
   REQUEST_KIND_OPTIONS.find((o) => o.value === kind)?.label || "Nghỉ phép";
@@ -60,7 +54,6 @@ export default function LeaveRequestsTab({
   onApproved,
 }: LeaveRequestsTabProps) {
   const isLeaveAdmin = canApprove;
-  const useCardLayout = useMediaQuery("(max-width: 1699px)");
 
   const [templates, setTemplates] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
@@ -476,18 +469,11 @@ export default function LeaveRequestsTab({
   const getStatusBadge = (status: string, rejectReason?: string) => {
     switch (status) {
       case "approved":
-        return <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-normal text-emerald-700">Đã duyệt</span>;
+        return <HrStatusBadge tone="success">Đã duyệt</HrStatusBadge>;
       case "rejected":
-        return (
-          <span
-            className="inline-flex cursor-help rounded-full bg-rose-50 px-2.5 py-0.5 text-[10px] font-normal text-rose-700"
-            title={rejectReason ? `Lý do từ chối: ${rejectReason}` : "Bị từ chối"}
-          >
-          Từ chối
-          </span>
-        );
+        return <HrStatusBadge tone="danger" title={rejectReason ? `Lý do từ chối: ${rejectReason}` : "Bị từ chối"}>Từ chối</HrStatusBadge>;
       default:
-        return <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-normal text-amber-700">Chờ duyệt</span>;
+        return <HrStatusBadge tone="warning">Chờ duyệt</HrStatusBadge>;
     }
   };
 
@@ -511,19 +497,37 @@ export default function LeaveRequestsTab({
   const selectedTemplate = templates.find((t) => t.name === appType);
 
   return (
-    <div className="space-y-4 animate-fade-in text-left">
-      {/* Header Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#dce7f4] bg-white px-5 py-4">
-        <div>
-          <h2 className="text-base font-normal text-slate-800">
-            Đơn từ &amp; phép
-          </h2>
-          <p className="mt-0.5 text-xs font-normal text-slate-500">
-            Nộp đơn và theo dõi trạng thái
-          </p>
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col animate-fade-in text-left">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3">
+        {isLeaveAdmin && (
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
+            <div className="relative min-w-44 flex-1 sm:max-w-xs">
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" />
+              <input
+                type="search"
+                aria-label="Tìm nhân viên, lý do, loại đơn"
+                placeholder="Tìm đơn..."
+                value={filterSearchQuery}
+                onChange={(e) => setFilterSearchQuery(e.target.value)}
+                className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant/60 focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-normal text-on-surface-variant">Loại đơn:</span>
+              <div className="w-32">
+                <StyledSelect value={filterAppType} onChange={setFilterAppType} ariaLabel="Lọc loại đơn" className="h-9 rounded-md" options={[{ value: "", label: "Tất cả" }, ...templates.map((tpl) => ({ value: tpl.name, label: tpl.name })), { value: "other", label: "Đơn khác" }]} />
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-normal text-on-surface-variant">Yêu cầu:</span>
+              <div className="w-32">
+                <StyledSelect value={filterRequestKind} onChange={setFilterRequestKind} ariaLabel="Lọc yêu cầu" className="h-9 rounded-md" options={[{ value: "", label: "Tất cả" }, ...REQUEST_KIND_OPTIONS]} />
+              </div>
+            </div>
+          </div>
+        )}
 
-        <div className="flex flex-wrap gap-2">
+        <div className="ml-auto flex flex-wrap gap-2">
           <button
             onClick={() => {
               setTplCurrentPage(1);
@@ -553,200 +557,31 @@ export default function LeaveRequestsTab({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-[#dce7f4] bg-white">
-        <div className="flex flex-col gap-3 border-b border-[#e5eef8] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-sm font-normal text-slate-800">
-            {isLeaveAdmin ? "Danh sách Đơn của nhân sự" : "Đơn từ đã nộp của bạn"}
-          </h3>
-          {isLeaveAdmin && (
-            <div className="flex flex-wrap items-center gap-2.5">
-              <input
-                type="text"
-                placeholder="Tìm nhân viên, lý do, loại đơn..."
-                value={filterSearchQuery}
-                onChange={(e) => setFilterSearchQuery(e.target.value)}
-                className="h-10 w-48 rounded-xl border border-[#dce7f4] bg-white px-3 text-sm font-normal outline-none placeholder:text-slate-400 focus:border-[#00adfc] focus:ring-2 focus:ring-[#00adfc]/10 sm:w-64"
-              />
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-normal text-slate-500">
-                  Loại đơn:
-                </span>
-                <div className="w-36">
-                  <StyledSelect value={filterAppType} onChange={setFilterAppType} ariaLabel="Lọc loại đơn" options={[{ value: "", label: "Tất cả" }, ...templates.map((tpl) => ({ value: tpl.name, label: tpl.name })), { value: "other", label: "Đơn khác" }]} />
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-normal text-slate-500">
-                  Yêu cầu:
-                </span>
-                <div className="w-36">
-                  <StyledSelect value={filterRequestKind} onChange={setFilterRequestKind} ariaLabel="Lọc yêu cầu" options={[{ value: "", label: "Tất cả" }, ...REQUEST_KIND_OPTIONS]} />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {useCardLayout ? (
-          <div className="flex flex-col gap-3 bg-[#f8fbff] p-4">
-            {isAppLoading ? (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#00adfc] border-t-transparent" />
-                <span className="text-xs">Đang tải danh sách đơn từ...</span>
-              </div>
-            ) : filteredApplications.length === 0 ? (
-              <div className="flex flex-col items-center px-6 py-12 text-center text-sm font-normal text-slate-500">
-                <HrEmptyIllustration kind={applications.length === 0 ? "leave" : "search"} />
-                <p className="mt-1">{applications.length === 0
-                  ? "Chưa có đơn từ nào được đăng ký."
-                  : "Không tìm thấy đơn từ nào khớp với bộ lọc."}</p>
-              </div>
-            ) : (
-              filteredApplications.map((app) => {
-                const showDelete = app.status === "pending" || isLeaveAdmin;
-                return (
-                  <div
-                    key={app._id || app.id}
-                    className="flex flex-col gap-3.5 rounded-2xl border border-[#dce7f4] bg-white p-4 text-left"
-                  >
-                    {/* Card Header */}
-                    <div className="flex justify-between items-start gap-2.5">
-                      <div className="flex flex-col gap-1">
-                        {isLeaveAdmin && (
-                          <span className="text-sm font-normal text-slate-800">
-                            {app.employeeName}
-                          </span>
-                        )}
-                        <span className="text-xs font-normal text-slate-500">
-                          Loại: <span className="text-slate-800">{getAppTypeLabel(app.type)}</span>
-                        </span>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-normal ${
-                          REQUEST_KIND_BADGE[(app.requestKind as RequestKind) || "leave"] || REQUEST_KIND_BADGE.leave
-                        }`}
-                      >
-                        {getRequestKindLabel(app.requestKind)}
-                      </span>
-                    </div>
-
-                    {/* Card Body */}
-                    <div className="flex flex-col gap-2 text-xs font-normal text-slate-600">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-normal text-slate-500">Thời gian</span>
-                        <span className="w-fit rounded-lg bg-[#f1f8fd] px-2.5 py-1 text-xs text-slate-700">
-                          {new Date(app.startDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}
-                          {` -> `}
-                          {new Date(app.endDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}
-                        </span>
-                      </div>
-
-                      {app.reason && (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs font-normal text-slate-500">Lý do</span>
-                          <p className="text-xs font-normal leading-relaxed text-slate-700">{app.reason}</p>
-                        </div>
-                      )}
-
-                      {app.uploadedFileUrl ? (
-                        <div className="pt-1">
-                          <a
-                            href={getFileDownloadUrl(app.uploadedFileUrl, app.uploadedFileName)}
-                            download={app.uploadedFileName}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#bceaff] bg-[#f0faff] px-3 py-1.5 font-normal text-[#007eb8] transition-colors hover:bg-[#e8f7ff]"
-                            title={`Tải xuống: ${app.uploadedFileName}`}
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            <span>Minh chứng đính kèm</span>
-                          </a>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 italic">Không có tệp đính kèm</span>
-                      )}
-                    </div>
-
-                    {/* Card Footer */}
-                    <div className="flex flex-col gap-2 pt-3 border-t border-slate-100">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-normal text-slate-500">Trạng thái:</span>
-                          {getStatusBadge(app.status, app.rejectReason)}
-                        </div>
-
-                        {/* Thao tác */}
-                        <div className="flex items-center gap-1.5">
-                          {isLeaveAdmin && app.status === "pending" && (
-                            <>
-                              <button
-                                onClick={() => handleApproveApp(app)}
-                                className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0"
-                                title="Duyệt đơn"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedAppId(app._id || app.id);
-                                  setRejectReasonText("");
-                                  setAppRejectModalOpen(true);
-                                }}
-                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0"
-                                title="Từ chối"
-                              >
-                                <XCircle className="h-3.5 w-3.5" />
-                              </button>
-                            </>
-                          )}
-                          {showDelete && (
-                            <button
-                              onClick={() => handleDeleteApp(app._id || app.id)}
-                              className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent"
-                              title="Xóa đơn"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {(app.note || app.rejectReason) && (
-                        <div className="rounded-xl bg-[#f1f8fd] p-2.5 text-xs font-normal leading-relaxed text-slate-600">
-                          <span className="mb-0.5 block text-slate-500">Phản hồi:</span>
-                          {app.note || app.rejectReason}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        ) : (
-          <div className="overflow-x-auto overscroll-x-contain">
-            <table className="w-full min-w-[760px] text-left text-xs text-slate-700 sm:min-w-[1100px]">
-              <thead className="border-b border-[#dce7f4] bg-[#e8f7ff] text-xs font-normal text-[#007eb8]">
+          <div className="min-h-0 flex-1 overflow-auto overscroll-x-contain rounded-md border border-outline-variant bg-surface-container-lowest">
+            <table className="w-full min-w-[960px] table-fixed text-left text-sm text-on-surface">
+              <thead className="border-b border-outline-variant bg-surface-container-low text-xs font-medium text-on-surface">
                 <tr>
-                  {isLeaveAdmin && <th className="px-5 py-4 min-w-[120px]">Nhân sự</th>}
-                  <th className="px-5 py-4 min-w-[110px]">Yêu cầu</th>
-                  <th className="px-5 py-4 min-w-[100px]">Loại phép</th>
-                  <th className="px-5 py-4 min-w-[160px]">Thời gian</th>
-                  <th className="px-5 py-4 min-w-[220px]">Lý do</th>
-                  <th className="px-5 py-4 min-w-[150px]">Đơn đính kèm</th>
+                  {isLeaveAdmin && <th className="w-[11%] px-3 py-2.5">Nhân sự</th>}
+                  <th className="w-[10%] px-3 py-2.5">Yêu cầu</th>
+                  <th className="w-[11%] px-3 py-2.5">Loại phép</th>
+                  <th className="w-[15%] px-3 py-2.5">Thời gian</th>
+                  <th className={isLeaveAdmin ? "w-[15%] px-3 py-2.5" : "w-[18%] px-3 py-2.5"}>Lý do</th>
+                  <th className="w-[10%] px-3 py-2.5">Đính kèm</th>
                   {isLeaveAdmin ? (
                     <>
-                      <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
-                      <th className="px-5 py-4 min-w-[200px]">Phản hồi của Admin</th>
-                      <th className="px-5 py-4 text-center min-w-[90px]">Thao tác</th>
+                      <th className="w-[10%] px-3 py-2.5">Trạng thái</th>
+                      <th className="w-[9%] px-3 py-2.5">Phản hồi</th>
+                      <th className="w-[9%] px-2 py-2.5 text-center">Thao tác</th>
                     </>
                   ) : (
                     <>
-                      <th className="px-5 py-4 min-w-[200px]">Ghi chú</th>
-                      <th className="px-5 py-4 text-center min-w-[110px]">Trạng thái</th>
+                      <th className="w-[17%] px-3 py-2.5">Ghi chú</th>
+                      <th className="w-[12%] px-3 py-2.5">Trạng thái</th>
                     </>
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#e5eef8] font-normal text-slate-700">
+              <tbody className="divide-y divide-outline-variant text-on-surface">
                 {isAppLoading ? (
                   <tr>
                     <td colSpan={isLeaveAdmin ? 9 : 7} className="px-5 py-12 text-center text-slate-400">
@@ -768,41 +603,37 @@ export default function LeaveRequestsTab({
                   filteredApplications.map((app) => {
                     const showDelete = app.status === "pending" || isLeaveAdmin;
                     return (
-                      <tr key={app._id || app.id} className="transition-colors hover:bg-[#f0faff]">
+                      <tr key={app._id || app.id} className="transition-colors hover:bg-surface-container-low">
                         {isLeaveAdmin && (
-                          <td className="px-5 py-4 whitespace-nowrap">
-                            <div className="font-normal text-slate-800">{app.employeeName}</div>
+                          <td className="px-3 py-2.5">
+                            <div className="truncate font-medium" title={app.employeeName}>{app.employeeName}</div>
                           </td>
                         )}
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span
-                            className={`rounded-lg px-2 py-0.5 text-xs font-normal ${
-                              REQUEST_KIND_BADGE[(app.requestKind as RequestKind) || "leave"] || REQUEST_KIND_BADGE.leave
-                            }`}
-                          >
+                        <td className="px-3 py-2.5">
+                          <span className="block truncate" title={getRequestKindLabel(app.requestKind)}>
                             {getRequestKindLabel(app.requestKind)}
                           </span>
                         </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span className="font-normal text-slate-800">{getAppTypeLabel(app.type)}</span>
+                        <td className="px-3 py-2.5">
+                          <span className="block truncate" title={getAppTypeLabel(app.type)}>{getAppTypeLabel(app.type)}</span>
                         </td>
-                        <td className="px-5 py-4 whitespace-nowrap text-xs text-slate-500">
+                        <td className="px-3 py-2.5 whitespace-nowrap text-xs tabular-nums text-on-surface-variant">
                           <div>{new Date(app.startDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
                           <div>đến {new Date(app.endDate).toLocaleString("vi-VN", { dateStyle: "short", timeStyle: "short" })}</div>
                         </td>
-                        <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-600 font-normal" title={app.reason} style={{ wordBreak: "break-all" }}>
-                          {app.reason}
+                        <td className="px-3 py-2.5" title={app.reason}>
+                          <div className="truncate">{app.reason || "—"}</div>
                         </td>
-                        <td className="px-5 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2.5">
                           {app.uploadedFileUrl ? (
                             <a
                               href={getFileDownloadUrl(app.uploadedFileUrl, app.uploadedFileName)}
                               download={app.uploadedFileName}
-                              className="inline-flex items-center gap-1.5 rounded-xl border border-[#bceaff] bg-[#f0faff] px-3 py-1.5 font-normal text-[#007eb8] transition-colors hover:bg-[#e8f7ff]"
+                              className="inline-flex items-center gap-1 text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                               title={`Tải xuống: ${app.uploadedFileName}`}
                             >
                               <Download className="h-3.5 w-3.5" />
-                              <span>Xem đơn đính kèm</span>
+                              <span>Tệp đơn</span>
                             </a>
                           ) : (
                             <span className="text-slate-400 italic">Chưa có tệp</span>
@@ -810,19 +641,20 @@ export default function LeaveRequestsTab({
                         </td>
                         {isLeaveAdmin ? (
                           <>
-                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                            <td className="px-3 py-2.5 whitespace-nowrap">
                               {getStatusBadge(app.status, app.rejectReason)}
                             </td>
-                            <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
-                              {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
+                            <td className="px-3 py-2.5" title={app.note || app.rejectReason || undefined}>
+                              <div className="truncate">{app.note || app.rejectReason || "—"}</div>
                             </td>
-                            <td className="px-5 py-4 whitespace-nowrap text-center">
-                              <div className="flex items-center justify-center gap-1.5">
+                            <td className="px-2 py-2.5 whitespace-nowrap text-center">
+                              <div className="flex items-center justify-center gap-0.5">
                                 {app.status === "pending" && (
                                   <>
                                     <button
                                       onClick={() => handleApproveApp(app)}
-                                      className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0"
+                                      className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition cursor-pointer border-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                      aria-label="Duyệt đơn"
                                       title="Duyệt đơn"
                                     >
                                       <Check className="h-3.5 w-3.5" />
@@ -833,7 +665,8 @@ export default function LeaveRequestsTab({
                                         setRejectReasonText("");
                                         setAppRejectModalOpen(true);
                                       }}
-                                      className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0"
+                                      className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition cursor-pointer border-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                      aria-label="Từ chối"
                                       title="Từ chối"
                                     >
                                       <XCircle className="h-3.5 w-3.5" />
@@ -843,7 +676,8 @@ export default function LeaveRequestsTab({
                                 {showDelete && (
                                   <button
                                     onClick={() => handleDeleteApp(app._id || app.id)}
-                                    className="p-1 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent"
+                                    className="p-1 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer border-0 bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                    aria-label="Xóa đơn"
                                     title="Xóa đơn"
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
@@ -854,10 +688,10 @@ export default function LeaveRequestsTab({
                           </>
                         ) : (
                           <>
-                            <td className="px-5 py-4 min-w-[200px] max-w-[350px] whitespace-normal leading-relaxed text-slate-650 font-medium" style={{ wordBreak: "break-all" }}>
-                              {app.note || app.rejectReason || <span className="text-slate-400 italic">-</span>}
+                            <td className="px-3 py-2.5" title={app.note || app.rejectReason || undefined}>
+                              <div className="truncate">{app.note || app.rejectReason || "—"}</div>
                             </td>
-                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                            <td className="px-3 py-2.5 whitespace-nowrap">
                               {getStatusBadge(app.status, app.rejectReason)}
                             </td>
                           </>
@@ -869,8 +703,6 @@ export default function LeaveRequestsTab({
               </tbody>
             </table>
           </div>
-        )}
-      </div>
 
       {/* Modal nộp đơn */}
       {isAppFormOpen && createPortal(

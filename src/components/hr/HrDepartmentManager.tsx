@@ -8,16 +8,14 @@ import { ConfirmDialog } from "../common/ConfirmDialog";
 import { StyledSelect } from "../common/StyledSelect";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import { HrPageTitle } from "./HrPageTitle";
+import { HrStatusBadge } from "./HrStatusBadge";
 import "./HrDepartmentManager.css";
 
 const fieldClass = "min-h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
 const closeButtonClass = "flex size-8 shrink-0 items-center justify-center rounded-full bg-error text-on-error shadow-xs transition-transform hover:bg-error/90 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error disabled:cursor-not-allowed disabled:opacity-50";
 
 function DepartmentStatusBadge({ active }: { active: boolean }) {
-  return <span className={cn(
-    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-normal",
-    active ? "border-primary bg-surface-container-lowest text-primary" : "border-outline-variant bg-surface-container-low text-on-surface-variant"
-  )}><span className={cn("size-1.5 rounded-full", active ? "bg-primary" : "bg-outline")} aria-hidden="true" />{active ? "Đang hoạt động" : "Ngừng hoạt động"}</span>;
+  return <HrStatusBadge tone={active ? "info" : "neutral"}>{active ? "Đang hoạt động" : "Ngừng hoạt động"}</HrStatusBadge>;
 }
 
 type Props = {
@@ -367,14 +365,14 @@ export function HrDepartmentManager({ companyCode, departments, managers, manage
               {filteredDepartments.length > 0 && (viewMode === "grid" ? (
                 <ul className={cn("grid gap-3", inline && "grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))]")}>
                   {filteredDepartments.map(department => <li key={department.id} className="flex min-w-0 flex-col gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-3">
-                    <div className="flex items-start gap-2.5"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container"><Building2 className="size-4.5" aria-hidden="true" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-on-surface" title={department.name}>{department.name}</p><p className="truncate text-xs text-on-surface-variant">{department.code || "Chưa có mã"}</p></div></div>
+                    <div className="flex items-start gap-2.5"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container"><Building2 className="size-4.5" aria-hidden="true" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-on-surface" title={department.name}>{department.name}</p><p className="truncate text-xs text-on-surface-variant" title={department.code || undefined}>{department.code || "Chưa có mã"}</p></div></div>
                     <p className="truncate text-xs text-on-surface-variant" title={`${department.employeeCount} nhân sự · ${department.managerName ? `Quản lý: ${department.managerName}` : "Chưa có quản lý"}`}>{department.employeeCount} nhân sự · {department.managerName ? `Quản lý: ${department.managerName}` : "Chưa có quản lý"}</p>
                     {department.description && <p className="line-clamp-2 text-xs text-on-surface-variant">{department.description}</p>}
                     <div className="mt-auto flex items-center justify-between gap-1.5"><DepartmentStatusBadge active={department.isActive !== false} />{actions(department, true)}</div>
                   </li>)}
                 </ul>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest"><table className="min-w-full text-left text-sm"><thead className="bg-surface-container-low text-on-surface-variant"><tr><th scope="col" className="p-3 font-medium">Phòng ban</th><th scope="col" className="p-3 font-medium">Nhân sự</th><th scope="col" className="p-3 font-medium">Quản lý</th><th scope="col" className="p-3 font-medium">Trạng thái</th>{canManage && <th scope="col" className="p-3 font-medium">Thao tác</th>}</tr></thead><tbody className="divide-y divide-outline-variant">{filteredDepartments.map(department => <tr key={department.id}><th scope="row" className="p-3 font-medium text-on-surface">{department.name}{department.code && <span className="block text-xs font-normal text-on-surface-variant">{department.code}</span>}</th><td className="p-3 tabular-nums">{department.employeeCount}</td><td className="p-3">{department.managerName || "Chưa có"}</td><td className="p-3"><DepartmentStatusBadge active={department.isActive !== false} /></td>{canManage && <td className="p-3">{actions(department)}</td>}</tr>)}</tbody></table></div>
+                <div className="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest"><table className="min-w-full text-left text-sm"><thead className="bg-surface-container-low text-on-surface-variant"><tr><th scope="col" className="p-3 font-medium">Phòng ban</th><th scope="col" className="p-3 font-medium">Nhân sự</th><th scope="col" className="p-3 font-medium">Quản lý</th><th scope="col" className="p-3 font-medium">Trạng thái</th>{canManage && <th scope="col" className="p-3 font-medium">Thao tác</th>}</tr></thead><tbody className="divide-y divide-outline-variant">{filteredDepartments.map(department => <tr key={department.id}><th scope="row" className="p-3 font-medium text-on-surface"><span className="block max-w-48 truncate" title={department.name}>{department.name}</span>{department.code && <span className="block max-w-48 truncate text-xs font-normal text-on-surface-variant" title={department.code}>{department.code}</span>}</th><td className="p-3 tabular-nums">{department.employeeCount}</td><td className="p-3"><span className="block max-w-48 truncate" title={department.managerName || undefined}>{department.managerName || "Chưa có"}</span></td><td className="p-3"><DepartmentStatusBadge active={department.isActive !== false} /></td>{canManage && <td className="p-3">{actions(department)}</td>}</tr>)}</tbody></table></div>
               ))}
             </section>
           </div>

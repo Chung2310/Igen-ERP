@@ -512,7 +512,7 @@ export const timekeepingController = {
       const companyCode = req.user?.companyCode || "SYSTEM";
 
       const users = await UserModel.find({ companyCode })
-        .select("_id fullName email role employmentStatus officialDate workHoursConfig")
+        .select("_id displayName fullName email role employmentStatus officialDate workHoursConfig")
         .lean();
 
       return res.status(200).json({ status: "success", data: users });

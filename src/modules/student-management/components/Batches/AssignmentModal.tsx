@@ -359,45 +359,46 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
   const batchStudents = students.filter((s) => batch.learnerIds.includes(s.id));
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 font-sans text-left animate-in fade-in duration-200">
-      <div className="bg-white border border-slate-100 rounded-3xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-205">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 font-sans text-left sm:p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title" className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-lg md:h-[85vh]">
         
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-4 py-3 sm:px-5">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-650 flex items-center justify-center">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
               <FileText className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">
+              <h3 id="assignment-modal-title" className="text-base font-semibold text-on-surface">
                 {isWorker ? "Nhiệm vụ & Minh chứng" : "Bài tập & Minh chứng"}
               </h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-                {copy.entityName}: <span className="text-indigo-600">{batch.code}</span> • {copy.courseLabel}: {batch.courseTitle}
+              <p className="mt-0.5 text-xs text-on-surface-variant">
+                {copy.entityName}: <span className="font-medium text-primary">{batch.code}</span> • {copy.courseLabel}: {batch.courseTitle}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+            type="button"
+            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-on-surface-variant hover:bg-primary/10 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
            data-erp-modal-close aria-label="Đóng">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
           
           {/* Left Column: Assignment list & Creator */}
-          <div className="w-1/3 border-r border-slate-100 flex flex-col bg-slate-50/20">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+          <div className="flex min-h-48 w-full flex-col border-b border-outline-variant bg-surface-container-lowest md:w-1/3 md:border-b-0 md:border-r">
+            <div className="flex items-center justify-between border-b border-outline-variant p-4">
+              <span className="text-xs font-semibold text-on-surface">
                 {isWorker ? "Nhiệm vụ" : "Bài tập"} đã giao ({assignments.length})
               </span>
               {!showCreateForm && (
                 <button
                   onClick={() => setShowCreateForm(true)}
-                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                  className="flex cursor-pointer items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
                 >
                   <Plus className="h-3.5 w-3.5" /> Giao bài
                 </button>
@@ -407,9 +408,9 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {showCreateForm ? (
                 /* Form giao bài mới */
-                <form onSubmit={handleCreateAssignment} className="bg-white border border-slate-200/80 rounded-2xl p-4 space-y-3.5">
+                <form onSubmit={handleCreateAssignment} className="bg-white border border-slate-200/80 rounded-md p-4 space-y-3.5">
                   <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                    <span className="text-[10px] font-extrabold text-indigo-600 uppercase">Giao {assignmentName} mới</span>
+                    <span className="text-[10px] font-extrabold text-primary uppercase">Giao {assignmentName} mới</span>
                     <button
                       type="button"
                       onClick={() => setShowCreateForm(false)}
@@ -426,7 +427,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       placeholder="Ví dụ: Hoàn thiện CRUD sản phẩm..."
-                      className="w-full rounded-xl border border-slate-200 py-2 px-3 text-xs outline-none focus:border-indigo-500 transition placeholder-slate-400"
+                      className="w-full rounded-md border border-slate-200 py-2 px-3 text-xs outline-none focus:border-primary transition placeholder-slate-400"
                     />
                   </div>
                   <div>
@@ -436,20 +437,20 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                       onChange={(e) => setNewDescription(e.target.value)}
                       placeholder={`Mô tả chi tiết yêu cầu ${assignmentName}...`}
                       rows={3}
-                      className="w-full rounded-xl border border-slate-200 py-2 px-3 text-xs outline-none focus:border-indigo-500 transition placeholder-slate-400 resize-none"
+                      className="w-full rounded-md border border-slate-200 py-2 px-3 text-xs outline-none focus:border-primary transition placeholder-slate-400 resize-none"
                     />
                   </div>
                   <div>
                     <div className="mb-1 flex items-center justify-between"><label className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Hạn nộp</label><button type="button" onClick={() => setNewDueDate("")} className="text-[10px] font-semibold text-slate-400 hover:text-slate-600">Không đặt hạn</button></div>
                     <div className="grid grid-cols-[1fr_92px] gap-2">
-                      <label className="relative"><Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input type="date" value={dueDatePart} onChange={(e) => updateDueDate(e.target.value)} className="w-full rounded-xl border border-slate-200 py-2 pl-8 pr-2 text-xs outline-none transition focus:border-indigo-500" /></label>
-                      <label className="relative"><Clock className="pointer-events-none absolute left-2 top-3 h-3.5 w-3.5 text-slate-400" /><input type="text" value={dueTimePart} disabled={!dueDatePart} inputMode="numeric" placeholder="20:00" onFocus={() => setIsTimeMenuOpen(true)} onBlur={() => window.setTimeout(() => setIsTimeMenuOpen(false), 150)} onChange={(e) => { updateDueDate(dueDatePart, e.target.value); setIsTimeMenuOpen(true); }} className="w-full rounded-xl border border-slate-200 py-2 pl-7 pr-1 text-xs outline-none transition focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-300" aria-label="Giờ hạn nộp" title="Nhập giờ theo định dạng HH:MM" />{isTimeMenuOpen && dueDatePart ? <div className="absolute right-0 top-[calc(100%+4px)] z-30 max-h-44 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">{DUE_TIME_OPTIONS.filter((time) => time.includes(dueTimePart)).map((time) => <button key={time} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { updateDueDate(dueDatePart, time); setIsTimeMenuOpen(false); }} className="block w-full px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700">{time}</button>)}</div> : null}</label>
+                      <label className="relative"><Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input type="date" value={dueDatePart} onChange={(e) => updateDueDate(e.target.value)} className="w-full rounded-md border border-slate-200 py-2 pl-8 pr-2 text-xs outline-none transition focus:border-primary" /></label>
+                      <label className="relative"><Clock className="pointer-events-none absolute left-2 top-3 h-3.5 w-3.5 text-slate-400" /><input type="text" value={dueTimePart} disabled={!dueDatePart} inputMode="numeric" placeholder="20:00" onFocus={() => setIsTimeMenuOpen(true)} onBlur={() => window.setTimeout(() => setIsTimeMenuOpen(false), 150)} onChange={(e) => { updateDueDate(dueDatePart, e.target.value); setIsTimeMenuOpen(true); }} className="w-full rounded-md border border-slate-200 py-2 pl-7 pr-1 text-xs outline-none transition focus:border-primary disabled:bg-slate-50 disabled:text-slate-300" aria-label="Giờ hạn nộp" title="Nhập giờ theo định dạng HH:MM" />{isTimeMenuOpen && dueDatePart ? <div className="absolute right-0 top-[calc(100%+4px)] z-30 max-h-44 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">{DUE_TIME_OPTIONS.filter((time) => time.includes(dueTimePart)).map((time) => <button key={time} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { updateDueDate(dueDatePart, time); setIsTimeMenuOpen(false); }} className="block w-full px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-primary/10 hover:text-primary">{time}</button>)}</div> : null}</label>
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5"><button type="button" onClick={() => setQuickDueDate(0)} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Hôm nay · 20:00</button><button type="button" onClick={() => setQuickDueDate(1)} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Ngày mai · 20:00</button></div>
+                    <div className="mt-2 flex flex-wrap gap-1.5"><button type="button" onClick={() => setQuickDueDate(0)} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:border-primary/20 hover:bg-primary/10 hover:text-primary">Hôm nay · 20:00</button><button type="button" onClick={() => setQuickDueDate(1)} className="rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:border-primary/20 hover:bg-primary/10 hover:text-primary">Ngày mai · 20:00</button></div>
                   </div>
                   <div>
                     <label className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400">Thang điểm bài tập</label>
-                    <input type="number" min="1" max="10000" required value={newMaxScore} onChange={(event) => setNewMaxScore(event.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none transition focus:border-indigo-500" />
+                    <input type="number" min="1" max="10000" required value={newMaxScore} onChange={(event) => setNewMaxScore(event.target.value)} className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs outline-none transition focus:border-primary" />
                     <p className="mt-1 text-[10px] text-slate-400">Mặc định theo cấu hình trung tâm; có thể đổi riêng cho bài này.</p>
                   </div>
 
@@ -467,7 +468,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-slate-300 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                      className="w-full flex items-center justify-center gap-1.5 py-2 border border-dashed border-slate-300 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-50 transition active:scale-95 disabled:opacity-50 cursor-pointer"
                     >
                       {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
                       Đính kèm đề bài
@@ -476,7 +477,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                       <div className="mt-2 space-y-1.5">
                         {newAttachments.map((f, i) => (
                           <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-100 p-2 rounded-lg text-[10px] min-w-0">
-                            <button type="button" onClick={() => setPreviewFile(f)} className="flex min-w-0 items-center gap-1 truncate text-left font-semibold text-slate-650 hover:text-indigo-600" title="Xem trước"><span className="truncate max-w-[150px]">{f.name}</span><Eye className="h-3 w-3 shrink-0" /></button>
+                            <button type="button" onClick={() => setPreviewFile(f)} className="flex min-w-0 items-center gap-1 truncate text-left font-semibold text-slate-650 hover:text-primary" title="Xem trước"><span className="truncate max-w-[150px]">{f.name}</span><Eye className="h-3 w-3 shrink-0" /></button>
                             <button
                               type="button"
                               onClick={() => setNewAttachments(prev => prev.filter((_, idx) => idx !== i))}
@@ -493,7 +494,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                   <button
                     type="submit"
                     disabled={creating || uploading}
-                    className="w-full py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-1 transition shadow-md active:scale-95 disabled:opacity-50 disabled:active:scale-100 cursor-pointer"
+                    className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-md text-xs font-extrabold flex items-center justify-center gap-1 transition shadow-md active:scale-95 disabled:opacity-50 disabled:active:scale-100 cursor-pointer"
                   >
                     {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                     Xác nhận giao bài
@@ -501,7 +502,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                 </form>
               ) : loading ? (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                  <Loader2 className="h-5 w-5 animate-spin text-indigo-600 mb-2" />
+                  <Loader2 className="h-5 w-5 animate-spin text-primary mb-2" />
                   <span className="text-[10px] font-semibold">Đang tải {assignmentName}...</span>
                 </div>
               ) : assignments.length === 0 ? (
@@ -514,10 +515,10 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     key={a._id}
                     onClick={() => { setSelectedAssignment(a); setSelectedStudentId(null); }}
                     className={cn(
-                      "w-full text-left p-3.5 rounded-2xl border transition-all flex items-center justify-between group",
+                      "w-full text-left p-3.5 rounded-md border transition-colors flex items-center justify-between group",
                       selectedAssignment?._id === a._id
-                        ? "bg-indigo-50 border-indigo-200 text-indigo-900 shadow-sm"
-                        : "bg-white border-slate-100 hover:border-indigo-200 hover:bg-slate-50/30 text-slate-700"
+                        ? "bg-primary/10 border-primary/20 text-primary shadow-sm"
+                        : "bg-white border-slate-100 hover:border-primary/20 hover:bg-slate-50/30 text-slate-700"
                     )}
                   >
                     <div className="min-w-0 pr-2">
@@ -541,10 +542,10 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
           </div>
 
           {/* Center Column: Submission List of Selected Assignment */}
-          <div className="w-1/3 border-r border-slate-100 flex flex-col bg-white">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/10">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
-                <Users className="h-3.5 w-3.5 text-indigo-500" />
+          <div className="flex min-h-48 w-full flex-col border-b border-outline-variant bg-surface-container-lowest md:w-1/3 md:border-b-0 md:border-r">
+            <div className="border-b border-outline-variant p-4">
+              <span className="flex items-center gap-1 text-xs font-semibold text-on-surface">
+                <Users className="h-3.5 w-3.5 text-primary" />
                 {entityLabel.tabLabel} trong {copy.entityNameLower} ({batchStudents.length})
               </span>
             </div>
@@ -567,7 +568,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                       key={student.id}
                       onClick={() => { setSelectedStudentId(student.id); setScore(sub?.score ?? ""); setFeedback(sub?.feedback ?? ""); setManualAttachments([]); setManualNotes(""); }}
                       className={cn(
-                        "w-full text-left p-3 rounded-2xl border transition-all flex items-center justify-between",
+                        "w-full text-left p-3 rounded-md border transition-colors flex items-center justify-between",
                         selectedStudentId === student.id
                           ? "bg-slate-50 border-slate-300 text-slate-900 shadow-sm"
                           : "bg-white border-slate-100 hover:border-slate-200 text-slate-700"
@@ -588,7 +589,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                             "inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg text-[9px] font-black border",
                             isLate 
                               ? "bg-amber-50 text-amber-600 border-amber-100" 
-                              : "bg-indigo-50 text-indigo-600 border-indigo-100"
+                              : "bg-primary/10 text-primary border-primary/15"
                           )}>
                             {isLate ? "Nộp muộn" : "Đã nộp"}
                           </span>
@@ -606,9 +607,9 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
           </div>
 
           {/* Right Column: Submission details & grading */}
-          <div className="w-1/3 flex flex-col bg-slate-50/20">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/10">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+          <div className="flex min-h-48 w-full flex-col bg-surface-container-lowest md:w-1/3">
+            <div className="border-b border-outline-variant p-4">
+              <span className="text-xs font-semibold text-on-surface">
                 Chi tiết & Chấm điểm
               </span>
             </div>
@@ -627,18 +628,18 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                   <div className="space-y-5 text-xs text-slate-700">
                     
                     {/* Student Info card */}
-                    <div className="bg-white border border-slate-150 rounded-2xl p-3.5 space-y-1">
+                    <div className="bg-white border border-slate-150 rounded-md p-3.5 space-y-1">
                       <p className="font-extrabold text-slate-800 text-sm">{studentInfo?.fullName}</p>
                       <p className="text-slate-450 text-[10px]">{studentInfo?.email}</p>
                     </div>
 
                     {selectedAssignment.attachments?.length ? (
-                      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-3">
-                        <span className="mb-2 block text-[10px] font-black uppercase tracking-wider text-indigo-500">Tài liệu bài tập</span>
+                      <div className="rounded-md border border-primary/15 bg-primary/5 p-3">
+                        <span className="mb-2 block text-[10px] font-black uppercase tracking-wider text-primary">Tài liệu bài tập</span>
                         <div className="space-y-1">
                           {selectedAssignment.attachments.map((file, index) => (
-                            <button key={`${file.url}-${index}`} type="button" onClick={() => setPreviewFile(file)} className="flex w-full items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-2 text-left text-[10px] font-semibold text-slate-700 hover:text-indigo-600">
-                              <span className="truncate">{file.name}</span><span className="flex shrink-0 items-center gap-1 text-indigo-500"><Eye className="h-3 w-3" />Xem</span>
+                            <button key={`${file.url}-${index}`} type="button" onClick={() => setPreviewFile(file)} className="flex w-full items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-2 text-left text-[10px] font-semibold text-slate-700 hover:text-primary">
+                              <span className="truncate">{file.name}</span><span className="flex shrink-0 items-center gap-1 text-primary"><Eye className="h-3 w-3" />Xem</span>
                             </button>
                           ))}
                         </div>
@@ -648,7 +649,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                     {/* Submission attachments */}
                     {sub ? (
                       <div className="space-y-4">
-                        {sub.submissionSource === "staff" ? <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700">Nhân viên nộp hộ</span> : null}
+                        {sub.submissionSource === "staff" ? <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary">Nhân viên nộp hộ</span> : null}
                         
                         {/* Attachments */}
                         <div className="space-y-2">
@@ -660,10 +661,10 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                                   type="button"
                                   key={idx}
                                   onClick={() => setPreviewFile(file)}
-                                  className="flex items-center justify-between p-2.5 rounded-xl border border-slate-150 hover:border-indigo-500 hover:text-indigo-650 bg-white transition group"
+                                  className="flex items-center justify-between p-2.5 rounded-md border border-slate-150 hover:border-primary hover:text-primary bg-white transition group"
                                 >
                                   <span className="truncate font-semibold max-w-[190px]">{file.name}</span>
-                                  <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 group-hover:text-indigo-600"><Eye className="h-3 w-3" />Xem</span>
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 group-hover:text-primary"><Eye className="h-3 w-3" />Xem</span>
                                 </button>
                               ))
                             ) : (
@@ -673,14 +674,14 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                         </div>
 
                         {/* Student notes */}
-                        <div className="space-y-1 bg-white border border-slate-150 p-3 rounded-2xl">
+                        <div className="space-y-1 bg-white border border-slate-150 p-3 rounded-md">
                           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Ghi chú của {entityLabel.singular}</span>
                           <p className="text-slate-650 italic text-[11px] leading-relaxed whitespace-pre-wrap">{sub.studentNotes || "Không có ghi chú thêm."}</p>
                         </div>
 
                         {/* Grading Form */}
-                        <form onSubmit={handleGradeSubmission} className="bg-white border border-slate-150 p-4 rounded-2xl space-y-4 shadow-sm">
-                          <div className="flex items-center gap-1 text-[10px] font-extrabold text-indigo-600 uppercase border-b pb-2">
+                        <form onSubmit={handleGradeSubmission} className="bg-white border border-slate-150 p-4 rounded-md space-y-4 shadow-sm">
+                          <div className="flex items-center gap-1 text-[10px] font-extrabold text-primary uppercase border-b pb-2">
                             <Award className="h-3.5 w-3.5" /> Chấm điểm & Nhận xét
                           </div>
                           <div>
@@ -694,7 +695,7 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                               value={score}
                               onChange={(e) => setScore(e.target.value)}
                               placeholder={`Ví dụ: ${Math.min(8.5, selectedAssignment.maxScore || 10)}`}
-                              className="w-full rounded-xl border border-slate-200 py-2 px-3 text-xs outline-none focus:border-indigo-500 transition"
+                              className="w-full rounded-md border border-slate-200 py-2 px-3 text-xs outline-none focus:border-primary transition"
                             />
                           </div>
                           <div>
@@ -704,13 +705,13 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
                               onChange={(e) => setFeedback(e.target.value)}
                               placeholder="Viết nhận xét của bạn..."
                               rows={3}
-                              className="w-full rounded-xl border border-slate-200 py-2 px-3 text-xs outline-none focus:border-indigo-500 transition resize-none placeholder-slate-400"
+                              className="w-full rounded-md border border-slate-200 py-2 px-3 text-xs outline-none focus:border-primary transition resize-none placeholder-slate-400"
                             />
                           </div>
                           <button
                             type="submit"
                             disabled={grading}
-                            className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-1 transition shadow-md active:scale-95 disabled:opacity-50"
+                            className="w-full py-2 bg-primary hover:bg-primary/90 text-white rounded-md text-xs font-extrabold flex items-center justify-center gap-1 transition shadow-md active:scale-95 disabled:opacity-50"
                           >
                             {grading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                             Lưu kết quả chấm
@@ -719,14 +720,14 @@ export function AssignmentModal({ isOpen, batch, students, onClose }: Assignment
 
                       </div>
                     ) : (
-                      <div className="p-8 text-center bg-white border border-slate-150 rounded-2xl flex flex-col items-center justify-center">
+                      <div className="p-8 text-center bg-white border border-slate-150 rounded-md flex flex-col items-center justify-center">
                         <Clock className="h-10 w-10 text-slate-200 mb-2" />
                         <input ref={manualFileInputRef} type="file" multiple onChange={handleMultipleManualProofUpload} className="hidden" />
                         <p className="mb-3 text-[11px] text-slate-500">Nhân viên có thể tải bài làm nhận trực tiếp và lưu hộ học viên.</p>
-                        <button type="button" onClick={() => manualFileInputRef.current?.click()} disabled={uploading} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-indigo-300 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50">{uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}Tải minh chứng bài làm</button>
-                        {manualAttachments.length ? <div className="mt-2 w-full space-y-1">{manualAttachments.map((file, index) => <div key={`${file.url}-${index}`} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[10px]"><button type="button" onClick={() => setPreviewFile(file)} className="flex min-w-0 items-center gap-1 truncate text-left font-semibold text-slate-600 hover:text-indigo-600" title="Xem trước"><span className="truncate">{file.name}</span><Eye className="h-3 w-3 shrink-0" /></button><button type="button" onClick={() => setManualAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-rose-500">Bỏ</button></div>)}</div> : null}
-                        <textarea value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} rows={2} placeholder="Ghi chú khi nhận bài (không bắt buộc)" className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-indigo-500" />
-                        <button type="button" onClick={() => void handleStaffSubmit()} disabled={manualSubmitting || !manualAttachments.length} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white disabled:opacity-50">{manualSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}Lưu bài nộp hộ</button>
+                        <button type="button" onClick={() => manualFileInputRef.current?.click()} disabled={uploading} className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-primary/40 py-2 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50">{uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}Tải minh chứng bài làm</button>
+                        {manualAttachments.length ? <div className="mt-2 w-full space-y-1">{manualAttachments.map((file, index) => <div key={`${file.url}-${index}`} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5 text-[10px]"><button type="button" onClick={() => setPreviewFile(file)} className="flex min-w-0 items-center gap-1 truncate text-left font-semibold text-slate-600 hover:text-primary" title="Xem trước"><span className="truncate">{file.name}</span><Eye className="h-3 w-3 shrink-0" /></button><button type="button" onClick={() => setManualAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-rose-500">Bỏ</button></div>)}</div> : null}
+                        <textarea value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} rows={2} placeholder="Ghi chú khi nhận bài (không bắt buộc)" className="mt-2 w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-xs outline-none focus:border-primary" />
+                        <button type="button" onClick={() => void handleStaffSubmit()} disabled={manualSubmitting || !manualAttachments.length} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md bg-primary py-2 text-xs font-bold text-white disabled:opacity-50">{manualSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}Lưu bài nộp hộ</button>
                         <p className="text-[11px] text-slate-400 font-medium">{entityLabel.titleCase} này chưa nộp minh chứng {assignmentName}.</p>
                       </div>
                     )}

@@ -82,6 +82,7 @@ interface CreateCoursePayload {
 
 const ACTIVE_COURSE_STATUS: Course['status'] = 'Hoạt động';
 const PAUSED_COURSE_STATUS: Course['status'] = 'Tạm dừng';
+const COURSE_HEADER_TONES = ['blue', 'cyan', 'green', 'orange', 'rose', 'purple'] as const;
 
 const DEFAULT_DELETE_CONFIRM: DeleteConfirmState = {
   isOpen: false,
@@ -467,7 +468,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const paginatedCourses = filteredCourses.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="min-h-full space-y-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-sm sm:p-4">
+    <div className="min-h-full space-y-2 p-3 text-left sm:p-4">
       {(courseLoadError || categoryLoadError) && <StudentLoadState error={courseLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadCourses(), reloadCategories()]); }} />}
       <ErpPageHeader
         title={copy.pageTitle}
@@ -545,7 +546,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
       ) : viewMode === 'grid' ? (
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
-            {paginatedCourses.map((course) => (
+            {paginatedCourses.map((course, index) => (
               <div
                 key={course.id}
                 className={cn(
@@ -556,9 +557,9 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                 )}
               >
                 <div className="space-y-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <h4 title={course.title} className={cn('min-w-0 flex-1 truncate text-sm font-semibold leading-snug', darkMode ? 'text-slate-100' : 'text-slate-800')}>{course.title}</h4>
-                    <span className="max-w-[45%] shrink-0 truncate rounded-lg border border-outline-variant bg-surface px-1.5 py-0.5 text-[10px] font-medium text-on-surface-variant">
+                  <div className={cn('student-stat-card -mx-3 -mt-3 flex items-start justify-between gap-2 rounded-t-md px-3 py-3', `student-stat-card--${COURSE_HEADER_TONES[index % COURSE_HEADER_TONES.length]}`)}>
+                    <h4 title={course.title} className="min-w-0 flex-1 truncate text-sm font-semibold leading-snug text-white">{course.title}</h4>
+                    <span className="max-w-[45%] shrink-0 truncate rounded-md border border-white/40 bg-white/15 px-1.5 py-0.5 text-[10px] font-medium text-white">
                       {course.category}
                     </span>
                   </div>
@@ -578,11 +579,16 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                     <button
                       onClick={() => handleToggleStatus(course)}
                       title={course.status === ACTIVE_COURSE_STATUS ? copy.pauseTitle : copy.resumeTitle}
-                      className="flex cursor-pointer items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-1.5 py-1 text-[10px] font-medium text-on-surface hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                      className={cn(
+                        'flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold focus-visible:outline-2 focus-visible:outline-primary',
+                        course.status === ACTIVE_COURSE_STATUS
+                          ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                      )}
                     >
                       {course.status === ACTIVE_COURSE_STATUS
-                        ? <><Pause className="size-3.5 shrink-0 text-on-surface" /> Tạm dừng</>
-                        : <><Play className="size-3.5 shrink-0 text-on-surface" /> Kích hoạt</>}
+                        ? <><Pause className="size-3.5 shrink-0" /> Tạm dừng</>
+                        : <><Play className="size-3.5 shrink-0" /> Kích hoạt</>}
                     </button>
                     <button
                       onClick={() => setViewingCourse(course)}
@@ -651,9 +657,13 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleToggleStatus(course)}
+                          title={course.status === ACTIVE_COURSE_STATUS ? copy.pauseTitle : copy.resumeTitle}
+                          aria-label={course.status === ACTIVE_COURSE_STATUS ? copy.pauseTitle : copy.resumeTitle}
                           className={cn(
-                            'flex items-center gap-1 px-2 py-1.5 text-[10px] font-medium rounded-lg transition-all border cursor-pointer',
-                            darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent' : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                            'flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1.5 text-[10px] font-semibold focus-visible:outline-2 focus-visible:outline-primary',
+                            course.status === ACTIVE_COURSE_STATUS
+                              ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                           )}
                         >
                           {course.status === ACTIVE_COURSE_STATUS ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}

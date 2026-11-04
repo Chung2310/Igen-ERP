@@ -13,6 +13,7 @@ import { DateTimeInput24 } from "../../common/TimeInput24";
 import { ConfirmDialog } from "../../common/ConfirmDialog";
 import { primaryCreateButtonClass } from "../../common/primaryCreateButton";
 import { fieldClass, labelClass, primaryButton, RecruitmentDialog, secondaryButton, ViewState } from "./RecruitmentForms";
+import { HrStatusBadge } from "../HrStatusBadge";
 
 const statusLabels: Record<RecruitmentInterview["status"], string> = { scheduled: "Đã lên lịch", completed: "Hoàn thành", cancelled: "Đã hủy" };
 const localDateTime = (value = "") => { if (!value) return ""; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); };
@@ -28,12 +29,19 @@ export default function RecruitmentInterviewsWorkspace({ canManage }: { canManag
   const applicantName = (item: RecruitmentInterview) => applicants.find((a) => a._id === item.applicantId)?.fullName || "Ứng viên";
   const remove = async () => { if (!pendingDelete || deleting) return; const item = pendingDelete; const name = applicantName(item); setDeleting(true); try { await recruitmentApi.deleteInterview(item._id, item.version); setPendingDelete(null); await load(); toast.success(`Đã xóa lịch phỏng vấn của ${name}.`); } catch (e: any) { const conflict = e.status === 409; const message = conflict ? "Không thể xóa vì lịch phỏng vấn đã được thay đổi ở nơi khác. Danh sách đã được tải lại." : getApiErrorMessage(e, "Không thể xóa lịch phỏng vấn. Vui lòng thử lại."); if (conflict) { setPendingDelete(null); await load(); } toast.error(message); } finally { setDeleting(false); } };
   return <div className="space-y-4 px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
-    {canManage && <div className="flex justify-end rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]"><button type="button" className={primaryCreateButtonClass} onClick={() => setEditing(null)}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" />Lên lịch phỏng vấn</button></div>}
+    {canManage && <div className="flex justify-end"><button type="button" className={primaryCreateButtonClass} onClick={() => setEditing(null)}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" />Lên lịch phỏng vấn</button></div>}
     <ViewState loading={loading} error={error} empty={!loading && !items.length ? "Chưa có lịch phỏng vấn trong chi nhánh này." : undefined} />
     {items.length > 0 && (
-      <div className="overflow-x-auto rounded-2xl bg-white shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-        <table className="w-full min-w-[820px] text-left text-base text-on-surface">
-          <thead className="bg-surface-container-low text-sm font-normal text-on-surface-variant">
+      <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest">
+          <table className="w-full min-w-[820px] table-fixed border-collapse text-left text-sm text-on-surface">
+            <colgroup>
+              <col className="w-[145px]" />
+              <col className="w-[220px]" />
+              <col />
+              <col className="w-[145px]" />
+              {canManage && <col className="w-[105px]" />}
+            </colgroup>
+          <thead className="bg-surface text-xs text-on-surface-variant">
             <tr>
               <th scope="col" className="px-4 py-3 font-medium">Thời gian</th>
               <th scope="col" className="px-4 py-3 font-medium">Ứng viên</th>
@@ -44,21 +52,23 @@ export default function RecruitmentInterviewsWorkspace({ canManage }: { canManag
           </thead>
           <tbody className="divide-y divide-outline-variant">
             {items.map((item) => {
-              const name = applicantName(item);
+                const name = applicantName(item);
+                const jobTitle = jobs.find((job) => job._id === item.jobId)?.title || "";
+                const place = item.format === "online" ? item.meetingLink || "Trực tuyến" : item.location || (item.format === "phone" ? "Điện thoại" : "Tại văn phòng");
               return (
-                <tr key={item._id} className="hover:bg-surface-container-low">
-                  <td className="px-4 py-3 tabular-nums">
+                <tr key={item._id} className="hover:bg-surface/60">
+                    <td className="whitespace-nowrap px-4 py-2 tabular-nums">
                     <div className="font-medium">{new Date(item.scheduledStart).toLocaleDateString("vi-VN")}</div>
-                    <div className="text-sm text-on-surface-variant">{new Date(item.scheduledStart).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} - {new Date(item.scheduledEnd).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</div>
+                    <div className="text-xs text-on-surface-variant">{new Date(item.scheduledStart).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} - {new Date(item.scheduledEnd).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}</div>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{name}</div>
-                    <div className="text-sm text-on-surface-variant">{jobs.find((job) => job._id === item.jobId)?.title}</div>
+                    <td className="overflow-hidden px-4 py-2">
+                      <div className="block w-full truncate font-medium" title={name}>{name}</div>
+                      <div className="block w-full truncate text-xs text-on-surface-variant" title={jobTitle}>{jobTitle}</div>
                   </td>
-                  <td className="px-4 py-3">{item.format === "online" ? item.meetingLink || "Trực tuyến" : item.location || (item.format === "phone" ? "Điện thoại" : "Tại văn phòng")}</td>
-                  <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${item.status === "completed" ? "bg-[#DCF7E8] text-[#078252]" : item.status === "cancelled" ? "bg-[#FFE8EC] text-[#C83D58]" : "bg-[#E8F4FF] text-[#087BDF]"}`}>{statusLabels[item.status]}</span></td>
+                    <td className="overflow-hidden px-4 py-2"><span className="block w-full truncate" title={place}>{place}</span></td>
+                  <td className="px-4 py-2"><HrStatusBadge tone={item.status === "completed" ? "success" : item.status === "cancelled" ? "danger" : "info"}>{statusLabels[item.status]}</HrStatusBadge></td>
                   {canManage && (
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       <div className="flex justify-end gap-1">
                         <button type="button" className={secondaryButton} aria-label={`Sửa lịch phỏng vấn ${name}`} onClick={() => setEditing(item)}><Pencil className="h-4 w-4" aria-hidden="true" /></button>
                         <button type="button" className={secondaryButton} aria-label={`Xóa lịch phỏng vấn ${name}`} onClick={() => setPendingDelete(item)}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>

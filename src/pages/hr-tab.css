@@ -153,9 +153,9 @@
   }
 
   #hr_sub_tabs_bar[data-collapsed="true"] > [data-module-navigation-toggle] {
-    width: 1.5rem;
-    height: 1.5rem;
-    justify-self: start;
+    width: 2.25rem;
+    height: 2.25rem;
+    justify-self: center;
     margin-inline: 0;
   }
 
