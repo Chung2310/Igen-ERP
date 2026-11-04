@@ -103,7 +103,7 @@ export function InventoryTransferSection({
   const [cancelReason, setCancelReason] = useState("");
 
   const request = useRef<{ content: string; key: string } | null>(null);
-  const dateRange = getDatePeriodRange(dateFilter);
+  const dateRange = useMemo(() => getDatePeriodRange(dateFilter), [dateFilter]);
 
   // Fetch warehouse destinations
   useEffect(() => {

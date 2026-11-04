@@ -33,9 +33,16 @@ export async function emitToMessengerAccount(channel: MessengerChannel, accountI
     for (const owner of owners) if (owner.companyCode) companies.add(owner.companyCode);
   }
   // An ambiguous account must be reconciled before messages can be routed.
-  if (companies.size !== 1) return;
+  if (companies.size !== 1) {
+    console.warn("[Messenger event] Routing rejected", { channel, accountId, event, companyCount: companies.size });
+    return;
+  }
   const companyCode = [...companies][0];
-  const object = payload && typeof payload === "object" ? payload : { data: payload };
+  // Spreading a Mongoose document exposes _doc/$__ instead of its public fields.
+  const object = payload && typeof payload === "object"
+    ? ("toObject" in payload && typeof payload.toObject === "function" ? payload.toObject() : payload)
+    : { data: payload };
+  if (event === "new_message") console.info("[Messenger event] Routing message", { channel, accountId, companyCode, messageId: object.message?.messageId });
   relayMarketingEvent({ kind: "account", id: messengerRoom(companyCode, channel, accountId) }, event, { ...object, channel, accountId });
 }
 export function emitToPage(pageId: string, event: string, payload: unknown) {

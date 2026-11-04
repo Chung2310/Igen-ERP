@@ -43,6 +43,7 @@ export interface IFBMessage extends Document {
   recipientId: string;    // PSID người nhận
   direction: "inbound" | "outbound"; // inbound: khách nhắn tới, outbound: mình gửi đi
   text: string;
+  actionPayload?: string;
   attachments: Array<{
     type: string;
     url: string;
@@ -115,6 +116,7 @@ const FBMessageSchema: Schema = new Schema(
     recipientId: { type: String, required: true },
     direction: { type: String, enum: ["inbound", "outbound"], required: true },
     text: { type: String, default: "" },
+    actionPayload: { type: String, default: "", trim: true },
     attachments: [
       {
         type: { type: String },
