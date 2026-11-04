@@ -19,11 +19,11 @@ const formatEffectiveDate = (value: unknown) => {
 const labels: Record<PayrollPolicyAction, string> = { edit: "Sửa", clone: "Nhân bản", activate: "Áp dụng", retire: "Ngưng áp dụng", delete: "Xóa" };
 const icons = { edit: Pencil, clone: Copy, activate: Power, retire: PowerOff, delete: Trash2 };
 const actionColors: Record<PayrollPolicyAction, string> = {
-  edit: "bg-[#397FC4] text-white hover:bg-[#2872B9]",
-  clone: "bg-[#118E7D] text-white hover:bg-[#087E6E]",
-  activate: "bg-[#118E7D] text-white hover:bg-[#087E6E]",
-  retire: "bg-[#CD7728] text-white hover:bg-[#B9651E]",
-  delete: "bg-[#D8586B] text-white hover:bg-[#C5485B]",
+  edit: "text-primary hover:bg-primary-container",
+  clone: "text-primary hover:bg-primary-container",
+  activate: "text-primary hover:bg-primary-container",
+  retire: "text-on-surface-variant hover:bg-surface-container-low",
+  delete: "text-error hover:bg-error-container",
 };
 type Editor = { mode: "create" | "edit" | "clone"; policy?: any };
 type Confirmation = { action: "replace" | "retire" | "delete"; policy: any };
@@ -109,14 +109,12 @@ export function PayrollPolicyManager({ canManage, onPoliciesChanged, runStatus, 
     : confirmation?.action === "retire" ? { title: "Ngưng áp dụng công thức?", confirmLabel: "Ngưng áp dụng", tone: "danger" as const, impact: "Công thức này sẽ không còn được chọn cho các kỳ lương mới." }
       : confirmation?.action === "delete" ? { title: "Xóa công thức?", confirmLabel: "Xóa công thức", tone: "danger" as const, impact: "Chỉ phiên bản không bị khóa và không được dùng trong kỳ lương đã chốt mới có thể xóa." } : null;
 
-  return <div className="rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-    <div className="flex items-start gap-2.5">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D9EEFF] text-[#087BDF]" aria-hidden="true"><Settings2 size={18} /></span>
-      <div className="min-w-0 flex-1">
-        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-medium text-[#15396C]">Cách tính lương</h3>{canManage && <button type="button" onClick={() => setEditor({ mode: "create" })} className={primaryCreateButtonClass}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" />Tạo cách tính</button>}</div>
-        <div className="space-y-2">{items.length === 0 ? <p className="rounded-xl bg-[#E8F6FF] px-3 py-2 text-sm text-slate-500">Chưa có công thức lương.</p> : items.map((policy) => <div key={policy._id} data-policy-status={policy.status} className={`flex flex-wrap items-center justify-between gap-2 rounded-xl px-3 py-2 ${policy.status === "active" ? "bg-[#E5F4FD]" : "bg-[#F5F8FC]"}`}><div><div className="flex flex-wrap items-center gap-2 text-sm font-medium text-[#15396C]">{policy.name}{policy.status === "active" && <span className="rounded-full bg-[#CEEAFE] px-2 py-0.5 text-[11px] font-normal text-[#087BDF]">Đang áp dụng</span>}</div><div className="mt-0.5 text-xs text-[#536B8F]">Áp dụng: {formatEffectiveDate(policy.effectiveFrom)}{policy.effectiveTo ? ` → ${formatEffectiveDate(policy.effectiveTo)}` : ""}</div></div><div className="flex flex-wrap gap-1.5">{getPayrollPolicyActions(canManage, policy.status).map((action) => { const Icon = icons[action]; return <button key={action} onClick={() => void act(action, policy)} className={`inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium transition-colors ${actionColors[action]}`}><Icon size={12}/>{labels[action]}</button>; })}</div></div>)}</div>
-      </div>
+  return <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant px-4 py-3">
+      <h3 className="flex items-center gap-2 text-base font-medium text-on-surface text-balance"><Settings2 className="size-4 text-primary" aria-hidden="true" />Cách tính lương</h3>
+      {canManage && <button type="button" onClick={() => setEditor({ mode: "create" })} className={primaryCreateButtonClass}><Plus className="size-4" aria-hidden="true" />Tạo cách tính</button>}
     </div>
+    {items.length === 0 ? <p className="px-4 py-6 text-pretty text-sm text-on-surface-variant">Chưa có công thức lương.</p> : <div className="divide-y divide-outline-variant">{items.map((policy) => <div key={policy._id} data-policy-status={policy.status} className={`flex flex-wrap items-center justify-between gap-3 border-l-2 px-4 py-3 hover:bg-surface-container-low ${policy.status === "active" ? "border-primary bg-primary-container/30" : "border-transparent"}`}><div><div className="flex flex-wrap items-center gap-2 text-sm font-medium text-on-surface">{policy.name}{policy.status === "active" && <span className="rounded-full bg-primary-container px-2 py-0.5 text-xs font-normal text-on-primary-container">Đang áp dụng</span>}</div><div className="mt-1 text-xs text-on-surface-variant">Áp dụng: {formatEffectiveDate(policy.effectiveFrom)}{policy.effectiveTo ? ` → ${formatEffectiveDate(policy.effectiveTo)}` : ""}</div></div><div className="flex flex-wrap gap-1.5">{getPayrollPolicyActions(canManage, policy.status).map((action) => { const Icon = icons[action]; return <button type="button" key={action} onClick={() => void act(action, policy)} className={`inline-flex min-h-9 items-center gap-1 rounded-md px-2.5 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary ${actionColors[action]}`}><Icon size={14} aria-hidden="true" />{labels[action]}</button>; })}</div></div>)}</div>}
     {editor && <PayrollPolicyFormModal mode={editor.mode} initialDefinition={editor.policy ? editableDefinition(editor.policy) : undefined} saving={saving} onCancel={() => setEditor(null)} onSave={save}/>}
     {confirmation && copy && <PayrollPolicyConfirmDialog title={copy.title} description={confirmation.policy.name} impact={copy.impact} confirmLabel={copy.confirmLabel} tone={copy.tone} pending={confirming} error={confirmationError} onCancel={() => { if (!confirming) setConfirmation(null); }} onConfirm={() => void confirmAction()}/>}
     {pendingActiveEdit && <PayrollPolicyConfirmDialog title="Lưu thay đổi công thức đang áp dụng?" description={pendingActiveEdit.policy.name} impact={canRecalculateAfterPolicySave(runStatus) ? "Bạn có thể lưu công thức hoặc cập nhật bảng lương kỳ này." : "Kỳ này đã qua bước kiểm tra nên chỉ có thể lưu công thức."} confirmLabel="Chỉ lưu" secondaryLabel={canRecalculateAfterPolicySave(runStatus) && onRecalculate ? "Lưu và cập nhật lương" : undefined} tone="warning" pending={saving} error={confirmationError} onCancel={() => { if (!saving) setPendingActiveEdit(null); }} onConfirm={() => void saveActiveEdit(false)} onSecondary={() => void saveActiveEdit(true)}/>}

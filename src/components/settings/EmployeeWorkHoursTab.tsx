@@ -141,19 +141,19 @@ export default function EmployeeWorkHoursTab() {
     : employees;
 
   return (
-    <div>
-      <div className="mb-4 border-b border-gray-100 pb-3">
+    <div className="space-y-4 text-left text-on-surface">
+      <div className="border-b border-outline-variant pb-3">
         <HrPageTitle level={3}>Giờ làm việc riêng của nhân viên</HrPageTitle>
       </div>
-
-      <div className="relative mb-4">
-        <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+      <div className="relative">
+        <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" />
         <input
           type="text"
+          aria-label="Tìm nhân viên theo tên hoặc email"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Tìm theo tên hoặc email..."
-          className={`${inputClass} pl-9`}
+          className="min-h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/15"
         />
       </div>
 
@@ -162,40 +162,49 @@ export default function EmployeeWorkHoursTab() {
       ) : filtered.length === 0 ? (
         <p className="text-xs text-gray-500 py-6 text-center">Không có nhân viên nào.</p>
       ) : (
-        <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto rounded-xl">
+          <table className="w-full min-w-2xl text-sm">
+            <thead className="bg-surface-container-low text-on-surface">
+              <tr>
+                <th scope="col" className="p-3 text-left font-medium">Nhân viên</th>
+                <th scope="col" className="p-3 text-left font-medium">Email</th>
+                <th scope="col" className="p-3 text-left font-medium">Giờ làm việc</th>
+                <th scope="col" className="p-3 text-left font-medium">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
           {filtered.map((emp) => {
             const custom = emp.workHoursConfig?.useCustom;
             const name = employeeName(emp);
             return (
-              <div key={emp._id} className="flex items-center justify-between gap-3 p-3 hover:bg-gray-50 transition-colors">
-                <div className="min-w-0 text-left">
-                  <p className="truncate text-sm font-medium text-on-surface">{name || emp.email || "Chưa có tên"}</p>
-                  {name && emp.email && <p className="truncate text-xs text-on-surface-variant">{emp.email}</p>}
-                  {custom && (
-                    <p className="text-[10px] text-indigo-600 mt-0.5">
-                      Vào {emp.workHoursConfig?.checkInLimit} — Ra {emp.workHoursConfig?.checkOutLimit}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                      custom ? "bg-indigo-50 text-indigo-600" : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
+              <tr key={emp._id} className="border-b border-outline-variant last:border-b-0 hover:bg-surface-container-low">
+                <td className="p-3 font-medium">{name || "Chưa có tên"}</td>
+                <td className="p-3 text-on-surface-variant">{emp.email || "—"}</td>
+                <td className="p-3">
+                  <span className="rounded-full bg-surface-container-low px-2 py-1">
                     {custom ? "Giờ riêng" : "Theo công ty"}
                   </span>
+                  {custom && (
+                    <span className="ml-2 whitespace-nowrap tabular-nums text-on-surface-variant">
+                      {emp.workHoursConfig?.checkInLimit} – {emp.workHoursConfig?.checkOutLimit}
+                    </span>
+                  )}
+                </td>
+                <td className="p-3">
                   <button
                     type="button"
                     onClick={() => openEdit(emp)}
-                    className="px-3 py-1.5 border border-indigo-200 hover:border-indigo-500 rounded-lg text-[10px] font-semibold text-indigo-600 hover:bg-indigo-50/30 transition-all cursor-pointer"
+                    aria-label={`Chỉnh sửa giờ làm việc của ${name || emp.email || "nhân viên"}`}
+                    className="font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"
                   >
                     Chỉnh sửa
                   </button>
-                </div>
-              </div>
+                </td>
+              </tr>
             );
           })}
+            </tbody>
+          </table>
         </div>
       )}
 

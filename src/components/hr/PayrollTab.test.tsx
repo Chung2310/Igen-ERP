@@ -151,6 +151,27 @@ describe("PayrollTab editable payroll results", () => {
     expect(screen.queryByText("formula-library-entry-point")).toBeNull();
   });
 
+  it("places colored statistics before the stages and opens the wide payroll table", async () => {
+    arrange();
+    render(<PayrollTab canManage />);
+
+    const statistic = await screen.findByText("Tổng thực nhận");
+    const stages = document.querySelector("ol");
+    expect(stages).toBeTruthy();
+    expect(statistic.compareDocumentPosition(stages!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(statistic.parentElement?.parentElement?.className).toContain("payroll-stat-card--total");
+
+    const scrollRegion = screen.getByRole("region", { name: "Bảng lương có thể cuộn ngang và dọc" });
+    expect(scrollRegion.className).toContain("visible-scrollbar");
+    expect(within(scrollRegion).getByRole("table").className).toContain("min-w-max");
+
+    const open = screen.getByRole("button", { name: "Phóng to bảng lương toàn màn hình" });
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(open.closest("div.rounded-lg.border"), "requestFullscreen", { value: requestFullscreen });
+    fireEvent.click(open);
+    await waitFor(() => expect(requestFullscreen).toHaveBeenCalledOnce());
+  });
+
   it("hides task KPI from payroll readers without management permission", async () => {
     arrange(draftRun("review"));
     render(<PayrollTab canManage={false} />);

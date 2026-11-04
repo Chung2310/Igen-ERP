@@ -43,11 +43,11 @@ export function PayrollPublicationSchedule({ canManage }: { canManage: boolean }
   };
 
   return (
-    <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-3">
         <div className="flex items-center gap-2">
           <Clock size={16} className="text-primary" />
-          <h3 className="text-sm font-bold text-on-surface">Lịch tự động phát hành lương tạm tính</h3>
+          <h3 className="text-base font-medium text-on-surface text-balance">Lịch tự động phát hành lương tạm tính</h3>
         </div>
         <button
           type="button"
@@ -87,7 +87,7 @@ export function PayrollPublicationSchedule({ canManage }: { canManage: boolean }
                 required
                 value={schedule.day}
                 onChange={event => update({ day: event.target.valueAsNumber })}
-                className="w-16 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs text-on-surface outline-none focus:border-indigo-500 text-center font-bold"
+                className="w-16 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-center text-xs text-on-surface tabular-nums outline-none focus:border-primary"
               />
             </label>
 
@@ -121,7 +121,7 @@ export function PayrollPublicationSchedule({ canManage }: { canManage: boolean }
               <button
                 type="submit"
                 disabled={busy}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-bold text-on-primary hover:bg-primary cursor-pointer shadow-xs disabled:opacity-50 transition-colors ml-auto"
+                className="ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-xs font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
               >
                 <Save size={13} />
                 {busy ? "Đang lưu..." : "Lưu lịch phát hành"}
