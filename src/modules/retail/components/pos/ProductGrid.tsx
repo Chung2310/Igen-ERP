@@ -63,7 +63,7 @@ export function ProductFolderBranch({
               <Folder aria-hidden="true" className="h-4.5 w-4.5" />
             </div>
             <div className="min-w-0">
-              <span className="block text-sm font-bold text-slate-800 truncate">{folder.name}</span>
+              <span className="block text-sm font-semibold text-slate-800 truncate">{folder.name}</span>
               <span className="block text-[11px] text-slate-500 font-medium">
                 Danh mục chính · {folder.count} sản phẩm
               </span>

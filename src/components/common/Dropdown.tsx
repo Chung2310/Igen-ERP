@@ -17,6 +17,8 @@ export interface DropdownProps<T = string> {
   placeholder?: string;
   label?: string;
   "aria-label"?: string;
+  "aria-describedby"?: string;
+  "aria-required"?: boolean;
   disabled?: boolean;
   className?: string;
   triggerClassName?: string;
@@ -46,6 +48,8 @@ export function Dropdown<T = string>({
   placeholder = "Chọn...",
   label,
   "aria-label": ariaLabel,
+  "aria-describedby": ariaDescribedBy,
+  "aria-required": ariaRequired,
   disabled = false,
   className = "",
   triggerClassName = "",
@@ -168,15 +172,15 @@ export function Dropdown<T = string>({
   // Size styles
   const sizeStyles = {
     xs: "min-h-[28px] px-2 py-1 text-[11px] gap-1",
-    sm: "min-h-[34px] px-2.5 py-1.5 text-xs font-semibold gap-1.5",
+    sm: "min-h-[34px] px-2.5 py-1.5 text-xs font-normal gap-1.5",
     md: "min-h-[40px] px-3.5 py-2 text-sm font-normal gap-2",
   }[effectiveSize];
 
   // Variant styles
   const variantStyles = {
-    filter: "rounded-xl border border-slate-200 bg-slate-50 hover:bg-white text-slate-700 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20",
-    default: "rounded-xl border border-slate-300 bg-white text-slate-800 shadow-2xs hover:border-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20",
-    form: "rounded-xl border border-slate-300 bg-white text-slate-800 shadow-2xs hover:border-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20",
+    filter: "rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20",
+    default: "rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20",
+    form: "rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20",
     subtle: "rounded-lg border border-transparent bg-slate-100 hover:bg-slate-200/70 text-slate-700",
     ghost: "rounded-lg hover:bg-slate-100 text-slate-700 border border-transparent",
   }[variant];
@@ -205,13 +209,15 @@ export function Dropdown<T = string>({
         type="button"
         disabled={disabled}
         aria-label={name ? undefined : (ariaLabel || label || (selectedOption ? selectedOption.label : placeholder))}
+        aria-describedby={ariaDescribedBy}
+        aria-required={ariaRequired}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         onClick={() => { if (disabled) return; if (!isOpen) onSearchChange?.(""); setIsOpen(!isOpen); }}
-        className={`inline-flex items-center justify-between transition-all duration-150 select-none cursor-pointer focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-100 ${variantStyles} ${sizeStyles} ${
+        className={`inline-flex items-center justify-between transition-colors duration-150 select-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface ${variantStyles} ${sizeStyles} ${
           isFullWidth && !triggerClassName.includes("w-") ? "w-full" : ""
         } ${
-          isOpen ? "border-cyan-500 ring-2 ring-cyan-500/20 bg-white" : ""
+          isOpen ? "border-primary ring-2 ring-primary/20 bg-surface-container-lowest" : ""
         } ${triggerClassName}`}
       >
         <span className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
@@ -220,7 +226,7 @@ export function Dropdown<T = string>({
           )}
           <span
             title={selectedOption ? selectedOption.label : placeholder}
-            className={`truncate block min-w-0 text-left ${selectedOption ? "text-slate-800 font-medium" : "text-slate-400"}`}
+            className={`truncate block min-w-0 text-left font-normal ${selectedOption ? "text-on-surface" : "text-on-surface-variant/60"}`}
           >
             {selectedOption ? selectedOption.label : placeholder}
           </span>
@@ -261,7 +267,7 @@ export function Dropdown<T = string>({
             isFullWidth
               ? "w-full min-w-full"
               : `${size === "xs" ? "min-w-[110px]" : "min-w-[160px]"} max-w-xs w-max`
-          } rounded-xl border border-slate-200 bg-white p-1 shadow-xl ring-1 ring-black/5 overflow-hidden transition-all duration-150 animate-in fade-in zoom-in-95 ${menuClassName}`}
+          } rounded-xl border border-outline-variant bg-surface-container-lowest p-1 shadow-lg overflow-hidden ${menuClassName}`}
         >
           {/* Search input if enabled */}
           {showSearch && (
@@ -309,10 +315,10 @@ export function Dropdown<T = string>({
                     aria-selected={isSelected}
                     disabled={opt.disabled}
                     onClick={() => handleSelect(opt.value)}
-                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition cursor-pointer select-none disabled:cursor-not-allowed disabled:opacity-40 ${
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-normal transition-colors cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40 ${
                       isSelected
-                        ? "bg-cyan-50 font-bold text-cyan-800"
-                        : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                        ? "bg-primary/10 text-primary"
+                        : "text-on-surface hover:bg-primary/5"
                     } ${opt.className || ""}`}
                   >
                     <div className="flex items-center gap-2 truncate">

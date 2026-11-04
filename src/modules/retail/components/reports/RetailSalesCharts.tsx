@@ -145,7 +145,7 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
                 <TrendingUp className="h-4 w-4" />
               </div>
-              <h2 className="text-base font-bold text-slate-900">Xu hướng doanh thu</h2>
+              <h2 className="text-base font-semibold text-slate-900">Xu hướng doanh thu</h2>
             </div>
             <p className="mt-1 text-xs text-slate-500">
               {formatDate(report.range.from)} – {formatDate(report.range.to)}
@@ -316,7 +316,7 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
               <span className="font-medium text-slate-500">
                 Khoảng: <span className="font-semibold text-slate-700">{formatDate(firstDay)} – {formatDate(lastDay)}</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 font-bold text-slate-700">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
                 Cao nhất: {compactMoneyFormatter.format(actualTrendMaximum)} ₫
               </span>
             </div>
@@ -333,11 +333,11 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
         <div>
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Cơ cấu thanh toán</h2>
+              <h2 className="text-base font-semibold text-slate-900">Cơ cấu thanh toán</h2>
               <p className="mt-0.5 text-xs text-slate-500">Giá trị thực nhận theo phương thức</p>
             </div>
             {totalPaymentAmount > 0 && (
-              <span className="text-xs font-mono font-bold text-slate-900">
+              <span className="text-xs font-mono font-semibold text-slate-900">
                 {compactMoneyFormatter.format(totalPaymentAmount)} ₫
               </span>
             )}
@@ -369,7 +369,7 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
                         <span className="font-semibold text-slate-800">{conf.label}</span>
                       </div>
                       <div className="text-right">
-                        <span className="font-bold text-slate-900 block">{moneyFormatter.format(row.amount)}</span>
+                        <span className="block font-semibold text-cyan-700">{moneyFormatter.format(row.amount)}</span>
                         <span className="text-[10px] text-slate-400 font-semibold">{percentage}%</span>
                       </div>
                     </div>

@@ -30,7 +30,7 @@ export default function AdaptiveMoney({ value }: { value: number }) {
   }, [full]);
 
   return (
-    <div ref={container} className="relative min-w-0 flex-1 text-base font-bold tracking-tight text-slate-900 sm:text-lg">
+    <div ref={container} className="relative min-w-0 flex-1 text-base font-semibold text-inherit sm:text-lg">
       <span ref={measurement} aria-hidden="true" className="pointer-events-none invisible absolute left-0 top-0 w-max whitespace-nowrap">{full}</span>
       <button
         type="button"
@@ -38,11 +38,11 @@ export default function AdaptiveMoney({ value }: { value: number }) {
         aria-label={full}
         aria-expanded={expanded}
         onClick={() => setExpanded(current => !current)}
-        className="block w-full min-w-0 rounded text-left leading-tight [overflow-wrap:anywhere] focus-visible:outline-2 focus-visible:outline-cyan-600"
+        className="block w-full min-w-0 rounded text-left leading-tight [overflow-wrap:anywhere] focus-visible:outline-2 focus-visible:outline-white"
       >
         {compact ? compactReportMoney(value) : full}
       </button>
-      {expanded && <span role="status" className="mt-1 block text-xs font-medium tracking-normal text-slate-600 [overflow-wrap:anywhere]">{full}</span>}
+      {expanded && <span role="status" className="mt-1 block text-xs font-medium text-white/90 [overflow-wrap:anywhere]">{full}</span>}
     </div>
   );
 }

@@ -68,9 +68,9 @@ export default function SePayPaymentPendingDialog({
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><LoaderCircle className="h-5 w-5 animate-spin" /></span>
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-primary">
-                <p className="text-sm font-bold">Đơn đã lưu · đang chờ thanh toán</p>
+                <p className="text-sm font-semibold">Đơn đã lưu · đang chờ thanh toán</p>
               </div>
-              <h2 className="mt-2 text-xl font-extrabold text-slate-900">Quét QR để chuyển khoản</h2>
+              <h2 className="mt-2 text-xl font-semibold text-slate-900">Quét QR để chuyển khoản</h2>
             </div>
           </div>
           <button type="button" aria-label="Đóng màn hình chờ" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={onDismiss} data-erp-modal-close><X className="h-4 w-4" /></button>
@@ -83,15 +83,15 @@ export default function SePayPaymentPendingDialog({
             <img src={qr.qrUrl} alt={`Mã QR chuyển ${money(qr.amount)}`} className="h-48 w-48 shrink-0 rounded-xl bg-white object-contain p-1" />
             <div className="min-w-0 max-w-full text-center sm:pt-2 sm:text-left">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Số tiền chuyển</p>
-              <p className="mt-1 text-2xl font-black text-primary">{money(qr.amount)}</p>
+              <p className="mt-1 text-2xl font-semibold text-primary">{money(qr.amount)}</p>
               {qr.accountName && <p className="mt-3 break-words text-sm font-semibold text-slate-700">{qr.accountName}</p>}
               <p className="mt-1 break-all text-sm text-slate-700">Ngân hàng: {qr.bankId} · STK: {qr.accountNumber}</p>
               <p className="mt-3 text-xs font-semibold text-slate-500">Nội dung chuyển khoản</p>
-              <p className="mt-1 break-all rounded-lg bg-white px-2.5 py-2 font-mono text-sm font-bold text-slate-900">{qr.transferContent || qr.paymentCode || paymentCode}</p>
+              <p className="mt-1 break-all rounded-lg bg-white px-2.5 py-2 font-mono text-sm font-semibold text-slate-900">{qr.transferContent || qr.paymentCode || paymentCode}</p>
             </div>
           </div>
         ) : qrError ? (
-          <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{qrError} Mã thanh toán: <span className="font-mono font-bold">{paymentCode}</span></p>
+          <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{qrError} Mã thanh toán: <span className="font-mono font-semibold">{paymentCode}</span></p>
         ) : (
           <div className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-slate-50 p-8 text-sm text-slate-600"><LoaderCircle className="h-4 w-4 animate-spin" />Đang tạo mã QR...</div>
         )}
