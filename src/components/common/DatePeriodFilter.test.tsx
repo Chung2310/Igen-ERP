@@ -87,4 +87,22 @@ describe("DatePeriodFilter component", () => {
     expect(screen.getByText("Khoảng ngày")).not.toBeNull();
     expect(screen.getByText("Chọn theo tháng")).not.toBeNull();
   });
+
+  it("clears a custom range without opening the date picker", () => {
+    const onChange = vi.fn();
+    render(
+      <DatePeriodFilter
+        label="thời gian hóa đơn"
+        value={{ mode: "range", from: "2026-11-01", to: "2026-11-04", day: "", month: "" }}
+        onChange={onChange}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Tùy chọn thời gian/i });
+    const clear = screen.getByRole("button", { name: "Xóa tùy chọn khoảng ngày" });
+    expect(trigger.contains(clear)).toBe(false);
+    fireEvent.click(clear);
+    expect(onChange).toHaveBeenCalledWith(emptyDatePeriodFilter());
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 });

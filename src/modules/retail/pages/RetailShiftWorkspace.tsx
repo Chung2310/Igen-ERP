@@ -205,7 +205,7 @@ export default function RetailShiftWorkspace() {
                   {shift.workShiftName && <span className="text-slate-500">{shift.workShiftName}</span>}
                 </div>
 
-                <div className="flex flex-wrap gap-2 pl-12 lg:shrink-0 lg:justify-end lg:pl-0">
+                <div className="flex flex-wrap items-center gap-2 pl-12 lg:shrink-0 lg:justify-end lg:pl-0">
                   <Action variant="primary" onClick={() => setDetail(shift)}>Chi tiết</Action>
                   {hasPendingMovement(shift._id) && <Action variant="warning" onClick={() => begin(shift, "cash")}>Kiểm tra thu / chi</Action>}
                   {shift.status === "open" && <><Action onClick={() => begin(shift, "cash")}>Thu / chi quỹ</Action><Action variant="warning" onClick={() => begin(shift, "close")}>Đóng phiên</Action></>}
@@ -357,7 +357,7 @@ function Action({ children, onClick, variant = "default" }: { children: React.Re
     <button
       type="button"
       onClick={onClick}
-      className={"inline-flex min-h-8 items-center justify-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-cyan-500/20 " + styles[variant]}
+      className={"inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary " + styles[variant]}
     >
       {children}
     </button>

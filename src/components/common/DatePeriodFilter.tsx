@@ -203,9 +203,9 @@ export function DatePeriodFilter({
         <button
           type="button"
           onClick={handleSelectAll}
-          className={`rounded-lg px-2.5 py-1.5 font-medium transition-all ${
+          className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 font-medium transition-colors ${
             isAll
-              ? "bg-surface-container-lowest text-primary font-semibold shadow-2xs"
+              ? "bg-surface-container-lowest text-primary shadow-2xs"
               : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50"
           }`}
           aria-pressed={isAll}
@@ -216,9 +216,9 @@ export function DatePeriodFilter({
         <button
           type="button"
           onClick={handleSelectToday}
-          className={`rounded-lg px-2.5 py-1.5 font-medium transition-all ${
+          className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 font-medium transition-colors ${
             isToday
-              ? "bg-surface-container-lowest text-primary font-semibold shadow-2xs"
+              ? "bg-surface-container-lowest text-primary shadow-2xs"
               : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50"
           }`}
           aria-pressed={isToday}
@@ -229,9 +229,9 @@ export function DatePeriodFilter({
         <button
           type="button"
           onClick={handleSelectThisMonth}
-          className={`rounded-lg px-2.5 py-1.5 font-medium transition-all ${
+          className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 font-medium transition-colors ${
             isThisMonth
-              ? "bg-surface-container-lowest text-primary font-semibold shadow-2xs"
+              ? "bg-surface-container-lowest text-primary shadow-2xs"
               : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50"
           }`}
           aria-pressed={isThisMonth}
@@ -243,9 +243,9 @@ export function DatePeriodFilter({
           <button
             type="button"
             onClick={handleSelectLastMonth}
-            className={`rounded-lg px-2.5 py-1.5 font-medium transition-all ${
+            className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 font-medium transition-colors ${
               isLastMonth
-                ? "bg-surface-container-lowest text-primary font-semibold shadow-2xs"
+                ? "bg-surface-container-lowest text-primary shadow-2xs"
                 : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/50"
             }`}
             aria-pressed={isLastMonth}
@@ -264,40 +264,22 @@ export function DatePeriodFilter({
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => setOpen((prev) => !prev)}
-          className={`inline-flex min-h-8.5 items-center gap-1.5 rounded-xl border px-2.5 py-1.5 font-medium transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+          className={`inline-flex h-9 w-40 items-center justify-between gap-1.5 rounded-md border px-2.5 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${isCustom ? "pr-8" : ""} ${
             isCustom
-              ? "border-primary/40 bg-primary/10 text-primary font-semibold shadow-2xs"
+              ? "border-primary/40 bg-primary/10 text-primary shadow-2xs"
               : "border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-outline hover:text-on-surface"
           }`}
         >
           <Calendar aria-hidden="true" className="size-3.5 shrink-0" />
-          <span>{getCustomLabel()}</span>
-          {isCustom ? (
-            <span
-              role="button"
-              tabIndex={0}
-              aria-label="Xóa tùy chọn khoảng ngày"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelectAll();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.stopPropagation();
-                  handleSelectAll();
-                }
-              }}
-              className="ml-0.5 rounded-full p-0.5 hover:bg-primary/20 text-primary"
-            >
-              <X aria-hidden="true" className="size-3 shrink-0" />
-            </span>
-          ) : (
+          <span className="min-w-0 flex-1 truncate text-left" title={getCustomLabel()}>{getCustomLabel()}</span>
+          {!isCustom && (
             <ChevronDown
               aria-hidden="true"
               className={`size-3.5 text-on-surface-variant/70 transition-transform ${open ? "rotate-180" : ""}`}
             />
           )}
         </button>
+        {isCustom && <button type="button" aria-label="Xóa tùy chọn khoảng ngày" onClick={handleSelectAll} className="absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary"><X aria-hidden="true" className="size-3.5" /></button>}
 
         {/* ── Popover Dialog ── */}
         {open &&
@@ -321,7 +303,7 @@ export function DatePeriodFilter({
                   onClick={() => setActiveTab("range")}
                   className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors ${
                     activeTab === "range"
-                      ? "bg-primary text-on-primary font-semibold shadow-2xs"
+                      ? "bg-primary text-on-primary shadow-2xs"
                       : "text-on-surface-variant hover:bg-surface-container-low"
                   }`}
                 >
@@ -332,7 +314,7 @@ export function DatePeriodFilter({
                   onClick={() => setActiveTab("month")}
                   className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors ${
                     activeTab === "month"
-                      ? "bg-primary text-on-primary font-semibold shadow-2xs"
+                      ? "bg-primary text-on-primary shadow-2xs"
                       : "text-on-surface-variant hover:bg-surface-container-low"
                   }`}
                 >
@@ -477,12 +459,12 @@ export function DatePeriodFilter({
                           key={name}
                           type="button"
                           onClick={() => handleSelectMonth(index)}
-                          className={`rounded-xl py-2 text-xs font-medium transition-all ${
+                          className={`rounded-xl border py-2 text-xs font-medium transition-colors ${
                             isSelected
-                              ? "bg-primary text-on-primary font-semibold shadow-2xs"
+                              ? "border-primary bg-primary text-on-primary shadow-2xs"
                               : isThis
-                                ? "border border-primary/40 bg-primary/10 text-primary font-semibold"
-                                : "border border-outline-variant/60 bg-surface-container-low text-on-surface hover:bg-surface-container-high"
+                                ? "border-primary/40 bg-primary/10 text-primary"
+                                : "border-outline-variant/60 bg-surface-container-low text-on-surface hover:bg-surface-container-high"
                           }`}
                         >
                           {name}
