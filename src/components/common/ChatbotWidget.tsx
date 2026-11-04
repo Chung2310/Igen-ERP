@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowUpRight, Bot, Building2, ClipboardList, History, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, Paperclip, RefreshCw, SendHorizontal, Settings2, UserRoundPlus, VolumeX, X } from "lucide-react";
+import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowUpRight, Bot, Building2, ChartNoAxesCombined, ClipboardList, FileImage, FileText, History, Image, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, Music2, NotebookPen, PanelLeftClose, PanelLeftOpen, Paperclip, Presentation, RefreshCw, SendHorizontal, Settings2, UserRoundPlus, Video, Volume2, VolumeX, WandSparkles, X } from "lucide-react";
 import { assistantService, type AssistantConversationCursor, type AssistantConversationSummary, type AssistantTurnInput } from "../../services/assistantService";
 import { defaultAssistantSettings, type AssistantSettings, type AssistantTableAttachment } from "../../shared/assistant-workflow";
 import { AssistantSettingsEditor } from "./AssistantSettingsEditor";
@@ -12,6 +13,7 @@ import { getPosTerminalId } from "../../modules/retail/posTerminal";
 import { AssistantWorkflowEditor } from "./AssistantWorkflowEditor";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { AssistantMessageContent } from "./AssistantMessageContent";
+import { AssistantSidebarIcon, type AssistantSidebarIconName } from "./AssistantSidebarIcon";
 import { cn } from "../../modules/student-management/lib/utils";
 import { readAssistantTableFile } from "./assistant-table-file";
 
@@ -43,11 +45,50 @@ const welcomeMessage: Message = {
   content: "Chào bạn! Mình là trợ lý AI của iGen ERP. Mình có thể trả lời câu hỏi thông thường và hỗ trợ tra cứu, tạo hoặc cập nhật dữ liệu qua các workflow được bật. Với thao tác dữ liệu, mình sẽ hỏi thêm nếu thiếu thông tin và xin bạn xác nhận trước khi thay đổi.",
 };
 const suggestions = [
-  { prompt: "Thêm nhân sự Đỗ Đức Chung", category: "Nhân sự", Icon: UserRoundPlus },
+  { prompt: "Thêm nhân sự mới", category: "Nhân sự", Icon: UserRoundPlus },
   { prompt: "Tạo khách hàng mới", category: "Khách hàng", Icon: Building2 },
   { prompt: "Tạo một công việc mới", category: "Công việc", Icon: ClipboardList },
 ];
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+
+function AssistantGradientIcon({ Icon, from = "#00adfc", to = "#7567ff", className = "size-6" }: { Icon: LucideIcon; from?: string; to?: string; className?: string }) {
+  const gradientId = useId().replace(/:/g, "");
+  return <Icon className={cn(className, "shrink-0")} strokeWidth={2} stroke={`url(#${gradientId})`} aria-hidden="true">
+    <defs><linearGradient id={gradientId} x1="0" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse"><stop stopColor={from} /><stop offset="55%" stopColor="#199bff" /><stop offset="100%" stopColor={to} /></linearGradient></defs>
+  </Icon>;
+}
+
+function AssistantRailIcon({ name }: { name: AssistantSidebarIconName }) {
+  return <span className="assistant-side-icon" aria-hidden="true"><AssistantSidebarIcon name={name} /></span>;
+}
+
+function AssistantLiveVoiceIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="size-4" aria-hidden="true" focusable="false">
+    <path d="M6.5 4.5h11a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H10l-5 3v-4a3 3 0 0 1-1.5-2.6V7.5a3 3 0 0 1 3-3Z" />
+    <path d="M7.5 11.5h1.2l1.3-2.2 1.8 4.4 1.8-4.4 1.3 2.2h1.6" />
+  </svg>;
+}
+type LauncherPosition = { x: number; y: number };
+
+function clampLauncherPosition(position: LauncherPosition, size = 56): LauncherPosition {
+  const margin = 8;
+  return {
+    x: Math.max(margin, Math.min(position.x, window.innerWidth - size - margin)),
+    y: Math.max(margin, Math.min(position.y, window.innerHeight - size - margin)),
+  };
+}
+
+function readLauncherPosition(key: string): LauncherPosition | null {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(key) || "null");
+    if (saved && typeof saved === "object" && "x" in saved && "y" in saved
+      && typeof saved.x === "number" && typeof saved.y === "number"
+      && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      return clampLauncherPosition({ x: saved.x, y: saved.y });
+    }
+  } catch { /* Keep the default corner when storage is unavailable. */ }
+  return null;
+}
 
 function readHistory(key: string): Message[] {
   try {
@@ -71,7 +112,7 @@ export function ChatbotWidget({ storageScope, mode = "popup" }: { storageScope: 
   const scope = `${storageScope}:${branch?.activeBranchId || "company"}`;
   const branchId = branch?.activeBranchId || "";
   const deviceId = userProfile?.companyCode && branchId ? getPosTerminalId(userProfile.companyCode, branchId) : undefined;
-  return <ChatbotSession key={`${scope}:${mode}`} storageScope={scope} branchId={branchId} deviceId={deviceId} mode={mode} />;
+  return <ChatbotSession key={`${scope}:${mode}`} storageScope={scope} launcherStorageScope={storageScope} branchId={branchId} deviceId={deviceId} mode={mode} />;
 }
 
 function storedConversation(key: string): string {
@@ -81,8 +122,50 @@ function storedConversation(key: string): string {
   return id;
 }
 
-function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageScope: string; branchId: string; deviceId?: string; mode: "popup" | "standalone" }) {
+function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId, mode }: { storageScope: string; launcherStorageScope: string; branchId: string; deviceId?: string; mode: "popup" | "standalone" }) {
+  const { userProfile } = useAuth();
+  const railGradientId = useId().replace(/:/g, "");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const storageKey = `igen_erp_chatbot_history:${storageScope}`;
+  const launcherStorageKey = `igen_erp_chatbot_launcher_position:${launcherStorageScope}`;
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const [launcherPosition, setLauncherPosition] = useState<LauncherPosition | null>(() => mode === "popup" ? readLauncherPosition(launcherStorageKey) : null);
+  const launcherPositionRef = useRef(launcherPosition);
+  const launcherDragRef = useRef<{ pointerId: number; startX: number; startY: number; left: number; top: number; moved: boolean } | null>(null);
+  const suppressLauncherClickRef = useRef(false);
+  useEffect(() => {
+    if (mode !== "popup") return;
+    const keepLauncherInViewport = () => {
+      if (!launcherPositionRef.current) return;
+      const position = clampLauncherPosition(launcherPositionRef.current, launcherRef.current?.offsetWidth || 56);
+      launcherPositionRef.current = position;
+      setLauncherPosition(position);
+    };
+    window.addEventListener("resize", keepLauncherInViewport);
+    return () => window.removeEventListener("resize", keepLauncherInViewport);
+  }, [mode]);
+  const moveLauncher = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = launcherDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+    drag.moved = true;
+    event.preventDefault();
+    const position = clampLauncherPosition({ x: drag.left + dx, y: drag.top + dy }, event.currentTarget.offsetWidth);
+    launcherPositionRef.current = position;
+    setLauncherPosition(position);
+  };
+  const finishLauncherDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = launcherDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    launcherDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!drag.moved) return;
+    suppressLauncherClickRef.current = true;
+    window.setTimeout(() => { suppressLauncherClickRef.current = false; }, 0);
+    try { localStorage.setItem(launcherStorageKey, JSON.stringify(launcherPositionRef.current)); } catch { /* Dragging still works for this session. */ }
+  };
   const conversationKey = `${storageKey}:conversation`;
   const requestKey = `${storageKey}:request`;
   const [conversationId, setConversationId] = useState(() => storedConversation(conversationKey));
@@ -262,7 +345,8 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
     speechObjectUrlsRef.current = [];
   }, []);
   useEffect(() => {
-    if (isOpen && logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+    const onlyWelcome = messages.length === 1 && messages[0].role === "assistant" && messages[0].content === welcomeMessage.content;
+    if (isOpen && !onlyWelcome && logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [messages, isLoading, isOpen]);
 
   const saveHistory = (next: Message[], persist = !isViewingHistory) => {
@@ -499,6 +583,13 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
     if (nextView !== "chat") { closeSpeech(); stopReplySpeech(); }
     setView(nextView);
   };
+  const openAssistantInput = () => {
+    changeView("chat");
+    window.requestAnimationFrame(() => {
+      logRef.current?.scrollTo({ top: 0 });
+      inputRef.current?.focus({ preventScroll: true });
+    });
+  };
   const openSettings = () => {
     closeSpeech(); stopReplySpeech(); setWorkflowsVisited(true); setConfigView("settings"); setIsSettingsDialogOpen(true);
   };
@@ -510,14 +601,14 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
       window.dispatchEvent(new PopStateEvent("popstate"));
     }
   };
-  const renderComposer = (placement: "landing" | "conversation") => <div className={cn("space-y-2", placement === "landing" ? "w-full text-left" : "mx-auto w-full max-w-4xl")}>
+  const renderComposer = (placement: "landing" | "conversation") => <div className={cn("space-y-2", placement === "landing" ? "w-full text-left" : "mx-auto w-full max-w-4xl", mode === "standalone" && placement === "landing" && "assistant-landing-composer-wrap")}>
     {error && <div className="space-y-1">
       <p id="erp-chatbot-error" role="alert" className="text-pretty text-sm text-error">{error}</p>
       <button type="button" onClick={() => { if (retryRef.current) void submitTurn(retryRef.current); else { setSynced(false); if (mode === "popup") { setIsOpen(false); document.getElementById("erp-chatbot-panel")?.hidePopover(); } } }} className={cn("rounded px-2 py-1 text-sm font-medium text-primary underline", focusClass)}>{retryRef.current ? "Kiểm tra lại yêu cầu" : mode === "popup" ? "Đóng và mở lại để tải" : "Thử tải lại"}</button>
     </div>}
-    <form onSubmit={(event) => { event.preventDefault(); void handleSend(); }} className={cn("rounded-2xl border border-outline-variant bg-surface-container-lowest focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30", placement === "landing" ? "p-3 shadow-sm sm:p-4" : "p-2")}>
+    <form onSubmit={(event) => { event.preventDefault(); void handleSend(); }} className={cn("rounded-2xl border border-outline-variant bg-surface-container-lowest focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30", placement === "landing" ? "assistant-landing-composer p-3 shadow-sm sm:p-4" : "p-2")}>
       <label className="sr-only" htmlFor="erp-chatbot-input">Tin nhắn cho trợ lý ảo</label>
-      <textarea ref={inputRef} id="erp-chatbot-input" rows={placement === "landing" ? 3 : 2} autoFocus onKeyDown={event => { if (settings.enterToSend && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} value={input} onChange={(event) => setInput(event.target.value)} placeholder="Bạn muốn thực hiện việc gì?" aria-describedby={["erp-chatbot-voice-help", error && "erp-chatbot-error", voiceError && "erp-chatbot-voice-error"].filter(Boolean).join(" ")} className={cn("block w-full min-w-0 resize-y border-0 bg-transparent px-2 py-2 text-base text-on-surface placeholder:text-on-surface/60 focus-visible:outline-none focus-visible:ring-0", placement === "landing" && "sm:text-lg")} />
+      <textarea ref={inputRef} id="erp-chatbot-input" rows={placement === "landing" && mode !== "standalone" ? 3 : 2} autoFocus={mode !== "standalone"} onKeyDown={event => { if (settings.enterToSend && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} value={input} onChange={(event) => setInput(event.target.value)} placeholder={mode === "standalone" && placement === "landing" ? "Hỏi tôi bất cứ điều gì" : "Bạn muốn thực hiện việc gì?"} aria-describedby={["erp-chatbot-voice-help", error && "erp-chatbot-error", voiceError && "erp-chatbot-voice-error"].filter(Boolean).join(" ")} className={cn("block w-full min-w-0 border-0 bg-transparent px-2 py-2 text-base text-on-surface placeholder:text-on-surface/60 focus-visible:outline-none focus-visible:ring-0", mode === "standalone" ? "resize-none" : "resize-y", placement === "landing" && "sm:text-lg")} />
       <input ref={attachmentInputRef} className="sr-only" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" aria-label="Chọn tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} aria-invalid={Boolean(attachmentError)} tabIndex={-1} onChange={event => { void selectAttachment(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
       {attachment && <div className="mx-1 mb-2 rounded-xl border border-outline-variant bg-surface-container-low p-3">
         <div className="flex min-w-0 items-start gap-2">
@@ -543,37 +634,75 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
       </div>}
       {attachmentError && <p id="erp-chatbot-file-error" role="alert" className="mx-2 mb-2 text-pretty text-sm text-error">{attachmentError}</p>}
       {isReadingAttachment && <p role="status" className="mx-2 mb-2 text-sm text-on-surface/70">Đang đọc bảng dữ liệu…</p>}
-      <div className="flex items-center gap-2 border-t border-outline-variant px-1 pt-2">
-        <button ref={attachmentButtonRef} type="button" aria-label="Đính kèm tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} disabled={isLoading || !synced || isReadingAttachment || Boolean(retryRef.current)} onClick={() => attachmentInputRef.current?.click()} title="Tải bảng CSV hoặc Excel lên" className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
-          <Paperclip className="size-5" aria-hidden="true" />
+      <div className="assistant-composer-toolbar flex items-center gap-2 border-t border-outline-variant px-1 pt-2">
+        <button ref={attachmentButtonRef} type="button" aria-label="Đính kèm tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} disabled={isLoading || !synced || isReadingAttachment || Boolean(retryRef.current)} onClick={() => attachmentInputRef.current?.click()} title="Tải bảng CSV hoặc Excel lên" className={cn("assistant-composer-tool flex size-10 shrink-0 items-center justify-center rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+          <Paperclip className="size-4" aria-hidden="true" />
         </button>
-        <button type="button" onClick={toggleVoiceInput} aria-label={isListening ? "Dừng nhận giọng nói" : "Nhập yêu cầu bằng giọng nói"} aria-pressed={isListening} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={isLoading || !synced || Boolean(retryRef.current)} title={isListening ? "Dừng và kiểm tra nội dung đã nhận" : "Nhập yêu cầu bằng giọng nói"} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
-          {isListening ? <MicOff className="size-5" aria-hidden="true" /> : <Mic className="size-5" aria-hidden="true" />}
+        <button type="button" onClick={toggleVoiceInput} aria-label={isListening ? "Dừng nhận giọng nói" : "Nhập yêu cầu bằng giọng nói"} aria-pressed={isListening} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={isLoading || !synced || Boolean(retryRef.current)} title={isListening ? "Dừng và kiểm tra nội dung đã nhận" : "Nhập yêu cầu bằng giọng nói"} className={cn("assistant-composer-tool flex size-10 shrink-0 items-center justify-center rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+          {isListening ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}
         </button>
-        <p className="hidden min-w-0 flex-1 truncate text-left text-xs text-on-surface/70 sm:block">{settings.enterToSend ? "Enter để gửi · Shift + Enter để xuống dòng" : "Enter để xuống dòng · Nhấn gửi để thực hiện"}</p>
-        <button type="submit" aria-label={isLoading ? "Đang chờ trợ lý trả lời" : "Gửi tin nhắn"} disabled={isLoading || !synced || isListening || Boolean(retryRef.current) || !input.trim()} className={cn("ml-auto flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
-          <SendHorizontal className="size-5" aria-hidden="true" />
+        {mode === "standalone" && <button type="button" disabled aria-label="Trò chuyện thoại trực tiếp với AI (chưa có)" title="Trò chuyện thoại trực tiếp với AI (chưa có)" className="assistant-composer-tool flex size-10 shrink-0 items-center justify-center rounded-xl border border-outline-variant bg-surface text-on-surface disabled:cursor-not-allowed disabled:opacity-40"><AssistantLiveVoiceIcon /></button>}
+        {mode !== "standalone" && <p className="hidden min-w-0 flex-1 truncate text-left text-xs text-on-surface/70 sm:block">{settings.enterToSend ? "Enter để gửi · Shift + Enter để xuống dòng" : "Enter để xuống dòng · Nhấn gửi để thực hiện"}</p>}
+        <button type="submit" aria-label={isLoading ? "Đang chờ trợ lý trả lời" : "Gửi tin nhắn"} disabled={isLoading || !synced || isListening || Boolean(retryRef.current) || !input.trim()} className={cn("ml-auto flex shrink-0 items-center justify-center bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", mode === "standalone" && placement === "landing" ? "size-8 rounded-full" : "size-10 rounded-xl", focusClass)}>
+          <SendHorizontal className="size-4" aria-hidden="true" />
         </button>
       </div>
     </form>
     <p id="erp-chatbot-file-help" className="sr-only">Có thể tải tệp CSV, XLSX hoặc XLS, tối đa 100 dòng dữ liệu.</p>
     {voiceError && <p id="erp-chatbot-voice-error" role="alert" className="text-pretty text-sm text-error">{voiceError}</p>}
     {speechError && <p role="status" className="text-pretty text-sm text-error">{speechError}</p>}
-    <p id="erp-chatbot-voice-help" role={isListening ? "status" : undefined} className="text-left text-xs text-on-surface/70">{isListening ? "Đang nghe tiếng Việt. Dừng để kiểm tra nội dung rồi gửi." : "Bạn có thể nhập hoặc nói yêu cầu; nội dung giọng nói sẽ được kiểm tra trước khi gửi."}</p>
+    <p id="erp-chatbot-voice-help" role={isListening ? "status" : undefined} className={mode === "standalone" ? "sr-only" : "text-left text-xs text-on-surface/70"}>{isListening ? "Đang nghe tiếng Việt. Dừng để kiểm tra nội dung rồi gửi." : "Bạn có thể nhập hoặc nói yêu cầu; nội dung giọng nói sẽ được kiểm tra trước khi gửi."}</p>
   </div>;
 
   return <>
     {mode === "popup" && <button
+      ref={launcherRef}
       type="button"
       popoverTarget="erp-chatbot-panel"
       aria-label={isOpen ? "Thu gọn trợ lý ảo AI" : "Mở trợ lý ảo AI"}
+      aria-description="Kéo thả để di chuyển, hoặc dùng phím mũi tên khi nút đang được chọn."
       aria-expanded={isOpen}
       aria-controls="erp-chatbot-panel"
       title="Trợ lý ảo AI"
-      style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))", right: "calc(1rem + env(safe-area-inset-right))" }}
-      className={cn("fixed z-40 flex size-14 items-center justify-center rounded-full border border-outline-variant bg-primary text-on-primary shadow-lg hover:bg-primary/90", focusClass)}
+      style={launcherPosition
+        ? { left: launcherPosition.x, top: launcherPosition.y }
+        : { bottom: "calc(1rem + env(safe-area-inset-bottom))", right: "calc(1rem + env(safe-area-inset-right))" }}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        launcherDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, left: rect.left, top: rect.top, moved: false };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={moveLauncher}
+      onPointerUp={finishLauncherDrag}
+      onPointerCancel={(event) => {
+        finishLauncherDrag(event);
+        suppressLauncherClickRef.current = false;
+      }}
+      onKeyDown={(event) => {
+        const step = 16;
+        const offsets: Record<string, LauncherPosition> = {
+          ArrowLeft: { x: -step, y: 0 }, ArrowRight: { x: step, y: 0 },
+          ArrowUp: { x: 0, y: -step }, ArrowDown: { x: 0, y: step },
+        };
+        const offset = offsets[event.key];
+        if (!offset) return;
+        event.preventDefault();
+        const rect = event.currentTarget.getBoundingClientRect();
+        const position = clampLauncherPosition({ x: rect.left + offset.x, y: rect.top + offset.y }, event.currentTarget.offsetWidth);
+        launcherPositionRef.current = position;
+        setLauncherPosition(position);
+        try { localStorage.setItem(launcherStorageKey, JSON.stringify(position)); } catch { /* Movement still works for this session. */ }
+      }}
+      onClick={(event) => {
+        if (suppressLauncherClickRef.current) {
+          event.preventDefault();
+          suppressLauncherClickRef.current = false;
+        }
+      }}
+      className={cn("assistant-launcher-button fixed z-40 flex size-14 touch-none select-none items-center justify-center rounded-full border-2 border-primary bg-transparent text-on-surface shadow-[0_0_8px_1px_rgba(0,173,252,0.25)] cursor-grab active:cursor-grabbing", focusClass)}
     >
-      {isOpen ? <X className="size-6" aria-hidden="true" /> : <Bot className="size-6" aria-hidden="true" />}
+      {isOpen ? <X className="size-6" aria-hidden="true" /> : <img src="/assistant-igen-head.webp" alt="" aria-hidden="true" className="pointer-events-none size-full object-contain" />}
     </button>}
     <section
       id="erp-chatbot-panel"
@@ -591,7 +720,7 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
       className="assistant-workspace m-0 overflow-hidden rounded-2xl border border-outline-variant bg-surface p-0 text-on-surface shadow-2xl"
     >
       <div className="flex h-full min-h-0 flex-col">
-        <header className="flex shrink-0 items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest px-4 py-2.5">
+        {mode === "standalone" ? <h2 id="erp-chatbot-title" className="sr-only">Trợ lý ảo AI</h2> : <header className="flex shrink-0 items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary"><Bot className="size-5" aria-hidden="true" /></span>
             <div className="min-w-0">
@@ -611,9 +740,26 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
               <X className="size-5" aria-hidden="true" />
             </button>}
           </div>
-        </header>
+        </header>}
         <div className="flex min-h-0 flex-1">
-        <aside aria-label="Điều hướng trợ lý" className="assistant-sidebar w-60 shrink-0 flex-col border-r border-outline-variant bg-surface-container-low px-3 py-4">
+        {mode === "standalone" ? <aside aria-label="Điều hướng trợ lý" style={{ "--assistant-rail-gradient": `url(#${railGradientId})` } as React.CSSProperties} className={cn("assistant-sidebar assistant-reference-sidebar shrink-0 flex-col border-r border-outline-variant bg-surface-container-lowest px-2 py-3", sidebarCollapsed && "is-collapsed")}>
+          <svg className="absolute size-0" aria-hidden="true" focusable="false"><defs><linearGradient id={railGradientId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0"><stop offset="0%" stopColor="#00adfc" /><stop offset="55%" stopColor="#199bff" /><stop offset="100%" stopColor="#7567ff" /></linearGradient></defs></svg>
+          <div className="assistant-sidebar-header mb-3 flex items-center justify-between gap-1.5">
+            <button type="button" aria-label={sidebarCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"} aria-expanded={!sidebarCollapsed} aria-controls="assistant-sidebar-navigation" onClick={() => setSidebarCollapsed(value => !value)} className={cn("assistant-sidebar-tool assistant-sidebar-collapse flex items-center justify-center rounded-lg hover:bg-surface-container-low", focusClass)}>{sidebarCollapsed ? <PanelLeftOpen className="size-5" aria-hidden="true" /> : <PanelLeftClose className="size-5" aria-hidden="true" />}</button>
+            {!sidebarCollapsed && <button type="button" aria-label="Bắt đầu cuộc trò chuyện mới" title="Trò chuyện mới" disabled={isLoading || Boolean(retryRef.current) || messages.length <= 1} onClick={() => setShowConfirmClear(true)} className={cn("assistant-sidebar-tool flex size-9 shrink-0 items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface/35", focusClass)}><MessageSquarePlus className="size-5" aria-hidden="true" /></button>}
+          </div>
+          <nav id="assistant-sidebar-navigation" className="flex flex-col gap-1.5" aria-label="Chế độ trợ lý">
+            <button type="button" aria-label="Trò chuyện" aria-current={view === "chat" ? "page" : undefined} onClick={() => changeView("chat")} className={cn("assistant-side-item", view === "chat" && "is-active", focusClass)}><AssistantRailIcon name="chat" />{!sidebarCollapsed && <span>Trò chuyện</span>}</button>
+            <button type="button" disabled title="Chưa có tính năng AI Studio" className="assistant-side-item" aria-label="AI Studio (chưa có)"><AssistantRailIcon name="studio" />{!sidebarCollapsed && <span>AI Studio</span>}</button>
+            <button type="button" disabled title="Chưa có tính năng Notebook" className="assistant-side-item" aria-label="Notebook (chưa có)"><AssistantRailIcon name="notebook" />{!sidebarCollapsed && <span>Notebook</span>}</button>
+            <button type="button" disabled title="Chưa có tính năng ghi chép cuộc họp" className="assistant-side-item" aria-label="Ghi chép cuộc họp (chưa có)"><AssistantRailIcon name="meeting" />{!sidebarCollapsed && <span>Ghi chép cuộc họp</span>}</button>
+            <button type="button" aria-label="Trợ lý AI" onClick={openAssistantInput} className={cn("assistant-side-item", focusClass)}><AssistantRailIcon name="assistant" />{!sidebarCollapsed && <span>Trợ lý AI</span>}</button>
+            <button type="button" disabled title="Chưa có tính năng dự án" className="assistant-side-item" aria-label="Dự án (chưa có)"><AssistantRailIcon name="project" />{!sidebarCollapsed && <span>Dự án</span>}</button>
+            <button type="button" aria-label="Công cụ trợ lý" aria-haspopup="dialog" aria-controls="assistant-settings-dialog" onClick={() => { setWorkflowsVisited(true); setConfigView("workflows"); setIsSettingsDialogOpen(true); }} className={cn("assistant-side-item", focusClass)}><AssistantRailIcon name="tools" />{!sidebarCollapsed && <span>Công cụ</span>}</button>
+            <button type="button" aria-label="Lịch sử trò chuyện" aria-current={view === "history" ? "page" : undefined} onClick={() => changeView("history")} className={cn("assistant-side-item", view === "history" && "is-active", focusClass)}><AssistantRailIcon name="history" />{!sidebarCollapsed && <span>Lịch sử</span>}</button>
+          </nav>
+          <div className="mt-auto border-t border-outline-variant pt-2"><button type="button" aria-label="Quản trị và thiết lập trợ lý" aria-haspopup="dialog" aria-controls="assistant-settings-dialog" aria-expanded={isSettingsDialogOpen} onClick={openSettings} className={cn("assistant-side-item", focusClass)}><AssistantRailIcon name="settings" />{!sidebarCollapsed && <span>Quản trị và thiết lập</span>}</button></div>
+        </aside> : <aside aria-label="Điều hướng trợ lý" className="assistant-sidebar w-60 shrink-0 flex-col border-r border-outline-variant bg-surface-container-low px-3 py-4">
           <p className="px-3 pb-2 text-xs font-medium text-on-surface/70">KHÔNG GIAN LÀM VIỆC</p>
           <nav className="flex flex-col gap-1" aria-label="Chế độ trợ lý">
             <button type="button" aria-pressed={view === "chat"} onClick={() => changeView("chat")} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm", view === "chat" && "bg-surface-container-high font-semibold", focusClass)}><MessageSquare className="size-4 shrink-0" aria-hidden="true" />Trò chuyện</button>
@@ -622,8 +768,11 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
           <div className="mt-auto border-t border-outline-variant pt-3">
             <button type="button" aria-haspopup="dialog" aria-expanded={isSettingsDialogOpen} aria-controls="assistant-settings-dialog" onClick={openSettings} className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm", isSettingsDialogOpen && "bg-surface-container-high font-semibold", focusClass)}><Settings2 className="size-4 shrink-0" aria-hidden="true" />Cài đặt trợ lý</button>
           </div>
-        </aside>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        </aside>}
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        {mode === "standalone" && isSpeaking && <div className="assistant-reference-top-actions flex items-center gap-1">
+          <button type="button" aria-label="Dừng đọc câu trả lời" title="Dừng đọc câu trả lời" onClick={stopReplySpeech} className={cn("flex size-9 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest", focusClass)}><VolumeX className="size-4" aria-hidden="true" /></button>
+        </div>}
         <nav aria-label="Chế độ trợ lý" className="assistant-mobile-mode-nav flex shrink-0 gap-1 border-b border-outline-variant bg-surface-container-lowest p-2">
           <button type="button" aria-pressed={view === "chat"} onClick={() => changeView("chat")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "chat" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><MessageSquare className="size-4 shrink-0" aria-hidden="true" />Trò chuyện</span></button>
           <button type="button" aria-pressed={view === "history"} onClick={() => changeView("history")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "history" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><History className="size-4 shrink-0" aria-hidden="true" />Lịch sử</span></button>
@@ -668,31 +817,41 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
         {isViewingHistory && <div ref={historyBannerRef} tabIndex={-1} className={cn("shrink-0 border-b border-outline-variant bg-surface-container-low px-4 py-2", focusClass)}>
           <p className="text-pretty text-sm">Đang xem lại phiên cũ. Phiên này ở chế độ chỉ đọc.</p>
         </div>}
-        {isWelcomeScreen ? <div ref={logRef} className="assistant-welcome min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-8 sm:px-8">
-          <section aria-labelledby="assistant-welcome-title" className="mx-auto flex min-h-full w-full max-w-5xl flex-col justify-center gap-7 sm:gap-8">
+        {isWelcomeScreen ? <div ref={logRef} className={cn("assistant-welcome min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-8 sm:px-8", mode === "standalone" && "assistant-reference-welcome")}>
+          <section aria-labelledby="assistant-welcome-title" className={cn("mx-auto flex min-h-full w-full max-w-5xl flex-col justify-center gap-7 sm:gap-8", mode === "standalone" && "assistant-reference-content")}>
             <div className="space-y-3 text-center">
-              <span className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-outline-variant bg-surface-container-low text-primary">
+              {mode !== "standalone" && <><span className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-outline-variant bg-surface-container-low text-primary">
                 <Bot className="size-6" aria-hidden="true" />
               </span>
-              <p className="text-xs font-semibold text-primary">TRỢ LÝ AI · IGEN ERP</p>
-              <h1 id="assistant-welcome-title" className="text-balance text-2xl font-semibold sm:text-3xl">Xin chào, tôi có thể giúp gì cho bạn?</h1>
-              <p className="mx-auto max-w-2xl text-pretty text-sm leading-6 text-on-surface/70 sm:text-base">Mô tả công việc bằng ngôn ngữ tự nhiên. Tôi sẽ hỏi thêm khi thiếu thông tin và xin xác nhận trước khi cập nhật dữ liệu.</p>
+              <p className="text-xs font-semibold text-primary">TRỢ LÝ AI · IGEN ERP</p></>}
+              <h1 id="assistant-welcome-title" className="text-balance text-2xl font-semibold sm:text-3xl">{mode === "standalone" ? <>Xin chào {userProfile?.displayName || "bạn"}, mình là Trợ lí AI của <span className="assistant-brand-name">iGen</span> <span aria-hidden="true">👋</span></> : "Xin chào, tôi có thể giúp gì cho bạn?"}</h1>
+              {mode !== "standalone" && <p className="mx-auto max-w-2xl text-pretty text-sm leading-6 text-on-surface/70 sm:text-base">Mô tả công việc bằng ngôn ngữ tự nhiên. Tôi sẽ hỏi thêm khi thiếu thông tin và xin xác nhận trước khi cập nhật dữ liệu.</p>}
             </div>
             {isLoading && <p role="status" className="text-center text-sm text-on-surface/70">Đang tải cuộc trò chuyện…</p>}
             {renderComposer("landing")}
+            {mode === "standalone" && <div className="assistant-quick-actions" aria-label="Tác vụ trợ lý">
+              <button type="button" data-tone="cyan" disabled={!synced || isLoading || isReadingAttachment} onClick={() => attachmentInputRef.current?.click()} className={cn("assistant-action-chip", focusClass)}><AssistantGradientIcon Icon={Paperclip} className="size-4" />Đính kèm bảng</button>
+              <button type="button" data-tone="violet" disabled={!synced || isLoading} onClick={toggleVoiceInput} className={cn("assistant-action-chip", focusClass)}><AssistantGradientIcon Icon={Mic} className="size-4" />Nhập giọng nói</button>
+              {([ ["Tạo hình ảnh", Image], ["Tạo video", Video], ["Tạo infographic", FileImage], ["Tạo slide", Presentation], ["Tạo nhạc", Music2], ["Tạo audio", Volume2], ["Tạo giọng cá nhân", Mic], ["Tạo biểu đồ", ChartNoAxesCombined], ["Notebook", NotebookPen], ["Ghi chép cuộc họp", FileText], ["Tạo mindmap", WandSparkles], ["Tóm tắt YouTube", Video] ] as const).map(([label, Icon]) => <button key={label} type="button" disabled title={`${label} chưa có trong trợ lý`} className="assistant-action-chip"><Icon className="size-4" aria-hidden="true" />{label}</button>)}
+            </div>}
             {settings.showSuggestions && synced && <section aria-label="Gợi ý yêu cầu" className="space-y-3">
-              <div className="flex flex-wrap items-end justify-between gap-2">
+              {mode !== "standalone" && <div className="flex flex-wrap items-end justify-between gap-2">
                 <h2 className="text-balance text-sm font-semibold">Bắt đầu với một yêu cầu</h2>
                 <p className="text-pretty text-xs text-on-surface/70">Chọn gợi ý để điền nhanh vào khung chat</p>
-              </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {suggestions.map(({ prompt, category, Icon }) => <button key={prompt} type="button" onClick={() => void handleSend(prompt)} className={cn("group flex min-h-20 w-full items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 text-left hover:border-primary hover:bg-surface-container-low sm:p-4", focusClass)}>
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-container-high text-primary"><Icon className="size-5" aria-hidden="true" /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-medium text-on-surface/70">{category}</span>
-                    <span className="mt-1 block text-pretty text-sm font-semibold">{prompt}</span>
-                  </span>
-                  <ArrowUpRight className="size-4 shrink-0 text-on-surface/60 group-hover:text-primary" aria-hidden="true" />
+              </div>}
+              <div className={cn("grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3", mode === "standalone" && "assistant-reference-suggestions")}>
+                {suggestions.map(({ prompt, category, Icon }) => <button key={prompt} data-tone={category === "Nhân sự" ? "cyan" : category === "Khách hàng" ? "brand" : "violet"} type="button" onClick={() => void handleSend(prompt)} className={cn("group flex min-h-20 w-full items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 text-left hover:border-primary hover:bg-surface-container-low sm:p-4", mode === "standalone" && "assistant-promo-card", focusClass)}>
+                  {mode === "standalone" ? <>
+                    <span className="assistant-promo-copy">
+                      <span className="assistant-promo-title">{prompt}</span>
+                      <span className="assistant-promo-cta">Thử ngay <ArrowUpRight className="size-3.5" aria-hidden="true" /></span>
+                    </span>
+                    <span className="assistant-promo-art" aria-hidden="true"><span className="assistant-promo-orbit" /><AssistantGradientIcon Icon={Icon} className="size-8" /><span className="assistant-promo-sparkle">✦</span></span>
+                  </> : <>
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface-container-high text-primary"><Icon className="size-5" aria-hidden="true" /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-xs font-medium text-on-surface/70">{category}</span><span className="mt-1 block text-pretty text-sm font-semibold">{prompt}</span></span>
+                    <ArrowUpRight className="size-4 shrink-0 text-on-surface/60 group-hover:text-primary" aria-hidden="true" />
+                  </>}
                 </button>)}
               </div>
             </section>}
@@ -770,7 +929,7 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
           <div className="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col">
             <header className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 py-3">
               <div className="min-w-0"><p className="text-xs font-medium text-on-surface/70">TRỢ LÝ AI · IGEN ERP</p><h2 id="assistant-settings-title" className="text-balance text-base font-semibold">Cài đặt trợ lý</h2></div>
-              <button type="button" aria-label="Đóng cài đặt trợ lý" onClick={() => setIsSettingsDialogOpen(false)} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container-high", focusClass)}><X className="size-5" aria-hidden="true" /></button>
+              <button type="button" aria-label="Đóng cài đặt trợ lý" onClick={() => setIsSettingsDialogOpen(false)} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container-high", focusClass)} data-erp-modal-close><X className="size-5" aria-hidden="true" /></button>
             </header>
             <nav aria-label="Cấu hình trợ lý" className="grid shrink-0 grid-cols-3 gap-2 border-b border-outline-variant bg-surface-container-lowest px-3 py-2">
               <button type="button" aria-pressed={configView === "workflows"} onClick={() => setConfigView("workflows")} className={cn("min-h-10 rounded-xl px-2 py-2 text-xs font-medium sm:px-3 sm:text-sm", configView === "workflows" ? "bg-primary text-on-primary" : "hover:bg-surface-container-low", focusClass)}>Workflow nghiệp vụ</button>

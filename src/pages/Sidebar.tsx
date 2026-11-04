@@ -47,6 +47,7 @@ import {
   USER_DATA_DELETION_URL,
 } from "../config/brand";
 import type { TabType } from "../types";
+import type { UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { canViewAiSubscription, filterEnabledTabs, MODULE_READ_PERMISSIONS } from "../config/modules";
@@ -61,12 +62,13 @@ interface SidebarProps {
   onMobileClose: () => void;
 }
 
-interface MenuItem {
+export interface MenuItem {
   label: TabType;
   title: string;
   icon: React.ElementType;
   group: "main" | "operations" | "marketing" | "subscription" | "tools" | "system";
   locked?: boolean;
+  lockReason?: "module" | "permission";
 }
 
 const baseMenuItems: MenuItem[] = [
@@ -152,13 +154,13 @@ const baseMenuItems: MenuItem[] = [
   },
   {
     label: "QUẢN LÝ TÀI NGUYÊN",
-    title: "Quản lý tài nguyên",
+    title: "Tài nguyên",
     icon: FolderOpen,
     group: "tools",
   },
   {
     label: "TRÒ CHUYỆN",
-    title: "Trò chuyện nội bộ",
+    title: "Trò chuyện",
     icon: MessageSquare,
     group: "tools",
   },
@@ -198,6 +200,31 @@ const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
   "CÀI ĐẶT": GearIcon,
 };
 
+export function getAvailableMenuItems(userProfile: UserProfile | null, hasPermission: (permission: string) => boolean, includeDisabled = false): MenuItem[] {
+  const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules, userProfile?.businessType));
+  const menuItems: MenuItem[] = baseMenuItems
+    .filter((item) => includeDisabled || enabledTabs.has(item.label))
+    .filter((item) => includeDisabled || item.label !== "TÍCH HỢP MARKETING" || userProfile?.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key)))
+    .filter((item) => item.label !== "CHIẾN DỊCH NỘI DUNG")
+    .map((item) => {
+      const requiredPerms = MODULE_READ_PERMISSIONS[item.label];
+      const isPartnerAdmin =
+        ["ĐỐI TÁC", "ĐỐI TÁC LAO ĐỘNG"].includes(item.label) &&
+        (userProfile?.role === "admin" || userProfile?.role === "superadmin");
+      const locked = item.label === "GÓI AI & LƯỢT SỬ DỤNG" ? !canViewAiSubscription(userProfile) : item.label === "TRỢ LÝ AI" ? !hasPermission("chat:read") : requiredPerms
+        ? !isPartnerAdmin && !requiredPerms.some((code) => hasPermission(code))
+        : false;
+      const moduleDisabled = !enabledTabs.has(item.label) || (item.label === "TÍCH HỢP MARKETING" && !userProfile?.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key)));
+      return { ...item, locked: moduleDisabled || locked, lockReason: moduleDisabled ? "module" as const : locked ? "permission" as const : undefined };
+    });
+
+  if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
+    menuItems.push({ label: "QUẢN TRỊ USER", title: "Tài khoản", icon: Shield, group: "system" });
+  }
+  menuItems.push({ label: "CÀI ĐẶT", title: "Hệ thống", icon: Settings, group: "system" });
+  return menuItems;
+}
+
 export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileClose }: SidebarProps) {
   const { userProfile, hasPermission } = useAuth();
   const [isCollapsedState, setIsCollapsed] = useState(false);
@@ -213,37 +240,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
       document.body.style.overflow = previousOverflow;
     };
   }, [isMobile, mobileOpen]);
-  const enabledTabs = new Set(filterEnabledTabs(baseMenuItems.map((item) => item.label), userProfile?.enabledModules, userProfile?.businessType));
-  const menuItems: MenuItem[] = baseMenuItems
-    .filter((item) => enabledTabs.has(item.label))
-    .filter((item) => item.label !== "TÍCH HỢP MARKETING" || userProfile?.enabledModules?.some((key) => ["social-marketing", "omni-inbox"].includes(key)))
-    .map((item) => {
-      const requiredPerms = MODULE_READ_PERMISSIONS[item.label];
-      const isPartnerAdmin =
-        ["ĐỐI TÁC", "ĐỐI TÁC LAO ĐỘNG"].includes(item.label) &&
-        (userProfile?.role === "admin" || userProfile?.role === "superadmin");
-      const locked = item.label === "GÓI AI & LƯỢT SỬ DỤNG" ? !canViewAiSubscription(userProfile) : item.label === "TRỢ LÝ AI" ? !hasPermission("chat:read") : requiredPerms
-        ? !isPartnerAdmin && !requiredPerms.some((code) => hasPermission(code))
-        : false;
-      return { ...item, locked };
-    });
-
-  if (userProfile?.role === "superadmin" || userProfile?.role === "admin") {
-    // Phân tích & báo cáo doanh thu: đã bị loại bỏ theo yêu cầu của user
-    menuItems.push({
-      label: "QUẢN TRỊ USER",
-      title: "Quản lý người dùng",
-      icon: Shield,
-      group: "system",
-    });
-  }
-
-  menuItems.push({
-    label: "CÀI ĐẶT",
-    title: "Cài đặt hệ thống",
-    icon: Settings,
-    group: "system",
-  });
+  const menuItems = getAvailableMenuItems(userProfile, hasPermission);
 
   const groups: MenuItem["group"][] = ["main", "operations", "marketing", "subscription", "tools", "system"];
 
@@ -285,6 +282,11 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
           )}
         </div>
 
+        <a href="/modules" className={`mx-3 mt-3 flex min-h-11 items-center rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-semibold text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${isCollapsed ? "justify-center" : "gap-3"}`} title="Chọn phân hệ" aria-label={isCollapsed ? "Chọn phân hệ" : undefined}>
+          <span className="grid size-6 grid-cols-2 gap-0.5" aria-hidden="true"><span className="rounded-sm bg-primary"/><span className="rounded-sm bg-tertiary"/><span className="rounded-sm bg-secondary"/><span className="rounded-sm bg-primary"/></span>
+          {!isCollapsed && <span>Chọn phân hệ</span>}
+        </a>
+
         {/* Navigation Menu */}
         <nav className={`flex-1 select-none space-y-5 overflow-y-auto ${isCollapsed ? "px-2 py-4" : "px-3 py-4"}`} id="sidebar_nav">
           {groups.map((groupKey) => {
@@ -306,14 +308,13 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                         setIsMarketingExpanded(true);
                       } else setIsMarketingExpanded((current) => !current);
                     }}
-                    className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 ${isCollapsed ? "justify-center" : "justify-between"} ${itemsInGroup.some((item) => item.label === activeTab) ? "text-slate-900" : "text-slate-600"}`}
+                    className={`group flex w-full items-center rounded-xl px-3 py-2.5 text-left font-sans text-sm font-medium transition-all active:scale-[0.98] hover:bg-surface-container-low hover:text-on-surface focus-visible:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${isCollapsed ? "justify-center" : "justify-between"} ${itemsInGroup.some((item) => item.label === activeTab) ? "text-on-surface" : "text-on-surface-variant"}`}
                   >
                     <span className="flex items-center gap-3">
-                      <MegaphoneIcon
-                        size={24}
-                        weight={itemsInGroup.some((item) => item.label === activeTab) ? "fill" : "regular"}
-                        className="shrink-0 text-[#00ADFC]"
-                      />
+                      <span className="relative size-6 shrink-0 text-primary" aria-hidden="true">
+                        <MegaphoneIcon size={24} weight="regular" className={`${itemsInGroup.some((item) => item.label === activeTab) ? "hidden" : "group-hover:hidden group-focus-visible:hidden"}`} />
+                        <MegaphoneIcon size={24} weight="fill" className={`${itemsInGroup.some((item) => item.label === activeTab) ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`} />
+                      </span>
                       {!isCollapsed && <span>Marketing</span>}
                     </span>
                     {!isCollapsed && <ChevronDown className={`h-4 w-4 transition-transform ${isMarketingExpanded ? "" : "-rotate-90"}`} />}
@@ -349,8 +350,8 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                         item.locked
                           ? "cursor-not-allowed text-slate-300 opacity-60"
                           : isActive
-                          ? "bg-sky-50 text-slate-900 font-semibold shadow-xs"
-                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                          ? "bg-surface-container-low text-primary font-semibold"
+                          : "text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface focus-visible:bg-surface-container-low"
                       } ${isCollapsed ? "justify-center" : "justify-between"}`}
                       id={`sidebar_menu_${item.label.replace(/\s+/g, "_")}`}
                       title={
@@ -362,11 +363,10 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       }
                     >
                       <div className={`flex min-w-0 items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
-                        <Icon
-                          size={24}
-                          weight={isActive ? "fill" : "regular"}
-                          className={`h-6 w-6 shrink-0 transition-colors ${item.locked ? "text-slate-300" : "text-[#00ADFC]"}`}
-                        />
+                        <span className={`relative size-6 shrink-0 transition-colors ${item.locked ? "text-on-surface-variant/50" : "text-on-surface group-hover:text-primary group-focus-visible:text-primary group-aria-[current=page]:text-primary"}`} aria-hidden="true">
+                          <Icon size={24} weight="regular" className={isActive ? "hidden" : item.locked ? "" : "group-hover:hidden group-focus-visible:hidden"} />
+                          {!item.locked && <Icon size={24} weight="fill" className={`${isActive ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`} />}
+                        </span>
                         {!isCollapsed ? (
                           <span className="truncate">{item.title}</span>
                         ) : null}
@@ -375,7 +375,7 @@ export default function Sidebar({ activeTab, setActiveTab, mobileOpen, onMobileC
                       {item.locked ? (
                         <Lock className="h-3.5 w-3.5 shrink-0 text-slate-300" />
                       ) : !isCollapsed && isActive ? (
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#00ADFC]" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
                       ) : null}
                     </button>
                   );

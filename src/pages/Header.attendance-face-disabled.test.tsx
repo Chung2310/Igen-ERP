@@ -2,9 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { TabType } from "../types";
+
+const mockLogout = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ userProfile: { uid: "u1", role: "employee", displayName: "Nhân viên", email: "staff@example.com" }, logout: vi.fn() }),
+  useAuth: () => ({ userProfile: { uid: "u1", role: "employee", displayName: "Nhân viên", email: "staff@example.com", companyCode: "MAIN", enabledModules: ["social-marketing"], permissions: ["marketing:read", "chat:read"] }, hasPermission: () => true, logout: mockLogout }),
 }));
 vi.mock("../context/BranchContext", () => ({
   useBranch: () => ({ branches: [], activeBranchId: "", setActiveBranchId: vi.fn(), activeBranch: null }),
@@ -23,6 +26,8 @@ import Header from "./Header";
 
 describe("Header attendance with face checking disabled", () => {
   beforeEach(() => {
+    HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+    HTMLDialogElement.prototype.close = function () { this.open = false; };
     localStorage.setItem("accessToken", "token");
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
@@ -47,6 +52,7 @@ describe("Header attendance with face checking disabled", () => {
   it("posts coordinates without opening the camera or attaching an image", async () => {
     const user = userEvent.setup();
     render(<Header currentTab={"TỔNG QUAN" as never} onSearchSelect={vi.fn()} />);
+    expect(screen.queryByTitle("Tiện ích — mở nhanh các chức năng")).toBeNull();
     const checkIn = screen.getAllByRole("button", { name: /Check-In/i })[0];
     await user.click(checkIn);
 
@@ -57,5 +63,80 @@ describe("Header attendance with face checking disabled", () => {
     expect(body.get("latitude")).toBe("10.7");
     expect(body.get("longitude")).toBe("106.6");
     expect(body.has("file")).toBe(false);
+  });
+
+  it("links the grid icon to the feature list", () => {
+    render(<Header currentTab="TỔNG QUAN" onSearchSelect={vi.fn()} />);
+    expect(screen.queryByRole("textbox", { name: "Tìm kiếm trong ERP" })).toBeNull();
+    expect(screen.queryByPlaceholderText("Tìm kiếm trong ERP...")).toBeNull();
+    const backLink = screen.getByRole("link", { name: "Về danh sách tính năng" });
+    expect(backLink.getAttribute("href")).toBe("/modules");
+  });
+
+  it("opens AI quota, upgrade plans, and the assistant from their header icons", async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    render(<Header currentTab="NHÂN SỰ" onSearchSelect={navigate} />);
+
+    await user.click(screen.getByRole("button", { name: "Xem hạn mức AI" }));
+    await user.click(screen.getByRole("button", { name: "Mở gói nâng cấp AI" }));
+    await user.click(screen.getByRole("button", { name: "Mở Trợ lý AI" }));
+    expect(navigate.mock.calls).toEqual([["GÓI AI & LƯỢT SỬ DỤNG", "usage"], ["GÓI AI & LƯỢT SỬ DỤNG", "plans"], ["TRỢ LÝ AI"]]);
+  });
+
+  it("restores the three legal links and closes the menu with Escape", async () => {
+    const user = userEvent.setup();
+    render(<Header currentTab="NHÂN SỰ" onSearchSelect={vi.fn()} />);
+    const trigger = screen.getByRole("button", { name: "Chính sách và quyền" });
+    await user.click(trigger);
+
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("link", { name: "Bảo mật" }).getAttribute("href")).toContain("/privacy-policy");
+    expect(screen.getByRole("link", { name: "Điều khoản" }).getAttribute("href")).toContain("/terms-of-service");
+    expect(screen.getByRole("link", { name: "Xóa dữ liệu" }).getAttribute("href")).toContain("/user-data-deletion");
+
+    await user.keyboard("{Escape}");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it.each([
+    ["NHÂN SỰ", "NHÂN SỰ"],
+    ["ĐỐI TÁC", "HỌC VIÊN"],
+    ["ĐỐI TÁC LAO ĐỘNG", "LAO ĐỘNG"],
+    ["ĐỐI TÁC BÁN LẺ", "BÁN LẺ"],
+    ["KHO TRI THỨC", "CRM"],
+    ["TÍCH HỢP MARKETING", "CRM"],
+  ])("shows the parent module for %s", (tab, label) => {
+    render(<Header currentTab={tab as TabType} onSearchSelect={vi.fn()} />);
+    expect(screen.getByText(label).textContent).toBe(label);
+    if (tab !== label) expect(screen.queryByText(tab)).toBeNull();
+  });
+
+  it("shows account controls without the removed utility grid on the module launcher", () => {
+    render(<Header variant="launcher" currentTab="TỔNG QUAN" onSearchSelect={vi.fn()} />);
+    expect(screen.queryByTitle("Tiện ích — mở nhanh các chức năng")).toBeNull();
+    expect(screen.queryByPlaceholderText("Tìm kiếm trong ERP...")).toBeNull();
+    expect(screen.getByRole("button", { name: "Tài khoản Nhân viên" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Thông báo" })).toBeTruthy();
+  });
+
+  it("asks before logging out from the shared account menu", async () => {
+    const user = userEvent.setup();
+    render(<Header variant="launcher" currentTab="TỔNG QUAN" onSearchSelect={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Tài khoản Nhân viên" }));
+    await user.click(screen.getByRole("button", { name: "Đăng xuất hệ thống" }));
+    expect(screen.getByRole("dialog", { name: "Bạn có chắc đăng xuất không?" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Đăng xuất" }).className).toContain("bg-red-600");
+    expect(mockLogout).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Ở lại" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(mockLogout).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Tài khoản Nhân viên" }));
+    await user.click(screen.getByRole("button", { name: "Đăng xuất hệ thống" }));
+    await user.click(screen.getByRole("button", { name: "Đăng xuất" }));
+    await waitFor(() => expect(mockLogout).toHaveBeenCalledTimes(1));
   });
 });

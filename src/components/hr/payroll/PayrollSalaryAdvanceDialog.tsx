@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Printer, X } from "lucide-react";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
+import { PayrollDatePicker } from "./PayrollDatePicker";
 
 export type SalaryAdvancePayload = {
   employeeId: string;
@@ -68,11 +69,11 @@ export function PayrollSalaryAdvanceDialog({ periodKey, employees, record, onClo
 
   const fieldClass = "mt-1 min-h-11 w-full rounded-xl border border-outline bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60";
   return <dialog ref={dialogRef} aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }} className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-0 text-on-surface shadow-xl backdrop:bg-inverse-surface/55">
-    <div className="flex items-start justify-between gap-3 border-b border-outline-variant p-5"><div><h2 id={titleId} className="text-balance text-lg font-semibold">{record ? "Phiếu tạm ứng lương" : "Tạo phiếu tạm ứng lương"}</h2><p className="mt-1 text-sm text-on-surface-variant">Kỳ lương {periodKey}</p></div><button type="button" aria-label="Đóng" disabled={busy} onClick={onClose} className="flex size-9 items-center justify-center rounded-full hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"><X className="size-4" aria-hidden="true" /></button></div>
+    <div className="flex items-start justify-between gap-3 border-b border-outline-variant p-5"><div><h2 id={titleId} className="text-balance text-lg font-semibold">{record ? "Phiếu tạm ứng lương" : "Tạo phiếu tạm ứng lương"}</h2><p className="mt-1 text-sm text-on-surface-variant">Kỳ lương {periodKey}</p></div><button type="button" aria-label="Đóng" disabled={busy} onClick={onClose} className="flex size-9 items-center justify-center rounded-full hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary" data-erp-modal-close><X className="size-4" aria-hidden="true" /></button></div>
     <form onSubmit={(event) => void save(event)} className="space-y-4 p-5">
       {!preview ? <>
         <label className="block text-sm font-medium">Nhân viên tạm ứng<select required disabled={busy} value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} className={fieldClass}>{employees.map((employee) => <option key={employee.employeeId} value={employee.employeeId}>{employee.employeeName}</option>)}</select></label>
-        <div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-medium">Số tiền tạm ứng (đ)<input ref={amountRef} required type="number" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} className={fieldClass} /></label><label className="block text-sm font-medium">Ngày chi<input required type="date" value={date} onChange={(event) => setDate(event.target.value)} className={fieldClass} /></label></div>
+        <div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-medium">Số tiền tạm ứng (đ)<input ref={amountRef} required type="number" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} className={fieldClass} /></label><div className="text-sm font-medium"><span>Ngày chi</span><PayrollDatePicker label="Ngày chi" value={date} onChange={setDate} clearable={false} portalTarget={() => dialogRef.current} /></div></div>
         <label className="block text-sm font-medium">Hình thức chi<select value={method} onChange={(event) => setMethod(event.target.value as typeof method)} className={fieldClass}><option value="transfer">Chuyển khoản</option><option value="cash">Tiền mặt</option></select></label>
         <label className="block text-sm font-medium">Lý do tạm ứng<textarea required rows={3} maxLength={1000} value={reason} onChange={(event) => setReason(event.target.value)} className={`${fieldClass} py-2`} /></label>
         <label className="block text-sm font-medium">Ghi chú (tùy chọn)<input maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} className={fieldClass} /></label>

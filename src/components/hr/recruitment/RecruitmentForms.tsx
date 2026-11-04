@@ -1,12 +1,13 @@
 import React, { useEffect, useId } from "react";
 import { BriefcaseBusiness, CircleAlert, Upload, X } from "lucide-react";
+import { HrEmptyIllustration } from "../HrEmptyIllustration";
 
 export function RecruitmentDialog({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label={title}>
     <div className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-[0_20px_60px_rgba(13,48,78,0.2)]">
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#E7F0F8] bg-[#F7FBFF] px-5 py-3.5">
         <h3 className="flex items-center gap-2.5 text-base font-medium text-[#15396C]"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E0F2FF] text-[#087BDF]"><BriefcaseBusiness className="h-4 w-4" /></span>{title}</h3>
-        <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600" title="Đóng"><X className="h-4 w-4" /></button>
+        <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600" title="Đóng" data-erp-modal-close><X className="h-4 w-4" /></button>
       </div>
       <div className="p-5">{children}</div>
     </div>
@@ -30,7 +31,7 @@ export function RecruitmentErrorDialog({ title, message, details = [], onClose }
     <div role="alertdialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={`${id}-message`} className="w-full max-w-[480px] overflow-hidden rounded-2xl bg-white shadow-[0_20px_60px_rgba(13,48,78,0.2)]">
       <div className="flex items-center justify-between gap-3 bg-[#F7FBFF] px-5 py-4">
         <div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFF0EC] text-[#D85B3F]"><CircleAlert className="h-5 w-5" /></span><h3 id={`${id}-title`} className="text-base font-medium text-[#15396C]">{title}</h3></div>
-        <button type="button" aria-label="Đóng" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#E8F4FF] text-[#087BDF] hover:bg-[#D9EDFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30"><X className="h-4 w-4" /></button>
+        <button type="button" aria-label="Đóng" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#E8F4FF] text-[#087BDF] hover:bg-[#D9EDFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30" data-erp-modal-close><X className="h-4 w-4" /></button>
       </div>
       <div className="px-5 py-5 text-sm leading-6 text-[#536B8F]"><p id={`${id}-message`}>{message}</p>{details.length > 0 && <ul className="mt-3 space-y-1 rounded-xl bg-[#F3FAFF] px-4 py-3 text-[#15396C]">{details.map((detail) => <li key={detail} className="flex gap-2"><span className="text-[#087BDF]">•</span><span>{detail}</span></li>)}</ul>}</div>
       <div className="flex justify-end border-t border-[#E7F0F8] bg-[#FAFCFE] px-5 py-4"><button type="button" onClick={onClose} className={`${primaryButton} h-10 min-w-24`}>Đã hiểu</button></div>
@@ -49,6 +50,6 @@ export function RecruitmentFileInput({ ariaLabel, accept, fileName, uploading, o
 export function ViewState({ loading, error, empty }: { loading?: boolean; error?: string; empty?: string }) {
   if (loading) return <div className="grid min-h-44 place-items-center rounded-2xl bg-white text-sm text-[#7C90AB]">Đang tải...</div>;
   if (error) return <div className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{error}</div>;
-  if (empty) return <div className="grid min-h-44 place-items-center rounded-2xl bg-white px-4 text-center text-sm text-[#7C90AB] shadow-[0_2px_16px_rgba(33,84,123,0.05)]">{empty}</div>;
+  if (empty) return <div className="flex min-h-44 flex-col items-center justify-center rounded-2xl bg-white px-4 py-5 text-center text-sm text-[#7C90AB] shadow-[0_2px_16px_rgba(33,84,123,0.05)]"><HrEmptyIllustration kind="recruitment" /><p className="mt-1 text-pretty">{empty}</p></div>;
   return null;
 }

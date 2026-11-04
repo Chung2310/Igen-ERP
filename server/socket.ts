@@ -449,7 +449,13 @@ export function disconnectCompanySockets(companyCode: string) {
 
 /** Internal emitter: callers must authorize account rooms before joining them. */
 export function emitToMarketingRoom(room: string, eventName: string, data: unknown) {
-  if (room.startsWith("marketing:messenger:")) io?.to(room).emit(eventName, data);
+  if (!room.startsWith("marketing:messenger:")) return;
+  if (!io) {
+    console.warn("[Messenger event] Socket server unavailable", { room, eventName });
+    return;
+  }
+  if (eventName === "new_message") console.info("[Messenger event] Emitting to room", { room, localSubscribers: io.sockets.adapter.rooms.get(room)?.size || 0 });
+  io.to(room).emit(eventName, data);
 }
 
 let mockHealthyForTesting = false;

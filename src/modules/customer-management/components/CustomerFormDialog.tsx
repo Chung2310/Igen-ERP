@@ -70,7 +70,7 @@ export default function CustomerFormDialog({ customer, onClose, onSave }: { cust
             <span className="h-6 w-1 rounded-full bg-primary" aria-hidden="true" />
             <h2 id="customer-form-title" className="text-base font-semibold text-on-surface text-balance">{customer ? "Sửa hồ sơ khách hàng" : "Thêm khách hàng"}</h2>
           </div>
-          <button type="button" aria-label="Đóng" disabled={saving} onClick={onClose} className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><X className="h-4 w-4" aria-hidden="true" /></button>
+          <button type="button" aria-label="Đóng" disabled={saving} onClick={onClose} className="flex size-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50" data-erp-modal-close><X className="h-4 w-4" aria-hidden="true" /></button>
         </div>
         <div className="space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
           <div>

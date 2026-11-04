@@ -1,9 +1,297 @@
-/* Keep navigation role colors consistent inside modules with local palettes. */
-[data-module-navigation] {
-  --color-on-primary: #ffffff;
+[data-module-navigation] nav > button svg {
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-module-navigation]:not([data-layout="horizontal"]) nav > button:is(:focus-visible, [aria-current="page"]),
+[data-module-navigation]:not([data-layout="horizontal"]) [data-module-navigation-toggle]:focus-visible {
+  background-color: color-mix(in srgb, var(--color-on-surface) 5%, var(--color-surface-container-lowest));
+}
+
+@media (hover: hover) {
+  [data-module-navigation]:not([data-layout="horizontal"]) :is(nav > button, [data-module-navigation-toggle]):hover {
+    background-color: color-mix(in srgb, var(--color-on-surface) 5%, var(--color-surface-container-lowest));
+  }
+}
+
+[data-module-navigation]:not([data-layout="horizontal"]) nav > button:is(:hover, :focus-visible, [aria-current="page"]) .module-nav-filled {
+  color: var(--color-primary);
+}
+
+[data-module-navigation] :is(.module-nav-filled, .module-nav-toggle-filled) {
+  display: none;
+}
+
+[data-module-navigation] [data-module-navigation-toggle]:is(:hover, :focus-visible) .module-nav-toggle-outline {
+  display: none;
+}
+
+[data-module-navigation] [data-module-navigation-toggle]:is(:hover, :focus-visible) .module-nav-toggle-filled {
+  display: block;
+}
+
+[data-module-navigation]:not([data-layout="horizontal"]) nav > button:is(:hover, :focus-visible, [aria-current="page"]) .module-nav-outline {
+  display: none;
+}
+
+[data-module-navigation]:not([data-layout="horizontal"]) nav > button:is(:hover, :focus-visible, [aria-current="page"]) .module-nav-filled {
+  display: block;
+}
+
+[data-module-navigation][data-layout="horizontal"] nav > button {
+  position: relative;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-on-surface);
+}
+
+[data-module-navigation][data-layout="horizontal"] nav > button:is(:hover, :focus-visible, [aria-current="page"]) {
+  background: transparent;
+  color: var(--color-primary);
+}
+
+[data-module-navigation][data-layout="horizontal"] nav > button[aria-current="page"]::after {
+  position: absolute;
+  right: 10%;
+  bottom: 0;
+  left: 10%;
+  height: 2px;
+  background: var(--color-primary);
+  content: "";
 }
 
 .dark [data-module-navigation] {
-  --color-on-primary: var(--color-surface);
   --color-on-surface-variant: var(--color-slate-500);
+}
+
+/* Module navigation becomes a left rail without changing each module's tab logic. */
+@media (min-width: 1024px) {
+  :is(div, section, main):has(> [data-module-navigation]:not([data-layout="horizontal"])) {
+    position: relative;
+    min-height: 100%;
+    padding-left: 16rem;
+    transition: padding-left 180ms ease-out;
+  }
+
+  :is(div, section, main):has(> [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"]) {
+    padding-left: 5rem;
+  }
+
+  :is(div, section, main) > [data-module-navigation]:not([data-layout="horizontal"]) {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 1;
+    width: 15.5rem;
+    max-height: 100%;
+    margin: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 2.75rem minmax(0, 1fr) auto auto;
+    row-gap: 0.25rem;
+    align-items: stretch;
+    overflow: visible;
+    border: 1px solid var(--color-outline-variant);
+    border-radius: 0.75rem;
+    padding: 0.5rem;
+    transition: width 180ms ease-out;
+  }
+
+  #primary_page_container :is(div, section, main) > [data-module-navigation]:not([data-layout="horizontal"]) {
+    position: fixed;
+    inset: var(--module-navigation-top, 0px) auto auto var(--module-navigation-left, 0px);
+    height: var(--module-navigation-height, 100dvh);
+    max-height: none;
+  }
+
+  :is(div, section, main) > [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] {
+    width: 4.5rem;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"])::before {
+    content: none;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) > [data-module-navigation-toggle] {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    align-self: center;
+    margin-inline-start: 0.375rem;
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) > [data-module-navigation-header-action] {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    margin-inline-end: 0.375rem;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) > [data-module-navigation-toggle] svg,
+  [data-module-navigation]:not([data-layout="horizontal"]) [data-global-sidebar-search-trigger] svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] > [data-module-navigation-toggle] {
+    justify-self: center;
+    margin-inline-start: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] > [data-module-navigation-header-action] {
+    display: flex;
+    grid-row: 1;
+    justify-self: end;
+    margin: 0;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] [data-global-sidebar-search-trigger] {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] nav > button > span:last-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) > [data-module-navigation-items] {
+    display: flex;
+    flex: 1 1 auto;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-height: 0;
+    width: 100%;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) nav {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    flex-direction: column;
+    align-items: stretch;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-outline) 45%, transparent) transparent;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) nav::-webkit-scrollbar {
+    display: block;
+    width: 5px;
+    height: 0;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) nav::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) nav::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-outline) 45%, transparent);
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) nav::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--color-outline) 65%, transparent);
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) nav > button {
+    width: 100%;
+    justify-content: flex-start;
+    white-space: normal;
+    text-align: left;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] nav > button {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] nav > button > span:first-child,
+  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] nav > button > span:first-child > svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) > [data-module-navigation-actions] {
+    flex: none;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    width: 100%;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] > [data-module-navigation-actions] {
+    display: none;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) > [data-module-navigation-footer] {
+    display: flex;
+    grid-column: 1 / -1;
+    grid-row: 4;
+    width: 100%;
+    border-top: 1px solid var(--color-outline-variant);
+    padding-top: 0.5rem;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"]) > [data-module-navigation-footer] svg {
+    fill: var(--module-nav-icon-gradient);
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] > [data-module-navigation-footer] a {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  [data-module-navigation]:not([data-layout="horizontal"])[data-collapsed="true"] > [data-module-navigation-footer] a > span:last-child {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(div, section, main):has(> [data-module-navigation]),
+  :is(div, section, main) > [data-module-navigation] {
+    transition: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar) nav > button .module-nav-outline {
+    display: none;
+  }
+
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar) nav > button .module-nav-filled {
+    display: block;
+  }
+
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar) nav > button .module-nav-filled > svg {
+    fill: var(--module-nav-icon-gradient);
+  }
+
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar) nav > button > span:first-child > svg[fill="currentColor"],
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar) nav > button > span:first-child > svg [fill="currentColor"] {
+    fill: var(--module-nav-icon-gradient);
+  }
+
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar) nav > button .module-nav-filled > svg [stroke="currentColor"],
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar) nav > button > span:first-child > svg {
+    stroke: var(--module-nav-icon-gradient);
+  }
+
+  [data-module-navigation][data-layout="sidebar"]:not(#hr_sub_tabs_bar) nav > button:is(:hover, :focus-visible, [aria-current="page"]) > span:last-child {
+    background: linear-gradient(90deg, #00adfc 0%, #199bff 55%, #7567ff 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
 }

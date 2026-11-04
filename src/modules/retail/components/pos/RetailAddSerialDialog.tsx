@@ -60,7 +60,7 @@ export default function RetailAddSerialDialog({ product, unavailable, onClose, o
       <div className="border-b border-outline-variant p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 id="retail-add-unit-title" className="text-balance text-lg font-bold">Chọn {isSerial ? "IMEI / Serial" : "mã vạch nội bộ"} để thêm vào giỏ</h2>
+            <h2 id="retail-add-unit-title" className="text-balance text-lg font-semibold">Chọn {isSerial ? "IMEI / Serial" : "mã vạch nội bộ"} để thêm vào giỏ</h2>
             <p className="mt-1 text-sm text-on-surface-variant">{product.name} · {product.sku}</p>
           </div>
           <button type="button" aria-label="Đóng chọn mã hàng" onClick={onClose} className="min-h-10 rounded-lg px-3 text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Đóng</button>

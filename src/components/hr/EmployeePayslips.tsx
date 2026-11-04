@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
+import { HrPageTitle } from "./HrPageTitle";
 import { Printer, Eye, X } from "lucide-react";
 import { payrollService } from "../../services/payrollService";
 import { buildPayrollDetails } from "./payrollDetails";
@@ -83,18 +85,15 @@ export default function EmployeePayslips() {
   };
 
   return (
-    <section className="space-y-4 p-5">
+    <section className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
+      <HrPageTitle>Phiếu lương của tôi</HrPageTitle>
       <EmployeePayrollReconciliation />
       {loading && <p className="text-sm text-on-surface-variant">Đang tải phiếu lương...</p>}
       {error && <p role="alert" className="text-sm text-error">{error}</p>}
       {reviewsError && <p role="alert" className="text-sm text-error">{reviewsError}</p>}
       {printError && <p role="alert" className="text-sm text-error">{printError}</p>}
-      <div className="flex items-center justify-between">
-        <h2 className="text-balance text-lg font-semibold text-on-surface">Phiếu lương của tôi</h2>
-      </div>
-
       {!loading && !error && (!items.length ? (
-        <p className="rounded-lg bg-surface-container-low p-4 text-pretty text-sm text-on-surface-variant">Chưa có phiếu lương nào được phát hành. Vui lòng quay lại sau khi kỳ lương được chốt và phát phiếu.</p>
+        <div className="flex flex-col items-center rounded-lg bg-surface-container-low p-4 text-center text-pretty text-sm text-on-surface-variant"><HrEmptyIllustration kind="payroll" /><p className="mt-1">Chưa có phiếu lương nào được phát hành. Vui lòng quay lại sau khi kỳ lương được chốt và phát phiếu.</p></div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {items.map((item) => {
@@ -177,7 +176,7 @@ export default function EmployeePayslips() {
                 <h3 className="font-bold text-slate-900 text-base">Chi tiết phiếu lương</h3>
                 <p className="text-xs text-slate-500">Kỳ {selectedItem.periodKey} · {selectedItem.employeeName || selectedItem.employeeId}</p>
               </div>
-              <button type="button" aria-label="Đóng chi tiết phiếu lương" onClick={() => setSelectedItem(null)} className="flex size-9 items-center justify-center rounded-full hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"><X size={17} aria-hidden="true" /></button>
+              <button type="button" aria-label="Đóng chi tiết phiếu lương" onClick={() => setSelectedItem(null)} className="flex size-9 items-center justify-center rounded-full hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary" data-erp-modal-close><X size={17} aria-hidden="true" /></button>
             </div>
 
             {detailError ? (

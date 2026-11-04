@@ -30,7 +30,6 @@ export function StyledSelect({
   placeholder = "Chọn một mục",
   disabled = false,
   className = "",
-  appearance = "default",
   describedBy,
   required = false,
 }: StyledSelectProps) {
@@ -42,6 +41,7 @@ export function StyledSelect({
   const menuRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const selectedOption = options.find((option) => option.value === value);
+  const showingPlaceholder = !value || !selectedOption;
 
   const updatePosition = useCallback(() => {
     const bounds = triggerRef.current?.getBoundingClientRect();
@@ -146,12 +146,12 @@ export function StyledSelect({
             openMenu();
           }
         }}
-        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-[#DCE7F4] bg-white px-3 text-left text-sm font-normal text-slate-700 outline-none transition-colors hover:border-[#B8DFF3] focus-visible:ring-2 focus-visible:ring-[#00ADFC]/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60", appearance === "erp" && "border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus-visible:ring-primary/20 disabled:bg-surface", className)}
+        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm font-normal text-on-surface outline-none transition-colors hover:border-primary focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60", className)}
       >
-        <span className={`min-w-0 truncate ${selectedOption ? "" : "text-slate-400"}`}>
+        <span className={cn("min-w-0 truncate", showingPlaceholder && "text-on-surface-variant/60")}>
           {selectedOption?.label ?? placeholder}
         </span>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-[#007EB8] transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+        <ChevronDown className={cn("size-4 shrink-0 text-primary transition-transform", open && "rotate-180")} aria-hidden="true" />
       </button>
       {required && <select
         aria-hidden="true"
@@ -173,7 +173,7 @@ export function StyledSelect({
           role="listbox"
           aria-label={ariaLabel}
           onKeyDown={handleMenuKeyDown}
-          className={cn("fixed z-[200] overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white p-1.5 text-slate-700 shadow-[0_16px_40px_rgba(11,65,99,0.2)]", appearance === "erp" && "border-outline-variant bg-surface-container-lowest text-on-surface shadow-xl")}
+          className={cn("fixed z-[200] overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-1 text-on-surface shadow-lg")}
           style={position}
         >
           {options.map((option, index) => {
@@ -191,10 +191,10 @@ export function StyledSelect({
                   onChange(option.value);
                   closeAndFocus();
                 }}
-                className={cn("flex min-h-9 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-[#00ADFC] disabled:cursor-not-allowed disabled:opacity-45", appearance === "erp" ? selected ? "bg-primary/10 text-primary" : "text-on-surface hover:bg-surface" : selected ? "bg-[#E8F7FF] text-[#007EB8]" : "text-slate-700 hover:bg-[#F1F9FD]")}
+                className={cn("flex min-h-9 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm font-normal transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-45", selected ? "bg-primary/10 text-primary" : "text-on-surface hover:bg-primary/5")}
               >
                 <span className="min-w-0 truncate">{option.label}</span>
-                {selected && <Check className="h-4 w-4 shrink-0 text-[#00ADFC]" aria-hidden="true" />}
+                {selected && <Check className="size-4 shrink-0 text-primary" aria-hidden="true" />}
               </button>
             );
           })}

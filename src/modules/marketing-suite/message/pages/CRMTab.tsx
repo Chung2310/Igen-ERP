@@ -6,6 +6,8 @@ import { toast } from "../../../../pages/Toast";
 import { crmService, ExtendedLeadCard } from "../services/crmService";
 import { useAuth } from "../../shared/context/AuthContext";
 import { fbMessengerService } from "../services/fbMessengerService";
+import { mapInboxMessages as mapFbMessages, type RawInboxMessage } from "../services/inboxMessageMapping";
+import { startInboxMessagePolling } from "../services/inboxMessagePolling";
 import { zaloMessengerService } from "../services/zaloMessengerService";
 import { tiktokMessengerService } from "../services/tiktokMessengerService";
 import { getAccessToken } from "../../shared/services/authService";
@@ -336,7 +338,7 @@ export default function CRMTab() {
   // AI assistant configurations
   const [aiConfig, setAIConfig] = useState<AIChatConfig>({
     enabled: true,
-    commentReplyEnabled: true,
+    commentReplyEnabled: false,
     imageReplyEnabled: false,
     autoClassify: true,
     autoCloseDeal: true,
@@ -372,7 +374,7 @@ export default function CRMTab() {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the existing account/user configuration precedence and normalization across Page changes.
       setAIConfig({
         enabled: config.enabled ?? true,
-        commentReplyEnabled: config.commentReplyEnabled ?? true,
+        commentReplyEnabled: config.commentReplyEnabled ?? false,
         imageReplyEnabled: config.imageReplyEnabled ?? false,
         autoClassify: true,
         autoCloseDeal: true,
@@ -396,7 +398,7 @@ export default function CRMTab() {
       const fallbackConfig = targetIntegration ? undefined : userProfile?.aiAutoReplyConfig;
       setAIConfig({
         enabled: fallbackConfig?.enabled ?? true,
-        commentReplyEnabled: fallbackConfig?.commentReplyEnabled ?? true,
+        commentReplyEnabled: fallbackConfig?.commentReplyEnabled ?? false,
         imageReplyEnabled: fallbackConfig?.imageReplyEnabled ?? false,
         autoClassify: true,
         autoCloseDeal: true,
@@ -509,18 +511,6 @@ export default function CRMTab() {
       setCopyingConfig(false);
     }
   };
-  type RawInboxMessage = {
-    _id?: string;
-    messageId?: string;
-    direction?: "inbound" | "outbound";
-    text?: string;
-    timestamp?: string | Date;
-    attachments?: unknown[];
-    conversationId?: string | Record<string, string>;
-    senderId?: string;
-    recipientId?: string;
-  };
-
   type RawInboxConversation = {
     _id?: string;
     recipientId?: string;
@@ -534,28 +524,6 @@ export default function CRMTab() {
     tags?: string[];
     aiPausedUntil?: string | null;
   };
-
-  const normalizeMessageAttachments = (attachments?: unknown[]): ChatMessage["attachments"] =>
-    Array.isArray(attachments)
-      ? attachments.filter((item): item is { type: string; url: string } => {
-        if (!item || typeof item !== "object") return false;
-        const candidate = item as { type?: unknown; url?: unknown };
-        return typeof candidate.type === "string" && typeof candidate.url === "string";
-      })
-      : [];
-
-  const normalizeConversationId = (value?: string | Record<string, string>): string =>
-    typeof value === "string" ? value : value?._id || "";
-
-  const mapFbMessages = (msgs: RawInboxMessage[]): ChatMessage[] =>
-    msgs.map((m) => ({
-      id: m._id || m.messageId || "",
-      sender: m.direction === "inbound" ? "user" : "agent",
-      text: m.text || "",
-      timestamp: new Date(m.timestamp || Date.now()),
-      attachments: normalizeMessageAttachments(m.attachments),
-      conversationId: normalizeConversationId(m.conversationId),
-    }));
 
   const loadConversationMessages = async (
     conversationId: string,
@@ -860,9 +828,17 @@ export default function CRMTab() {
   // Track Socket.IO connection status
   useEffect(() => {
     const unsubscribeStatus = socketService.onStatusChange(setSocketConnected);
+    const unsubscribeScopes = socketService.onMessengerScopesChange(() => {
+      const customer = activeCustomerRef.current;
+      if (!customer || !socketService.isMessengerScopeReady(customer.channel, customer.accountId)) return;
+      // Recover the small gap before room authorization completed, using DB history once.
+      void loadConversationMessages(customer.id, "replace", customer.channel, { accountId: customer.accountId })
+        .catch(error => console.error("[FE CRMTab] Không thể tải lịch sử sau khi đăng ký realtime:", error));
+    });
 
     return () => {
       unsubscribeStatus();
+      unsubscribeScopes();
     };
   }, []);
 
@@ -1061,7 +1037,14 @@ export default function CRMTab() {
 
     const runFetch = () => {
       if (!document.hidden) {
-        fetchOmniConversations(false, { syncFacebook: true });
+        const scopes = [
+          { channel: "facebook" as const, accountId: selectedFacebookPageId },
+          { channel: "zalo" as const, accountId: selectedZaloAccountId },
+          { channel: "tiktok" as const, accountId: selectedTiktokAccountId },
+        ].filter(scope => scope.accountId);
+        if (scopes.length && scopes.every(scope => socketService.isMessengerScopeReady(scope.channel, scope.accountId))) return;
+        // Missing realtime falls back to local data; Graph sync is done on open/reconnect.
+        fetchOmniConversations(false, { syncFacebook: false });
       }
     };
 
@@ -1083,22 +1066,17 @@ export default function CRMTab() {
   useEffect(() => {
     if (subTab !== "OMNI-INBOX CHAT" || !activeCustomer) return;
 
-    const fetchMessages = async () => {
-      if (document.hidden) return;
-      if (socketConnectedRef.current) return;
-      console.log(`[FE CRMTab] Fallback polling lịch sử tin nhắn cho conversation ID: ${activeCustomer.id}...`);
-      try {
-        await loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true, accountId: activeCustomer.accountId });
-      } catch (err) {
-        console.error("[FE CRMTab] Lỗi khi tải tin nhắn:", err);
-      }
-    };
-
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Preserve the initial conversation loading sequence before polling/socket fallback takes over.
     loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel: true, accountId: activeCustomer.accountId }).catch((err) => {
       console.error("[FE CRMTab] Lỗi khi tải lịch sử tin nhắn ban đầu:", err);
     });
-    const interval = setInterval(fetchMessages, 60000);
+    const stopPolling = startInboxMessagePolling({
+      channel: activeCustomer.channel,
+      isVisible: () => !document.hidden,
+      isSocketConnected: () => socketConnectedRef.current && socketService.isMessengerScopeReady(activeCustomer.channel, activeCustomer.accountId),
+      refresh: (syncChannel) => loadConversationMessages(activeCustomer.id, "replace", activeCustomer.channel, { syncChannel, accountId: activeCustomer.accountId }),
+      onError: (error) => console.error("[FE CRMTab] Lỗi khi tải tin nhắn:", error),
+    });
 
     const handleVisibility = () => {
       if (!document.hidden) {
@@ -1110,11 +1088,11 @@ export default function CRMTab() {
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      clearInterval(interval);
+      stopPolling();
       document.removeEventListener("visibilitychange", handleVisibility);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subTab, activeCustomer?.id, activeCustomer?.channel, activeCustomer?.accountId]);
+  }, [subTab, activeCustomer?.id, activeCustomer?.channel, activeCustomer?.accountId, socketConnected]);
 
   // Xóa sách lịch sử chat cũ ngay khi chuyển khách hàng để tránh hiển thị nhầm lẫn
   const [previousHistoryScope, setPreviousHistoryScope] = useState({ id: activeCustomer?.id, channel: activeCustomer?.channel, accountId: activeCustomer?.accountId });
@@ -1533,7 +1511,7 @@ export default function CRMTab() {
       <h1 className="sr-only">Hệ thống Sales CRM - {subTab}</h1>
 
       {/* Sub tabs selector bar */}
-      <ModuleNavigation label="Mục Message Facebook" activeValue={subTab} id="crm_sub_tabs_switch" actions={hasSelectableChannels && <div className="flex items-center gap-2 relative">
+      <ModuleNavigation label="Mục CRM" activeValue={subTab} id="crm_sub_tabs_switch" actions={hasSelectableChannels && <div className="flex items-center gap-2 relative">
           <div className="flex items-center gap-1.5" id="inbox_channel_filters">
             {/* Unified Account Selector Button */}
             <div className="relative">

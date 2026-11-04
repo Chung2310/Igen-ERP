@@ -65,7 +65,7 @@ export default function SubscriptionPlanDialog({ plan, onClose, onSaved }: Props
           <h3 id="sa-ai-editor-title">{plan ? "Chỉnh sửa gói AI" : "Tạo gói AI mới"}</h3>
           <p id="sa-ai-editor-description" className="sa-ai-muted">Thiết lập giá, số lượt AI và thời hạn cho mỗi gói.</p>
         </div>
-        <button type="button" disabled={saving} onClick={onClose} className="sa-ai-icon-button" aria-label="Đóng form gói AI"><X size={20} /></button>
+        <button type="button" disabled={saving} onClick={onClose} className="sa-ai-icon-button" aria-label="Đóng form gói AI" data-erp-modal-close><X size={20} /></button>
       </header>
 
       <div className="sa-ai-editor-body">

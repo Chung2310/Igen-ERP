@@ -1,0 +1,33 @@
+.hr-branch-illustration-panel {
+  background: linear-gradient(90deg, rgb(255 255 255 / 18%) 0%, transparent 65%), linear-gradient(115deg, var(--branch-gradient-start), var(--branch-gradient-end));
+}
+
+.hr-branch-illustration-panel--0 {
+  --branch-gradient-start: #12aef0;
+  --branch-gradient-end: #35d0ec;
+}
+
+.hr-branch-illustration-panel--1 {
+  --branch-gradient-start: #4c91f5;
+  --branch-gradient-end: #56b9f7;
+}
+
+.hr-branch-illustration-panel--2 {
+  --branch-gradient-start: #ed7859;
+  --branch-gradient-end: #f6a45c;
+}
+
+.hr-branch-illustration-panel--3 {
+  --branch-gradient-start: #0db5a8;
+  --branch-gradient-end: #33c9cf;
+}
+
+.hr-branch-illustration-panel--4 {
+  --branch-gradient-start: #8e77e9;
+  --branch-gradient-end: #bd87e6;
+}
+
+.hr-branch-illustration-panel--5 {
+  --branch-gradient-start: #e96c9d;
+  --branch-gradient-end: #f79486;
+}

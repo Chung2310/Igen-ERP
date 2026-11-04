@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Pencil, Plus, X } from "lucide-react";
 import { apiFetch } from "../../shared/lib/apiFetch";
 import { ErpCard, ErpEmptyState, ErpLoadingState, ErpPrimaryButton, erpInputClass } from "../../student-management/components/Erp/ErpUI";
+import { Dropdown } from "../../../components/common/Dropdown";
 
 type Partner = { _id: string; code: string; name: string; roles: string[] };
 type Policy = { _id: string; partnerId: string; effectiveAt: string; config: { phoneAmount: number; accessoryBps: number; repairBps: number } };
@@ -115,7 +116,7 @@ export default function RetailCommissionPoliciesPanel({ companyCode, partners }:
                 <tbody className="divide-y divide-outline-variant text-on-surface">{policies.map((policy) => <tr key={policy._id}>
                   <td className="px-3 py-2.5 font-medium">{policy.partnerId ? collaborators.find((partner) => partner._id === policy.partnerId)?.name || "CTV bán lẻ đã ngừng" : "Toàn công ty"}</td>
                   <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">{new Date(policy.effectiveAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</td>
-                  <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">{money(policy.config.phoneAmount)}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5 tabular-nums font-medium text-cyan-700">{money(policy.config.phoneAmount)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{policy.config.accessoryBps / 100}%</td>
                   <td className="px-3 py-2.5 tabular-nums">{policy.config.repairBps / 100}%</td>
                   <td className="px-3 py-2.5"><button type="button" onClick={() => open(policy)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Pencil aria-hidden="true" className="size-4" />Sửa</button></td>
@@ -131,10 +132,10 @@ export default function RetailCommissionPoliciesPanel({ companyCode, partners }:
 
     {draft && <dialog ref={dialogRef} aria-labelledby="retail-policy-dialog-heading" onClose={() => setDraft(null)} onCancel={(event) => { if (saving) event.preventDefault(); }} className="m-auto max-h-[90dvh] w-[calc(100vw-2rem)] max-w-3xl overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 text-on-surface shadow-2xl backdrop:bg-slate-950/60 sm:p-6">
       <form onSubmit={(event) => void save(event)} aria-busy={saving} className="space-y-5">
-        <div className="flex items-start justify-between gap-3 border-b border-outline-variant pb-3"><div><h3 id="retail-policy-dialog-heading" className="text-balance text-lg font-semibold">{draft === "new" ? "Tạo chính sách hoa hồng" : "Sửa chính sách hoa hồng"}</h3><p className="mt-1 text-pretty text-sm text-on-surface-variant">Mức theo sản phẩm được thiết lập tại tab Hoa hồng sản phẩm.</p></div><button type="button" aria-label="Đóng chính sách" onClick={close} disabled={saving} className="rounded-lg p-2 text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"><X aria-hidden="true" className="size-4" /></button></div>
+        <div className="flex items-start justify-between gap-3 border-b border-outline-variant pb-3"><div><h3 id="retail-policy-dialog-heading" className="text-balance text-lg font-semibold">{draft === "new" ? "Tạo chính sách hoa hồng" : "Sửa chính sách hoa hồng"}</h3><p className="mt-1 text-pretty text-sm text-on-surface-variant">Mức theo sản phẩm được thiết lập tại tab Hoa hồng sản phẩm.</p></div><button type="button" aria-label="Đóng chính sách" onClick={close} disabled={saving} className="rounded-lg p-2 text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" data-erp-modal-close><X aria-hidden="true" className="size-4" /></button></div>
         {formError && <p role="alert" className="text-sm text-error">{formError}</p>}
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-1 text-sm font-medium">Áp dụng cho<select className={fieldClass} value={form.partnerId} onChange={(event) => setForm((current) => ({ ...current, partnerId: event.target.value }))} disabled={saving}><option value="">Mặc định toàn công ty</option>{collaborators.map((partner) => <option key={partner._id} value={partner._id}>{partner.name} ({partner.code})</option>)}</select></label>
+          <Dropdown label="Áp dụng cho" value={form.partnerId} onChange={(value) => setForm((current) => ({ ...current, partnerId: value }))} disabled={saving} options={[{ value: "", label: "Mặc định toàn công ty" }, ...collaborators.map((partner) => ({ value: partner._id, label: `${partner.name} (${partner.code})` }))]} variant="form" size="md" className="w-full" searchable />
           <label className="grid gap-1 text-sm font-medium">Hiệu lực (để trống = ngay)<input className={fieldClass} type="datetime-local" value={form.effectiveAt} onChange={(event) => setForm((current) => ({ ...current, effectiveAt: event.target.value }))} disabled={saving} /></label>
           <label className="grid gap-1 text-sm font-medium">Điện thoại / máy (VND)<input className={fieldClass} type="number" min="150000" max="300000" step="1000" required value={form.phoneAmount} onChange={(event) => setForm((current) => ({ ...current, phoneAmount: event.target.value }))} disabled={saving} /></label>
           <label className="grid gap-1 text-sm font-medium">Phụ kiện (%)<input className={fieldClass} type="number" min="10" max="15" step="0.01" required value={form.accessoryPercent} onChange={(event) => setForm((current) => ({ ...current, accessoryPercent: event.target.value }))} disabled={saving} /></label>

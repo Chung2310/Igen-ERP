@@ -1,8 +1,9 @@
-﻿import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, Gift, Sparkles, X } from "lucide-react";
 import { retailCouponsApi, type RetailCouponAutomationInput, type RetailCouponAutomation } from "../../api/retailCoupons.api";
 import type { RetailScope } from "../../types";
+import { Dropdown } from "../../../../components/common/Dropdown";
 
 export default function CouponAutomationEditor({ scope, initial, onClose, onSaved }: { scope: RetailScope; initial: RetailCouponAutomationInput & Partial<Pick<RetailCouponAutomation, "_id" | "legacy">>; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState(initial);
@@ -42,26 +43,26 @@ export default function CouponAutomationEditor({ scope, initial, onClose, onSave
   }, []);
 
   const update = (patch: Partial<RetailCouponAutomationInput>) => { setForm(current => current && ({ ...current, ...patch })); };
-  const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:bg-slate-100 disabled:text-slate-500";
-  const labelClass = "mb-1 block text-xs font-semibold text-slate-700";
+  const inputClass = "h-9 w-full rounded-md border border-outline bg-surface px-3 text-sm text-on-surface transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50";
+  const labelClass = "mb-1 block text-xs font-medium text-on-surface-variant";
   const money = (value: number) => value.toLocaleString("vi-VN") + " ₫";
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in">
       <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId}
-        className="relative max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-100 bg-white shadow-2xl outline-none animate-in zoom-in-95">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-6 py-4.5">
+        className="relative max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-md border border-outline bg-surface shadow-2xl outline-none animate-in zoom-in-95">
+        <div className="flex items-center justify-between gap-3 border-b border-outline-variant px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Sparkles className="h-5 w-5" aria-hidden="true" />
             </div>
             <div>
-              <h2 id={titleId} className="text-base font-bold text-slate-900">{initial._id ? "Sửa chương trình tặng mã" : "Tạo chương trình tặng mã"}</h2>
+              <h2 id={titleId} className="text-base font-semibold text-slate-900">{initial._id ? "Sửa chương trình tặng mã" : "Tạo chương trình tặng mã"}</h2>
               <p className="text-xs text-slate-500">Cấu hình điều kiện và giá trị áp dụng cho khách hàng</p>
             </div>
           </div>
           <button type="button" aria-label="Đóng chương trình tặng mã" disabled={busy} onClick={onClose}
-            className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50">
+            className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50" data-erp-modal-close>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -71,7 +72,7 @@ export default function CouponAutomationEditor({ scope, initial, onClose, onSave
           <div><p>{error}</p><button type="button" disabled={busy} onClick={onClose} className="mt-1 font-semibold underline disabled:opacity-50">Quay lại danh sách</button></div>
         </div>}
 
-        <form className="space-y-5 p-6" onSubmit={async event => {
+        <form className="space-y-3 p-4 sm:p-5" onSubmit={async event => {
           event.preventDefault();
           if (busy) return;
           setBusy(true); setError("");
@@ -82,10 +83,10 @@ export default function CouponAutomationEditor({ scope, initial, onClose, onSave
           <div className="relative overflow-hidden rounded-2xl border border-dashed border-cyan-300 bg-gradient-to-r from-cyan-50/70 via-sky-50/60 to-blue-50/50 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <span className="inline-flex items-center gap-1.5 text-xs font-black tracking-wide text-cyan-800"><Gift className="h-4 w-4" aria-hidden="true" />Ưu đãi tự động</span>
-                <p className="mt-0.5 text-sm font-bold text-slate-800">{form.name || "Tên chương trình tặng mã"}</p>
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-cyan-800"><Gift className="h-4 w-4" aria-hidden="true" />Ưu đãi tự động</span>
+                <p className="mt-0.5 text-sm font-semibold text-slate-800">{form.name || "Tên chương trình tặng mã"}</p>
               </div>
-              <span className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1 text-sm font-black text-white shadow-xs">
+              <span className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1 text-sm font-semibold text-white shadow-xs">
                 -{form.discountType === "percent" ? form.value + "%" : money(form.value)}
               </span>
             </div>
@@ -96,16 +97,11 @@ export default function CouponAutomationEditor({ scope, initial, onClose, onSave
             </div>
           </div>
 
-          <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
+          <fieldset disabled={busy} className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2"><label className={labelClass}>Tên chương trình
               <input className={inputClass} required maxLength={120} disabled={initial.legacy} placeholder="VD: Tặng mã cho đơn từ 2 triệu" value={form.name} onChange={event => update({ name: event.target.value })} />
             </label></div>
-            <div className="sm:col-span-2"><label className={labelClass}>Hoạt động tặng mã
-              <select className={inputClass} disabled={Boolean(initial._id)} value={form.trigger} onChange={event => update({ trigger: event.target.value as RetailCouponAutomationInput["trigger"], orderMinTotal: event.target.value === "order_total" ? 1000000 : null })}>
-                <option value="birthday">Sinh nhật khách hàng</option>
-                <option value="order_total">Đơn hàng đạt mức tiền</option>
-              </select>
-            </label></div>
+            <div className="sm:col-span-2"><Dropdown label="Hoạt động tặng mã" disabled={Boolean(initial._id)} value={form.trigger} onChange={(value) => update({ trigger: value, orderMinTotal: value === "order_total" ? 1000000 : null })} options={[{ value: "birthday" as const, label: "Sinh nhật khách hàng" }, { value: "order_total" as const, label: "Đơn hàng đạt mức tiền" }]} variant="form" size="md" className="w-full" /></div>
             {form.trigger === "order_total" && <div className="sm:col-span-2"><label className={labelClass}>Giá trị đơn tối thiểu để tặng mã (₫)
               <input className={inputClass} type="number" min="1" step="1" required value={form.orderMinTotal ?? ""} onChange={event => update({ orderMinTotal: event.target.value ? Number(event.target.value) : null })} />
             </label><p className="mt-1 text-[11px] leading-relaxed text-slate-500">Xét từng đơn đã thanh toán đủ, gồm thuế và phí giao hàng, trừ tiền hoàn. Mỗi đơn đạt mức tiền được tặng một mã cho lần mua sau.</p></div>}
@@ -118,11 +114,7 @@ export default function CouponAutomationEditor({ scope, initial, onClose, onSave
               <p className="pl-6.5 text-[11px] leading-relaxed text-slate-500">Áp dụng tại chi nhánh hiện tại. Mã dành riêng cho người nhận và hiển thị tại POS khi chọn khách.</p>
             </div>
 
-            <div><label className={labelClass}>Loại giảm của mã được tặng
-              <select className={inputClass} value={form.discountType} onChange={event => update({ discountType: event.target.value as "amount" | "percent", value: event.target.value === "percent" ? 10 : 50000 })}>
-                <option value="percent">Phần trăm (%)</option><option value="amount">Số tiền cố định (₫)</option>
-              </select>
-            </label></div>
+            <div><Dropdown label="Loại giảm của mã được tặng" value={form.discountType} onChange={(value) => update({ discountType: value, value: value === "percent" ? 10 : 50000 })} options={[{ value: "percent" as const, label: "Phần trăm (%)" }, { value: "amount" as const, label: "Số tiền cố định (₫)" }]} variant="form" size="md" className="w-full" /></div>
             <div><label className={labelClass}>Mức giảm của mã được tặng
               <input className={inputClass} type="number" required min={form.discountType === "percent" ? 0.01 : 1} max={form.discountType === "percent" ? 100 : undefined} step={form.discountType === "percent" ? 0.01 : 1}
                 value={form.value} onChange={event => update({ value: Number(event.target.value) })} />
@@ -138,7 +130,7 @@ export default function CouponAutomationEditor({ scope, initial, onClose, onSave
             </label><p className="mt-1 text-[11px] text-slate-400">{form.trigger === "birthday" ? "Từ 1 đến 90 ngày, tính từ ngày sinh nhật." : "Từ 1 đến 90 ngày, tính từ khi đơn hoàn tất thanh toán."}</p></div>
 
             <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:col-span-2">
-              <h3 className="text-xs font-bold text-slate-700">Gửi mã cho khách hàng</h3>
+              <h3 className="text-xs font-semibold text-slate-700">Gửi mã cho khách hàng</h3>
               <div className="grid gap-2 sm:grid-cols-3">
                 <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-cyan-200 bg-white p-3 text-xs font-semibold text-slate-700">
                   <input type="checkbox" className="h-4 w-4 accent-cyan-600" checked={form.deliveryChannels?.includes("email") ?? false} onChange={event => update({ deliveryChannels: event.target.checked ? ["email"] : [] })} />Email
@@ -152,7 +144,7 @@ export default function CouponAutomationEditor({ scope, initial, onClose, onSave
             </div>
 
             <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:col-span-2">
-              <h3 className="text-xs font-bold text-slate-700">Điều kiện tặng mã</h3>
+              <h3 className="text-xs font-semibold text-slate-700">Điều kiện tặng mã</h3>
               <p className="text-[11px] leading-relaxed text-slate-500">{form.trigger === "birthday" ? "Mỗi khách được tặng một mã mỗi năm theo chương trình. Tính từ 00:00 ngày sinh nhật theo giờ Việt Nam; ngày 29/2 nhận quà ngày 28/2 trong năm không nhuận." : "Chỉ xét đơn hoàn tất thanh toán sau khi bật chương trình. Nếu đơn gốc bị hủy hoặc hoàn tiền xuống dưới mức yêu cầu, mã chưa dùng sẽ không còn áp dụng được."}</p>
               <p className="text-[11px] leading-relaxed text-slate-500">Mã tặng chỉ dùng một lần bởi đúng người nhận. Các chương trình được bật có thể cùng tặng mã; mỗi đơn mua sau chỉ áp dụng một mã. Thay đổi cấu hình chỉ áp dụng cho mã chưa cấp; tắt chương trình không thu hồi mã đã tặng.</p>
             </div>
@@ -160,8 +152,8 @@ export default function CouponAutomationEditor({ scope, initial, onClose, onSave
 
           <div className="space-y-3 border-t border-slate-100 pt-4">
             <div className="flex flex-wrap items-center justify-end gap-2.5">
-              <button type="button" disabled={busy} onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">Đóng</button>
-              <button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50">
+              <button type="button" disabled={busy} onClick={onClose} className="h-9 rounded-md border border-outline bg-surface px-3 text-sm font-medium text-on-surface transition hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Đóng</button>
+              <button type="submit" disabled={busy} className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-on-primary transition hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">
                 {busy ? "Đang lưu…" : "Lưu chương trình"}
               </button>
             </div>

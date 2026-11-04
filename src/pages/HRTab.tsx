@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
-import { Building2, FolderTree, Briefcase, GraduationCap, Layers, Calendar, FileSignature, Mail, UserSearch, MapPin } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { HRSubTabType, EmployeeNode, TrainingCourse, UserProfile } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
@@ -9,6 +9,8 @@ import { getApiErrorMessage } from "../utils/errorMessage";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { HR_SUB_TAB_ROUTES } from "../router/subTabRoutes";
 import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
+import { HrFilledSidebarIcon, type HrFilledIconName } from "../components/common/HrFilledSidebarIcon";
+import "./hr-tab.css";
 
 // Lazy-loaded subcomponents
 const OrgChartTab = lazy(() => import("../components/hr/OrgChartTab"));
@@ -187,11 +189,11 @@ export default function HRTab() {
   }));
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-surface max-h-[85vh] overflow-hidden" id="hr_tab_wrapper">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface" id="hr_tab_wrapper" data-flush-card="true">
       <h1 className="sr-only text-balance">Quản lý Nhân sự - {subTab}</h1>
 
       {/* Sub Tabs switcher navigation bar */}
-      <ModuleNavigation label="Mục Nhân sự" activeValue={subTab} className="mb-4" id="hr_sub_tabs_bar" actions={userProfile?.role === "superadmin" && <div className="flex items-center gap-2">
+      <ModuleNavigation label="Mục Nhân sự" activeValue={subTab} className="mb-2 lg:mb-0" id="hr_sub_tabs_bar" actions={userProfile?.role === "superadmin" && <div className="flex items-center gap-2">
         <Building2 className="size-4 shrink-0 text-on-surface-variant" aria-hidden="true" />
         <select aria-label="Chọn doanh nghiệp Nhân sự" value={selectedCompanyCode} onChange={(e) => setSelectedCompanyCode(e.target.value)} className="max-w-[60vw] cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest p-1.5 text-xs font-medium text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary sm:max-w-none">
           <option value="SYSTEM">Hệ thống (SYSTEM)</option>
@@ -199,25 +201,26 @@ export default function HRTab() {
         </select>
       </div>}>
             {[
-              { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: FolderTree },
-              ...(canViewDepartments ? [{ id: DEPARTMENT_TAB, label: "Phòng ban", icon: Building2 }] : []),
-              ...(canManageBranches ? [{ id: BRANCH_TAB, label: "Chi nhánh", icon: MapPin }] : []),
-              { id: "ĐÀO TẠO", label: "Đào tạo", icon: GraduationCap },
-              { id: "QUY TRÌNH", label: "Quy trình", icon: Layers },
-              { id: "Giao Việc", label: "Giao việc", icon: Briefcase },
-              { id: "LỊCH", label: "Lịch & Ca làm việc", icon: Calendar },
-              { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: FileSignature },
-              { id: "PAYROLL", label: "Bảng lương", icon: Briefcase },
-              ...(canManageCelebration ? [{ id: CELEBRATION_TAB, label: "Email chúc mừng", icon: Mail }] : []),
-              ...(hasRecruitmentAccess ? [{ id: RECRUITMENT_TAB, label: "Tuyển dụng", icon: UserSearch }] : []),
+              { id: "SƠ ĐỒ TỔ CHỨC", label: "Sơ đồ tổ chức", icon: "organization" },
+              ...(canViewDepartments ? [{ id: DEPARTMENT_TAB, label: "Phòng ban", icon: "department" }] : []),
+              ...(canManageBranches ? [{ id: BRANCH_TAB, label: "Chi nhánh", icon: "branch" }] : []),
+              { id: "ĐÀO TẠO", label: "Đào tạo", icon: "training" },
+              { id: "QUY TRÌNH", label: "Quy trình", icon: "workflow" },
+              { id: "Giao Việc", label: "Giao việc", icon: "tasks" },
+              { id: "LỊCH", label: "Lịch & Ca làm việc", icon: "calendar" },
+              { id: "HỢP ĐỒNG", label: "Hợp đồng", icon: "contract" },
+              { id: "PAYROLL", label: "Bảng lương", icon: "payroll" },
+              ...(canManageCelebration ? [{ id: CELEBRATION_TAB, label: "Email chúc mừng", icon: "celebration" }] : []),
+              ...(hasRecruitmentAccess ? [{ id: RECRUITMENT_TAB, label: "Tuyển dụng", icon: "recruitment" }] : []),
             ].map((tab) => {
               const isActive = subTab === tab.id;
-              const Icon = tab.icon;
               return (
                 <ModuleNavigationButton
                   key={tab.id}
                   active={isActive}
-                  icon={<Icon />}
+                  icon={<HrFilledSidebarIcon name={tab.icon as HrFilledIconName} twoTone className="hr-nav-icon size-5" />}
+                  preferProvidedIcon
+                  title={tab.label}
                   onClick={() => setSubTab(tab.id as HRSubTabType)}
                 >
                   {tab.label}
@@ -233,8 +236,8 @@ export default function HRTab() {
         )}
 
         {subTab === BRANCH_TAB && canManageBranches && (
-          <div className="min-h-0 flex-1 overflow-y-auto bg-surface p-3 sm:p-5">
-            <BranchManagementTab />
+          <div className="min-h-0 flex-1 overflow-y-auto bg-surface">
+            <BranchManagementTab presentation="table" />
           </div>
         )}
 

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { FBConversationModel, FBMessageModel } from "../model/fb-messenger.model.ts";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import { UserModel } from "../../../../model/user.model.ts";
@@ -23,6 +23,7 @@ import {
 const syncTimestamps = new Map<string, number>();
 const CONVERSATION_SYNC_TTL_MS = 15000;
 const MESSAGE_SYNC_TTL_MS = 5000;
+const pageWebhookSubscriptions = new Map<string, number>();
 
 export type FacebookTokenContext = {
   companyCode?: string;
@@ -32,6 +33,13 @@ export type FacebookTokenContext = {
 
 function normalizeFacebookId(value: any) {
   return String(value || "").trim();
+}
+
+function createPostbackMessageId(pageId: string, event: any, title: string, payload: string) {
+  const identity = [pageId, event.sender?.id, event.timestamp, title, payload]
+    .map((value) => String(value || "").trim())
+    .join("\u0000");
+  return `fb_postback_${createHash("sha256").update(identity).digest("hex")}`;
 }
 
 function normalizeOptionalFacebookConversationId(value: any): string | undefined {
@@ -362,7 +370,25 @@ export const fbMessengerService = {
   /**
    * Xử lý dữ liệu Webhook Event (POST request) từ Facebook gửi tới khi có tin nhắn mới
    */
-  async handleWebhookEvent(body: any) {
+  async enqueueIncomingCommentEvents(body: any) {
+    const normalizedBody = this.normalizeWebhookBody(body);
+    if (normalizedBody.object !== "page") return;
+    const { canProcessMessengerWebhook } = await import("../webhook-access");
+    for (const entry of normalizedBody.entry || []) {
+      if (!await canProcessMessengerWebhook("Facebook", String(entry.id || ""))) continue;
+      for (const change of entry.changes || []) {
+        if (change.field === "feed" && change.value?.item === "comment" && change.value?.verb === "add") {
+          await facebookCommentService.enqueueIncomingComment(String(entry.id || ""), change.value);
+        }
+      }
+    }
+  },
+
+  async processPendingComments() {
+    return facebookCommentService.processPendingComments();
+  },
+
+  async handleWebhookEvent(body: any, options: { commentsAlreadyQueued?: boolean } = {}) {
     const normalizedBody = this.normalizeWebhookBody(body);
 
     if (normalizedBody.object !== "page") {
@@ -379,13 +405,33 @@ export const fbMessengerService = {
       const messagingEvents = entry.messaging || [];
       if (messagingEvents.length > 0) {
         for (const event of messagingEvents) {
-          if (event.message && !event.message.is_echo) {
+          if (event.message?.is_echo) {
+            await this.processMessageEcho(event, String(entry.id || ""));
+          } else if (event.message) {
             const attachmentCount = Array.isArray(event.message?.attachments) ? event.message.attachments.length : 0;
-            const quickReplyPayload = String(event.message?.quick_reply?.payload || "").trim();
             console.log(
               `[FB Service] Nhận tin nhắn mới: sender=${event.sender?.id}, textLength=${String(event.message.text || "").length}, attachments=${attachmentCount}`
             );
             await this.processIncomingMessage(event, entry.id);
+          } else if (event.postback) {
+            const title = String(event.postback?.title || "").trim();
+            const payload = String(event.postback?.payload || "").trim();
+            if (!title && !payload) {
+              console.warn(`[FB Service] Bỏ qua postback rỗng: sender=${event.sender?.id || "unknown"}`);
+              continue;
+            }
+            const messageId = createPostbackMessageId(String(entry.id || ""), event, title, payload);
+            console.log(
+              `[FB Service] Nhận postback: sender=${event.sender?.id || "unknown"}, payloadLength=${payload.length}`
+            );
+            await this.processIncomingMessage({
+              ...event,
+              message: {
+                mid: messageId,
+                text: title,
+                actionPayload: payload,
+              },
+            }, entry.id);
           } else if (event.read) {
             await this.processReadReceipt(event);
           }
@@ -399,14 +445,15 @@ export const fbMessengerService = {
           if (change.field === "feed") {
             const value = change.value;
             if (value && value.item === "comment" && value.verb === "add") {
-              facebookCommentService.handleIncomingComment(entry.id, value).catch((err) => {
-                console.error("[FB Service] Lỗi khi xử lý bình luận tự động:", err.message || err);
-              });
+              if (!options.commentsAlreadyQueued) {
+                await facebookCommentService.enqueueIncomingComment(String(entry.id || ""), value);
+              }
             }
           }
         }
       }
     }
+    void facebookCommentService.processPendingComments();
   },
 
   /**
@@ -482,7 +529,9 @@ export const fbMessengerService = {
       return { success: true, message: "Mock Page bypass" };
     }
 
-    const fields = "feed,messages,messaging_postbacks,message_deliveries,message_reads";
+    const subscriptionKey = `${cleanPageId}:${createHash("sha256").update(token).digest("hex")}`;
+    if ((pageWebhookSubscriptions.get(subscriptionKey) || 0) > Date.now()) return { success: true, cached: true };
+    const fields = "feed,messages,message_echoes,messaging_postbacks,message_deliveries,message_reads";
     const url = `https://graph.facebook.com/v25.0/${cleanPageId}/subscribed_apps?subscribed_fields=${encodeURIComponent(fields)}&access_token=${encodeURIComponent(token)}`;
     console.log(`[FB Service subscribePageWebhooks] Đang đăng ký webhook cho Page ID: ${cleanPageId}...`);
 
@@ -491,6 +540,7 @@ export const fbMessengerService = {
         method: "POST",
       });
       const data = await response.json();
+      if (response.ok && data.success) pageWebhookSubscriptions.set(subscriptionKey, Date.now() + 60 * 60 * 1000);
       console.log(`[FB Service subscribePageWebhooks] Kết quả đăng ký từ Facebook Graph API:`, data);
       return data;
     } catch (error: any) {
@@ -528,15 +578,53 @@ export const fbMessengerService = {
     }
   },
 
+  /** Save Page sends received through webhook without treating them as new customer input. */
+  async processMessageEcho(event: any, pageId: string) {
+    const senderId = String(event.sender?.id || "").trim();
+    const recipientId = String(event.recipient?.id || "").trim();
+    const messageId = String(event.message?.mid || "").trim();
+    if (!event.message?.is_echo || senderId !== pageId || !recipientId || recipientId === pageId || !messageId) return;
+    const text = String(event.message.text || "");
+    const attachments = (Array.isArray(event.message.attachments) ? event.message.attachments : [])
+      .map((item: any) => ({ type: item.type || "attachment", url: item.payload?.url || "" }));
+    if (!text && !attachments.length) return;
+    const rawTimestamp = Number(event.timestamp);
+    const timestamp = Number.isFinite(rawTimestamp) && rawTimestamp > 0 ? new Date(rawTimestamp) : new Date();
+    const metadata = event.message.metadata;
+    const senderType = metadata === "igen-erp:ai" ? "ai" : metadata === "igen-erp:human" ? "human" : undefined;
+    const conversation = await FBConversationModel.findOneAndUpdate({ pageId, recipientId }, {
+      $setOnInsert: { pageId, recipientId, lastMessageText: text || "[Đính kèm]", lastMessageAt: timestamp },
+    }, { upsert: true, new: true, setDefaultsOnInsert: true });
+    if (!conversation) throw new Error(`Không thể tạo hội thoại từ echo messageId=${messageId}`);
+    // Meta can echo before Send API returns. Preserve AI/session fields on existing rows.
+    const message = await FBMessageModel.findOneAndUpdate({ messageId }, { $setOnInsert: {
+      conversationId: conversation._id, senderId, recipientId, direction: "outbound", text, attachments,
+      messageId, timestamp, status: "delivered", ...(senderType ? { senderType } : {}),
+    } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+    if (!message) throw new Error(`Không thể lưu Facebook echo messageId=${messageId}`);
+    await emitToMessengerAccount("facebook", pageId, "new_message", { message, conversation });
+    // Delayed echoes must not replace the preview of a newer customer message.
+    const updated = await FBConversationModel.findOneAndUpdate({ _id: conversation._id, pageId, lastMessageAt: { $lte: timestamp } }, {
+      $set: { lastMessageText: text || "[Đính kèm]", lastMessageAt: timestamp },
+    }, { new: true });
+    if (updated) await emitToMessengerAccount("facebook", pageId, "conversation_updated", updated);
+    console.info(`[FB Service echo] Outbound synchronized: pageId=${pageId}, conversationId=${conversation._id}, messageId=${messageId}`);
+  },
+
   /**
    * Lưu tin nhắn đến vào DB và tạo cuộc hội thoại nếu chưa có
    */
   async processIncomingMessage(event: any, pageId?: string) {
-    const senderId = event.sender.id; // PSID của khách hàng
-    const recipientId = event.recipient.id; // ID của Fanpage mình (pageId)
+    const senderId = String(event.sender?.id || "").trim(); // PSID của khách hàng
+    const recipientId = String(event.recipient?.id || pageId || "").trim(); // ID của Fanpage mình (pageId)
+    if (!senderId || !recipientId) {
+      console.warn("[FB Service processIncomingMessage] Bỏ qua event thiếu sender hoặc recipient.");
+      return;
+    }
     const message = event.message;
     const messageId = String(message?.mid || `fb_in_${recipientId}_${senderId}_${randomUUID()}`).trim();
-    const timestamp = new Date(event.timestamp);
+    const eventTimestamp = Number(event.timestamp);
+    const timestamp = Number.isFinite(eventTimestamp) ? new Date(eventTimestamp) : new Date();
 
     const resolvedPageId = pageId || recipientId;
     if (senderId === resolvedPageId || event.message?.is_echo) {
@@ -544,15 +632,16 @@ export const fbMessengerService = {
       return;
     }
 
-    const text = String(message?.text || "").trim();
+    const messageText = String(message?.text || "").trim();
     const rawAttachments = Array.isArray(message?.attachments) ? message.attachments : [];
     const attachments = rawAttachments.map((att: any) => ({
       type: att?.type || "attachment",
       url: att?.payload?.url || "",
     }));
-    const quickReplyPayload = String(message?.quick_reply?.payload || "").trim();
+    const actionPayload = String(message?.actionPayload || message?.quick_reply?.payload || "").trim();
+    const text = messageText || (actionPayload ? "Đã chọn tùy chọn" : "");
 
-    if (!text && attachments.length === 0 && !quickReplyPayload) {
+    if (!text && attachments.length === 0 && !actionPayload) {
       return;
     }
 
@@ -624,6 +713,7 @@ export const fbMessengerService = {
             recipientId,
             direction: "inbound",
             text,
+            ...(actionPayload ? { actionPayload } : {}),
             attachments,
             messageId,
             timestamp,
@@ -714,8 +804,8 @@ export const fbMessengerService = {
           return;
         }
 
-        if (!orderFlowEnabled && !orderFlowActive && messengerOrderService.isConfirmationMessage(text)) {
-          const order = await messengerOrderService.captureConfirmedOrder(resolvedPageId, conversationId, messageId, text);
+        if (!orderFlowEnabled && !orderFlowActive && messengerOrderService.isConfirmationMessage(text, actionPayload)) {
+          const order = await messengerOrderService.captureConfirmedOrder(resolvedPageId, conversationId, messageId, text, actionPayload);
           if (order) {
             const depositRequest = await messengerOrderService.getDepositRequest(order.orderId);
             if (depositRequest) {
@@ -909,7 +999,7 @@ export const fbMessengerService = {
     
     const body = {
       recipient: { id: recipientPsid },
-      message: { text },
+      message: { text, metadata: `igen-erp:${senderType}` },
       messaging_type: "RESPONSE"
     };
 
@@ -960,8 +1050,6 @@ export const fbMessengerService = {
         conversation.aiPausedUntil = new Date(Date.now() + 30 * 60 * 1000); // Tạm dừng AI cho cuộc hội thoại này 30 phút
         conversation.followUpStatus = "responded";
       }
-      await conversation.save();
-
       const outboundMessageId = data.message_id || `out_${conversation._id.toString()}_${randomUUID()}`;
       const newMsg = await FBMessageModel.findOneAndUpdate(
         { messageId: outboundMessageId },
@@ -990,11 +1078,14 @@ export const fbMessengerService = {
       );
 
       // Realtime update via Socket.IO
-      emitToMessengerAccount("facebook", resolvedPageId, "new_message", {
+      await emitToMessengerAccount("facebook", resolvedPageId, "new_message", {
         message: newMsg,
         conversation: conversation
-      });
-      emitToMessengerAccount("facebook", resolvedPageId, "conversation_updated", conversation);
+      }).catch((error) => console.error(`[FB Service sendReply] Outbound saved but realtime delivery failed: messageId=${outboundMessageId}`, error));
+      // A summary failure must never hide a message already accepted by Facebook.
+      await conversation.save().catch((error: unknown) => console.error(`[FB Service sendReply] Outbound saved but conversation summary failed: messageId=${outboundMessageId}`, error));
+      await emitToMessengerAccount("facebook", resolvedPageId, "conversation_updated", conversation)
+        .catch((error) => console.error(`[FB Service sendReply] Conversation event failed: messageId=${outboundMessageId}`, error));
 
       return {
         status: "success",
@@ -1035,6 +1126,7 @@ export const fbMessengerService = {
       body: JSON.stringify({
         recipient: { id: recipientPsid },
         message: {
+          metadata: `igen-erp:${beforeSend ? "ai" : "human"}`,
           attachment: {
             type: "image",
             payload: { url: imageUrl, is_reusable: true },
@@ -1051,7 +1143,6 @@ export const fbMessengerService = {
     conversation.lastMessageText = messageLabel;
     conversation.lastMessageAt = new Date();
     conversation.unreadCount = 0;
-    await conversation.save();
     const outboundMessageId = data.message_id || `out_image_${conversation._id.toString()}_${randomUUID()}`;
     const newMsg = await FBMessageModel.findOneAndUpdate(
       { messageId: outboundMessageId },
@@ -1071,8 +1162,12 @@ export const fbMessengerService = {
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
-    if (newMsg) emitToMessengerAccount("facebook", resolvedPageId, "new_message", { message: newMsg, conversation });
-    emitToMessengerAccount("facebook", resolvedPageId, "conversation_updated", conversation);
+    if (!newMsg) throw new Error(`Không thể lưu ảnh Facebook messageId=${outboundMessageId}`);
+    await emitToMessengerAccount("facebook", resolvedPageId, "new_message", { message: newMsg, conversation })
+      .catch((error) => console.error(`[FB Service sendImage] Outbound saved but realtime delivery failed: messageId=${outboundMessageId}`, error));
+    await conversation.save().catch((error: unknown) => console.error(`[FB Service sendImage] Outbound saved but conversation summary failed: messageId=${outboundMessageId}`, error));
+    await emitToMessengerAccount("facebook", resolvedPageId, "conversation_updated", conversation)
+      .catch((error) => console.error(`[FB Service sendImage] Conversation event failed: messageId=${outboundMessageId}`, error));
     return { status: "success", messageId: outboundMessageId };
   },
 
@@ -1171,22 +1266,17 @@ export const fbMessengerService = {
       filter.timestamp = { $lt: beforeDate };
     }
 
-    let existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
-
     if (!beforeDate && options?.sync && conversation.recipientId && this.shouldSync(`messages:${pageId}:${conversation._id}`, MESSAGE_SYNC_TTL_MS)) {
-      if (existingMessages.length === 0) {
+      try {
+        // A sync request must include newly imported outbound replies in its response.
+        // Returning cached rows first made recovery depend on the same socket event that was missed.
         await this.syncMessagesFromFacebook(pageId, conversation.recipientId, options?.tokenContext);
-        existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
-      } else {
-        this.syncMessagesFromFacebook(pageId, conversation.recipientId, options?.tokenContext)
-          .then((syncedMsgs) => {
-            console.log(`[FB Service getMessages] Đồng bộ ngầm thành công ${syncedMsgs.length} tin nhắn cho conversation: ${conversation._id}`);
-          })
-          .catch((err) => {
-            console.error(`[FB Service getMessages] Đồng bộ ngầm thất bại cho conversation ${conversation._id}:`, err);
-          });
+      } catch (error) {
+        console.error(`[FB Service getMessages] Đồng bộ thất bại cho conversation ${conversation._id}, trả lịch sử đã lưu:`, error);
       }
     }
+
+    const existingMessages = await FBMessageModel.find(filter).sort({ timestamp: -1 }).limit(limit + 1);
 
     const hasMore = existingMessages.length > limit;
     const trimmedMessages = hasMore ? existingMessages.slice(0, limit) : existingMessages;

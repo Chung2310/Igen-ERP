@@ -146,7 +146,7 @@ export function StockLogCreateModal({
             type="button"
             onClick={onClose}
             className="-mr-2 -mt-1 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-          >
+           data-erp-modal-close aria-label="Đóng">
             <X className="h-4 w-4" />
           </button>
         </div>

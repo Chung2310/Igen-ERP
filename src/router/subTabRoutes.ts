@@ -89,6 +89,11 @@ export const STUDENT_SUB_TAB_ROUTES: SubTabRouteMap<string> = [
   { slug: "lo-trinh-va-cho-lop", value: "LO_TRINH_CHO_LOP" },
 ];
 
+export const AI_SUBSCRIPTION_SUB_TAB_ROUTES: SubTabRouteMap<"usage" | "plans"> = [
+  { slug: "han-muc", value: "usage" },
+  { slug: "goi-nang-cap", value: "plans" },
+];
+
 const SUB_TAB_ROUTES_BY_TAB: Partial<Record<TabType, SubTabRouteMap<string>>> = {
   "TỔNG QUAN": DASHBOARD_SUB_TAB_ROUTES as SubTabRouteMap<string>,
   "NHÂN SỰ": HR_SUB_TAB_ROUTES,
@@ -96,6 +101,7 @@ const SUB_TAB_ROUTES_BY_TAB: Partial<Record<TabType, SubTabRouteMap<string>>> = 
   "QUẢN LÝ TÀI NGUYÊN": RESOURCE_SUB_TAB_ROUTES,
   "TÀI NGUYÊN": RESOURCE_SUB_TAB_ROUTES,
   "QUẢN LÝ HỌC VIÊN": STUDENT_SUB_TAB_ROUTES,
+  "GÓI AI & LƯỢT SỬ DỤNG": AI_SUBSCRIPTION_SUB_TAB_ROUTES,
   "CÀI ĐẶT": SETTINGS_SUB_TAB_ROUTES,
 };
 

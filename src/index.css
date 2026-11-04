@@ -1,6 +1,221 @@
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Space+Grotesk:wght@300..700&display=swap');
 @import "tailwindcss";
 
+/* Keep select menus aligned with the HR department dropdown across modules. */
+select:not([multiple]):not(.sr-only),
+select:not([multiple]):not(.sr-only) option {
+  font-weight: 400 !important;
+}
+
+select:not([multiple]):not(.sr-only) {
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 0.75rem !important;
+  background-color: var(--color-surface-container-lowest) !important;
+  color: var(--color-on-surface) !important;
+}
+
+select:not([multiple]):not(.sr-only):focus-visible {
+  border-color: var(--color-primary) !important;
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+  outline-offset: 1px;
+}
+
+select:not([multiple]):not(.sr-only) option {
+  background-color: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+}
+
+select:not([multiple]):not(.sr-only) option:checked {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container-lowest));
+  color: color-mix(in srgb, var(--color-primary) 72%, var(--color-on-surface));
+}
+
+[role="listbox"]:has(> [role="option"]) {
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 0.75rem !important;
+  background-color: var(--color-surface-container-lowest) !important;
+  box-shadow: 0 10px 20px rgb(11 65 99 / 0.12) !important;
+}
+
+[role="listbox"] [role="option"],
+[role="listbox"] [role="option"] span {
+  font-weight: 400 !important;
+}
+
+[role="listbox"] [role="option"]:not([aria-selected="true"]):not(:disabled) {
+  color: var(--color-on-surface) !important;
+}
+
+[role="listbox"] [role="option"]:not([aria-selected="true"]):hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface-container-lowest)) !important;
+}
+
+[role="listbox"] [role="option"][aria-selected="true"] {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container-lowest)) !important;
+  color: color-mix(in srgb, var(--color-primary) 72%, var(--color-on-surface)) !important;
+}
+
+/* Keep the module launcher and product pages visually connected during navigation. */
+@view-transition {
+  navigation: auto;
+}
+
+:is(.module-launcher, #app_root_layout) {
+  view-transition-name: erp-module-page;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+@keyframes erp-page-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes erp-page-fade-in {
+  from { opacity: 0; }
+}
+
+::view-transition-old(erp-module-page) {
+  animation: 170ms ease-in both erp-page-fade-out;
+}
+
+::view-transition-new(erp-module-page) {
+  animation: 170ms ease-out both erp-page-fade-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(erp-module-page),
+  ::view-transition-new(erp-module-page) {
+    animation: none;
+  }
+}
+
+/* Search fields use the same one-pixel outline as the HR department search.
+   The ERP-wide header search has its own established appearance. */
+:is(input[type="search"], input[placeholder^="Tìm"], input[aria-label^="Tìm"], input[placeholder^="Search"], input[aria-label^="Search"], :is(div, label):has(> svg.lucide-search) > input):not(#global_search_input):not([class*="border-none"]):not([class*="border-0"]):not([class*="bg-transparent"]):not(.sa-ai-search input) {
+  border: 1px solid var(--color-outline-variant) !important;
+}
+
+:is(input[type="search"], input[placeholder^="Tìm"], input[aria-label^="Tìm"], input[placeholder^="Search"], input[aria-label^="Search"], :is(div, label):has(> svg.lucide-search) > input):not(#global_search_input):not([class*="border-none"]):not([class*="border-0"]):not([class*="bg-transparent"]):not(.sa-ai-search input):focus {
+  border-color: var(--color-primary) !important;
+}
+
+/* Some searches put the outline on the immediate wrapper instead of the input. */
+label[class*="border"]:has(> input:is([type="search"], [placeholder^="Tìm"], [aria-label^="Tìm"])[class*="bg-transparent"]),
+label[class*="border"]:has(> svg.lucide-search ~ input[class*="bg-transparent"]),
+.sa-ai-search {
+  border: 1px solid var(--color-outline-variant) !important;
+}
+
+label[class*="border"]:has(> input:is([type="search"], [placeholder^="Tìm"], [aria-label^="Tìm"])[class*="bg-transparent"]):focus-within,
+label[class*="border"]:has(> svg.lucide-search ~ input[class*="bg-transparent"]):focus-within,
+.sa-ai-search:focus-within {
+  border-color: var(--color-primary) !important;
+}
+
+/* Shared close affordance for ERP dialogs and popups. */
+:is(button[data-erp-modal-close], :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0) button:is([aria-label^="Đóng"], [aria-label^="Close"], [title^="Đóng"]):has(> svg)) {
+  display: inline-flex !important;
+  flex: 0 0 auto !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: var(--color-error) !important;
+  color: var(--color-on-error) !important;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+:is(button[data-erp-modal-close], :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0) button:is([aria-label^="Đóng"], [aria-label^="Close"], [title^="Đóng"]):has(> svg)):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 88%, black) !important;
+}
+
+:is(button[data-erp-modal-close], :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0) button:is([aria-label^="Đóng"], [aria-label^="Close"], [title^="Đóng"]):has(> svg)):active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+:is(button[data-erp-modal-close], :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0) button:is([aria-label^="Đóng"], [aria-label^="Close"], [title^="Đóng"]):has(> svg)):focus-visible {
+  outline: 2px solid var(--color-error) !important;
+  outline-offset: 2px;
+}
+
+:is(button[data-erp-modal-close], :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0) button:is([aria-label^="Đóng"], [aria-label^="Close"], [title^="Đóng"]):has(> svg)):disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+:is(button[data-erp-modal-close], :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0) button:is([aria-label^="Đóng"], [aria-label^="Close"], [title^="Đóng"]):has(> svg)) > svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.5;
+}
+
+/* Match the compact employee form across popup forms. */
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+  :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select, textarea) {
+  border-radius: 0.75rem;
+  border-color: var(--color-outline-variant);
+  font-size: 0.875rem;
+}
+
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+  :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select):not(:disabled):not([readonly]) {
+  height: 2.25rem;
+  min-height: 2.25rem;
+  background-color: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+}
+
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+  textarea:not(:disabled):not([readonly]) {
+  padding: 0.5rem 0.875rem;
+  background-color: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+}
+
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+  label:not(:has(input[type="checkbox"], input[type="radio"])) {
+  color: var(--color-on-surface-variant);
+  font-size: 0.75rem;
+  font-weight: 400 !important;
+}
+
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+  label:has(+ :is(input:not([type="search"]), select, textarea)) {
+  margin-bottom: 0 !important;
+}
+
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+  :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select)::placeholder,
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0) textarea::placeholder {
+  color: var(--color-on-surface-variant);
+  opacity: 0.55;
+}
+
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+  label:has(> :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select, textarea)) > :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select, textarea),
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+  label + :is(input:not([type="search"]), select, textarea) {
+  margin-top: 0.5rem !important;
+}
+
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+  :is(input:not([type]), input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="number"], input[type="url"], select, textarea):focus-visible {
+  border-color: var(--color-primary);
+  outline-color: var(--color-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(button[data-erp-modal-close], :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0) button:is([aria-label^="Đóng"], [aria-label^="Close"], [title^="Đóng"]):has(> svg)) { transition: none; }
+}
+
 /* Calendar sub-tabs: mouse clicks stay clean, keyboard focus uses brand blue. */
 #calendar_tab_wrapper .calendar-subtab-button:focus {
   outline: none;
@@ -536,6 +751,10 @@ body {
   --color-on-tertiary-container: #fdb54c;
 }
 
+.dark #header_checkin_btn {
+  color: var(--color-on-primary);
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--color-background);
@@ -562,29 +781,65 @@ code, kbd, samp, pre {
 /* Explicitly Visible Scrollbar Utility */
 .visible-scrollbar {
   -ms-overflow-style: auto !important;
-  scrollbar-width: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: color-mix(in srgb, var(--color-primary) 25%, var(--color-outline-variant)) transparent !important;
 }
 
 .visible-scrollbar::-webkit-scrollbar {
   display: block !important;
-  width: 10px !important;
-  height: 12px !important;
-  background: #f1f5f9 !important;
+  width: 6px !important;
+  height: 6px !important;
+  background: transparent !important;
 }
 
 .visible-scrollbar::-webkit-scrollbar-track {
-  background: #e2e8f0 !important;
-  border-radius: 6px !important;
+  background: transparent !important;
 }
 
 .visible-scrollbar::-webkit-scrollbar-thumb {
-  background: #00ADFC !important;
-  border-radius: 6px !important;
-  border: 2px solid #e2e8f0 !important;
+  background: color-mix(in srgb, var(--color-primary) 25%, var(--color-outline-variant)) !important;
+  border-radius: 999px !important;
+  border: 0 !important;
 }
 
 .visible-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #0095d9 !important;
+  background: color-mix(in srgb, var(--color-primary) 45%, var(--color-outline-variant)) !important;
+}
+
+/* Study popup: keep long lessons draggable without a heavy scrollbar. */
+.training-study-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-outline) 32%, transparent) transparent;
+}
+
+.training-study-scroll::-webkit-scrollbar {
+  display: block;
+  width: 4px;
+  height: 4px;
+  background: transparent;
+}
+
+.training-study-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.training-study-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.training-study-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-outline) 32%, transparent);
+}
+
+.training-study-scroll:is(:hover, :focus-within) {
+  scrollbar-color: color-mix(in srgb, var(--color-outline) 55%, transparent) transparent;
+}
+
+.training-study-scroll:is(:hover, :focus-within)::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-outline) 55%, transparent);
 }
 
 /* Toast Animations */

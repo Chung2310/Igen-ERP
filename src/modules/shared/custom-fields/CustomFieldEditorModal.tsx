@@ -146,7 +146,7 @@ export function CustomFieldEditorModal({ open, moduleKey, initialField, onClose,
             <span className="h-5 w-1 rounded-full bg-[#00ADFC]" aria-hidden="true" />
             <h2 id="custom-field-editor-title" className="text-base font-medium text-slate-900 normal-case">{initialField ? "Chỉnh sửa trường" : "Thêm trường"}</h2>
           </div>
-          <button type="button" aria-label="Đóng" title="Đóng" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FF1755] text-white transition-colors hover:bg-[#e9104b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1755] focus-visible:ring-offset-2" onClick={onClose}><X className="h-4 w-4" aria-hidden="true" /></button>
+          <button type="button" aria-label="Đóng" title="Đóng" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FF1755] text-white transition-colors hover:bg-[#e9104b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF1755] focus-visible:ring-offset-2" onClick={onClose} data-erp-modal-close><X className="h-4 w-4" aria-hidden="true" /></button>
         </div>
         <form onSubmit={(event) => void submit(event)} className="min-h-0 space-y-3 overflow-y-auto p-5">
           <label className="block space-y-1 text-xs font-normal text-slate-600 normal-case">Nhãn trường<input ref={labelInputRef} className={inputClass} value={form.label} onChange={(event) => set("label", event.target.value)} /></label>

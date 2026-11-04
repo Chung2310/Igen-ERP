@@ -1,0 +1,36 @@
+﻿.module-launcher {
+  background-color: #ffffff;
+  background-image:
+    radial-gradient(ellipse 45% 50% at 9% 100%, rgb(0 173 252 / 27%), transparent 82%),
+    radial-gradient(ellipse 48% 47% at 91% 100%, rgb(255 181 71 / 26%), transparent 82%),
+    radial-gradient(ellipse 38% 43% at 55% 100%, rgb(32 197 181 / 18%), transparent 82%),
+    linear-gradient(to bottom, #ffffff 0%, #ffffff 30%, #f8fbff 64%, #f5fbff 100%);
+}
+
+.dark .module-launcher {
+  background-color: #0d0f14;
+  background-image:
+    radial-gradient(ellipse 45% 50% at 9% 100%, rgb(0 173 252 / 13%), transparent 82%),
+    radial-gradient(ellipse 48% 47% at 91% 100%, rgb(255 181 71 / 10%), transparent 82%),
+    radial-gradient(ellipse 38% 43% at 55% 100%, rgb(32 197 181 / 10%), transparent 82%),
+    linear-gradient(to bottom, #0d0f14 0%, #0d0f14 30%, #111722 100%);
+  --color-on-surface-variant: #94a3b8;
+}
+
+.module-launcher-icon-tile {
+  transition: transform 180ms ease-out;
+}
+
+.module-launcher-new-badge {
+  background: linear-gradient(110deg, #ad20e3 0%, color-mix(in srgb, var(--color-primary) 72%, #1742a8) 100%);
+}
+
+.module-launcher-card:is(:hover, :focus-visible) .module-launcher-icon-tile {
+  transform: translateY(-2px) scale(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .module-launcher-icon-tile {
+    transition: none;
+  }
+}

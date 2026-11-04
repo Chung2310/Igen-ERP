@@ -52,7 +52,7 @@ export function BalanceModal({
             type="button"
             onClick={onClose}
             className="p-1.5 hover:bg-emerald-500 rounded-md text-emerald-100 hover:text-white transition-all cursor-pointer"
-          >
+           data-erp-modal-close aria-label="Đóng">
             <X className="h-4 w-4" />
           </button>
         </div>

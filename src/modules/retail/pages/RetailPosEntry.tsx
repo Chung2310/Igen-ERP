@@ -5,6 +5,7 @@ import { useRetailScope } from "../hooks/useRetailScope";
 import { retailShiftsApi } from "../api/retailShifts.api";
 import { socketService } from "../../../services/socketService";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
+import "../retail-workspace.css";
 
 import RetailPosPage from "./RetailPosPage";
 import type { RetailShift } from "../types";
@@ -60,11 +61,7 @@ export default function RetailPosEntry() {
   }, [shift?._id, shift?.operationalEndsAt, refresh]);
 
   const leavePos = () => { window.history.pushState(null, "", "/ban-le"); window.dispatchEvent(new Event("popstate")); };
-  React.useEffect(() => {
-    if (loading || !scope || shift || !canLeavePos || error) return;
-    window.history.replaceState(null, "", "/ban-le");
-    window.dispatchEvent(new Event("popstate"));
-  }, [loading, scope, shift, canLeavePos, error]);
+  const goToShiftManagement = () => { window.history.pushState(null, "", "/ban-le?sub=ca-pos"); window.dispatchEvent(new Event("popstate")); };
   const signOut = async () => {
     leaving.current = true; ++requestId.current; setBusy(true);
     try {
@@ -89,42 +86,41 @@ export default function RetailPosEntry() {
     } catch (cause) { showError(cause); }
     finally { setBusy(false); }
   };
-  const logoutButton = <button type="button" disabled={busy} onClick={() => void signOut()} className="rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-xs transition hover:bg-rose-700 disabled:opacity-50">Đăng xuất</button>;
+  const logoutButton = <button type="button" disabled={busy} onClick={() => void signOut()} className="rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Đăng xuất</button>;
 
   if (loading) return <Message><RefreshCw className="h-6 w-6 animate-spin" />Đang tải phiên POS…</Message>;
   if (!scope) return <Message><p>Tài khoản chưa được gán chi nhánh bán hàng.</p>{logoutButton}</Message>;
-  if (!shift && canLeavePos && !error) return <Message><RefreshCw className="h-6 w-6 animate-spin" />Đang mở trang quản lý bán hàng…</Message>;
   if (!shift || shift.terminalId !== scope.terminalId) return <Message>
-    <section className="w-full max-w-lg rounded-3xl bg-white p-6 text-slate-900 shadow-2xl">
-      <p className="text-sm font-bold text-[#0758d5]">{branchName || "Quầy bán hàng"} · {userProfile?.displayName}</p>
-      <h1 className="mt-3 text-2xl font-black">{shift ? "Phiên đang mở trên máy khác" : "Chưa có phiên bán hàng"}</h1>
-      <p className="mt-3 text-sm text-slate-500">{shift ? "Bạn có thể tiếp tục bán hàng trên máy này. Máy kia sẽ dừng bán hàng." : "Hãy chờ quản lý mở phiên. Màn hình bán hàng sẽ tự hiện sau đó."}</p>
-      <p className="mt-3 text-xs text-slate-500">{connected ? "Đã kết nối" : "Đang kết nối..."}</p>
+    <section className="w-full max-w-lg rounded-md border border-outline-variant bg-surface-container-lowest p-6 text-on-surface shadow-sm">
+      <p className="text-sm font-semibold text-primary">{branchName || "Quầy bán hàng"} · {userProfile?.displayName}</p>
+      <h1 className="mt-3 text-balance text-xl font-semibold">{shift ? "Phiên đang mở trên máy khác" : "Chưa có phiên bán hàng"}</h1>
+      <p className="mt-3 text-pretty text-sm text-on-surface-variant">{shift ? "Bạn có thể tiếp tục bán hàng trên máy này. Máy kia sẽ dừng bán hàng." : canLeavePos ? "Phiên mở cho nhân viên khác không dùng được bằng tài khoản này. Hãy đăng nhập tài khoản nhân viên được mở phiên, hoặc mở phiên cho chính tài khoản này tại mục Ca POS." : "Hãy chờ quản lý mở phiên. Màn hình bán hàng sẽ tự hiện sau đó."}</p>
+      <p className="mt-3 text-xs text-on-surface-variant">{connected ? "Đã kết nối" : "Đang kết nối..."}</p>
       {error && <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-      {shift && <button type="button" disabled={busy} onClick={() => void resume()} className="mt-5 w-full rounded-xl bg-[#0866f5] px-4 py-3 font-bold text-white hover:bg-[#0758d5] disabled:opacity-50">Tiếp tục trên máy này</button>}
+      {shift && <button type="button" disabled={busy} onClick={() => void resume()} className="mt-5 w-full rounded-md bg-primary px-4 py-3 font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Tiếp tục trên máy này</button>}
       <div className="mt-5 flex flex-wrap justify-center gap-2">
-        <button type="button" disabled={busy} onClick={() => void refresh()} className="rounded-xl border px-3 py-2 text-sm font-semibold">Tải lại</button>
-        {canLeavePos && <button type="button" onClick={leavePos} className="rounded-xl border px-3 py-2 text-sm font-semibold">Màn quản lý</button>}
+        <button type="button" disabled={busy} onClick={() => void refresh()} className="rounded-md border border-outline-variant px-3 py-2 text-sm font-medium hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary">Tải lại</button>
+        {canLeavePos && <button type="button" onClick={shift ? leavePos : goToShiftManagement} className="rounded-md border border-outline-variant px-3 py-2 text-sm font-medium hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary">{shift ? "Màn quản lý" : "Đến Ca POS"}</button>}
         {logoutButton}
       </div>
     </section>
   </Message>;
-  return <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-100">
+  return <div className="retail-pos-workspace flex h-dvh min-h-0 flex-col overflow-hidden bg-surface text-on-surface">
     <RetailPosPage key={`${scope.companyCode}:${scope.branchId}:${userProfile?.uid}`} posSessionId={shift._id} onCloseShift={() => setShowCloseForm(true)} canLeavePos={canLeavePos} onLeavePos={leavePos} onLogout={() => void signOut()} />
     {error && <p role="alert" className="fixed bottom-4 left-1/2 z-[90] -translate-x-1/2 rounded-xl bg-rose-700 px-4 py-3 text-sm text-white">{error}</p>}
-    {showCloseForm && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setShowCloseForm(false); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="pos-close-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#edf3ff] text-[#0866f5]"><LockKeyhole className="h-5 w-5" /></span><h2 id="pos-close-title" className="text-lg font-bold text-slate-950">Bạn có muốn đóng phiên này không?</h2></div>
-          <button type="button" disabled={busy} aria-label="Đóng" onClick={() => setShowCloseForm(false)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"><X className="h-4 w-4" /></button>
+    {showCloseForm && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setShowCloseForm(false); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="pos-close-title" className="w-full max-w-md rounded-md border border-outline-variant bg-surface-container-lowest p-5 text-on-surface shadow-lg sm:p-6">
+        <div className="flex items-center justify-between gap-3 border-b border-outline-variant pb-4">
+          <div className="flex min-w-0 items-center gap-3"><span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><LockKeyhole className="size-5" /></span><h2 id="pos-close-title" className="text-balance text-lg font-semibold">Bạn có muốn đóng phiên này không?</h2></div>
+          <button type="button" disabled={busy} aria-label="Đóng" onClick={() => setShowCloseForm(false)} className="flex size-8 shrink-0 items-center justify-center rounded-md text-on-surface-variant hover:bg-primary/5 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" data-erp-modal-close><X className="size-4" /></button>
         </div>
         {error && <p role="alert" className="mt-3 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
-        <div className="mt-5 flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
-          <button type="button" disabled={busy} onClick={() => setShowCloseForm(false)} className="min-h-10 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">Không</button>
-          <button type="button" disabled={busy} onClick={() => void closeShift()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#0866f5] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#0758d5] disabled:opacity-50">{busy && <RefreshCw className="h-4 w-4 animate-spin" />}{busy ? "Đang đóng…" : "Có, đóng phiên"}</button>
+        <div className="mt-5 flex flex-col-reverse gap-2 border-t border-outline-variant pt-4 sm:flex-row sm:justify-end">
+          <button type="button" disabled={busy} onClick={() => setShowCloseForm(false)} className="min-h-10 rounded-md border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Không</button>
+          <button type="button" disabled={busy} onClick={() => void closeShift()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">{busy && <RefreshCw className="size-4 animate-spin" />}{busy ? "Đang đóng…" : "Có, đóng phiên"}</button>
         </div>
       </section>
     </div>}
   </div>;
 }
-function Message({ children }: { children: React.ReactNode }) { return <main className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-slate-50 p-6 text-center text-lg font-semibold text-slate-800">{children}</main>; }
+function Message({ children }: { children: React.ReactNode }) { return <main className="retail-pos-workspace flex min-h-dvh flex-col items-center justify-center gap-3 bg-surface p-6 text-center text-lg font-semibold text-on-surface">{children}</main>; }

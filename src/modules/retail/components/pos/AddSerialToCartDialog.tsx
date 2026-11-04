@@ -98,7 +98,7 @@ export default function AddSerialToCartDialog({
               <ScanBarcode className="h-4 w-4" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-slate-800 leading-tight">Chọn IMEI / Serial</h3>
+              <h3 className="text-sm font-semibold text-slate-800 leading-tight">Chọn IMEI / Serial</h3>
               <p className="text-[11px] text-slate-500">Chọn 1 máy để thêm vào giỏ hàng</p>
             </div>
           </div>
@@ -107,7 +107,7 @@ export default function AddSerialToCartDialog({
             onClick={onClose}
             aria-label="Đóng"
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-200/70 hover:text-slate-700 cursor-pointer"
-          >
+           data-erp-modal-close>
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
@@ -117,7 +117,7 @@ export default function AddSerialToCartDialog({
           {/* PRODUCT BANNER (COMPACT) */}
           <div className="shrink-0 rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-xs">
             <div className="flex items-center justify-between gap-2">
-              <span className="truncate font-bold text-slate-800" title={product.name}>
+              <span className="truncate font-semibold text-slate-800" title={product.name}>
                 {product.name}
               </span>
               <span className="shrink-0 font-mono text-[11px] text-slate-500">
@@ -151,7 +151,7 @@ export default function AddSerialToCartDialog({
               <span
                 className={`rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${
                   canConfirm
-                    ? "bg-[#dce9ff] text-[#0844a8] font-bold"
+                    ? "bg-[#dce9ff] text-[#0844a8] font-semibold"
                     : "bg-slate-100 text-slate-500"
                 }`}
               >
@@ -205,7 +205,7 @@ export default function AddSerialToCartDialog({
                       className="h-3.5 w-3.5 shrink-0 accent-[#0866f5] cursor-pointer"
                     />
                     <div className="min-w-0 flex-1">
-                      <span className="block truncate font-mono text-xs font-bold text-slate-800">
+                      <span className="block truncate font-mono text-xs font-semibold text-slate-800">
                         {item.serialNumber}
                       </span>
                       {item.internalBarcode && (
@@ -247,7 +247,7 @@ export default function AddSerialToCartDialog({
             onClick={() => {
               if (canConfirm) onConfirm(selected);
             }}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0866f5] px-3.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#0758d5] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer shadow-xs shadow-[#0866f5]/20 active:scale-98"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#0866f5] px-3.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#0758d5] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer shadow-xs shadow-[#0866f5]/20 active:scale-98"
           >
             <ShoppingCart className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             Thêm vào giỏ

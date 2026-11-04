@@ -13,6 +13,8 @@ import { StudentNavIcon } from "./StudentNavIcon";
 import { canManageStudentArea, canReadStudentArea } from "../../utils/studentPermissionPolicy";
 import { getAllowedStudentTabSlugs } from "./studentTabPermissions";
 import { setBusinessApiScope } from "./lib/api";
+import { cn } from "./lib/utils";
+import "./student-workspace.css";
 
 type StudentSubTab =
   | "BAO_LUU_HOC_LAI"
@@ -175,7 +177,7 @@ export default function StudentManagementTab() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
+    <div className="student-management-workspace flex h-full min-h-0 flex-col bg-surface text-on-surface">
       {/* Sub Tabs switcher navigation bar */}
       <ModuleNavigation label="Mục Học viên" activeValue={activeSubTab} id="student_sub_tabs_bar" actions={userProfile?.role === "superadmin" && <div className="flex min-w-0 items-center gap-2">
         <label htmlFor="student-navigation-center" className="text-xs text-on-surface-variant">Cơ sở:</label>
@@ -190,8 +192,10 @@ export default function StudentManagementTab() {
         {subTabRoutes.map(item => <ModuleNavigationButton key={item.value} active={activeSubTab === item.value} onClick={() => setActiveSubTab(item.value)} icon={<StudentNavIcon slug={item.slug === "khoa-hoc" && entityLabel.preset !== "student" ? "cong-viec" : item.slug} />}>{item.label}</ModuleNavigationButton>)}
       </ModuleNavigation>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
-        <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>
+      <div className={cn('min-h-0 flex-1 overflow-y-auto px-3 pb-3 sm:pb-4', entityLabel.preset === 'student' ? 'pt-1 lg:pl-0' : 'pt-3 sm:px-6 sm:pt-6 sm:pb-6')}>
+        <div className="min-h-full rounded-md border border-outline-variant bg-surface-container-lowest">
+          <Suspense fallback={<PageLoader />}>{renderPage()}</Suspense>
+        </div>
       </div>
 
       <Suspense fallback={<StudentLoadState label="Đang tải biểu mẫu..." />}>

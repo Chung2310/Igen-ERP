@@ -3,6 +3,7 @@ import { UserPlus, X } from "lucide-react";
 import { customerApi } from "../../../customer-management/customerApi";
 import type { RetailCustomer, RetailScope } from "../../types";
 import { getApiErrorMessage } from "../../../../utils/errorMessage";
+import { Dropdown } from "../../../../components/common/Dropdown";
 import "./createCustomerDialog.css";
 
 type CustomerForm = {
@@ -155,26 +156,14 @@ export default function CreateCustomerDialog({ scope, initialPhone = "", initial
       >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold">Tạo khách hàng mới</h2>
+            <h2 className="text-lg font-semibold">Tạo khách hàng mới</h2>
             <p className="text-sm text-on-surface-variant text-pretty">Khách hàng sẽ được chọn vào đơn hiện tại sau khi lưu.</p>
           </div>
-          <button type="button" aria-label="Đóng" disabled={saving} onClick={onClose} className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">
+          <button type="button" aria-label="Đóng" disabled={saving} onClick={onClose} className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" data-erp-modal-close>
             <X className="size-5" aria-hidden="true" />
           </button>
         </div>
-        <label className="block text-sm font-semibold">
-          <span>Loại khách hàng</span>
-          <select
-            aria-label="Loại khách hàng"
-            disabled={saving || Boolean(createdCustomer)}
-            value={form.type}
-            onChange={(event) => setForm((value) => ({ ...value, type: event.target.value as "regular" | "vat" }))}
-            className="mt-1 min-h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
-          >
-            <option value="regular">Khách thường</option>
-            <option value="vat">Khách xuất VAT</option>
-          </select>
-        </label>
+        <Dropdown label="Loại khách hàng" disabled={saving || Boolean(createdCustomer)} value={form.type} onChange={(value) => setForm((current) => ({ ...current, type: value }))} options={[{ value: "regular" as const, label: "Khách thường" }, { value: "vat" as const, label: "Khách xuất VAT" }]} variant="form" size="md" className="w-full" />
         {(["name", "phone", "email", "address", "notes"] as Array<Exclude<keyof CustomerForm, "type">>).map((key) => (
           <label key={key} className="block text-sm font-semibold">
             <span>{labels[key]}{key === "name" ? " *" : ""}</span>

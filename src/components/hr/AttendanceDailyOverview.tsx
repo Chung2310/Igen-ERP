@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
 import { DateInput24 } from "../common/TimeInput24";
 import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, Clock3, Home, LogIn, LogOut, MapPin, ScanFace, ShieldAlert, UserCheck, Users, WifiOff } from "lucide-react";
 import {
@@ -51,13 +52,10 @@ export default function AttendanceDailyOverview({ date, onDateChange, result, lo
   const visibleEmployees = selected === "all" ? result.all : result.groups[selected];
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto bg-[#f8fbff] p-4 md:p-5">
-      <div className="mx-auto flex flex-col gap-5">
+    <div className="min-h-0 flex-1 overflow-auto bg-[#f8fbff] px-4 pb-4 pt-2 md:px-5 md:pb-5 md:pt-2">
+      <div className="mx-auto flex flex-col gap-4">
         <div className="flex flex-col gap-3 rounded-2xl border border-[#dce7f4] bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-base font-normal text-slate-800">Tổng quan chấm công chi nhánh</h2>
-            <p className="mt-0.5 text-xs font-normal text-slate-500">Tình hình nhân sự theo ngày được chọn</p>
-          </div>
+          <h2 className="text-base font-normal text-slate-800">Tổng quan chấm công chi nhánh</h2>
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Ngày trước" onClick={() => onDateChange(shiftDate(date, -1))} className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e8f7ff] text-[#007eb8] hover:bg-[#d7f1ff] cursor-pointer">
               <ChevronLeft className="h-4 w-4" />
@@ -116,7 +114,7 @@ export default function AttendanceDailyOverview({ date, onDateChange, result, lo
                 <p className="text-[11px] text-slate-500">{visibleEmployees.length} nhân viên</p>
               </div>
               {visibleEmployees.length === 0 ? (
-                <div className="px-4 py-12 text-center text-sm font-normal text-slate-400">Không có nhân viên phù hợp.</div>
+                <div className="flex flex-col items-center px-4 py-12 text-center text-sm font-normal text-slate-400"><HrEmptyIllustration kind="search" /><p className="mt-1">Không có nhân viên phù hợp.</p></div>
               ) : (
                 <div className="divide-y divide-[#edf3f9]">
                   {visibleEmployees.map((employee) => (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../../shared/lib/apiFetch";
 import type { RetailScope } from "../../types";
+import { Dropdown } from "../../../../components/common/Dropdown";
 
 type Coupon = { _id: string; code: string; name: string; endsAt: string; usedCount: number; usageLimit?: number };
 
@@ -20,12 +21,7 @@ export default function RetailCouponInput({ scope, customerId, value, onChange }
     <label className="block text-sm font-medium text-on-surface">Mã ưu đãi
       <input value={value} onChange={(event) => onChange(event.target.value)} maxLength={32} autoComplete="off" placeholder="Nhập mã ưu đãi" aria-describedby={error ? "retail-coupon-error" : undefined} aria-invalid={Boolean(error)} className="mt-1 min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary" />
     </label>
-    {available.length > 0 && <label className="block text-sm text-on-surface-variant">Mã ưu đãi đang có
-      <select value={available.some((coupon) => coupon.code === value) ? value : ""} onChange={(event) => onChange(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary">
-        <option value="">Chọn mã ưu đãi</option>
-        {available.map((coupon) => <option key={coupon._id} value={coupon.code}>{coupon.name} · {coupon.code}</option>)}
-      </select>
-    </label>}
+    {available.length > 0 && <Dropdown label="Mã ưu đãi đang có" value={available.some((coupon) => coupon.code === value) ? value : ""} onChange={onChange} options={[{ value: "", label: "Chọn mã ưu đãi" }, ...available.map((coupon) => ({ value: coupon.code, label: `${coupon.name} · ${coupon.code}` }))]} variant="form" size="md" className="w-full" searchable />}
     {error && <p id="retail-coupon-error" role="alert" className="text-sm text-error">{error}</p>}
   </div>;
 }

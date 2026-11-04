@@ -5,6 +5,20 @@ import { ModuleNavigation, ModuleNavigationButton } from './ModuleNavigation';
 
 afterEach(cleanup);
 
+it('keeps calendar navigation horizontal without a left rail toggle', () => {
+  render(
+    <ModuleNavigation label="Mục Lịch" layout="horizontal">
+      <ModuleNavigationButton active>Lịch trình</ModuleNavigationButton>
+    </ModuleNavigation>
+  );
+  const bar = screen.getByRole('navigation', { name: 'Mục Lịch' }).parentElement?.parentElement;
+  expect(bar?.getAttribute('data-layout')).toBe('horizontal');
+  expect(screen.queryByRole('button', { name: 'Thu gọn thanh điều hướng' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Tìm kiếm trong ERP' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Cài đặt hệ thống' })).toBeNull();
+  expect(bar?.style.getPropertyValue('--module-navigation-left')).toBe('');
+});
+
 it('preserves selection, disabled actions and native keyboard focus', () => {
   const change = vi.fn();
   render(
@@ -14,12 +28,65 @@ it('preserves selection, disabled actions and native keyboard focus', () => {
       <ModuleNavigationButton active={false} disabled onClick={() => change('disabled')}>Chưa khả dụng</ModuleNavigationButton>
     </ModuleNavigation>
   );
-  expect(screen.getByRole('button', { name: 'Đầu tiên' }).getAttribute('aria-current')).toBe('page');
+  const activeButton = screen.getByRole('button', { name: 'Đầu tiên' });
+  expect(screen.getByRole('button', { name: 'Tìm kiếm trong ERP' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Cài đặt hệ thống' }).getAttribute('href')).toBe('/cai-dat?sub=ho-so');
+  expect(activeButton.getAttribute('aria-current')).toBe('page');
+  expect(activeButton.className).toContain('bg-primary/5');
+  expect(activeButton.className).toContain('text-primary');
+  expect(screen.queryByRole('link', { name: 'Chức năng' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Tiếp theo' }));
   fireEvent.click(screen.getByRole('button', { name: 'Chưa khả dụng' }));
   expect(change.mock.calls).toEqual([['next']]);
   screen.getByRole('button', { name: 'Tiếp theo' }).focus();
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Tiếp theo' }));
+});
+
+it('collapses and reopens the left rail without removing tab names or actions', () => {
+  const change = vi.fn();
+  render(
+    <ModuleNavigation label="Mục kiểm tra">
+      <ModuleNavigationButton active icon={<span>●</span>} onClick={change}>Đầu tiên</ModuleNavigationButton>
+    </ModuleNavigation>
+  );
+  const rail = screen.getByRole('navigation', { name: 'Mục kiểm tra' }).parentElement?.parentElement;
+  const collapse = screen.getByRole('button', { name: 'Thu gọn thanh điều hướng' });
+  expect(collapse.getAttribute('aria-controls')).toBe(screen.getByRole('navigation').id);
+  expect(collapse.getAttribute('aria-pressed')).toBe('false');
+  expect(rail?.querySelector('[data-global-sidebar-search-trigger]')).toBeTruthy();
+  fireEvent.click(collapse);
+  expect(rail?.getAttribute('data-collapsed')).toBe('true');
+  expect(rail?.querySelector('[data-global-sidebar-search-trigger]')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Mở rộng thanh điều hướng' }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByRole('button', { name: 'Đầu tiên' }).getAttribute('title')).toBe('Đầu tiên');
+  fireEvent.click(screen.getByRole('button', { name: 'Đầu tiên' }));
+  expect(change).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole('button', { name: 'Mở rộng thanh điều hướng' }));
+  expect(rail?.getAttribute('data-collapsed')).toBe('false');
+  expect(rail?.querySelector('[data-global-sidebar-search-trigger]')).toBeTruthy();
+});
+
+it('keeps the rail within the visible page height while content extends below the viewport', () => {
+  const page = document.createElement('main');
+  page.id = 'primary_page_container';
+  page.getBoundingClientRect = () => ({ top: 72, bottom: 900 } as DOMRect);
+  const workspace = document.createElement('div');
+  workspace.getBoundingClientRect = () => ({ top: 80, bottom: 1600, left: 8 } as DOMRect);
+  page.appendChild(workspace);
+  document.body.appendChild(page);
+
+  render(
+    <ModuleNavigation label="Mục kiểm tra">
+      <ModuleNavigationButton active>Đầu tiên</ModuleNavigationButton>
+    </ModuleNavigation>,
+    { container: workspace }
+  );
+
+  const rail = workspace.querySelector<HTMLElement>('[data-module-navigation]');
+  expect(rail?.style.getPropertyValue('--module-navigation-left')).toBe('8px');
+  expect(rail?.style.getPropertyValue('--module-navigation-top')).toBe('80px');
+  expect(rail?.style.getPropertyValue('--module-navigation-height')).toBe(`${Math.min(892, window.innerHeight - 8) - 80}px`);
+  page.remove();
 });
 
 it('renders a clean flat navigation bar without chevron buttons and supports wheel scroll', () => {
@@ -70,4 +137,27 @@ it('keeps the user scroll position when a parent refreshes with the same selecti
   nav.scrollLeft = 220;
   rerender(items());
   expect(nav.scrollLeft).toBe(220);
+});
+
+it('scrolls vertically and reveals the active item in the left rail', () => {
+  const { rerender } = render(
+    <ModuleNavigation label="Mục kiểm tra" activeValue="first">
+      <ModuleNavigationButton active>Đầu tiên</ModuleNavigationButton>
+      <ModuleNavigationButton active={false}>Tiếp theo</ModuleNavigationButton>
+    </ModuleNavigation>
+  );
+  const nav = screen.getByRole('navigation');
+  nav.style.flexDirection = 'column';
+  nav.scrollTop = 0;
+  fireEvent.wheel(nav, { deltaY: 100 });
+  expect(nav.scrollTop).toBe(100);
+  nav.getBoundingClientRect = () => ({ top: 0, bottom: 100 } as DOMRect);
+  screen.getByRole('button', { name: 'Tiếp theo' }).getBoundingClientRect = () => ({ top: 130, bottom: 175 } as DOMRect);
+  rerender(
+    <ModuleNavigation label="Mục kiểm tra" activeValue="next">
+      <ModuleNavigationButton active={false}>Đầu tiên</ModuleNavigationButton>
+      <ModuleNavigationButton active>Tiếp theo</ModuleNavigationButton>
+    </ModuleNavigation>
+  );
+  expect(nav.scrollTop).toBe(175);
 });

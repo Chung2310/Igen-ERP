@@ -884,7 +884,7 @@ export default function RetailPosPage({
           {/* Catalog Section Header */}
           <div className="flex items-center justify-between px-4 sm:px-6 pt-3 pb-1 shrink-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-bold text-slate-800">
+              <h2 className="text-base sm:text-lg font-semibold text-slate-800">
                 {categoryTitle}
               </h2>
               <span className="rounded-full bg-[#e7efff] px-2.5 py-0.5 text-[11px] font-semibold text-[#476393]">

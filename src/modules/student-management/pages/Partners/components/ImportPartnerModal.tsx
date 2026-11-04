@@ -316,7 +316,7 @@ export function ImportPartnerModal({ isOpen, onClose, onSuccess }: ImportPartner
               <h2 className="text-xl font-bold text-slate-800">Nhập danh sách đối tác</h2>
               <p className="text-xs text-slate-400 font-medium mt-0.5">Hỗ trợ định dạng file Excel (.xlsx, .xls, .csv)</p>
             </div>
-            <button onClick={onClose} disabled={isUploading} className="p-2 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50">
+            <button onClick={onClose} disabled={isUploading} className="p-2 rounded-full hover:bg-slate-100 transition-colors disabled:opacity-50" data-erp-modal-close aria-label="Đóng">
               <X className="w-5 h-5 text-slate-400" />
             </button>
           </div>

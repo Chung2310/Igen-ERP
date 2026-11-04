@@ -13,7 +13,8 @@ import { TenantDetailPage } from "./tenants/TenantDetailPage";
 import { UserManagementPanel } from "./users/UserManagementPanel";
 import { SuperAdminAccountsPage } from "./admins/SuperAdminAccountsPage";
 import AiSubscriptionsPage from "./subscriptions/AiSubscriptionsPage";
-import { Activity, LayoutDashboard, FileText, Monitor, LogOut, UsersRound, Building2, Menu, X, ShieldCheck } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
+import { getSidebarArtworkIcon, type SidebarArtworkName } from "../../components/common/SidebarMenuIcon";
 import {
   clearPendingSuperAdminChallenge,
   savePendingSuperAdminChallenge,
@@ -174,14 +175,14 @@ export default function SuperAdminShell() {
   };
 
   const navItems = [
-    { id: "overview" as const, label: "Tổng quan hệ thống", icon: LayoutDashboard },
-    { id: "activity" as const, label: "Giám sát hoạt động", icon: Activity },
-    { id: "audit" as const, label: "Nhật ký kiểm toán", icon: FileText },
-    { id: "users" as const, label: "Quản trị tài khoản", icon: UsersRound },
-    { id: "admins" as const, label: "Tài khoản Super Admin", icon: ShieldCheck },
-    { id: "tenants" as const, label: "Quản lý doanh nghiệp", icon: Building2 },
-    { id: "subscriptions" as const, label: "Gói cước & hạn mức", icon: FileText },
-    { id: "sessions" as const, label: "Quản lý phiên làm việc", icon: Monitor },
+    { id: "overview" as const, label: "Tổng quan hệ thống", artwork: "overview" },
+    { id: "activity" as const, label: "Giám sát hoạt động", artwork: "chart" },
+    { id: "audit" as const, label: "Nhật ký kiểm toán", artwork: "document" },
+    { id: "users" as const, label: "Quản trị tài khoản", artwork: "user" },
+    { id: "admins" as const, label: "Tài khoản Super Admin", artwork: "shield" },
+    { id: "tenants" as const, label: "Quản lý doanh nghiệp", artwork: "warehouse" },
+    { id: "subscriptions" as const, label: "Gói cước & hạn mức", artwork: "package" },
+    { id: "sessions" as const, label: "Quản lý phiên làm việc", artwork: "device" },
   ];
 
   const handleNavClick = (tabId: typeof activeTab) => {
@@ -200,19 +201,22 @@ export default function SuperAdminShell() {
           </p>
         </div>
         <nav className="mt-6 block space-y-2">
-          {navItems.map(({ id, label, icon: Icon }) => (
+          {navItems.map(({ id, label, artwork }) => (
             <button
               key={id}
               type="button"
               aria-current={activeTab === id ? "page" : undefined}
               onClick={() => handleNavClick(id)}
-              className={cn("w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all",
+              className={cn("group w-full flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400",
                 activeTab === id
-                  ? "bg-cyan-500 text-slate-950 font-bold shadow-xs shadow-cyan-500/20"
-                  : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
+                  ? "bg-white/5 text-white"
+                  : "text-slate-300 hover:text-white hover:bg-white/5 focus-visible:bg-white/5"
               )}
             >
-              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+              <span aria-hidden="true" className="relative size-5 shrink-0 text-slate-300 group-hover:text-cyan-400 group-focus-visible:text-cyan-400 group-aria-[current=page]:text-cyan-400 [&_svg]:size-5">
+                <span className={`${activeTab === id ? "hidden" : "group-hover:hidden group-focus-visible:hidden"} absolute inset-0`}>{getSidebarArtworkIcon(artwork as SidebarArtworkName)}</span>
+                <span className={`${activeTab === id ? "" : "hidden group-hover:block group-focus-visible:block"} absolute inset-0`}>{getSidebarArtworkIcon(artwork as SidebarArtworkName, true)}</span>
+              </span>
               {label}
             </button>
           ))}
@@ -274,7 +278,7 @@ export default function SuperAdminShell() {
               onClick={() => setSidebarOpen(false)}
               className="rounded-xl border border-white/10 bg-slate-800 hover:bg-slate-700 p-2 text-slate-400 hover:text-white transition-all"
               aria-label="Đóng menu"
-            >
+             data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </div>

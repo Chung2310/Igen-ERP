@@ -404,7 +404,7 @@ export function ProductVariantSelectorModal({
         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 sm:px-5 py-3.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#edf3ff] text-[#0866f5]"><Package className="h-4 w-4" /></span>
-            <h3 className="max-w-[200px] truncate text-base font-extrabold text-slate-900 sm:text-lg">{group.name}</h3>
+            <h3 className="max-w-[200px] truncate text-base font-semibold text-slate-900 sm:text-lg">{group.name}</h3>
           </div>
 
           <div className="flex items-center gap-2">
@@ -415,7 +415,7 @@ export function ProductVariantSelectorModal({
                 onClick={() => setActiveTab("attributes")}
                 className={`rounded-lg px-2.5 sm:px-3 py-1 font-medium transition cursor-pointer select-none ${
                   activeTab === "attributes"
-                    ? "bg-white text-[#0844a8] font-bold shadow-xs border border-slate-200/80"
+                    ? "bg-white text-[#0844a8] font-semibold shadow-xs border border-slate-200/80"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -426,7 +426,7 @@ export function ProductVariantSelectorModal({
                 onClick={() => setActiveTab("sku_list")}
                 className={`rounded-lg px-2.5 sm:px-3 py-1 font-medium transition cursor-pointer select-none ${
                   activeTab === "sku_list"
-                    ? "bg-white text-[#0844a8] font-bold shadow-xs border border-slate-200/80"
+                    ? "bg-white text-[#0844a8] font-semibold shadow-xs border border-slate-200/80"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -440,7 +440,7 @@ export function ProductVariantSelectorModal({
               aria-label="Đóng"
               onClick={onClose}
               className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition cursor-pointer"
-            >
+             data-erp-modal-close>
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -466,7 +466,7 @@ export function ProductVariantSelectorModal({
 
               {attributeDefinitions.map((attr, attrIndex) => (
                 <div key={attr.key} className="space-y-1.5">
-                  <span className="block text-xs font-bold text-slate-700">
+                  <span className="block text-xs font-semibold text-slate-700">
                     {attr.name}
                   </span>
 
@@ -478,7 +478,7 @@ export function ProductVariantSelectorModal({
 
                       const chipClass = {
                         selected:
-                          "border-[#0866f5] bg-[#edf3ff] text-[#0844a8] font-bold ring-2 ring-[#0866f5]/20 shadow-xs",
+                          "border-[#0866f5] bg-[#edf3ff] text-[#0844a8] font-semibold ring-2 ring-[#0866f5]/20 shadow-xs",
                         available:
                           "border-slate-300 bg-white text-slate-800 font-semibold shadow-2xs hover:border-[#6b9dff] hover:bg-[#edf3ff]/40",
                         switch:
@@ -518,7 +518,7 @@ export function ProductVariantSelectorModal({
                           <span className={state === "soldout" ? "line-through" : ""}>{val}</span>
                           <span
                             aria-hidden="true"
-                            className={`min-w-[18px] rounded-md px-1 text-center text-[10px] font-bold leading-4 ${badgeClass}`}
+                            className={`min-w-[18px] rounded-md px-1 text-center text-[10px] font-semibold leading-4 ${badgeClass}`}
                           >
                             {state === "soldout" ? "Hết" : stock}
                           </span>
@@ -559,7 +559,7 @@ export function ProductVariantSelectorModal({
                         className="flex items-center justify-between py-2 px-2.5 transition hover:bg-white hover:shadow-2xs rounded-xl"
                       >
                         <div className="min-w-0 flex-1 pr-3">
-                          <p className="text-xs font-bold text-slate-800 truncate">
+                          <p className="text-xs font-semibold text-slate-800 truncate">
                             {v.variantName || v.name}
                           </p>
                           <p className="text-[11px] font-mono text-slate-500 mt-0.5">
@@ -575,7 +575,7 @@ export function ProductVariantSelectorModal({
                         </div>
 
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-xs font-bold font-mono text-slate-900">
+                          <span className="text-xs font-semibold font-mono text-slate-900">
                             {formatVnd(v.price)}
                           </span>
 
@@ -586,7 +586,7 @@ export function ProductVariantSelectorModal({
                               onAdd(v);
                               onClose();
                             }}
-                            className="rounded-xl bg-[#edf3ff] hover:bg-[#0866f5] text-[#0758d5] hover:text-white border border-[#c2d7ff] hover:border-[#0866f5] active:scale-95 px-3 py-1.5 text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                            className="rounded-xl bg-[#edf3ff] hover:bg-[#0866f5] text-[#0758d5] hover:text-white border border-[#c2d7ff] hover:border-[#0866f5] active:scale-95 px-3 py-1.5 text-xs font-semibold transition shadow-2xs cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
                           >
                             Thêm
                           </button>
@@ -609,11 +609,11 @@ export function ProductVariantSelectorModal({
               </p>
 
               <div className="flex items-baseline gap-2.5 mt-0.5">
-                <span className="text-lg sm:text-xl font-black font-mono text-slate-900">
+                <span className="text-lg sm:text-xl font-semibold font-mono text-slate-900">
                   {formatVnd(matchedVariant.price)}
                 </span>
                 <span
-                  className={`text-xs font-bold px-2 py-0.5 rounded-lg border ${
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-lg border ${
                     matchedVariant.stock > 0
                       ? "text-emerald-700 bg-emerald-50 border-emerald-200"
                       : "text-rose-700 bg-rose-50 border-rose-200"
@@ -633,7 +633,7 @@ export function ProductVariantSelectorModal({
                 onAdd(matchedVariant);
                 onClose();
               }}
-              className="shrink-0 rounded-2xl bg-[#0866f5] hover:bg-[#0758d5] active:scale-95 px-5 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-[#0866f5]/25 transition disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+              className="shrink-0 rounded-2xl bg-[#0866f5] hover:bg-[#0758d5] active:scale-95 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#0866f5]/25 transition disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
             >
               Thêm vào giỏ
             </button>

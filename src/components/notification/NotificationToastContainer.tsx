@@ -202,8 +202,6 @@ export function NotificationToastContainer({ onNavigate }: NotificationToastCont
 
       <div className="fixed bottom-6 right-6 z-100 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
         {toasts.map((t) => {
-          let bgColor = "bg-white/95 dark:bg-slate-900/95";
-          let borderColor = "border-slate-200/80 dark:border-slate-800/80";
           let iconBg = "bg-slate-100 text-slate-600";
           let Icon = Bell;
 
@@ -223,7 +221,7 @@ export function NotificationToastContainer({ onNavigate }: NotificationToastCont
                 Icon = Briefcase;
                 break;
               case "training":
-                iconBg = "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400";
+                iconBg = "bg-primary-container text-on-primary-container";
                 Icon = GraduationCap;
                 break;
               case "he-thong":
@@ -236,36 +234,32 @@ export function NotificationToastContainer({ onNavigate }: NotificationToastCont
           return (
             <div
               key={t._id}
-              onClick={() => handleToastClick(t)}
-              className={`animate-notification-toast flex items-start gap-3 p-4 rounded-2xl border ${borderColor} ${bgColor} shadow-2xl backdrop-blur-md pointer-events-auto cursor-pointer hover:scale-[1.02] hover:shadow-3xl transition-all duration-200 select-none group`}
+              className="animate-notification-toast pointer-events-auto flex items-start gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-on-surface shadow-lg transition-shadow duration-200 hover:shadow-xl"
             >
-              {/* Icon hiển thị phân loại thông báo */}
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${iconBg} shadow-sm`}>
-                <Icon className="h-5.5 w-5.5" />
-              </div>
-
-              {/* Nội dung text thông báo */}
-              <div className="flex-1 min-w-0 font-sans">
-                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-1 leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                  {t.title}
-                </h4>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-2">
-                  {t.body}
-                </p>
-                <span className="mt-1.5 block font-mono text-[9px] text-slate-400 dark:text-slate-500">
-                  Vừa xong
+              <button
+                type="button"
+                onClick={() => void handleToastClick(t)}
+                aria-label={`Xem thông báo: ${t.title}`}
+                className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${iconBg}`}>
+                  <Icon className="size-5" aria-hidden="true" />
                 </span>
-              </div>
+                <span className="min-w-0 flex-1 font-sans">
+                  <span className="line-clamp-1 text-balance text-xs font-bold leading-snug text-on-surface">{t.title}</span>
+                  <span className="mt-1 line-clamp-2 text-pretty text-xs leading-relaxed text-on-surface-variant">{t.body}</span>
+                  <span className="mt-1.5 block text-xs text-on-surface-variant">Vừa xong</span>
+                </span>
+              </button>
 
               {/* Nút đóng thông báo nhanh */}
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeToast(t._id);
-                }}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer shrink-0 p-0.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-850"
+                type="button"
+                aria-label={`Đóng thông báo: ${t.title}`}
+                onClick={() => removeToast(t._id)}
+                className="shrink-0 cursor-pointer rounded-full p-0.5 text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
               >
-                <X className="h-4 w-4" />
+                <X className="size-4" aria-hidden="true" />
               </button>
             </div>
           );

@@ -607,7 +607,7 @@ export default function MarketingTab() {
   };
 
   return (
-    <div className="marketing-workspace flex flex-col h-full bg-white max-h-[85vh] overflow-hidden" id="marketing_tab_wrapper">
+    <div className="marketing-workspace flex h-full min-h-0 flex-col overflow-hidden bg-white" id="marketing_tab_wrapper">
       {mediaLaunch && <Suspense fallback={<TabLoader label="Đang mở media chiến dịch..." />}>
         <CampaignMediaDialog key={`${mediaLaunch.kind}:${mediaLaunch.cardId || mediaLaunch.campaignId}`} launch={mediaLaunch} onClose={() => setMediaLaunch(null)} onMediaSaved={(cardId, url, type) => {
           const update = type === "audio" ? { audioUrl: url } : type === "video" ? { videoUrl: url, imageUrl: "", mediaType: "video" as const } : { imageUrl: url, videoUrl: "", mediaType: "image" as const };

@@ -15,7 +15,9 @@ function emit(audience: Audience, event: string, payload: unknown) {
 export function relayMarketingEvent(audience: Audience, event: string, payload: unknown) {
   if (process.env.MARKETING_WORKER_PROCESS !== "true") return emit(audience, event, payload);
   publisher ||= client();
-  void publisher.publish(channel(), JSON.stringify({ audience, event, payload })).catch((error: unknown) => console.warn("[Marketing event relay]", error instanceof Error ? error.message : "unavailable"));
+  void publisher.publish(channel(), JSON.stringify({ audience, event, payload })).then(subscribers => {
+    if (event === "new_message" && subscribers === 0) console.warn("[Marketing event relay] No API subscriber", { channel: channel(), room: audience.id, event });
+  }).catch((error: unknown) => console.warn("[Marketing event relay]", { event, room: audience.id, error: error instanceof Error ? error.message : "unavailable" }));
 }
 export async function startMarketingEventRelay() {
   if (!process.env.MARKETING_QUEUE_PREFIX || subscriber) return;

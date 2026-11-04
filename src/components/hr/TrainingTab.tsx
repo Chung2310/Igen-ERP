@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
+import { HrPageTitle } from "./HrPageTitle";
 import {
   BookOpen,
   CheckCircle2,
@@ -15,7 +17,9 @@ import {
   AlertCircle,
   Edit2,
   Upload,
-  Paperclip
+  Paperclip,
+  Search,
+  CalendarDays
 } from "lucide-react";
 import { EmployeeNode, TrainingCourse, TrainingEnrollment, Lesson, QuizQuestion } from "../../types";
 import { getAccessToken, authService } from "../../services/authService";
@@ -23,12 +27,8 @@ import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { HrFormSelect } from "./HrFormSelect";
-
-const emojiIconPattern = /[\u2600-\u27BF\u{1F300}-\u{1FAFF}]/u;
-
-function TrainingBookIcon({ className = "h-6 w-6" }: { className?: string }) {
-  return <BookOpen className={`${className} text-primary`} strokeWidth={1.75} aria-hidden="true" />;
-}
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
+import { TrainingCourseCardArtwork } from "./TrainingCourseCardArtwork";
 
 function TrainingProgressIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
@@ -44,22 +44,68 @@ function TrainingProgressIcon({ className = "h-5 w-5" }: { className?: string })
   );
 }
 
-function displayTrainingIcon(icon: string | undefined, className?: string) {
-  return icon && icon !== "book" && !emojiIconPattern.test(icon) ? icon : <TrainingBookIcon className={className} />;
+function TrainingCourseIllustration({ category, className = "size-20" }: { category: string; className?: string }) {
+  const artwork: Record<string, React.ReactNode> = {
+    "Kinh doanh": <>
+      <rect x="17" y="18" width="62" height="58" rx="5" />
+      <path d="M28 64h42M33 63V52h8v11m8 0V44h8v19m8 0V35h7v28" />
+      <path d="m31 41 15-12 10 5 12-12m-7 0h7v7" />
+    </>,
+    "Văn hóa": <>
+      <path d="M48 39c-8-6-18-7-29-4v38c11-3 21-2 29 4 8-6 18-7 29-4V35c-11-3-21-2-29 4Z" />
+      <path d="M48 39v38M27 47c5-.5 9 0 14 2m-14 7c5-.5 9 0 14 2m14-9c5-2 9-2.5 14-2m-14 11c5-2 9-2.5 14-2" />
+      <path d="M48 30c-7-5-12-9-12-15a7 7 0 0 1 12-4 7 7 0 0 1 12 4c0 6-5 10-12 15Z" />
+    </>,
+    "Kỹ thuật": <>
+      <path d="M68 15a17 17 0 0 0-19 21L23 62a10 10 0 0 0 14 14l26-26a17 17 0 0 0 21-19L73 42 62 31l11-11a17 17 0 0 0-5-5Z" />
+      <circle cx="30" cy="69" r="3" />
+    </>,
+    "Công nghệ": <>
+      <rect x="17" y="20" width="62" height="48" rx="5" />
+      <path d="M10 77h76l-7-9H17l-7 9ZM38 35l-10 9 10 9m20-18 10 9-10 9M54 32 43 56" />
+    </>,
+    default: <>
+      <path d="M48 34c-9-6-19-7-31-4v43c12-3 22-2 31 4 9-6 19-7 31-4V30c-12-3-22-2-31 4Z" />
+      <path d="M48 34v43M26 43c6-.5 10 0 15 2m14 0c5-2 9-2.5 15-2" />
+      <path d="m48 13 25 11-25 11-25-11 25-11ZM33 29v8c9 6 21 6 30 0v-8M73 24v15" />
+    </>,
+  };
+
+  return (
+    <svg className={className} viewBox="0 0 96 96" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="66" cy="32" r="23" fill="currentColor" opacity="0.08" stroke="none" />
+      {artwork[category] ?? artwork.default}
+    </svg>
+  );
 }
 
-type TrainingGlyphName = "clock" | "instructor" | "learners" | "document" | "video" | "tip";
+type TrainingCardInfoIconName = "duration" | "instructor" | "learners" | "lessons";
 
-function TrainingGlyph({ name, className = "h-4 w-4" }: { name: TrainingGlyphName; className?: string }) {
-  const shapes: Record<TrainingGlyphName, React.ReactNode> = {
-    clock: <><circle cx="12" cy="12" r="8.5" fill="#E8F7FF" /><path d="M12 7v5l3 2" /></>,
-    instructor: <><circle cx="8" cy="8" r="2.5" fill="#85DDFF" /><path d="M3.5 19v-2a4.5 4.5 0 0 1 9 0v2M14 6h6v9h-5M16 11l2-2" /></>,
-    learners: <><circle cx="8" cy="8" r="2.5" fill="#85DDFF" /><circle cx="16.5" cy="8.5" r="2" fill="#B7EAFE" /><path d="M3.5 19v-2a4.5 4.5 0 0 1 9 0v2M13 15a4 4 0 0 1 7.5 2v2h-5" /></>,
-    document: <><path d="M5 3.5h9l5 5V21H5V3.5Z" fill="#E8F7FF" /><path d="M14 3.5v5h5M8 12h8M8 15h8M8 18h5" /></>,
-    video: <><rect x="3.5" y="5" width="17" height="14" rx="3" fill="#E8F7FF" /><path d="m10 9 5 3-5 3V9Z" fill="#00ADFC" stroke="none" /></>,
-    tip: <><path d="M8.5 16.5c-.2-2-3-3.2-3-6.8a6.5 6.5 0 0 1 13 0c0 3.6-2.8 4.8-3 6.8H8.5Z" fill="#E8F7FF" /><path d="M9 19h6M10 21h4" /></>,
+function TrainingCardInfoIcon({ name }: { name: TrainingCardInfoIconName }) {
+  const shape: Record<TrainingCardInfoIconName, React.ReactNode> = {
+    duration: <><circle cx="12" cy="12.5" r="8.2" /><path d="M12 7.7v5.1l3.3 2M9.4 2.8h5.2M12 2.8v1.5" /></>,
+    instructor: <><circle cx="7.4" cy="8" r="2.5" /><path d="M2.8 19v-1.6c0-2.5 1.8-4.1 4.6-4.1 2 0 3.5.8 4.2 2.2M13.3 4.8h7.3v11h-6.3M15.2 11.7l2-2 1.4 1.1" /></>,
+    learners: <><circle cx="8.1" cy="8.1" r="2.6" /><circle cx="16.6" cy="9" r="2.2" /><path d="M2.7 19.5v-1.2c0-2.9 2-4.7 5.4-4.7s5.4 1.8 5.4 4.7v1.2m2.9-5.4c2.8.1 4.7 1.8 4.7 4.4v1" /></>,
+    lessons: <><path d="M13.8 3.2H6.3c-1.3 0-2.2.9-2.2 2.2v13.2c0 1.3.9 2.2 2.2 2.2h11.3c1.3 0 2.2-.9 2.2-2.2V9.2l-6-6Z" /><path d="M13.8 3.2v6h6M8 13h8m-8 3.4h6" /></>,
   };
-  return <svg className={`${className} shrink-0`} viewBox="0 0 24 24" fill="none" stroke="#007EB8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[name]}</svg>;
+
+  return <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shape[name]}</svg>;
+}
+
+function formatCourseDate(value: TrainingCourse["createdAt"]): string | null {
+  if (!value) return null;
+  const date = typeof value?.toDate === "function"
+    ? value.toDate()
+    : value?.seconds
+      ? new Date(value.seconds * 1000)
+      : new Date(value);
+  return date instanceof Date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString("vi-VN")
+    : null;
+}
+
+function TrainingTipIcon() {
+  return <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="#007EB8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8.5 16.5c-.2-2-3-3.2-3-6.8a6.5 6.5 0 0 1 13 0c0 3.6-2.8 4.8-3 6.8H8.5Z" fill="#E8F7FF" /><path d="M9 19h6M10 21h4" /></svg>;
 }
 
 interface TrainingTabProps {
@@ -133,7 +179,13 @@ export default function TrainingTab({
 
   // Supervisory view filter
   const [trainingFilter, setTrainingFilter] = useState<string | null>(null);
+  const [courseSearch, setCourseSearch] = useState("");
   const [supervisorEnrollments, setSupervisorEnrollments] = useState<TrainingEnrollment[]>([]);
+  const normalizedCourseSearch = courseSearch.trim().toLocaleLowerCase("vi");
+  const visibleCourses = normalizedCourseSearch
+    ? courses.filter((course) => [course.title, course.category, course.instructor]
+        .some((value) => value?.toLocaleLowerCase("vi").includes(normalizedCourseSearch)))
+    : courses;
 
   const fetchMyEnrollments = async (uid: string) => {
     try {
@@ -789,12 +841,12 @@ export default function TrainingTab({
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-3 md:p-5" id="hr_tab_content">
-        <div className="space-y-5" id="elearning_catalog">
+      <div className="min-h-0 flex-1 overflow-y-auto" id="hr_tab_content">
+        <div className="min-h-full space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6" id="elearning_catalog">
           {/* Training section title and supervisor controls */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="text-balance text-xl font-semibold text-on-surface">Đào tạo nhân sự</h2>
+              <HrPageTitle>Đào tạo nhân sự</HrPageTitle>
               <span className="rounded-full bg-primary-container px-2.5 py-1 text-xs font-medium text-on-surface-variant tabular-nums">
                 {courses.length} khóa học
               </span>
@@ -818,27 +870,44 @@ export default function TrainingTab({
                     handleCloseModal();
                     setIsAddCourseModalOpen(true);
                   }}
-                  className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-on-primary transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  className={primaryCreateButtonClass}
                 >
-                  <Plus className="size-4" aria-hidden="true" />
+                  <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
                   Tạo khóa học
                 </button>
               </div>
             )}
           </div>
 
+          <label className="relative block w-full sm:max-w-md">
+            <span className="sr-only">Tìm khóa học</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
+            <input
+              type="search"
+              value={courseSearch}
+              onChange={(event) => setCourseSearch(event.target.value)}
+              placeholder="Tìm theo tên, danh mục hoặc giảng viên..."
+              className="min-h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </label>
+
           {/* Course Catalog list */}
-          <div className="grid grid-cols-1 gap-4 text-left md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 items-start gap-3 text-left md:grid-cols-2 xl:grid-cols-3">
             {courses.length === 0 ? (
               <div className="col-span-full rounded-2xl border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-12 text-center">
-                <BookOpen className="mx-auto size-7 text-primary" aria-hidden="true" />
-                <p className="mt-3 text-sm font-medium text-on-surface">Chưa có khóa học nào</p>
+                <HrEmptyIllustration kind="training" className="mx-auto" />
+                <p className="mt-1 text-sm font-medium text-on-surface">Chưa có khóa học nào</p>
                 <p className="mt-1 text-pretty text-sm text-on-surface-variant">
                   {isSupervisor ? "Tạo khóa học đầu tiên để nhân viên bắt đầu học." : "Khóa học sẽ xuất hiện tại đây khi được đăng tải."}
                 </p>
               </div>
+            ) : visibleCourses.length === 0 ? (
+              <div className="col-span-full rounded-2xl border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-12 text-center">
+                <HrEmptyIllustration kind="search" className="mx-auto" />
+                <p className="mt-1 text-sm font-medium text-on-surface">Không tìm thấy khóa học phù hợp.</p>
+              </div>
             ) : (
-              courses.map((course) => {
+              visibleCourses.map((course) => {
                 const targetUid = trainingFilter || userProfile?.uid || "";
 
                 const enrollList = trainingFilter ? supervisorEnrollments : enrollments;
@@ -846,80 +915,68 @@ export default function TrainingTab({
 
                 const progress = myEnrollment ? myEnrollment.progress : 0;
                 const isCompleted = myEnrollment ? myEnrollment.status === "completed" : false;
+                const actionLabel = !myEnrollment ? "Bắt đầu" : isCompleted ? "Xem bằng" : "Tiếp tục";
+                const actionAccessibleLabel = !myEnrollment ? "Bắt đầu học" : isCompleted ? "Xem văn bằng" : "Tiếp tục học";
+                const category = course.category || "Văn hóa";
+                const additionalTags = [...new Set((course.tags || []).map((tag) => tag.trim()).filter(Boolean))]
+                  .filter((tag) => tag.toLocaleLowerCase("vi") !== category.trim().toLocaleLowerCase("vi"));
+                const createdAtLabel = formatCourseDate(course.createdAt);
 
                 return (
-                  <article key={course.id} className="flex min-w-0 flex-col rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-container text-xl" aria-hidden="true">{displayTrainingIcon(course.icon, "size-6")}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="max-w-full truncate rounded-full bg-primary-container px-2 py-0.5 text-[11px] font-medium text-on-surface-variant">{course.category || "Văn hóa"}</span>
-                          {course.isRequired && <span className="rounded-full bg-surface-container-low px-2 py-0.5 text-[11px] font-medium text-on-surface-variant">Bắt buộc</span>}
-                        </div>
-                        <h3 className="mt-1 line-clamp-2 text-balance text-sm font-semibold leading-snug text-on-surface" title={course.title}>{course.title}</h3>
+                  <article key={course.id} className="flex min-w-0 overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
+                    <TrainingCourseCardArtwork id={course.id || course.title} category={category} />
+                    <div className="flex min-w-0 flex-1 flex-col p-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-on-surface" title={course.title}>{course.title}</h3>
+                      <span className="max-w-24 shrink-0 truncate rounded-full bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary" title={category}>{category}</span>
+                    </div>
+                    <div className="mt-2 flex min-w-0 items-center gap-3 text-xs text-on-surface-variant">
+                      {createdAtLabel && <span className="inline-flex shrink-0 items-center gap-1 tabular-nums"><CalendarDays className="size-3.5" aria-hidden="true" />{createdAtLabel}</span>}
+                      <span className="inline-flex min-w-0 items-center gap-1" title={`Giảng viên: ${course.instructor}`}><TrainingCardInfoIcon name="instructor" /><span className="truncate">{course.instructor || "Chưa cập nhật"}</span></span>
+                    </div>
+                    {(course.isRequired || additionalTags.length > 0) && (
+                      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+                        {course.isRequired && <span className="rounded-full bg-surface-container-low px-2 py-0.5 text-[11px] text-on-surface-variant">Bắt buộc</span>}
+                        {additionalTags.slice(0, 2).map((tag) => <span key={tag} className="max-w-20 truncate rounded-full bg-surface-container-low px-2 py-0.5 text-[11px] text-on-surface-variant" title={tag}>{tag}</span>)}
+                        {additionalTags.length > 2 && <span className="text-[11px] text-on-surface-variant tabular-nums">+{additionalTags.length - 2}</span>}
                       </div>
-                        {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter && (
-                          <div className="flex shrink-0 self-start items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditCourse(course)}
-                              className="flex size-8 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
-                              title="Sửa khóa học"
-                              aria-label={`Sửa khóa học ${course.title}`}
-                            >
-                              <Edit2 className="size-4" aria-hidden="true" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteCourse(course.id)}
-                              className="flex size-8 items-center justify-center rounded-lg text-rose-700 transition-colors hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-rose-600"
-                              title="Xóa khóa học"
-                              aria-label={`Xóa khóa học ${course.title}`}
-                            >
-                              <Trash2 className="size-4" aria-hidden="true" />
-                            </button>
-                          </div>
-                        )}
-                    </div>
-                    {course.description && <p className="mt-3 line-clamp-2 text-pretty text-xs leading-relaxed text-on-surface-variant" title={course.description}>{course.description}</p>}
-                    <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-outline-variant pt-3 text-xs text-on-surface-variant">
-                      <div className="flex min-w-0 items-center gap-2" title={`Thời lượng: ${course.duration}`}><TrainingGlyph name="clock" /><span className="truncate">{course.duration || "Chưa xác định"}</span></div>
-                      <div className="flex min-w-0 items-center gap-2" title={`Giảng viên: ${course.instructor}`}><TrainingGlyph name="instructor" /><span className="truncate">{course.instructor || "Chưa cập nhật"}</span></div>
-                      <div className="flex min-w-0 items-center gap-2" title={`Học viên: ${course.enrolledCount || 0}`}><TrainingGlyph name="learners" /><span className="truncate tabular-nums">{course.enrolledCount || 0} học viên</span></div>
-                      <div className="flex min-w-0 items-center gap-2" title={`Bài giảng: ${(course.lessons || []).length}`}><TrainingGlyph name="document" /><span className="truncate tabular-nums">{(course.lessons || []).length} bài học</span></div>
-                    </div>
-
-                    <div className="mt-auto flex flex-wrap items-center justify-end gap-3 border-t border-outline-variant pt-3">
-                      {myEnrollment && (
-                        <div className="mr-auto flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
+                        <div
+                          role="progressbar"
+                          aria-label={`Tiến độ học khóa ${course.title}`}
+                          aria-valuenow={progress}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          className="h-1.5 w-full max-w-14 overflow-hidden rounded-full bg-primary-container"
+                        >
                           <div
-                            role="progressbar"
-                            aria-label={`Tiến độ học khóa ${course.title}`}
-                            aria-valuenow={progress}
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            className="h-1.5 w-full max-w-24 overflow-hidden rounded-full bg-primary-container"
-                          >
-                            <div
-                              className="h-full rounded-full bg-primary"
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
-                          <span className="shrink-0 text-xs text-on-surface-variant tabular-nums">{progress}%</span>
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${progress}%` }}
+                          />
                         </div>
-                      )}
-                      <div className="shrink-0">
+                        <span className="shrink-0 text-xs text-on-surface tabular-nums">{progress}%</span>
+                      </div>
+                      <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
+                        {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter && (
+                          <>
+                            <button type="button" onClick={() => handleOpenEditCourse(course)} className="flex size-8 items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary" title="Sửa khóa học" aria-label={`Sửa khóa học ${course.title}`}><Edit2 className="size-4" aria-hidden="true" /></button>
+                            <button type="button" onClick={() => handleDeleteCourse(course.id)} className="flex size-8 items-center justify-center rounded-lg text-rose-700 hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-rose-600" title="Xóa khóa học" aria-label={`Xóa khóa học ${course.title}`}><Trash2 className="size-4" aria-hidden="true" /></button>
+                          </>
+                        )}
                         <button
                           type="button"
                           disabled={!!trainingFilter}
                           onClick={() => handleEnrollAndStart(course)}
-                          className="min-h-9 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-on-primary transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label={`${actionAccessibleLabel} khóa ${course.title}`}
+                          className="inline-flex h-8 w-24 shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-primary px-2 text-xs font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
+                          {actionLabel}
                         </button>
                       </div>
                     </div>
-
+                    </div>
                   </article>
                 );
               })
@@ -958,7 +1015,7 @@ export default function TrainingTab({
                 <span className="h-4 w-1 rounded-full bg-[#00ADFC]" />
                 {editingCourse ? "Cập Nhật Khóa Học" : "Tạo Khóa Học Mới"}
               </h4>
-              <button type="button" onClick={handleCloseModal} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer">
+              <button type="button" onClick={handleCloseModal} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600 cursor-pointer" data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1305,12 +1362,14 @@ export default function TrainingTab({
             {/* Player header */}
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-4 py-3 text-on-surface md:px-5">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-container text-2xl" aria-hidden="true">{displayTrainingIcon(activeStudyCourse.icon)}</span>
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-container" aria-hidden="true">
+                  <TrainingCourseIllustration category={activeStudyCourse.category || "Đào tạo"} className="size-9 text-primary" />
+                </span>
                 <div className="min-w-0 text-left">
                   <span className="rounded-full bg-primary-container px-2 py-0.5 text-[11px] text-on-surface-variant">
                     {activeStudyCourse.category || "Đào tạo"}
                   </span>
-                  <h4 className="mt-1 truncate text-sm font-semibold leading-snug text-on-surface">{activeStudyCourse.title}</h4>
+                  <h4 className="mt-1 truncate text-sm font-medium leading-snug text-on-surface">{activeStudyCourse.title}</h4>
                 </div>
               </div>
               <button
@@ -1318,7 +1377,7 @@ export default function TrainingTab({
                 onClick={() => setActiveStudyCourse(null)}
                 aria-label="Đóng"
                 className="flex size-9 shrink-0 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"
-              >
+               data-erp-modal-close>
                 <X className="size-5" aria-hidden="true" />
               </button>
             </div>
@@ -1326,7 +1385,7 @@ export default function TrainingTab({
             {/* Main view study space */}
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
               {/* Left sidebar: Course syllabus outline */}
-              <div className="flex max-h-48 w-full shrink-0 flex-col justify-between overflow-y-auto border-b border-outline-variant bg-surface-container-low p-4 md:max-h-none md:w-60 md:border-b-0 md:border-r">
+              <div className="training-study-scroll flex max-h-48 w-full shrink-0 flex-col justify-between overflow-y-auto border-b border-outline-variant bg-surface-container-low p-4 md:max-h-none md:w-60 md:border-b-0 md:border-r">
                 <div className="space-y-4">
                   <div className="text-left select-none">
                     <span className="block text-sm font-medium text-on-surface">Tiến độ hoàn thành</span>
@@ -1437,13 +1496,12 @@ export default function TrainingTab({
               </div>
 
               {/* Right panel: Active lesson reader viewport */}
-              <div className="flex min-h-0 flex-1 flex-col justify-between overflow-y-auto bg-surface p-4 md:p-6">
+              <div className="training-study-scroll flex min-h-0 flex-1 flex-col justify-between overflow-y-auto bg-surface p-4 md:p-5">
                 {/* Section 1: Intro Overview display */}
                 {activeLessonIndex === -1 && (
-                  <div className="mx-auto flex h-full w-full max-w-2xl flex-col justify-between gap-6 py-2 text-left">
+                  <div className="mx-auto flex h-full w-full max-w-2xl flex-col justify-between gap-6 text-left">
                     <div className="space-y-5">
                       <div className="border-b border-outline-variant pb-5">
-                        <span className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary-container text-2xl" aria-hidden="true">{displayTrainingIcon(activeStudyCourse.icon, "size-7")}</span>
                         <h2 className="text-balance text-xl font-semibold leading-tight text-on-surface">{activeStudyCourse.title}</h2>
                         <p className="mt-1 text-sm text-on-surface-variant">Giảng viên: {activeStudyCourse.instructor || "Chưa cập nhật"}</p>
                       </div>
@@ -1494,8 +1552,8 @@ export default function TrainingTab({
                   const isCompleted = enrollments.find(e => e.courseId === activeStudyCourse.id)?.completedLessons?.includes(`lesson_${activeLessonIndex}`);
 
                   return (
-                    <div className="space-y-6 text-left max-w-2xl mx-auto h-full flex flex-col justify-between py-4 w-full">
-                      <div className="space-y-5 flex-1 overflow-y-auto pr-1">
+                    <div className="flex h-full w-full flex-col justify-between gap-6 text-left">
+                      <div className="training-study-scroll min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
                         <div className="pb-4 border-b">
                           <span className="text-xs text-slate-600">Bài giảng {activeLessonIndex + 1} / {activeStudyCourse.lessons?.length}</span>
                           <h3 className="text-lg font-bold text-slate-800 mt-1 font-sans leading-snug">{les.title}</h3>
@@ -1533,7 +1591,7 @@ export default function TrainingTab({
                               )}
                             </div>
                             <div className="flex items-start gap-2 rounded-2xl border border-gray-150 bg-white p-4 text-xs leading-relaxed text-slate-600 shadow-3xs">
-                              <TrainingGlyph name="tip" />
+                              <TrainingTipIcon />
                               <span>Lớp học video: Nhấp vào nút chạy Video phía trên và hoàn thành theo thời lượng video trước khi nhấp "Hoàn thành bài học" bên dưới.</span>
                             </div>
                           </div>
@@ -1647,15 +1705,15 @@ export default function TrainingTab({
                   const isPassed = enrollments.find(e => e.courseId === activeStudyCourse.id)?.quizPassed;
 
                   return (
-                    <div className="space-y-6 text-left max-w-2xl mx-auto h-full flex flex-col justify-between py-4 w-full">
-                      <div className="space-y-5 flex-1 overflow-y-auto pr-1">
+                    <div className="flex h-full w-full flex-col justify-between gap-6 text-left">
+                      <div className="training-study-scroll min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
                         <div className="pb-4 border-b select-none">
-                          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest font-mono flex items-center gap-1">
+                          <span className="text-[10px] font-medium text-emerald-600 uppercase tracking-widest font-mono flex items-center gap-1">
                             <HelpCircle className="w-3.5 h-3.5" />
                             Đánh giá sát hạch trắc nghiệm
                           </span>
-                          <h3 className="text-lg font-bold text-slate-800 mt-1 font-sans leading-snug">Bài thi cuối khóa: {activeStudyCourse.title}</h3>
-                          <p className="text-[10px] text-gray-400 mt-1">Trả lời đúng 100% số câu hỏi ({quizzes.length} câu) để được cấp chứng nhận và tokens.</p>
+                          <h3 className="mt-1 text-balance font-sans text-lg font-semibold leading-snug text-on-surface">Bài thi cuối khóa: {activeStudyCourse.title}</h3>
+                          <p className="mt-1 text-pretty text-xs text-on-surface-variant">Trả lời đúng 100% số câu hỏi ({quizzes.length} câu) để hoàn thành bài kiểm tra.</p>
                         </div>
 
                         {/* Quiz form listing */}
@@ -1669,7 +1727,7 @@ export default function TrainingTab({
                                 className={`p-5 rounded-2xl border transition-all ${isError ? "bg-rose-50/50 border-rose-200 shadow-rose-50" : "bg-white border-gray-150 shadow-3xs"
                                   }`}
                               >
-                                <h4 className="font-bold text-xs text-slate-800 leading-snug flex gap-2">
+                                <h4 className="flex gap-2 text-balance text-xs font-medium leading-snug text-on-surface">
                                   <span className="font-mono text-[#007eb8] shrink-0">Q{idx + 1}:</span>
                                   {q.question}
                                 </h4>
@@ -1682,7 +1740,7 @@ export default function TrainingTab({
                                       <label
                                         key={oIdx}
                                         className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer select-none transition-all ${isSelected
-                                            ? "bg-[#E8F7FF] border-[#9bdfff] ring-2 ring-[#00ADFC]/10 text-[#006b9d] font-semibold"
+                                            ? "bg-[#E8F7FF] border-[#9bdfff] ring-2 ring-[#00ADFC]/10 text-[#006b9d] font-medium"
                                             : "hover:bg-slate-50 border-gray-150 text-slate-650 font-medium"
                                           }`}
                                       >
@@ -1715,7 +1773,7 @@ export default function TrainingTab({
                                 </div>
 
                                 {isError && (
-                                  <div className="mt-3 text-[10px] text-rose-650 font-bold flex items-center gap-1 font-sans">
+                                  <div className="mt-3 text-[10px] text-rose-650 font-medium flex items-center gap-1 font-sans">
                                     <AlertCircle className="w-3.5 h-3.5" />
                                     Câu trả lời chưa chính xác. Vui lòng chọn lại.
                                   </div>
@@ -1726,7 +1784,7 @@ export default function TrainingTab({
                         </div>
                       </div>
 
-                      <div className="pt-6 border-t flex justify-between items-center shrink-0 select-none">
+                      <div className="flex shrink-0 items-center justify-between border-t border-outline-variant pt-4">
                         <button
                           type="button"
                           onClick={() => {
@@ -1734,7 +1792,7 @@ export default function TrainingTab({
                               setActiveLessonIndex(activeStudyCourse.lessons.length - 1);
                             }
                           }}
-                          className="px-4 py-2 border border-gray-200 hover:bg-slate-100 text-slate-655 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                          className="px-4 py-2 border border-gray-200 hover:bg-slate-100 text-slate-655 font-medium rounded-xl text-xs transition-colors cursor-pointer"
                         >
                           ← Quay lại bài giảng
                         </button>
@@ -1744,7 +1802,7 @@ export default function TrainingTab({
                             type="button"
                             onClick={handleSubmitQuiz}
                             disabled={isQuizEvaluating}
-                            className="px-6 py-2.5 bg-[#00ADFC] hover:bg-[#0097dc] text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 font-sans"
+                            className="px-6 py-2.5 bg-[#00ADFC] hover:bg-[#0097dc] text-white font-semibold rounded-xl text-xs shadow-md transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 font-sans"
                           >
                             {isQuizEvaluating ? (
                               <>
@@ -1759,7 +1817,7 @@ export default function TrainingTab({
                           <button
                             type="button"
                             onClick={handleFinishCourse}
-                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer font-sans"
+                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-semibold rounded-xl text-xs shadow-md transition-all cursor-pointer font-sans"
                           >
                             Hoàn thành
                           </button>

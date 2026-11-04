@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { HrEmptyIllustration } from "./HrEmptyIllustration";
+import { HrPageTitle } from "./HrPageTitle";
+import { HrStatusBadge } from "./HrStatusBadge";
 import { renderAsync } from "docx-preview";
 import {
   Plus,
@@ -20,9 +23,9 @@ import {
   ArrowRight,
   ChevronDown,
   Clock,
-  CheckCircle2,
   ExternalLink,
   Eye,
+  Search,
 } from "lucide-react";
 import {
   UserProfile,
@@ -37,6 +40,7 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { AttachmentEditor } from "./KanbanTab";
 import { HrFormSelect } from "./HrFormSelect";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 
 interface WorkflowTabProps {
   userProfile: UserProfile | null;
@@ -51,11 +55,12 @@ let idCounter = 0;
 const genId = (prefix: string) =>
   `${prefix}_${Date.now().toString(36)}_${(idCounter++).toString(36)}`;
 
-function WorkflowStageBranch({ childStages, stageNumber, isDark, showOutgoing = true }: {
+function WorkflowStageBranch({ childStages, stageNumber, isDark, showOutgoing = true, reverse = false }: {
   childStages: WorkflowSubTask[];
   stageNumber: number;
   isDark: boolean;
   showOutgoing?: boolean;
+  reverse?: boolean;
 }) {
   const cardHeight = 44;
   const gap = 8;
@@ -66,8 +71,8 @@ function WorkflowStageBranch({ childStages, stageNumber, isDark, showOutgoing = 
   const lineColor = isDark ? "#38bdf8" : "#00adfc";
 
   return (
-    <div className="flex shrink-0 items-center" aria-label={`${childStages.length} giai đoạn con của bước ${stageNumber}`}>
-      <svg width="58" height={height} viewBox={`0 0 58 ${height}`} fill="none" aria-hidden="true" className="shrink-0 overflow-visible">
+    <div className={`flex shrink-0 items-center ${reverse ? "flex-row-reverse" : ""}`} aria-label={`${childStages.length} giai đoạn con của bước ${stageNumber}`}>
+      <svg width="58" height={height} viewBox={`0 0 58 ${height}`} fill="none" aria-hidden="true" className="shrink-0 overflow-visible" style={reverse ? { transform: "scaleX(-1)" } : undefined}>
         {childCenters.map((y, index) => (
           <g key={childStages[index].id} stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d={`M0 ${middle} C26 ${middle} 28 ${y} 58 ${y}`} />
@@ -83,7 +88,7 @@ function WorkflowStageBranch({ childStages, stageNumber, isDark, showOutgoing = 
           </div>
         ))}
       </div>
-      {showOutgoing && <svg width="62" height={height} viewBox={`0 0 62 ${height}`} fill="none" aria-hidden="true" className="shrink-0 overflow-visible">
+      {showOutgoing && <svg width="62" height={height} viewBox={`0 0 62 ${height}`} fill="none" aria-hidden="true" className="shrink-0 overflow-visible" style={reverse ? { transform: "scaleX(-1)" } : undefined}>
         {childCenters.map((y, index) => {
           const targetY = middle + (index - (childStages.length - 1) / 2) * Math.min(18, 72 / Math.max(1, childStages.length - 1));
           return <g key={childStages[index].id} stroke={lineColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -110,6 +115,7 @@ export default function WorkflowTab({
   activeBranchId,
 }: WorkflowTabProps) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [workflowSearch, setWorkflowSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<"list" | "detail">("list");
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -138,6 +144,15 @@ export default function WorkflowTab({
     }
     return [{ value: "", label: "Chọn phân loại" }, ...[...categories.values()].map(label => ({ value: label, label }))];
   }, [customCategories, workflows]);
+
+  const filteredWorkflows = useMemo(() => {
+    const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("vi-VN").replace(/đ/g, "d");
+    const query = normalize(workflowSearch.trim());
+    if (!query) return workflows;
+    return workflows.filter(workflow =>
+      normalize(workflow.name || "").includes(query) || normalize(workflow.category || "").includes(query)
+    );
+  }, [workflows, workflowSearch]);
 
   const handleAddCategory = (event: React.FormEvent) => {
     event.preventDefault();
@@ -514,20 +529,13 @@ export default function WorkflowTab({
 
   if (view === "list") {
     return (
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-white" id="workflow_tab">
-        <div className="mx-5 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dce7f4] bg-white px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-[#e8f7ff] p-2.5 text-[#009fdf]">
-              <Layers className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-medium text-slate-800">
-                Quy trình làm việc
-                <span className="rounded-full border border-[#bceaff] bg-[#f0faff] px-2.5 py-0.5 text-xs font-normal text-[#008dcc]">
-                  {workflows.length}
-                </span>
-              </h2>
-            </div>
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6">
+          <div className="flex items-center gap-2.5">
+            <HrPageTitle>Quy trình làm việc</HrPageTitle>
+            <span className="rounded-full border border-[#bceaff] bg-[#f0faff] px-2.5 py-0.5 text-xs font-normal text-[#008dcc]">
+              {workflows.length}
+            </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -546,15 +554,16 @@ export default function WorkflowTab({
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </button>
             <button
+              type="button"
               onClick={() => {
                 setWizardData(null);
                 setWizardNewCategory("");
                 setWizardOpen(true);
               }}
               disabled={!canEdit}
-              className="flex items-center gap-1.5 rounded-xl bg-[#00adfc] px-3.5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0097df] disabled:opacity-40"
+               className={primaryCreateButtonClass}
             >
-              <Plus className="h-4 w-4" /> Quy trình mới
+               <Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Quy trình mới
             </button>
           </div>
         </div>
@@ -582,7 +591,7 @@ export default function WorkflowTab({
                   <span className="rounded-xl bg-[#e8f7ff] p-2 text-[#009fdf]"><Tag className="h-4 w-4" /></span>
                   <h2 id="workflow-category-title" className="text-base font-normal text-slate-800">Tạo nhãn phân loại</h2>
                 </div>
-                <button type="button" onClick={() => setCategoryDialogOpen(false)} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600"><X className="h-4 w-4" /></button>
+                <button type="button" onClick={() => setCategoryDialogOpen(false)} aria-label="Đóng" className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600" data-erp-modal-close><X className="h-4 w-4" /></button>
               </div>
               <div className="px-5 py-5">
                 <label htmlFor="workflow-category-name" className="mb-1.5 block text-sm font-normal text-slate-700">Tên nhãn</label>
@@ -596,80 +605,98 @@ export default function WorkflowTab({
           </div>
         )}
 
+        <div className="px-4 pb-1 sm:px-6">
+          <label htmlFor="workflow-search" className="sr-only">Tìm theo tên quy trình hoặc tên nhãn</label>
+          <div className="relative w-full max-w-md">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
+            <input
+              id="workflow-search"
+              type="search"
+              value={workflowSearch}
+              onChange={event => setWorkflowSearch(event.target.value)}
+              placeholder="Tìm theo tên quy trình hoặc tên nhãn..."
+              className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest py-2.5 pl-10 pr-3 text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
+            />
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto p-5">
           {workflows.length === 0 ? (
             <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-[#dce7f4] bg-[#f8fbff] px-5 text-center">
-              <span className="rounded-2xl bg-[#e8f7ff] p-3 text-[#00a4ee]"><WorkflowIcon className="h-7 w-7" /></span>
-              <p className="mt-3 text-sm font-medium text-slate-700">
+              <HrEmptyIllustration kind="workflow" />
+              <p className="mt-1 text-sm font-medium text-slate-700">
                 Chưa có quy trình nào
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 Nhấn “Quy trình mới” để tạo quy trình gồm các bước thực hiện.
               </p>
             </div>
+          ) : filteredWorkflows.length === 0 ? (
+            <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-outline-variant bg-surface-container-lowest px-5 text-center" role="status">
+              <HrEmptyIllustration kind="search" />
+              <p className="mt-1 text-pretty text-sm font-medium text-on-surface">Không tìm thấy quy trình phù hợp.</p>
+              <button type="button" onClick={() => setWorkflowSearch("")} className="mt-3 rounded-lg px-3 py-1.5 text-sm text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Xóa tìm kiếm</button>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {workflows.map((wf) => {
+            <div className="overflow-x-auto rounded-md border border-outline-variant">
+              <table className="w-full min-w-[680px] border-collapse text-left text-sm">
+                <thead className="bg-surface text-xs text-on-surface-variant">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 font-medium">Tên quy trình</th>
+                    <th scope="col" className="px-4 py-3 font-medium">Phân loại</th>
+                    <th scope="col" className="px-4 py-3 text-center font-medium">Số bước</th>
+                    <th scope="col" className="px-4 py-3 font-medium">Mô tả</th>
+                    <th scope="col" className="px-4 py-3 text-right font-medium">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant">
+              {filteredWorkflows.map((wf) => {
                 const total = wf.steps?.length || 0;
                 return (
-                  <div
-                    key={wf.id}
-                    className="group flex flex-col rounded-2xl border border-[#dce7f4] bg-white p-4 text-left shadow-sm transition-all hover:border-[#70d5ff] hover:shadow-md"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f7ff] text-[#009fdf]">
-                        <WorkflowIcon className="h-5 w-5" />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {wf.category && (
-                          <span className="mr-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-normal text-slate-500">
-                            {wf.category}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDetail(wf);
-                          }}
-                          className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-[#e8f7ff] hover:text-[#009fdf]"
-                          title="Xem chi tiết quy trình"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        {canEdit && (
+                  <tr key={wf.id} className="hover:bg-surface/60">
+                    <td className="px-4 py-2.5">
+                      <button type="button" onClick={() => openDetail(wf)} className="block max-w-72 truncate text-left font-medium text-on-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary" title={wf.name}>{wf.name}</button>
+                    </td>
+                    <td className="max-w-40 px-4 py-2.5 text-on-surface-variant">{wf.category ? <HrStatusBadge tone="info" className="max-w-36" title={wf.category}>{wf.category}</HrStatusBadge> : "—"}</td>
+                    <td className="px-4 py-2.5 text-center tabular-nums text-on-surface">{total}</td>
+                    <td className="px-4 py-2.5 text-on-surface-variant"><span className="block max-w-80 truncate" title={wf.description || undefined}>{wf.description || "—"}</span></td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setWizardData(wf);
-                              setWizardNewCategory("");
-                              setWizardOpen(true);
+                              openDetail(wf);
                             }}
-                            className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-[#e8f7ff] hover:text-[#009fdf]"
-                            title="Sửa quy trình"
+                            className="cursor-pointer rounded-lg p-1.5 text-on-surface-variant hover:bg-primary/10 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+                            title="Xem chi tiết quy trình"
+                            aria-label={`Xem chi tiết quy trình ${wf.name}`}
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Eye className="h-4 w-4" aria-hidden="true" />
                           </button>
-                        )}
+                          {canEdit && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setWizardData(wf);
+                                setWizardNewCategory("");
+                                setWizardOpen(true);
+                              }}
+                              className="cursor-pointer rounded-lg p-1.5 text-on-surface-variant hover:bg-primary/10 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+                              title="Sửa quy trình"
+                              aria-label={`Sửa quy trình ${wf.name}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                            </button>
+                          )}
                       </div>
-                    </div>
-                    <h3 className="mt-3 line-clamp-2 text-sm font-medium text-slate-800 group-hover:text-[#008dcc]">
-                      {wf.name}
-                    </h3>
-                    {wf.description && (
-                      <p className="mt-1 line-clamp-2 text-[11px] text-slate-400">
-                        {wf.description}
-                      </p>
-                    )}
-                    <div className="mt-3 flex items-center gap-3 border-t border-gray-100 pt-3 text-[11px] font-normal text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <Layers className="h-3.5 w-3.5" /> {total} bước
-                      </span>
-                    </div>
-                  </div>
+                    </td>
+                  </tr>
                 );
               })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -679,7 +706,7 @@ export default function WorkflowTab({
 
   // =================== VIEW: CHI TIẾT (BẢNG CỘT) ===================
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden" id="workflow_tab">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
       {/* Thanh tiêu đề chính nổi bật */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 shadow-2xs">
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -746,8 +773,8 @@ export default function WorkflowTab({
       {/* Bảng sơ đồ Snake Layout + Danh sách giai đoạn (giống giao diện Thiết lập giai đoạn) */}
       {steps.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center text-center p-8">
-          <Layers className="h-8 w-8 text-slate-300" />
-          <p className="mt-2 text-sm font-medium text-slate-400">
+          <HrEmptyIllustration kind="workflow" />
+          <p className="mt-1 text-sm font-medium text-slate-400">
             Chưa có bước nào trong quy trình
           </p>
           <p className="text-xs text-slate-400 mt-1">
@@ -1027,14 +1054,16 @@ export function WorkflowReader({
     return () => observer.disconnect();
   }, [workflow.steps.length]);
 
-  const branchWidth = (step: WorkflowStep) => showStageBranches && step.subTasks?.length ? 280 : 0;
+  const branchWidth = (step: WorkflowStep, hasNextInRow: boolean) =>
+    showStageBranches && step.subTasks?.length ? (hasNextInRow || step === workflow.steps[workflow.steps.length - 1] ? 280 : 218) : 0;
   const rowWidth = (start: number, end: number) => {
     let width = 0;
     for (let index = start; index < end; index++) {
       width += 192;
-      if (index < end - 1) width += branchWidth(workflow.steps[index]) || 46;
-      else if (end < workflow.steps.length && branchWidth(workflow.steps[index])) width += 218;
-      else if (branchWidth(workflow.steps[index])) width += 280 + 192;
+      const branch = branchWidth(workflow.steps[index], index < end - 1);
+      if (branch) width += branch;
+      else if (index < end - 1) width += 46;
+      if (branch && index === workflow.steps.length - 1) width += 192;
     }
     return width;
   };
@@ -1042,25 +1071,27 @@ export function WorkflowReader({
     const count = showStageBranches ? step.subTasks?.length || 0 : 0;
     return count ? count * 44 + (count - 1) * 8 : 112;
   }));
-  const flowRows: { start: number; end: number; width: number; height: number; offset: number }[] = [];
+  const flowRows: { start: number; end: number; width: number; height: number; offset: number; reverse: boolean }[] = [];
   const availableWidth = Math.max(640, (flowWidth || 948) - 48);
   for (let start = 0; start < workflow.steps.length;) {
     const previousRow = flowRows[flowRows.length - 1];
-    let desiredOffset = 0;
-    if (previousRow) {
-      // Center the next main stage below the previous row's outgoing arrow.
-      desiredOffset = previousRow.offset + previousRow.width - 96;
-    }
+    const reverse = flowRows.length % 2 === 1;
+    // The next row begins at the end of the previous row and travels back across the canvas.
+    const anchor = previousRow
+      ? previousRow.reverse ? previousRow.offset : previousRow.offset + previousRow.width
+      : 0;
+    const maxRowWidth = previousRow ? reverse ? anchor : availableWidth - anchor : availableWidth;
     let end = start + 1;
-    while (end < workflow.steps.length && rowWidth(start, end + 1) <= availableWidth - desiredOffset) end++;
-    const offset = Math.min(desiredOffset, Math.max(0, availableWidth - rowWidth(start, end)));
-    flowRows.push({ start, end, width: rowWidth(start, end), height: rowHeight(start, end), offset });
+    while (end < workflow.steps.length && rowWidth(start, end + 1) <= maxRowWidth) end++;
+    const width = rowWidth(start, end);
+    const offset = reverse ? Math.max(0, anchor - width) : anchor;
+    flowRows.push({ start, end, width, height: rowHeight(start, end), offset, reverse });
     start = end;
   }
 
   return (
     <>
-      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-white" id="workflow_tab">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
         <div className="mx-5 mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-[#dce7f4] bg-white px-4 py-3 shadow-sm">
           <button onClick={onBack} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-[#f1f8fd]">
             <ArrowLeft className="h-4 w-4" /> Danh sách quy trình
@@ -1083,54 +1114,48 @@ export function WorkflowReader({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
-          <div className="mx-auto max-w-6xl">
-            <div className="rounded-2xl border border-[#dce7f4] bg-[#f8fbff] p-5 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-normal text-[#008dcc]">Hướng dẫn quy trình</p>
-                  <h1 className="mt-2 text-xl font-medium text-slate-800">{workflow.name}</h1>
-                  {workflow.category && <p className="mt-1 text-xs font-normal text-slate-500">{workflow.category}</p>}
-                </div>
-                <div className="flex items-center gap-2">
-                  {workflow.steps.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowStageBranches((current) => !current)}
-                      aria-label={showStageBranches ? "Ẩn chi tiết giai đoạn con" : "Xem chi tiết giai đoạn con"}
-                      aria-pressed={showStageBranches}
-                      title={showStageBranches ? "Ẩn giai đoạn con" : "Xem giai đoạn con"}
-                      className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${showStageBranches ? "border-[#00adfc] bg-[#e8f7ff] text-[#008dcc]" : "border-[#dce7f4] bg-white text-slate-500 hover:border-[#8edcff] hover:text-[#008dcc]"}`}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  )}
-                  <CheckCircle2 className="h-8 w-8 text-emerald-500" />
-                </div>
-              </div>
-              {workflow.description && <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-600">{workflow.description}</p>}
-            </div>
+          <div className="min-w-0">
+            <h1 className="sr-only">{workflow.name}</h1>
+            {workflow.description && <p className="mb-3 text-pretty text-sm text-on-surface-variant">{workflow.description}</p>}
 
             {workflow.steps.length === 0 ? (
               <div className="mt-5 rounded-2xl border border-dashed border-[#dce7f4] bg-[#f8fbff] p-8 text-center text-sm font-normal text-slate-500">
                 Chưa có bước nào trong quy trình.
               </div>
             ) : (
-              <div ref={flowRef} className="mt-5 overflow-x-auto rounded-2xl border border-[#dce7f4] bg-[#f8fbff] p-6" style={{ backgroundImage: "radial-gradient(#d5e4f4 0.8px, transparent 0.8px)", backgroundSize: "20px 20px" }}>
+              <div ref={flowRef} className="relative overflow-x-auto rounded-2xl border border-[#dce7f4] bg-[#f8fbff] p-6" style={{ backgroundImage: "radial-gradient(#d5e4f4 0.8px, transparent 0.8px)", backgroundSize: "20px 20px" }}>
+                <button
+                  type="button"
+                  onClick={() => setShowStageBranches((current) => !current)}
+                  aria-label={showStageBranches ? "Ẩn chi tiết giai đoạn con" : "Xem chi tiết giai đoạn con"}
+                  aria-pressed={showStageBranches}
+                  title={showStageBranches ? "Ẩn giai đoạn con" : "Xem giai đoạn con"}
+                  className={`absolute right-3 top-3 z-10 flex size-9 items-center justify-center rounded-xl border bg-surface-container-lowest focus-visible:outline-2 focus-visible:outline-primary ${showStageBranches ? "border-primary text-primary" : "border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary"}`}
+                >
+                  <Eye className="size-4" aria-hidden="true" />
+                </button>
                 <div className="flex flex-col items-start py-8">
                 {flowRows.map((row, rowIndex) => {
                   const hasNextRow = rowIndex < flowRows.length - 1;
                   const nextRow = flowRows[rowIndex + 1];
-                  const connectorHeight = row.height / 2 + 64 + (nextRow ? (nextRow.height - 112) / 2 : 0);
-                  const nextCenter = nextRow ? nextRow.offset - row.offset + 96 : 96;
                   const lastStep = workflow.steps[row.end - 1];
                   const wrappingBranches = hasNextRow && showStageBranches ? lastStep.subTasks || [] : [];
                   const branchHeight = Math.max(112, wrappingBranches.length * 44 + Math.max(0, wrappingBranches.length - 1) * 8);
                   const branchTop = (row.height - branchHeight) / 2;
                   const branchStackHeight = wrappingBranches.length * 44 + Math.max(0, wrappingBranches.length - 1) * 8;
-                  const connectorLeft = Math.min(0, nextCenter - 40);
-                  const connectorWidth = Math.max(row.width, nextCenter + 40) - connectorLeft;
-                  return <div key={row.start} className="relative" style={{ width: row.width, minHeight: row.height, marginBottom: hasNextRow ? 64 : 0, marginLeft: row.offset }}>
-                  <ol className="relative z-10 flex items-center" style={{ minHeight: row.height }}>
+                  const exitX = row.reverse ? 0 : row.width;
+                  const bendX = exitX + (row.reverse ? -24 : 24);
+                  const entryX = nextRow ? (nextRow.reverse ? nextRow.offset + nextRow.width : nextRow.offset) - row.offset : 0;
+                  const entryY = nextRow ? row.height + 64 + nextRow.height / 2 : 0;
+                  const turnCenterX = row.reverse ? 96 : row.width - 96;
+                  const turnTargetY = entryY - 58;
+                  const connectorLeft = wrappingBranches.length ? Math.min(exitX, bendX, entryX) : turnCenterX - 6;
+                  const connectorWidth = wrappingBranches.length ? Math.max(exitX, bendX, entryX) - connectorLeft + 1 : 12;
+                  const entryArrow = nextRow?.reverse
+                    ? `m${entryX + 5} ${entryY - 5} -5 5 5 5`
+                    : `m${entryX - 5} ${entryY - 5} 5 5 -5 5`;
+                  return <div key={row.start} data-flow-row data-direction={row.reverse ? "right-to-left" : "left-to-right"} className="relative" style={{ width: row.width, minHeight: row.height, marginBottom: hasNextRow ? 64 : 0, marginLeft: row.offset }}>
+                  <ol className={`relative z-10 flex items-center ${row.reverse ? "flex-row-reverse" : ""}`} style={{ minHeight: row.height }}>
                   {workflow.steps.slice(row.start, row.end).map((step, offset) => {
                     const index = row.start + offset;
                     const childStages = step.subTasks || [];
@@ -1148,26 +1173,24 @@ export function WorkflowReader({
                         </li>
                         {showStageBranches && childStages.length > 0 ? (
                           <>
-                            <li className="list-none"><WorkflowStageBranch childStages={childStages} stageNumber={index + 1} isDark={false} showOutgoing={hasNextInRow || !hasNext} /></li>
+                            <li className="list-none"><WorkflowStageBranch childStages={childStages} stageNumber={index + 1} isDark={false} showOutgoing={hasNextInRow || !hasNext} reverse={row.reverse} /></li>
                             {!hasNext && <li className="flex h-28 w-48 shrink-0 items-center justify-center rounded-2xl border border-[#dce7f4] bg-white text-sm text-slate-700 shadow-sm">Kết thúc</li>}
                           </>
                         ) : hasNextInRow ? (
-                          <li className="list-none" aria-hidden="true"><svg width="46" height="112" viewBox="0 0 46 112" fill="none" aria-hidden="true" className="shrink-0"><path d="M0 56h46m-6-5 6 5-6 5" stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></li>
+                          <li className="list-none" aria-hidden="true"><svg width="46" height="112" viewBox="0 0 46 112" fill="none" aria-hidden="true" className="shrink-0"><path d={row.reverse ? "M46 56H0m6-5-6 5 6 5" : "M0 56h46m-6-5 6 5-6 5"} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg></li>
                         ) : null}
                       </React.Fragment>
                     );
                   })}
                 </ol>
-                {hasNextRow && <svg className={`pointer-events-none absolute overflow-visible ${wrappingBranches.length ? "top-0" : "top-1/2"}`} style={{ left: connectorLeft }} width={connectorWidth} height={wrappingBranches.length ? row.height + 64 + (nextRow.height - 112) / 2 : connectorHeight} viewBox={`${connectorLeft} 0 ${connectorWidth} ${wrappingBranches.length ? row.height + 64 + (nextRow.height - 112) / 2 : connectorHeight}`} fill="none" aria-hidden="true">
+                {hasNextRow && <svg className="pointer-events-none absolute top-0 overflow-visible" style={{ left: connectorLeft }} width={connectorWidth} height={entryY + 1} viewBox={`${connectorLeft} 0 ${connectorWidth} ${entryY + 1}`} fill="none" aria-hidden="true">
                   {wrappingBranches.length ? wrappingBranches.map((child, index) => {
                     const childY = branchTop + (branchHeight - branchStackHeight) / 2 + index * 52 + 22;
-                    const targetX = nextCenter + (index - (wrappingBranches.length - 1) / 2) * Math.min(16, 80 / Math.max(1, wrappingBranches.length - 1));
-                    const targetY = row.height + 64 + (nextRow.height - 112) / 2;
                     return <g key={child.id} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d={`M${row.width} ${childY} C${row.width + 24} ${childY} ${targetX} ${targetY - 32} ${targetX} ${targetY}`} />
-                      <path d={`m${targetX - 5} ${targetY - 5} 5 5 5 -5`} />
+                      <path d={`M${exitX} ${childY} H${bendX} V${entryY} H${entryX}`} />
+                      <path d={entryArrow} />
                     </g>;
-                  }) : <><path d={`M${row.width} 0 V${connectorHeight - 22} H${nextCenter} V${connectorHeight}`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d={`m${nextCenter - 5} ${connectorHeight - 5} 5 5 5 -5`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></>}
+                  }) : <><path d={`M${turnCenterX} ${row.height / 2 + 56} V${turnTargetY}`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" /><path d={`m${turnCenterX - 5} ${turnTargetY - 6} 5 6 5 -6`} stroke="#00adfc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></>}
                 </svg>}
                   </div>;
                 })}
@@ -1212,7 +1235,7 @@ function WorkflowStepDetailModal({
             <p className="text-xs font-normal text-[#008dcc]">Bước {stepIndex + 1}</p>
             <h2 id="workflow-step-detail-title" className="mt-1 text-xl font-medium text-slate-800">{step.title || `Bước ${stepIndex + 1}`}</h2>
           </div>
-          <button onClick={onClose} className="rounded-full bg-rose-500 p-2 text-white hover:bg-rose-600" aria-label="Đóng"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="rounded-full bg-rose-500 p-2 text-white hover:bg-rose-600" aria-label="Đóng" data-erp-modal-close><X className="h-4 w-4" /></button>
         </div>
         {step.description && <p className="mt-5 whitespace-pre-wrap text-sm leading-6 text-slate-700">{step.description}</p>}
         {step.note && <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800"><strong>Lưu ý:</strong> {step.note}</div>}
@@ -1470,7 +1493,7 @@ function NewWorkflowWizard({
             onClick={onClose}
             aria-label="Đóng popup quy trình"
             className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white shadow-sm transition-colors hover:bg-rose-600"
-          >
+           data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -2111,7 +2134,7 @@ function WizardStepEditorModal({
             onClick={onClose}
             aria-label="Đóng chỉnh sửa giai đoạn"
             className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white transition-colors hover:bg-rose-600"
-          >
+           data-erp-modal-close>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -2168,19 +2191,20 @@ function WizardStepEditorModal({
                 >
                   <span className="h-2 w-2 shrink-0 rounded-full bg-[#00adfc]" />
                   <span className="flex-1">{t.title}</span>
-                  <button type="button" onClick={() => removeSubTask(t.id)} className={`hover:text-red-400 ${isDark ? "text-zinc-500" : "text-slate-400"
+                  <button type="button" onClick={() => removeSubTask(t.id)} aria-label={`Xóa giai đoạn con ${t.title}`} className={`hover:text-red-400 ${isDark ? "text-zinc-500" : "text-slate-400"
                     }`}>
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))}
-              <div className={`mt-1 flex items-center gap-2 rounded-xl border px-3 py-2 ${isDark ? "border-zinc-700 bg-zinc-800/40" : "border-[#dce7f4] bg-white"}`}>
+              <div className={`mt-1 flex h-9 items-center gap-2 rounded-xl border px-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 ${isDark ? "border-zinc-700 bg-zinc-800/40" : "border-[#dce7f4] bg-white"}`}>
                 <input
                   value={newSubTask}
                   onChange={(e) => setNewSubTask(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubTask(); } }}
                   placeholder="Nhập tên giai đoạn con..."
-                  className={`min-w-0 flex-1 bg-transparent text-xs font-normal outline-none transition-colors ${isDark ? "text-zinc-300 placeholder-zinc-500" : "text-slate-700 placeholder-slate-400"
+                  aria-label="Tên giai đoạn con mới"
+                  className={`h-full min-w-0 flex-1 bg-transparent text-sm font-normal outline-none transition-colors ${isDark ? "text-zinc-300 placeholder-zinc-500" : "text-slate-700 placeholder-slate-400"
                     }`}
                 />
                 <button
@@ -2214,20 +2238,20 @@ function WizardStepEditorModal({
                 Giai đoạn tiếp theo
               </span>
               <div
-                className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${isDark ? "border-zinc-700 bg-zinc-800/30" : "border-[#dce7f4] bg-[#f8fbff]"
+                className={`flex h-9 items-center gap-3 rounded-xl border px-3 transition-colors ${isDark ? "border-zinc-700 bg-zinc-800/30" : "border-[#dce7f4] bg-[#f8fbff]"
                   }`}
               >
                 <ArrowRight className={`h-4 w-4 shrink-0 ${isDark ? "text-sky-400" : "text-[#00adfc]"
                   }`} />
                 <div
-                  className={`flex items-center gap-2 text-xs font-normal ${isDark ? "text-zinc-200" : "text-slate-700"
+                  className={`flex min-w-0 items-center gap-2 text-xs font-normal ${isDark ? "text-zinc-200" : "text-slate-700"
                     }`}
                 >
-                  <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${isDark ? "bg-zinc-700 text-zinc-300" : "bg-[#e9f0f8] text-slate-600"
+                  <span className={`flex size-5 items-center justify-center rounded-full text-[10px] ${isDark ? "bg-zinc-700 text-zinc-300" : "bg-[#e9f0f8] text-slate-600"
                     }`}>
                     {steps.indexOf(nextStep) + 1}
                   </span>
-                  {nextStep.title}
+                  <span className="truncate">{nextStep.title}</span>
                 </div>
               </div>
             </div>

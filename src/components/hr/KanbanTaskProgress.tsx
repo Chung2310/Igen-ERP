@@ -331,7 +331,7 @@ export function KanbanTaskProgress({
                 aria-label="Đóng báo cáo tiến độ"
                 onClick={() => setShowProgressModal(false)}
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-on-surface-variant dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
-              >
+               data-erp-modal-close>
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -463,7 +463,7 @@ export function KanbanTaskProgress({
                 aria-label="Đóng yêu cầu trợ giúp"
                 onClick={() => setShowHelpModal(false)}
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-on-surface-variant dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
-              >
+               data-erp-modal-close>
                 <X className="h-5 w-5" />
               </button>
             </div>

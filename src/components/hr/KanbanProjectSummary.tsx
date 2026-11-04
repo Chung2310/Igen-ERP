@@ -13,13 +13,12 @@ export function KanbanProjectSummary({ project, expanded = false }: { project: P
   </div>;
   const progress = project.progress || { completed: 0, total: 0, percent: 0 };
   const isComplete = project.status === "completed" || progress.percent >= 100;
-  return <div className="min-w-0 flex-1 text-xs">
-    <div className="flex flex-wrap items-center gap-2 mt-1">
+  return <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
       <span className={`rounded-full px-2 py-0.5 ${statusColors[project.status || "not_started"]}`}>{statusLabels[project.status || "not_started"]}</span>
       <span className={`rounded-full px-2 py-0.5 ${project.priority === "high" || project.priority === "urgent" ? "bg-[#FEE2E2] text-[#DC2626]" : project.priority === "low" ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#FEF3C7] text-[#B45309]"}`}>{priorityLabels[project.priority || "medium"]}</span>
-      <span className="text-slate-600">{progress.completed}/{progress.total} · {progress.percent}%</span>
-    </div>
-    <div role="progressbar" aria-valuenow={progress.percent} aria-valuemin={0} aria-valuemax={100} className={`mt-2 h-1.5 overflow-hidden rounded-full ${isComplete ? "bg-[#DCFCE7]" : "bg-[#E8F7FF]"}`}><div className={`h-full ${isComplete ? "bg-[#22C55E]" : "bg-[#00ADFC]"}`} style={{ width: `${progress.percent}%` }} /></div>
-    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-500"><span>Bắt đầu: {date(project.startAt)}</span><span>Hạn cuối: {date(project.dueAt)}</span></div>
+      <span className="tabular-nums text-slate-600">{progress.completed}/{progress.total} · {progress.percent}%</span>
+      <div role="progressbar" aria-valuenow={progress.percent} aria-valuemin={0} aria-valuemax={100} className={`h-1.5 w-24 shrink-0 overflow-hidden rounded-full ${isComplete ? "bg-[#DCFCE7]" : "bg-[#E8F7FF]"}`}><div className={`h-full ${isComplete ? "bg-[#22C55E]" : "bg-[#00ADFC]"}`} style={{ width: `${progress.percent}%` }} /></div>
+      <span className="tabular-nums text-slate-500">Bắt đầu: {date(project.startAt)}</span>
+      <span className="tabular-nums text-slate-500">Hạn cuối: {date(project.dueAt)}</span>
   </div>;
 }

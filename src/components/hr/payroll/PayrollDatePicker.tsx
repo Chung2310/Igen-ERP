@@ -7,6 +7,7 @@ type Props = {
   onChange: (value: string) => void;
   label: string;
   clearable?: boolean;
+  portalTarget?: () => Element | null;
 };
 
 const parseDate = (value: string) => {
@@ -19,7 +20,7 @@ const parseDate = (value: string) => {
 const toValue = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const formatDate = (date: Date) => date.toLocaleDateString("vi-VN");
 
-export function PayrollDatePicker({ value, onChange, label, clearable = true }: Props) {
+export function PayrollDatePicker({ value, onChange, label, clearable = true, portalTarget }: Props) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -96,35 +97,35 @@ export function PayrollDatePicker({ value, onChange, label, clearable = true }: 
         setMonth(new Date(date.getFullYear(), date.getMonth(), 1));
         setOpen((current) => !current);
       }}
-      className="flex h-10 w-full items-center justify-between rounded-xl border border-[#DCE7F4] bg-white px-3 text-left text-sm text-slate-700 outline-none transition-colors hover:border-[#A9DDF5] focus-visible:ring-2 focus-visible:ring-[#00ADFC]/20"
+      className="flex min-h-11 w-full items-center justify-between rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm text-on-surface hover:border-primary focus-visible:outline-2 focus-visible:outline-primary"
     >
-      <span className={selected ? "" : "text-slate-400"}>{selected ? formatDate(selected) : "Chọn ngày"}</span>
-      <CalendarDays className="h-4 w-4 text-[#008BC9]" aria-hidden="true" />
+      <span className={selected ? "" : "text-on-surface-variant"}>{selected ? formatDate(selected) : "Chọn ngày"}</span>
+      <CalendarDays className="size-4 text-primary" aria-hidden="true" />
     </button>
     {open && createPortal(
-      <div ref={calendarRef} role="dialog" aria-label={`Chọn ${label.toLowerCase()}`} className="fixed z-[200] max-h-[calc(100dvh-24px)] overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white p-3 text-slate-700 shadow-[0_18px_50px_rgba(13,48,78,0.22)]" style={position}>
-        <div className="mb-2 flex items-center justify-between rounded-xl bg-[#F0F9FF] px-2 py-1">
-          <span className="text-sm font-medium capitalize text-[#096A9E]">{month.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</span>
+      <div ref={calendarRef} role="dialog" aria-label={`Chọn ${label.toLowerCase()}`} className="fixed z-50 max-h-[calc(100dvh-24px)] overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-on-surface shadow-lg" style={position}>
+        <div className="mb-2 flex items-center justify-between rounded-md bg-primary/10 px-2 py-1">
+          <span className="text-sm font-medium capitalize text-on-surface">{month.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}</span>
           <div className="flex items-center gap-1">
-            <button type="button" aria-label="Tháng trước" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-lg p-1.5 text-[#007EB8] hover:bg-white"><ChevronLeft size={16} /></button>
-            <button type="button" aria-label="Tháng sau" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-lg p-1.5 text-[#007EB8] hover:bg-white"><ChevronRight size={16} /></button>
+            <button type="button" aria-label="Tháng trước" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-md p-1.5 text-on-surface hover:bg-surface-container-lowest focus-visible:outline-2 focus-visible:outline-primary"><ChevronLeft size={16} /></button>
+            <button type="button" aria-label="Tháng sau" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-md p-1.5 text-on-surface hover:bg-surface-container-lowest focus-visible:outline-2 focus-visible:outline-primary"><ChevronRight size={16} /></button>
           </div>
         </div>
-        <div className="grid grid-cols-7 text-center text-xs text-[#007EB8]">{["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => <span key={day} className="py-1">{day}</span>)}</div>
+        <div className="grid grid-cols-7 text-center text-xs font-medium text-on-surface-variant">{["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => <span key={day} className="py-1">{day}</span>)}</div>
         <div className="grid grid-cols-7 gap-1">
           {days.map((date) => {
             const selectedDay = toValue(date) === value;
             const inMonth = date.getMonth() === month.getMonth();
             const isToday = toValue(date) === toValue(today);
-            return <button key={toValue(date)} type="button" aria-label={formatDate(date)} aria-pressed={selectedDay} onClick={() => choose(date)} className={`h-8 rounded-lg text-xs transition-colors ${selectedDay ? "bg-[#00A4E8] text-white" : isToday ? "bg-[#E4F6FF] text-[#007EB8]" : inMonth ? "text-slate-700 hover:bg-[#EDF8FE]" : "text-slate-400 hover:bg-slate-50"}`}>{date.getDate()}</button>;
+            return <button key={toValue(date)} type="button" aria-label={formatDate(date)} aria-pressed={selectedDay} onClick={() => choose(date)} className={`h-8 rounded-md text-xs focus-visible:outline-2 focus-visible:outline-primary ${selectedDay ? "border border-primary bg-primary/15 font-semibold text-on-surface" : isToday ? "bg-primary/10 font-medium text-on-surface" : inMonth ? "text-on-surface hover:bg-primary/5" : "text-on-surface-variant hover:bg-primary/5"}`}>{date.getDate()}</button>;
           })}
         </div>
         <div className="mt-2 flex justify-between text-xs">
-          {clearable && <button type="button" onClick={() => { onChange(""); setOpen(false); triggerRef.current?.focus(); }} className="rounded-lg px-2 py-1.5 text-slate-500 hover:bg-slate-50">Xóa ngày</button>}
-          <button type="button" onClick={() => choose(today)} className="rounded-lg bg-[#E4F6FF] px-2 py-1.5 text-[#007EB8] hover:bg-[#D4EFFD]">Hôm nay</button>
+          {clearable && <button type="button" onClick={() => { onChange(""); setOpen(false); triggerRef.current?.focus(); }} className="rounded-md px-2 py-1.5 text-on-surface-variant hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary">Xóa ngày</button>}
+          <button type="button" onClick={() => choose(today)} className="rounded-md bg-primary/10 px-2 py-1.5 font-medium text-on-surface hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary">Hôm nay</button>
         </div>
       </div>,
-      document.body,
+      portalTarget?.() ?? document.body,
     )}
   </div>;
 }

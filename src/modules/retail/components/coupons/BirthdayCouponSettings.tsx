@@ -1,8 +1,9 @@
-﻿import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, CheckCircle2, Gift, Sparkles, X } from "lucide-react";
 import { retailCouponsApi, type RetailBirthdayProgram } from "../../api/retailCoupons.api";
 import type { RetailScope } from "../../types";
+import { Dropdown } from "../../../../components/common/Dropdown";
 
 export default function BirthdayCouponSettings({ scope, onClose }: { scope: RetailScope; onClose?: () => void }) {
   const [form, setForm] = useState<RetailBirthdayProgram | null>(null);
@@ -63,12 +64,12 @@ export default function BirthdayCouponSettings({ scope, onClose }: { scope: Reta
               <Sparkles className="h-5 w-5" aria-hidden="true" />
             </div>
             <div>
-              <h2 id={titleId} className="text-base font-bold text-slate-900">Quà sinh nhật tự động</h2>
+              <h2 id={titleId} className="text-base font-semibold text-slate-900">Quà sinh nhật tự động</h2>
               <p className="text-xs text-slate-500">Cấu hình điều kiện và giá trị áp dụng cho khách hàng</p>
             </div>
           </div>
           <button type="button" aria-label="Đóng cài đặt sinh nhật" disabled={busy} onClick={onClose}
-            className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50">
+            className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50" data-erp-modal-close>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -90,10 +91,10 @@ export default function BirthdayCouponSettings({ scope, onClose }: { scope: Reta
           <div className="relative overflow-hidden rounded-2xl border border-dashed border-cyan-300 bg-gradient-to-r from-cyan-50/70 via-sky-50/60 to-blue-50/50 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <span className="inline-flex items-center gap-1.5 text-xs font-black tracking-wide text-cyan-800"><Gift className="h-4 w-4" aria-hidden="true" />Quà sinh nhật</span>
-                <p className="mt-0.5 text-sm font-bold text-slate-800">Mỗi khách một mã · Dùng một lần</p>
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-cyan-800"><Gift className="h-4 w-4" aria-hidden="true" />Quà sinh nhật</span>
+                <p className="mt-0.5 text-sm font-semibold text-slate-800">Mỗi khách một mã · Dùng một lần</p>
               </div>
-              <span className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1 text-sm font-black text-white shadow-xs">
+              <span className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1 text-sm font-semibold text-white shadow-xs">
                 -{form.discountType === "percent" ? form.value + "%" : money(form.value)}
               </span>
             </div>
@@ -114,11 +115,7 @@ export default function BirthdayCouponSettings({ scope, onClose }: { scope: Reta
               <p className="pl-6.5 text-[11px] leading-relaxed text-slate-500">Áp dụng tại chi nhánh hiện tại. Mã dành riêng cho người nhận và hiển thị tại POS khi chọn khách.</p>
             </div>
 
-            <div><label className={labelClass}>Loại giảm sinh nhật
-              <select className={inputClass} value={form.discountType} onChange={event => update({ discountType: event.target.value as "amount" | "percent", value: event.target.value === "percent" ? 10 : 50000 })}>
-                <option value="percent">Phần trăm (%)</option><option value="amount">Số tiền cố định (₫)</option>
-              </select>
-            </label></div>
+            <div><Dropdown label="Loại giảm sinh nhật" value={form.discountType} onChange={(value) => update({ discountType: value, value: value === "percent" ? 10 : 50000 })} options={[{ value: "percent" as const, label: "Phần trăm (%)" }, { value: "amount" as const, label: "Số tiền cố định (₫)" }]} variant="form" size="md" className="w-full" /></div>
             <div><label className={labelClass}>Mức giảm sinh nhật
               <input className={inputClass} type="number" required min={form.discountType === "percent" ? 0.01 : 1} max={form.discountType === "percent" ? 100 : undefined} step={form.discountType === "percent" ? 0.01 : 1}
                 value={form.value} onChange={event => update({ value: Number(event.target.value) })} />
@@ -134,7 +131,7 @@ export default function BirthdayCouponSettings({ scope, onClose }: { scope: Reta
             </label><p className="mt-1 text-[11px] text-slate-400">Từ 1 đến 90 ngày, tính từ ngày sinh nhật.</p></div>
 
             <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 sm:col-span-2">
-              <h3 className="text-xs font-bold text-slate-700">Điều kiện tặng mã</h3>
+              <h3 className="text-xs font-semibold text-slate-700">Điều kiện tặng mã</h3>
               <p className="text-[11px] leading-relaxed text-slate-500">Mỗi khách được tặng một mã mỗi năm tại chi nhánh này. Hiệu lực tính từ 00:00 ngày sinh nhật theo giờ Việt Nam; sinh ngày 29/2 nhận quà ngày 28/2 trong năm không nhuận.</p>
               <p className="text-[11px] leading-relaxed text-slate-500">Tự động cấp bù các sinh nhật còn trong thời hạn mã. Thay đổi cấu hình chỉ áp dụng cho mã chưa cấp; tắt chương trình không thu hồi mã đã tặng.</p>
             </div>
@@ -145,8 +142,8 @@ export default function BirthdayCouponSettings({ scope, onClose }: { scope: Reta
               <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />Đã lưu chương trình sinh nhật.
             </div>}
             <div className="flex flex-wrap items-center justify-end gap-2.5">
-              <button type="button" disabled={busy} onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">Đóng</button>
-              <button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50">
+              <button type="button" disabled={busy} onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">Đóng</button>
+              <button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-md shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50">
                 {busy ? "Đang lưu…" : "Lưu chương trình sinh nhật"}
               </button>
             </div>

@@ -117,7 +117,7 @@ export function TenantModuleDialog({ code, onClose, onSaved }: Props) {
             <p className="text-xs font-bold uppercase tracking-widest text-primary">Quản lý doanh nghiệp</p>
             <h3 id="tenant-module-dialog-title" className="mt-1 text-balance text-lg font-bold">Thông tin và module</h3>
           </div>
-          <button type="button" aria-label="Đóng popup" onClick={onClose} disabled={saving} className="rounded-lg p-2 text-on-surface/70 hover:bg-surface-container hover:text-on-surface disabled:opacity-40">
+          <button type="button" aria-label="Đóng popup" onClick={onClose} disabled={saving} className="rounded-lg p-2 text-on-surface/70 hover:bg-surface-container hover:text-on-surface disabled:opacity-40" data-erp-modal-close>
             <X className="h-5 w-5" />
           </button>
         </header>

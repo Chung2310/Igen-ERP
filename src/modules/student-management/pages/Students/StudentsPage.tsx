@@ -15,6 +15,7 @@ import { toast } from '../../../../pages/Toast';
 import { Student, Batch } from '../../types';
 import { apiFetch } from '../../lib/api';
 import { StudentLoadState } from '../../components/StudentLoadState';
+import { StudentEmptyIllustration } from '../../components/Erp/StudentEmptyIllustration';
 import { Pagination } from '../../components/ui/Pagination';
 import { RoadmapPicker } from '../../components/ui/RoadmapPicker';
 import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePicker';
@@ -22,6 +23,7 @@ import { useEntityLabel } from '../../hooks/useEntityLabel';
 import { useBranch } from '../../../../context/BranchContext';
 import { useAuth } from '../../../../context/AuthContext';
 import { getOperationalStatusLabel, getWorkerOperationalCopy, usesEducationBilling as presetUsesEducationBilling } from '../../config/workerRecruitmentCopy';
+import { primaryCreateButtonClass } from '../../../../components/common/primaryCreateButton';
 const EditStudentModal = lazy(() => import('../../components/Student/EditStudentModal').then((m) => ({ default: m.EditStudentModal })));
 const AssignStudentBranchModal = lazy(() => import('../../components/Student/AssignStudentBranchModal').then((m) => ({ default: m.AssignStudentBranchModal })));
 const ImportStudentModal = lazy(() => import('../../components/Student/ImportStudentModal').then((m) => ({ default: m.ImportStudentModal })));
@@ -510,14 +512,14 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-3 sm:p-4">
       {loadError && <StudentLoadState error={loadError} onRetry={() => { void refetch(); }} />}
       {(batchLoadError || courseLoadError || categoryLoadError) && <StudentLoadState error={batchLoadError || courseLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadBatches(), reloadCourses(), reloadCategories()]); }} />}
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-medium tracking-tight text-slate-900">{entityLabel.tabLabel}</h1>
-          <p className="mt-0.5 text-xs font-normal text-slate-500">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
+        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
+          <h1 className="text-balance text-lg font-semibold text-on-surface">{entityLabel.tabLabel}</h1>
+          <p className="mt-0.5 text-xs font-normal text-on-surface-variant">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {canManage && selectedStudentIds.length > 0 && !isUnassignedScope && (
@@ -532,32 +534,32 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           <button
             onClick={handleExport}
             disabled={isExporting}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-brand-primary"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
           >
             <Download className="w-3.5 h-3.5" /> {isExporting ? 'Đang xuất...' : 'Xuất'}
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-brand-primary"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
           >
             <Printer className="w-3.5 h-3.5" /> In
           </button>
           {canManage && usesEducationBilling && <button
             onClick={() => setIsImportOpen(true)}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-brand-primary"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
           >
             <Upload className="w-3.5 h-3.5" /> Nhập Excel
           </button>}
           {canManage && userProfile?.uid && <button
             onClick={() => setIsRegisterQROpen(true)}
             title="QR để học viên tự đăng ký"
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-sky-50 hover:text-brand-primary"
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
           >
             <QrCode className="w-3.5 h-3.5" /> QR đăng ký
           </button>}
           {canManage && <button
             onClick={onAddStudent}
-            className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-brand-primary px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-sky-600"
+            className={primaryCreateButtonClass}
           >
             <Plus className="w-3.5 h-3.5" /> Thêm
           </button>}
@@ -567,25 +569,27 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       {/* Primary Tabs removed — replaced by Category Dropdown in Filters Bar */}
 
       {/* Sub-Tabs (Status Workflow) */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1.5 status-tabs">
+      <div className="status-tabs no-scrollbar flex items-center gap-2 overflow-x-auto border-b border-outline-variant">
         {statusTabs.map((tab) => {
           const isSelected = selectedStatus === tab.label;
           return (
             <button
               key={tab.label}
+              type="button"
+              aria-pressed={isSelected}
               onClick={() => setSelectedStatus(tab.label)}
               className={cn(
-                "flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                "relative flex min-h-10 items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-sm font-medium text-on-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary",
                 isSelected
-                  ? "border-brand-primary bg-brand-primary text-white"
-                  : "border-sky-100 bg-white text-slate-600 hover:border-sky-300 hover:text-brand-primary"
+                  ? "text-primary after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-primary"
+                  : ""
               )}
             >
               {getOperationalStatusLabel(entityLabel.preset, tab.label)}
               {tab.count !== undefined && (
                 <span className={cn(
                   "px-1.5 py-0.5 rounded-full text-[9px]",
-                  isSelected ? "bg-white/20 text-white" : "bg-sky-50 text-slate-500"
+                  isSelected ? "bg-primary/10 text-primary" : "bg-surface-container-low text-on-surface-variant"
                 )}>
                   {tab.count}
                 </span>
@@ -596,7 +600,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       </div>
 
       {/* Filters Bar */}
-      <div className="filters-bar grid grid-cols-1 gap-2 rounded-xl border border-sky-100 bg-white p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
+      <div className="filters-bar grid grid-cols-1 gap-2 rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
         <div className="space-y-0.5">
           <label className="text-xs font-normal text-slate-600">Khóa học</label>
           <RoadmapPicker value={category} placeholder="Chọn khóa học" options={[{ value: TAB_ALL, label: 'Tất cả khóa học' }, ...Array.from(new Map(categories.map((cat) => [cat.name, cat])).values()).map((cat: CourseCategoryItem) => ({ value: cat.name, label: cat.name })), { value: TAB_UNASSIGNED, label: operationalCopy.unassignedGroupLabel }]} onChange={(value) => setCategory(value || TAB_ALL)} />
@@ -620,14 +624,15 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           <RoadmapPicker value={feeStatusFilter} placeholder="Tất cả học phí" options={[{ value: 'Tất cả học phí', label: 'Tất cả học phí' }, { value: 'Đã đóng đủ', label: 'Đã đóng đủ' }, { value: 'Chưa đóng', label: 'Chưa đóng' }, { value: 'Còn thiếu', label: 'Còn thiếu' }]} onChange={(value) => setFeeStatusFilter(value || 'Tất cả học phí')} />
         </div>}
         <div className="space-y-0.5 col-span-2 lg:col-span-1">
-          <label className="text-xs font-normal text-slate-600">Tìm kiếm</label>
+          <label htmlFor="student-list-search" className="text-xs font-normal text-slate-600">Tìm kiếm</label>
           <div className="relative">
             <input
+              id="student-list-search"
               type="text"
               placeholder="Tên / SĐT / CCCD..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 w-full rounded-xl border border-sky-100 bg-white pl-9 pr-8 text-sm font-normal outline-none placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
+              className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-8 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/10"
             />
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             {searchQuery && (
@@ -643,11 +648,11 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       </div>
 
       {/* Main Table Card */}
-      <div className="overflow-hidden rounded-xl border border-sky-100 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-sm">
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[760px] text-left sm:min-w-[1100px]">
             <thead>
-              <tr className="border-b border-sky-100 bg-brand-primary/10">
+              <tr className="border-b border-outline-variant bg-surface-container-low text-on-surface-variant">
                 <th className="px-3 py-2 w-8 no-print">
                   <input
                     type="checkbox"
@@ -679,7 +684,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
               {loading ? (
                 <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-16 text-center text-slate-400 text-xs italic">Đang nạp dữ liệu...</td></tr>
               ) : paginatedStudents.length === 0 ? (
-                <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-16 text-center text-slate-400 text-xs italic">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</td></tr>
+                <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-8 text-center"><div className="flex flex-col items-center"><StudentEmptyIllustration kind="student" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</p></div></td></tr>
               ) : paginatedStudents.map((student) => (
                 <tr key={student.id} className="group transition-colors hover:bg-sky-50/40">
                   <td className="px-3 py-1.5 no-print">
@@ -786,7 +791,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                           const percentage = totalFeeNum > 0 ? (paidSoFar / totalFeeNum) * 100 : 0;
                           return (
                             <div
-                              className="h-full bg-cyan-600 transition-all duration-500 ease-in-out"
+                              className="h-full bg-primary"
                               style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
                             />
                           );
@@ -907,7 +912,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                   Sẽ xóa <strong className="text-emerald-600">{bulkDeletePreview.deletableCount}</strong> {entityLabel.singular}, dữ liệu lớp học/điểm danh/điểm số liên quan; phiếu thu vẫn được giữ lại.
                 </p>
               </div>
-              <button disabled={isBulkDeleting} onClick={() => setBulkDeletePreview(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50" aria-label="Đóng">
+              <button disabled={isBulkDeleting} onClick={() => setBulkDeletePreview(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50" aria-label="Đóng" data-erp-modal-close>
                 <X className="h-4 w-4" />
               </button>
             </div>

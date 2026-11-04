@@ -15,11 +15,11 @@ export default function CheckoutSuccessDialog({ result, paperSize = "80mm", onNe
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><CheckCircle2 className="h-5 w-5" /></span>
             <div className="min-w-0">
-              <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+              <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
               <p className="mt-1 text-xs text-slate-500">POS chỉ in hóa đơn này một lần.</p>
             </div>
           </div>
-          <button type="button" aria-label="Đóng kết quả" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={onClose}><X className="h-4 w-4" /></button>
+          <button type="button" aria-label="Đóng kết quả" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={onClose} data-erp-modal-close><X className="h-4 w-4" /></button>
         </div>
         <div role="region" aria-label="Hóa đơn thanh toán" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain p-4 focus-visible:outline-2 focus-visible:outline-primary">
           <p className="text-sm text-slate-500">{result.order.orderCode}</p>
@@ -27,7 +27,7 @@ export default function CheckoutSuccessDialog({ result, paperSize = "80mm", onNe
           <ReceiptPrintView invoice={result.invoice} paperSize={paperSize} />
         </div>
         <div className="retail-no-print shrink-0 border-t border-slate-100 p-4">
-          <button className="w-full rounded-xl bg-[#0866f5] px-3 py-3 font-bold text-white hover:bg-[#0758d5]" onClick={onNewOrder}>Đơn mới</button>
+          <button className="w-full rounded-xl bg-[#0866f5] px-3 py-3 font-semibold text-white hover:bg-[#0758d5]" onClick={onNewOrder}>Đơn mới</button>
         </div>
       </div>
     </div>

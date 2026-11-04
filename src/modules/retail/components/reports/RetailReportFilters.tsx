@@ -7,6 +7,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import type { RetailReportFilters } from "../../types";
+import { VietnameseDatePicker } from "../../../student-management/components/Batches/VietnameseDatePicker";
 import { validateRetailReportRange } from "./retailReportRange";
 
 type RetailReportFiltersProps = {
@@ -18,7 +19,7 @@ type RetailReportFiltersProps = {
 };
 
 const buttonClass =
-  "rounded-lg px-3 py-1.5 text-xs font-bold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer";
+  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer";
 
 export default function RetailReportFilters({
   filters,
@@ -118,7 +119,7 @@ export default function RetailReportFilters({
             <CalendarDays aria-hidden="true" className="h-3.5 w-3.5" />
           </div>
           <div>
-            <span className="text-xs font-bold text-slate-800 block">Khoảng thời gian báo cáo</span>
+            <span className="text-xs font-semibold text-slate-800 block">Khoảng thời gian báo cáo</span>
           </div>
         </div>
 
@@ -181,7 +182,7 @@ export default function RetailReportFilters({
           <button
             type="button"
             onClick={() => setShowDimensions((prev) => !prev)}
-            className={`inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-2 text-xs font-bold transition cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 rounded-2xl border px-3.5 py-2 text-xs font-semibold transition cursor-pointer ${
               showDimensions || activeDimensionsCount > 0
                 ? "border-cyan-300 bg-cyan-50 text-cyan-800"
                 : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -190,7 +191,7 @@ export default function RetailReportFilters({
             <SlidersHorizontal className="h-3.5 w-3.5" />
             <span>Lọc chi tiết</span>
             {activeDimensionsCount > 0 && (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cyan-600 text-[10px] font-bold text-white">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cyan-600 text-[10px] font-semibold text-white">
                 {activeDimensionsCount}
               </span>
             )}
@@ -207,35 +208,19 @@ export default function RetailReportFilters({
       {showCustom && (
         <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 transition-all">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-            <label className="text-xs font-bold text-slate-700">
+            <div className="text-xs font-medium text-on-surface-variant">
               <span className="block mb-1">Từ ngày</span>
-              <input
-                type="date"
-                value={from}
-                disabled={disabled}
-                aria-invalid={Boolean(validationError)}
-                aria-describedby={validationError ? validationErrorId : undefined}
-                onChange={(event) => setFrom(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 disabled:bg-slate-100"
-              />
-            </label>
-            <label className="text-xs font-bold text-slate-700">
+              <VietnameseDatePicker ariaLabel="Từ ngày" value={from} onChange={setFrom} disabled={disabled} ariaInvalid={Boolean(validationError)} ariaDescribedBy={validationError ? validationErrorId : undefined} variant="filter" />
+            </div>
+            <div className="text-xs font-medium text-on-surface-variant">
               <span className="block mb-1">Đến ngày</span>
-              <input
-                type="date"
-                value={to}
-                disabled={disabled}
-                aria-invalid={Boolean(validationError)}
-                aria-describedby={validationError ? validationErrorId : undefined}
-                onChange={(event) => setTo(event.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-800 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 disabled:bg-slate-100"
-              />
-            </label>
+              <VietnameseDatePicker ariaLabel="Đến ngày" value={to} onChange={setTo} disabled={disabled} ariaInvalid={Boolean(validationError)} ariaDescribedBy={validationError ? validationErrorId : undefined} variant="filter" />
+            </div>
             <button
               type="button"
               disabled={disabled}
               onClick={applyCustom}
-              className="rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:from-slate-800 hover:to-slate-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+              className="rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:from-slate-800 hover:to-slate-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
             >
               Áp dụng khoảng ngày
             </button>
@@ -255,7 +240,7 @@ export default function RetailReportFilters({
       {/* Dimension Filters Panel */}
       <div className={`mt-4 rounded-2xl border border-slate-100 bg-slate-50/50 p-4 transition-all ${showDimensions ? "" : "hidden"}`}>
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800">
+            <span className="text-xs font-semibold text-slate-800">
               Lọc theo thứ nguyên (nhân viên, sản phẩm, ngành hàng)
             </span>
             {activeDimensionsCount > 0 && (
@@ -286,7 +271,7 @@ export default function RetailReportFilters({
                 ["brand", "Thương hiệu", "VD: Apple, Samsung"],
               ] as const
             ).map(([key, label, placeholder]) => (
-              <label key={key} className="text-xs font-bold text-slate-700">
+              <label key={key} className="text-xs font-semibold text-slate-700">
                 <span className="block mb-1">{label}</span>
                 <input
                   aria-label={label}
@@ -306,7 +291,7 @@ export default function RetailReportFilters({
               type="button"
               disabled={disabled}
               onClick={applyDimensions}
-              className="rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:from-cyan-500 hover:to-blue-500 cursor-pointer"
+              className="rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:from-cyan-500 hover:to-blue-500 cursor-pointer"
             >
               Áp dụng bộ lọc
             </button>

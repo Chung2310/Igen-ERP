@@ -4,6 +4,10 @@ export type CampaignSlotUpdatePayload = { slotId: string; campaignId: string; co
 
 class SocketService {
   private messengerScopes: MessengerScope[] = [];
+  private readyMessengerScopes = new Set<string>();
+  private messengerScopeVersion = 0;
+  private messengerScopeRetry: ReturnType<typeof setTimeout> | undefined;
+  private messengerScopeCallbacks = new Set<() => void>();
   private socket: Socket | null = null;
   private messageCallbacks: Array<(data: { message: any; conversation: any }) => void> = [];
   private conversationCallbacks: Array<(conversation: any) => void> = [];
@@ -33,7 +37,7 @@ class SocketService {
     });
 
     this.socket.on("connect", () => {
-      this.socket?.emit("set_messenger_scopes", this.messengerScopes);
+      this.subscribeMessengerScopes();
       console.log(`[SocketService] Connected successfully (Socket ID: ${this.socket?.id})`);
       this.statusCallbacks.forEach((cb) => cb(true));
       
@@ -51,6 +55,7 @@ class SocketService {
     });
 
     this.socket.on("disconnect", (reason) => {
+      this.invalidateMessengerScopes();
       console.warn("[SocketService] Disconnected:", reason);
       this.statusCallbacks.forEach((cb) => cb(false));
     });
@@ -75,6 +80,7 @@ class SocketService {
   }
 
   disconnect() {
+    this.invalidateMessengerScopes();
     this.messengerScopes = [];
     if (this.socket) {
       console.log("[SocketService] Disconnecting...");
@@ -91,7 +97,47 @@ class SocketService {
 
   setMessengerScopes(scopes: MessengerScope[]) {
     this.messengerScopes = scopes.filter((scope) => scope.accountId.trim());
-    this.socket?.emit("set_messenger_scopes", this.messengerScopes);
+    this.subscribeMessengerScopes();
+  }
+
+  private invalidateMessengerScopes() {
+    this.messengerScopeVersion += 1;
+    clearTimeout(this.messengerScopeRetry);
+    this.readyMessengerScopes.clear();
+    this.messengerScopeCallbacks.forEach(callback => callback());
+  }
+
+  private subscribeMessengerScopes() {
+    this.invalidateMessengerScopes();
+    const version = this.messengerScopeVersion;
+    let attempts = 0;
+    const subscribe = () => {
+      if (!this.socket?.connected || version !== this.messengerScopeVersion) return;
+      attempts += 1;
+      this.socket.timeout(5000).emit("set_messenger_scopes", this.messengerScopes, (error: Error | null, result?: {
+        success?: boolean; scopes?: MessengerScope[]; code?: string;
+      }) => {
+        if (version !== this.messengerScopeVersion || !this.socket?.connected) return;
+        const accepted = new Set((result?.scopes || []).map(scope => JSON.stringify([scope.channel, scope.accountId])));
+        if (!error && result?.success && this.messengerScopes.every(scope => accepted.has(JSON.stringify([scope.channel, scope.accountId])))) {
+          this.readyMessengerScopes = accepted;
+          this.messengerScopeCallbacks.forEach(callback => callback());
+          return;
+        }
+        console.warn("[SocketService] Messenger subscription unavailable", { code: result?.code || "ACK_TIMEOUT", attempts });
+        if (attempts < 3) this.messengerScopeRetry = setTimeout(subscribe, attempts * 2000);
+      });
+    };
+    subscribe();
+  }
+
+  isMessengerScopeReady(channel: MessengerScope["channel"] | undefined, accountId: string | undefined) {
+    return this.isConnected() && this.readyMessengerScopes.has(JSON.stringify([channel, accountId]));
+  }
+
+  onMessengerScopesChange(callback: () => void) {
+    this.messengerScopeCallbacks.add(callback);
+    return () => { this.messengerScopeCallbacks.delete(callback); };
   }
 
   onCampaignSlotUpdate(callback: (data: CampaignSlotUpdatePayload) => void) {

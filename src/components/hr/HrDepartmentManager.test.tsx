@@ -21,7 +21,7 @@ function expectDepartmentFields(dialog: HTMLElement) {
   const form = within(dialog);
   expect(form.getByLabelText("Tên phòng ban")).toBeTruthy();
   expect(form.getByLabelText("Mã phòng ban")).toBeTruthy();
-  expect(form.getByRole("combobox", { name: "Người quản lý (không bắt buộc)" })).toBeTruthy();
+  expect(form.getByRole("button", { name: "Người quản lý (không bắt buộc)" })).toBeTruthy();
   expect(form.getByLabelText("Mô tả")).toBeTruthy();
   expect(form.getByLabelText("Thứ tự hiển thị")).toBeTruthy();
   expect(form.getByLabelText("Đang hoạt động")).toBeTruthy();
@@ -34,7 +34,8 @@ describe("HrDepartmentManager inline presentation", () => {
     expect(screen.getByText("Tổng nhân sự")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Thêm phòng ban" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Sửa Kinh doanh" })).toBeNull();
-    await user.selectOptions(screen.getByRole("combobox", { name: "Lọc trạng thái phòng ban" }), "inactive");
+    await user.click(screen.getByRole("button", { name: "Lọc trạng thái phòng ban" }));
+    await user.click(screen.getByRole("option", { name: "Ngừng hoạt động" }));
     expect(screen.getByText("Nhân sự")).toBeTruthy();
     expect(screen.queryByText("Kinh doanh")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Xem dạng bảng" }));
@@ -78,6 +79,7 @@ describe("HrDepartmentManager inline presentation", () => {
     expect(dialog.className).toContain("h-full");
     expect(dialog.className).toContain("w-full");
     expectDepartmentFields(dialog);
+    await user.click(within(dialog).getByRole("button", { name: "Người quản lý (không bắt buộc)" }));
     expect(within(dialog).getByRole("option", { name: "Nguyễn An" })).toBeTruthy();
     await user.type(within(dialog).getByLabelText("Tên phòng ban"), "Kinh doanh");
     await user.click(within(dialog).getByRole("button", { name: "Thêm phòng ban" }));

@@ -52,7 +52,7 @@ export function ShiftScheduleNotice({ error, subject = "you" }: { error: unknown
   const end = time(details.scheduledEndAt);
   return (
     <div role="alert" className="mt-4 rounded-xl border border-amber-300 bg-white p-4 text-left">
-      <p className="text-sm font-bold text-amber-900">{subject === "employee" ? EMPLOYEE_HEADLINE[details.reason] : HEADLINE[details.reason]}</p>
+      <p className="text-sm font-semibold text-amber-900">{subject === "employee" ? EMPLOYEE_HEADLINE[details.reason] : HEADLINE[details.reason]}</p>
       <dl className="mt-3 space-y-1.5 text-sm text-slate-700">
         <div className="flex justify-between gap-3">
           <dt className="text-slate-500">Ca áp dụng</dt>
