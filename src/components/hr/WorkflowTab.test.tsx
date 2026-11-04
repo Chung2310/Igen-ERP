@@ -10,6 +10,61 @@ afterEach(() => {
 });
 
 describe("WorkflowReader", () => {
+  it("continues rows in alternating directions without pushing the next row to the far edge", () => {
+    render(
+      <WorkflowReader
+        workflow={{
+          name: "Long workflow",
+          steps: Array.from({ length: 8 }, (_, index) => ({ id: `s${index + 1}`, title: `Stage ${index + 1}` })),
+        } as any}
+        canEdit={false}
+        onBack={vi.fn()}
+        onAddStep={vi.fn()}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    const rows = [...document.querySelectorAll<HTMLElement>("[data-flow-row]")];
+    expect(rows.map(row => row.dataset.direction)).toEqual(["left-to-right", "right-to-left", "left-to-right"]);
+    expect(rows.map(row => [...row.querySelectorAll("ol h2")].map(title => title.textContent))).toEqual([
+      ["Stage 1", "Stage 2", "Stage 3"],
+      ["Stage 4", "Stage 5", "Stage 6"],
+      ["Stage 7", "Stage 8"],
+    ]);
+    expect(rows[1].querySelector("ol")?.className).toContain("flex-row-reverse");
+    expect(rows[1].style.marginLeft).toBe("0px");
+    expect(rows[1].querySelector("path[d^='M46 56H0']")).toBeTruthy();
+    const turnPaths = [...rows[0].querySelectorAll<SVGPathElement>(":scope > svg > path")];
+    expect(turnPaths[0].getAttribute("d")).toMatch(/^M\d+ 112 V\d+$/);
+    expect(turnPaths[1].getAttribute("d")).toMatch(/^m\d+ \d+ 5 6 5 -6$/);
+  });
+
+  it("turns child-stage branches with a right-to-left row", () => {
+    render(
+      <WorkflowReader
+        workflow={{
+          name: "Branched workflow",
+          steps: Array.from({ length: 8 }, (_, index) => ({
+            id: `s${index + 1}`,
+            title: `Stage ${index + 1}`,
+            subTasks: index === 3 ? [{ id: "child-1", title: "Check details" }] : [],
+          })),
+        } as any}
+        canEdit={false}
+        onBack={vi.fn()}
+        onAddStep={vi.fn()}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Xem chi tiết giai đoạn con" }));
+    const reverseRow = document.querySelector<HTMLElement>('[data-flow-row][data-direction="right-to-left"]');
+    expect(reverseRow?.textContent).toContain("4.1 Check details");
+    expect(reverseRow?.querySelector('svg[style*="scaleX(-1)"]')).toBeTruthy();
+  });
+
   it("renders ordered steps and opens the selected step details", () => {
     render(
       <WorkflowReader
@@ -79,5 +134,35 @@ describe("WorkflowTab delete", () => {
       expect.objectContaining({ method: "DELETE" }),
     ));
     await screen.findByText("Chưa có quy trình nào");
+  });
+});
+
+describe("WorkflowTab search", () => {
+  it("filters workflows by name and label, ignoring Vietnamese accents", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ data: [
+        { _id: "workflow-1", name: "Quy trình tuyển dụng", category: "Nhân sự", steps: [] },
+        { _id: "workflow-2", name: "Kiểm tra thiết bị", category: "Điều hành", steps: [] },
+      ] }),
+    })));
+
+    render(<WorkflowTab userProfile={{ uid: "admin", role: "admin" } as any} selectedCompanyCode="MAIN" isManager />);
+    await screen.findByText("Quy trình tuyển dụng");
+    const search = screen.getByRole("searchbox", { name: "Tìm theo tên quy trình hoặc tên nhãn" });
+
+    fireEvent.change(search, { target: { value: "tuyen dung" } });
+    expect(screen.getByText("Quy trình tuyển dụng")).toBeTruthy();
+    expect(screen.queryByText("Kiểm tra thiết bị")).toBeNull();
+
+    fireEvent.change(search, { target: { value: "dieu hanh" } });
+    expect(screen.queryByText("Quy trình tuyển dụng")).toBeNull();
+    expect(screen.getByText("Kiểm tra thiết bị")).toBeTruthy();
+
+    fireEvent.change(search, { target: { value: "không khớp" } });
+    expect(screen.getByRole("status").textContent).toContain("Không tìm thấy quy trình phù hợp.");
+    fireEvent.click(screen.getByRole("button", { name: "Xóa tìm kiếm" }));
+    expect(screen.getByText("Quy trình tuyển dụng")).toBeTruthy();
+    expect(screen.getByText("Kiểm tra thiết bị")).toBeTruthy();
   });
 });

@@ -1448,7 +1448,7 @@ export default function CalendarTab({
       id="calendar_tab_wrapper"
     >
       {/* Subtab Switcher */}
-      <ModuleNavigation label="Mục Lịch và chấm công" activeValue={currentSubTab} layout="horizontal" className="mb-2">
+      <ModuleNavigation label="Mục Lịch và chấm công" activeValue={currentSubTab} layout="horizontal" className="mb-2 px-0 sm:px-0">
         <ModuleNavigationButton active={currentSubTab === "schedule"} icon={<CalendarIcon />} onClick={() => setCurrentSubTab("schedule")}>Lịch trình</ModuleNavigationButton>
         <ModuleNavigationButton active={currentSubTab === "attendance"} icon={<Clock />} onClick={() => setCurrentSubTab("attendance")}>Lịch sử chấm công</ModuleNavigationButton>
         <ModuleNavigationButton active={currentSubTab === "requests"} icon={<CheckCircle />} onClick={() => setCurrentSubTab("requests")}>Đơn từ</ModuleNavigationButton>

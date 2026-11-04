@@ -9,18 +9,16 @@ import { UserFormModal } from "../user-admin/UserFormModal";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import { HrPageTitle } from "../hr/HrPageTitle";
 import { HrEmptyIllustration } from "../hr/HrEmptyIllustration";
+import { BranchCardIllustration, getBranchIllustrationKind } from "./BranchCardIllustration";
+import "./BranchManagementTab.css";
 
 type FormState = Required<Pick<BranchInput, "code" | "name">> & Pick<BranchInput, "address" | "phone"> & { latitude: string; longitude: string; allowedRadius: string; allowedPublicIps: string };
 const emptyForm: FormState = { code: "", name: "", address: "", phone: "", latitude: "", longitude: "", allowedRadius: "100", allowedPublicIps: "" };
 
-function BranchCardIllustration() {
-  return <svg aria-hidden="true" focusable="false" viewBox="0 0 112 144" fill="none" className="h-20 w-16 max-w-full text-primary">
-    <circle cx="78" cy="46" r="27" fill="currentColor" opacity="0.08" />
-    <path d="M12 120h88M25 120V52l31-15 31 15v68M35 57h42M56 37V24m-8 0h16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M32 63h12v13H32zM50 63h12v13H50zM68 63h12v13H68zM32 83h12v13H32zM68 83h12v13H68zM50 120v-21h12v21" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M12 120V84h13M87 90h13v30M17 91h4m-4 8h4m-4 8h4m70-10h4m-4 8h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
-    <circle cx="56" cy="48" r="2.5" fill="currentColor" />
-  </svg>;
+function getBranchIllustrationTone(code: string): number {
+  let hash = 0;
+  for (const character of code) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return hash % 6;
 }
 
 function geolocationErrorMessage(reason: unknown) {
@@ -34,7 +32,7 @@ function geolocationErrorMessage(reason: unknown) {
   return "Không thể lấy vị trí hiện tại. Hãy kiểm tra quyền Vị trí của trình duyệt rồi thử lại.";
 }
 
-export default function BranchManagementTab() {
+export default function BranchManagementTab({ presentation = "cards" }: { presentation?: "cards" | "table" }) {
   const { userProfile } = useAuth();
   const [branches, setBranches] = useState<BranchRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,29 +158,61 @@ export default function BranchManagementTab() {
       <button type="button" onClick={openCreate} className={primaryCreateButtonClass}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" />Thêm chi nhánh</button>
     </div>
     <div className="mt-4 flex flex-col gap-3 sm:flex-row"><label className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Tìm kiếm chi nhánh" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã hoặc tên" className="h-10 w-full rounded-xl border border-sky-100 bg-white pl-9 pr-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10" /></label><div className="w-full sm:w-48"><RoadmapPicker ariaLabel="Lọc trạng thái" value={status} onChange={(value) => setStatus(value as typeof status)} placeholder="Tất cả trạng thái" allowClear={false} portal options={[{ value: "all", label: "Tất cả trạng thái" }, { value: "active", label: "Đang hoạt động" }, { value: "inactive", label: "Đã vô hiệu hóa" }]} /></div></div>
-    {loading ? <p className="py-10 text-center text-sm text-slate-500">Đang tải chi nhánh...</p> : filtered.length === 0 ? <div className="flex flex-col items-center py-10 text-center text-sm text-slate-500"><HrEmptyIllustration kind={query || status !== "all" ? "search" : "branch"} /><p className="mt-1">Chưa có chi nhánh phù hợp.</p></div> : (
+    {loading ? <p className="py-10 text-center text-sm text-slate-500">Đang tải chi nhánh...</p> : filtered.length === 0 ? <div className="flex flex-col items-center py-10 text-center text-sm text-slate-500"><HrEmptyIllustration kind={query || status !== "all" ? "search" : "branch"} /><p className="mt-1">Chưa có chi nhánh phù hợp.</p></div> : presentation === "table" ? (
+      <div className="mt-4 overflow-x-auto rounded-md border border-outline-variant">
+        <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+          <thead className="bg-surface text-xs text-on-surface-variant">
+            <tr>
+              <th scope="col" className="px-4 py-3 font-medium">Tên chi nhánh</th>
+              <th scope="col" className="px-4 py-3 font-medium">Mã</th>
+              <th scope="col" className="px-4 py-3 font-medium">Địa chỉ</th>
+              <th scope="col" className="px-4 py-3 font-medium">Số điện thoại</th>
+              <th scope="col" className="px-4 py-3 font-medium">Trạng thái</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-outline-variant">
+            {filtered.map((branch) => (
+              <tr key={branch._id} className="hover:bg-surface/60">
+                <td className="max-w-64 truncate px-4 py-3 font-medium text-on-surface" title={branch.name}>{branch.name}</td>
+                <td className="px-4 py-3 font-mono text-xs text-primary">{branch.code}</td>
+                <td className="max-w-80 truncate px-4 py-3 text-on-surface-variant" title={branch.address || undefined}>{branch.address || "Chưa có địa chỉ"}</td>
+                <td className="px-4 py-3 tabular-nums text-on-surface-variant">{branch.phone || "—"}</td>
+                <td className="px-4 py-3"><span className={`inline-flex items-center gap-1.5 text-xs ${branch.isActive ? "text-on-surface" : "text-on-surface-variant"}`}><span className={`size-1.5 rounded-full ${branch.isActive ? "bg-primary" : "bg-outline"}`} aria-hidden="true" />{branch.isActive ? "Đang hoạt động" : "Đã vô hiệu hóa"}</span></td>
+                <td className="px-4 py-2"><div className="flex items-center justify-end gap-1">
+                  <button type="button" title="Sửa chi nhánh" aria-label={`Sửa chi nhánh ${branch.name}`} onClick={() => openEdit(branch)} className="flex size-8 items-center justify-center rounded-md text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"><Edit3 className="size-4" aria-hidden="true" /></button>
+                  <button type="button" title={branch.isActive ? "Vô hiệu hóa" : "Bật lại"} aria-label={`${branch.isActive ? "Vô hiệu hóa" : "Bật lại"} chi nhánh ${branch.name}`} onClick={() => void toggle(branch)} className="flex size-8 items-center justify-center rounded-md text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"><Power className="size-4" aria-hidden="true" /></button>
+                </div></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
       <ul className="mt-4 grid grid-cols-1 items-start gap-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {filtered.map((branch) => (
           <li key={branch._id} className="flex min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
-            <div className="flex w-20 shrink-0 items-center justify-center border-r border-outline-variant bg-primary/5 p-1.5">
-              <BranchCardIllustration />
+            <div className={`hr-branch-illustration-panel hr-branch-illustration-panel--${getBranchIllustrationTone(branch.code || branch._id)} flex w-20 shrink-0 items-center justify-center p-1.5`}>
+              <BranchCardIllustration kind={getBranchIllustrationKind(userProfile.enabledModules)} />
             </div>
-            <div className="flex min-w-0 flex-1 flex-col p-2.5">
+            <div className="flex min-w-0 flex-1 flex-col p-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-semibold text-on-surface" title={branch.name}>{branch.name}</h3>
                   <p className="mt-0.5 truncate font-mono text-xs text-primary" title={branch.code}>{branch.code}</p>
                 </div>
-                <span aria-hidden="true" className={`mt-1 size-2.5 shrink-0 rounded-full ${branch.isActive ? "bg-primary" : "bg-outline"}`} />
+                <span role="img" aria-label={branch.isActive ? "Đang hoạt động" : "Đã vô hiệu hóa"} title={branch.isActive ? "Đang hoạt động" : "Đã vô hiệu hóa"} className={`mt-1 size-2.5 shrink-0 rounded-full ${branch.isActive ? "bg-primary" : "bg-outline"}`} />
               </div>
-              <p className="mt-1.5 flex min-w-0 items-start gap-1.5 text-pretty text-xs text-on-surface-variant" title={branch.address || undefined}>
-                <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                <span className="truncate">{branch.address || "Chưa có địa chỉ"}</span>
-              </p>
-              {branch.phone && <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-on-surface-variant"><Phone className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{branch.phone}</span></p>}
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5">
-                <span className={`rounded-full border px-2 py-0.5 text-xs ${branch.isActive ? "border-primary text-primary" : "border-outline-variant text-on-surface-variant"}`}>{branch.isActive ? "Đang hoạt động" : "Đã vô hiệu hóa"}</span>
-                <div className="flex items-center gap-1.5">
+              <div className="mt-1.5 flex min-w-0 items-end justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="flex min-w-0 items-start gap-1.5 text-pretty text-xs text-on-surface-variant" title={branch.address || undefined}>
+                    <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{branch.address || "Chưa có địa chỉ"}</span>
+                  </p>
+                  {branch.phone && <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-on-surface-variant"><Phone className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{branch.phone}</span></p>}
+                  {!branch.isActive && <span className="mt-1 inline-block rounded-full border border-outline-variant px-2 py-0.5 text-xs text-on-surface-variant">Đã vô hiệu hóa</span>}
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
                   <button type="button" title="Sửa chi nhánh" aria-label={`Sửa chi nhánh ${branch.name}`} onClick={() => openEdit(branch)} className="flex size-8 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-primary/5 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"><Edit3 className="size-4" aria-hidden="true" /></button>
                   <button type="button" title={branch.isActive ? "Vô hiệu hóa" : "Bật lại"} aria-label={branch.isActive ? "Vô hiệu hóa" : "Bật lại"} onClick={() => void toggle(branch)} className={`flex size-8 items-center justify-center rounded-lg border bg-surface-container-lowest focus-visible:outline-2 focus-visible:outline-primary ${branch.isActive ? "border-error/30 text-error hover:bg-error/5" : "border-outline-variant text-on-surface-variant hover:bg-primary/5 hover:text-primary"}`}><Power className="size-4" aria-hidden="true" /></button>
                 </div>

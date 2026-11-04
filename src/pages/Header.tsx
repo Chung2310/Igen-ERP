@@ -1,14 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Bell, LogOut, Search, Settings, X, Package, CheckCheck, Send, Sun, Moon,
+  ArrowLeft, Bell, LogOut, Settings, X, Package, CheckCheck, Send, Sun, Moon,
   Briefcase, GraduationCap, Clock, LogIn, LogOut as LogOutIcon,
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
 import { authService } from "../services/authService";
-import { isTabHidden } from "../config/modules";
+import { canViewAiSubscription } from "../config/modules";
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL, USER_DATA_DELETION_URL } from "../config/brand";
 import { HEADER_MODULE_LABELS } from "../config/header-module-label";
 import { toast } from "./Toast";
 import { notificationService, WebNotification } from "../services/notificationService";
@@ -18,7 +19,7 @@ import { ATTENDANCE_FACE_CHECK_ENABLED } from "../config/attendanceFaceCheck";
 import BranchSwitcher from "../components/BranchSwitcher";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { ModuleLauncherLogo } from "../components/common/ModuleLauncherLogo";
-import { ModuleQuickMenu } from "../components/common/ModuleQuickMenu";
+import { AiAssistantIcon, MorePoliciesIcon, PaidWalletIcon, UpgradeGiftIcon } from "../components/common/HeaderShortcutIcons";
 
 interface HeaderProps {
   currentTab: TabType;
@@ -26,34 +27,38 @@ interface HeaderProps {
   variant?: "default" | "launcher";
 }
 
-const searchIndex = [
-  { label: "Tổng quan Doanh nghiệp", tab: "TỔNG QUAN" as TabType, keywords: "tong quan dashboard kpi hieu suat bieu do" },
-  { label: "Sơ đồ tổ chức", tab: "NHÂN SỰ" as TabType, subTab: "SƠ ĐỒ TỔ CHỨC", keywords: "hr so do to chuc nhan su phong ban" },
-  { label: "Giao Việc", tab: "NHÂN SỰ" as TabType, subTab: "Giao Việc", keywords: "hr giao viec  task list cong viec" },
-  { label: "Đào tạo e-Learning", tab: "NHÂN SỰ" as TabType, subTab: "ĐÀO TẠO", keywords: "onboarding hoc tap dao tao kien thuc video" },
-  { label: "Danh mục Kho & Sản phẩm", tab: "KHO & SẢN PHẨM" as TabType, subTab: "DANH MỤC", keywords: "kho hang san pham price danh muc gia ban" },
-  { label: "Nhập / Xuất kho hàng", tab: "KHO & SẢN PHẨM" as TabType, subTab: "NHẬP / XUẤT KHO", keywords: "nhap kho xuat kho phieu nhap phieu xuat chung tu" },
-  { label: "Dự báo AI & cảnh báo tồn kho", tab: "KHO & SẢN PHẨM" as TabType, subTab: "DỰ BÁO AI", keywords: "ai forecast du bao nhu cau canh bao" },
-  { label: "Lên ý tưởng AI Marketing", tab: "MARKETING" as TabType, subTab: "LÊN Ý TƯỞNG AI", keywords: "viet content y tuong campaign facebook tiktok copywriter" },
-  { label: "Duyệt nội dung Marketing", tab: "MARKETING" as TabType, subTab: "DUYỆT NỘI DUNG", keywords: "duyet content post facebook linkedin tiktok" },
-  { label: "Lịch đăng Content", tab: "MARKETING" as TabType, subTab: "LỊCH ĐĂNG CONTENT", keywords: "lich dang content calendar publish" },
-  { label: "Phễu Khách hàng", tab: "SALES CRM" as TabType, subTab: "PHỄU KHÁCH HÀNG", keywords: "crm phieu khach hang lead cold warm hot" },
-  { label: "Hộp thư đa kênh", tab: "SALES CRM" as TabType, subTab: "OMNI-INBOX CHAT", keywords: "chat vip mailbox tro ly ai" },
-];
-
 export default function Header({ currentTab, onSearchSelect, variant = "default" }: HeaderProps) {
   const isLauncher = variant === "launcher";
-  const { userProfile, logout } = useAuth();
+  const { userProfile, hasPermission, logout } = useAuth();
   const { branches, activeBranchId, setActiveBranchId } = useBranch();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showResults, setShowResults] = useState(false);
+  const [showPoliciesMenu, setShowPoliciesMenu] = useState(false);
+  const policiesMenuRef = useRef<HTMLDivElement>(null);
+  const policiesTriggerRef = useRef<HTMLButtonElement>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showModuleMenu, setShowModuleMenu] = useState(false);
   const [logoutSubmitting, setLogoutSubmitting] = useState(false);
   const profileButtonRef = useRef<HTMLButtonElement>(null);
-  const moduleButtonRef = useRef<HTMLButtonElement>(null);
+  const canOpenPaidPackages = canViewAiSubscription(userProfile);
+  const canOpenAssistant = hasPermission("chat:read");
+
+  useEffect(() => {
+    if (!showPoliciesMenu) return;
+    const closeOnOutsidePress = (event: PointerEvent) => {
+      if (!policiesMenuRef.current?.contains(event.target as Node)) setShowPoliciesMenu(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setShowPoliciesMenu(false);
+      policiesTriggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [showPoliciesMenu]);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [telegramLink, setTelegramLink] = useState<any>(null);
   const [telegramLoading, setTelegramLoading] = useState(false);
@@ -335,90 +340,25 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showTelegramModal, userProfile?.uid]);
 
-  const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredResults =
-    normalizedQuery === ""
-      ? []
-      : searchIndex
-        .filter((item) => {
-          if (isTabHidden(item.tab)) {
-            return false;
-          }
-          return true;
-        })
-        .filter(
-          (item) =>
-            item.label.toLowerCase().includes(normalizedQuery) ||
-            item.keywords.toLowerCase().includes(normalizedQuery)
-        );
-
   return (
     <>
       <header className={isLauncher ? "relative z-40 flex min-w-0 flex-1 items-center justify-end" : "sticky top-0 z-40 flex h-18 min-w-0 items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest pl-1 pr-3 shadow-xs sm:gap-4 sm:pr-6"} id={isLauncher ? "launcher_header_controls" : "app_header"}>
-        {!isLauncher && <div className="relative flex min-w-0 flex-1 items-center sm:max-w-2xl">
+        {!isLauncher && <div className="relative flex min-w-0 flex-1 items-center">
           <div className="ml-3 flex shrink-0 items-center sm:ml-4">
             {userProfile?.role !== "superadmin" && (
-              <button ref={moduleButtonRef} type="button" onClick={() => setShowModuleMenu(true)} aria-label="Mở danh sách phân hệ" aria-haspopup="dialog" aria-expanded={showModuleMenu} className="flex size-11 -translate-y-2 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
-                <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <a href="/modules" aria-label="Về danh sách tính năng" title="Về danh sách tính năng" className="group flex size-11 -translate-y-2 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                <svg className="size-5 group-hover:hidden group-focus-visible:hidden" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   {[5.5, 12, 18.5].flatMap((cy) =>
                     [5.5, 12, 18.5].map((cx) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.7" />),
                   )}
                 </svg>
-              </button>
+                <ArrowLeft className="hidden size-5 group-hover:block group-focus-visible:block" aria-hidden="true" />
+              </a>
             )}
             <span className="mr-3 flex shrink-0 flex-col items-start justify-center gap-0.5 sm:mr-4">
               <ModuleLauncherLogo compact />
               <span className="font-sans text-xs font-semibold leading-tight text-on-surface">{HEADER_MODULE_LABELS[currentTab]}</span>
             </span>
-          </div>
-          <div className="relative mx-auto hidden min-w-0 w-full max-w-sm sm:block" id="search_container">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-              <Search className="size-5 text-on-surface-variant" />
-            </div>
-            <input
-              type="text"
-              placeholder="Tìm kiếm trong ERP..."
-              className="block h-11 w-full rounded-full border border-outline-variant bg-surface-container-lowest pl-12 pr-5 text-sm text-on-surface shadow-md outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary/10"
-              value={searchQuery}
-              onChange={(event) => {
-                setSearchQuery(event.target.value);
-                setShowResults(true);
-              }}
-              onFocus={() => setShowResults(true)}
-              id="global_search_input"
-            />
-
-            {showResults && searchQuery.trim() !== "" && (
-              <div className="absolute left-0 z-50 mt-3 w-full overflow-hidden rounded-2xl border border-gray-100 bg-white font-sans text-xs shadow-2xl">
-                <div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                  Kết quả tìm kiếm ({filteredResults.length})
-                </div>
-                {filteredResults.length > 0 ? (
-                  <div className="max-h-72 overflow-y-auto">
-                    {filteredResults.map((item, index) => (
-                      <button
-                        key={`${item.label}_${index}`}
-                        onClick={() => {
-                          onSearchSelect(item.tab, item.subTab);
-                          setSearchQuery("");
-                          setShowResults(false);
-                        }}
-                        className="flex w-full flex-col gap-1 border-b border-gray-100 px-4 py-3 text-left transition-colors last:border-0 hover:bg-blue-50/60"
-                      >
-                        <span className="text-sm font-semibold text-gray-800">{item.label}</span>
-                        <span className="text-[10px] text-gray-400">
-                          {item.tab}
-                          {item.subTab ? ` › ${item.subTab}` : ""}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-5 text-center text-sm text-gray-500">Không tìm thấy phân mục phù hợp.</div>
-                )}
-              </div>
-            )}
-            {showResults && <div className="fixed inset-0 z-[-1]" onClick={() => setShowResults(false)} />}
           </div>
         </div>}
 
@@ -480,6 +420,62 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
           )}
 
 
+          <div className="flex shrink-0 items-center gap-1" aria-label="Lối tắt ERP">
+            <button
+              type="button"
+              onClick={() => onSearchSelect("GÓI AI & LƯỢT SỬ DỤNG", "usage")}
+              disabled={!canOpenPaidPackages}
+              aria-label="Xem hạn mức AI"
+              title={canOpenPaidPackages ? "Xem hạn mức AI" : "Bạn chưa được cấp quyền xem hạn mức AI"}
+              className="hidden size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40 lg:flex"
+            >
+              <PaidWalletIcon className="size-6" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onSearchSelect("GÓI AI & LƯỢT SỬ DỤNG", "plans")}
+              disabled={!canOpenPaidPackages}
+              aria-label="Mở gói nâng cấp AI"
+              title={canOpenPaidPackages ? "Mở gói nâng cấp AI" : "Bạn chưa được cấp quyền xem gói nâng cấp AI"}
+              className="hidden size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40 lg:flex"
+            >
+              <UpgradeGiftIcon className="size-6" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onSearchSelect("TRỢ LÝ AI")}
+              disabled={!canOpenAssistant}
+              aria-label="Mở Trợ lý AI"
+              title={canOpenAssistant ? "Mở Trợ lý AI" : "Bạn chưa được cấp quyền dùng Trợ lý AI"}
+              className="hidden size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40 lg:flex"
+            >
+              <AiAssistantIcon className="size-7" />
+            </button>
+            <div ref={policiesMenuRef} className="relative">
+              <button
+                ref={policiesTriggerRef}
+                type="button"
+                aria-label="Chính sách và quyền"
+                title="Chính sách và quyền"
+                aria-expanded={showPoliciesMenu}
+                aria-controls={showPoliciesMenu ? "header_policies_menu" : undefined}
+                onClick={() => setShowPoliciesMenu((open) => !open)}
+                className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <MorePoliciesIcon className="size-6" />
+              </button>
+              {showPoliciesMenu && <div id="header_policies_menu" className="absolute right-0 top-full z-50 mt-2 w-56 rounded-2xl border border-outline-variant bg-surface-container-lowest p-1.5 text-sm text-on-surface shadow-xl">
+                <p className="px-3 py-2 text-xs font-semibold text-on-surface-variant">Chính sách và quyền</p>
+                <div className="border-b border-outline-variant pb-1 lg:hidden">
+                  {canOpenPaidPackages && <button type="button" onClick={() => { setShowPoliciesMenu(false); onSearchSelect("GÓI AI & LƯỢT SỬ DỤNG", "usage"); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"><PaidWalletIcon className="size-4" />Hạn mức AI</button>}
+                  {canOpenPaidPackages && <button type="button" onClick={() => { setShowPoliciesMenu(false); onSearchSelect("GÓI AI & LƯỢT SỬ DỤNG", "plans"); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"><UpgradeGiftIcon className="size-4" />Gói nâng cấp</button>}
+                  {canOpenAssistant && <button type="button" onClick={() => { setShowPoliciesMenu(false); onSearchSelect("TRỢ LÝ AI"); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"><AiAssistantIcon className="size-4" />Trợ lý AI</button>}
+                </div>
+                <a href={PRIVACY_POLICY_URL} target="_blank" rel="noopener noreferrer" onClick={() => setShowPoliciesMenu(false)} className="flex min-h-10 items-center rounded-lg px-3 hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Bảo mật</a>
+                <a href={TERMS_OF_SERVICE_URL} target="_blank" rel="noopener noreferrer" onClick={() => setShowPoliciesMenu(false)} className="flex min-h-10 items-center rounded-lg px-3 hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Điều khoản</a>
+                <a href={USER_DATA_DELETION_URL} target="_blank" rel="noopener noreferrer" onClick={() => setShowPoliciesMenu(false)} className="flex min-h-10 items-center rounded-lg px-3 hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Xóa dữ liệu</a>
+              </div>}
+            </div>
           {/* Dark Mode Toggle Button */}
           <button
             type="button"
@@ -497,23 +493,23 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
               }
               window.dispatchEvent(new CustomEvent("theme-change", { detail: { theme: nextDark ? "dark" : "light" } }));
             }}
-            className="hidden items-center justify-center rounded-full p-2 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600 active:scale-95 sm:flex"
+            className="hidden size-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex"
             title={isDark ? "Giao diện sáng" : "Giao diện tối"}
             aria-label={isDark ? "Giao diện sáng" : "Giao diện tối"}
             id="header_darkmode_btn"
           >
-            {isDark ? <Sun className="h-4.5 w-4.5 shrink-0 text-amber-500" /> : <Moon className="h-4.5 w-4.5 shrink-0" />}
+            {isDark ? <Sun className="size-6 shrink-0 text-amber-500" /> : <Moon className="size-6 shrink-0" />}
           </button>
 
           <div className="relative" id="notification_dropdown_button">
             <button
               type="button"
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative rounded-xl p-2.5 text-gray-600 transition-all hover:bg-gray-50 active:scale-95 hidden sm:block"
+              className="relative hidden size-10 shrink-0 items-center justify-center rounded-xl text-gray-600 transition-all hover:bg-gray-50 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex"
               aria-label="Thông báo"
               aria-expanded={showNotifications}
             >
-              <Bell className="h-5 w-5" />
+              <Bell className="size-6" />
               {unreadCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 font-mono text-[9px] font-bold text-white ring-2 ring-white animate-pulse">
                   {unreadCount > 9 ? "9+" : unreadCount}
@@ -608,6 +604,7 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
               </div>
             )}
             {showNotifications && <div className="fixed inset-0 z-[-1]" onClick={() => setShowNotifications(false)} />}
+          </div>
           </div>
 
           <div className="relative" id="user_profile_container">
@@ -819,8 +816,6 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
         onClose={closeLogoutConfirm}
         onConfirm={confirmLogout}
       />
-
-      {showModuleMenu && <ModuleQuickMenu currentTab={currentTab} onClose={() => { setShowModuleMenu(false); requestAnimationFrame(() => moduleButtonRef.current?.focus()); }} />}
 
       {timekeepingCameraAction && (
         <AttendanceCameraModal

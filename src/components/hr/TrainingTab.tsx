@@ -28,7 +28,7 @@ import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { HrFormSelect } from "./HrFormSelect";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
-import { cn } from "../../modules/student-management/lib/utils";
+import { TrainingCourseCardArtwork } from "./TrainingCourseCardArtwork";
 
 function TrainingProgressIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
@@ -892,7 +892,7 @@ export default function TrainingTab({
           </label>
 
           {/* Course Catalog list */}
-          <div className="grid grid-cols-1 items-start gap-3 text-left md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid grid-cols-1 items-start gap-3 text-left md:grid-cols-2 xl:grid-cols-3">
             {courses.length === 0 ? (
               <div className="col-span-full rounded-2xl border border-dashed border-outline-variant bg-surface-container-lowest px-6 py-12 text-center">
                 <HrEmptyIllustration kind="training" className="mx-auto" />
@@ -915,18 +915,20 @@ export default function TrainingTab({
 
                 const progress = myEnrollment ? myEnrollment.progress : 0;
                 const isCompleted = myEnrollment ? myEnrollment.status === "completed" : false;
+                const actionLabel = !myEnrollment ? "Bắt đầu" : isCompleted ? "Xem bằng" : "Tiếp tục";
+                const actionAccessibleLabel = !myEnrollment ? "Bắt đầu học" : isCompleted ? "Xem văn bằng" : "Tiếp tục học";
                 const category = course.category || "Văn hóa";
                 const additionalTags = [...new Set((course.tags || []).map((tag) => tag.trim()).filter(Boolean))]
                   .filter((tag) => tag.toLocaleLowerCase("vi") !== category.trim().toLocaleLowerCase("vi"));
                 const createdAtLabel = formatCourseDate(course.createdAt);
-                const statusLabel = isCompleted ? "Hoàn thành" : myEnrollment?.status === "in_progress" ? "Đang học" : "Chưa bắt đầu";
 
                 return (
-                  <article key={course.id} className="min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 shadow-sm">
+                  <article key={course.id} className="flex min-w-0 overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
+                    <TrainingCourseCardArtwork id={course.id || course.title} category={category} />
+                    <div className="flex min-w-0 flex-1 flex-col p-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-on-surface" title={course.title}>{course.title}</h3>
                       <span className="max-w-24 shrink-0 truncate rounded-full bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary" title={category}>{category}</span>
-                      <span className={cn("ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium", statusLabel === "Chưa bắt đầu" ? "border-outline-variant text-on-surface-variant" : "border-primary text-primary")}>{statusLabel}</span>
                     </div>
                     <div className="mt-2 flex min-w-0 items-center gap-3 text-xs text-on-surface-variant">
                       {createdAtLabel && <span className="inline-flex shrink-0 items-center gap-1 tabular-nums"><CalendarDays className="size-3.5" aria-hidden="true" />{createdAtLabel}</span>}
@@ -939,26 +941,24 @@ export default function TrainingTab({
                         {additionalTags.length > 2 && <span className="text-[11px] text-on-surface-variant tabular-nums">+{additionalTags.length - 2}</span>}
                       </div>
                     )}
-                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant pt-2">
-                      {myEnrollment && (
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5" title={`Tiến độ học ${progress}%`}>
+                        <div
+                          role="progressbar"
+                          aria-label={`Tiến độ học khóa ${course.title}`}
+                          aria-valuenow={progress}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          className="h-1.5 w-full max-w-14 overflow-hidden rounded-full bg-primary-container"
+                        >
                           <div
-                            role="progressbar"
-                            aria-label={`Tiến độ học khóa ${course.title}`}
-                            aria-valuenow={progress}
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            className="h-1.5 w-full max-w-24 overflow-hidden rounded-full bg-primary-container"
-                          >
-                            <div
-                              className="h-full rounded-full bg-primary"
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
-                          <span className="shrink-0 text-xs text-on-surface tabular-nums">{progress}%</span>
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${progress}%` }}
+                          />
                         </div>
-                      )}
-                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                        <span className="shrink-0 text-xs text-on-surface tabular-nums">{progress}%</span>
+                      </div>
+                      <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
                         {isSupervisor && course.creatorUid === userProfile?.uid && !trainingFilter && (
                           <>
                             <button type="button" onClick={() => handleOpenEditCourse(course)} className="flex size-8 items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary" title="Sửa khóa học" aria-label={`Sửa khóa học ${course.title}`}><Edit2 className="size-4" aria-hidden="true" /></button>
@@ -969,11 +969,13 @@ export default function TrainingTab({
                           type="button"
                           disabled={!!trainingFilter}
                           onClick={() => handleEnrollAndStart(course)}
-                          className="min-h-8 rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label={`${actionAccessibleLabel} khóa ${course.title}`}
+                          className="inline-flex h-8 w-24 shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-primary px-2 text-xs font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {!myEnrollment ? 'Bắt đầu học' : isCompleted ? 'Xem văn bằng' : 'Học tiếp bài sau'}
+                          {actionLabel}
                         </button>
                       </div>
+                    </div>
                     </div>
                   </article>
                 );

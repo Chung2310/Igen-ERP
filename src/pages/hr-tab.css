@@ -1,13 +1,121 @@
-.hr-schedule-label {
-  white-space: nowrap;
+#hr_sub_tabs_bar .hr-nav-icon {
+  color: var(--color-primary);
 }
 
-.hr-schedule-attention:is(:hover, :focus-visible, [aria-current="page"]) .hr-schedule-flame-path {
-  fill: var(--module-nav-icon-gradient);
-  stroke: var(--module-nav-icon-gradient);
+/* The HR workspace uses compact, nearly square panels. Navigation keeps its own styling. */
+#hr_tab_wrapper > :not(#hr_sub_tabs_bar):not(h1):is(div, section, article)[class*="rounded-2xl"],
+#hr_tab_wrapper > :not(#hr_sub_tabs_bar):not(h1) :is(div, section, article)[class*="rounded-2xl"][class*="border"],
+#hr_tab_wrapper > :not(#hr_sub_tabs_bar):not(h1) :is(div, section, article)[class*="rounded-xl"][class*="border"] {
+  border-radius: 6px;
+}
+
+#hr_tab_wrapper > :not(#hr_sub_tabs_bar):not(h1) :is(div, section, article)[class*="border"][class*="shadow"] {
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+
+#hr_tab_wrapper > :not(#hr_sub_tabs_bar):not(h1) :is(div, section, article)[class*="rounded-2xl"][class*="bg-white"][class*="shadow"]:not([role="dialog"]) {
+  border: 1px solid var(--color-outline-variant);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+
+#hr_tab_wrapper .landing-rainbow-card,
+#hr_tab_wrapper .hr-department-stat-card {
+  border-radius: 6px;
+}
+
+#hr_tab_wrapper .landing-rainbow-card {
+  box-shadow: 0 1px 3px rgb(15 23 42 / 8%);
+}
+
+#hr_tab_wrapper > :not(#hr_sub_tabs_bar):not(h1) :is(button, input, select, textarea)[class*="rounded-xl"] {
+  border-radius: 6px;
+}
+
+#hr_tab_wrapper > :not(#hr_sub_tabs_bar):not(h1) :is(table) thead {
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface-variant);
+}
+
+#hr_tab_wrapper > :not(#hr_sub_tabs_bar):not(h1) :is(table) tbody tr + tr {
+  border-top: 1px solid var(--color-outline-variant);
+}
+
+/* Keep category artwork as a small cue beside information, rather than a full card panel. */
+#hr_tab_wrapper .hr-branch-illustration-panel {
+  width: 3.5rem;
+}
+
+#hr_tab_wrapper .hr-branch-illustration-panel svg {
+  width: 3rem;
+  height: 3rem;
+}
+
+#hr_sub_tabs_bar nav > button:is(:hover, :focus-visible, [aria-current="page"]) > span:last-child {
+  background: linear-gradient(
+    90deg,
+    #00adfc 0%,
+    #199bff 55%,
+    #7567ff 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 @media (min-width: 1024px) {
+  #hr_sub_tabs_bar {
+    padding-top: 0.5rem;
+    row-gap: 0.25rem;
+    grid-template-rows: 2.75rem minmax(0, 1fr) auto;
+    overflow: visible;
+  }
+
+  #hr_sub_tabs_bar::before {
+    content: none;
+  }
+
+  #hr_sub_tabs_bar > [data-module-navigation-toggle] {
+    width: 2.25rem;
+    height: 2.25rem;
+    justify-self: start;
+    align-self: center;
+    margin-inline: 0.375rem 0;
+  }
+
+  #hr_sub_tabs_bar > [data-module-navigation-header-action] {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    margin-inline-end: 0.375rem;
+  }
+
+  #hr_sub_tabs_bar > [data-module-navigation-toggle] svg,
+  #hr_sub_tabs_bar [data-global-sidebar-search-trigger] svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  #hr_sub_tabs_bar[data-collapsed="true"] > [data-module-navigation-header-action] {
+    display: flex;
+    grid-row: 1;
+    justify-self: end;
+    margin: 0;
+  }
+
+  #hr_sub_tabs_bar[data-collapsed="true"] [data-global-sidebar-search-trigger] {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  #hr_sub_tabs_bar[data-collapsed="true"] > [data-module-navigation-toggle] {
+    width: 1.5rem;
+    height: 1.5rem;
+    justify-self: start;
+    margin-inline: 0;
+  }
+
   :is(div, section, main):has(> #hr_sub_tabs_bar:not([data-collapsed="true"])) {
     padding-left: 15.75rem;
   }

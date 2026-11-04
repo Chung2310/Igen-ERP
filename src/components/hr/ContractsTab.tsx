@@ -585,27 +585,29 @@ export default function ContractsTab({
               </p>
             </div>
           </div>
-          {canManage && tab === "contracts" && (
+          {canManage && (
             <div className="flex items-center gap-2">
+              {tab === "contracts" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingDays(expiryAlertDays);
+                    setSettingsOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-xs font-medium text-slate-700 shadow-xs transition-colors hover:bg-slate-50 hover:text-slate-900"
+                  title="Cài đặt thời gian cảnh báo hợp đồng sắp hết hạn"
+                >
+                  <Settings size={14} className="text-[#00A4E8]" />
+                  <span>Báo trước: <strong className="tabular-nums">{expiryAlertDays} ngày</strong></span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  setSettingDays(expiryAlertDays);
-                  setSettingsOpen(true);
-                }}
-                className="flex items-center gap-1.5 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2.5 text-xs font-medium text-slate-700 shadow-xs transition-colors hover:bg-slate-50 hover:text-slate-900"
-                title="Cài đặt thời gian cảnh báo hợp đồng sắp hết hạn"
-              >
-                <Settings size={14} className="text-[#00A4E8]" />
-                <span>Báo trước: <strong className="tabular-nums">{expiryAlertDays} ngày</strong></span>
-              </button>
-              <button
-                type="button"
-                onClick={() => openContract()}
+                onClick={() => tab === "extensions" ? openExtension() : openContract()}
                 className={primaryCreateButtonClass}
               >
                 <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
-                Tạo hợp đồng
+                {tab === "extensions" ? "Tạo gia hạn" : "Tạo hợp đồng"}
               </button>
             </div>
           )}
@@ -877,15 +879,6 @@ export default function ContractsTab({
           </>
         ) : (
           <div className="space-y-3">
-            {canManage && (
-              <button
-                onClick={() => openExtension()}
-                className="flex items-center gap-1.5 rounded-xl border border-[#B8E8FB] bg-[#E8F7FF] px-4 py-2.5 text-xs font-medium text-[#007EB8] transition-colors hover:bg-[#DDF3FF]"
-              >
-                <Plus size={15} />
-                Tạo gia hạn
-              </button>
-            )}
             <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4] bg-white shadow-sm">
               <table className="w-full min-w-[760px] text-xs text-slate-700">
                 <thead className="bg-[#F1F8FC] text-slate-600">

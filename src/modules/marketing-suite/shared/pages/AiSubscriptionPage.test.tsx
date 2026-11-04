@@ -13,6 +13,7 @@ import AiSubscriptionPage from './AiSubscriptionPage';
 const subscription: AiSubscriptionSummary = { _id: 'period-1', companyCode: 'QA', planId: 'basic', planName: 'Khởi đầu', priceVnd: 99000, aiLimit: 1000, used: 200, reserved: 100, remaining: 700, startsAt: '2020-01-01T00:00:00Z', expiresAt: '2099-01-01T00:00:00Z', status: 'active' };
 const plans: AiSubscriptionPlan[] = [{ _id: 'basic', code: 'BASIC', name: 'Khởi đầu', description: 'Cho nhóm nhỏ', aiLimit: 1000, durationDays: 30, priceVnd: 99000, active: true, updatedAt: '2026-01-01' }, { _id: 'growth', code: 'GROWTH', name: 'Tăng trưởng', description: 'Cho nhu cầu thường xuyên', aiLimit: 2000, durationDays: 90, priceVnd: 249000, active: true, updatedAt: '2026-01-01' }];
 beforeEach(() => {
+  window.history.replaceState(null, '', '/goi-ai');
   media.desktop = true;
   vi.stubGlobal('matchMedia', () => ({ matches: media.desktop, addEventListener: (_event: string, callback: () => void) => media.listeners.add(callback), removeEventListener: (_event: string, callback: () => void) => media.listeners.delete(callback) }));
   mocks.current.mockResolvedValue(subscription); mocks.plans.mockResolvedValue(plans); mocks.history.mockResolvedValue({ items: [], page: 1, totalPages: 1 });
@@ -32,6 +33,13 @@ test('shows shared available quota with held calls excluded and an accessible pe
   expect(progress.getAttribute('aria-valuenow')).toBe('70');
   expect(progress.getAttribute('aria-valuetext')).toContain('700 trên 1.000');
   expect(screen.queryByText('Đang giữ')).toBeNull();
+});
+
+test('opens the upgrade catalog directly from its URL', async () => {
+  window.history.replaceState(null, '', '/goi-ai?sub=goi-nang-cap');
+  render(<AiSubscriptionPage />);
+  expect(screen.getByRole('heading', { name: 'Nâng cấp gói AI' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Gói nâng cấp' }).getAttribute('aria-pressed')).toBe('true');
 });
 test('quota contains only remaining balance and package transactions while upgrades stay in their own tab', async () => {
   mocks.history.mockResolvedValue({ items: [{ id: 'one:purchase', type: 'purchase', occurredAt: '2026-01-01T00:00:00Z', planName: 'Gói cũ', aiUnits: 1000, priceVnd: 99000 }, { id: 'one:expired', type: 'expired', occurredAt: '2026-02-01T00:00:00Z', planName: 'Gói cũ', aiUnits: null, priceVnd: null }], page: 1, totalPages: 1 });

@@ -8,6 +8,8 @@ import AiPlanCatalog from "./AiPlanCatalog";
 import AiSubscriptionHistory from "./AiSubscriptionHistory";
 import { socketService } from "../../../../services/socketService";
 import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
+import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
+import { AI_SUBSCRIPTION_SUB_TAB_ROUTES } from "../../../../router/subTabRoutes";
 import { cn } from "../../../student-management/lib/utils";
 import "./ai-subscription.css";
 
@@ -27,7 +29,7 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [now, setNow] = useState(Date.now);
-  const [view, setView] = useState<"usage" | "plans">("usage");
+  const [view, setView] = useSubTabRouter(AI_SUBSCRIPTION_SUB_TAB_ROUTES, "usage");
   const [mobileDock, setMobileDock] = useState<HTMLDivElement | null>(null);
   const plansButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {

@@ -88,4 +88,13 @@ describe("BranchManagementTab", () => {
     await user.click(within(row).getByRole("button", { name: /Vô hiệu hóa/ }));
     await waitFor(() => expect(branchMocks.update).toHaveBeenCalledWith("b1", { isActive: false }));
   });
+
+  it("shows a compact table for the HR presentation", async () => {
+    render(<BranchManagementTab presentation="table" />);
+    const row = (await screen.findByText("Head Office")).closest("tr") as HTMLElement;
+    expect(screen.getByRole("columnheader", { name: "Tên chi nhánh" })).toBeTruthy();
+    expect(within(row).getByText("HQ")).toBeTruthy();
+    expect(within(row).getByText("Main street")).toBeTruthy();
+    expect(within(row).getByRole("button", { name: /Sửa chi nhánh/ })).toBeTruthy();
+  });
 });

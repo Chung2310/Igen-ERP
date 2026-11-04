@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { getSidebarMenuIcon } from './SidebarMenuIcon';
+import { getSidebarMenuFilledIcon, getSidebarMenuIcon } from './SidebarMenuIcon';
 import { ModuleNavigationButton } from './ModuleNavigation';
 
 const svgFor = (label: string) => renderToStaticMarkup(<>{getSidebarMenuIcon(label)}</>);
@@ -30,5 +30,14 @@ describe('shared sidebar artwork', () => {
     const html = renderToStaticMarkup(<ModuleNavigationButton active={false}>Danh mục gói ({3})</ModuleNavigationButton>);
     expect(html).toContain('<svg');
     expect(html).toContain('title="Danh mục gói (3)"');
+  });
+
+  it('provides solid companions for student and other module sidebar icons', () => {
+    for (const label of ['Học phí', 'Kho hàng', 'Tài sản', 'Dự án', 'Doanh nghiệp']) {
+      const filled = renderToStaticMarkup(<>{getSidebarMenuFilledIcon(label)}</>);
+      expect(filled).toContain('fill="currentColor"');
+      expect(filled).toContain('aria-hidden="true"');
+      expect(renderToStaticMarkup(<ModuleNavigationButton active={false}>{label}</ModuleNavigationButton>)).toContain('module-nav-filled');
+    }
   });
 });

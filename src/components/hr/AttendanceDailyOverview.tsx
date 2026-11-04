@@ -52,13 +52,10 @@ export default function AttendanceDailyOverview({ date, onDateChange, result, lo
   const visibleEmployees = selected === "all" ? result.all : result.groups[selected];
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto bg-[#f8fbff] p-4 md:p-5">
-      <div className="mx-auto flex flex-col gap-5">
+    <div className="min-h-0 flex-1 overflow-auto bg-[#f8fbff] px-4 pb-4 pt-2 md:px-5 md:pb-5 md:pt-2">
+      <div className="mx-auto flex flex-col gap-4">
         <div className="flex flex-col gap-3 rounded-2xl border border-[#dce7f4] bg-white px-4 py-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-base font-normal text-slate-800">Tổng quan chấm công chi nhánh</h2>
-            <p className="mt-0.5 text-xs font-normal text-slate-500">Tình hình nhân sự theo ngày được chọn</p>
-          </div>
+          <h2 className="text-base font-normal text-slate-800">Tổng quan chấm công chi nhánh</h2>
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Ngày trước" onClick={() => onDateChange(shiftDate(date, -1))} className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e8f7ff] text-[#007eb8] hover:bg-[#d7f1ff] cursor-pointer">
               <ChevronLeft className="h-4 w-4" />
