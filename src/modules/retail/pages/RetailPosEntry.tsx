@@ -94,13 +94,13 @@ export default function RetailPosEntry() {
     <section className="w-full max-w-lg rounded-md border border-outline-variant bg-surface-container-lowest p-6 text-on-surface shadow-sm">
       <p className="text-sm font-semibold text-primary">{branchName || "Quầy bán hàng"} · {userProfile?.displayName}</p>
       <h1 className="mt-3 text-balance text-xl font-semibold">{shift ? "Phiên đang mở trên máy khác" : "Chưa có phiên bán hàng"}</h1>
-      <p className="mt-3 text-pretty text-sm text-on-surface-variant">{shift ? "Bạn có thể tiếp tục bán hàng trên máy này. Máy kia sẽ dừng bán hàng." : canLeavePos ? "Tài khoản này chưa có phiên bán hàng tại chi nhánh. Hãy mở phiên cho nhân viên ở mục Phiên POS, rồi dùng tài khoản nhân viên đó để vào quầy." : "Hãy chờ quản lý mở phiên. Màn hình bán hàng sẽ tự hiện sau đó."}</p>
+      <p className="mt-3 text-pretty text-sm text-on-surface-variant">{shift ? "Bạn có thể tiếp tục bán hàng trên máy này. Máy kia sẽ dừng bán hàng." : canLeavePos ? "Phiên mở cho nhân viên khác không dùng được bằng tài khoản này. Hãy đăng nhập tài khoản nhân viên được mở phiên, hoặc mở phiên cho chính tài khoản này tại mục Ca POS." : "Hãy chờ quản lý mở phiên. Màn hình bán hàng sẽ tự hiện sau đó."}</p>
       <p className="mt-3 text-xs text-on-surface-variant">{connected ? "Đã kết nối" : "Đang kết nối..."}</p>
       {error && <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
       {shift && <button type="button" disabled={busy} onClick={() => void resume()} className="mt-5 w-full rounded-md bg-primary px-4 py-3 font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Tiếp tục trên máy này</button>}
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         <button type="button" disabled={busy} onClick={() => void refresh()} className="rounded-md border border-outline-variant px-3 py-2 text-sm font-medium hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary">Tải lại</button>
-        {canLeavePos && <button type="button" onClick={shift ? leavePos : goToShiftManagement} className="rounded-md border border-outline-variant px-3 py-2 text-sm font-medium hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary">{shift ? "Màn quản lý" : "Đến Phiên POS"}</button>}
+        {canLeavePos && <button type="button" onClick={shift ? leavePos : goToShiftManagement} className="rounded-md border border-outline-variant px-3 py-2 text-sm font-medium hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary">{shift ? "Màn quản lý" : "Đến Ca POS"}</button>}
         {logoutButton}
       </div>
     </section>

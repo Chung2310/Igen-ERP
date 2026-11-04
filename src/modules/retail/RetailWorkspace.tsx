@@ -1,9 +1,12 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useLayoutEffect, useRef, useState } from "react";
 import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import { ChartColumn, Clock3, FileText, ListOrdered, RotateCcw, Settings, ShieldCheck, Store, Ticket } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
+import { retailShiftsApi } from "./api/retailShifts.api";
+import { useRetailScope } from "./hooks/useRetailScope";
+import { toast } from "../../pages/Toast";
 import "./retail-workspace.css";
 
 const SettingsPage = lazy(() => import("./pages/RetailSettingsPage"));
@@ -34,16 +37,37 @@ const SUB_TABS = [
 
 export default function RetailWorkspace() {
   const { userProfile } = useAuth();
+  const { scope } = useRetailScope();
+  const [openingPos, setOpeningPos] = useState(false);
   const canOpenPos = userProfile?.role === "admin" || userProfile?.role === "superadmin" || Boolean(userProfile?.permissions?.some((permission) => ["*", "pos:manage", "retail:manage"].includes(permission)));
   const allowed = getAllowedRetailTabSlugs(
     userProfile?.role === "admin" || userProfile?.role === "superadmin" ? ["*"] : userProfile?.permissions || [],
   );
   const tabs = SUB_TABS.filter((tab) => allowed.includes(tab.slug as (typeof allowed)[number]));
   const [activeTab, setActiveTab] = useSubTabRouter<RetailSubTab>(tabs, tabs[0]?.value || "ĐƠN HÀNG");
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  const openPos = () => {
-    window.history.pushState(null, "", "/pos");
-    window.dispatchEvent(new PopStateEvent("popstate"));
+  useLayoutEffect(() => {
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }, [activeTab]);
+
+  const openPos = async () => {
+    if (openingPos) return;
+    if (!scope) { toast.error("Chọn chi nhánh trước khi vào quầy POS."); return; }
+    setOpeningPos(true);
+    try {
+      const shift = await retailShiftsApi.current(scope);
+      if (!shift) {
+        toast.info("Quầy POS chỉ dùng phiên của tài khoản đang đăng nhập. Hãy đăng nhập bằng tài khoản nhân viên được mở phiên.");
+        return;
+      }
+      window.history.pushState(null, "", "/pos");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    } catch {
+      toast.error("Không kiểm tra được phiên POS. Vui lòng thử lại.");
+    } finally {
+      setOpeningPos(false);
+    }
   };
 
   if (!tabs.length) {
@@ -54,9 +78,9 @@ export default function RetailWorkspace() {
     <div className="retail-management-workspace flex h-full min-h-0 flex-col bg-surface text-on-surface">
       <ModuleNavigation label="Mục Bán hàng" activeValue={activeTab}>
         {tabs.map(tab => <ModuleNavigationButton key={tab.slug} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
-        {canOpenPos && <ModuleNavigationButton active={false} icon={<Store />} onClick={openPos} className="text-primary">Mở quầy POS</ModuleNavigationButton>}
+        {canOpenPos && <ModuleNavigationButton active={false} disabled={openingPos} icon={<Store />} onClick={() => void openPos()} title="Vào quầy POS bằng phiên của tài khoản đang đăng nhập" className="text-primary">Vào quầy POS</ModuleNavigationButton>}
       </ModuleNavigation>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:pb-4 lg:pl-0">
+      <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:pb-4 lg:pl-0 [overflow-anchor:none]">
         <div className="min-h-full rounded-md border border-outline-variant bg-surface-container-lowest p-4">
           <Suspense fallback={<div role="status" className="text-sm text-on-surface-variant">Đang tải phân hệ bán hàng...</div>}>
           {activeTab === "ĐƠN HÀNG" && <OrdersPage />}

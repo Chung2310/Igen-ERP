@@ -26,7 +26,7 @@ describe("RetailPosEntry", () => {
     expect(await screen.findByRole("heading", { name: "Chưa có phiên bán hàng" })).toBeTruthy();
     expect(window.location.pathname).toBe("/pos");
 
-    await userEvent.click(screen.getByRole("button", { name: "Đến Phiên POS" }));
+    await userEvent.click(screen.getByRole("button", { name: "Đến Ca POS" }));
     expect(window.location.pathname + window.location.search).toBe("/ban-le?sub=ca-pos");
   });
 });
