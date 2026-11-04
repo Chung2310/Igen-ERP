@@ -340,7 +340,7 @@ export function HrDepartmentManager({ companyCode, departments, managers, manage
                 </div>)}
               </div>}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className={cn("text-balance text-on-surface", inline ? "text-lg font-semibold" : "text-sm font-medium")}>Danh sách phòng ban</h3>
+                <h3 data-typography={inline ? "section-title" : undefined} className="text-on-surface">Danh sách phòng ban</h3>
                 <span className="tabular-nums text-xs text-on-surface-variant">{filteredDepartments.length}/{departments.length} phòng ban</span>
               </div>
               {departments.length > 0 && <div className="flex flex-wrap items-center gap-2">

@@ -141,7 +141,7 @@ export default function RetailOrdersPageV2() {
             <ListOrdered className="h-4 w-4" />
           </div>
           <div className="flex items-center gap-2">
-            <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
+            <h1 className="text-on-surface">
               Đơn hàng
             </h1>
             <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200/60">
@@ -266,7 +266,7 @@ export default function RetailOrdersPageV2() {
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[840px] text-left text-xs">
-              <thead className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] uppercase tracking-wider text-slate-500 font-bold select-none">
+              <thead className="border-b border-slate-200/80 bg-slate-50/90 text-on-surface-variant select-none">
                 <tr>
                   <th className="px-4 py-3">Mã đơn hàng</th>
                   <th className="px-4 py-3">Khách hàng</th>
@@ -278,7 +278,7 @@ export default function RetailOrdersPageV2() {
                   <th className="px-4 py-3 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
+              <tbody className="divide-y divide-slate-100">
                 {orders.map((order) => {
                   const isCompleted = order.status === "completed";
                   const isCancelled = order.status === "cancelled";

@@ -35,6 +35,7 @@ Dùng vai trò màu theo ngữ cảnh: `primary` cho hành động chính, `surf
 | on-background | `#f1f5f9` |
 | surface | `#0d0f14` |
 | on-surface | `#f1f5f9` |
+| on-surface-variant | `#94a3b8` |
 | surface-container-lowest | `#101217` |
 | outline | `#475569` |
 | outline-variant | `#242834` |
@@ -49,7 +50,21 @@ Các vùng nội dung rỗng trong phân hệ Nhân sự dùng `HrEmptyIllustrat
 
 ## Typography
 
-Dùng `font-sans` của ứng dụng cho nội dung tiếng Việt. Các trang nghiệp vụ giữ tiêu đề và nhãn đủ rõ để phân biệt thao tác, trạng thái và số liệu.
+Dùng `font-sans` của ứng dụng cho nội dung tiếng Việt. Hệ chữ màn hình dùng mẫu Nhân sự trong `src/typography.css`.
+
+| Vai trò | Cỡ / chiều cao dòng | Độ đậm |
+|---|---|---|
+| Tiêu đề màn hình | 20 / 28 px | 600 |
+| Tiêu đề mục | 18 / 28 px | 600 |
+| Tiêu đề nhỏ | 14 / 20 px | 600 |
+| Tiêu đề hộp thoại | 14 / 20 px | 500 |
+| Nội dung thường | 14 / 20 px | 400 |
+| Nhãn nhỏ và chú thích | 12 / 16 px | 400 |
+| Bảng thường / bảng gọn | 14 / 20 px hoặc 12 / 16 px | 500 cho nhãn cột, 400 cho dữ liệu thường |
+
+Dùng `data-typography="page-title"` khi tiêu đề màn hình là `h2` hoặc `h3`, và `data-typography="section-title"` khi tiêu đề mục là `h3`. Tiêu đề giới thiệu ở đầu landing page dùng cấp hiển thị co giãn từ 30 đến 48 px.
+
+Dùng `text-on-surface` cho chữ chính, `text-on-surface-variant` cho chữ phụ và `text-primary` cho trạng thái đang chọn. Giao diện sáng trong khung ERP hiển thị chữ chính và chữ phụ bằng màu đen. Nhãn cột giữ kiểu viết theo câu. Dữ liệu số trong bảng dùng chữ số có độ rộng bằng nhau.
 
 ## Layout
 

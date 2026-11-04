@@ -176,7 +176,7 @@ export function ReceivingSection() {
       {/* ── Page Header ── */}
       <div className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between border-b border-outline-variant">
         <div>
-          <h2 className="text-xl font-bold text-on-surface text-balance">Nhập hàng</h2>
+          <h2 data-typography="page-title" className="text-on-surface">Nhập hàng</h2>
           <p className="mt-0.5 text-xs text-on-surface-variant text-pretty">
             Quản lý phiếu nhập kho, theo dõi tiến độ và đối soát công nợ nhà cung cấp.
           </p>

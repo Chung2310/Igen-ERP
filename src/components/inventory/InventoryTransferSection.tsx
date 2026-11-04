@@ -388,7 +388,7 @@ export function InventoryTransferSection({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold tracking-tight text-slate-900">
+                <h2 data-typography="page-title" className="text-on-surface">
                   Điều chuyển kho
                 </h2>
                 <span className="rounded-full bg-cyan-100 px-2.5 py-0.5 text-xs font-semibold text-cyan-800">

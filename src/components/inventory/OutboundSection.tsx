@@ -336,7 +336,7 @@ export function OutboundSection({
       {/* 1. Header Section */}
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 className="text-base font-bold text-slate-900">Xuất hàng</h3>
+          <h3 data-typography="page-title" className="text-on-surface">Xuất hàng</h3>
         </div>
 
         <div className="flex items-center gap-2">

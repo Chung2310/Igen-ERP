@@ -1772,7 +1772,7 @@ export default function ChatTab() {
                 <MessageSquare className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-slate-800 leading-tight">Trò chuyện</h2>
+                <h2 data-typography="page-title" className="text-on-surface">Trò chuyện</h2>
                 <p className="text-[10px] text-slate-500 font-medium">Trò chuyện nội bộ</p>
               </div>
             </div>

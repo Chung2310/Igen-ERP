@@ -1,0 +1,84 @@
+/* Screen typography follows the Human Resources workspace. The root selector
+   lets these roles take precedence over older styles in lazy-loaded modules. */
+@media screen {
+  body {
+    font-size: var(--text-sm);
+    line-height: 1.25rem;
+    font-weight: var(--font-weight-normal);
+  }
+
+  :is(#root, body) :where(h1, h2, h3, h4, h5, h6) {
+    font-size: var(--text-sm);
+    line-height: 1.25rem;
+    font-weight: var(--font-weight-semibold);
+  }
+
+  :where(h1, h2, h3, h4, h5, h6):not(.truncate, [class*="line-clamp-"]) {
+    text-wrap: balance;
+  }
+
+  :where(p):not(.truncate, [class*="line-clamp-"]) {
+    text-wrap: pretty;
+  }
+
+  :is(#root, body) :where(h2, [data-typography="section-title"]) {
+    font-size: var(--text-lg);
+    line-height: 1.75rem;
+  }
+
+  :is(#root, body) :where(h1, [data-typography="page-title"]) {
+    font-size: var(--text-xl);
+    line-height: 1.75rem;
+  }
+
+  :is(#root, body) :where(h1, [data-typography="page-title"]):where(
+    .text-on-surface,
+    [class^="text-slate-"], [class*=" text-slate-"],
+    [class^="text-gray-"], [class*=" text-gray-"]
+  ) {
+    color: var(--color-on-surface);
+  }
+
+  :is(#root, body) :where([data-typography="display-title"]) {
+    font-size: clamp(var(--text-3xl), 4vw, var(--text-5xl));
+    line-height: 1.15;
+  }
+
+  :is(#root, body) :where(
+    [data-typography="dialog-title"],
+    :is(dialog, [role="dialog"], [role="alertdialog"]) :is(h1, h2),
+    :is(dialog, [role="dialog"], [role="alertdialog"]) :is(h3, h4):is([id$="-title"], [id$="_title"])
+  ) {
+    font-size: var(--text-sm);
+    line-height: 1.25rem;
+    font-weight: var(--font-weight-medium);
+  }
+
+  :is(#root, body) :where(table):not(:where(.retail-receipt-printer *)) {
+    font-size: var(--text-sm);
+    line-height: 1.25rem;
+  }
+
+  :is(#root, body) :where(table.text-xs):not(:where(.retail-receipt-printer *)) {
+    font-size: var(--text-xs);
+    line-height: 1rem;
+  }
+
+  :is(#root, body) :where(table:not(.retail-receipt-printer *) :is(thead, tbody, tr, th, td)) {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  :is(#root, body) :where(table:not(.retail-receipt-printer *) :is(thead, thead th, thead td)) {
+    font-weight: var(--font-weight-medium);
+    text-transform: none;
+  }
+
+  :is(#root, body) :where(table:not(.retail-receipt-printer *) :is(tbody, td)) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :is(#root, body) :where(table:not(.retail-receipt-printer *) tbody) {
+    font-weight: var(--font-weight-normal);
+  }
+}
