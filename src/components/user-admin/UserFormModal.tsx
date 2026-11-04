@@ -96,6 +96,35 @@ export function UserFormModal({
   const [uploadingJobDescription, setUploadingJobDescription] = React.useState(false);
   const [showJobDescriptionPreview, setShowJobDescriptionPreview] = React.useState(false);
   const jobDescriptionFileInputRef = React.useRef<HTMLInputElement>(null);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
+    return () => { previousFocus?.focus(); };
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (showJobDescriptionPreview) { setShowJobDescriptionPreview(false); return; }
+        if (document.querySelector('[role="dialog"][aria-label^="Chọn"]')) return;
+        event.preventDefault();
+        onClose();
+      }
+      if (event.key !== "Tab" || !dialogRef.current || !dialogRef.current.contains(event.target as Node)) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), a[href]')).filter((element) => element.getClientRects().length > 0);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => { document.removeEventListener("keydown", handleKeyDown); };
+  }, [open, onClose, showJobDescriptionPreview]);
 
   if (!open) return null;
 
@@ -118,19 +147,19 @@ export function UserFormModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-on-surface/45 p-3 sm:p-5">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="user-form-title" aria-describedby="user-form-description" className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-on-surface shadow-xl sm:max-h-[calc(100dvh-2.5rem)]">
         {/* Modal Header */}
-        <div className="bg-slate-900 text-white p-6 flex justify-between items-center relative shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-650 rounded-xl shadow-lg shadow-indigo-500/20">
-              <User className="h-5 w-5 text-white" />
+        <div className="relative flex shrink-0 items-center justify-between border-b border-outline-variant px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-primary-container text-primary">
+              <User className="size-5" aria-hidden="true" />
             </div>
             <div>
-              <h3 className="font-bold text-sm uppercase tracking-wider font-sans">
+              <h3 id="user-form-title" className="text-balance text-base font-semibold">
                 {editingUser ? "Sửa thông tin người dùng" : "Thêm người dùng mới"}
               </h3>
-              <p className="text-[10px] text-slate-350 font-mono mt-0.5">
+              <p id="user-form-description" className="mt-0.5 text-pretty text-xs text-on-surface-variant">
                 {editingUser ? "Cập nhật hồ sơ, quyền hạn và công ty của tài khoản" : "Tạo tài khoản và gán doanh nghiệp"}
               </p>
             </div>
@@ -138,71 +167,74 @@ export function UserFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer"
-           data-erp-modal-close aria-label="Đóng">
-            <X className="h-4 w-4" />
+            className="flex size-8 cursor-pointer items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            data-erp-modal-close aria-label="Đóng">
+            <X className="size-4" aria-hidden="true" />
           </button>
         </div>
 
         {/* Modal Content / Form */}
-        <form autoComplete="off" onSubmit={onSubmit} className="flex flex-col min-h-0">
-          <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+        <form autoComplete="off" onSubmit={onSubmit} className="flex min-h-0 flex-col">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-x-4 gap-y-3 overflow-y-auto p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3">
             {/* Họ và Tên */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5 text-left sm:col-span-2">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Họ và Tên *</label>
+            <div className="contents">
+              <div className="min-w-0 space-y-1 text-left">
+                <label className="block text-xs font-medium text-on-surface-variant">Họ và Tên *</label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <User className="absolute left-3.5 top-3 size-4 text-on-surface-variant" aria-hidden="true" />
                   <input
+                    aria-label="Họ và Tên"
                     type="text"
                     required
                     placeholder="Ví dụ: Nguyễn Văn A"
                     value={userDisplayName}
                     onChange={(e) => setUserDisplayName(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                   />
                 </div>
               </div>
 
               {/* Email */}
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Địa chỉ Email *</label>
+              <div className="min-w-0 space-y-1 text-left">
+                <label className="block text-xs font-medium text-on-surface-variant">Địa chỉ Email *</label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3.5 top-3 size-4 text-on-surface-variant" aria-hidden="true" />
                   <input
+                    aria-label="Địa chỉ Email"
                     type="email" autoComplete="off"
                     required
                     placeholder="name@company.com"
                     value={userEmail}
                     onChange={(e) => setUserEmail(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-mono font-medium"
+                    className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Số điện thoại</label>
-                <input type="tel" name="phone" autoComplete="off" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" />
+              <div className="min-w-0 space-y-1 text-left">
+                <label className="block text-xs font-medium text-on-surface-variant">Số điện thoại</label>
+                <input aria-label="Số điện thoại" type="tel" name="phone" autoComplete="off" value={userPhone} onChange={(e) => setUserPhone(e.target.value)} placeholder="0987654321" className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
               </div>
 
-              <div className="space-y-1.5 text-left">
+              <div className="min-w-0 space-y-1 text-left">
                 <AdminDatePicker label="Ngày sinh" value={userBirthDate} onChange={setUserBirthDate} max={new Date().toLocaleDateString("sv-SE")} />
               </div>
 
               {/* Mật khẩu */}
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Mật khẩu *</label>
+              <div className="min-w-0 space-y-1 text-left">
+                <label className="block text-xs font-medium text-on-surface-variant">Mật khẩu *</label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3.5 top-3 size-4 text-on-surface-variant" aria-hidden="true" />
                   <input
+                    aria-label="Mật khẩu"
                     type="password" autoComplete="off"
                     required={!editingUser}
                     value={userPassword}
                     onChange={(e) => setUserPassword(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                   />
                   {editingUser && (
-                    <p className="text-[10px] text-gray-400 mt-1">
+                    <p className="mt-1 text-xs text-on-surface-variant">
                       Để trống nếu không cần đổi mật khẩu.
                     </p>
                   )}
@@ -210,16 +242,16 @@ export function UserFormModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="contents">
               {/* Quyền hạn */}
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Quyền hạn *</label>
+              <div className="min-w-0 space-y-1 text-left">
+                <label className="block text-xs font-medium text-on-surface-variant">Quyền hạn *</label>
                 <select
                   aria-label="Quyền hạn"
                   disabled={lockRole}
                   value={userRole}
                   onChange={(e) => setUserRole(e.target.value)}
-                  className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
+                  className="h-10 w-full cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                 >
                   {getAvailableRoles().map((r, index) => (
                     <option key={`${r.role}-${index}`} value={r.role}>
@@ -230,13 +262,14 @@ export function UserFormModal({
               </div>
 
               {/* Doanh nghiệp */}
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Doanh nghiệp *</label>
+              <div className="min-w-0 space-y-1 text-left">
+                <label className="block text-xs font-medium text-on-surface-variant">Doanh nghiệp *</label>
                 {userProfile?.role === "superadmin" ? (
                   <select
+                    aria-label="Doanh nghiệp"
                     value={userCompanyCode}
                     onChange={(e) => setUserCompanyCode(e.target.value)}
-                    className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
+                    className="h-10 w-full cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                   >
                     <option value="SYSTEM">Hệ thống (SYSTEM)</option>
                     {companies.map((c) => (
@@ -251,7 +284,7 @@ export function UserFormModal({
                     type="text"
                     disabled
                     value={userProfile?.companyName || userProfile?.companyCode || ""}
-                    className="w-full px-3.5 py-2 border border-gray-150 bg-gray-50 text-gray-500 rounded-xl text-xs outline-none"
+                    className="h-10 w-full rounded-xl border border-outline-variant bg-surface px-3 text-sm text-on-surface-variant"
                   />
                 )}
               </div>
@@ -263,28 +296,28 @@ export function UserFormModal({
             )}
 
             {userCompanyCode && userCompanyCode !== "SYSTEM" && (
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Chi nhánh{userRole === "pos_cashier" ? " *" : ""}</label>
-                <select aria-label="Chi nhánh" required={userRole === "pos_cashier"} disabled={lockBranch} value={userBranchId} onChange={(e) => setUserBranchId(e.target.value)} className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none disabled:bg-gray-50">
+              <div className="min-w-0 space-y-1 text-left">
+                <label className="block text-xs font-medium text-on-surface-variant">Chi nhánh{userRole === "pos_cashier" ? " *" : ""}</label>
+                <select aria-label="Chi nhánh" required={userRole === "pos_cashier"} disabled={lockBranch} value={userBranchId} onChange={(e) => setUserBranchId(e.target.value)} className="h-10 w-full cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:bg-surface">
                   <option value="">{userRole === "pos_cashier" ? "Chọn chi nhánh (bắt buộc)" : "Không gán chi nhánh"}</option>
                   {branches.filter((branch) => branch.companyCode === userCompanyCode && branch.isActive).map((branch) => (
                     <option key={branch._id} value={branch._id}>{branch.name} ({branch.code})</option>
                   ))}
                 </select>
-                {userRole === "pos_cashier" && <p className="text-[10px] text-gray-500">Thu ngân chỉ mở ca và bán hàng trong chi nhánh được gán.</p>}
+                {userRole === "pos_cashier" && <p className="text-xs text-on-surface-variant">Thu ngân chỉ mở ca và bán hàng trong chi nhánh được gán.</p>}
               </div>
             )}
 
             {userCompanyCode && userCompanyCode !== "SYSTEM" && (userRole === "user" || lockParent) && (
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+              <div className="min-w-0 space-y-1 text-left">
+                <label className="block text-xs font-medium text-on-surface-variant">
                   Người quản lý trực tiếp
-                  <span className="ml-1.5 font-normal normal-case text-gray-400">(tự chọn — xác định cấp bậc trong sơ đồ nhân sự)</span>
+                  <span className="ml-1 font-normal text-on-surface-variant">(tự chọn)</span>
                 </label>
                 {(() => {
                   const eligibleManagers = usersList.filter((u) => u.companyCode === userCompanyCode && (lockParent ? u.uid === userParentId : u.role === "manager"));
                   return eligibleManagers.length === 0 ? (
-                    <div className="w-full px-3.5 py-2 border border-dashed border-gray-200 rounded-xl text-xs text-gray-400 italic bg-gray-50/60">
+                    <div className="flex h-10 w-full items-center rounded-xl border border-dashed border-outline-variant bg-surface px-3 text-sm text-on-surface-variant">
                       Chưa có quản lý nào trong công ty này
                     </div>
                   ) : (
@@ -294,7 +327,7 @@ export function UserFormModal({
                         disabled={lockParent}
                         value={userParentId}
                         onChange={(e) => setUserParentId(e.target.value)}
-                        className="w-full p-2 pl-3.5 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none"
+                        className="h-10 w-full cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                       >
                         <option value="">— Không có / Chọn sau —</option>
                         {eligibleManagers.map((mgr) => (
@@ -304,9 +337,9 @@ export function UserFormModal({
                         ))}
                       </select>
                       {userParentId && (
-                        <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-max">
-                          <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider">Cấp bậc nhân viên mới:</span>
-                          <span className="text-[10px] font-bold text-indigo-700 font-mono">
+                        <div className="mt-1 flex w-max items-center gap-1 rounded-lg bg-primary-container px-2 py-0.5 text-xs text-primary">
+                          <span>Cấp bậc mới:</span>
+                          <span className="font-semibold tabular-nums">
                             Level {(() => {
                               const rawL = (usersList.find((u) => u.uid === userParentId)?.level ?? 0) + 1;
                               return userProfile?.role === "superadmin" ? rawL : rawL - 1;
@@ -322,46 +355,50 @@ export function UserFormModal({
 
             {/* Phòng ban */}
             {(userRole === "user" || userRole === "manager") && (
-              <div className="space-y-1.5 text-left">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+              <div className="min-w-0 space-y-1 text-left">
+                <label className="block text-xs font-medium text-on-surface-variant">
                   {userRole === "manager" ? "Phòng ban quản lý *" : "Phòng ban *"}
                 </label>
                 <input
+                  aria-label={userRole === "manager" ? "Phòng ban quản lý" : "Phòng ban"}
                   type="text"
                   required
                   disabled={userRole === "user" && !!userParentId}
                   placeholder="Ví dụ: Phòng Kỹ Thuật"
                   value={userDepartment}
                   onChange={(e) => setUserDepartment(e.target.value)}
-                  className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-450"
+                  className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:bg-surface disabled:text-on-surface-variant"
                 />
                 {userRole === "user" && !!userParentId && (
-                  <p className="text-[10px] text-indigo-650 font-mono mt-0.5">
+                  <p className="mt-0.5 text-xs text-primary">
                     Tự động điền theo phòng ban của quản lý trực tiếp.
                   </p>
                 )}
               </div>
             )}
 
-            <div className="space-y-1.5 text-left">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Trình độ</label>
-              <input type="text" value={userQualification} onChange={(e) => setUserQualification(e.target.value)} placeholder="Ví dụ: TESOL, Cử nhân Sư phạm" className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none" />
-            </div>            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5 text-left"><label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Lương tháng (VNĐ)</label><input type="number" min="0" step="1000" value={userMonthlySalary} onChange={(e) => setUserMonthlySalary(e.target.value)} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs outline-none" placeholder="26000000" /></div>
+            <div className="min-w-0 space-y-1 text-left">
+              <label className="block text-xs font-medium text-on-surface-variant">Trình độ</label>
+              <input aria-label="Trình độ" type="text" value={userQualification} onChange={(e) => setUserQualification(e.target.value)} placeholder="Ví dụ: TESOL, Cử nhân Sư phạm" className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
+            </div>
+            <div className="min-w-0 space-y-1 text-left">
+              <label className="block text-xs font-medium text-on-surface-variant">Lương tháng (VNĐ)</label>
+              <input aria-label="Lương tháng (VNĐ)" type="number" min="0" step="1000" value={userMonthlySalary} onChange={(e) => setUserMonthlySalary(e.target.value)} className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" placeholder="26000000" />
             </div>
 
             {/* Mô tả công việc */}
-            <div className="space-y-1.5 text-left">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Link mô tả công việc</label>
+            <div className="min-w-0 space-y-1 text-left sm:col-span-2 lg:col-span-3">
+              <label className="block text-xs font-medium text-on-surface-variant">Link mô tả công việc</label>
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Link2 className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <Link2 className="absolute left-3.5 top-3 size-4 text-on-surface-variant" aria-hidden="true" />
                   <input
+                    aria-label="Link mô tả công việc"
                     type="url"
                     placeholder="Dán link mô tả công việc hoặc tải file lên"
                     value={userJobDescriptionLink}
                     onChange={(e) => setUserJobDescriptionLink(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    className="h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-sm text-on-surface outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
                   />
                 </div>
                 <input
@@ -374,8 +411,9 @@ export function UserFormModal({
                   type="button"
                   onClick={() => jobDescriptionFileInputRef.current?.click()}
                   disabled={uploadingJobDescription}
+                  aria-label="Tải file mô tả công việc lên"
                   title="Tải file lên Google Drive"
-                  className="shrink-0 p-2 px-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50"
+                  className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-outline-variant text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {uploadingJobDescription ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />
@@ -387,8 +425,9 @@ export function UserFormModal({
                   <button
                     type="button"
                     onClick={() => setShowJobDescriptionPreview(true)}
+                    aria-label="Xem trước mô tả công việc"
                     title="Xem trước"
-                    className="shrink-0 p-2 px-3 border border-indigo-200 bg-indigo-50 rounded-xl text-indigo-650 hover:bg-indigo-100 transition-all cursor-pointer"
+                    className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-outline-variant bg-primary-container text-primary hover:bg-primary-container/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
                     <Eye className="h-4 w-4" />
                   </button>
@@ -399,18 +438,18 @@ export function UserFormModal({
           </div>
 
           {/* Form Actions */}
-          <div className="flex gap-3 justify-end p-6 border-t border-gray-100 bg-white shrink-0">
+          <div className="flex shrink-0 justify-end gap-2 border-t border-outline-variant bg-surface-container-lowest px-4 py-3 sm:px-5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all cursor-pointer"
+              className="cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               Hủy bỏ
             </button>
             <button
               type="submit"
               disabled={submittingUser}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/10 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submittingUser ? (
                 <>

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { HrSidebarIcon, type HrSidebarIconName } from './HrSidebarIcon';
+import { HrFilledSidebarIcon } from './HrFilledSidebarIcon';
 
 // The HR rail is the reference: 24 px artwork, soft corners, and a 1.65 px line.
 const hrIcons: Record<string, HrSidebarIconName> = {
@@ -65,6 +66,57 @@ const artwork = {
   scan: <><path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/><circle cx="12" cy="12" r="3.5"/></>,
 } satisfies Record<string, ReactNode>;
 
+// Solid companions keep the same silhouettes as the outline rail icons.
+const filledArtwork: Record<keyof typeof artwork, ReactNode> = {
+  overview: <><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></>,
+  list: <><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 8h10M7 12h10M7 16h10" stroke="var(--color-surface-container-lowest)" strokeWidth="1.7" strokeLinecap="round"/></>,
+  settings: <><path d="m10 2-1 2-2 1-2-1-2 3 1 2-1 2-2 1v3l2 1 1 2-1 2 2 3 2-1 2 1 1 2h4l1-2 2-1 2 1 2-3-1-2 1-2 2-1v-3l-2-1-1-2 1-2-2-3-2 1-2-1-1-2h-4Z"/><circle cx="12" cy="12" r="3" fill="var(--color-surface-container-lowest)"/></>,
+  history: <><path d="M12 3a9 9 0 1 1-8.5 12h3A6.2 6.2 0 1 0 6 8h3V5H4v5h5V8H6a8.9 8.9 0 0 1 6-5Z"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round"/></>,
+  bag: <><rect x="3" y="8" width="18" height="13" rx="3"/><path d="M8 8V6a4 4 0 0 1 8 0v2" fill="none" stroke="currentColor" strokeWidth="2.5"/><path d="M3 13h18" stroke="var(--color-surface-container-lowest)" strokeWidth="2"/></>,
+  shield: <><path d="M12 2 21 6v6c0 5-3.4 8-9 10-5.6-2-9-5-9-10V6l9-4Z"/><path d="m8 12 2.5 2.5 5-5" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>,
+  coin: <><circle cx="12" cy="12" r="9"/><path d="M15 8H11a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9m3-10v12" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8" strokeLinecap="round"/></>,
+  receipt: <><path d="M5 3h14v19l-3-2-3 2-3-2-3 2-2-2V3Z"/><path d="M8 8h8M8 12h8M8 16h5" stroke="var(--color-surface-container-lowest)" strokeWidth="1.7" strokeLinecap="round"/></>,
+  package: <><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5M12 12v10" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.6"/></>,
+  warehouse: <><path d="m2 9 10-6 10 6v12H2V9Z"/><path d="M8 21v-8h8v8M5 10h14" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8"/></>,
+  inbound: <><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5m-9 5v-5m-2 3 2 2 2-2" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.7"/></>,
+  outbound: <><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z"/><path d="m3 7 9 5 9-5m-9 10v-5m-2 2 2-2 2 2" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.7"/></>,
+  barcode: <><rect x="2" y="3" width="20" height="18" rx="3"/><path d="M6 7v10m3-10v10m3-10v10m3-10v10m3-10v10" stroke="var(--color-surface-container-lowest)" strokeWidth="1.5"/></>,
+  transfer: <><rect x="2" y="3" width="8" height="8" rx="2"/><rect x="14" y="13" width="8" height="8" rx="2"/><path d="M11 7h8m-3-3 3 3-3 3M13 17H5m3-3-3 3 3 3" fill="none" stroke="currentColor" strokeWidth="2"/></>,
+  chart: <><path d="M3 3h2v16h16v2H3V3Zm4 12 4-5 3 2 5-6 2 2-7 8-3-2-2 3-2-2Z"/></>,
+  forecast: <><path d="M3 20h18v2H3zm2-7h3v6H5zm5-5h3v11h-3zm5 3h3v8h-3zm5-7h2v15h-2z"/></>,
+  clock: <><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="2" strokeLinecap="round"/></>,
+  request: <><rect x="4" y="2" width="16" height="20" rx="3"/><path d="M8 8h8m-8 4h6m-6 5 2 2 5-5" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8" strokeLinecap="round"/></>,
+  bell: <><path d="M6 17V10a6 6 0 0 1 12 0v7l2 2H4l2-2Zm4 4h4"/><circle cx="12" cy="3" r="2"/></>,
+  project: <><rect x="2" y="3" width="8" height="7" rx="2"/><rect x="14" y="3" width="8" height="7" rx="2"/><rect x="8" y="15" width="8" height="7" rx="2"/><path d="M6 10v3h12v-3m-6 3v2" fill="none" stroke="currentColor" strokeWidth="2"/></>,
+  document: <><path d="M5 2h9l5 5v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"/><path d="M14 2v5h5M7 12h8m-8 4h6" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.7"/></>,
+  target: <><circle cx="11" cy="13" r="9"/><circle cx="11" cy="13" r="5" fill="var(--color-surface-container-lowest)"/><circle cx="11" cy="13" r="2"/><path d="m16 8 5-5" fill="none" stroke="currentColor" strokeWidth="2"/></>,
+  handshake: <><path d="m2 9 4-4 5 2 3-2 4 2 4-1-1 5-5 7-4 3-5-4-5-8Z"/><path d="m8 11 3 2 3-2m-5 5 3 3" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.7"/></>,
+  percent: <><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="m5 20 15-15" fill="none" stroke="currentColor" strokeWidth="2.7"/></>,
+  wallet: <><rect x="2" y="5" width="20" height="16" rx="3"/><path d="M14 12h8v5h-8a2.5 2.5 0 0 1 0-5Z" fill="var(--color-surface-container-lowest)"/><circle cx="16" cy="14.5" r="1"/></>,
+  vat: <><path d="M5 2h14v20l-3-2-3 2-3-2-3 2-2-2V2Z"/><path d="M8 8h8m-8 4h8m-8 4h5" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8"/></>,
+  balance: <><path d="M2 20h20v2H2zM4 11h4v8H4zm6-7h4v15h-4zm6 9h4v6h-4z"/></>,
+  flow: <><path d="M3 5h14V2l5 5-5 5V9H3V5Zm18 14H7v3l-5-5 5-5v3h14v4Z"/></>,
+  debt: <><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 10h20M7 15h5" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8"/></>,
+  aging: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="2" strokeLinecap="round"/></>,
+  asset: <><rect x="2" y="5" width="20" height="16" rx="3"/><path d="M8 5V3h8v2" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M2 11h20m-11 0v2h2v-2" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8"/></>,
+  depreciation: <><path d="M2 20h20v2H2zM5 9h5v10H5zm8-6h5v16h-5z"/><path d="m19 16 2 2 2-2" fill="none" stroke="currentColor" strokeWidth="2"/></>,
+  return: <><path d="M8 3H3v6h6V6a8 8 0 1 1-5 10l-3 1A11 11 0 1 0 8 3Z"/><path d="m9 12 3-3v2h5v2h-5v2l-3-3Z"/></>,
+  ticket: <><path d="M3 4h18v5a3 3 0 0 0 0 6v5H3v-5a3 3 0 0 0 0-6V4Z"/><path d="M12 6v12" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="2" strokeDasharray="2 2"/></>,
+  gift: <><rect x="3" y="9" width="18" height="13" rx="2"/><path d="M2 6h20v4H2zM11 7h2v15h-2z" fill="var(--color-surface-container-lowest)"/><path d="M12 6C5 6 5 2 8 2c2 0 4 4 4 4Zm0 0c7 0 7-4 4-4-2 0-4 4-4 4Z"/></>,
+  chat: <><path d="M6 2h12a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H9l-6 3V6a4 4 0 0 1 3-4Z"/><path d="M8 11h8" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="2" strokeLinecap="round"/></>,
+  ai: <><path d="m12 1 2.7 7.3L22 11l-7.3 2.7L12 21l-2.7-7.3L2 11l7.3-2.7L12 1Zm8 16 1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z"/></>,
+  book: <><path d="M12 5C9 3 6 3 2 4v15c4-1 7-.5 10 1 3-1.5 6-2 10-1V4c-4-1-7-1-10 1Z"/><path d="M12 5v15M5 9h4m6 0h4" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.6"/></>,
+  classroom: <><rect x="2" y="3" width="20" height="17" rx="3"/><path d="M7 8h10M7 12h7" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8"/><path d="M7 20v2m10-2v2" stroke="currentColor" strokeWidth="2"/></>,
+  check: <><rect x="3" y="2" width="18" height="20" rx="3"/><path d="m7 9 2 2 3-3m2 2h3M7 16l2 2 3-3m2 2h3" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8"/></>,
+  exam: <><rect x="2" y="4" width="20" height="18" rx="3"/><path d="M2 10h20m-14 6 2 2 5-5" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8"/><path d="M7 2v4m10-4v4" stroke="currentColor" strokeWidth="2.4"/></>,
+  room: <><path d="m2 9 10-6 10 6v13H2V9Z"/><path d="M9 22v-8h6v8M6 10h12" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8"/></>,
+  device: <><rect x="2" y="3" width="20" height="15" rx="3"/><path d="M12 18v3m-4 0h8M6 8h12" fill="none" stroke="var(--color-surface-container-lowest)" strokeWidth="1.8"/></>,
+  roadmap: <><circle cx="5" cy="5" r="3"/><circle cx="19" cy="19" r="3"/><path d="M8 5h6a5 5 0 0 1 0 10h-4a3 3 0 0 0-3 3h9" fill="none" stroke="currentColor" strokeWidth="3"/></>,
+  user: <><circle cx="12" cy="7" r="4"/><path d="M2 21v-2c0-4.5 3.6-7 10-7s10 2.5 10 7v2H2Z"/></>,
+  lock: <><rect x="3" y="10" width="18" height="12" rx="3"/><path d="M7 10V7a5 5 0 0 1 10 0v3" fill="none" stroke="currentColor" strokeWidth="3"/><circle cx="12" cy="16" r="1.5" fill="var(--color-surface-container-lowest)"/></>,
+  scan: <><path d="M3 8V5a2 2 0 0 1 2-2h3v3H6v2H3Zm13-5h3a2 2 0 0 1 2 2v3h-3V6h-2V3ZM3 16h3v2h2v3H5a2 2 0 0 1-2-2v-3Zm15 0h3v3a2 2 0 0 1-2 2h-3v-3h2v-2Z"/><circle cx="12" cy="12" r="4"/></>,
+};
+
 const labelToArtwork: Record<string, keyof typeof artwork> = {
   'Tổng quan': 'overview', 'Sản phẩm': 'package', 'Kho hàng': 'warehouse', 'Nhập hàng': 'inbound',
   'IMEI / Serial': 'barcode', 'Xuất hàng': 'outbound', 'Điều chuyển': 'transfer',
@@ -98,6 +150,14 @@ const labelToArtwork: Record<string, keyof typeof artwork> = {
   'Cấu hình chung': 'settings', 'Học viên & Email': 'book',
 };
 
+export type SidebarArtworkName = keyof typeof artwork;
+
+export function getSidebarArtworkIcon(name: SidebarArtworkName, filled = false): ReactNode {
+  return filled
+    ? <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">{filledArtwork[name]}</svg>
+    : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{artwork[name]}</svg>;
+}
+
 /** Return custom artwork for known menu labels; unknown labels keep their supplied icon. */
 export function getSidebarMenuIcon(label: string): ReactNode {
   const menuLabel = label.trim();
@@ -106,4 +166,14 @@ export function getSidebarMenuIcon(label: string): ReactNode {
   const name = labelToArtwork[menuLabel] ?? (menuLabel.startsWith('Danh mục gói') ? 'list' : undefined);
   if (!name) return null;
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{artwork[name]}</svg>;
+}
+
+/** Solid icon for hover, keyboard focus, and the current sidebar item. */
+export function getSidebarMenuFilledIcon(label: string): ReactNode {
+  const menuLabel = label.trim();
+  const hrName = hrIcons[menuLabel];
+  if (hrName) return <HrFilledSidebarIcon name={hrName} />;
+  const name = labelToArtwork[menuLabel] ?? (menuLabel.startsWith('Danh mục gói') ? 'list' : undefined);
+  if (!name) return null;
+  return <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">{filledArtwork[name]}</svg>;
 }

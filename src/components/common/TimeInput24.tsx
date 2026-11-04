@@ -233,13 +233,14 @@ interface DateTimeInput24Props {
 interface DateInput24Props extends Omit<DateTimeInput24Props, "className"> {
   className?: string;
   ariaLabel?: string;
+  showYearSelect?: boolean;
 }
 
 /** Branded date-only field with the same calendar popover used by DateTimeInput24. */
-export function DateInput24({ value, onChange, className = "", required, disabled, ariaLabel = "Chọn ngày" }: DateInput24Props) {
+export function DateInput24({ value, onChange, className = "", required, disabled, ariaLabel = "Chọn ngày", showYearSelect = false }: DateInput24Props) {
   return (
     <div className={`flex min-h-10 w-full items-center rounded-xl border border-[#DCE7F4] bg-white px-2.5 transition-colors hover:border-[#B8DFF3] focus-within:border-[#70D5FF] focus-within:ring-2 focus-within:ring-[#00ADFC]/15 ${className}`}>
-      <BrandedDateInput value={value} onChange={onChange} required={required} disabled={disabled} ariaLabel={ariaLabel} />
+      <BrandedDateInput value={value} onChange={onChange} required={required} disabled={disabled} ariaLabel={ariaLabel} showYearSelect={showYearSelect} />
     </div>
   );
 }
@@ -278,7 +279,7 @@ const parseDateValue = (value: string) => {
   return year && month && day ? new Date(year, month - 1, day) : null;
 };
 
-function BrandedDateInput({ value, onChange, required, disabled, ariaLabel }: Pick<DateTimeInput24Props, "value" | "onChange" | "required" | "disabled"> & { ariaLabel: string }) {
+function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, showYearSelect = false }: Pick<DateTimeInput24Props, "value" | "onChange" | "required" | "disabled"> & { ariaLabel: string; showYearSelect?: boolean }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -329,6 +330,9 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel }: Pi
   }, [open]);
 
   const selected = parseDateValue(value);
+  const currentYear = new Date().getFullYear();
+  const firstYear = Math.min(1900, month.getFullYear());
+  const lastYear = Math.max(currentYear, month.getFullYear());
   const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
   const days = Array.from({ length: 42 }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index - firstWeekday + 1));
   const chooseDate = (date: Date) => {
@@ -360,8 +364,18 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel }: Pi
       {open && createPortal(
         <div ref={popoverRef} role="dialog" aria-label="Lịch chọn ngày" className="fixed z-[200] max-h-[calc(100vh-24px)] overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white p-3 text-slate-800 shadow-[0_18px_50px_rgba(13,48,78,0.18)]" style={position}>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-medium capitalize">{new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(month)}</span>
+            <span className="text-sm font-medium capitalize">{new Intl.DateTimeFormat("vi-VN", showYearSelect ? { month: "long" } : { month: "long", year: "numeric" }).format(month)}</span>
             <div className="flex items-center gap-0.5">
+              {showYearSelect && (
+                <select
+                  aria-label="Chọn năm sinh"
+                  value={month.getFullYear()}
+                  onChange={(event) => setMonth(new Date(Number(event.target.value), month.getMonth(), 1))}
+                  className="rounded-lg border border-outline-variant bg-surface-container-lowest px-1 py-1 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  {Array.from({ length: lastYear - firstYear + 1 }, (_, index) => lastYear - index).map((year) => <option key={year} value={year}>{year}</option>)}
+                </select>
+              )}
               <button type="button" aria-label="Tháng trước" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-lg p-1.5 text-slate-500 hover:bg-[#E8F7FF]"><ChevronLeft className="h-4 w-4" /></button>
               <button type="button" aria-label="Tháng sau" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-lg p-1.5 text-slate-500 hover:bg-[#E8F7FF]"><ChevronRight className="h-4 w-4" /></button>
             </div>

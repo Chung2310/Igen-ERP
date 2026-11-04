@@ -467,7 +467,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
   const paginatedCourses = filteredCourses.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="space-y-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-sm sm:p-4">
+    <div className="min-h-full space-y-2 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-sm sm:p-4">
       {(courseLoadError || categoryLoadError) && <StudentLoadState error={courseLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadCourses(), reloadCategories()]); }} />}
       <ErpPageHeader
         title={copy.pageTitle}
@@ -557,84 +557,53 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
               >
                 <div className="space-y-2.5">
                   <div className="flex items-start justify-between gap-2">
-                    <span className={cn('min-w-0 break-all text-xs font-semibold tracking-wide', darkMode ? 'text-slate-500' : 'text-[#1687BE]')}>{course.code}</span>
-                    <span className={cn(
-                      'max-w-[45%] shrink-0 truncate rounded-lg border px-1.5 py-0.5 text-[10px] font-medium',
-                      getCategoryColor(course.category)
-                    )}>
+                    <h4 title={course.title} className={cn('min-w-0 flex-1 truncate text-sm font-semibold leading-snug', darkMode ? 'text-slate-100' : 'text-slate-800')}>{course.title}</h4>
+                    <span className="max-w-[45%] shrink-0 truncate rounded-lg border border-outline-variant bg-surface px-1.5 py-0.5 text-[10px] font-medium text-on-surface-variant">
                       {course.category}
                     </span>
                   </div>
 
-                  <h4 className={cn('line-clamp-2 text-sm font-semibold leading-snug transition-colors', darkMode ? 'text-slate-100 group-hover:text-white' : 'text-slate-800 group-hover:text-[#008FCF]')}>{course.title}</h4>
-
                   <div className={cn('grid grid-cols-2 gap-x-1.5 gap-y-1.5 border-t pt-2 text-[11px] font-normal', darkMode ? 'text-slate-400 border-slate-800/30' : 'text-slate-600 border-[#E8F0F6]')}>
-                    <div className="flex items-center gap-1"><CourseIcon name="duration" className="h-3.5 w-3.5 shrink-0" /> {course.duration} buổi</div>
+                    <div className="flex items-center gap-1"><CourseIcon name="duration" className="size-3.5 shrink-0 text-on-surface" /> {course.duration} buổi</div>
                     {usesCourseFeePolicy && (
-                      <div className="flex items-center gap-1"><CourseIcon name="fee" className="h-3.5 w-3.5 shrink-0" /> {course.fee}</div>
+                      <div className="flex items-center gap-1"><CourseIcon name="fee" className="size-3.5 shrink-0 text-on-surface" /> {course.fee}</div>
                     )}
-                    <div className="flex items-center gap-1"><CourseIcon name="learners" className="h-3.5 w-3.5 shrink-0" /> {copy.capacitySummary(course.maxLearners)}</div>
-                    <div className="flex items-center gap-1"><CourseIcon name="batches" className="h-3.5 w-3.5 shrink-0" /> {course.activeBatches} {copy.activeBatchUnit}</div>
+                    <div className="flex items-center gap-1"><CourseIcon name="learners" className="size-3.5 shrink-0 text-on-surface" /> {copy.capacitySummary(course.maxLearners)}</div>
+                    <div className="flex items-center gap-1"><CourseIcon name="batches" className="size-3.5 shrink-0 text-on-surface" /> {course.activeBatches} {copy.activeBatchUnit}</div>
                   </div>
                 </div>
 
-                <div className={cn('mt-2.5 flex flex-wrap items-center justify-between gap-1 border-t pt-2.5', darkMode ? 'border-slate-800/30' : 'border-[#E8F0F6]')}>
-                  <span className={cn(
-                    'shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium border',
-                    course.status === ACTIVE_COURSE_STATUS ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
-                  )}>
-                    {course.status}
-                  </span>
+                <div className={cn('mt-2.5 flex flex-wrap items-center justify-end gap-1 border-t pt-2.5', darkMode ? 'border-slate-800/30' : 'border-[#E8F0F6]')}>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleToggleStatus(course)}
                       title={course.status === ACTIVE_COURSE_STATUS ? copy.pauseTitle : copy.resumeTitle}
-                      className={cn(
-                        'flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium rounded-lg transition-all border cursor-pointer',
-                        darkMode
-                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent'
-                          : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
-                      )}
+                      className="flex cursor-pointer items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-1.5 py-1 text-[10px] font-medium text-on-surface hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                     >
                       {course.status === ACTIVE_COURSE_STATUS
-                        ? <><Pause className="h-3.5 w-3.5 shrink-0" /> Tạm dừng</>
-                        : <><Play className="h-3.5 w-3.5 shrink-0" /> Kích hoạt</>}
+                        ? <><Pause className="size-3.5 shrink-0 text-on-surface" /> Tạm dừng</>
+                        : <><Play className="size-3.5 shrink-0 text-on-surface" /> Kích hoạt</>}
                     </button>
                     <button
                       onClick={() => setViewingCourse(course)}
                       title="Xem chi tiết"
-                      className={cn(
-                        'p-1 rounded-lg transition-all border cursor-pointer',
-                        darkMode
-                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-transparent'
-                          : 'bg-violet-50 hover:bg-violet-100 text-violet-700 border-violet-200'
-                      )}
+                      className="cursor-pointer rounded-lg border border-outline-variant bg-surface-container-lowest p-1 text-on-surface hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                     >
-                      <Eye className="h-3.5 w-3.5" />
+                      <Eye className="size-3.5 text-on-surface" />
                     </button>
                     <button
                       onClick={() => setEditingCourse(course)}
                       title={copy.editTitle}
-                      className={cn(
-                        'p-1 rounded-lg transition-all border cursor-pointer',
-                        darkMode
-                          ? 'bg-slate-800 hover:bg-indigo-900/40 text-slate-450 hover:text-indigo-400 border-transparent'
-                          : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200'
-                      )}
+                      className="cursor-pointer rounded-lg border border-outline-variant bg-surface-container-lowest p-1 text-on-surface hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                     >
-                      <Pencil className="h-3.5 w-3.5" />
+                      <Pencil className="size-3.5 text-on-surface" />
                     </button>
                     <button
                       onClick={() => handleDelete(course)}
                       title={copy.deleteTitle}
-                      className={cn(
-                        'p-1 rounded-lg transition-all border cursor-pointer',
-                        darkMode
-                          ? 'bg-slate-800 hover:bg-rose-900/40 text-slate-450 hover:text-rose-450 border-transparent'
-                          : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
-                      )}
+                      className="cursor-pointer rounded-lg border border-outline-variant bg-surface-container-lowest p-1 text-on-surface hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="size-3.5 text-on-surface" />
                     </button>
                   </div>
                 </div>

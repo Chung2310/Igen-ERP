@@ -129,6 +129,7 @@ function isPayrollRun(value: unknown): value is {
 
 export default function PayrollTab({ canManage, canPublishPayslips = canManage, canExportPayslips = canManage }: { canManage: boolean; canPublishPayslips?: boolean; canExportPayslips?: boolean }) {
   const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
+  const [activePayrollSection, setActivePayrollSection] = useState<"overview" | "approval" | "policy" | "publication">("overview");
   const [run, setRun] = useState<any>(null);
   const [results, setResults] = useState<any[]>([]);
   const [kpiPercentByEmployee, setKpiPercentByEmployee] = useState<Record<string, number | null>>({});
@@ -502,13 +503,38 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
       <MonthPicker value={period} onChange={setPeriod} />
     </div>
 
+    <div role="tablist" aria-label="Các mục bảng lương" className="flex gap-1 overflow-x-auto border-b border-outline-variant">
+      {([
+        ["overview", "Tổng quan kỳ lương"],
+        ["approval", "Chờ duyệt"],
+        ["policy", "Chính sách & cách tính"],
+        ["publication", "Phiếu lương & phát hành"],
+      ] as const).filter(([key]) => canManage || key === "overview" || key === "publication").map(([key, label]) => (
+        <button key={key} id={`payroll-tab-${key}`} type="button" role="tab" tabIndex={activePayrollSection === key ? 0 : -1} aria-selected={activePayrollSection === key} aria-controls="payroll-section-panel" onClick={() => setActivePayrollSection(key)} onKeyDown={(event) => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const tabs = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]') || []);
+          const current = tabs.indexOf(event.currentTarget);
+          const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+          tabs[next]?.focus();
+          tabs[next]?.click();
+        }} className={`shrink-0 border-b-2 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-primary ${activePayrollSection === key ? "border-primary font-medium text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}>{label}</button>
+      ))}
+    </div>
+    <div id="payroll-section-panel" role="tabpanel" tabIndex={0} aria-labelledby={`payroll-tab-${activePayrollSection}`} className="space-y-3 pt-3 focus-visible:outline-2 focus-visible:outline-primary">
+
+    {activePayrollSection === "publication" && <>
     {run?._id && effectiveDataAvailable && <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4"><div className="mb-3 text-sm font-medium text-on-surface">Phiếu lương</div><PayrollPayslipsPanel canManage={canPublishPayslips} canExport={canExportPayslips} publishedCount={run.publishedEmployeeIds?.length || 0} runStatus={run.status} onPublish={publishPayslips} onExport={(type) => void downloadExport(type)} /></div>}
     {run?._id && <PayrollPayslipReviewPanel runId={String(run._id)} canManage={canManage} />}
     {run?._id && <PayrollComplaintsPanel runId={String(run._id)} runVersion={Number(run.version ?? 0)} canManage={canManage && effectiveDataAvailable} hasUnsavedChanges={Object.keys(inputDrafts).length > 0} onChanged={reload} onEdit={(employeeId) => setSearch(employeeId)} />}
     <PayrollPublicationSchedule canManage={canManage} />
+    </>}
+    {activePayrollSection === "policy" && <>
     {canManage && <PayrollPolicyManager canManage={canManage} onPoliciesChanged={loadPolicies} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {PAYROLL_FORMULA_LIBRARY_ENABLED && canManage && <PayrollFormulaLibrary canManage={canManage} runStatus={run?.status} onRecalculate={() => processPeriod(true)} />}
     {canManage && <PayrollCustomVariableManager />}
+    </>}
+    {activePayrollSection === "approval" && <>
     {canManage && (
       <div className="rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
         <div className="flex items-start gap-2.5">
@@ -537,6 +563,8 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
         </div>
       </div>
     )}
+    </>}
+    {activePayrollSection === "overview" && <>
     {/* Quy trình xử lý kỳ lương */}
     <div className="px-2 py-1 sm:px-4">
       <ol className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
@@ -782,6 +810,8 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
           )}
         </table>
       </div>}
+    </div>
+    </>}
     </div>
     {inputSaveOpen && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[2px]" onClick={() => !inputSaving && setInputSaveOpen(false)}>

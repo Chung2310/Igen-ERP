@@ -1,6 +1,43 @@
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Space+Grotesk:wght@300..700&display=swap');
 @import "tailwindcss";
 
+/* Keep the module launcher and product pages visually connected during navigation. */
+@view-transition {
+  navigation: auto;
+}
+
+:is(.module-launcher, #app_root_layout) {
+  view-transition-name: erp-module-page;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+@keyframes erp-page-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes erp-page-fade-in {
+  from { opacity: 0; }
+}
+
+::view-transition-old(erp-module-page) {
+  animation: 170ms ease-in both erp-page-fade-out;
+}
+
+::view-transition-new(erp-module-page) {
+  animation: 170ms ease-out both erp-page-fade-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(erp-module-page),
+  ::view-transition-new(erp-module-page) {
+    animation: none;
+  }
+}
+
 /* Search fields use the same one-pixel outline as the HR department search.
    The ERP-wide header search has its own established appearance. */
 :is(input[type="search"], input[placeholder^="Tìm"], input[aria-label^="Tìm"], input[placeholder^="Search"], input[aria-label^="Search"], :is(div, label):has(> svg.lucide-search) > input):not(#global_search_input):not([class*="border-none"]):not([class*="border-0"]):not([class*="bg-transparent"]):not(.sa-ai-search input) {

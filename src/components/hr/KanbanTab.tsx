@@ -30,6 +30,9 @@ import {
   Square,
   Link2,
   FileText,
+  Folder,
+  FolderOpen,
+  FolderPlus,
   Image as ImageIcon,
   Film,
   Music,
@@ -47,6 +50,7 @@ import { KanbanProjectSummary } from "./KanbanProjectSummary";
 import { mergeSavedProject, updateProjectProgressFromTasks, shouldApplyProjectResponse } from "./kanbanProjectState";
 import { calculateEstimatedHours } from "./kanbanTaskTime";
 import KanbanMonthlyKpiView from "./KanbanMonthlyKpiView";
+import "./KanbanTab.css";
 
 interface KanbanTabProps {
   userProfile: any;
@@ -67,15 +71,12 @@ const boardStatusAliases: Record<BoardStatus, string[]> = {
   Done: ["Done", "done"],
 };
 
-function TargetArrowIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className={`shrink-0 text-[#E5484D] ${className}`}>
-      <circle cx="10.5" cy="13.5" r="7.5" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="10.5" cy="13.5" r="4.2" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M10.5 13.5 20.5 3.5m-4 0h4v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+const boardStatusHeaderTones: Record<BoardStatus, string> = {
+  "Not Started": "kanban-status-header--not-started",
+  "In Progress": "kanban-status-header--in-progress",
+  "Review/Testing": "kanban-status-header--review",
+  Done: "kanban-status-header--done",
+};
 
 const isUrl = (str?: string): boolean => {
   if (!str) return false;
@@ -1498,7 +1499,7 @@ export default function KanbanTab({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto" id="hr_tab_content">
-        <div className="min-h-full space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-left text-on-surface sm:p-6" id="job_delegation_kanban">
+        <div className="flex min-h-full flex-col gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-left text-on-surface sm:p-6" id="job_delegation_kanban">
           {/* Header section */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
@@ -1557,7 +1558,7 @@ export default function KanbanTab({
                     onClick={() => { setEditingProjectId(null); setNewProjectName(""); setNewProjectStatus("not_started"); setNewProjectPriority("medium"); setNewProjectStartAt(""); setNewProjectDueAt(""); setNewProjectAttachments([]); setIsNewProjectModalOpen(true); }}
                     className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#DCE7F4] px-3 py-2 text-xs font-normal text-[#007EB8] transition-all hover:bg-[#E8F7FF] active:scale-95 cursor-pointer"
                   >
-                    <TargetArrowIcon className="h-4 w-4" />
+                    <FolderPlus className="size-4 text-primary" aria-hidden="true" />
                     Tạo dự án & lĩnh vực
                   </button>
 
@@ -1622,7 +1623,7 @@ export default function KanbanTab({
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <ChevronRight className={`h-4.5 w-4.5 text-slate-550 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                            <TargetArrowIcon className="h-4 w-4" />
+                            <FolderOpen className="size-4 shrink-0 text-primary" aria-hidden="true" />
                             <div className="min-w-0 flex-1"><h3 className="truncate text-sm text-slate-800">{proj.name}</h3><KanbanProjectSummary project={proj} /></div>
                             <span className="rounded-full bg-[#E8F7FF] px-2 py-0.5 text-xs text-[#007EB8]">
                               {projTasks.length} việc
@@ -1694,19 +1695,18 @@ export default function KanbanTab({
 
           {/* Tab 2: Standard Kanban Board grid */}
           {kanbanViewTab === "Board" && (
-            <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 xl:grid-cols-4" id="kanban_board_columns">
+            <div className="grid flex-1 grid-cols-1 items-stretch gap-2 md:grid-cols-2 xl:grid-cols-4" id="kanban_board_columns">
               {/* Column 1: Not Started */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "Not Started")} onDrop={(event) => handleBoardDrop(event, "Not Started")} className={`flex h-full min-h-40 flex-col rounded-2xl border border-[#DCE7F4] bg-[#F8FCFF] p-3 transition-colors ${dragOverStatus === "Not Started" ? "border-[#00ADFC] bg-[#E8F7FF] ring-2 ring-[#00ADFC]/20" : ""}`}>
-                <div className="flex justify-between items-center mb-3 select-none">
-                  <span className="flex items-center gap-1.5 text-sm font-normal text-slate-700">
-                    <Clock className="w-3.5 h-3.5 text-gray-400" />
+              <div onDragOver={(event) => handleBoardDragOver(event, "Not Started")} onDrop={(event) => handleBoardDrop(event, "Not Started")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "Not Started" && "ring-2 ring-primary/30")}>
+                <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones["Not Started"])}>
+                  <span className="text-sm font-semibold">
                     Chưa bắt đầu
                   </span>
-                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-normal text-slate-700">
+                  <span className="rounded-sm bg-surface-container-lowest px-1.5 tabular-nums text-xs font-semibold text-on-surface">
                     {visibleTasks.filter(t => t.status === "Not Started" || t.status === "todo").length}
                   </span>
                 </div>
-                <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[50vh] pr-1">
+                <div className="space-y-1.5">
                   {!visibleTasks.some(t => t.status === "Not Started" || t.status === "todo") && <p className="pt-5 text-center text-xs text-slate-400">Chưa có công việc</p>}
                   {visibleTasks.filter(t => t.status === "Not Started" || t.status === "todo").map(task => (
                     <KanbanCard
@@ -1725,17 +1725,16 @@ export default function KanbanTab({
               </div>
 
               {/* Column 2: In Progress */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "In Progress")} onDrop={(event) => handleBoardDrop(event, "In Progress")} className={`flex h-full min-h-40 flex-col rounded-2xl border border-[#DCE7F4] bg-[#F8FCFF] p-3 transition-colors ${dragOverStatus === "In Progress" ? "border-[#00ADFC] bg-[#E8F7FF] ring-2 ring-[#00ADFC]/20" : ""}`}>
-                <div className="flex justify-between items-center mb-3 select-none">
-                  <span className="flex items-center gap-1.5 text-sm font-normal text-[#007EB8]">
-                    <RefreshCw className="w-3.5 h-3.5 text-[#00ADFC] animate-spin" />
+              <div onDragOver={(event) => handleBoardDragOver(event, "In Progress")} onDrop={(event) => handleBoardDrop(event, "In Progress")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "In Progress" && "ring-2 ring-primary/30")}>
+                <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones["In Progress"])}>
+                  <span className="text-sm font-semibold">
                     Đang thực hiện
                   </span>
-                  <span className="rounded-full bg-[#E8F7FF] px-2 py-0.5 text-xs font-normal text-[#007EB8]">
+                  <span className="rounded-sm bg-surface-container-lowest px-1.5 tabular-nums text-xs font-semibold text-on-surface">
                     {visibleTasks.filter(t => t.status === "In Progress" || t.status === "doing").length}
                   </span>
                 </div>
-                <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[50vh] pr-1">
+                <div className="space-y-1.5">
                   {!visibleTasks.some(t => t.status === "In Progress" || t.status === "doing") && <p className="pt-5 text-center text-xs text-slate-400">Chưa có công việc</p>}
                   {visibleTasks.filter(t => t.status === "In Progress" || t.status === "doing").map(task => (
                     <KanbanCard
@@ -1754,17 +1753,16 @@ export default function KanbanTab({
               </div>
 
               {/* Column 3: Review / Testing */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "Review/Testing")} onDrop={(event) => handleBoardDrop(event, "Review/Testing")} className={`flex h-full min-h-40 flex-col rounded-2xl border border-[#DCE7F4] bg-[#F8FCFF] p-3 transition-colors ${dragOverStatus === "Review/Testing" ? "border-[#00ADFC] bg-[#E8F7FF] ring-2 ring-[#00ADFC]/20" : ""}`}>
-                <div className="flex justify-between items-center mb-3 select-none">
-                  <span className="flex items-center gap-1.5 text-sm font-normal text-amber-700">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+              <div onDragOver={(event) => handleBoardDragOver(event, "Review/Testing")} onDrop={(event) => handleBoardDrop(event, "Review/Testing")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "Review/Testing" && "ring-2 ring-primary/30")}>
+                <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones["Review/Testing"])}>
+                  <span className="text-sm font-semibold">
                     Đang kiểm thử
                   </span>
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-normal text-amber-700">
+                  <span className="rounded-sm bg-surface-container-lowest px-1.5 tabular-nums text-xs font-semibold text-on-surface">
                     {visibleTasks.filter(t => t.status === "Review/Testing").length}
                   </span>
                 </div>
-                <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[50vh] pr-1">
+                <div className="space-y-1.5">
                   {!visibleTasks.some(t => t.status === "Review/Testing") && <p className="pt-5 text-center text-xs text-slate-400">Chưa có công việc</p>}
                   {visibleTasks.filter(t => t.status === "Review/Testing").map(task => (
                     <KanbanCard
@@ -1783,17 +1781,16 @@ export default function KanbanTab({
               </div>
 
               {/* Column 4: Done */}
-              <div onDragOver={(event) => handleBoardDragOver(event, "Done")} onDrop={(event) => handleBoardDrop(event, "Done")} className={`flex h-full min-h-40 flex-col rounded-2xl border border-[#DCE7F4] bg-[#F8FCFF] p-3 transition-colors ${dragOverStatus === "Done" ? "border-[#00ADFC] bg-[#E8F7FF] ring-2 ring-[#00ADFC]/20" : ""}`}>
-                <div className="flex justify-between items-center mb-3 select-none">
-                  <span className="flex items-center gap-1.5 text-sm font-normal text-[#15803D]">
-                    <CheckCircle className="w-3.5 h-3.5 text-[#16A34A]" />
+              <div onDragOver={(event) => handleBoardDragOver(event, "Done")} onDrop={(event) => handleBoardDrop(event, "Done")} className={cn("flex min-h-40 min-w-0 flex-col rounded-md border border-outline-variant bg-surface-container-low p-2", dragOverStatus === "Done" && "ring-2 ring-primary/30")}>
+                <div className={cn("kanban-status-header mb-2 flex items-center justify-between gap-1.5 rounded-sm px-2.5 py-2 select-none", boardStatusHeaderTones.Done)}>
+                  <span className="text-sm font-semibold">
                     Đã hoàn thành
                   </span>
-                  <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-xs font-normal text-[#15803D]">
+                  <span className="rounded-sm bg-surface-container-lowest px-1.5 tabular-nums text-xs font-semibold text-on-surface">
                     {visibleTasks.filter(t => t.status === "Done" || t.status === "done").length}
                   </span>
                 </div>
-                <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[50vh] pr-1">
+                <div className="space-y-1.5">
                   {!visibleTasks.some(t => t.status === "Done" || t.status === "done") && <p className="pt-5 text-center text-xs text-slate-400">Chưa có công việc</p>}
                   {visibleTasks.filter(t => t.status === "Done" || t.status === "done").map(task => (
                     <KanbanCard
@@ -1991,7 +1988,7 @@ export default function KanbanTab({
 
               <div className="space-y-2 lg:contents">
                 <div className="flex items-center gap-4">
-                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><TargetArrowIcon className="w-3.5 h-3.5 !text-[#00ADFC]" /> Thuộc dự án</span>
+                  <span className="w-24 text-slate-600 select-none flex items-center gap-1.5"><Folder className="size-3.5 text-primary" aria-hidden="true" /> Thuộc dự án</span>
                   <div className="min-w-0 flex-1"><HrFormSelect value={editProjectId} onChange={setEditProjectId} label="Thuộc dự án" options={[{ value: "", label: "Không gán dự án" }, ...projects.map(p => ({ value: p.id, label: p.name }))]} /></div>
                 </div>
 
@@ -2217,7 +2214,7 @@ export default function KanbanTab({
           <form onSubmit={handleCreateProject} className="bg-white border border-[#DCE7F4] rounded-2xl shadow-xl w-full max-w-xl p-6 relative text-left space-y-5 max-h-[90dvh] overflow-y-auto overscroll-contain">
             <div className="flex justify-between items-center pb-4 border-b border-[#E8F0F8]">
               <h4 className="font-normal text-slate-800 text-lg font-sans flex items-center gap-2">
-                <TargetArrowIcon className="h-5 w-5" />
+                <Folder className="size-5 text-primary" aria-hidden="true" />
                 {editingProjectId ? "Cập nhật dự án" : "Tạo dự án mới"}
               </h4>
               <button
@@ -2336,6 +2333,25 @@ function KanbanCard({
   onClick: () => void;
   projects: Project[];
 }) {
+  const cardAccent =
+    task.status === "In Progress" || task.status === "doing"
+      ? "border-l-sky-400"
+      : task.status === "Review/Testing"
+        ? "border-l-amber-400"
+        : task.status === "Done" || task.status === "done"
+          ? "border-l-emerald-400"
+          : "border-l-slate-400";
+  const projectName = task.projectId
+    ? projects.find((project) => project.id === task.projectId)?.name || "Không có dự án"
+    : null;
+  const kpi = calculateKPI(task);
+  const priorityLabel = task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình";
+  const priorityTone = task.priority === "High"
+    ? "bg-[#FFE5E8] text-[#C62B45] [.dark_&]:bg-red-950 [.dark_&]:text-red-200"
+    : task.priority === "Low"
+      ? "bg-[#E0F7ED] text-[#087D5A] [.dark_&]:bg-emerald-950 [.dark_&]:text-emerald-200"
+      : "bg-[#FFF0CC] text-[#98610B] [.dark_&]:bg-amber-950 [.dark_&]:text-amber-200";
+
   return (
     <div
       onClick={onClick}
@@ -2343,65 +2359,54 @@ function KanbanCard({
       title="Kéo thả để đổi trạng thái công việc"
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`kanban-card-rainbow group relative space-y-3 rounded-2xl border border-[#DCE7F4] bg-white p-4 text-left shadow-2xs transition-[box-shadow,opacity] duration-200 hover:shadow-md ${isDragging ? "opacity-45" : "cursor-grab active:cursor-grabbing"}`}
+      className={cn(
+        "group relative min-w-0 space-y-2 rounded-sm border border-outline-variant border-l-2 bg-surface-container-lowest p-3 text-left shadow-sm transition-[box-shadow,opacity] duration-200 hover:shadow-md",
+        cardAccent,
+        isDragging ? "opacity-45" : "cursor-grab active:cursor-grabbing",
+      )}
     >
-      {canDelete && <button
-        type="button"
-        aria-label={`Xóa công việc ${task.title}`}
-        title="Xóa công việc"
-        onClick={(event) => { event.stopPropagation(); onDelete(); }}
-        className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-rose-50 text-rose-500 transition-colors hover:bg-rose-100 hover:text-rose-700"
-      ><X className="h-3.5 w-3.5" /></button>}
-      <div className="space-y-1.5">
-        <div className="flex flex-col items-start gap-1.5 pr-7 select-none">
-          <span className={`whitespace-nowrap rounded-lg px-2 py-0.5 text-[11px] ${task.priority === "High" ? "bg-[#FEE2E2] text-[#DC2626]" :
-            task.priority === "Low" ? "bg-[#DCFCE7] text-[#15803D]" : "bg-[#FEF3C7] text-[#B45309]"
-            }`}>
-            {task.priority === "High" ? "Cao" : task.priority === "Low" ? "Thấp" : "Trung bình"}
-          </span>
-          <span className="max-w-full rounded-lg bg-[#E8F7FF] px-2 py-0.5 text-[11px] text-[#007EB8]">
-            {formatTaskCategory(task.category)}
-          </span>
-        </div>
-        <h4 className="line-clamp-2 text-sm font-normal leading-snug text-slate-800 transition-colors group-hover:text-[#007EB8]">{task.title}</h4>
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <h4 className="min-w-0 truncate text-sm font-semibold leading-snug text-on-surface" title={task.title}>{task.title}</h4>
+        {canDelete && <button
+          type="button"
+          aria-label={`Xóa công việc ${task.title}`}
+          title="Xóa công việc"
+          onClick={(event) => { event.stopPropagation(); onDelete(); }}
+          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-error-container text-error focus-visible:outline-2 focus-visible:outline-primary"
+        ><X className="size-3.5" aria-hidden="true" /></button>}
       </div>
-
-      <div className="space-y-1.5 text-xs text-slate-500">
-        {task.projectId && (
-          <div className="flex items-center gap-1 text-xs text-slate-600 select-none">
-            <TargetArrowIcon className="w-3 h-3" />
-            <span className="truncate">{projects.find(p => p.id === task.projectId)?.name || "Không có dự án"}</span>
-          </div>
+      <div className="flex min-w-0 items-center gap-1.5 text-[11px] select-none">
+        <span className="min-w-0 max-w-40 truncate rounded-md border border-outline-variant bg-surface-container-low px-2 py-0.5 font-medium text-on-surface/80" title={formatTaskCategory(task.category)}>{formatTaskCategory(task.category)}</span>
+        {projectName && (
+          <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-md border border-outline-variant bg-surface-container-low px-2 py-0.5 text-on-surface/80" title={projectName}>
+            <FolderOpen className="size-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">{projectName}</span>
+          </span>
         )}
       </div>
-
-      <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 text-[10px]">
-        <div className="flex items-center gap-1.5">
-          {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-6 h-6", "text-xs")}
-          <span className="font-normal text-slate-650">{task.assignee}</span>
-        </div>
-        <span className="font-mono font-normal text-gray-400">Hạn: {formatDatetime(task.dueDate)}</span>
+      <div className="flex min-w-0 items-center gap-1 border-t border-on-surface/10 pt-2 text-[11px] text-on-surface/75">
+        <span className="inline-flex min-w-0 items-center gap-1 tabular-nums" title={task.dueDate ? `Hạn: ${formatDatetime(task.dueDate)}` : "Chưa đặt hạn"}>
+          <Calendar className="size-3.5 shrink-0" aria-hidden="true" />
+          <span className="truncate">{task.dueDate ? `Hạn ${formatDatetime(task.dueDate)}` : "Chưa đặt hạn"}</span>
+        </span>
       </div>
-
-      {/* Show KPI Badge on Card if available */}
-      {(() => {
-        const kpi = calculateKPI(task);
-        if (!kpi) return null;
-        return (
-          <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px]">
-            <span className="font-normal text-gray-400">Đánh giá KPI:</span>
-            {kpi.status === "ontime" ? (
-              <span className="flex items-center gap-0.5 rounded bg-[#DCFCE7] px-1.5 py-0.5 text-[9px] font-normal text-[#15803D]">
-                ✓ Đúng hạn
-              </span>
-            ) : (
-              <span className="flex items-center gap-0.5 rounded bg-rose-100 px-1.5 py-0.5 text-[9px] font-normal text-rose-700">
-                ⚠️ Trễ {kpi.diff}h
-              </span>
-            )}
-          </div>
-        );
-      })()}
+      <div className="flex min-w-0 items-center justify-between gap-2 text-[11px] text-on-surface/80">
+        <span className={cn("shrink-0 px-2 py-0.5 text-[10px] font-semibold leading-tight uppercase", priorityTone)}>
+          {priorityLabel}
+        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          {kpi && <span
+            className={cn("shrink-0 whitespace-nowrap rounded-full bg-white/75 px-2 py-0.5 text-[10px] font-medium [.dark_&]:bg-white/10", kpi.status === "ontime" ? "text-[#087D5A] [.dark_&]:text-emerald-300" : "text-error")}
+            title="Kết quả KPI"
+          >
+            {kpi.status === "ontime" ? "✓ Đúng hạn" : `Trễ ${kpi.diff}h`}
+          </span>}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate" title={task.assignee}>{task.assignee}</span>
+            {renderAvatar(task.assigneeAvatar || "👨‍💻", "w-5 h-5", "text-[10px]")}
+          </span>
+        </div>
+      </div>
 
     </div>
   );

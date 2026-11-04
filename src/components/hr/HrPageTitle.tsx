@@ -5,9 +5,8 @@ export function HrPageTitle({ children, level = 2, testId }: { children: ReactNo
   const Heading = level === 3 ? "h3" : "h2";
 
   return (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <span className="h-5 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-      <Heading data-testid={testId} className="min-w-0 text-balance text-xl font-semibold text-on-surface">
+    <div className="flex min-w-0 items-center">
+      <Heading data-testid={testId} className="min-w-0 text-balance text-lg font-semibold text-on-surface">
         {children}
       </Heading>
     </div>

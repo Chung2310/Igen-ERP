@@ -42,7 +42,14 @@ export default function ModuleLauncher() {
                 </div>
               ) : (
                 <a href={tabToPath(item.label)} className="module-launcher-card flex min-h-28 flex-col items-center p-1 text-center focus-visible:rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
-                  <span className="module-launcher-icon-tile flex size-18 items-center justify-center"><ModuleArtwork module={item.label} className="size-full" /></span>
+                  <span className="module-launcher-icon-tile relative flex size-18 items-center justify-center">
+                    <ModuleArtwork module={item.label} className="size-full" />
+                    {item.label === "TRỢ LÝ AI" && (
+                      <span aria-hidden="true" className="module-launcher-new-badge pointer-events-none absolute -right-3 -top-2 rounded-full px-2 py-1 text-xs font-semibold leading-none text-white shadow-sm">
+                        Mới
+                      </span>
+                    )}
+                  </span>
                   <span className="mt-1.5 w-max max-w-40 truncate text-sm font-semibold leading-snug text-on-surface" title={item.title}>{item.title}</span>
                 </a>
               )}

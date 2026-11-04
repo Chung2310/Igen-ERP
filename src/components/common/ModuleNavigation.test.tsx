@@ -14,6 +14,8 @@ it('keeps calendar navigation horizontal without a left rail toggle', () => {
   const bar = screen.getByRole('navigation', { name: 'Mục Lịch' }).parentElement?.parentElement;
   expect(bar?.getAttribute('data-layout')).toBe('horizontal');
   expect(screen.queryByRole('button', { name: 'Thu gọn thanh điều hướng' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Tìm kiếm trong ERP' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Cài đặt hệ thống' })).toBeNull();
   expect(bar?.style.getPropertyValue('--module-navigation-left')).toBe('');
 });
 
@@ -27,6 +29,8 @@ it('preserves selection, disabled actions and native keyboard focus', () => {
     </ModuleNavigation>
   );
   const activeButton = screen.getByRole('button', { name: 'Đầu tiên' });
+  expect(screen.getByRole('button', { name: 'Tìm kiếm trong ERP' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Cài đặt hệ thống' }).getAttribute('href')).toBe('/cai-dat?sub=ho-so');
   expect(activeButton.getAttribute('aria-current')).toBe('page');
   expect(activeButton.className).toContain('bg-primary/5');
   expect(activeButton.className).toContain('text-primary');
@@ -49,14 +53,17 @@ it('collapses and reopens the left rail without removing tab names or actions', 
   const collapse = screen.getByRole('button', { name: 'Thu gọn thanh điều hướng' });
   expect(collapse.getAttribute('aria-controls')).toBe(screen.getByRole('navigation').id);
   expect(collapse.getAttribute('aria-pressed')).toBe('false');
+  expect(rail?.querySelector('[data-global-sidebar-search-trigger]')).toBeTruthy();
   fireEvent.click(collapse);
   expect(rail?.getAttribute('data-collapsed')).toBe('true');
+  expect(rail?.querySelector('[data-global-sidebar-search-trigger]')).toBeNull();
   expect(screen.getByRole('button', { name: 'Mở rộng thanh điều hướng' }).getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByRole('button', { name: 'Đầu tiên' }).getAttribute('title')).toBe('Đầu tiên');
   fireEvent.click(screen.getByRole('button', { name: 'Đầu tiên' }));
   expect(change).toHaveBeenCalledOnce();
   fireEvent.click(screen.getByRole('button', { name: 'Mở rộng thanh điều hướng' }));
   expect(rail?.getAttribute('data-collapsed')).toBe('false');
+  expect(rail?.querySelector('[data-global-sidebar-search-trigger]')).toBeTruthy();
 });
 
 it('keeps the rail within the visible page height while content extends below the viewport', () => {

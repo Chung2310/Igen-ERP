@@ -28,7 +28,7 @@ export default function HrScheduleTab({ userProfile, selectedCompanyCode, usersL
     { id: "hours", label: "Giờ làm việc nhân viên", Icon: Users, visible: canManageTimekeeping },
   ] as const;
   return <section className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest px-2 pb-2 pt-0 text-on-surface sm:px-3 sm:pb-3" aria-label="Lịch và ca làm việc">
-    <ModuleNavigation label="Mục Lịch và ca làm việc" activeValue={activeTab} layout="horizontal">
+    <ModuleNavigation label="Mục Lịch và ca làm việc" activeValue={activeTab} layout="horizontal" className="px-2 sm:px-2">
       {tabs.filter(tab => tab.visible).map(({ id, label, Icon }) => (
         <ModuleNavigationButton
           key={id}

@@ -6,10 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { recruitmentApi } from "../../../services/recruitmentService";
 import { toast } from "../../../pages/Toast";
 import RecruitmentTab from "./RecruitmentTab";
+import { authService } from "../../../services/authService";
+import { hrDepartmentService } from "../../../services/hrDepartmentService";
 
 vi.mock("../../../context/AuthContext", () => ({ useAuth: () => ({ userProfile: { companyCode: "ACME" } }) }));
 vi.mock("../../../context/BranchContext", () => ({ useBranch: () => ({ activeBranchId: "branch-a" }) }));
 vi.mock("../../../services/authService", () => ({ authService: { getUsersByCompany: vi.fn().mockResolvedValue([]) } }));
+vi.mock("../../../services/hrDepartmentService", () => ({ hrDepartmentService: { list: vi.fn() } }));
 
 async function chooseOption(label: string, option: string) {
   await userEvent.click(screen.getAllByRole("button", { name: label }).find((button) => button.getAttribute("aria-haspopup") === "listbox")!);
@@ -35,6 +38,13 @@ describe("RecruitmentTab", () => {
   afterEach(cleanup);
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(hrDepartmentService.list).mockResolvedValue([
+      { id: "dep-a", name: "IT", employeeCount: 1, isActive: true },
+      { id: "dep-b", name: "Accounting", employeeCount: 1, isActive: true },
+    ]);
+    vi.mocked(authService.getUsersByCompany).mockResolvedValue([
+      { uid: "user-a", department: "IT", branchId: "branch-a" },
+    ] as any);
     vi.mocked(recruitmentApi.listJobs).mockResolvedValue([job]);
     vi.mocked(recruitmentApi.getPipeline).mockResolvedValue({ _id: "pipe", version: 0, stages: [{ id: "new", name: "Hồ sơ mới", color: "#000", position: 0, isActive: true }] });
     vi.mocked(recruitmentApi.listApplicants).mockResolvedValue([]);
@@ -103,6 +113,23 @@ describe("RecruitmentTab", () => {
     await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
     await waitFor(() => expect(recruitmentApi.createJob).toHaveBeenCalledWith(expect.objectContaining({ jdFileUrl: "https://cloud.test/qa-jd.pdf", jdFilePublicId: "public/qa-jd.pdf" })));
     expect(vi.mocked(recruitmentApi.uploadPublicFile).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(recruitmentApi.createJob).mock.invocationCallOrder[0]);
+  });
+
+  it("only offers departments used by the selected branch", async () => {
+    render(<RecruitmentTab canManage />);
+    await screen.findByText("Developer");
+    await userEvent.click(screen.getByRole("button", { name: "Tạo tin" }));
+    await waitFor(() => expect(hrDepartmentService.list).toHaveBeenCalledWith("ACME"));
+    await waitFor(() => expect(authService.getUsersByCompany).toHaveBeenCalledWith("ACME", "branch-a"));
+    await userEvent.click(screen.getByRole("button", { name: "Phòng ban" }));
+    expect(screen.getByRole("option", { name: "IT" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Accounting" })).toBeNull();
+    await userEvent.click(screen.getByRole("option", { name: "IT" }));
+    expect(screen.getByRole("button", { name: "Phòng ban" }).textContent).toContain("IT");
+    await userEvent.type(screen.getByLabelText("Mã tin"), "QA");
+    await userEvent.type(screen.getByLabelText("Tên vị trí"), "QA Engineer");
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Lưu" }));
+    await waitFor(() => expect(recruitmentApi.createJob).toHaveBeenCalledWith(expect.objectContaining({ department: "IT" })));
   });
 
   it("uploads a CV immediately and fills its public link before creating", async () => {

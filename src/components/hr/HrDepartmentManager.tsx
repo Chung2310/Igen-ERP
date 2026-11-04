@@ -8,9 +8,17 @@ import { ConfirmDialog } from "../common/ConfirmDialog";
 import { StyledSelect } from "../common/StyledSelect";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import { HrPageTitle } from "./HrPageTitle";
+import "./HrDepartmentManager.css";
 
 const fieldClass = "min-h-9 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
 const closeButtonClass = "flex size-8 shrink-0 items-center justify-center rounded-full bg-error text-on-error shadow-xs transition-transform hover:bg-error/90 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error disabled:cursor-not-allowed disabled:opacity-50";
+
+function DepartmentStatusBadge({ active }: { active: boolean }) {
+  return <span className={cn(
+    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-normal",
+    active ? "border-primary bg-surface-container-lowest text-primary" : "border-outline-variant bg-surface-container-low text-on-surface-variant"
+  )}><span className={cn("size-1.5 rounded-full", active ? "bg-primary" : "bg-outline")} aria-hidden="true" />{active ? "Đang hoạt động" : "Ngừng hoạt động"}</span>;
+}
 
 type Props = {
   companyCode: string;
@@ -225,10 +233,10 @@ export function HrDepartmentManager({ companyCode, departments, managers, manage
     setEditingDescription(department.description || ""); setEditingManagerUid(department.managerUid || "");
     setEditingSortOrder(department.sortOrder || 0); setEditingActive(department.isActive !== false);
   };
-  const actions = (department: HrDepartment) => canManage && (
+  const actions = (department: HrDepartment, compact = false) => canManage && (
     <div className="flex shrink-0 items-center gap-1">
-      <button type="button" aria-label={`Sửa ${department.name}`} title="Sửa phòng ban" onClick={() => startEdit(department)} disabled={busy} className="flex size-10 items-center justify-center rounded-lg text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"><Pencil className="size-4" aria-hidden="true" /></button>
-      <button type="button" aria-label={`Xóa ${department.name}`} title="Xóa phòng ban" onClick={() => setPendingDelete(department)} disabled={busy} className="flex size-10 items-center justify-center rounded-lg text-error hover:bg-error-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"><Trash2 className="size-4" aria-hidden="true" /></button>
+      <button type="button" aria-label={`Sửa ${department.name}`} title="Sửa phòng ban" onClick={() => startEdit(department)} disabled={busy} className={cn("flex items-center justify-center rounded-lg text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50", compact ? "size-8" : "size-10")}><Pencil className="size-4" aria-hidden="true" /></button>
+      <button type="button" aria-label={`Xóa ${department.name}`} title="Xóa phòng ban" onClick={() => setPendingDelete(department)} disabled={busy} className={cn("flex items-center justify-center rounded-lg text-error hover:bg-error-container focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50", compact ? "size-8" : "size-10")}><Trash2 className="size-4" aria-hidden="true" /></button>
     </div>
   );
   const add = async () => {
@@ -330,44 +338,43 @@ export function HrDepartmentManager({ companyCode, departments, managers, manage
             <section aria-label="Danh sách phòng ban" className={cn("min-w-0 space-y-4", !inline && !canManage && "md:col-span-2")}>
               {inline && <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {[
-                  { label: "Tổng phòng ban", value: stats.total, Icon: Building2 },
-                  { label: "Đang hoạt động", value: stats.active, Icon: Check },
-                  { label: "Tổng nhân sự", value: stats.employees, Icon: Users },
-                  { label: "Chưa có quản lý", value: stats.withoutManager, Icon: UserRoundX },
-                ].map(({ label, value, Icon }) => <div key={label} className="flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container"><Icon className="size-5" aria-hidden="true" /></span>
-                  <div><p className="text-pretty text-xs text-on-surface-variant">{label}</p><p className="text-lg font-semibold tabular-nums text-on-surface">{value}</p></div>
+                  { label: "Tổng phòng ban", value: stats.total, Icon: Building2, tone: "total" },
+                  { label: "Đang hoạt động", value: stats.active, Icon: Check, tone: "active" },
+                  { label: "Tổng nhân sự", value: stats.employees, Icon: Users, tone: "employees" },
+                  { label: "Chưa có quản lý", value: stats.withoutManager, Icon: UserRoundX, tone: "without-manager" },
+                ].map(({ label, value, Icon, tone }) => <div key={label} className={cn("hr-department-stat-card flex min-w-0 items-center justify-between gap-3 rounded-xl p-3 text-on-primary", `hr-department-stat-card--${tone}`)}>
+                  <div className="min-w-0"><p className="truncate text-xs font-medium" title={label}>{label}</p><p className="tabular-nums text-xl font-semibold leading-tight">{value}</p></div>
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-on-primary/15"><Icon className="size-5" aria-hidden="true" /></span>
                 </div>)}
               </div>}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className={cn("text-balance text-on-surface", inline ? "text-lg font-semibold" : "text-sm font-medium")}>Danh sách phòng ban</h3>
-                <span className="tabular-nums text-xs text-on-surface-variant">{filteredDepartments.length}/{departments.length} phòng ban</span>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {departments.length > 0 && <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <label className="relative min-w-44 flex-1 sm:max-w-xl">
+                    <span className="sr-only">Tìm phòng ban</span>
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
+                    <input type="search" placeholder="Tìm tên hoặc mã phòng ban..." value={search} onChange={event => setSearch(event.target.value)} className={cn(fieldClass, "pl-9")} />
+                  </label>
+                  <StyledSelect appearance="erp" ariaLabel="Lọc trạng thái phòng ban" value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)} options={[{ value: "all", label: "Tất cả trạng thái" }, { value: "active", label: "Đang hoạt động" }, { value: "inactive", label: "Ngừng hoạt động" }]} className="h-9 min-h-9 w-44 border-outline-variant focus-visible:outline-2 focus-visible:outline-primary" />
+                  <div role="group" aria-label="Kiểu hiển thị" className="flex h-9 rounded-lg bg-surface-container-low">
+                    <button type="button" aria-label="Xem dạng lưới" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")} className={cn("flex size-9 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-primary", viewMode === "grid" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-container")}><LayoutGrid className="size-4" aria-hidden="true" /></button>
+                    <button type="button" aria-label="Xem dạng bảng" aria-pressed={viewMode === "table"} onClick={() => setViewMode("table")} className={cn("flex size-9 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-primary", viewMode === "table" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-container")}><List className="size-4" aria-hidden="true" /></button>
+                  </div>
+                </div>}
+                <span className="ml-auto whitespace-nowrap tabular-nums text-xs text-on-surface-variant">{filteredDepartments.length}/{departments.length} phòng ban</span>
               </div>
-              {departments.length > 0 && <div className="flex flex-wrap items-center gap-2">
-                <label className="relative min-w-44 flex-1 sm:max-w-xl">
-                  <span className="sr-only">Tìm phòng ban</span>
-                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
-                  <input type="search" placeholder="Tìm tên hoặc mã phòng ban..." value={search} onChange={event => setSearch(event.target.value)} className={cn(fieldClass, "pl-9")} />
-                </label>
-                <StyledSelect appearance="erp" ariaLabel="Lọc trạng thái phòng ban" value={statusFilter} onChange={(value) => setStatusFilter(value as typeof statusFilter)} options={[{ value: "all", label: "Tất cả trạng thái" }, { value: "active", label: "Đang hoạt động" }, { value: "inactive", label: "Ngừng hoạt động" }]} className="h-9 min-h-9 w-44 border-outline-variant focus-visible:outline-2 focus-visible:outline-primary" />
-                <div role="group" aria-label="Kiểu hiển thị" className="flex rounded-lg border border-outline p-0.5">
-                  <button type="button" aria-label="Xem dạng lưới" aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")} className={cn("flex size-10 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-primary", viewMode === "grid" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-container-low")}><LayoutGrid className="size-4" aria-hidden="true" /></button>
-                  <button type="button" aria-label="Xem dạng bảng" aria-pressed={viewMode === "table"} onClick={() => setViewMode("table")} className={cn("flex size-10 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-primary", viewMode === "table" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-container-low")}><List className="size-4" aria-hidden="true" /></button>
-                </div>
-              </div>}
               {departments.length === 0 && <div className="flex flex-col items-center rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-8 text-center text-pretty text-sm text-on-surface-variant"><HrEmptyIllustration kind="department" /><p className="mt-1">Chưa có phòng ban.{canManage ? " Hãy thêm phòng ban đầu tiên." : ""}</p></div>}
               {departments.length > 0 && filteredDepartments.length === 0 && <div className="flex flex-col items-center rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-8 text-center text-pretty text-sm text-on-surface-variant"><HrEmptyIllustration kind="search" /><p className="mt-1">Không tìm thấy phòng ban phù hợp. Hãy đổi từ khóa hoặc bộ lọc.</p></div>}
               {filteredDepartments.length > 0 && (viewMode === "grid" ? (
-                <ul className={cn("grid gap-3", inline && "sm:grid-cols-2 xl:grid-cols-3")}>
-                  {filteredDepartments.map(department => <li key={department.id} className="flex min-w-0 flex-col gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-                    <div className="flex items-start gap-3"><span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container"><Building2 className="size-5" aria-hidden="true" /></span><div className="min-w-0 flex-1"><p className="truncate font-semibold text-on-surface">{department.name}</p><p className="text-xs text-on-surface-variant">{department.code || "Chưa có mã"}</p></div></div>
-                    <p className="text-pretty text-sm text-on-surface-variant">{department.employeeCount} nhân sự · {department.managerName ? `Quản lý: ${department.managerName}` : "Chưa có quản lý"}</p>
-                    {department.description && <p className="text-pretty text-sm text-on-surface-variant">{department.description}</p>}
-                    <div className="mt-auto flex items-center justify-between gap-2"><span className="text-xs text-on-surface-variant">{department.isActive === false ? "Ngừng hoạt động" : "Đang hoạt động"}</span>{actions(department)}</div>
+                <ul className={cn("grid gap-3", inline && "grid-cols-[repeat(auto-fill,minmax(min(100%,18rem),1fr))]")}>
+                  {filteredDepartments.map(department => <li key={department.id} className="flex min-w-0 flex-col gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-3">
+                    <div className="flex items-start gap-2.5"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container"><Building2 className="size-4.5" aria-hidden="true" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-on-surface" title={department.name}>{department.name}</p><p className="truncate text-xs text-on-surface-variant">{department.code || "Chưa có mã"}</p></div></div>
+                    <p className="truncate text-xs text-on-surface-variant" title={`${department.employeeCount} nhân sự · ${department.managerName ? `Quản lý: ${department.managerName}` : "Chưa có quản lý"}`}>{department.employeeCount} nhân sự · {department.managerName ? `Quản lý: ${department.managerName}` : "Chưa có quản lý"}</p>
+                    {department.description && <p className="line-clamp-2 text-xs text-on-surface-variant">{department.description}</p>}
+                    <div className="mt-auto flex items-center justify-between gap-1.5"><DepartmentStatusBadge active={department.isActive !== false} />{actions(department, true)}</div>
                   </li>)}
                 </ul>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest"><table className="min-w-full text-left text-sm"><thead className="bg-surface-container-low text-on-surface-variant"><tr><th scope="col" className="p-3 font-medium">Phòng ban</th><th scope="col" className="p-3 font-medium">Nhân sự</th><th scope="col" className="p-3 font-medium">Quản lý</th><th scope="col" className="p-3 font-medium">Trạng thái</th>{canManage && <th scope="col" className="p-3 font-medium">Thao tác</th>}</tr></thead><tbody className="divide-y divide-outline-variant">{filteredDepartments.map(department => <tr key={department.id}><th scope="row" className="p-3 font-medium text-on-surface">{department.name}{department.code && <span className="block text-xs font-normal text-on-surface-variant">{department.code}</span>}</th><td className="p-3 tabular-nums">{department.employeeCount}</td><td className="p-3">{department.managerName || "Chưa có"}</td><td className="p-3">{department.isActive === false ? "Ngừng hoạt động" : "Đang hoạt động"}</td>{canManage && <td className="p-3">{actions(department)}</td>}</tr>)}</tbody></table></div>
+                <div className="overflow-x-auto rounded-xl border border-outline-variant bg-surface-container-lowest"><table className="min-w-full text-left text-sm"><thead className="bg-surface-container-low text-on-surface-variant"><tr><th scope="col" className="p-3 font-medium">Phòng ban</th><th scope="col" className="p-3 font-medium">Nhân sự</th><th scope="col" className="p-3 font-medium">Quản lý</th><th scope="col" className="p-3 font-medium">Trạng thái</th>{canManage && <th scope="col" className="p-3 font-medium">Thao tác</th>}</tr></thead><tbody className="divide-y divide-outline-variant">{filteredDepartments.map(department => <tr key={department.id}><th scope="row" className="p-3 font-medium text-on-surface">{department.name}{department.code && <span className="block text-xs font-normal text-on-surface-variant">{department.code}</span>}</th><td className="p-3 tabular-nums">{department.employeeCount}</td><td className="p-3">{department.managerName || "Chưa có"}</td><td className="p-3"><DepartmentStatusBadge active={department.isActive !== false} /></td>{canManage && <td className="p-3">{actions(department)}</td>}</tr>)}</tbody></table></div>
               ))}
             </section>
           </div>

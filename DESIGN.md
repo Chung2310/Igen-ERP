@@ -41,7 +41,7 @@ Dùng vai trò màu theo ngữ cảnh: `primary` cho hành động chính, `surf
 
 ## Search fields
 
-Thanh tìm kiếm trong các màn hình nghiệp vụ dùng viền 1 px màu `outline-variant` (`#d8e2f0` ở giao diện sáng), theo ô tìm kiếm của trang Phòng ban. Khi focus, viền dùng `primary`. Giữ kích thước và bố cục riêng của từng màn hình. Ô “Tìm kiếm trong ERP...” trên header giữ kiểu hiện tại.
+Thanh tìm kiếm trong các màn hình nghiệp vụ dùng viền 1 px màu `outline-variant` (`#d8e2f0` ở giao diện sáng), theo ô tìm kiếm của trang Phòng ban. Khi focus, viền dùng `primary`. Giữ kích thước và bố cục riêng của từng màn hình. Tìm kiếm toàn ERP mở từ biểu tượng kính lúp ở hàng đầu sidebar phân hệ; header không có ô tìm kiếm.
 
 ## Empty states
 

@@ -48,6 +48,27 @@ const suggestions = [
   { prompt: "Tạo một công việc mới", category: "Công việc", Icon: ClipboardList },
 ];
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+type LauncherPosition = { x: number; y: number };
+
+function clampLauncherPosition(position: LauncherPosition, size = 56): LauncherPosition {
+  const margin = 8;
+  return {
+    x: Math.max(margin, Math.min(position.x, window.innerWidth - size - margin)),
+    y: Math.max(margin, Math.min(position.y, window.innerHeight - size - margin)),
+  };
+}
+
+function readLauncherPosition(key: string): LauncherPosition | null {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(key) || "null");
+    if (saved && typeof saved === "object" && "x" in saved && "y" in saved
+      && typeof saved.x === "number" && typeof saved.y === "number"
+      && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      return clampLauncherPosition({ x: saved.x, y: saved.y });
+    }
+  } catch { /* Keep the default corner when storage is unavailable. */ }
+  return null;
+}
 
 function readHistory(key: string): Message[] {
   try {
@@ -71,7 +92,7 @@ export function ChatbotWidget({ storageScope, mode = "popup" }: { storageScope: 
   const scope = `${storageScope}:${branch?.activeBranchId || "company"}`;
   const branchId = branch?.activeBranchId || "";
   const deviceId = userProfile?.companyCode && branchId ? getPosTerminalId(userProfile.companyCode, branchId) : undefined;
-  return <ChatbotSession key={`${scope}:${mode}`} storageScope={scope} branchId={branchId} deviceId={deviceId} mode={mode} />;
+  return <ChatbotSession key={`${scope}:${mode}`} storageScope={scope} launcherStorageScope={storageScope} branchId={branchId} deviceId={deviceId} mode={mode} />;
 }
 
 function storedConversation(key: string): string {
@@ -81,8 +102,47 @@ function storedConversation(key: string): string {
   return id;
 }
 
-function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageScope: string; branchId: string; deviceId?: string; mode: "popup" | "standalone" }) {
+function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId, mode }: { storageScope: string; launcherStorageScope: string; branchId: string; deviceId?: string; mode: "popup" | "standalone" }) {
   const storageKey = `igen_erp_chatbot_history:${storageScope}`;
+  const launcherStorageKey = `igen_erp_chatbot_launcher_position:${launcherStorageScope}`;
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const [launcherPosition, setLauncherPosition] = useState<LauncherPosition | null>(() => mode === "popup" ? readLauncherPosition(launcherStorageKey) : null);
+  const launcherPositionRef = useRef(launcherPosition);
+  const launcherDragRef = useRef<{ pointerId: number; startX: number; startY: number; left: number; top: number; moved: boolean } | null>(null);
+  const suppressLauncherClickRef = useRef(false);
+  useEffect(() => {
+    if (mode !== "popup") return;
+    const keepLauncherInViewport = () => {
+      if (!launcherPositionRef.current) return;
+      const position = clampLauncherPosition(launcherPositionRef.current, launcherRef.current?.offsetWidth || 56);
+      launcherPositionRef.current = position;
+      setLauncherPosition(position);
+    };
+    window.addEventListener("resize", keepLauncherInViewport);
+    return () => window.removeEventListener("resize", keepLauncherInViewport);
+  }, [mode]);
+  const moveLauncher = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = launcherDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+    drag.moved = true;
+    event.preventDefault();
+    const position = clampLauncherPosition({ x: drag.left + dx, y: drag.top + dy }, event.currentTarget.offsetWidth);
+    launcherPositionRef.current = position;
+    setLauncherPosition(position);
+  };
+  const finishLauncherDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = launcherDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    launcherDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!drag.moved) return;
+    suppressLauncherClickRef.current = true;
+    window.setTimeout(() => { suppressLauncherClickRef.current = false; }, 0);
+    try { localStorage.setItem(launcherStorageKey, JSON.stringify(launcherPositionRef.current)); } catch { /* Dragging still works for this session. */ }
+  };
   const conversationKey = `${storageKey}:conversation`;
   const requestKey = `${storageKey}:request`;
   const [conversationId, setConversationId] = useState(() => storedConversation(conversationKey));
@@ -564,14 +624,51 @@ function ChatbotSession({ storageScope, branchId, deviceId, mode }: { storageSco
 
   return <>
     {mode === "popup" && <button
+      ref={launcherRef}
       type="button"
       popoverTarget="erp-chatbot-panel"
       aria-label={isOpen ? "Thu gọn trợ lý ảo AI" : "Mở trợ lý ảo AI"}
+      aria-description="Kéo thả để di chuyển, hoặc dùng phím mũi tên khi nút đang được chọn."
       aria-expanded={isOpen}
       aria-controls="erp-chatbot-panel"
       title="Trợ lý ảo AI"
-      style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))", right: "calc(1rem + env(safe-area-inset-right))" }}
-      className={cn("assistant-launcher-button fixed z-40 flex size-14 items-center justify-center rounded-full border-2 border-primary bg-transparent text-on-surface shadow-[0_0_8px_1px_rgba(0,173,252,0.25)]", focusClass)}
+      style={launcherPosition
+        ? { left: launcherPosition.x, top: launcherPosition.y }
+        : { bottom: "calc(1rem + env(safe-area-inset-bottom))", right: "calc(1rem + env(safe-area-inset-right))" }}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        launcherDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, left: rect.left, top: rect.top, moved: false };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={moveLauncher}
+      onPointerUp={finishLauncherDrag}
+      onPointerCancel={(event) => {
+        finishLauncherDrag(event);
+        suppressLauncherClickRef.current = false;
+      }}
+      onKeyDown={(event) => {
+        const step = 16;
+        const offsets: Record<string, LauncherPosition> = {
+          ArrowLeft: { x: -step, y: 0 }, ArrowRight: { x: step, y: 0 },
+          ArrowUp: { x: 0, y: -step }, ArrowDown: { x: 0, y: step },
+        };
+        const offset = offsets[event.key];
+        if (!offset) return;
+        event.preventDefault();
+        const rect = event.currentTarget.getBoundingClientRect();
+        const position = clampLauncherPosition({ x: rect.left + offset.x, y: rect.top + offset.y }, event.currentTarget.offsetWidth);
+        launcherPositionRef.current = position;
+        setLauncherPosition(position);
+        try { localStorage.setItem(launcherStorageKey, JSON.stringify(position)); } catch { /* Movement still works for this session. */ }
+      }}
+      onClick={(event) => {
+        if (suppressLauncherClickRef.current) {
+          event.preventDefault();
+          suppressLauncherClickRef.current = false;
+        }
+      }}
+      className={cn("assistant-launcher-button fixed z-40 flex size-14 touch-none select-none items-center justify-center rounded-full border-2 border-primary bg-transparent text-on-surface shadow-[0_0_8px_1px_rgba(0,173,252,0.25)] cursor-grab active:cursor-grabbing", focusClass)}
     >
       {isOpen ? <X className="size-6" aria-hidden="true" /> : <img src="/assistant-igen-head.webp" alt="" aria-hidden="true" className="pointer-events-none size-full object-contain" />}
     </button>}

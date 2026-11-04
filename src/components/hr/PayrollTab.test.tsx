@@ -185,7 +185,6 @@ describe("PayrollTab editable payroll results", () => {
     expect(screen.getAllByRole("columnheader")[1].className).toContain("text-center");
     expect(screen.getByRole("cell", { name: /Nguyễn Văn A/ }).className).toContain("text-center");
 
-    expect(screen.getByText("custom-variable-catalog")).toBeTruthy();
     for (const field of PAYROLL_RESULT_FIELDS) {
       expect(await screen.findByLabelText(`${field.key}-e1`)).toBeTruthy();
     }
@@ -201,6 +200,9 @@ describe("PayrollTab editable payroll results", () => {
 
     expect(screen.getByLabelText("deductionTotal-e1").tagName).not.toBe("INPUT");
     expect(screen.getByLabelText("net-e1").tagName).not.toBe("INPUT");
+    fireEvent.click(screen.getByRole("tab", { name: "Chính sách & cách tính" }));
+    expect(screen.getByText("custom-variable-catalog")).toBeTruthy();
+    expect(screen.queryByRole("columnheader", { name: "KPI công việc" })).toBeNull();
   });
 
   it("updates the PIT cell when adjusted salary changes in the payroll table", async () => {

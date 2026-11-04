@@ -91,7 +91,7 @@ export function AdminDatePicker({ label, value, onChange, min, max }: Props) {
 
   return (
     <div className="min-w-0">
-      <span className="mb-1 block text-xs text-slate-500">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-on-surface-variant">{label}</span>
       <button
         ref={triggerRef}
         type="button"
@@ -103,10 +103,10 @@ export function AdminDatePicker({ label, value, onChange, min, max }: Props) {
           setMonth(new Date(next.getFullYear(), next.getMonth(), 1));
           setOpen((current) => !current);
         }}
-        className="flex min-h-10 w-full min-w-40 items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 text-left text-sm text-slate-700 transition-colors hover:bg-cyan-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+        className="flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm text-on-surface hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
-        <span className={selected ? "" : "text-slate-400"}>{selected ? dateLabel(selected) : "Chọn ngày"}</span>
-        <CalendarDays className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+        <span className={selected ? "" : "text-on-surface-variant"}>{selected ? dateLabel(selected) : "Chọn ngày"}</span>
+        <CalendarDays className="size-4 shrink-0 text-primary" aria-hidden="true" />
       </button>
       {open && createPortal(
         <div

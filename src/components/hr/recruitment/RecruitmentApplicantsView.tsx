@@ -24,6 +24,7 @@ import {
 import { applicantOutcomeLabels } from "./recruitmentLabels";
 import { DateInput24 } from "../../common/TimeInput24";
 import { StyledSelect } from "../../common/StyledSelect";
+import { primaryCreateButtonClass } from "../../common/primaryCreateButton";
 
 export default function RecruitmentApplicantsView({ canManage }: { canManage: boolean }) {
   const [applicants, setApplicants] = useState<RecruitmentApplicant[]>([]);
@@ -74,7 +75,7 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
     }
   };
   return (
-    <div className="space-y-4 p-4 sm:p-5">
+    <div className="space-y-4 px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
       <div className="flex items-center gap-2 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
         <div className="inline-flex rounded-xl bg-[#F0F5FA] p-1">
           <button
@@ -94,10 +95,11 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
         </div>
         {canManage && (
           <button
-            className={`${primaryButton} ml-auto`}
+            type="button"
+            className={`${primaryCreateButtonClass} ml-auto`}
             onClick={() => setAdding(true)}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="size-4 stroke-[2.5]" aria-hidden="true" />
             Thêm ứng viên
           </button>
         )}
@@ -113,8 +115,8 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
       />
       {!loading && applicants.length > 0 && mode === "list" && (
         <div className="overflow-x-auto rounded-2xl bg-white shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="bg-[#EAF6FE] text-xs font-medium text-[#087BDF]">
+          <table className="w-full min-w-[760px] text-left text-base text-on-surface">
+            <thead className="bg-surface-container-low text-sm font-normal text-on-surface-variant">
               <tr>
                 <th className="px-4 py-3">Ứng viên</th>
                 <th className="px-4 py-3">Vị trí</th>
@@ -124,17 +126,17 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
                 {canManage && <th className="px-4 py-3 text-right">Thao tác</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EDF3F9] text-[#15396C]">
+            <tbody className="divide-y divide-outline-variant">
               {applicants.map((a) => (
                 <tr key={a._id} className="hover:bg-[#F8FCFF]">
                   <td className="px-4 py-3">
                     <button
-                      className="font-medium text-[#087BDF] hover:underline"
+                      className="font-medium text-on-surface hover:underline"
                       onClick={() => setSelected(a)}
                     >
                       {a.fullName}
                     </button>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-sm text-on-surface-variant">
                       {a.email || a.phone}
                     </div>
                   </td>
@@ -149,7 +151,7 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
                       pipeline?.stages.find((stage) => stage.id === a.stageId)?.name || "-"
                     )}
                   </td>
-                  <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${a.outcome === "hired" ? "bg-[#DCF7E8] text-[#078252]" : a.outcome === "rejected" ? "bg-[#FFE8EC] text-[#C83D58]" : a.outcome === "withdrawn" ? "bg-[#EAF0F7] text-[#536B8F]" : "bg-[#E8F4FF] text-[#087BDF]"}`}>{applicantOutcomeLabels[a.outcome]}</span></td>
+                  <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-sm font-normal ${a.outcome === "hired" ? "bg-[#DCF7E8] text-[#078252]" : a.outcome === "rejected" ? "bg-[#FFE8EC] text-[#C83D58]" : a.outcome === "withdrawn" ? "bg-[#EAF0F7] text-[#536B8F]" : "bg-surface-container-low text-on-surface-variant"}`}>{applicantOutcomeLabels[a.outcome]}</span></td>
                   {canManage && <td className="px-4 py-3 text-right"><button type="button" className={secondaryButton} title={`Sửa ứng viên ${a.fullName}`} aria-label={`Sửa ứng viên ${a.fullName}`} onClick={() => setEditingApplicant(a)}><Pencil className="h-4 w-4" /></button></td>}
                 </tr>
               ))}
@@ -157,34 +159,35 @@ export default function RecruitmentApplicantsView({ canManage }: { canManage: bo
           </table>
         </div>
       )}
-      {!loading && mode === "kanban" && (
-        <div className="grid min-w-[900px] grid-flow-col auto-cols-[280px] gap-3 overflow-x-auto pb-3">
+      {!loading && applicants.length > 0 && mode === "kanban" && (
+        <div className="grid grid-flow-col auto-cols-[minmax(160px,1fr)] gap-2 overflow-x-auto pb-2">
           {pipeline?.stages
             .filter((s) => s.isActive)
             .map((stage) => (
               <section
                 key={stage.id}
-                className="min-h-[360px] rounded-2xl bg-[#F0F7FC] p-2"
+                className="min-h-72 min-w-0 rounded-2xl bg-[#F0F7FC] p-1.5"
               >
-                <h3 className="flex h-10 items-center justify-between px-2 text-sm font-medium text-[#15396C]">
-                  <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.color }} />{stage.name}</span>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#087BDF]">
+                <h3 className="flex h-9 items-center justify-between gap-1 px-1.5 text-sm font-medium text-[#15396C]">
+                  <span className="flex min-w-0 items-center gap-1.5"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: stage.color }} /><span className="truncate" title={stage.name}>{stage.name}</span></span>
+                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs text-[#087BDF]">
                     {applicants.filter((a) => a.stageId === stage.id).length}
                   </span>
                 </h3>
-                <div className="grid gap-2 px-2">
+                <div className="grid gap-1.5 px-0.5">
                   {applicants
                     .filter((a) => a.stageId === stage.id)
                     .map((a) => (
                       <button
                         key={a._id}
+                        type="button"
                         onClick={() => setSelected(a)}
-                        className="rounded-xl bg-white p-3 text-left shadow-[0_2px_10px_rgba(33,84,123,0.07)] transition-colors hover:bg-[#F9FCFF]"
+                        className="rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 py-2 text-left transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-primary"
                       >
-                        <div className="font-medium text-[#15396C]">
+                        <div className="truncate font-medium text-on-surface" title={a.fullName}>
                           {a.fullName}
                         </div>
-                        <div className="mt-1 text-xs text-slate-500">
+                        <div className="mt-0.5 truncate text-xs text-on-surface-variant">
                           {jobs.find((j) => j._id === a.jobId)?.title}
                         </div>
                       </button>
@@ -310,7 +313,7 @@ function ApplicantForm({
         {fields.map(([key, label]) => key === "birthDate" || key === "availableDate" ? (
           <div key={key} className={labelClass}>
             {label}
-            <DateInput24 ariaLabel={label} value={form[key]} onChange={(value) => setForm({ ...form, [key]: value })} />
+            <DateInput24 ariaLabel={label} value={form[key]} onChange={(value) => setForm({ ...form, [key]: value })} showYearSelect={key === "birthDate"} />
           </div>
         ) : (
           <label key={key} className={labelClass}>

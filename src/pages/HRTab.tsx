@@ -9,7 +9,7 @@ import { getApiErrorMessage } from "../utils/errorMessage";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { HR_SUB_TAB_ROUTES } from "../router/subTabRoutes";
 import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
-import { HrSidebarIcon, type HrSidebarIconName } from "../components/common/HrSidebarIcon";
+import { HrFilledSidebarIcon, type HrFilledIconName } from "../components/common/HrFilledSidebarIcon";
 import "./hr-tab.css";
 
 // Lazy-loaded subcomponents
@@ -218,19 +218,12 @@ export default function HRTab() {
                 <ModuleNavigationButton
                   key={tab.id}
                   active={isActive}
-                  icon={<HrSidebarIcon name={tab.icon as HrSidebarIconName} />}
+                  icon={<HrFilledSidebarIcon name={tab.icon as HrFilledIconName} twoTone className="hr-nav-icon size-5" />}
+                  preferProvidedIcon
                   title={tab.label}
-                  className={tab.id === "LỊCH" ? "hr-schedule-attention" : undefined}
                   onClick={() => setSubTab(tab.id as HRSubTabType)}
                 >
-                  {tab.id === "LỊCH" ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="hr-schedule-label">{tab.label}</span>
-                      <svg className="size-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path className="hr-schedule-flame-path" d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </span>
-                  ) : tab.label}
+                  {tab.label}
                 </ModuleNavigationButton>
               );
             })}
@@ -244,7 +237,7 @@ export default function HRTab() {
 
         {subTab === BRANCH_TAB && canManageBranches && (
           <div className="min-h-0 flex-1 overflow-y-auto bg-surface">
-            <BranchManagementTab />
+            <BranchManagementTab presentation="table" />
           </div>
         )}
 

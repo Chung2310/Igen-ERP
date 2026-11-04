@@ -154,7 +154,7 @@ function RichTextEditor({
         ref={editorRef}
         contentEditable
         onInput={handleInput}
-        className="min-h-[180px] max-h-[300px] overflow-y-auto bg-white p-3.5 text-sm leading-relaxed text-[#172B4D] outline-none prose prose-sm max-w-none"
+        className="min-h-32 max-h-60 overflow-y-auto bg-white p-3 text-sm leading-relaxed text-[#172B4D] outline-none prose prose-sm max-w-none"
         {...({ placeholder: "Nhập nội dung thư chúc mừng..." } as any)}
       />
     </div>
@@ -223,7 +223,7 @@ export default function CelebrationEmailTab() {
   };
 
   return (
-    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
+    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <HrPageTitle>Email chúc mừng</HrPageTitle>
@@ -239,7 +239,7 @@ export default function CelebrationEmailTab() {
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+      <div className="flex flex-wrap items-center gap-2.5 rounded-2xl bg-white px-3 py-2 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
         <Toggle label="Tự động sinh nhật" checked={config.birthdayEnabled} onChange={(v: boolean) => setConfig({ ...config, birthdayEnabled: v })} />
         <Toggle label="Tự động lễ/Tết" checked={config.holidayEnabled} onChange={(v: boolean) => setConfig({ ...config, holidayEnabled: v })} />
         <label className="ml-auto flex items-center gap-2 rounded-xl bg-[#F5FAFE] px-3 py-1.5 text-sm font-medium text-[#15396C]">
@@ -255,7 +255,7 @@ export default function CelebrationEmailTab() {
         </label>
       </div>
 
-      <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 items-stretch gap-3 xl:grid-cols-2">
         <Template
           title="Mẫu thư chúc mừng sinh nhật"
           kind="birthday"
@@ -400,7 +400,7 @@ function Template({
   const isBirthday = kind === "birthday";
   const Icon = isBirthday ? Cake : Gift;
   return (
-    <section className="flex h-full min-w-0 flex-col space-y-4 rounded-2xl bg-white p-4 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+    <section className="flex h-full min-w-0 flex-col space-y-3 rounded-2xl bg-white p-4 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
       <h3 className="flex items-center gap-2.5 text-sm font-medium text-[#15396C]"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${isBirthday ? "bg-[#E0F2FF] text-[#087BDF]" : "bg-[#DFF5F1] text-[#087F72]"}`}><Icon className="h-4 w-4" /></span>{title}</h3>
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-[#536B8F]">Tiêu đề email</label>
