@@ -4,6 +4,8 @@ import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { retailAfterSalesApi } from "../api/retailAfterSales.api";
 import { useRetailScope } from "../hooks/useRetailScope";
 import type { RetailAfterSale, RetailAfterSaleType } from "../types";
+import { cn } from "../../student-management/lib/utils";
+import { Dropdown } from "../../../components/common/Dropdown";
 
 const PAGE_SIZE = 20;
 const money = (value: number) => `${new Intl.NumberFormat("vi-VN").format(value)} ₫`;
@@ -79,7 +81,7 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
     <main className="space-y-5 text-on-surface">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-balance text-xl font-semibold">Đổi trả &amp; thu mua</h1>
+          <h1 className="retail-page-title text-balance text-lg font-semibold">Đổi trả &amp; thu mua</h1>
           <p className="mt-1 text-pretty text-sm text-on-surface-variant">Tra cứu phiếu hoàn tiền và phiếu thu mua gắn với đơn bán gốc.</p>
         </div>
         <button
@@ -94,9 +96,9 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
       </header>
 
       <section aria-label="Tổng quan chứng từ hiện trên trang" className="grid gap-3 sm:grid-cols-3">
-        <SummaryCard icon={FileText} label="Tổng số phiếu" value={total.toLocaleString("vi-VN")} detail="Theo bộ lọc đang chọn" />
-        <SummaryCard icon={RotateCcw} label="Khách trả hàng" value={String(returnItems.length)} detail={`${money(returnTotal)} trên trang này`} />
-        <SummaryCard icon={ShoppingBag} label="Thu mua hàng cũ" value={String(buybackItems.length)} detail={`${money(buybackTotal)} trên trang này`} />
+        <SummaryCard icon={FileText} tone="blue" label="Tổng số phiếu" value={total.toLocaleString("vi-VN")} detail="Theo bộ lọc đang chọn" />
+        <SummaryCard icon={RotateCcw} tone="orange" label="Khách trả hàng" value={String(returnItems.length)} detail={`${money(returnTotal)} trên trang này`} />
+        <SummaryCard icon={ShoppingBag} tone="green" label="Thu mua hàng cũ" value={String(buybackItems.length)} detail={`${money(buybackTotal)} trên trang này`} />
       </section>
 
       <section aria-label="Bộ lọc chứng từ" className="grid gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:grid-cols-[minmax(16rem,1fr)_14rem]">
@@ -111,18 +113,7 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
             className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-primary"
           />
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="shrink-0 text-on-surface-variant">Loại phiếu</span>
-          <select
-            value={type}
-            onChange={(event) => { setType(event.target.value as RetailAfterSaleType | ""); setPage(1); }}
-            className="min-h-11 min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
-          >
-            <option value="">Tất cả</option>
-            <option value="return">Khách trả hàng</option>
-            <option value="buyback">Thu mua hàng cũ</option>
-          </select>
-        </label>
+        <div className="flex min-w-0 items-center gap-2 text-sm"><span className="shrink-0 text-on-surface-variant">Loại phiếu</span><Dropdown aria-label="Loại phiếu" value={type} onChange={(value) => { setType(value as RetailAfterSaleType | ""); setPage(1); }} options={[{ value: "", label: "Tất cả" }, { value: "return", label: "Khách trả hàng" }, { value: "buyback", label: "Thu mua hàng cũ" }]} variant="filter" size="md" className="w-full" /></div>
       </section>
 
       {error && (
@@ -180,15 +171,15 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
   );
 }
 
-function SummaryCard({ icon: Icon, label, value, detail }: { icon: LucideIcon; label: string; value: string; detail: string }) {
+function SummaryCard({ icon: Icon, tone, label, value, detail }: { icon: LucideIcon; tone: "blue" | "orange" | "green"; label: string; value: string; detail: string }) {
   return (
-    <article className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+    <article className={cn("retail-stat-card flex min-w-0 items-center justify-between gap-3 rounded-md p-4", `retail-stat-card--${tone}`)}>
       <div className="min-w-0">
-        <p className="text-pretty text-sm text-on-surface-variant">{label}</p>
+        <p className="text-pretty text-sm font-medium">{label}</p>
         <p className="mt-1 tabular-nums text-xl font-semibold">{value}</p>
-        <p className="mt-1 text-pretty text-xs text-on-surface-variant">{detail}</p>
+        <p className="mt-1 text-pretty text-xs text-white/90">{detail}</p>
       </div>
-      <Icon aria-hidden="true" className="size-5 shrink-0 text-primary" />
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15"><Icon aria-hidden="true" className="size-5" /></span>
     </article>
   );
 }
@@ -210,7 +201,7 @@ function AfterSaleCard({ item }: { item: RetailAfterSale }) {
         <div className="grid gap-2 text-sm sm:grid-cols-3">
           <p className="text-pretty"><span className="text-on-surface-variant">Khách hàng: </span>{item.customerName || "Khách lẻ"}</p>
           <p className="text-pretty"><span className="text-on-surface-variant">Phương thức chi: </span>{paymentLabels[item.paymentMethod] || item.paymentMethod}</p>
-          <p className="tabular-nums font-semibold"><span className="font-normal text-on-surface-variant">Tổng tiền: </span>{money(item.totalAmount)}</p>
+          <p className="tabular-nums font-semibold"><span className="font-normal text-on-surface-variant">Tổng tiền: </span><span className={isReturn ? "text-orange-700" : "text-emerald-700"}>{money(item.totalAmount)}</span></p>
         </div>
         <details className="group rounded-lg border border-outline-variant bg-surface p-3">
           <summary className="cursor-pointer text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary">Chi tiết {item.items.length} mặt hàng và lý do</summary>
@@ -223,7 +214,7 @@ function AfterSaleCard({ item }: { item: RetailAfterSale }) {
                     <p className="mt-1 break-all text-pretty text-xs text-on-surface-variant">{line.sku} · {line.quantity} sản phẩm{line.condition ? ` · ${conditionLabels[line.condition] || line.condition}` : ""}</p>
                     {(line.serialNumbers?.length || line.internalBarcodes?.length) ? <p className="mt-1 break-all text-pretty text-xs text-on-surface-variant">IMEI / mã máy: {[...(line.serialNumbers || []), ...(line.internalBarcodes || [])].join(", ")}</p> : null}
                   </div>
-                  <p className="shrink-0 tabular-nums font-medium">{money(line.lineAmount)}</p>
+                  <p className={isReturn ? "shrink-0 tabular-nums font-medium text-orange-700" : "shrink-0 tabular-nums font-medium text-emerald-700"}>{money(line.lineAmount)}</p>
                 </li>
               ))}
             </ul>

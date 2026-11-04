@@ -3,7 +3,7 @@ import { CalendarClock, ChevronDown } from "lucide-react";
 import { retailWarrantyService, type WarrantyLookupResult, type WarrantyLookupScope } from "../../../services/retailWarrantyService";
 import { StyledSelect } from "../../../components/common/StyledSelect";
 
-const field = "min-h-11 w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary";
+const field = "h-9 w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary";
 const statuses: Record<string, string> = { in_stock: "Còn tồn", sold: "Đã bán", reserved: "Đã giữ hàng", scrapped: "Đã loại bỏ" };
 const payers: Record<string, string> = { supplier: "Nhà cung cấp", shop: "Doanh nghiệp", customer: "Khách hàng" };
 const date = (value?: string) => value ? new Date(value).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";

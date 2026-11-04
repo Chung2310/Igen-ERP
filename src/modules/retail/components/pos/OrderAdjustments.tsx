@@ -36,7 +36,7 @@ export default function OrderAdjustments({ orderDiscount, taxRate, shippingFee, 
                 })
               }
             />
-            <span className="pointer-events-none absolute right-3 text-xs font-bold text-slate-400 select-none">
+            <span className="pointer-events-none absolute right-3 text-xs font-semibold text-slate-400 select-none">
               %
             </span>
           </div>
@@ -63,7 +63,7 @@ export default function OrderAdjustments({ orderDiscount, taxRate, shippingFee, 
                 })
               }
             />
-            <span className="pointer-events-none absolute right-3 text-xs font-bold text-slate-400 select-none">
+            <span className="pointer-events-none absolute right-3 text-xs font-semibold text-slate-400 select-none">
               ₫
             </span>
           </div>

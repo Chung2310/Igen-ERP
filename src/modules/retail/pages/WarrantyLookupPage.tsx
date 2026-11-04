@@ -245,7 +245,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2.5 text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+          <h1 className="flex items-center gap-2.5 text-xl sm:text-2xl font-semibold tracking-tight text-slate-900">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600">
               <ShieldCheck className="h-5 w-5" />
             </div>
@@ -282,7 +282,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
             onClick={() => handleModeChange("serial")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               searchMode === "serial"
-                ? "bg-white text-slate-900 shadow-2xs font-bold"
+                ? "bg-white text-slate-900 shadow-2xs font-semibold"
                 : "hover:text-slate-900 text-slate-600"
             }`}
           >
@@ -296,7 +296,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
             onClick={() => handleModeChange("phone")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               searchMode === "phone"
-                ? "bg-white text-slate-900 shadow-2xs font-bold"
+                ? "bg-white text-slate-900 shadow-2xs font-semibold"
                 : "hover:text-slate-900 text-slate-600"
             }`}
           >
@@ -343,7 +343,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
           <button
             type="submit"
             disabled={busy || !code.trim()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 px-5 py-2.5 font-bold text-white shadow-sm shadow-cyan-600/20 hover:from-cyan-700 hover:to-teal-700 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer text-sm shrink-0"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 px-5 py-2.5 font-semibold text-white shadow-sm shadow-cyan-600/20 hover:from-cyan-700 hover:to-teal-700 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer text-sm shrink-0"
           >
             {busy ? (
               <RotateCw className="h-4 w-4 animate-spin" />
@@ -389,7 +389,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
             </div>
           </div>
           <div className="max-w-md mx-auto space-y-1">
-            <h3 className="text-sm sm:text-base font-bold text-slate-800">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800">
               Sẵn sàng kiểm tra thông tin bảo hành
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
@@ -401,7 +401,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto pt-1 text-left text-xs">
             <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-slate-800">
+              <div className="flex items-center gap-1.5 font-semibold text-slate-800">
                 <Store className="h-4 w-4 text-cyan-600" />
                 <span>1. Xác thực nguồn gốc từ shop</span>
               </div>
@@ -411,7 +411,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-1">
-              <div className="flex items-center gap-1.5 font-bold text-slate-800">
+              <div className="flex items-center gap-1.5 font-semibold text-slate-800">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 <span>2. Kiểm tra hiệu lực bảo hành</span>
               </div>
@@ -432,14 +432,14 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="rounded-full bg-amber-200/80 px-3 py-0.5 text-xs font-bold text-amber-900">
+                <span className="rounded-full bg-amber-200/80 px-3 py-0.5 text-xs font-semibold text-amber-900">
                   Không tìm thấy
                 </span>
                 <span className="text-xs text-amber-700 font-mono">
                   SĐT: <b>{searchedCode}</b>
                 </span>
               </div>
-              <h3 className="text-lg font-bold text-amber-950">
+              <h3 className="text-lg font-semibold text-amber-950">
                 Không tìm thấy thông tin bảo hành cho số điện thoại này
               </h3>
               <p className="text-sm text-amber-800 leading-relaxed">
@@ -456,7 +456,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
               <button
                 type="button"
                 onClick={() => openServiceTicket(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-orange-700 active:scale-[0.99] transition cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700 active:scale-[0.99] transition cursor-pointer"
               >
                 <Wrench className="h-4 w-4" />
                 <span>Tiếp nhận sửa chữa dịch vụ (khách ngoài)</span>
@@ -478,7 +478,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-900 text-base">
+                    <h3 className="font-semibold text-slate-900 text-base">
                       {phoneResult.customer?.name || "Khách hàng"}
                     </h3>
                     {phoneResult.customer?.customerCode && (
@@ -490,7 +490,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                   <p className="text-xs text-slate-600 flex items-center gap-2 mt-0.5">
                     <span>SĐT: <b className="font-mono text-slate-900">{searchedCode || phoneResult.customer?.phone}</b></span>
                     <span>•</span>
-                    <span>Đã mua: <b className="text-emerald-700 font-bold">{phoneResult.totalDevices} thiết bị</b></span>
+                    <span>Đã mua: <b className="text-emerald-700 font-semibold">{phoneResult.totalDevices} thiết bị</b></span>
                   </p>
                 </div>
               </div>
@@ -514,7 +514,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
           {/* Device Cards Grid when browsing multiple devices */}
           {phoneResult.devices.length > 1 && selectedDeviceIndex === null && (
             <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Chọn thiết bị cần kiểm tra thông tin bảo hành:
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -533,7 +533,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                             <Smartphone className="h-5 w-5" />
                           </div>
                           <div>
-                            <h5 className="font-bold text-slate-900 group-hover:text-cyan-700 transition-colors text-sm">
+                            <h5 className="font-semibold text-slate-900 group-hover:text-cyan-700 transition-colors text-sm">
                               {dev.product?.name || "Thiết bị bảo hành"}
                             </h5>
                             <p className="text-xs text-slate-500 mt-0.5">
@@ -546,7 +546,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                           </div>
                         </div>
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold shrink-0 ${
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold shrink-0 ${
                             covered
                               ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
                               : "bg-slate-100 text-slate-600"
@@ -580,14 +580,14 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="rounded-full bg-amber-200/80 px-3 py-0.5 text-xs font-bold text-amber-900">
+                <span className="rounded-full bg-amber-200/80 px-3 py-0.5 text-xs font-semibold text-amber-900">
                   Thiết bị ngoài shop
                 </span>
                 <span className="text-xs text-amber-700 font-mono">
                   IMEI/Mã: <b>{searchedCode}</b>
                 </span>
               </div>
-              <h3 className="text-lg font-bold text-amber-950">
+              <h3 className="text-lg font-semibold text-amber-950">
                 Không tìm thấy máy trong lịch sử xuất bán của shop
               </h3>
               <p className="text-sm text-amber-800 leading-relaxed">
@@ -606,7 +606,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                   setSearchMode("phone");
                   void doLookup(searchedCode, "phone");
                 }}
-                className="font-bold text-cyan-700 hover:text-cyan-800 underline cursor-pointer"
+                className="font-semibold text-cyan-700 hover:text-cyan-800 underline cursor-pointer"
               >
                 Tra cứu bảo hành theo SĐT: {searchedCode} →
               </button>
@@ -621,7 +621,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
               <button
                 type="button"
                 onClick={() => openServiceTicket(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-orange-700 active:scale-[0.99] transition cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700 active:scale-[0.99] transition cursor-pointer"
               >
                 <Wrench className="h-4 w-4" />
                 <span>Tiếp nhận sửa chữa dịch vụ (khách ngoài)</span>
@@ -640,14 +640,14 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500 text-white shadow-2xs">
                 <Check className="h-4 w-4 stroke-[3]" />
               </div>
-              <span className="text-sm font-bold tracking-tight text-slate-100">
+              <span className="text-sm font-semibold tracking-tight text-slate-100">
                 Xác nhận: thiết bị xuất bán tại shop
               </span>
             </div>
 
             <div className="flex items-center gap-2">
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-bold ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-semibold ${
                   isWarrantyCovered
                     ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                     : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
@@ -676,7 +676,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                   <Smartphone className="h-8 w-8" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                  <h2 className="text-xl font-semibold text-slate-900 tracking-tight">
                     {result.product?.name || "Thiết bị bảo hành"}
                   </h2>
                   <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
@@ -702,7 +702,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
               <div className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-5 space-y-3.5">
                 <div className="flex items-center gap-2 border-b border-slate-200/60 pb-2.5">
                   <ShoppingBag className="h-4 w-4 text-cyan-600" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700">
                     1. Nguồn gốc & Lịch sử bán hàng
                   </h3>
                 </div>
@@ -710,7 +710,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <span className="text-slate-400 block text-[11px]">Đơn hàng xuất bán</span>
-                    <span className="font-mono font-bold text-cyan-700 text-sm">
+                    <span className="font-mono font-semibold text-cyan-700 text-sm">
                       {result.sold?.orderCode || "—"}
                     </span>
                   </div>
@@ -724,14 +724,14 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
 
                   <div>
                     <span className="text-slate-400 block text-[11px]">Tên khách mua</span>
-                    <span className="font-bold text-slate-800">
+                    <span className="font-semibold text-slate-800">
                       {result.sold?.customerName || <span className="text-slate-400 italic">Khách lẻ quầy</span>}
                     </span>
                   </div>
 
                   <div>
                     <span className="text-slate-400 block text-[11px]">Số điện thoại</span>
-                    <span className="font-mono font-bold text-slate-700">
+                    <span className="font-mono font-semibold text-slate-700">
                       {result.sold?.customerPhone || "—"}
                     </span>
                   </div>
@@ -739,7 +739,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                   {result.internalBarcode && (
                     <div className="col-span-2 border-t border-slate-200/50 pt-2 flex items-center justify-between">
                       <span className="text-slate-400 text-[11px]">Tem mã vạch nội bộ</span>
-                      <span className="font-mono font-bold text-slate-700">
+                      <span className="font-mono font-semibold text-slate-700">
                         {result.internalBarcode}
                       </span>
                     </div>
@@ -758,13 +758,13 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                 <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className={`h-4 w-4 ${isWarrantyCovered ? "text-emerald-600" : "text-rose-600"}`} />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700">
                       2. Tình trạng bảo hành
                     </h3>
                   </div>
 
                   <span
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                       isWarrantyCovered
                         ? "bg-emerald-100 text-emerald-800"
                         : "bg-rose-100 text-rose-800"
@@ -780,12 +780,12 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                   {/* Shop Warranty Spec */}
                   <div className="rounded-xl bg-white/90 p-3 border border-slate-200/70 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="font-semibold text-slate-800 flex items-center gap-1.5">
                         <Store className="h-3.5 w-3.5 text-cyan-600" />
                         <span>Bảo hành cửa hàng (Shop)</span>
                       </span>
                       <span
-                        className={`font-bold ${
+                        className={`font-semibold ${
                           isCustomerCovered ? "text-emerald-700" : "text-slate-400"
                         }`}
                       >
@@ -804,7 +804,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                   {result.supplierWarranty && (
                     <div className="rounded-xl bg-white/90 p-3 border border-slate-200/70 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-800 flex items-center gap-1.5">
                           <Building2 className="h-3.5 w-3.5 text-indigo-600" />
                           <span>
                             BH Hãng / NCC
@@ -812,7 +812,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                           </span>
                         </span>
                         <span
-                          className={`font-bold ${
+                          className={`font-semibold ${
                             isSupplierCovered ? "text-indigo-700" : "text-slate-400"
                           }`}
                         >
@@ -852,7 +852,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                     <button
                       type="button"
                       onClick={openWarrantyTicket}
-                      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 px-5 py-3 text-sm font-bold text-white shadow-md shadow-cyan-600/20 hover:from-cyan-700 hover:to-teal-700 active:scale-[0.99] transition cursor-pointer"
+                      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-cyan-600/20 hover:from-cyan-700 hover:to-teal-700 active:scale-[0.99] transition cursor-pointer"
                     >
                       <ShieldCheck className="h-5 w-5" />
                       <span>Tiếp nhận bảo hành miễn phí (Còn hạn)</span>
@@ -862,7 +862,7 @@ export default function WarrantyLookupPage({ scope, canCreate = true, onCreateRe
                   <button
                     type="button"
                     onClick={() => openServiceTicket(false)}
-                    className={`inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold transition cursor-pointer ${
+                    className={`inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition cursor-pointer ${
                       isWarrantyCovered
                         ? "border border-orange-200 bg-orange-50 text-orange-900 hover:bg-orange-100"
                         : "bg-orange-600 text-white hover:bg-orange-700 shadow-md shadow-orange-600/20 active:scale-[0.99]"
