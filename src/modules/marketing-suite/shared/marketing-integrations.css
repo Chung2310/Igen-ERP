@@ -1,8 +1,13 @@
 /* Keep integration settings on the same compact panel rhythm as HR. */
-#marketing_integrations_content {
-  margin: 8px;
-  border-radius: 6px;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+#primary_page_container:has(> #marketing_integrations_container) {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+#marketing_integrations_container {
+  flex: 1;
+  height: auto;
 }
 
 #marketing_integrations_content > div > div + div {
@@ -77,11 +82,6 @@
 }
 
 @media (max-width: 639px) {
-  #marketing_integrations_content {
-    margin: 6px;
-    padding: 10px;
-  }
-
   #marketing_integrations_content > div > div:is(.p-5, .p-6) {
     padding: 12px;
   }

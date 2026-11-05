@@ -19,7 +19,7 @@ export default function MarketingIntegrationsPage() {
           { id: "personal", label: "MXH Cá nhân", icon: UserRound },
         ].map(item => <ModuleNavigationButton key={item.id} id={`marketing_integrations_${item.id}`} active={tab === item.id} icon={<item.icon />} aria-pressed={tab === item.id} aria-controls="marketing_integrations_content" onClick={() => setTab(item.id)}>{item.label}</ModuleNavigationButton>)}
       </ModuleNavigation>
-      <section id="marketing_integrations_content" aria-labelledby={`marketing_integrations_${tab}`} className="marketing-integrations-content min-h-0 min-w-0 flex-1 overflow-y-auto border border-outline-variant bg-surface-container-lowest p-3">
+      <section id="marketing_integrations_content" aria-labelledby={`marketing_integrations_${tab}`} className="marketing-integrations-content min-h-0 min-w-0 flex-1 overflow-y-auto bg-surface">
         {tab === "company" ? <CompanyIntegrationsTab userProfile={userProfile} /> : <PersonalIntegrationsTab />}
       </section>
     </div>
