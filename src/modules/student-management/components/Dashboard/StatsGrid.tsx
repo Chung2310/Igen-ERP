@@ -91,6 +91,8 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
 
   const getLayoutConfig = () => {
     switch (count) {
+      case 3:
+        return { gridClass: "grid grid-cols-1 sm:grid-cols-3 gap-3", getItemClass: () => "" };
       case 7:
         return {
           gridClass: "grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3",
@@ -128,14 +130,14 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
           key={idx}
           className={`overview-kpi flex items-center gap-2.5 ${getItemClass(idx)}`}
         >
-          <div className={`shrink-0 rounded-xl p-2 ${stat.bg} ${stat.color} transition-transform duration-300 group-hover:scale-110`}>
+          <div className="shrink-0 rounded-md bg-white/15 p-2">
             <stat.icon className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-lg font-medium leading-tight tracking-tight text-slate-900">
-              {loading || !user ? '?' : stat.value}
+            <p className="text-xl font-semibold leading-tight tabular-nums">
+              {loading || !user ? '—' : stat.value}
             </p>
-            <p className="mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-normal text-slate-500 transition-colors group-hover:text-[#007EB8]">
+            <p className="mt-1 text-xs font-normal leading-snug">
               {stat.label}
             </p>
           </div>

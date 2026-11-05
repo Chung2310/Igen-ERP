@@ -119,9 +119,9 @@ export default function FinancialManagementPage({ view }: {
         {s.missingCostCount > 0 && <p role="alert" className="rounded-xl border border-tertiary bg-tertiary-container p-3.5 text-sm text-on-tertiary-container font-medium">Có {s.missingCostCount} dòng chưa xác định được giá vốn. Chưa đủ dữ liệu để tính tổng giá vốn, lợi nhuận và hòa vốn; cần đối chiếu chứng từ nhập/xuất liên kết.</p>}
         {(view === "overview" || view === "profit") && (
           <div className="space-y-2.5">
-            <Stats values={[["Doanh thu hàng hóa", money(s.revenue)], ["Giá vốn", money(s.cost)], ["Lãi gộp", money(s.grossProfit)], ["Lãi ròng quản trị", money(s.netProfit)]]}/>
+            <Stats overview={view === "overview"} values={[["Doanh thu hàng hóa", money(s.revenue)], ["Giá vốn", money(s.cost)], ["Lãi gộp", money(s.grossProfit)], ["Lãi ròng quản trị", money(s.netProfit)]]}/>
             {view === "overview" && (
-              <Stats values={[["Giá trị tồn kho hiện tại", money(s.inventoryValue)], ["Phải thu hiện tại / quá hạn", <>{money(s.receivable)}<div className="text-[11px] font-bold text-error mt-0.5">Quá hạn: {money(s.overdue)}</div></>], ["Phải trả NCC hiện tại", money(s.payable)], ["NCC đến hạn trong 5 ngày", money(s.payableSoon)]]}/>
+              <Stats overview values={[["Giá trị tồn kho hiện tại", money(s.inventoryValue)], ["Phải thu hiện tại / quá hạn", <>{money(s.receivable)}<div className="text-[11px] font-bold text-error mt-0.5">Quá hạn: {money(s.overdue)}</div></>], ["Phải trả NCC hiện tại", money(s.payable)], ["NCC đến hạn trong 5 ngày", money(s.payableSoon)]]}/>
             )}
           </div>
         )}
@@ -129,12 +129,12 @@ export default function FinancialManagementPage({ view }: {
           <p className="text-xs text-on-surface-variant">Công nợ và tồn kho là số dư hiện tại, không phải số dư cuối kỳ đang chọn. Bộ lọc ngày áp dụng cho doanh thu, chi phí và dòng tiền.</p>
 
           {/* Khối biểu đồ trực quan tổng quan tài chính */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 pt-1">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 pt-1">
             <FinanceEarningsBarChart trends={data.trends || []} />
             <FinancePerformanceDonut summary={s} />
           </div>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             <TrendChart data={data.trends || []} />
             <DebtOverviewCard debts={data.debts} />
           </div>
