@@ -73,6 +73,12 @@ describe("Header attendance with face checking disabled", () => {
     expect(backLink.getAttribute("href")).toBe("/modules");
   });
 
+  it("does not offer a dark mode control for a saved dark preference", () => {
+    localStorage.setItem("theme", "dark");
+    render(<Header currentTab="TỔNG QUAN" onSearchSelect={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Giao diện (sáng|tối)/ })).toBeNull();
+  });
+
   it("opens AI quota, upgrade plans, and the assistant from their header icons", async () => {
     const user = userEvent.setup();
     const navigate = vi.fn();

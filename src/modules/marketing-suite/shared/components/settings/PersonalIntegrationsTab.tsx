@@ -65,22 +65,22 @@ export default function PersonalIntegrationsTab() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Telegram Notification integration */}
-      <div className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-xs text-left">
+      <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs text-left">
         <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-          <Send className="h-5 w-5 text-sky-500" />
+          <Send className="h-5 w-5 text-primary" aria-hidden="true" />
           <div>
-            <h3 className="text-base font-bold text-gray-800">
+            <h3 className="text-balance text-lg font-semibold text-on-surface">
               Nhận Thông Báo Qua Telegram
             </h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="mt-0.5 text-pretty text-sm text-on-surface-variant">
               Liên kết tài khoản Telegram của bạn để nhận thông báo duyệt bài đăng hoặc báo cáo nhanh từ AI.
             </p>
           </div>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-3">
           {loadingTelegram ? (
             <div className="flex justify-center py-4">
               <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
@@ -115,13 +115,13 @@ export default function PersonalIntegrationsTab() {
               </button>
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-bold text-slate-800">
+                  <p className="text-sm font-semibold text-on-surface">
                     Chưa liên kết tài khoản Telegram
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">
+                  <p className="mt-1 text-pretty text-xs leading-relaxed text-on-surface-variant">
                     Tạo mã liên kết nhanh sau đó mở bot Telegram để hoàn tất xác thực tài khoản.
                   </p>
                 </div>
@@ -139,13 +139,13 @@ export default function PersonalIntegrationsTab() {
 
               {telegramStatus?.pendingCode && (
                 <div className="mt-4 border-t border-slate-200/80 pt-4 text-left">
-                  <p className="text-xs font-bold text-slate-800">
+                  <p className="text-sm font-semibold text-on-surface">
                     Mã liên kết của bạn: <span className="font-mono text-sm text-sky-600 bg-sky-50 px-2 py-0.5 rounded border border-sky-100">{telegramStatus.pendingCode}</span>
                   </p>
-                  <p className="mt-2 flex items-center gap-1 text-[10px] leading-relaxed text-slate-500">
+                  <p className="mt-2 flex items-center gap-1 text-xs leading-relaxed text-on-surface-variant">
                     <ArrowRight size={12} />Hướng dẫn hoàn tất kết nối:
                   </p>
-                  <ol className="list-decimal list-inside mt-1.5 space-y-1 text-[10px] text-slate-600 leading-relaxed">
+                  <ol className="mt-1.5 list-inside list-decimal space-y-1 text-xs leading-relaxed text-on-surface-variant">
                     <li>Nhấn vào nút <b>Kết nối trực tiếp trên Telegram</b> bên dưới để mở bot.</li>
                     <li>Hoặc tìm kiếm bot <b>@{telegramStatus.botUsername}</b> trên ứng dụng Telegram.</li>
                     <li>Gửi tin nhắn: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-slate-700">/link {telegramStatus.pendingCode}</code> để liên kết.</li>

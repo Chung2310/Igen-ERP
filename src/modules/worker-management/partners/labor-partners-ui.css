@@ -5,6 +5,30 @@
   color: #172b45;
 }
 
+.labor-partner-stat-card--total {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #7950e9 0%, #6247e1 100%);
+}
+
+.labor-partner-stat-card--active {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #4269f0 0%, #2a60eb 100%);
+}
+
+.labor-partner-stat-card--employees {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #0b92be 0%, #06b2e6 100%);
+}
+
+.labor-partner-stat-card--without-manager {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #d85c27 0%, #f47835 100%);
+}
+
+.labor-partner-workspace .labor-partner-stat-card :is(dt, dd) {
+  color: var(--color-on-primary);
+}
+
+.labor-partner-workspace .labor-partner-stat-card dd {
+  font-weight: 600;
+}
+
 .labor-partner-content > section > div:first-child.rounded-2xl.border,
 .labor-partner-content > section.rounded-2xl.border {
   border: 0 !important;

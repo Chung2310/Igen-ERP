@@ -57,6 +57,10 @@ Các vùng nội dung rỗng trong phân hệ Nhân sự dùng `HrEmptyIllustrat
 
 Dùng `font-sans` của ứng dụng cho nội dung tiếng Việt. Các trang nghiệp vụ giữ tiêu đề và nhãn đủ rõ để phân biệt thao tác, trạng thái và số liệu.
 
+Tiêu đề chính trong khung nội dung nghiệp vụ theo mẫu `HrPageTitle`: `text-lg font-semibold` (18 px, weight 600), màu `on-surface`, có vạch nhấn `primary` mảnh. Không tăng lên `font-bold` hoặc 20 px chỉ vì chuyển sang phân hệ khác. Xem thêm [HR_STYLE.md](HR_STYLE.md) về khoảng cách và bo góc panel.
+
+Nút tạo mới dùng chung `primaryCreateButtonClass`; nút Làm mới dùng `ErpRefreshButton`. Giữ cùng chiều cao và thứ tự khi hai nút đứng cạnh nhau. Không thêm helper text lặp lại nội dung của nút, bộ lọc hoặc trạng thái rỗng.
+
 ## Layout
 
 Các phân hệ dùng sidebar chung và phần nội dung có khả năng cuộn. Trên màn hình hẹp, điều hướng và vùng thao tác phải giữ khả năng truy cập bằng bàn phím và cảm ứng.

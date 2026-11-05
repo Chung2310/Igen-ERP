@@ -713,17 +713,17 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <TelegramOrderConfigCard userProfile={userProfile} />
       <SepayConfigCard userProfile={userProfile} />
-      <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-gray-100 pb-4">
+      <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
+        <div className="mb-3 flex flex-col items-start justify-between gap-3 border-b border-outline-variant pb-3 md:flex-row md:items-center">
           <div className="text-left">
-            <h3 className="text-balance text-base font-bold text-gray-800 flex items-center gap-2">
+            <h3 className="flex items-center gap-2 text-balance text-lg font-semibold text-on-surface">
               <Building2 className="h-5 w-5 text-indigo-650" />
               Mạng xã hội Doanh nghiệp
             </h3>
-            <p className="text-xs text-pretty text-gray-500 mt-1">
+            <p className="mt-1 text-pretty text-xs text-on-surface-variant">
               Kết nối tài khoản mạng xã hội của công ty để quản lý hội thoại và bật trả lời tự động.
             </p>
             <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
@@ -740,9 +740,9 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
           )}
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-5">
           {/* Left: Form to Add/Edit Integration */}
-          <div ref={integrationFormRef} tabIndex={-1} className="xl:col-span-2 bg-gray-50/50 border border-gray-150 rounded-2xl p-5 space-y-4">
+          <div ref={integrationFormRef} tabIndex={-1} className="space-y-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3 xl:col-span-2">
             <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider text-left">
               {editingIntegrationId ? "Chỉnh sửa tài khoản" : "Thêm tài khoản liên kết"}
             </h4>

@@ -103,7 +103,7 @@ export function AdminDatePicker({ label, value, onChange, min, max }: Props) {
           setMonth(new Date(next.getFullYear(), next.getMonth(), 1));
           setOpen((current) => !current);
         }}
-        className="flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm text-on-surface hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="flex h-10 w-full min-w-0 items-center justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm font-normal text-on-surface hover:border-primary focus-visible:border-primary focus-visible:outline-none"
       >
         <span className={selected ? "" : "text-on-surface-variant"}>{selected ? dateLabel(selected) : "Chọn ngày"}</span>
         <CalendarDays className="size-4 shrink-0 text-primary" aria-hidden="true" />
@@ -113,17 +113,17 @@ export function AdminDatePicker({ label, value, onChange, min, max }: Props) {
           ref={popoverRef}
           role="dialog"
           aria-label={`Chọn ${label.toLowerCase()}`}
-          className="fixed z-[200] max-h-[calc(100vh-24px)] overflow-y-auto rounded-2xl bg-white p-4 text-slate-800 shadow-[0_18px_50px_rgba(13,48,78,0.18)]"
+          className="fixed z-[200] max-h-[calc(100vh-24px)] overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-on-surface shadow-sm"
           style={{ top: position.top, left: position.left, width: position.width }}
         >
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-medium capitalize">{monthLabel(month)}</span>
             <div className="flex items-center gap-1">
-              <button type="button" aria-label="Tháng trước" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-lg p-2 text-slate-500 hover:bg-cyan-50 hover:text-cyan-700"><ChevronLeft className="h-4 w-4" /></button>
-              <button type="button" aria-label="Tháng sau" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-lg p-2 text-slate-500 hover:bg-cyan-50 hover:text-cyan-700"><ChevronRight className="h-4 w-4" /></button>
+              <button type="button" aria-label="Tháng trước" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-md p-2 text-on-surface-variant hover:bg-surface hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary"><ChevronLeft className="h-4 w-4" /></button>
+              <button type="button" aria-label="Tháng sau" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-md p-2 text-on-surface-variant hover:bg-surface hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary"><ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-xs text-slate-400">
+          <div className="grid grid-cols-7 gap-1 text-center text-xs text-on-surface-variant">
             {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => <span key={day} className="py-1">{day}</span>)}
           </div>
           <div className="mt-1 grid grid-cols-7 gap-1">
@@ -138,13 +138,13 @@ export function AdminDatePicker({ label, value, onChange, min, max }: Props) {
                 aria-pressed={isSelected}
                 disabled={!allowed(date)}
                 onClick={() => choose(date)}
-                className={`h-9 rounded-lg text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-30 ${isSelected ? "bg-[#00ADFC] font-medium text-white" : isCurrentMonth ? "text-slate-700 hover:bg-cyan-50" : "text-slate-400 hover:bg-slate-50"} ${dateValue === toValue(today) && !isSelected ? "bg-cyan-50 text-cyan-700" : ""}`}
+                className={`h-9 rounded-md text-xs transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-30 ${isSelected ? "bg-primary font-medium text-on-primary" : isCurrentMonth ? "text-on-surface hover:bg-surface" : "text-on-surface-variant hover:bg-surface"} ${dateValue === toValue(today) && !isSelected ? "bg-primary/10 text-on-surface" : ""}`}
               >{date.getDate()}</button>;
             })}
           </div>
           <div className="mt-3 flex items-center justify-between gap-2 pt-2 text-xs">
-            <button type="button" onClick={() => { onChange(""); setOpen(false); triggerRef.current?.focus(); }} className="rounded-lg px-2.5 py-1.5 text-slate-500 hover:bg-slate-50">Xóa ngày</button>
-            <button type="button" disabled={!allowed(today)} onClick={() => choose(today)} className="rounded-lg bg-cyan-50 px-2.5 py-1.5 font-medium text-cyan-700 hover:bg-cyan-100 disabled:opacity-40">Hôm nay</button>
+            <button type="button" onClick={() => { onChange(""); setOpen(false); triggerRef.current?.focus(); }} className="rounded-md px-2.5 py-1.5 text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Xóa ngày</button>
+            <button type="button" disabled={!allowed(today)} onClick={() => choose(today)} className="rounded-md bg-primary/10 px-2.5 py-1.5 font-medium text-on-surface hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40">Hôm nay</button>
           </div>
         </div>,
         document.body,

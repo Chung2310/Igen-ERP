@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  ArrowLeft, Bell, LogOut, Settings, X, Package, CheckCheck, Send, Sun, Moon,
-  Briefcase, GraduationCap, Clock, LogIn, LogOut as LogOutIcon,
+  ArrowLeft, Bell, LogOut, Settings, X, Package, CheckCheck, Send,
+  Briefcase, GraduationCap, Clock, LogOut as LogOutIcon,
 } from "lucide-react";
 import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -19,7 +19,7 @@ import { ATTENDANCE_FACE_CHECK_ENABLED } from "../config/attendanceFaceCheck";
 import BranchSwitcher from "../components/BranchSwitcher";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { ModuleLauncherLogo } from "../components/common/ModuleLauncherLogo";
-import { AiAssistantIcon, MorePoliciesIcon, PaidWalletIcon, UpgradeGiftIcon } from "../components/common/HeaderShortcutIcons";
+import { AiAssistantIcon, AttendanceCheckInIcon, MorePoliciesIcon, PaidWalletIcon, UpgradeGiftIcon } from "../components/common/HeaderShortcutIcons";
 
 interface HeaderProps {
   currentTab: TabType;
@@ -64,9 +64,6 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [notifs, setNotifs] = useState<WebNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
-  const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem("theme") === "dark" || document.documentElement.classList.contains("dark");
-  });
   const closeLogoutConfirm = useCallback(() => {
     setShowLogoutConfirm(false);
     requestAnimationFrame(() => profileButtonRef.current?.focus());
@@ -206,14 +203,6 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
 
   const hasCheckIn = !!todayTimekeeping?.checkIn;
   const hasCheckOut = !!todayTimekeeping?.checkOut;
-
-  useEffect(() => {
-    const handleThemeChange = (e: any) => {
-      setIsDark(e.detail.theme === "dark");
-    };
-    window.addEventListener("theme-change" as any, handleThemeChange);
-    return () => window.removeEventListener("theme-change" as any, handleThemeChange);
-  }, []);
 
   const loadTelegramLinkStatus = async () => {
     if (!userProfile) return;
@@ -403,16 +392,16 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
                 onClick={() => handleTimekeepingAction("in")}
                 disabled={timekeepingChecking !== null}
                 className={`hidden sm:flex items-center gap-1.5 rounded-full border px-2.5 sm:px-4 py-2 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs ${timekeepingChecking === "in"
-                    ? "bg-indigo-100 border-indigo-200 text-indigo-500 animate-pulse cursor-wait"
-                    : "bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100/70 hover:border-indigo-200 shadow-indigo-500/5"
+                    ? "border-primary/20 bg-primary/10 text-primary animate-pulse cursor-wait"
+                    : "border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
                   }`}
                 title="Check-In chấm công"
                 id="header_checkin_btn"
               >
                 {timekeepingChecking === "in" ? (
-                  <div className="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                  <div className="size-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 ) : (
-                  <LogIn className="h-3.5 w-3.5 shrink-0" />
+                  <AttendanceCheckInIcon className="size-4 shrink-0" />
                 )}
                 <span className="hidden sm:inline">{timekeepingChecking === "in" ? "Đang xử lý..." : "Check-In"}</span>
               </button>
@@ -476,31 +465,6 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
                 <a href={USER_DATA_DELETION_URL} target="_blank" rel="noopener noreferrer" onClick={() => setShowPoliciesMenu(false)} className="flex min-h-10 items-center rounded-lg px-3 hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Xóa dữ liệu</a>
               </div>}
             </div>
-          {/* Dark Mode Toggle Button */}
-          <button
-            type="button"
-            onClick={() => {
-              const nextDark = !isDark;
-              setIsDark(nextDark);
-              if (nextDark) {
-                document.documentElement.classList.add("dark");
-                localStorage.setItem("theme", "dark");
-                toast.success("Đã chuyển sang giao diện tối");
-              } else {
-                document.documentElement.classList.remove("dark");
-                localStorage.setItem("theme", "light");
-                toast.success("Đã chuyển sang giao diện sáng");
-              }
-              window.dispatchEvent(new CustomEvent("theme-change", { detail: { theme: nextDark ? "dark" : "light" } }));
-            }}
-            className="hidden size-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex"
-            title={isDark ? "Giao diện sáng" : "Giao diện tối"}
-            aria-label={isDark ? "Giao diện sáng" : "Giao diện tối"}
-            id="header_darkmode_btn"
-          >
-            {isDark ? <Sun className="size-6 shrink-0 text-amber-500" /> : <Moon className="size-6 shrink-0" />}
-          </button>
-
           <div className="relative" id="notification_dropdown_button">
             <button
               type="button"
@@ -670,7 +634,7 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
                       disabled={timekeepingChecking !== null}
                       className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50/80 sm:hidden disabled:opacity-50"
                     >
-                      {hasCheckIn ? <LogOutIcon className="h-4 w-4 text-[#00ADFC]" /> : <LogIn className="h-4 w-4 text-[#00ADFC]" />}
+                      {hasCheckIn ? <LogOutIcon className="size-4 text-primary" /> : <AttendanceCheckInIcon className="size-4 text-primary" />}
                       <span>{timekeepingChecking ? "Đang xử lý..." : hasCheckIn ? "Check-Out" : "Check-In"}</span>
                     </button>
                   )}

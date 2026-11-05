@@ -1,0 +1,42 @@
+/* Shared density and type hierarchy for the three CRM inbox tabs. */
+.crm-workspace {
+  font-family: var(--font-sans);
+  color: var(--color-on-surface);
+}
+
+.crm-workspace :where(.font-extrabold) {
+  font-weight: 600;
+}
+
+.crm-workspace :where(.font-bold) {
+  font-weight: 600;
+}
+
+.crm-workspace :where(input, textarea)::placeholder {
+  color: var(--color-on-surface-variant);
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.crm-workspace :where(input, select, textarea):focus {
+  box-shadow: none;
+}
+
+.crm-workspace :where([class*="text-[8px]"], [class*="text-[9px]"], [class*="text-[10px]"]) {
+  font-size: 11px;
+}
+
+#omni_inbox_layout :where(.rounded-2xl),
+#ai_comment_reply_manager_container :where(.rounded-3xl, .rounded-2xl) {
+  border-radius: 6px;
+}
+
+#ai_comment_reply_manager_container :where(.shadow-xs, .shadow-2xs, .shadow-sm),
+#omni_inbox_layout :where(.shadow-xs, .shadow-2xs, .shadow-sm) {
+  box-shadow: none;
+}
+
+#ai_comment_reply_manager_container :where(.space-y-4) > :not([hidden]) ~ :not([hidden]),
+#ai_comment_reply_manager_container :where(.space-y-6) > :not([hidden]) ~ :not([hidden]) {
+  margin-block-start: 0.75rem;
+}

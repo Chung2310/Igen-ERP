@@ -25,7 +25,7 @@ Tài liệu này ghi lại những quyết định thị giác đã được ch�
 ## 3. Hình khối và nhịp bố cục
 
 - Panel nội dung và card có viền **1 px**, bo góc nhìn xa gần như vuông. Trong vùng Nhân sự, các panel có viền được chuẩn hóa về **6 px**; bóng chỉ đủ tách card khỏi nền (`0 1px 2px rgb(15 23 42 / 6%)`). Nguồn: [hr-tab.css](src/pages/hr-tab.css).
-- Dùng khoảng cách bên trong đủ thoáng để đọc, nhưng không kéo card cao chỉ để lấp chỗ. Các danh sách và lưới thường dùng khoảng cách khoảng **12 px** giữa mục; thanh công cụ gọn hơn card nội dung.
+- Dùng khoảng cách bên trong đủ thoáng để đọc, nhưng không kéo card cao chỉ để lấp chỗ. Giữ nhịp **12 px** giữa các nhóm trực tiếp như tiêu đề, thẻ thống kê, bộ lọc và bảng/trạng thái rỗng; lưới card cùng nhóm cũng dùng khoảng 12 px. Thanh công cụ gọn hơn card nội dung. Khung nội dung đặt sát vùng làm việc chung, không cộng thêm lề ngoài riêng gây khe rộng với sidebar hoặc header.
 - Ở desktop, tiêu đề, bộ lọc và hành động cùng một vùng đầu trang. Khi không đủ chỗ, cho chúng xuống dòng theo nhóm; không ép một hàng gây tràn ngang.
 - Lưới card phải tận dụng chiều rộng thực tế. Ví dụ Chi nhánh dùng tối đa ba cột ở `xl`, bốn cột ở `2xl`; thẻ khóa học được bố trí để desktop hiển thị ít nhất ba mục trên một hàng khi đủ rộng.
 - Khi có nhiều nhóm nghiệp vụ như Bảng lương, dùng **tab ngang dưới tiêu đề** để chỉ hiện một nhóm tại một thời điểm. Tab đang chọn có gạch chân xanh; tránh dồn tất cả nhóm thành một trang dài.
@@ -33,7 +33,7 @@ Tài liệu này ghi lại những quyết định thị giác đã được ch�
 
 ## 4. Thứ bậc nội dung của một màn
 
-1. **Tiêu đề:** ngắn, rõ nghiệp vụ; dùng `HrPageTitle` hoặc cỡ chữ tương đương, khoảng `text-lg font-semibold`.
+1. **Tiêu đề:** ngắn, rõ nghiệp vụ; dùng [HrPageTitle](src/components/hr/HrPageTitle.tsx) hoặc cùng cấp `text-lg font-semibold` (**18 px, weight 600**) với màu `on-surface`. Vạch `primary` mảnh cao khoảng 20 px, rộng 4 px. Không dùng `text-xl font-bold` cho tiêu đề chính chỉ vì thay phân hệ; độ đậm đó làm tiêu đề Kho nặng hơn Nhân sự.
 2. **Thao tác:** tìm kiếm và bộ lọc gần dữ liệu; hành động chính nằm cuối hàng, dùng nút xanh. Các thao tác phụ dùng viền hoặc nút biểu tượng.
 3. **Tổng quan:** chỉ hiện số liệu khi giúp quyết định hoặc lọc nhanh. Card thống kê có nhãn nhỏ, số lớn hơn và icon hỗ trợ.
 4. **Nội dung chính:** một bảng hoặc lưới card với cấp thông tin nhất quán giữa các mục.
@@ -64,7 +64,9 @@ Khi áp dụng sang phân hệ mới, chọn màu theo **ý nghĩa dữ liệu**
 
 ## 7. Nút, ô nhập và trạng thái tương tác
 
-- Dùng component và pattern chung trước khi tạo biến thể mới. Nút tạo mới dùng [primaryCreateButtonClass](src/components/common/primaryCreateButton.ts); nút phụ có viền nhẹ và nền trắng.
+- Dùng component và pattern chung trước khi tạo biến thể mới. Nút tạo mới ở đầu trang và trong trạng thái rỗng dùng cùng [primaryCreateButtonClass](src/components/common/primaryCreateButton.ts) (`text-xs font-semibold`, `px-4 py-2`, bo nhẹ); đặt `min-h-9` khi đứng cạnh nút Làm mới để cả hai cao tối thiểu 36 px. Không tự tạo biến thể to hơn ở từng màn. Nút Làm mới dùng [ErpRefreshButton](src/components/common/ErpRefreshButton.tsx), đặt trước nút tạo mới khi cùng hàng; nút phụ có viền nhẹ và nền trắng.
+- Giữ vạch xanh làm dấu hiệu chính cho tiêu đề. Nếu nghiệp vụ cần icon riêng cạnh tiêu đề, dùng icon nét nhỏ cùng hàng, không đặt trong ô nền lớn. Icon trên card thống kê màu phải tương phản với nền card và nền ô icon; tránh nét trắng trên ô gần trắng.
+- Trạng thái rỗng dùng minh họa, một câu thông báo và một hành động phù hợp nếu có; không lặp thêm câu hướng dẫn thao tác ngay trên nút. Mô tả ngắn dưới tiêu đề chỉ giữ khi truyền đạt thông tin nghiệp vụ không thể hiện ở bộ lọc, bảng hoặc hành động.
 - Ô tìm kiếm nghiệp vụ có viền `outline-variant`, icon kính lúp ở đầu và viền `primary` khi focus. Tìm kiếm toàn ERP thuộc hàng đầu của sidebar; không thêm ô tìm kiếm lớn vào header.
 - Nút chỉ có icon phải có tên truy cập (`aria-label`), trạng thái focus nhìn rõ và vùng bấm đủ rộng. Với các lựa chọn dạng tab/chế độ xem, thể hiện mục đang chọn bằng cả màu và dấu hiệu hình học như gạch chân hoặc nền chọn.
 - Trạng thái tải, trống, lỗi và vô hiệu hóa cần giữ chỗ hợp lý trong bố cục; không biến nội dung thành một khoảng trắng khó hiểu.

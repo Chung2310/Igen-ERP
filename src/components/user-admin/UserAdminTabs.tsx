@@ -11,7 +11,7 @@ interface Props {
 
 export function UserAdminTabs({ activeTab, onChange }: Props) {
   return (
-    <ModuleNavigation label="Mục Quản lý người dùng" activeValue={activeTab} id="user_admin_subtabs">
+    <ModuleNavigation label="Mục Quản lý người dùng" activeValue={activeTab} id="user_admin_subtabs" className="sm:px-3">
       {[
         { id: "users", label: "Danh sách tài khoản", icon: Users },
         { id: "roles", label: "Vai trò và phân quyền", icon: ShieldCheck },

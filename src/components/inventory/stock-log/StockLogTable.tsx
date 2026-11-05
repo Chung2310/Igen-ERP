@@ -1,4 +1,5 @@
 import React from "react";
+import { InventoryEmptyIllustration } from "../InventoryEmptyIllustration";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -6,7 +7,6 @@ import {
   ChevronRight,
   Clock,
   Eye,
-  PackageSearch,
   Pencil,
   RotateCcw,
   ShoppingCart,
@@ -116,10 +116,8 @@ export function StockLogTable({
             ) : paginatedLogs.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                    <PackageSearch className="h-6 w-6" />
-                  </div>
-                  <p className="mt-3 font-bold text-slate-800">Không tìm thấy giao dịch nào</p>
+                  <InventoryEmptyIllustration kind={hasActiveFilters ? "search" : "transaction"} className="mx-auto" />
+                  <p className="mt-1 font-bold text-slate-800">Không tìm thấy giao dịch nào</p>
                   <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
                     Không có phiếu nào khớp với điều kiện tìm kiếm hoặc bộ lọc hiện tại. Thử đổi từ khóa hoặc đặt lại bộ lọc.
                   </p>

@@ -4,8 +4,8 @@ import type { AssistantTrainingContentForm as TrainingContent, AssistantTraining
 import { cn } from "../../modules/student-management/lib/utils";
 
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
-const inputClass = cn("min-h-11 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-base text-on-surface placeholder:text-on-surface/50", focusClass);
-const actionClass = cn("inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm font-medium hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass);
+const inputClass = cn("min-h-10 w-full rounded-lg border border-outline-variant bg-surface px-2.5 py-1.5 text-sm text-on-surface placeholder:text-on-surface/50", focusClass);
+const actionClass = cn("inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm font-medium hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass);
 
 const blankLesson = (): AssistantTrainingLessonAnswer => ({ title: "", type: "text", url: "", content: "" });
 const blankQuiz = (): AssistantTrainingQuizAnswer => ({ question: "", options: ["", ""], correctOptionIndex: -1 });
@@ -79,24 +79,24 @@ export function AssistantTrainingContentForm({
     });
   };
 
-  return <form onSubmit={submit} noValidate aria-labelledby={`${formId}-title`} aria-busy={submitting} className="ml-12 max-w-4xl space-y-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-sm shadow-sm sm:p-5">
+  return <form onSubmit={submit} noValidate aria-labelledby={`${formId}-title`} aria-busy={submitting} className="max-w-4xl space-y-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm sm:p-4">
     <header>
       <h3 id={`${formId}-title`} className="text-balance font-semibold">Bổ sung bài giảng và câu hỏi</h3>
       <p className="mt-1 text-pretty text-xs text-on-surface/70">Điền trực tiếp tại đây. Mỗi danh sách có thể bỏ qua riêng; bạn sẽ xem lại nội dung trước khi xác nhận tạo khóa đào tạo.</p>
     </header>
 
-    <fieldset disabled={readOnly || skipLessons} className="space-y-3 rounded-xl border border-outline-variant p-3 sm:p-4">
+    <fieldset disabled={readOnly || skipLessons} className="space-y-2 rounded-lg border border-outline-variant p-3">
       <legend className="px-1 font-semibold">Bài giảng</legend>
       {lessons.map((lesson, index) => {
         const itemId = `${formId}-lesson-${index}`;
-        return <div key={itemId} className="space-y-3 rounded-xl border border-outline-variant bg-surface p-3 sm:p-4">
+        return <div key={itemId} className="space-y-2 rounded-lg border border-outline-variant bg-surface p-3">
           <div className="flex items-center justify-between gap-2">
             <h4 className="font-medium">Bài giảng {index + 1}</h4>
             <button type="button" aria-label={`Xóa bài giảng ${index + 1}`} onClick={() => { setLessons(current => current.filter((_, itemIndex) => itemIndex !== index)); setErrors([]); }} className={cn(actionClass, "size-10 shrink-0 p-0")}>
               <Trash2 className="size-4" aria-hidden="true" />
             </button>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label htmlFor={`${itemId}-title`} className="font-medium">Tên bài giảng</label>
               <input id={`${itemId}-title`} value={lesson.title} maxLength={300} onChange={event => updateLesson(index, { title: event.target.value })} className={inputClass} autoComplete="off" />
@@ -127,16 +127,16 @@ export function AssistantTrainingContentForm({
         <Plus className="size-4" aria-hidden="true" /> Thêm bài giảng
       </button>
     </fieldset>
-    <label className={cn("flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-outline-variant bg-surface px-3 py-2.5 hover:bg-surface-container-low", focusClass, readOnly && "cursor-not-allowed opacity-50")}>
+    <label className={cn("flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-outline-variant bg-surface px-2.5 py-2 hover:bg-surface-container-low", focusClass, readOnly && "cursor-not-allowed opacity-50")}>
       <input type="checkbox" checked={skipLessons} disabled={readOnly} onChange={event => { setSkipLessons(event.target.checked); setErrors([]); }} className="size-4 shrink-0 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
       <span>Chưa có bài giảng, bỏ qua mục này</span>
     </label>
 
-    <fieldset disabled={readOnly || skipQuizzes} className="space-y-3 rounded-xl border border-outline-variant p-3 sm:p-4">
+    <fieldset disabled={readOnly || skipQuizzes} className="space-y-2 rounded-lg border border-outline-variant p-3">
       <legend className="px-1 font-semibold">Câu hỏi trắc nghiệm</legend>
       {quizzes.map((quiz, quizIndex) => {
         const itemId = `${formId}-quiz-${quizIndex}`;
-        return <div key={itemId} className="space-y-3 rounded-xl border border-outline-variant bg-surface p-3 sm:p-4">
+        return <div key={itemId} className="space-y-2 rounded-lg border border-outline-variant bg-surface p-3">
           <div className="flex items-center justify-between gap-2">
             <h4 className="font-medium">Câu hỏi {quizIndex + 1}</h4>
             <button type="button" aria-label={`Xóa câu hỏi ${quizIndex + 1}`} onClick={() => { setQuizzes(current => current.filter((_, index) => index !== quizIndex)); setErrors([]); }} className={cn(actionClass, "size-10 shrink-0 p-0")}>
@@ -174,15 +174,15 @@ export function AssistantTrainingContentForm({
         <Plus className="size-4" aria-hidden="true" /> Thêm câu hỏi
       </button>
     </fieldset>
-    <label className={cn("flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-outline-variant bg-surface px-3 py-2.5 hover:bg-surface-container-low", focusClass, readOnly && "cursor-not-allowed opacity-50")}>
+    <label className={cn("flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-outline-variant bg-surface px-2.5 py-2 hover:bg-surface-container-low", focusClass, readOnly && "cursor-not-allowed opacity-50")}>
       <input type="checkbox" checked={skipQuizzes} disabled={readOnly} onChange={event => { setSkipQuizzes(event.target.checked); setErrors([]); }} className="size-4 shrink-0 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
       <span>Chưa có câu hỏi, bỏ qua mục này</span>
     </label>
 
-    {errors.length > 0 && <div role="alert" aria-live="assertive" className="space-y-1 rounded-xl border border-error/30 bg-error/5 p-3 text-error">
+    {errors.length > 0 && <div role="alert" aria-live="assertive" className="space-y-1 rounded-lg border border-error/30 bg-error/5 p-3 text-error">
       {errors.map(error => <p key={error}>{error}</p>)}
     </div>}
-    <button type="submit" disabled={readOnly || submitting || !canSubmit} className={cn("min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+    <button type="submit" disabled={readOnly || submitting || !canSubmit} className={cn("min-h-10 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
       {submitting ? "Đang gửi…" : !canSubmit ? "Đang đồng bộ phiên…" : "Gửi nội dung"}
     </button>
   </form>;

@@ -3,7 +3,8 @@ import React, { useState } from "react";
 import { Search, Zap, Plus } from "lucide-react";
 import { ExtendedLeadCard } from "../../services/crmService";
 import { PipelineCard } from "./PipelineCard";
-import { DashboardFilledIcon } from "../../../shared/components/common/DashboardFilledIcon";
+import { HrEmptyIllustration } from "../../../../../components/hr/HrEmptyIllustration";
+import { primaryCreateButtonClass } from "../../../../../components/common/primaryCreateButton";
 
 import { CustomerInbox } from "../../../shared/types/index";
 
@@ -116,61 +117,64 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
   });
 
   return (
-    <div className="p-3.5 overflow-y-auto h-full space-y-3.5 flex flex-col" id="leads_pipeline_kanban">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-3 md:p-4" id="leads_pipeline_kanban">
 
       {/* Search and Action Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 border border-slate-100 p-3 rounded-2xl shrink-0">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-md border border-outline-variant bg-surface-container-lowest p-3">
+        <div className="relative min-w-0 w-full sm:max-w-md">
+          <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" />
           <input
             type="text"
+            aria-label="Tìm kiếm cơ hội bán hàng"
             placeholder="Tìm kiếm cơ hội bán hàng (tên, công ty, sản phẩm)..."
             value={searchPipeline}
             onChange={(e) => setSearchPipeline(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 bg-white rounded-xl text-xs outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all duration-150"
+            className="min-h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary focus:ring-0"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
+            type="button"
             onClick={triggerUpsellCampaignOptimized}
-            className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl flex items-center gap-1.5 border border-indigo-200/50 transition-all cursor-pointer"
+            className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface hover:bg-primary/5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary"
           >
-            <Zap className="h-3.5 w-3.5 text-indigo-500" />
+            <Zap aria-hidden="true" className="size-4 text-primary" />
             Gửi ưu đãi hàng loạt
           </button>
           <button
+            type="button"
             onClick={() => setShowCreateLeadModal(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-blue-500/10 hover:shadow-lg active:scale-95 transition-all duration-150 cursor-pointer"
+            className={`${primaryCreateButtonClass} min-h-10 rounded-md`}
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus aria-hidden="true" className="size-4" />
             Thêm cơ hội mới
           </button>
         </div>
       </div>
 
       {/* Pipeline Columns Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 overflow-hidden pb-2" id="pipeline_columns_grid">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-3" id="pipeline_columns_grid">
 
         {/* COLD: KHÁCH LẠNH */}
         <div
           onDragOver={(e) => handleDragOver(e, "cold")}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, "cold")}
-          className={`bg-slate-50/70 border-2 p-3 rounded-2xl flex flex-col h-full overflow-hidden transition-all duration-200 ${activeColumn === "cold" ? "border-blue-500 bg-blue-50/30 scale-[1.01]" : "border-slate-100"
+          className={`flex min-h-56 flex-col overflow-hidden rounded-md border p-3 ${activeColumn === "cold" ? "border-primary bg-primary/5" : "border-outline-variant bg-surface-container-lowest"
             }`}
           id="pipeline_cold"
         >
-          <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-200/50 shrink-0">
+          <div className="mb-3 flex shrink-0 items-center justify-between border-b border-outline-variant pb-3">
             <div className="text-left">
-              <span className="block text-sm font-medium text-slate-700">Khách lạnh</span>
-              <span className="mt-1 block text-xs text-slate-500">Chưa xác định rõ nhu cầu</span>
+              <span className="block text-sm font-semibold text-on-surface">Khách lạnh</span>
+              <span className="mt-0.5 block text-xs text-on-surface-variant">Chưa xác định rõ nhu cầu</span>
             </div>
-            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-200 px-1.5 text-xs font-medium text-slate-800">
+            <span className="flex min-h-6 min-w-6 items-center justify-center rounded-full bg-surface-container px-1.5 text-xs font-medium tabular-nums text-on-surface">
               {groupedLeads.cold.length}
             </span>
           </div>
 
-          <div className="space-y-3 flex-1 overflow-y-auto pr-1">
+          <div className="flex-1 space-y-2 overflow-y-auto">
             {groupedLeads.cold.map(l => (
               <PipelineCard
                 key={l.id}
@@ -182,11 +186,9 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               />
             ))}
             {groupedLeads.cold.length === 0 && (
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-200 px-4 py-4 text-center text-xs text-slate-500 font-sans">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-[#00ADFC]">
-                  <DashboardFilledIcon name="cold" className="h-5 w-5" />
-                </span>
-                Không có khách hàng
+              <div className="flex min-h-44 flex-col items-center justify-center gap-1 rounded-md border border-outline-variant bg-surface px-3 py-4 text-center text-sm text-on-surface-variant">
+                <HrEmptyIllustration kind="worker" className="h-20 w-36" />
+                <span>Không có khách hàng</span>
               </div>
             )}
           </div>
@@ -197,21 +199,21 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
           onDragOver={(e) => handleDragOver(e, "warm")}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, "warm")}
-          className={`bg-orange-50/20 border-2 p-3 rounded-2xl flex flex-col h-full overflow-hidden transition-all duration-200 ${activeColumn === "warm" ? "border-amber-500 bg-amber-50/30 scale-[1.01]" : "border-slate-100"
+          className={`flex min-h-56 flex-col overflow-hidden rounded-md border p-3 ${activeColumn === "warm" ? "border-primary bg-primary/5" : "border-outline-variant bg-surface-container-lowest"
             }`}
           id="pipeline_warm"
         >
-          <div className="flex justify-between items-center mb-2 pb-2 border-b border-orange-100/50 shrink-0">
+          <div className="mb-3 flex shrink-0 items-center justify-between border-b border-outline-variant pb-3">
             <div className="text-left">
-              <span className="block text-sm font-medium text-orange-700">Khách ấm (tiềm năng)</span>
-              <span className="mt-1 block text-xs text-orange-600">Đã tương tác hoặc nhận báo giá</span>
+              <span className="block text-sm font-semibold text-on-surface">Khách ấm (tiềm năng)</span>
+              <span className="mt-0.5 block text-xs text-on-surface-variant">Đã tương tác hoặc nhận báo giá</span>
             </div>
-            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-orange-100 px-1.5 text-xs font-medium text-orange-800">
+            <span className="flex min-h-6 min-w-6 items-center justify-center rounded-full bg-surface-container px-1.5 text-xs font-medium tabular-nums text-on-surface">
               {groupedLeads.warm.length}
             </span>
           </div>
 
-          <div className="space-y-3 flex-1 overflow-y-auto pr-1">
+          <div className="flex-1 space-y-2 overflow-y-auto">
             {groupedLeads.warm.map(l => (
               <PipelineCard
                 key={l.id}
@@ -223,11 +225,9 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               />
             ))}
             {groupedLeads.warm.length === 0 && (
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-orange-200 px-4 py-4 text-center text-xs text-slate-500 font-sans">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
-                  <DashboardFilledIcon name="warm" className="h-5 w-5" />
-                </span>
-                Không có khách hàng
+              <div className="flex min-h-44 flex-col items-center justify-center gap-1 rounded-md border border-outline-variant bg-surface px-3 py-4 text-center text-sm text-on-surface-variant">
+                <HrEmptyIllustration kind="worker" className="h-20 w-36" />
+                <span>Không có khách hàng</span>
               </div>
             )}
           </div>
@@ -238,27 +238,26 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
           onDragOver={(e) => handleDragOver(e, "hot")}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, "hot")}
-          className={`bg-rose-50/20 border-2 p-3 rounded-2xl flex flex-col h-full overflow-hidden transition-all duration-200 shadow-md shadow-emerald-500/5 ring-1 ring-emerald-500/10 ${activeColumn === "hot" ? "border-emerald-500 bg-emerald-50/10 scale-[1.01]" : "border-slate-100"
+          className={`flex min-h-56 flex-col overflow-hidden rounded-md border p-3 ${activeColumn === "hot" ? "border-primary bg-primary/5" : "border-outline-variant bg-surface-container-lowest"
             }`}
           id="pipeline_hot"
         >
-          <div className="flex justify-between items-center mb-2 pb-2 border-b border-red-100/50 shrink-0">
+          <div className="mb-3 flex shrink-0 items-center justify-between border-b border-outline-variant pb-3">
             <div className="text-left">
-              <span className="flex items-center gap-1.5 text-sm font-medium text-red-700">
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-on-surface">
                 Khách nóng (sắp chốt)
                 <span className="flex h-1.5 w-1.5 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary"></span>
                 </span>
               </span>
-              <span className="mt-1 block text-xs text-red-600">Chuẩn bị ký kết & chốt hợp đồng</span>
+              <span className="mt-0.5 block text-xs text-on-surface-variant">Chuẩn bị ký kết & chốt hợp đồng</span>
             </div>
-            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-100 px-1.5 text-xs font-medium text-red-800">
+            <span className="flex min-h-6 min-w-6 items-center justify-center rounded-full bg-surface-container px-1.5 text-xs font-medium tabular-nums text-on-surface">
               {groupedLeads.hot.length}
             </span>
           </div>
 
-          <div className="space-y-3 flex-1 overflow-y-auto pr-1">
+          <div className="flex-1 space-y-2 overflow-y-auto">
             {groupedLeads.hot.map(l => (
               <PipelineCard
                 key={l.id}
@@ -270,11 +269,9 @@ export const PipelineTab: React.FC<PipelineTabProps> = ({
               />
             ))}
             {groupedLeads.hot.length === 0 && (
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-rose-200 px-4 py-4 text-center text-xs text-slate-500 font-sans">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-500">
-                  <DashboardFilledIcon name="hot" className="h-5 w-5" />
-                </span>
-                Không có khách hàng
+              <div className="flex min-h-44 flex-col items-center justify-center gap-1 rounded-md border border-outline-variant bg-surface px-3 py-4 text-center text-sm text-on-surface-variant">
+                <HrEmptyIllustration kind="worker" className="h-20 w-36" />
+                <span>Không có khách hàng</span>
               </div>
             )}
           </div>

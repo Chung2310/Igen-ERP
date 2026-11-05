@@ -1,0 +1,88 @@
+/* Keep integration settings on the same compact panel rhythm as HR. */
+#marketing_integrations_content {
+  margin: 8px;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+
+#marketing_integrations_content > div > div + div {
+  margin-top: 12px;
+}
+
+#marketing_integrations_content > div > div {
+  border-color: var(--color-outline-variant);
+  border-radius: 6px;
+  background: var(--color-surface-container-lowest);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+
+#marketing_integrations_content > div > div:is(.p-5, .p-6) {
+  padding: 16px;
+}
+
+#marketing_integrations_content > div > div.space-y-4 > * + * {
+  margin-top: 12px;
+}
+
+#marketing_integrations_content :is(h3, h4, h5) {
+  color: var(--color-on-surface);
+  font-weight: 600;
+  letter-spacing: normal;
+}
+
+#marketing_integrations_content h3 {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+#marketing_integrations_content :is(p, label) {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+#marketing_integrations_content :is(.rounded-2xl, .rounded-xl) {
+  border-radius: 6px;
+}
+
+#marketing_integrations_content :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+  border-color: var(--color-outline-variant);
+  border-radius: 6px;
+  color: var(--color-on-surface);
+  background-color: var(--color-surface-container-lowest);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+#marketing_integrations_content :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select):focus-visible {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: none;
+}
+
+#marketing_integrations_content :is(input, textarea)::placeholder {
+  color: var(--color-on-surface-variant);
+  opacity: .7;
+  font-weight: 400;
+}
+
+#marketing_integrations_content button:not([type="checkbox"]),
+#marketing_integrations_content a.rounded-xl {
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+#marketing_integrations_content :is(.bg-sky-600, .bg-emerald-600) {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+@media (max-width: 639px) {
+  #marketing_integrations_content {
+    margin: 6px;
+    padding: 10px;
+  }
+
+  #marketing_integrations_content > div > div:is(.p-5, .p-6) {
+    padding: 12px;
+  }
+}
