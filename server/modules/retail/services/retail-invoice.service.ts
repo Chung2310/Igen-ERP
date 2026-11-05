@@ -1,6 +1,7 @@
-import type { ClientSession } from "mongoose";
+import type { ClientSession, PipelineStage } from "mongoose";
 import { RetailInvoiceCounterModel } from "../models/retail-invoice-counter.model";
 import { RetailInvoiceModel } from "../models/retail-invoice.model";
+import { parseRetailReportRange } from "./retail-report-range";
 import { RetailOrderModel } from "../models/retail-order.model";
 import type { IRetailOrder } from "../interfaces/retail-order.interface";
 import type { RetailBranchScope } from "../contracts";
@@ -10,6 +11,38 @@ import { BranchModel } from "../../../model/branch.model";
 import { CompanyModel } from "../../../model/company.model";
 import { UserModel } from "../../../model/user.model";
 export { invoicePdfFilename, invoicePdfPageSize, invoicePdfPaymentRows, renderRetailInvoicePdf, renderBulkRetailInvoicesPdf } from "./retail-invoice-pdf.service";
+
+export function buildRetailInvoiceSummaryPipeline(filter: Record<string, unknown>): PipelineStage[] {
+  const issued = { $eq: ["$status", "issued"] };
+  const voided = { $eq: ["$status", "void"] };
+  const amount = (status: typeof issued, path: string) => ({ $sum: { $cond: [status, { $ifNull: [path, 0] }, 0] } });
+  return [
+    { $match: filter },
+    { $group: {
+      _id: null,
+      invoiceCount: { $sum: 1 },
+      issuedCount: { $sum: { $cond: [issued, 1, 0] } },
+      voidCount: { $sum: { $cond: [voided, 1, 0] } },
+      issuedAmount: amount(issued, "$snapshot.grandTotal"),
+      voidAmount: amount(voided, "$snapshot.grandTotal"),
+      paidAmount: amount(issued, "$snapshot.paidAmount"),
+      dueAmount: amount(issued, "$snapshot.dueAmount"),
+    } },
+  ];
+}
+
+export function projectRetailInvoiceSummary(range: { from: string; to: string }, result: Record<string, unknown> | undefined) {
+  return {
+    range: { from: range.from, to: range.to },
+    invoiceCount: Number(result?.invoiceCount || 0),
+    issuedCount: Number(result?.issuedCount || 0),
+    voidCount: Number(result?.voidCount || 0),
+    issuedAmount: Number(result?.issuedAmount || 0),
+    voidAmount: Number(result?.voidAmount || 0),
+    paidAmount: Number(result?.paidAmount || 0),
+    dueAmount: Number(result?.dueAmount || 0),
+  };
+}
 
 export function buildRetailInvoiceSnapshot(order: any, actor: any, store: RetailStoreSnapshot) {
   const vndValues = [order.grandTotal, order.paidAmount, order.dueAmount, ...(order.payments || []).map((payment: any) => payment.amount)];
@@ -124,6 +157,14 @@ export const RetailInvoiceService = {
       RetailInvoiceModel.countDocuments(filter),
     ]);
     return { items: await projectInvoiceSalespersons(await projectInvoicePayments(await projectInvoiceCashiers(items))), total, page, limit };
+  },
+  async summary(scope: RetailBranchScope, query: any) {
+    const status = String(query?.status || "").trim();
+    if (status && status !== "issued" && status !== "void") throw Object.assign(new Error("Trạng thái hóa đơn không hợp lệ."), { status: 400 });
+    const range = parseRetailReportRange(query || {});
+    const { filter } = buildInvoiceListQuery(scope, { ...query, from: range.from, to: range.to });
+    const [result] = await RetailInvoiceModel.aggregate(buildRetailInvoiceSummaryPipeline(filter));
+    return projectRetailInvoiceSummary(range, result);
   },
   async listForBulkPdf(scope: RetailBranchScope, query: any) {
     const rawIds = query?.ids;
