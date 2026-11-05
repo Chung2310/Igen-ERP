@@ -1,0 +1,52 @@
+/* Keep the System workspace aligned with the compact HR content rhythm. */
+.settings-workspace {
+  padding: 0;
+}
+
+.settings-erp-card :is(input:not([type="checkbox"]), select, textarea),
+.settings-erp-card :is(button, label)[class*="rounded-xl"],
+.settings-erp-card :is(div, section, article)[class*="rounded-xl"],
+.settings-erp-card :is(div, section, article)[class*="rounded-2xl"],
+.settings-face-card [class*="rounded-full"]:not(button) {
+  border-radius: 6px;
+}
+
+.settings-erp-card :is(input:not([type="checkbox"]), select, textarea) {
+  border-color: var(--color-outline-variant);
+  background-color: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  box-shadow: none;
+}
+
+.settings-erp-card :is(input:not([type="checkbox"]), select, textarea):focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: none;
+}
+
+.settings-erp-card :is(button, input, select, textarea):focus-visible,
+.settings-face-card button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.settings-erp-card label,
+.settings-face-card label {
+  color: var(--color-on-surface-variant);
+}
+
+.settings-erp-card [class*="bg-white"][class*="border"] {
+  background-color: var(--color-surface-container-lowest);
+  border-color: var(--color-outline-variant);
+}
+
+.settings-erp-card [class*="text-slate-800"],
+.settings-face-card [class*="text-slate-800"] {
+  color: var(--color-on-surface);
+}
+
+.settings-erp-card [class*="text-slate-500"],
+.settings-erp-card [class*="text-slate-600"],
+.settings-face-card [class*="text-slate-500"] {
+  color: var(--color-on-surface-variant);
+}

@@ -1,3 +1,4 @@
+import './overview-dashboard.css';
 import {
   ArrowRight, BriefcaseBusiness, CalendarDays,
   FileText, FolderTree, GraduationCap, Layers3, ShieldCheck, UsersRound,
@@ -47,7 +48,7 @@ function Card({
       initial={reduceMotion ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay }}
-      className={`rounded-2xl bg-white shadow-[0_8px_28px_rgba(26,67,103,0.055)] ${className}`}
+      className={`overview-panel rounded-2xl bg-white shadow-[0_8px_28px_rgba(26,67,103,0.055)] ${className}`}
     >
       {children}
     </motion.div>
@@ -66,7 +67,7 @@ function Kpi({
 }) {
   const palette = toneClasses[tone];
   return (
-    <Card delay={delay} className="min-w-0 px-4 py-3.5">
+    <Card delay={delay} className="overview-kpi min-w-0 px-4 py-3.5">
       <div className="flex items-center gap-3">
         <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${palette.icon}`}><IconComponent className="h-[19px] w-[19px]" /></span>
         <div className="min-w-0">

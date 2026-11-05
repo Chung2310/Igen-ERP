@@ -1,0 +1,30 @@
+/* Dashboard presentation: vivid metrics, quiet data panels. */
+.overview-panel {
+  border: 1px solid var(--color-outline-variant, #d8e2f0);
+  border-radius: 6px;
+  background: var(--color-surface-container-lowest, #fff);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 4%);
+  padding: 16px;
+}
+.overview-kpi {
+  --metric-start: #7950e9;
+  --metric-end: #6247e1;
+  border: 0;
+  border-radius: 6px;
+  background: linear-gradient(115deg, var(--metric-start), var(--metric-end));
+  color: #fff;
+  padding: 14px 16px;
+  box-shadow: none;
+}
+.overview-kpi:nth-child(5n + 2) { --metric-start: #5479f4; --metric-end: #2859db; }
+.overview-kpi:nth-child(5n + 3) { --metric-start: #0998c5; --metric-end: #007ca8; }
+.overview-kpi:nth-child(5n + 4) { --metric-start: #df713b; --metric-end: #bc4b18; }
+.overview-kpi:nth-child(5n + 5) { --metric-start: #159c83; --metric-end: #087e68; }
+.overview-kpi :is(p, strong, h4, span, div) { color: inherit; }
+.overview-kpi svg { color: #fff; }
+.overview-kpi > span:first-child,
+.overview-kpi > div > span:first-child { background: rgb(255 255 255 / 16%); border-radius: 6px; }
+.overview-kpi:disabled { opacity: .65; }
+@media (max-width: 640px) {
+  .overview-panel, .overview-kpi { padding: 12px; }
+}

@@ -8,10 +8,8 @@ import type {
 
 export type SettingsSubTabType =
   | "profile"
-  | "security"
   | "erp"
-  | "face-recognition"
-  | "branches";
+  | "face-recognition";
 
 export type DashboardSubTabType =
   | "DOANH_NGHIEP"
@@ -68,10 +66,8 @@ export const RESOURCE_SUB_TAB_ROUTES: SubTabRouteMap<ResourceSubTabType> = [
 
 export const SETTINGS_SUB_TAB_ROUTES: SubTabRouteMap<SettingsSubTabType> = [
   { slug: "ho-so", value: "profile" },
-  { slug: "bao-mat", value: "security" },
   { slug: "cau-hinh", value: "erp" },
   { slug: "nhan-dien-khuon-mat", value: "face-recognition" },
-  { slug: "chi-nhanh", value: "branches" },
 ];
 
 export const STUDENT_SUB_TAB_ROUTES: SubTabRouteMap<string> = [

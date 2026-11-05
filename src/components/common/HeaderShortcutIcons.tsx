@@ -2,6 +2,14 @@ import { useId, type SVGProps } from 'react';
 
 type IconProps = SVGProps<SVGSVGElement>;
 
+export function AttendanceCheckInIcon(props: IconProps) {
+  return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <rect x="2.5" y="4" width="19" height="17" rx="2.5" strokeWidth="1.7" />
+    <path d="M7.5 2.5v3M16.5 2.5v3M2.5 9h19" strokeWidth="1.7" />
+    <path d="m7.5 14.7 2.7 2.6 6.3-6.1" strokeWidth="2" />
+  </svg>;
+}
+
 function WalletGradient({ id }: { id: string }) {
   return <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="3" y1="5" x2="25" y2="23">
     <stop offset="0%" stopColor="#7865ed" />

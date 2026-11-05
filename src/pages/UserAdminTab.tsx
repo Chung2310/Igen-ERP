@@ -10,7 +10,7 @@ import { authService } from "../services/authService";
 import { branchService, BranchRecord } from "../services/branchService";
 import { CompanyProfile, UserProfile } from "../types";
 import { toast } from "./Toast";
-import { Shield, RefreshCw, Plus, User, X, Wallet, Mail, Lock, SlidersHorizontal, UsersRound, Check } from "lucide-react";
+import { Shield, RefreshCw, Plus, User, X, Wallet, Mail, Lock, SlidersHorizontal, Check } from "lucide-react";
 import "./user-admin-theme.css";
 import { parseFirebaseError } from "../utils/firebaseErrorParser";
 import { getApiErrorMessage } from "../utils/errorMessage";
@@ -24,6 +24,8 @@ import { CompanyEditFormState, CompanyFormState } from "../components/user-admin
 import { UserFormModal } from "../components/user-admin/UserFormModal";
 import { RoleModal } from "../components/user-admin/RoleModal";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
+import { HrEmptyIllustration } from "../components/hr/HrEmptyIllustration";
+import { primaryCreateButtonClass } from "../components/common/primaryCreateButton";
 import { DEFAULT_MODULE_KEYS, MODULE_KEYS } from "../config/modules";
 import { DEFAULT_SYSTEM_PERMISSIONS, getPermissionLabel, getRoleDisplayName } from "../utils/permissionUtils";
 import { UserActivityTimeline } from "./super-admin/users/UserActivityTimeline";
@@ -710,7 +712,7 @@ export default function UserAdminTab() {
 
 
   return (
-    <div className="user-admin-ui flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-white" id="user_admin_tab_wrapper">
+    <div className="user-admin-ui flex h-full min-h-0 flex-col overflow-hidden bg-surface" id="user_admin_tab_wrapper">
       <h1 className="sr-only">Quản trị Hệ thống & Phân quyền - {activeTab}</h1>
       
       <UserAdminHeader
@@ -743,18 +745,18 @@ export default function UserAdminTab() {
             }}
           />
           {/* Main List Area */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="user_admin_content">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3" id="user_admin_content">
             {loading ? (
-              <div className="h-48 flex flex-col items-center justify-center text-center">
+              <div className="flex flex-1 flex-col items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest text-center">
                 <RefreshCw className="h-8 w-8 text-indigo-650 animate-spin mb-3" />
                 <span className="text-sm text-slate-500">Đang tải danh sách tài khoản...</span>
               </div>
             ) : visibleUsers.length === 0 ? (
-              <div className="flex h-full min-h-[280px] items-center justify-center">
-                <div className="flex w-full max-w-md flex-col items-center rounded-2xl bg-white px-6 py-8 text-center shadow-sm">
-                  <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600"><UsersRound className="h-5 w-5" /></span>
-                  <p className="text-sm font-medium text-slate-700">Không tìm thấy tài khoản</p>
-                  <p className="mt-1 text-xs text-slate-500">{searchQuery || filterStartDate || filterEndDate ? "Thử thay đổi từ khóa hoặc khoảng ngày." : "Danh sách sẽ hiển thị khi có tài khoản."}</p>
+              <div className="flex flex-1 items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest">
+                <div className="flex w-full max-w-md flex-col items-center px-6 py-6 text-center">
+                  <HrEmptyIllustration kind="worker" className="mb-2" />
+                  <p className="text-pretty text-sm font-medium text-on-surface">Không tìm thấy tài khoản</p>
+                  <p className="mt-1 text-pretty text-xs font-normal text-on-surface-variant">{searchQuery || filterStartDate || filterEndDate ? "Thử thay đổi từ khóa hoặc khoảng ngày." : "Danh sách sẽ hiển thị khi có tài khoản."}</p>
                 </div>
               </div>
             ) : (
@@ -776,10 +778,10 @@ export default function UserAdminTab() {
             )}
           </div>
         </>      ) : (
-        <div className="flex-1 space-y-6 overflow-y-auto p-3 sm:p-6" id="roles_permissions_tab_content">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-4 rounded-2xl border border-gray-150 gap-4">
+        <div className="flex-1 space-y-3 overflow-y-auto p-3" id="roles_permissions_tab_content">
+          <div className="flex flex-col justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3 sm:flex-row sm:items-center">
             <div>
-              <h5 className="text-sm font-medium text-slate-800">Vai trò và phân quyền</h5>
+              <h2 className="text-balance text-lg font-semibold text-on-surface">Vai trò và phân quyền</h2>
             </div>
             <button
               disabled={!(userProfile?.role === "superadmin" || userProfile?.role === "admin" || userProfile?.permissions?.includes("*") || userProfile?.permissions?.includes("access:manage"))}
@@ -792,7 +794,7 @@ export default function UserAdminTab() {
                 setSelectedPermissions([]);
                 setIsRoleModalOpen(true);
               }}
-              className="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-cyan-600 px-3.5 py-2.5 text-center text-sm font-medium text-white transition-colors hover:bg-cyan-700"
+              className={`${primaryCreateButtonClass} user-admin-create-button min-h-9`}
             >
               <Plus className="h-3.5 w-3.5" />
               Thêm vai trò tùy chỉnh
@@ -805,7 +807,7 @@ export default function UserAdminTab() {
               <span className="text-sm text-slate-500">Đang tải danh sách vai trò...</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {/* Render Default roles and Custom roles */}
               {(() => {
                 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -886,18 +888,18 @@ export default function UserAdminTab() {
 
                 return rolesToDisplay.map((roleInfo) => {
                   return (
-                    <div key={roleInfo.role} className="bg-white border border-gray-150 hover:border-indigo-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-4">
-                      <div className="space-y-3">
+                    <div key={roleInfo.role} className="flex flex-col justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs transition-colors hover:border-primary/35">
+                      <div className="space-y-2.5">
                         <div className="flex justify-between items-start">
                           <div>
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded text-[9px] font-bold font-mono tracking-wider">
+                            <span className="inline-flex rounded-sm border border-outline-variant bg-surface px-2 py-0.5 text-xs font-medium text-on-surface-variant">
                               Cấp {userProfile?.role === "superadmin" ? roleInfo.level : roleInfo.level - 1}
                             </span>
-                            <h6 className="font-bold text-slate-800 text-sm mt-1">{roleInfo.displayName}</h6>
-                            <span className="text-[10px] text-gray-400 font-mono block">Mã: {roleInfo.role}</span>
+                            <h3 className="mt-1 text-sm font-semibold text-on-surface">{roleInfo.displayName}</h3>
+                            <span className="block text-xs font-normal text-on-surface-variant">Mã: {roleInfo.role}</span>
                           </div>
                           {roleInfo.isDefault && (
-                            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-150 rounded-sm text-[8px] font-bold font-mono">
+                            <span className="rounded-sm border border-outline-variant bg-surface px-2 py-0.5 text-xs font-medium text-on-surface-variant">
                               Mặc định
                             </span>
                           )}
@@ -905,12 +907,12 @@ export default function UserAdminTab() {
 
                         {/* Permissions display */}
                         <div className="space-y-1.5 text-left">
-                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Các quyền được cấp phép:</span>
-                          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                          <span className="block text-xs font-medium text-on-surface-variant">Các quyền được cấp phép:</span>
+                          <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto pr-1">
                             {roleInfo.permissions.length === 0 ? (
-                              <span className="text-[10px] text-gray-400 italic">Chưa cấu hình quyền nào</span>
+                              <span className="text-xs font-normal text-on-surface-variant">Chưa cấu hình quyền nào</span>
                             ) : roleInfo.permissions.includes("*") ? (
-                              <span className="flex items-center gap-1 rounded-xl bg-sky-50 px-2.5 py-1 text-[10px] font-medium text-cyan-700">
+                              <span className="flex items-center gap-1 rounded-sm bg-primary/10 px-2.5 py-1 text-xs font-medium text-on-surface">
                                 <Check className="h-3 w-3" /> Toàn quyền hệ thống
                               </span>
                             ) : (
@@ -918,7 +920,7 @@ export default function UserAdminTab() {
                                 const sysPerm = systemPermissions.find(sp => sp.code === p);
                                 const labelText = getPermissionLabel(p, sysPerm?.name);
                                 return (
-                                  <span key={p} className="px-2 py-0.75 bg-indigo-50 text-indigo-800 border border-indigo-150 rounded-lg text-[10px] font-semibold" title={`Mã hệ thống: ${p}`}>
+                                  <span key={p} className="rounded-sm border border-outline-variant bg-surface px-2 py-0.5 text-xs font-normal text-on-surface-variant" title={`Mã hệ thống: ${p}`}>
                                     {labelText}
                                   </span>
                                 );
@@ -929,7 +931,7 @@ export default function UserAdminTab() {
                       </div>
 
                       {/* Actions */}
-                      <div className="border-t border-gray-100 pt-3 flex justify-end gap-2 mt-auto">
+                      <div className="mt-auto flex justify-end gap-2 border-t border-outline-variant pt-3">
                         {canEditRole(roleInfo) && (
                           <button
                             onClick={() => {
@@ -940,7 +942,7 @@ export default function UserAdminTab() {
                               setSelectedPermissions(roleInfo.permissions);
                               setIsRoleModalOpen(true);
                             }}
-                            className="p-1.5 px-3 bg-white hover:bg-slate-100 border border-gray-205 rounded-xl text-[10px] font-bold text-slate-700 cursor-pointer transition-all active:scale-95 flex items-center gap-1"
+                            className="flex min-h-9 cursor-pointer items-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"
                           >
                             Thiết lập phân quyền
                           </button>
@@ -948,7 +950,7 @@ export default function UserAdminTab() {
                         {!roleInfo.isDefault && (
                           <button
                             onClick={() => handleDeleteRole(roleInfo)}
-                            className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-[10px] font-bold text-red-650 cursor-pointer transition-all active:scale-95"
+                            className="min-h-9 cursor-pointer rounded-md border border-error/30 bg-error-container/40 px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error-container/60 focus-visible:outline-2 focus-visible:outline-error"
                             title="Xóa vai trò"
                           >
                             Xóa

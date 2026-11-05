@@ -3,7 +3,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../../shared/marketing-suite/ai-reply-models";
 import {
   MessageSquare, Zap, RefreshCw, Terminal, CheckCircle,
-  HelpCircle, Save, Sliders, ExternalLink, ChevronDown, ChevronUp,
+  Save, Sliders, ExternalLink, ChevronDown, ChevronUp,
   Facebook, Copy, FileText, Database, UploadCloud, Trash2, BookOpen, Film
 } from "lucide-react";
 import { toast } from "../../../../../pages/Toast";
@@ -11,6 +11,8 @@ import { getAccessToken } from "../../../shared/services/authService";
 import { useAuth } from "../../../shared/context/AuthContext";
 import { AIChatConfig } from "../../../shared/types/index";
 import { KnowledgeCenterSummaryCard } from "../../../knowledge/components/knowledge/KnowledgeCenterSummaryCard";
+import { HrPageTitle } from "../../../../../components/hr/HrPageTitle";
+import { HrEmptyIllustration } from "../../../../../components/hr/HrEmptyIllustration";
 import {
   AUTO_REPLY_SCENARIOS,
   buildAutoReplyScenarioTrainingKnowledge,
@@ -789,29 +791,26 @@ export function AiCommentReplyManager({
   const postIds = Object.keys(groupedLogs);
 
   return (
-    <div className="space-y-6 text-left" id="ai_comment_reply_manager_container">
+    <div className="space-y-3 text-left" id="ai_comment_reply_manager_container">
       {/* Header Info Panel */}
-      <div className="bg-white/80 backdrop-blur-md border border-gray-200/80 rounded-2xl p-6 shadow-xs">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 border-b border-gray-100 pb-4">
+      <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-3 md:p-4">
+        <div className="mb-3 flex flex-col items-start justify-between gap-3 border-b border-outline-variant pb-3 lg:flex-row lg:items-center">
           <div className="text-left">
-            <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-indigo-650" />
-              Tự động phản hồi bình luận {activePlatform === "facebook" ? "Facebook" : "TikTok"}
-            </h3>
-            <p className="text-xs text-gray-500 mt-1">
+            <HrPageTitle level={3}>Tự động phản hồi bình luận {activePlatform === "facebook" ? "Facebook" : "TikTok"}</HrPageTitle>
+            <p className="mt-1 text-xs text-on-surface-variant">
               Phân tách quản lý các phản hồi tự động theo từng bài viết cụ thể trên {activePlatform === "facebook" ? "Fanpage Facebook" : "TikTok"} của bạn.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
             {/* Platform Selection Tab */}
-            <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-[10px] font-extrabold shadow-xxs">
+            <div className="flex rounded-md border border-outline-variant bg-surface-container p-0.5 text-xs font-medium">
               <button
                 type="button"
                 onClick={() => setActivePlatform("facebook")}
-                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activePlatform === "facebook"
-                    ? "bg-white text-indigo-600 shadow-xxs"
-                    : "text-slate-500 hover:text-slate-800"
+                className={`flex cursor-pointer items-center gap-1.5 rounded px-3 py-1.5 ${activePlatform === "facebook"
+                    ? "bg-surface-container-lowest text-primary"
+                    : "text-on-surface-variant hover:text-on-surface"
                   }`}
               >
                 <Facebook className="h-3.5 w-3.5" />
@@ -820,9 +819,9 @@ export function AiCommentReplyManager({
               <button
                 type="button"
                 onClick={() => setActivePlatform("tiktok")}
-                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${activePlatform === "tiktok"
-                    ? "bg-white text-black shadow-xxs"
-                    : "text-slate-500 hover:text-slate-800"
+                className={`flex cursor-pointer items-center gap-1.5 rounded px-3 py-1.5 ${activePlatform === "tiktok"
+                    ? "bg-surface-container-lowest text-primary"
+                    : "text-on-surface-variant hover:text-on-surface"
                   }`}
               >
                 <Film className="h-3.5 w-3.5" />
@@ -839,7 +838,7 @@ export function AiCommentReplyManager({
                     <select
                       value={selectedFacebookPageId}
                       onChange={(e) => setSelectedFacebookPageId(e.target.value)}
-                      className="w-full pl-8 pr-8 py-2 border border-gray-200 bg-white hover:bg-gray-50 rounded-xl text-[11px] font-bold text-gray-700 outline-none cursor-pointer focus:ring-4 focus:ring-indigo-650/10 focus:border-indigo-650 transition-all duration-200 appearance-none"
+                      className="min-h-9 w-full cursor-pointer appearance-none rounded-md border border-outline-variant bg-surface-container-lowest py-2 pl-8 pr-8 text-xs font-medium text-on-surface outline-none focus:border-primary focus:ring-0"
                     >
                       {facebookPages.map((page) => (
                         <option key={page.username} value={page.username}>
@@ -864,7 +863,7 @@ export function AiCommentReplyManager({
                     <select
                       value={selectedTiktokAccountId}
                       onChange={(e) => setSelectedTiktokAccountId(e.target.value)}
-                      className="w-full pl-8 pr-8 py-2 border border-gray-200 bg-white hover:bg-gray-50 rounded-xl text-[11px] font-bold text-gray-700 outline-none cursor-pointer focus:ring-4 focus:ring-indigo-650/10 focus:border-indigo-650 transition-all duration-200 appearance-none"
+                      className="min-h-9 w-full cursor-pointer appearance-none rounded-md border border-outline-variant bg-surface-container-lowest py-2 pl-8 pr-8 text-xs font-medium text-on-surface outline-none focus:border-primary focus:ring-0"
                     >
                       {tiktokAccounts.map((acc) => (
                         <option key={acc.username} value={acc.username}>
@@ -885,17 +884,17 @@ export function AiCommentReplyManager({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-5">
           {/* Left Column: Config settings (Accordion style) */}
-          <div className="xl:col-span-2 bg-gray-50/50 border border-gray-150 rounded-2xl p-4 space-y-4">
+          <div className="space-y-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3 xl:col-span-2">
 
             {/* Accordion 1: Cấu hình kịch bản & Chạy */}
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-2xs">
+            <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
               <button
                 onClick={() => setSectionsExpanded(prev => ({ ...prev, script: !prev.script }))}
-                className="w-full px-4 py-3.5 flex justify-between items-center bg-gray-50/50 hover:bg-gray-50 transition-colors border-b border-gray-150"
+                className="flex w-full items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-3 py-3 text-left hover:bg-primary/5"
               >
-                <span className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                <span className="flex items-center gap-2 text-sm font-semibold text-on-surface">
                   <Sliders className="h-4 w-4 text-indigo-650" />
                   Kịch bản & Chạy
                 </span>
@@ -905,9 +904,9 @@ export function AiCommentReplyManager({
               {sectionsExpanded.script && (
                 <div className="p-4 space-y-4 text-left">
                   {/* Toggles */}
-                  <div className="flex justify-between items-center p-3 bg-gray-50/30 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between rounded-md border border-outline-variant bg-surface-container-lowest p-3 hover:bg-primary/5">
                     <div className="text-left">
-                      <h4 className="text-xs font-bold text-gray-800">Trả lời bình luận {activePlatform === "facebook" ? "FB" : "TikTok"}</h4>
+                      <h4 className="text-sm font-medium text-on-surface">Trả lời bình luận {activePlatform === "facebook" ? "FB" : "TikTok"}</h4>
                       <p className="text-[10px] text-gray-500 mt-0.5">Cho phép AI phản hồi bình luận.</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer select-none">
@@ -922,9 +921,9 @@ export function AiCommentReplyManager({
                   </div>
 
                   {/* Delay setting */}
-                  <div className="space-y-2 p-3 bg-gray-50/30 border border-gray-200 rounded-xl">
+                  <div className="space-y-2 rounded-md border border-outline-variant bg-surface-container-lowest p-3">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-gray-700">Độ trễ gửi câu trả lời</span>
+                      <span className="font-medium text-on-surface">Độ trễ gửi câu trả lời</span>
                       <strong className="font-mono bg-white px-2 py-0.5 border border-gray-200 rounded text-gray-600">
                         {localConfig.replyDelay} giây (s)
                       </strong>
@@ -943,7 +942,7 @@ export function AiCommentReplyManager({
                     <button
                       onClick={handleSaveConfig}
                       disabled={savingConfig}
-                      className="w-full py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
+                      className="flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-primary py-2.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
                     >
                       {savingConfig ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                       Lưu cấu hình auto-reply
@@ -952,7 +951,7 @@ export function AiCommentReplyManager({
                       <button
                         onClick={handleApplyToAllPages}
                         disabled={savingConfig || copyingConfig}
-                        className="w-full py-2.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      className="flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest py-2.5 text-xs font-medium text-on-surface hover:bg-primary/5 disabled:opacity-50"
                       >
                         {copyingConfig ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
                         Đồng bộ cho Fanpage khác
@@ -1199,12 +1198,12 @@ export function AiCommentReplyManager({
           </div>
 
           {/* Right Column: Grouped Logs */}
-          <div className="xl:col-span-3 space-y-4">
+          <div className="space-y-3 xl:col-span-3">
 
             {/* Grouped Logs List */}
-            <div className="space-y-4 text-left">
+            <div className="space-y-3 text-left">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider shrink-0">
+                <h4 className="shrink-0 text-sm font-semibold text-on-surface">
                   Quản lý phản hồi theo bài viết
                 </h4>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1213,13 +1212,14 @@ export function AiCommentReplyManager({
                     placeholder="Tìm theo Post ID, comment..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="px-3 py-1.5 bg-white border border-gray-200 focus:border-indigo-650 rounded-xl text-[10px] outline-none transition-all w-full sm:w-48 focus:sm:w-60 shadow-2xs"
+                    className="min-h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary focus:ring-0 sm:w-48 focus:sm:w-60"
                   />
                   <button
                     onClick={() => fetchLogs(1)}
                     disabled={loadingLogs}
-                    className="p-1.5 hover:bg-gray-100 text-gray-500 hover:text-gray-700 rounded-xl transition-all cursor-pointer border border-gray-200 shrink-0 bg-white"
+                    className="min-h-9 min-w-9 shrink-0 cursor-pointer rounded-md border border-outline-variant bg-surface-container-lowest p-1.5 text-primary hover:bg-primary/5 focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary"
                     title="Tải lại nhật ký"
+                    aria-label="Tải lại nhật ký"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${loadingLogs ? "animate-spin" : ""}`} />
                   </button>
@@ -1232,10 +1232,10 @@ export function AiCommentReplyManager({
                   <p className="text-xs text-gray-500">Đang tải nhật ký phản hồi...</p>
                 </div>
               ) : postIds.length === 0 ? (
-                <div className="py-12 flex flex-col items-center justify-center gap-2 bg-gray-50/30 border border-gray-150 rounded-2xl text-center px-4">
-                  <HelpCircle className="h-8 w-8 text-gray-300 mb-1" />
-                  <p className="text-xs font-bold text-gray-600">Chưa có nhật ký phản hồi nào</p>
-                  <p className="text-[10px] text-gray-400 max-w-xs leading-normal">
+                <div className="flex min-h-60 flex-col items-center justify-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-8 text-center">
+                  <HrEmptyIllustration kind="notification" className="h-20 w-36" />
+                  <p className="text-sm font-medium text-on-surface">Chưa có nhật ký phản hồi nào</p>
+                  <p className="max-w-xs text-xs leading-normal text-on-surface-variant">
                     {searchQuery ? "Không tìm thấy phản hồi khớp với từ khóa tìm kiếm." : "Khi có bình luận mới trên Fanpage, AI sẽ tự động phản hồi và hiển thị nhật ký tại đây."}
                   </p>
                 </div>

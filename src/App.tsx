@@ -139,17 +139,9 @@ function AppContent() {
   }, [user, userProfile?.uid]);
 
   React.useEffect(() => {
-    if (!user || !userProfile) {
-      document.documentElement.classList.remove("dark");
-    } else {
-      const theme = localStorage.getItem("theme");
-      if (theme === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
-    }
-  }, [user, userProfile]);
+    document.documentElement.classList.remove("dark");
+    localStorage.setItem("theme", "light");
+  }, []);
 
   const { totalUnread } = useChatUnread();
 
@@ -350,6 +342,8 @@ function AppContent() {
           className={`min-w-0 flex-1 bg-surface ${
             resolvedActiveTab === "TRỢ LÝ AI"
               ? "flex min-h-0 flex-col overflow-hidden p-0"
+              : resolvedActiveTab === "TÍCH HỢP MARKETING"
+                ? "flex min-h-0 flex-col overflow-hidden p-2"
               : `overflow-x-hidden overflow-y-auto ${activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-2" : "p-2"}`
           }`}
           id="primary_page_container"

@@ -1,3 +1,4 @@
+import '../../../components/dashboard/overview-dashboard.css';
 import { useState, useMemo } from "react";
 import { TrendingUp, PieChart, AlertCircle, ArrowUpRight, ArrowRight, DollarSign, Wallet, ShieldAlert, CheckCircle2, ArrowDownLeft, Target, BarChart3, Clock, SlidersHorizontal } from "lucide-react";
 import { money } from "./ManagementUI";
@@ -77,7 +78,7 @@ export function FinanceEarningsBarChart({ trends }: { trends: TrendRow[] }) {
 
   if (!displayRows.length) {
     return (
-      <div className="chart-fade-in flex h-60 flex-col items-center justify-center rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 text-center shadow-xs">
+      <div className="chart-fade-in flex h-60 flex-col items-center justify-center overview-panel rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 text-center shadow-xs">
         <p className="text-xs font-semibold uppercase text-on-surface-variant">Doanh thu & Chi phí</p>
         <p className="mt-2 text-xs text-on-surface-variant">Chưa có dữ liệu trong khoảng thời gian này</p>
       </div>
@@ -91,7 +92,7 @@ export function FinanceEarningsBarChart({ trends }: { trends: TrendRow[] }) {
   const svgWidth = Math.max(520, displayRows.length * groupWidth + 60);
 
   return (
-    <div className="chart-fade-in relative flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
+    <div className="chart-fade-in relative flex flex-col justify-between overview-panel rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
       <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-outline-variant">
         <div>
           <h3 className="text-sm sm:text-base font-bold text-on-surface">Báo cáo doanh thu & chi phí</h3>
@@ -286,7 +287,7 @@ export function FinancePerformanceDonut({ summary }: { summary: SummaryData }) {
   const expStroke = (boundedExp / 100) * circumference;
 
   return (
-    <div className="chart-fade-in flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
+    <div className="chart-fade-in flex flex-col justify-between overview-panel rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between pb-2.5 border-b border-outline-variant">
         <h3 className="text-sm sm:text-base font-bold text-on-surface">Hiệu quả tài chính</h3>
         <span className="rounded-lg bg-secondary-container px-2 py-0.5 text-xs font-bold text-on-secondary-container">
@@ -410,7 +411,7 @@ export function DebtOverviewCard({ debts }: { debts: { receivables: DebtItem[]; 
   }, [debts]);
 
   return (
-    <div className="chart-fade-in flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
+    <div className="chart-fade-in flex flex-col justify-between overview-panel rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between pb-2.5 border-b border-outline-variant">
         <div className="flex items-center gap-2">
           <div className="flex h-6.5 w-6.5 items-center justify-center rounded-lg bg-tertiary-container text-tertiary">
@@ -514,7 +515,7 @@ export function CashFlowOverviewChart({
   return (
     <div className="chart-fade-in grid grid-cols-1 gap-4 lg:grid-cols-2">
       {/* Cân đối dòng tiền In vs Out */}
-      <div className="flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
+      <div className="flex flex-col justify-between overview-panel rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
         <div className="flex items-center justify-between pb-2 border-b border-outline-variant">
           <div className="flex items-center gap-2">
             <div className="flex h-6.5 w-6.5 items-center justify-center rounded-lg bg-secondary-container text-secondary">
@@ -560,7 +561,7 @@ export function CashFlowOverviewChart({
       </div>
 
       {/* Cơ cấu chi phí nổi bật */}
-      <div className="flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
+      <div className="flex flex-col justify-between overview-panel rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
         <div className="flex items-center justify-between pb-2 border-b border-outline-variant">
           <div className="flex items-center gap-2">
             <div className="flex h-6.5 w-6.5 items-center justify-center rounded-lg bg-primary-container text-primary">
@@ -610,7 +611,7 @@ export function ProfitTopGroupsChart({ rows }: { rows: any[] }) {
   if (topRows.length === 0) return null;
 
   return (
-    <div className="chart-fade-in rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
+    <div className="chart-fade-in overview-panel rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between pb-2.5 border-b border-outline-variant mb-3">
         <div className="flex items-center gap-2">
           <div className="flex h-6.5 w-6.5 items-center justify-center rounded-lg bg-primary-container text-primary">
@@ -720,7 +721,7 @@ export function BreakevenGaugeChart({
   const hasProgress = breakeven.progress != null;
 
   return (
-    <div className="chart-fade-in flex flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xs transition-shadow hover:shadow-md">
+    <div className="chart-fade-in flex flex-col justify-between overview-panel rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-xs transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between pb-3 border-b border-outline-variant">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-container text-primary">
@@ -794,7 +795,7 @@ export function AgingDistributionBar({ items }: { items: { label: string; balanc
   if (!items || !items.length) return null;
 
   return (
-    <div className="chart-fade-in rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
+    <div className="chart-fade-in overview-panel rounded-2xl border border-outline-variant bg-surface-container-lowest p-4.5 shadow-xs transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between pb-2.5 border-b border-outline-variant mb-3">
         <div className="flex items-center gap-2">
           <div className="flex h-6.5 w-6.5 items-center justify-center rounded-lg bg-primary-container text-primary">
