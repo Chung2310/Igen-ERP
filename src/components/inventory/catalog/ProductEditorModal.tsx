@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Building2, CheckCircle2, Folder, FolderTree, Pencil, Plus, Search, Sparkles, Tag, X } from "lucide-react";
 import { toast } from "../../../pages/Toast";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
@@ -22,6 +22,7 @@ import {
   type Resources,
   type VariantModalMode,
   DEFAULT_PHONE_ATTRIBUTE_PRESETS,
+  DEFAULT_UNIT_CODE,
   buildCategoryTree3,
   emptyProductForm,
   emptyVariant,
@@ -127,6 +128,11 @@ export function ProductEditorModal({
     setLocalBrands(resources.brands || []);
   }, [resources.brands]);
 
+  const [localUnits, setLocalUnits] = useState<ProductResource[]>([]);
+  useEffect(() => {
+    void productCatalogService.listResources("units").then(setLocalUnits).catch(() => {});
+  }, []);
+
   // Luôn làm mới danh sách thương hiệu trực tiếp từ máy chủ khi mở modal
   useEffect(() => {
     void productCatalogService
@@ -144,6 +150,27 @@ export function ProductEditorModal({
   const [quickBrandName, setQuickBrandName] = useState("");
   const [quickBrandCode, setQuickBrandCode] = useState("");
   const [quickCreating, setQuickCreating] = useState(false);
+  const [isQuickCreatingUnit, setIsQuickCreatingUnit] = useState(false);
+  const [quickUnitName, setQuickUnitName] = useState("");
+  const [quickUnitSymbol, setQuickUnitSymbol] = useState("");
+  const [quickUnitCategory, setQuickUnitCategory] = useState<NonNullable<ProductResource["category"]>>("count");
+  const [quickUnitDecimalPlaces, setQuickUnitDecimalPlaces] = useState(0);
+  const [quickUnitError, setQuickUnitError] = useState("");
+  const [quickUnitCreating, setQuickUnitCreating] = useState(false);
+  const quickUnitNameInputRef = useRef<HTMLInputElement>(null);
+  const quickUnitPanelWasOpen = useRef(false);
+
+  useEffect(() => {
+    if (isQuickCreatingUnit) {
+      quickUnitPanelWasOpen.current = true;
+      quickUnitNameInputRef.current?.focus();
+      return;
+    }
+    if (quickUnitPanelWasOpen.current) {
+      quickUnitPanelWasOpen.current = false;
+      document.getElementById("product-base-unit")?.focus();
+    }
+  }, [isQuickCreatingUnit]);
 
   const handleQuickCreateBrand = async () => {
     if (quickCreating) return;
@@ -180,6 +207,43 @@ export function ProductEditorModal({
     }
   };
 
+  const handleQuickCreateUnit = async () => {
+    if (quickUnitCreating) return;
+    const trimmedName = quickUnitName.trim();
+    if (!trimmedName) {
+      setQuickUnitError("Nhập tên đơn vị tính trước khi tạo.");
+      return;
+    }
+    if (!Number.isInteger(quickUnitDecimalPlaces) || quickUnitDecimalPlaces < 0 || quickUnitDecimalPlaces > 6) {
+      setQuickUnitError("Số chữ số thập phân phải từ 0 đến 6.");
+      return;
+    }
+    setQuickUnitError("");
+    setQuickUnitCreating(true);
+    try {
+      const created = await productCatalogService.createResource("units", {
+        name: trimmedName,
+        symbol: quickUnitSymbol.trim() || undefined,
+        category: quickUnitCategory,
+        decimalPlaces: quickUnitDecimalPlaces,
+        status: "active",
+      });
+      setLocalUnits((current) => current.some((unit) => unit.code === created.code) ? current : [...current, created]);
+      setField("baseUnitCode", created.code);
+      setVariant((current) => ({ ...current, unitCode: created.code }));
+      setIsQuickCreatingUnit(false);
+      setQuickUnitName("");
+      setQuickUnitSymbol("");
+      setQuickUnitCategory("count");
+      setQuickUnitDecimalPlaces(0);
+      toast.success(`Đã tạo và chọn đơn vị tính “${created.name}”.`);
+    } catch (error) {
+      setQuickUnitError(getApiErrorMessage(error, "Không thể tạo đơn vị tính."));
+    } finally {
+      setQuickUnitCreating(false);
+    }
+  };
+
   useEffect(() => {
     if (!currentProduct) return;
     void productCatalogService
@@ -204,6 +268,10 @@ export function ProductEditorModal({
     if (cat?.defaultTrackingMode && form.productType !== "service") {
       setVariant((curr) => ({ ...curr, trackingMode: cat.defaultTrackingMode! }));
     }
+  };
+  const handleBaseUnitChange = (unitCode: string) => {
+    setField("baseUnitCode", unitCode);
+    setVariant((current) => ({ ...current, unitCode }));
   };
 
   // Matrix generation state
@@ -424,7 +492,11 @@ export function ProductEditorModal({
       return;
     }
     if (!form.categoryCode) {
-      toast.error("Vui lòng chọn danh mục.");
+      toast.error("Vui lòng chọn thể loại / thư mục.");
+      return;
+    }
+    if (!form.baseUnitCode) {
+      toast.error("Vui lòng chọn đơn vị tính cho sản phẩm.");
       return;
     }
 
@@ -602,6 +674,27 @@ export function ProductEditorModal({
     })),
   ], [localBrands]);
 
+  const unitDropdownOptions = useMemo<DropdownOption<string>[]>(() => {
+    const activeUnits = localUnits.filter((unit) => unit.status === "active").map((unit) => ({
+      value: unit.code,
+      label: unit.name,
+      sublabel: [unit.symbol, unit.code].filter(Boolean).join(" · "),
+    }));
+    if (!activeUnits.some((unit) => unit.value === DEFAULT_UNIT_CODE)) {
+      activeUnits.unshift({ value: DEFAULT_UNIT_CODE, label: "Cái", sublabel: "Đơn vị mặc định" });
+    }
+    return activeUnits;
+  }, [localUnits]);
+
+  const unitCategoryOptions = useMemo<DropdownOption<NonNullable<ProductResource["category"]>>[]>(() => [
+    { value: "count", label: "Đếm" },
+    { value: "weight", label: "Khối lượng" },
+    { value: "volume", label: "Thể tích" },
+    { value: "length", label: "Chiều dài" },
+    { value: "time", label: "Thời gian" },
+    { value: "other", label: "Khác" },
+  ], []);
+
   const statusDropdownOptions = useMemo<DropdownOption<ProductCatalogStatus>[]>(() => [
     { value: "draft", label: "Bản nháp", icon: <span className="h-2 w-2 rounded-full bg-amber-400" /> },
     { value: "active", label: "Đang kinh doanh", icon: <span className="h-2 w-2 rounded-full bg-emerald-500" /> },
@@ -659,15 +752,15 @@ export function ProductEditorModal({
                     triggerClassName="w-full text-xs font-medium"
                   />
                 </Field>
-                <Field label="Danh mục sản phẩm *">
+                <Field label="Thể loại / thư mục *">
                   <div className="space-y-1">
                     <Dropdown<string>
                       value={form.categoryCode}
                       onChange={handleCategoryChange}
                       options={categoryDropdownOptions}
-                      placeholder="-- Chọn thể loại / danh mục --"
+                      placeholder="-- Chọn thể loại / thư mục --"
                       searchable={true}
-                      searchPlaceholder="Tìm kiếm danh mục..."
+                      searchPlaceholder="Tìm thể loại / thư mục..."
                       variant="form"
                       size="md"
                       className="w-full"
@@ -682,6 +775,111 @@ export function ProductEditorModal({
                     )}
                   </div>
                 </Field>
+                <Field label="Đơn vị tính cơ bản *">
+                  <Dropdown<string>
+                    id="product-base-unit"
+                    aria-label="Đơn vị tính cơ bản"
+                    value={form.baseUnitCode}
+                    onChange={handleBaseUnitChange}
+                    options={unitDropdownOptions}
+                    placeholder="Chọn đơn vị tính"
+                    searchable={unitDropdownOptions.length > 8}
+                    searchPlaceholder="Tìm đơn vị tính..."
+                    variant="form"
+                    size="md"
+                    className="w-full"
+                    triggerClassName="w-full text-xs font-medium"
+                    actionButton={{
+                      label: "Tạo đơn vị tính",
+                      icon: <Plus className="h-3.5 w-3.5 text-primary" />,
+                      onClick: () => {
+                        setQuickUnitError("");
+                        setIsQuickCreatingUnit(true);
+                      },
+                    }}
+                  />
+                </Field>
+                {isQuickCreatingUnit && (
+                  <div className="md:col-span-2 rounded-lg border border-outline-variant bg-surface p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <h5 className="text-balance text-sm font-semibold text-on-surface">Tạo đơn vị tính mới</h5>
+                      <button
+                        type="button"
+                        onClick={() => { setIsQuickCreatingUnit(false); setQuickUnitError(""); }}
+                        className="rounded-md px-2 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container-lowest focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                    <p className="text-pretty text-xs text-on-surface-variant">Đơn vị vừa tạo sẽ được chọn cho sản phẩm và SKU đầu tiên.</p>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <Field label="Tên đơn vị tính *">
+                        <input
+                          ref={quickUnitNameInputRef}
+                          value={quickUnitName}
+                          onChange={(event) => { setQuickUnitName(event.target.value); setQuickUnitError(""); }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") { event.preventDefault(); void handleQuickCreateUnit(); }
+                          }}
+                          placeholder="Ví dụ: Cái, Hộp, Kilogram"
+                          className={inputClassName()}
+                        />
+                      </Field>
+                      <Field label="Ký hiệu (không bắt buộc)">
+                        <input
+                          value={quickUnitSymbol}
+                          onChange={(event) => setQuickUnitSymbol(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") { event.preventDefault(); void handleQuickCreateUnit(); }
+                          }}
+                          placeholder="Ví dụ: cái, hộp, kg"
+                          className={inputClassName()}
+                        />
+                      </Field>
+                      <Field label="Nhóm đo lường *">
+                        <Dropdown<NonNullable<ProductResource["category"]>>
+                          aria-label="Nhóm đo lường, bắt buộc"
+                          value={quickUnitCategory}
+                          onChange={setQuickUnitCategory}
+                          options={unitCategoryOptions}
+                          variant="form"
+                          size="md"
+                          className="w-full"
+                          triggerClassName="w-full text-xs font-medium"
+                        />
+                      </Field>
+                      <Field label="Số chữ số thập phân (0–6)">
+                        <input
+                          type="number"
+                          min={0}
+                          max={6}
+                          step={1}
+                          value={quickUnitDecimalPlaces}
+                          onChange={(event) => {
+                            const value = Number(event.target.value);
+                            setQuickUnitDecimalPlaces(Number.isFinite(value) ? value : 0);
+                            setQuickUnitError("");
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") { event.preventDefault(); void handleQuickCreateUnit(); }
+                          }}
+                          className={inputClassName()}
+                        />
+                      </Field>
+                    </div>
+                    {quickUnitError && <p role="alert" className="text-xs font-medium text-error">{quickUnitError}</p>}
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        disabled={quickUnitCreating}
+                        onClick={() => void handleQuickCreateUnit()}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-on-primary disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      >
+                        {quickUnitCreating ? "Đang tạo..." : "Tạo và chọn"}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <Field label="Thương hiệu / Hãng">
                   <Dropdown<string>
                     value={form.brandCode}

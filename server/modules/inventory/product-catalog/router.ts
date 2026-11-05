@@ -17,11 +17,13 @@ productCatalogRouter.patch("/templates/:id", requirePermission("inventory:manage
 
 productCatalogRouter.get("/products", requirePermission("inventory:read") as any, productCatalogController.list);
   productCatalogRouter.post("/products", requirePermission("inventory:manage") as any, productCatalogController.create);
+productCatalogRouter.post("/products/with-price", requirePermission("inventory:manage") as any, productCatalogController.createSellableProduct);
   productCatalogRouter.post("/products/bulk-create-with-variants", requirePermission("inventory:manage") as any, productCatalogController.bulkCreateWithVariants);
   productCatalogRouter.get("/products/:id", requirePermission("inventory:read") as any, productCatalogController.get);
   productCatalogRouter.patch("/products/:id", requirePermission("inventory:manage") as any, productCatalogController.update);
   productCatalogRouter.delete("/products/:id", requirePermission("inventory:manage") as any, productCatalogController.delete);
 productCatalogRouter.post("/products/:id/variants/bulk", requirePermission("inventory:manage") as any, productCatalogController.createVariants);
+productCatalogRouter.post("/products/:id/variants/with-price", requirePermission("inventory:manage") as any, productCatalogController.createSellableVariant);
 productCatalogRouter.post("/products/:id/variants", requirePermission("inventory:manage") as any, productCatalogController.createVariant);
 productCatalogRouter.patch("/variants/bulk", requirePermission("inventory:manage") as any, productCatalogController.updateVariants);
 productCatalogRouter.delete("/variants/bulk", requirePermission("inventory:manage") as any, productCatalogController.deleteVariants);

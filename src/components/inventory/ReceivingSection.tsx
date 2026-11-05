@@ -722,7 +722,7 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
               className="w-full"
               triggerClassName="w-full text-sm"
             />
-            <p className="mt-1.5 text-xs text-slate-500">Thêm hoặc sửa nhà cung cấp tại Quản lý đối tác.</p>
+            <p className="mt-1.5 text-xs text-slate-500">Khai báo nhà cung cấp tại Đối tác bán lẻ, chọn vai trò Nhà cung cấp.</p>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">

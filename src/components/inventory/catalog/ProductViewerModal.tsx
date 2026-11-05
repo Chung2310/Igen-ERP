@@ -75,7 +75,7 @@ export function ProductViewerModal({ product, resources, onClose }: ProductViewe
               <p className="text-sm font-medium text-slate-900">{typeLabels[product.productType]}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Danh mục</p>
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Thể loại / thư mục</p>
               <p className="text-sm font-medium text-slate-900">{categoryName}</p>
             </div>
             <div>

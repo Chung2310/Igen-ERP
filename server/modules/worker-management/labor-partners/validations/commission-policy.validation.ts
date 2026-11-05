@@ -25,8 +25,16 @@ export const commissionPolicySchema = Joi.object({
     tierMode: Joi.when("enabled", { is: true, then: Joi.string().valid("flat", "progressive").required(), otherwise: Joi.valid(null).optional() }),
     minHoursPerWorker: Joi.number().min(0).allow(null).optional(),
     maxEligibleHoursPerWorker: Joi.number().min(0).allow(null).optional(),
-    hourRounding: Joi.object({ unitMinutes: Joi.number().valid(1, 5, 15, 30, 60).required(), mode: roundingMode.required() }).required(),
-    moneyRounding: Joi.object({ unitVnd: positiveMoney.required(), mode: roundingMode.required() }).required(),
+    hourRounding: Joi.when("enabled", {
+      is: true,
+      then: Joi.object({ unitMinutes: Joi.number().valid(1, 5, 15, 30, 60).required(), mode: roundingMode.required() }).required(),
+      otherwise: Joi.object({ unitMinutes: Joi.number().valid(1, 5, 15, 30, 60).required(), mode: roundingMode.required() }).optional(),
+    }),
+    moneyRounding: Joi.when("enabled", {
+      is: true,
+      then: Joi.object({ unitVnd: positiveMoney.required(), mode: roundingMode.required() }).required(),
+      otherwise: Joi.object({ unitVnd: positiveMoney.required(), mode: roundingMode.required() }).optional(),
+    }),
     tiers: Joi.array().items(tier).default([]),
   }).required(),
 }).unknown(false);

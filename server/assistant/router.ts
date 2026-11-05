@@ -21,7 +21,7 @@ const wrap = (handler: (req: AuthenticatedRequest) => Promise<unknown>) => async
   catch (error) { if (!(error instanceof AssistantError)) console.error("[assistant]", error); return res.status(error instanceof AssistantError ? error.status : 500).json({ success: false, message: error instanceof AssistantError ? error.message : "Không thể xử lý trợ lý AI lúc này." }); }
 };
 assistantRouter.get("/settings", wrap(getSettings));
-assistantRouter.patch("/settings", validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid("window", "fullscreen").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow("").required(), responseRules: Joi.string().max(2000).allow(""), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required(), memoryEnabled: Joi.boolean(), autoMemoryEnabled: Joi.boolean() }) }), wrap(req => saveSettings(req, req.body)));
+assistantRouter.patch("/settings", validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid("window", "fullscreen").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow("").required(), responseRules: Joi.string().max(2000).allow(""), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required(), wakeWordEnabled: Joi.boolean().required(), memoryEnabled: Joi.boolean(), autoMemoryEnabled: Joi.boolean() }) }), wrap(req => saveSettings(req, req.body)));
 assistantRouter.get("/memory", wrap(listAssistantMemories));
 assistantRouter.post("/memory", validateRequest({ body: Joi.object({ content: Joi.string().trim().min(1).max(300).required() }) }), wrap(req => saveAssistantMemory(req, req.body.content, "manual")));
 assistantRouter.patch("/memory/:memoryId", validateRequest({ params: Joi.object({ memoryId: Joi.string().hex().length(24).required() }), body: Joi.object({ content: Joi.string().trim().min(1).max(300).required() }) }), wrap(req => updateAssistantMemory(req, req.params.memoryId, req.body.content)));
@@ -37,5 +37,22 @@ const tableAttachment = Joi.object({
   headers: Joi.array().items(Joi.string().trim().min(1).max(120)).min(1).max(40).required(),
   rows: Joi.array().items(Joi.object().pattern(Joi.string().max(120), Joi.string().max(2000)).max(40)).min(1).max(100).required(),
 }).max(3);
-assistantRouter.post("/turns", validateRequest({ body: Joi.object({ conversationId: id, requestId: id, text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision").with("attachment", "text") }), wrap(req => processTurn(req, req.body)));
+const trainingContent = Joi.object({
+  lessons: Joi.array().max(50).items(Joi.object({
+    title: Joi.string().trim().min(1).max(300).required(),
+    type: Joi.string().valid("youtube", "document", "other", "text", "video").required(),
+    url: Joi.string().max(2048).allow(""),
+    content: Joi.string().max(10000).allow(""),
+    fileName: Joi.string().max(255).allow(""),
+    uploadToken: Joi.string().max(4000).allow(""),
+  }).max(6)).required(),
+  quizzes: Joi.array().max(50).items(Joi.object({
+    question: Joi.string().trim().min(1).max(1000).required(),
+    options: Joi.array().items(Joi.string().trim().min(1).max(500)).min(2).max(6).required(),
+    correctOptionIndex: Joi.number().integer().min(0).max(5).required(),
+  }).custom((quiz, helpers) => quiz.correctOptionIndex >= quiz.options.length
+    ? helpers.error("any.invalid")
+    : quiz)).required(),
+});
+assistantRouter.post("/turns", validateRequest({ body: Joi.object({ conversationId: id, requestId: id, mode: Joi.string().valid("work", "qa"), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent").with("skipReferenceKeys", "referenceSelections").with("attachment", "text") }), wrap(req => processTurn(req, req.body)));
 assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required() }) }), wrap(req => synthesizeVietnameseSpeech(req.body.text)));

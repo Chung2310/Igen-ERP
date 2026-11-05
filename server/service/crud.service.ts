@@ -13,6 +13,7 @@ import { HRLeaveTemplateModel } from "../model/hr-leave-template.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { TimekeepingLogModel } from "../model/timekeeping.model";
 import { SupportedModelName, ICRUDQueryOptions } from "../interface/crud.interface";
+import { runInTransaction } from "../config/database";
 import mongoose from "mongoose";
 import { notificationService } from "./notification.service";
 import { assertNoLegacyInventoryMutation } from "./crud-inventory-guard";
@@ -88,8 +89,9 @@ function sanitizeInventoryPayload(modelName: string, payload: any) {
   }
 
   if (modelName === "categories") {
+    const { branchId: _legacyBranchId, ...categoryPayload } = payload;
     return {
-      ...payload,
+      ...categoryPayload,
       name: typeof payload.name === "string" ? payload.name.trim() : payload.name,
       code: typeof payload.code === "string" ? payload.code.trim().toUpperCase() : payload.code,
       description: typeof payload.description === "string" ? payload.description.trim() : payload.description,
@@ -327,7 +329,50 @@ function sanitizeInventoryResult(modelName: string, item: any) {
  * Chặn ở đây để tránh leo thang đặc quyền (vd tự set role/permissions qua /crud/users).
  */
 const WRITE_PROTECTED_MODELS = new Set<string>(["users", "kanban-tasks", "projects"]);
-const INVENTORY_MODELS = new Set<SupportedModelName>(["products", "categories", "stock-logs"]);
+const INVENTORY_MODELS = new Set<SupportedModelName>(["products", "stock-logs"]);
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeCategoryName(value: unknown) {
+  return String(value || "").trim().toLocaleLowerCase();
+}
+
+function normalizeCategoryCode(value: unknown) {
+  return String(value || "").trim().toUpperCase();
+}
+
+async function assertCategoryIdentityAvailable(
+  companyCode: string,
+  name: string,
+  code: string,
+  excludeId?: string,
+  session?: mongoose.ClientSession,
+  allowedLegacyIdentity?: { name: string; code: string },
+) {
+  const duplicates = await CategoryModel.find({
+    companyCode,
+    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+    $or: [
+      { name: new RegExp(`^${escapeRegExp(name.trim())}$`, "i") },
+      { code: new RegExp(`^${escapeRegExp(code.trim())}$`, "i") },
+    ],
+  }).select("name code").session(session || null).lean();
+  const duplicate = duplicates.find((entry: any) =>
+    !allowedLegacyIdentity
+    || normalizeCategoryName(entry.name) !== normalizeCategoryName(allowedLegacyIdentity.name)
+    || normalizeCategoryCode(entry.code) !== normalizeCategoryCode(allowedLegacyIdentity.code)
+  );
+
+  if (duplicate) {
+    throw Object.assign(new Error("Tên hoặc mã danh mục đã được sử dụng trong doanh nghiệp."), { statusCode: 409 });
+  }
+}
+
+function categoryNameRegex(name: string) {
+  return new RegExp(`^${escapeRegExp(name.trim())}$`, "i");
+}
 
 export function requireInventoryBranch(modelName: SupportedModelName, branchId?: string, userRole?: string): string | undefined {
   if (!INVENTORY_MODELS.has(modelName)) return undefined;
@@ -420,6 +465,7 @@ export const crudService = {
     if (options.filters) {
       for (const [key, value] of Object.entries(options.filters)) {
         if (key === "companyCode" || key === "_id" || key.startsWith("$")) continue;
+        if (modelName === "categories" && key === "branchId") continue;
         query[key] = value;
       }
     }
@@ -447,8 +493,22 @@ export const crudService = {
     const skip = (page - 1) * limit;
     const sort = options.sort || (modelName === "projects" ? "-createdAt" : "-_id");
 
-    const items = await model.find(query).sort(sort).skip(skip).limit(limit).lean();
-    const total = await model.countDocuments(query);
+    const matchedItems = modelName === "categories"
+      ? await model.find(query).sort(sort).lean()
+      : await model.find(query).sort(sort).skip(skip).limit(limit).lean();
+    let items = matchedItems;
+    let total = modelName === "categories" ? matchedItems.length : await model.countDocuments(query);
+
+    if (modelName === "categories") {
+      const uniqueCategories = new Map<string, any>();
+      for (const category of matchedItems) {
+        const key = `${normalizeCategoryName(category.name)}\u0000${normalizeCategoryCode(category.code)}`;
+        if (!uniqueCategories.has(key)) uniqueCategories.set(key, category);
+      }
+      const distinctCategories = Array.from(uniqueCategories.values());
+      total = distinctCategories.length;
+      items = distinctCategories.slice(skip, skip + limit);
+    }
 
     return {
       items: items.map((item) => sanitizeCrudResult(modelName, item)),
@@ -514,6 +574,14 @@ export const crudService = {
     const preparedData = modelName === "stock-logs"
       ? await prepareStockLogPayload(data, companyCode, inventoryBranch!)
       : data;
+
+    if (modelName === "categories") {
+      const categoryName = String(preparedData.name || "").trim();
+      const categoryCode = String(preparedData.code || "").trim();
+      if (categoryName && categoryCode) {
+        await assertCategoryIdentityAvailable(companyCode, categoryName, categoryCode, undefined, transaction?.session);
+      }
+    }
 
     if (modelName === "stock-logs") {
       const isCompleted = completedStockLog(preparedData.status ?? "Thành công");
@@ -616,6 +684,9 @@ export const crudService = {
     branchId?: string,
     transaction?: InventoryTransaction,
   ) {
+    if (modelName === "categories" && !transaction) {
+      return runInTransaction((session) => crudService.update(modelName, id, data, companyCode, userRole, branchId, { session }));
+    }
     if (isManualStockLog(modelName)) return sanitizeCrudResult(modelName, await updateManualStockLog({ companyCode, branchId: requireInventoryBranch(modelName, branchId)! }, id, data, inventoryActor(transaction)));
     if (modelName === "stock-logs" && !transaction) {
       return runInventoryTransaction((session) => crudService.update(modelName, id, data, companyCode, userRole, branchId, { session }));
@@ -636,9 +707,34 @@ export const crudService = {
     if (inventoryBranch) query.branchId = inventoryBranch;
     if (BRANCH_SCOPED_MODELS.has(modelName) && branchId) query.branchId = branchId;
 
+    const existingCategory = modelName === "categories"
+      ? await CategoryModel.findOne(query).session(transaction?.session || null).lean()
+      : null;
+    if (modelName === "categories" && !existingCategory) {
+      throw Object.assign(new Error("Không tìm thấy danh mục hoặc bạn không có quyền chỉnh sửa."), { statusCode: 404 });
+    }
+
     // Loại bỏ các trường nhạy cảm không cho phép đè trực tiếp
     const { companyCode: _cCode, branchId: _branchId, ownerId: _ownerId, _id: _itemId, id: _plainId, ...rawUpdatePayload } = data;
     let preparedUpdatePayload = rawUpdatePayload;
+    if (modelName === "categories" && existingCategory) {
+      const candidate = sanitizeInventoryPayload(modelName, { ...existingCategory, ...rawUpdatePayload });
+      const categoryCompanyCode = String(existingCategory.companyCode || companyCode);
+      const oldName = String(existingCategory.name || "").trim();
+      const oldCode = String(existingCategory.code || "").trim().toUpperCase();
+      const nextName = String(candidate.name || "").trim();
+      const nextCode = String(candidate.code || "").trim().toUpperCase();
+      if (oldName.toLocaleLowerCase() !== nextName.toLocaleLowerCase() || oldCode !== nextCode) {
+        await assertCategoryIdentityAvailable(
+          categoryCompanyCode,
+          nextName,
+          nextCode,
+          id,
+          transaction?.session,
+          { name: oldName, code: oldCode },
+        );
+      }
+    }
     if (modelName === "stock-logs") {
       const existingLog = await StockLogModel.findOne(query).session(transaction?.session || null).lean();
       if (!existingLog) throw Object.assign(new Error("Không tìm thấy phiếu kho trong chi nhánh."), { statusCode: 404 });
@@ -711,9 +807,48 @@ export const crudService = {
       }
     }
 
-    const updatedItem = await model.findOneAndUpdate(query, updatePayload, { returnDocument: 'after', session: transaction?.session, runValidators: true });
+    const persistencePayload = modelName === "categories" ? { $set: updatePayload } : updatePayload;
+    const updatedItem = await model.findOneAndUpdate(query, persistencePayload, { returnDocument: 'after', session: transaction?.session, runValidators: true });
     if (!updatedItem) {
       throw new Error("Khong tim thay tai nguyen hoac ban khong co quyen chinh sua.");
+    }
+
+    if (modelName === "categories" && existingCategory) {
+      const categoryCompanyCode = String(existingCategory.companyCode || companyCode);
+      const oldName = String(existingCategory.name || "");
+      const oldCode = String(existingCategory.code || "");
+      await CategoryModel.updateMany(
+        {
+          companyCode: categoryCompanyCode,
+          _id: { $ne: existingCategory._id },
+          name: categoryNameRegex(oldName),
+          code: categoryNameRegex(oldCode),
+        },
+        {
+          $set: {
+            name: updatedItem.name,
+            code: updatedItem.code,
+            description: updatedItem.description,
+            colorClass: updatedItem.colorClass,
+            status: updatedItem.status,
+          },
+        },
+        { session: transaction?.session },
+      );
+
+      if (normalizeCategoryName(updatedItem.name) !== normalizeCategoryName(oldName)) {
+        const anotherCategoryWithOldName = await CategoryModel.exists({
+          companyCode: categoryCompanyCode,
+          name: categoryNameRegex(oldName),
+        }).session(transaction?.session || null);
+        if (!anotherCategoryWithOldName) {
+          await ProductModel.updateMany(
+            { companyCode: categoryCompanyCode, category: categoryNameRegex(oldName) },
+            { $set: { category: updatedItem.name } },
+            { session: transaction?.session },
+          );
+        }
+      }
     }
 
     if (modelName === "products" && updatedItem) {
@@ -738,7 +873,11 @@ export const crudService = {
     companyCode: string,
     userRole: string,
     branchId?: string,
+    transaction?: InventoryTransaction,
   ) {
+    if (modelName === "categories" && !transaction) {
+      return runInTransaction((session) => crudService.delete(modelName, id, companyCode, userRole, branchId, { session }));
+    }
     if (isManualStockLog(modelName)) return deleteManualStockLog({ companyCode, branchId: requireInventoryBranch(modelName, branchId)! }, id);
     const model = MODEL_MAPPING[modelName];
     if (!model) {
@@ -759,9 +898,30 @@ export const crudService = {
       if (log && completedStockLog(log.status)) throw stockLogLocked();
       query.status = { $nin: ["Hoàn thành", "Thành công"] };
     }
-    const deletedItem = await model.findOneAndDelete(query);
+    const deletedItem = await model.findOneAndDelete(query).session(transaction?.session || null);
     if (!deletedItem) {
       throw new Error("Không tìm thấy tài nguyên hoặc bạn không có quyền xóa.");
+    }
+
+    if (modelName === "categories") {
+      const categoryCompanyCode = String(deletedItem.companyCode || companyCode);
+      await CategoryModel.deleteMany({
+        companyCode: categoryCompanyCode,
+        name: categoryNameRegex(String(deletedItem.name || "")),
+        code: categoryNameRegex(String(deletedItem.code || "")),
+      }, { session: transaction?.session });
+      const anotherCategoryWithSameName = await CategoryModel.exists({
+        companyCode: categoryCompanyCode,
+        _id: { $ne: deletedItem._id },
+        name: categoryNameRegex(String(deletedItem.name || "")),
+      }).session(transaction?.session || null);
+      if (!anotherCategoryWithSameName) {
+        await ProductModel.updateMany(
+          { companyCode: categoryCompanyCode, category: categoryNameRegex(String(deletedItem.name || "")) },
+          { $set: { category: "Chưa phân loại" } },
+          { session: transaction?.session },
+        );
+      }
     }
 
     // Xóa dự án → gỡ projectId khỏi các task Kanban để chúng hiện về nhóm "Chưa phân loại"

@@ -95,29 +95,13 @@ function InventoryWorkspace() {
 
 
   useEffect(() => {
-    let unsubscribeCategories = () => { };
-    let unsubscribeProducts = () => { };
-    let unsubscribeStockLogs = () => { };
-
     if (!user) {
       setCategoryLoading(false);
-      setStockLogLoading(false);
-      return;
-    }
-
-    if (branchLoading || !activeBranchId) {
-      if (!branchLoading) {
-        setCategoryLoading(false);
-        setStockLogLoading(false);
-      }
       return;
     }
 
     setCategoryLoading(true);
-    setStockLogLoading(true);
-
-    unsubscribeCategories = inventoryCategoryService.subscribe(
-      activeBranchId,
+    const unsubscribeCategories = inventoryCategoryService.subscribe(
       (nextCategories) => {
         setCategories(nextCategories);
         setCategoryLoading(false);
@@ -128,7 +112,25 @@ function InventoryWorkspace() {
       }
     );
 
-    unsubscribeProducts = inventoryProductService.subscribe(
+    return unsubscribeCategories;
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setStockLogLoading(false);
+      return;
+    }
+
+    if (branchLoading || !activeBranchId) {
+      if (!branchLoading) {
+        setStockLogLoading(false);
+      }
+      return;
+    }
+
+    setStockLogLoading(true);
+
+    const unsubscribeProducts = inventoryProductService.subscribe(
       activeBranchId,
       (nextProducts) => {
         setProducts(nextProducts);
@@ -138,7 +140,7 @@ function InventoryWorkspace() {
       }
     );
 
-    unsubscribeStockLogs = inventoryStockLogService.subscribe(
+    const unsubscribeStockLogs = inventoryStockLogService.subscribe(
       activeBranchId,
       (nextLogs) => {
         setStockLogs(nextLogs);
@@ -151,7 +153,6 @@ function InventoryWorkspace() {
     );
 
     return () => {
-      unsubscribeCategories();
       unsubscribeProducts();
       unsubscribeStockLogs();
     };
@@ -196,12 +197,17 @@ function InventoryWorkspace() {
     const cleanName = newCategoryName.trim();
     const cleanCode = newCategoryCode.trim().toUpperCase();
     const currentCategory = editingCategoryId ? categories.find((category) => category.id === editingCategoryId) : null;
-    const existed = categories.some(
-      (category) => category.id !== editingCategoryId && category.name.toLowerCase() === cleanName.toLowerCase()
+    const categoryIdentityChanged = !currentCategory
+      || currentCategory.name.trim().toLocaleLowerCase() !== cleanName.toLocaleLowerCase()
+      || currentCategory.code.trim().toUpperCase() !== cleanCode;
+    const existed = categoryIdentityChanged && categories.some(
+      (category) => category.id !== editingCategoryId
+        && (category.name.trim().toLocaleLowerCase() === cleanName.toLocaleLowerCase()
+          || category.code.trim().toUpperCase() === cleanCode)
     );
 
     if (existed) {
-      toast.error("Phân loại này đã có trong danh mục kho.");
+      toast.error("Tên hoặc mã phân loại đã được sử dụng trong doanh nghiệp.");
       return;
     }
 
@@ -211,11 +217,7 @@ function InventoryWorkspace() {
           name: cleanName,
           code: cleanCode,
           description: newCategoryDescription.trim() || "Chưa có mô tả. Có thể bổ sung sau.",
-        }, activeBranchId);
-
-        if (currentCategory && currentCategory.name !== cleanName) {
-          await inventoryProductService.updateProductsCategoryName(currentCategory.name, cleanName, activeBranchId);
-        }
+        });
 
         toast.success("Đã cập nhật phân loại sản phẩm.");
       } else {
@@ -223,7 +225,7 @@ function InventoryWorkspace() {
           name: cleanName,
           code: cleanCode,
           description: newCategoryDescription.trim() || "Chưa có mô tả. Có thể bổ sung sau.",
-        }, activeBranchId);
+        });
         toast.success("Đã tạo phân loại sản phẩm.");
       }
 
@@ -234,17 +236,14 @@ function InventoryWorkspace() {
   };
 
   const handleDeleteCategory = async (category: ProductCategory) => {
-    const linkedProductCount = products.filter((product) => product.category === category.name).length;
     setDeleteTarget({
       type: "category",
       id: category.id,
       title: "Xóa phân loại",
       description:
-        linkedProductCount > 0
-          ? `Phân loại "${category.name}" đang được dùng bởi ${linkedProductCount} sản phẩm. Khi xóa, các sản phẩm đó sẽ được chuyển về "Chưa phân loại".`
-          : `Bạn có chắc muốn xóa phân loại "${category.name}" không?`,
+        `Bạn có chắc muốn xóa phân loại "${category.name}" không? Sản phẩm đang dùng phân loại này trong toàn doanh nghiệp sẽ chuyển về "Chưa phân loại".`,
       confirmLabel: "Xóa phân loại",
-      tone: linkedProductCount > 0 ? "warning" : "danger",
+      tone: "warning",
     });
   };
 
@@ -254,12 +253,7 @@ function InventoryWorkspace() {
       throw new Error(JSON.stringify({ error: "Không tìm thấy phân loại cần xóa." }));
     }
 
-    const linkedProductCount = products.filter((product) => product.category === category.name).length;
-    if (linkedProductCount > 0) {
-      await inventoryProductService.moveProductsToUncategorized(category.name, activeBranchId);
-    }
-
-    await inventoryCategoryService.deleteCategory(categoryId, activeBranchId);
+    await inventoryCategoryService.deleteCategory(categoryId);
     toast.success("Đã xóa phân loại sản phẩm.");
   };
 
@@ -723,6 +717,9 @@ function InventoryWorkspace() {
                   <Tags className="h-4.5 w-4.5 text-blue-500" />
                   Phân loại sản phẩm trong kho
                 </h4>
+                <p className="mt-1 text-pretty text-xs text-on-surface-variant">
+                  Danh mục được dùng chung cho mọi chi nhánh trong doanh nghiệp.
+                </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div className="relative w-full sm:w-72">
