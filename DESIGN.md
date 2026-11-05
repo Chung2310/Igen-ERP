@@ -59,6 +59,10 @@ Dùng `font-sans` của ứng dụng cho nội dung tiếng Việt. Các trang n
 
 Tiêu đề chính trong khung nội dung nghiệp vụ theo mẫu `HrPageTitle`: `text-lg font-semibold` (18 px, weight 600), màu `on-surface`, có vạch nhấn `primary` mảnh. Không tăng lên `font-bold` hoặc 20 px chỉ vì chuyển sang phân hệ khác. Xem thêm [HR_STYLE.md](HR_STYLE.md) về khoảng cách và bo góc panel.
 
+Card biểu đồ trong các trang Tổng quan chỉ cần tiêu đề khi tên biểu đồ đã đủ rõ. Không thêm dòng helper text lặp lại ý nghĩa tiêu đề; vẫn giữ chú giải dữ liệu, kỳ so sánh và thông báo trạng thái khi chúng giúp hiểu số liệu.
+
+Biến động số liệu trong Tổng quan dùng `▲` xanh lá khi tăng, `▼` đỏ khi giảm và dấu `–` xanh hải quân khi không đổi. Thiếu kỳ đối chiếu hiển thị `—` trung tính. Card và chữ giữ tĩnh; chỉ biểu đồ được animate, còn số KPI đếm từ 0 đến giá trị thật. Tôn trọng thiết lập giảm chuyển động của hệ điều hành.
+
 Nút tạo mới dùng chung `primaryCreateButtonClass`; nút Làm mới dùng `ErpRefreshButton`. Giữ cùng chiều cao và thứ tự khi hai nút đứng cạnh nhau. Không thêm helper text lặp lại nội dung của nút, bộ lọc hoặc trạng thái rỗng.
 
 ## Layout

@@ -17,18 +17,20 @@
 }
 
 .finance-kpi {
+  --kpi-start: #7344ee;
+  --kpi-end: #6237de;
   min-width: 0;
   min-height: 5.25rem;
   border-radius: 6px;
   padding: 0.75rem 0.875rem;
-  background: linear-gradient(110deg, #7146ec, #5a37d8);
+  background: linear-gradient(90deg, rgb(255 255 255 / 20%), rgb(255 255 255 / 4%) 42%, transparent 72%), linear-gradient(110deg, var(--kpi-start), var(--kpi-end));
 }
-.finance-kpi p { text-shadow: 0 1px 2px rgb(0 0 0 / 0.35); }
-.finance-kpi-1 { background: linear-gradient(110deg, #3269de, #285ae8); }
-.finance-kpi-2 { background: linear-gradient(110deg, #075f82, #064e74); }
-.finance-kpi-3 { background: linear-gradient(110deg, #9c450f, #85400c); }
-.finance-kpi-4 { background: linear-gradient(110deg, #7b5800, #614600); }
-.finance-kpi-5 { background: linear-gradient(110deg, #d73b52, #c73046); }
+.finance-kpi p { text-shadow: 0 1px 3px rgb(0 0 0 / 0.55); }
+.finance-kpi-1 { --kpi-start: #326ef1; --kpi-end: #285fe3; }
+.finance-kpi-2 { --kpi-start: #03ade0; --kpi-end: #0099ce; }
+.finance-kpi-3 { --kpi-start: #f87935; --kpi-end: #eb6328; }
+.finance-kpi-4 { --kpi-start: #f3bd31; --kpi-end: #dfa91d; }
+.finance-kpi-5 { --kpi-start: #ec3b57; --kpi-end: #dc2948; }
 
 .finance-overview .recharts-cartesian-axis-tick-value,
 .finance-overview .recharts-legend-item-text {

@@ -311,6 +311,10 @@ input[type="number"]::-webkit-outer-spin-button,
   --color-error-container: #ffe4e6;
   --color-on-error-container: #be123c;
 
+  --color-change-up: #15803d;
+  --color-change-down: #be123c;
+  --color-change-flat: #143963;
+
   --color-background: #f6f8fd;
   --color-on-background: #071629;
   --color-surface: #f6f8fd;
@@ -665,6 +669,9 @@ body {
 
 .dark {
   color-scheme: dark;
+  --color-change-up: #4ade80;
+  --color-change-down: #fb7185;
+  --color-change-flat: #a7c7ec;
   --color-background: #0d0f14;
   --color-on-background: #f1f5f9;
   --color-surface: #0d0f14;
