@@ -38,6 +38,8 @@ describe("RetailWorkspace", () => {
 
     expect(screen.queryByRole("button", { name: "Khách hàng" })).toBeNull();
     expect(screen.getByRole("button", { name: "Đổi trả" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Ưu đãi và điểm" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Mã ưu đãi" })).toBeNull();
   });
 
   it("uses order warranty in ERP sales", async () => {

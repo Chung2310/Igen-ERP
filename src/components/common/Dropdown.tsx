@@ -178,9 +178,9 @@ export function Dropdown<T = string>({
 
   // Variant styles
   const variantStyles = {
-    filter: "rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20",
-    default: "rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20",
-    form: "rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus:border-primary focus:ring-2 focus:ring-primary/20",
+    filter: "rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus:border-primary focus:ring-0",
+    default: "rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus:border-primary focus:ring-0",
+    form: "rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary focus:border-primary focus:ring-0",
     subtle: "rounded-lg border border-transparent bg-slate-100 hover:bg-slate-200/70 text-slate-700",
     ghost: "rounded-lg hover:bg-slate-100 text-slate-700 border border-transparent",
   }[variant];
@@ -214,10 +214,10 @@ export function Dropdown<T = string>({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         onClick={() => { if (disabled) return; if (!isOpen) onSearchChange?.(""); setIsOpen(!isOpen); }}
-        className={`inline-flex items-center justify-between transition-colors duration-150 select-none cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface ${variantStyles} ${sizeStyles} ${
+        className={`inline-flex items-center justify-between transition-colors duration-150 select-none cursor-pointer focus:outline-none focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface ${variantStyles} ${sizeStyles} ${
           isFullWidth && !triggerClassName.includes("w-") ? "w-full" : ""
         } ${
-          isOpen ? "border-primary ring-2 ring-primary/20 bg-surface-container-lowest" : ""
+          isOpen ? "border-primary bg-surface-container-lowest" : ""
         } ${triggerClassName}`}
       >
         <span className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">

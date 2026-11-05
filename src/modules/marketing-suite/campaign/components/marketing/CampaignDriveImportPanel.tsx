@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FolderOpen, Images, Loader2, RefreshCw } from 'lucide-react';
+import { FolderOpen, Images, Loader2 } from 'lucide-react';
+import { ErpRefreshButton } from '../../../../../components/common/ErpRefreshButton';
 import {
   type CampaignBulkImportJob,
   type CampaignBulkImportPreview,
@@ -347,17 +348,7 @@ export default function CampaignDriveImportPanel({
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
-                onClick={() => void loadBulkJobs()}
-                disabled={bulkLoading || bulkApplying}
-                className="inline-flex h-11 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-xs font-extrabold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-              >
-                {bulkLoading
-                  ? <Loader2 className="h-4 w-4 animate-spin" />
-                  : <RefreshCw className="h-4 w-4" />}
-                Làm mới
-              </button>
+              <ErpRefreshButton onClick={() => void loadBulkJobs()} loading={bulkLoading} disabled={bulkApplying} />
             </div>
 
             {selectedBulkJob && !selectedBulkJobIsComplete && (

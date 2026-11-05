@@ -5,7 +5,7 @@ import {
   CreditCard, Clock, Users as UsersIcon,
   Banknote, History, CalendarDays
 } from 'lucide-react';
-import { cn, toDisplayDate } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
 import { toast } from '../../../../pages/Toast';
 import { Student } from '../../types';
@@ -194,7 +194,6 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
           <h1 className="text-balance text-lg font-semibold text-on-surface">Học phí</h1>
-          <p className="mt-1 text-xs font-normal text-on-surface-variant">Số liệu theo kỳ: {toDisplayDate(appliedStartDate) || 'Tất cả lịch sử'} đến {toDisplayDate(appliedEndDate) || 'hiện tại'}</p>
         </div>
         <div className="flex items-center gap-2">
           <button

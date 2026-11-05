@@ -1,5 +1,6 @@
 import { Banknote, CreditCard, QrCode, Smartphone, TrendingUp, Wallet } from "lucide-react";
 import type { RetailReport } from "../../types";
+import { RetailEmptyState } from "../RetailEmptyState";
 
 type RetailSalesChartsProps = { report: RetailReport };
 
@@ -322,9 +323,7 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
             </div>
           </div>
         ) : (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl bg-slate-50 text-center text-xs text-slate-400">
-            Chưa có dữ liệu xu hướng trong khoảng này.
-          </div>
+          <RetailEmptyState kind="fee" className="min-h-64 rounded-md bg-surface">Chưa có dữ liệu xu hướng trong khoảng này.</RetailEmptyState>
         )}
       </article>
 
@@ -386,9 +385,7 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
               })}
             </div>
           ) : (
-            <div className="mt-5 flex h-52 flex-col items-center justify-center rounded-2xl bg-slate-50 text-center text-xs text-slate-400">
-              Chưa có thanh toán trong khoảng này.
-            </div>
+            <RetailEmptyState kind="fee" className="mt-5 min-h-52 rounded-md bg-surface">Chưa có thanh toán trong khoảng này.</RetailEmptyState>
           )}
         </div>
 

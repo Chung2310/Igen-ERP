@@ -12,6 +12,7 @@ import {
 import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { MetricBar } from "../common/MetricBar";
 
 const statuses: Array<"" | SerialUnitStatus> = [
@@ -315,14 +316,7 @@ export function SerialRegistrySection({ onTransfers }: { onTransfers?: () => voi
 
         {/* Right Action Bar */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-semibold shadow-2xs transition-colors whitespace-nowrap cursor-pointer"
-            title="Tải lại danh sách"
-          >
-            Làm mới
-          </button>
+          <ErpRefreshButton onClick={() => void load()} title="Tải lại danh sách" />
         </div>
       </div>
 

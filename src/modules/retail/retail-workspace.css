@@ -23,9 +23,28 @@
   background: var(--color-primary);
 }
 
+.retail-management-workspace table > thead {
+  background-color: var(--color-surface);
+  color: var(--color-on-surface-variant);
+}
+
 .retail-management-workspace table > thead > tr {
   border-bottom: 1px solid var(--color-outline-variant);
-  background-color: var(--color-surface-container-low);
+  background-color: var(--color-surface);
+}
+
+.retail-management-workspace table > thead > tr > th {
+  color: var(--color-on-surface-variant);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.retail-management-workspace table > tbody {
+  color: var(--color-on-surface);
+  font-weight: 400;
 }
 
 .retail-management-workspace :is(input[type="date"], input[type="datetime-local"]),

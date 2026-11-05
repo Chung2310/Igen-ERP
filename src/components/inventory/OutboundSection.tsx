@@ -11,6 +11,7 @@ import {
 import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import {
   inventoryReceivingService,
   type Warehouse,
@@ -340,13 +341,7 @@ export function OutboundSection({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void loadWarehouses()}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
-          >
-            Làm mới
-          </button>
+          <ErpRefreshButton onClick={() => void loadWarehouses()} />
           <button
             type="button"
             onClick={() => {

@@ -1,6 +1,8 @@
 import React from "react";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import type { Worker } from "../types";
+import { HrEmptyIllustration } from "../../../components/hr/HrEmptyIllustration";
+import { HrPageTitle } from "../../../components/hr/HrPageTitle";
 import { workerDashboardApi } from "../api/workerDashboard.api";
 import "./worker-dashboard.css";
 import {
@@ -120,18 +122,18 @@ export function WorkerDashboardPage({
   const months = Array.from({ length: 12 }, (_, i) => `T${i + 1}`);
 
   return (
-    <div className="worker-dashboard flex w-full flex-col gap-5 bg-[#F8FBFF] px-1 py-1 text-left sm:px-2">
+    <div className="worker-dashboard flex w-full flex-col gap-5 bg-surface px-1 py-1 text-left text-on-surface sm:px-2">
       {/* Header section */}
       <section className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-        <div className="border-l-[3px] border-[#00ADFC] pl-3">
-          <h1 className="text-xl font-medium tracking-tight text-slate-900">Tổng quan lao động</h1>
-          <p className="mt-1 text-xs font-normal text-slate-500">Hôm nay: {formattedDate}</p>
+        <div>
+          <HrPageTitle level={1}>Tổng quan lao động</HrPageTitle>
+          <p className="mt-1 pl-4 text-xs font-normal text-on-surface-variant">Hôm nay: {formattedDate}</p>
         </div>
         {(onNavigate || select) && (
           <button
             type="button"
             onClick={() => onNavigate ? onNavigate("lao-dong") : select?.({ _id: "", fullName: "", status: "active" })}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#00ADFC] px-3.5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#0097dc]"
+            className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
           >
             <Users className="h-4 w-4" />
             Quản lý hồ sơ lao động
@@ -146,7 +148,7 @@ export function WorkerDashboardPage({
       )}
 
       <section className={`grid grid-cols-1 gap-3 ${hasContractAlerts ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-3"}`} aria-label="Số liệu tổng quan lao động">
-        <div className="flex items-center gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-4">
+        <div className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
           <div className="rounded-xl bg-[#E8F7FF] p-3 text-[#00ADFC]">
             <Users className="h-5 w-5" />
           </div>
@@ -158,7 +160,7 @@ export function WorkerDashboardPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-4">
+        <div className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
           <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
             <UserCheck className="h-5 w-5" />
           </div>
@@ -170,7 +172,7 @@ export function WorkerDashboardPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-4">
+        <div className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
           <div className="rounded-xl bg-violet-50 p-3 text-violet-600">
             <Briefcase className="h-5 w-5" />
           </div>
@@ -184,7 +186,7 @@ export function WorkerDashboardPage({
         {hasContractAlerts && (
           <div
             role="alert"
-            className={`flex min-w-0 items-center gap-3 rounded-2xl border bg-white p-4 ${stats.contractAlerts.expiredCount > 0 ? "border-rose-200" : "border-amber-200"}`}
+            className={`flex min-w-0 items-center gap-3 rounded-md border bg-surface-container-lowest p-4 shadow-xs ${stats.contractAlerts.expiredCount > 0 ? "border-rose-200" : "border-amber-200"}`}
           >
             <div className={`shrink-0 rounded-xl p-3 ${stats.contractAlerts.expiredCount > 0 ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-600"}`}>
               <AlertTriangle className="h-5 w-5" />
@@ -216,7 +218,7 @@ export function WorkerDashboardPage({
       </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <section className="rounded-2xl border border-[#DCE7F4] bg-white p-4 sm:p-5 xl:col-span-7" aria-labelledby="worker-registration-title">
+        <section className="rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs sm:p-5 xl:col-span-7" aria-labelledby="worker-registration-title">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E7EFF7] pb-4">
             <div className="flex items-start gap-3">
               <span className="rounded-xl bg-[#E8F7FF] p-2 text-[#00ADFC]"><BarChart3 className="h-5 w-5" /></span>
@@ -243,7 +245,7 @@ export function WorkerDashboardPage({
                     </div>
                   ))}
                 </div>
-                {!loading && annualRegistrations === 0 && <p className="absolute inset-0 grid place-items-center text-center text-sm text-slate-500">Chưa có lượt đăng ký trong năm {currentYear}</p>}
+                {!loading && annualRegistrations === 0 && <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><HrEmptyIllustration kind="worker" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Chưa có lượt đăng ký trong năm {currentYear}</p></div>}
               </div>
               <div className="flex h-6 items-end gap-1.5 sm:gap-2.5">
                 {months.map((month) => <span key={month} className="min-w-0 flex-1 text-center text-[10px] text-slate-500 sm:text-xs">{month}</span>)}
@@ -252,7 +254,7 @@ export function WorkerDashboardPage({
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[#DCE7F4] bg-white p-4 sm:p-5 xl:col-span-5" aria-labelledby="worker-status-title">
+        <section className="rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs sm:p-5 xl:col-span-5" aria-labelledby="worker-status-title">
           <div className="flex items-start gap-3 border-b border-[#E7EFF7] pb-4">
             <span className="rounded-xl bg-[#E8F7FF] p-2 text-[#00ADFC]"><PieChart className="h-5 w-5" /></span>
             <div>
@@ -275,7 +277,7 @@ export function WorkerDashboardPage({
         </section>
       </div>
 
-      <section className="space-y-4 rounded-2xl border border-[#DCE7F4] bg-white p-4 sm:p-5">
+      <section className="space-y-4 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs sm:p-5">
         <div className="flex items-center gap-3 border-b border-[#E7EFF7] pb-4">
           <div className="rounded-xl bg-violet-50 p-2 text-violet-600">
             <ClipboardList className="h-5 w-5" />
@@ -325,9 +327,7 @@ export function WorkerDashboardPage({
             })}
           </div>
         ) : (
-          <div className="py-6 text-center text-sm text-slate-500">
-            Chưa có dự án nào được gán chỉ tiêu lao động.
-          </div>
+          <div className="flex flex-col items-center py-6 text-center"><HrEmptyIllustration kind="project" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Chưa có dự án nào được gán chỉ tiêu lao động.</p></div>
         )}
       </section>
     </div>

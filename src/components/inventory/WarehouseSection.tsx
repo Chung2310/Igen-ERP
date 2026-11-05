@@ -9,6 +9,7 @@ import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
 import { MetricBar } from "../common/MetricBar";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { InventoryCountingModal } from "./InventoryCountingSection";
 import { WarehouseSerialDetailModal } from "./WarehouseSerialDetailModal";
 import { useBranch } from "../../context/BranchContext";
@@ -389,14 +390,7 @@ export function WarehouseSection() {
             Xuất Excel
           </button>
 
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs whitespace-nowrap"
-            title="Tải lại số dư kho"
-          >
-            Làm mới
-          </button>
+          <ErpRefreshButton onClick={() => void load()} title="Tải lại số dư kho" />
         </div>
       </div>
 

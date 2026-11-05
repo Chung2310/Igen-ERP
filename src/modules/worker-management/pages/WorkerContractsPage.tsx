@@ -23,6 +23,10 @@ import { alertText, resolveAlertLevel, toDisplayDate } from "../utils/contractDa
 import { workerContractStatusLabel } from "../types";
 import { StyledSelect } from "../../../components/common/StyledSelect";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { HrEmptyIllustration } from "../../../components/hr/HrEmptyIllustration";
+import { HrPageTitle } from "../../../components/hr/HrPageTitle";
+import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
+import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
 import type {
   WorkerContractAlertLevel,
   WorkerLaborContract,
@@ -38,18 +42,18 @@ type Props = {
   initialAlertOnly?: boolean;
 };
 
-const alertBadgeClass: Record<WorkerContractAlertLevel, string> = {
-  ok: "border-slate-200 bg-slate-50 text-slate-500",
-  expiring: "border-amber-200 bg-amber-50 text-amber-700",
-  expired: "border-rose-200 bg-rose-50 text-rose-700",
+const alertTone: Record<WorkerContractAlertLevel, "neutral" | "warning" | "danger"> = {
+  ok: "neutral",
+  expiring: "warning",
+  expired: "danger",
 };
 
-const statusBadgeClass: Record<string, string> = {
-  draft: "border-slate-300 bg-slate-100 text-slate-600",
-  active: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  renewed: "border-sky-200 bg-sky-50 text-sky-700",
-  expired: "border-rose-200 bg-rose-50 text-rose-700",
-  terminated: "border-slate-300 bg-slate-200 text-slate-600",
+const statusTone: Record<WorkerLaborContract["status"], "neutral" | "success" | "info" | "danger"> = {
+  draft: "neutral",
+  active: "success",
+  renewed: "info",
+  expired: "danger",
+  terminated: "neutral",
 };
 
 export default function WorkerContractsPage({
@@ -228,9 +232,9 @@ export default function WorkerContractsPage({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto bg-[#F8FBFF]">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto bg-surface-container-lowest">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="border-l-[3px] border-[#00ADFC] pl-3 text-xl font-medium text-slate-900">Hợp đồng lao động</h1>
+        <HrPageTitle level={1}>Hợp đồng lao động</HrPageTitle>
         {(expiringCount > 0 || expiredCount > 0) && (
           <button
             type="button"
@@ -257,7 +261,7 @@ export default function WorkerContractsPage({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#DCE7F4] bg-white p-3">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           <input
@@ -265,7 +269,7 @@ export default function WorkerContractsPage({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Tìm theo mã, khách hàng, người lao động"
-            className="h-10 w-full rounded-xl border border-[#DCE7F4] py-2 pl-9 pr-3 text-sm"
+            className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest py-2 pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-2 focus:outline-primary"
           />
         </div>
         <div className="min-w-40 flex-1 sm:flex-none sm:w-44"><StyledSelect ariaLabel="Lọc theo trạng thái" value={status} onChange={setStatus} options={[{ value: "all", label: "Tất cả trạng thái" }, ...Object.entries(workerContractStatusLabel).map(([value, label]) => ({ value, label }))]} /></div>
@@ -273,7 +277,7 @@ export default function WorkerContractsPage({
         <button
           type="button"
           onClick={handleExport}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+          className="flex h-9 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
         >
           <Download className="h-3.5 w-3.5" />
           Xuất Excel
@@ -282,7 +286,7 @@ export default function WorkerContractsPage({
           <button
             type="button"
             onClick={() => setModal({ mode: "create" })}
-            className="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-xs font-bold text-white"
+            className={primaryCreateButtonClass}
           >
             <Plus className="h-3.5 w-3.5" />
             Thêm hợp đồng
@@ -290,9 +294,9 @@ export default function WorkerContractsPage({
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-[#DCE7F4] bg-white">
+      <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
         <table className="w-full min-w-[980px] text-left text-[13px]">
-          <thead className="bg-[#E8F7FF] text-[13px] text-slate-600">
+          <thead className="bg-surface-container-low text-[13px] text-on-surface-variant">
             <tr>
               <th className="px-3 py-2.5 font-medium">Mã hợp đồng</th>
               <th className="px-3 py-2.5 font-medium">Người lao động</th>
@@ -303,7 +307,7 @@ export default function WorkerContractsPage({
               <th className="px-3 py-2.5 text-right font-medium">Thao tác</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-outline-variant">
             {loading ? (
               <tr>
                 <td colSpan={7} className="px-3 py-8 text-center text-slate-400">
@@ -313,7 +317,7 @@ export default function WorkerContractsPage({
             ) : !filtered.length ? (
               <tr>
                 <td colSpan={7} className="px-3 py-8 text-center text-slate-400">
-                  Chưa có hợp đồng nào khớp bộ lọc.
+                  <div className="flex flex-col items-center"><HrEmptyIllustration kind={contracts.length ? "search" : "contract"} /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Chưa có hợp đồng nào khớp bộ lọc.</p></div>
                 </td>
               </tr>
             ) : (
@@ -347,27 +351,17 @@ export default function WorkerContractsPage({
                     {toDisplayDate(contract.startDate)} → {toDisplayDate(contract.endDate)}
                   </td>
                   <td className="px-3 py-2.5 text-center">
-                    <span
-                      className={`rounded border px-2 py-0.5 text-xs ${
-                        statusBadgeClass[contract.status]
-                      }`}
-                    >
-                      {workerContractStatusLabel[contract.status]}
-                    </span>
+                    <HrStatusBadge tone={statusTone[contract.status]} dot>{workerContractStatusLabel[contract.status]}</HrStatusBadge>
                   </td>
                   <td className="px-3 py-2.5 text-center">
                     {contract.alertLevel === "ok" ? (
                       <span className="text-xs text-slate-400">—</span>
                     ) : (
-                      <span
-                        className={`rounded border px-2 py-0.5 text-xs ${
-                          alertBadgeClass[contract.alertLevel]
-                        }`}
-                      >
+                      <HrStatusBadge tone={alertTone[contract.alertLevel]} dot>
                         {contract.alertLevel === "expired"
                           ? "Đã hết hạn"
                           : alertText(contract.endDate)}
-                      </span>
+                      </HrStatusBadge>
                     )}
                   </td>
                   <td className="px-3 py-2.5">
@@ -377,7 +371,7 @@ export default function WorkerContractsPage({
                         title="Lịch sử hợp đồng"
                         aria-label={`Lịch sử hợp đồng ${contract.code}`}
                         onClick={() => setHistoryOf(contract.rootContractId)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
+                        className="rounded-md border border-outline-variant p-1.5 text-on-surface-variant hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
                       >
                         <History className="h-3.5 w-3.5" />
                       </button>
@@ -391,7 +385,7 @@ export default function WorkerContractsPage({
                               contract.status === "renewed" || contract.status === "terminated"
                             }
                             onClick={() => setModal({ mode: "renew", contract })}
-                            className="rounded-lg p-1.5 text-cyan-600 hover:bg-cyan-50 disabled:opacity-30"
+                            className="rounded-md border border-outline-variant p-1.5 text-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-30"
                           >
                             <RefreshCw className="h-3.5 w-3.5" />
                           </button>
@@ -400,7 +394,7 @@ export default function WorkerContractsPage({
                             title="Chỉnh sửa"
                             aria-label={`Chỉnh sửa hợp đồng ${contract.code}`}
                             onClick={() => setModal({ mode: "edit", contract })}
-                            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+                            className="rounded-md border border-outline-variant p-1.5 text-on-surface-variant hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
@@ -410,7 +404,7 @@ export default function WorkerContractsPage({
                               title="Xóa"
                               aria-label={`Xóa hợp đồng ${contract.code}`}
                               onClick={() => setContractToDelete(contract)}
-                              className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50"
+                              className="rounded-md border border-outline-variant p-1.5 text-error hover:bg-error/5 focus-visible:outline-2 focus-visible:outline-primary"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>

@@ -34,6 +34,11 @@ import { formatWorkerDate } from "../utils/date";
 import { Pagination } from "../../student-management/components/ui/Pagination";
 import { StyledSelect } from "../../../components/common/StyledSelect";
 import { DateInput24 } from "../../../components/common/TimeInput24";
+import { HrEmptyIllustration } from "../../../components/hr/HrEmptyIllustration";
+import { HrPageTitle } from "../../../components/hr/HrPageTitle";
+import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
+import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
+import { cn } from "../../student-management/lib/utils";
 
 type Props = {
   selectedCenter?: string;
@@ -63,10 +68,10 @@ const statusLabel: Record<WorkerStatus, string> = {
   inactive: "Ngừng xử lý",
 };
 
-const statusClass: Record<WorkerStatus, string> = {
-  active: "border-sky-200 bg-sky-50 text-sky-700",
-  placed: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  inactive: "border-slate-200 bg-slate-50 text-slate-600",
+const statusTone: Record<WorkerStatus, "info" | "success" | "neutral"> = {
+  active: "info",
+  placed: "success",
+  inactive: "neutral",
 };
 
 function parseDate(value?: string) {
@@ -393,13 +398,11 @@ export default function WorkersPage({
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
         <div>
-          <h1 className="border-l-[3px] border-[#00ADFC] pl-3 text-xl font-medium tracking-tight text-slate-900">
-            Lao động
-          </h1>
-          <p className="mt-1 pl-3 text-xs text-slate-500">
+          <HrPageTitle level={1}>Lao động</HrPageTitle>
+          <p className="mt-1 pl-4 text-xs tabular-nums text-on-surface-variant">
             {loading ? "..." : `${filtered.length} / ${workers.length}`} Lao động
           </p>
         </div>
@@ -416,14 +419,14 @@ export default function WorkersPage({
           <button
             type="button"
             onClick={handleExport}
-            className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 transition-colors hover:border-[#00ADFC] hover:bg-[#F5FAFE]"
+            className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs text-on-surface hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
           >
             <Download className="h-3.5 w-3.5" /> Xuất
           </button>
           <button
             type="button"
             onClick={handlePrint}
-            className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 transition-colors hover:border-[#00ADFC] hover:bg-[#F5FAFE]"
+            className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs text-on-surface hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
           >
             <Printer className="h-3.5 w-3.5" /> In
           </button>
@@ -431,7 +434,7 @@ export default function WorkersPage({
             <button
               type="button"
               onClick={() => setQrOpen(true)}
-              className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 transition-colors hover:border-[#00ADFC] hover:bg-[#F5FAFE]"
+              className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs text-on-surface hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
             >
               <QrCode className="h-3.5 w-3.5" /> QR đăng ký
             </button>
@@ -440,7 +443,7 @@ export default function WorkersPage({
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 transition-colors hover:border-[#00ADFC] hover:bg-[#F5FAFE]"
+              className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs text-on-surface hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
             >
               <Upload className="h-3.5 w-3.5" /> Nhập Excel
             </button>
@@ -449,7 +452,7 @@ export default function WorkersPage({
             <button
               type="button"
               onClick={() => setAddOpen(true)}
-              className="flex h-9 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg bg-brand-primary px-3 text-xs font-medium text-white transition-colors hover:bg-brand-primary/95"
+              className={cn(primaryCreateButtonClass, "h-9 whitespace-nowrap")}
             >
               <Plus className="h-3.5 w-3.5" /> Thêm
             </button>
@@ -457,7 +460,7 @@ export default function WorkersPage({
         </div>
       </div>
 
-      <div className="status-tabs flex items-center gap-2 overflow-x-auto pb-1.5">
+      <div className="status-tabs flex items-center gap-3 overflow-x-auto border-b border-outline-variant">
         {statusTabs.map((tab) => {
           const selected = status === tab.value;
           const count =
@@ -468,20 +471,13 @@ export default function WorkersPage({
             <button
               key={tab.value}
               type="button"
+              aria-pressed={selected}
               onClick={() => setStatus(tab.value)}
-              className={`flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                selected
-                  ? "border-[#00ADFC] bg-[#00ADFC] text-white"
-                  : "border-[#DCE7F4] bg-white text-slate-600 hover:border-[#00ADFC]"
-              }`}
+              className={cn("flex min-h-10 cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 px-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", selected ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-primary")}
             >
               {tab.label}
               <span
-                className={`rounded-full px-1.5 py-0.5 text-[9px] ${
-                  selected
-                    ? "bg-white/20 text-white"
-                    : "bg-slate-100 text-slate-400"
-                }`}
+                className={cn("rounded-full px-1.5 py-0.5 text-[10px] tabular-nums", selected ? "bg-primary/10 text-primary" : "bg-surface-container-high text-on-surface-variant")}
               >
                 {count}
               </span>
@@ -490,7 +486,7 @@ export default function WorkersPage({
         })}
       </div>
 
-      <div className="filters-bar grid grid-cols-1 gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-3 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="filters-bar grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <FilterSelect
           label="Dự án"
           value={project}
@@ -538,7 +534,7 @@ export default function WorkersPage({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Tên / SĐT / CCCD..."
-              className="h-10 w-full rounded-xl border border-[#DCE7F4] bg-white py-0 pl-8 pr-7 text-sm focus:border-[#00ADFC] focus:outline-none"
+              className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest py-0 pl-8 pr-7 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-2 focus:outline-primary"
             />
             <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
             {search && (
@@ -555,11 +551,11 @@ export default function WorkersPage({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white">
+      <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[720px] text-left sm:min-w-[850px]">
             <thead>
-              <tr className="border-b border-[#DCE7F4] bg-[#E8F7FF]">
+              <tr className="border-b border-outline-variant bg-surface-container-low text-on-surface-variant">
                 {canManage && (
                   <TableHead centered>
                     <input
@@ -588,14 +584,14 @@ export default function WorkersPage({
                 <TableHead right>Thao tác</TableHead>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#CBDCEC]">
+            <tbody className="divide-y divide-outline-variant">
               {loading ? (
                 <StateRow colSpan={canManage ? 7 : 6}>Đang nạp dữ liệu...</StateRow>
               ) : error ? (
                 <StateRow colSpan={canManage ? 7 : 6} error>{error}</StateRow>
               ) : filtered.length === 0 ? (
                 <StateRow colSpan={canManage ? 7 : 6}>
-                  Không tìm thấy Lao động nào phù hợp với bộ lọc.
+                  <div className="flex flex-col items-center"><HrEmptyIllustration kind={workers.length ? "search" : "worker"} /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Không tìm thấy Lao động nào phù hợp với bộ lọc.</p></div>
                 </StateRow>
               ) : (
                 paginatedWorkers.map((worker) => (
@@ -719,8 +715,8 @@ function FilterSelect({
 }) {
   return (
     <div className="space-y-1.5">
-      <span className="text-xs text-slate-600">{label}</span>
-      <StyledSelect value={value} onChange={onChange} options={options} ariaLabel={label} />
+      <span className="text-xs text-on-surface-variant">{label}</span>
+      <StyledSelect value={value} onChange={onChange} options={options} ariaLabel={label} className="rounded-md" />
     </div>
   );
 }
@@ -736,7 +732,7 @@ function DateFilter({
 }) {
   return (
     <div className="space-y-1.5">
-      <span className="text-xs text-slate-600">{label}</span>
+      <span className="text-xs text-on-surface-variant">{label}</span>
       <DateInput24 value={value} onChange={onChange} ariaLabel={label} />
     </div>
   );
@@ -753,7 +749,7 @@ function TableHead({
 }) {
   return (
     <th
-      className={`px-3 py-3 text-xs font-medium text-slate-600 ${
+      className={`px-3 py-3 text-xs font-medium text-on-surface-variant ${
         centered ? "text-center" : right ? "text-right" : ""
       }`}
     >
@@ -811,7 +807,7 @@ function WorkerRow({
   onDelete: (worker: Worker) => Promise<void>;
 }) {
   return (
-    <tr className="group transition-colors hover:bg-[#F5FAFE]">
+    <tr className="group hover:bg-primary/5">
       {canManage && (
         <td className="px-3 py-3 text-center">
           <input
@@ -844,11 +840,7 @@ function WorkerRow({
         {workerLaborTypeLabel[worker.laborType || "official"]}
       </td>
       <td className="px-3 py-3 text-center">
-        <span
-          className={`rounded-lg border px-2 py-1 text-xs ${statusClass[worker.status]}`}
-        >
-          {statusLabel[worker.status]}
-        </span>
+        <HrStatusBadge tone={statusTone[worker.status]} dot>{statusLabel[worker.status]}</HrStatusBadge>
       </td>
       <td className="px-3 py-3">
         <div className="flex items-center justify-end gap-1">

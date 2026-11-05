@@ -1,5 +1,6 @@
 import React from "react";
 import { getApiErrorMessage } from "../../utils/errorMessage";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import {
   Users,
   Building,
@@ -204,14 +205,7 @@ export function DashboardTab() {
               Xóa lọc
             </button>
           )}
-          <button
-            onClick={fetchSummary}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Làm mới
-          </button>
+          <ErpRefreshButton onClick={fetchSummary} loading={loading} />
         </div>
       </div>
 

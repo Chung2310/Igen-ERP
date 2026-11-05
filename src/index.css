@@ -16,8 +16,7 @@ select:not([multiple]):not(.sr-only) {
 
 select:not([multiple]):not(.sr-only):focus-visible {
   border-color: var(--color-primary) !important;
-  outline: 2px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
-  outline-offset: 1px;
+  outline: none;
 }
 
 select:not([multiple]):not(.sr-only) option {
@@ -113,6 +112,23 @@ label[class*="border"]:has(> input:is([type="search"], [placeholder^="Tìm"], [a
 label[class*="border"]:has(> svg.lucide-search ~ input[class*="bg-transparent"]):focus-within,
 .sa-ai-search:focus-within {
   border-color: var(--color-primary) !important;
+}
+
+/* One quiet focus border for editable controls throughout the ERP. The color
+   change remains visible for keyboard navigation without a second ring. */
+:is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]), textarea, select, [role="combobox"], button[aria-haspopup="listbox"]):not([aria-invalid="true"]):not([class*="border-none"]):not([class*="border-0"]):focus:not(:disabled),
+button[aria-haspopup="listbox"][aria-expanded="true"]:not([aria-invalid="true"]) {
+  border-color: var(--color-primary) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+:is(label, div)[class*="border"]:not(:has([aria-invalid="true"])):has(> input:focus):focus-within,
+:is(label, div, form, span)[class*="focus-within"]:not(:has([aria-invalid="true"])):has(:is(input:not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]):focus):focus-within,
+.sa-ai-search:focus-within {
+  border-color: var(--color-primary) !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Shared close affordance for ERP dialogs and popups. */
@@ -591,6 +607,26 @@ html:not(.dark) #app_root_layout :is(
 html:not(.dark) #app_root_layout :is(input, textarea):not([class*="placeholder:"])::placeholder {
   color: #94a3b8;
   opacity: 1;
+}
+
+/* Search hints share one muted treatment, including fields with local placeholder classes. */
+:is(
+  input[type="search"],
+  input[role="searchbox"],
+  input[placeholder^="Tìm"],
+  input[placeholder^="Search"],
+  input[placeholder^="Tra cứu"],
+  input[placeholder^="Lọc"],
+  input[aria-label^="Tìm"],
+  input[aria-label^="Search"],
+  input[aria-label^="Tra cứu"],
+  input[aria-label^="Lọc"],
+  input[data-erp-search],
+  :is(div, label):has(> svg.lucide-search) > input
+)::placeholder {
+  color: currentColor !important;
+  opacity: 0.5 !important;
+  font-weight: 400 !important;
 }
 
 /* Brand Color (#00ADFC) standard: override green / teal / emerald text to brand color */

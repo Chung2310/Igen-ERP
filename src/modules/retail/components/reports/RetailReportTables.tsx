@@ -16,6 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import type { RetailReport } from "../../types";
+import { RetailEmptyState } from "../RetailEmptyState";
 
 type RetailReportTablesProps = { report: RetailReport };
 
@@ -105,9 +106,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-xs text-slate-400">
-                  Chưa có dữ liệu sản phẩm trong khoảng này.
-                </td>
+                <td colSpan={8}><RetailEmptyState kind="resource">Chưa có dữ liệu sản phẩm trong khoảng này.</RetailEmptyState></td>
               </tr>
             )}
           </tbody>
@@ -228,9 +227,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-xs text-slate-400">
-                    Chưa có dữ liệu thu ngân trong khoảng này.
-                  </td>
+                  <td colSpan={6}><RetailEmptyState kind="student">Chưa có dữ liệu thu ngân trong khoảng này.</RetailEmptyState></td>
                 </tr>
               )}
             </tbody>
@@ -363,9 +360,7 @@ export default function RetailReportTables({ report }: RetailReportTablesProps) 
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-xs text-slate-400">
-                    Không có khách hàng đang nợ trong khoảng này.
-                  </td>
+                  <td colSpan={6}><RetailEmptyState kind="partner">Không có khách hàng đang nợ trong khoảng này.</RetailEmptyState></td>
                 </tr>
               )}
             </tbody>

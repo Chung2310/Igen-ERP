@@ -22,9 +22,9 @@ const artwork: Record<AssistantSidebarIconName, ReactNode> = {
     <path d="M5.2 11.8a6.8 6.8 0 0 0 13.6 0M12 18.6v3.1m-3.8 0h7.6" />
   </>,
   assistant: <>
-    <rect x="3.8" y="7.1" width="16.4" height="12.8" rx="3.2" />
-    <path d="M12 7.1V4.4m-1.4 0h2.8M3.8 12H2m20 0h-1.8M8.5 15.4h.1m6.8 0h.1" />
-    <path d="M9.3 18h5.4" />
+    <path d="M12 5.7V3.5m-1.2 0h2.4" />
+    <path d="M12 6.5c5 0 8.1 3 8.1 7.6v2c0 3.1-2.4 5-5.5 5H9.4c-3.1 0-5.5-1.9-5.5-5v-2c0-4.6 3.1-7.6 8.1-7.6Z" />
+    <path d="M3.9 12.1H2.5v3.6h1.4m16.2-3.6h1.4v3.6h-1.4M8.7 13.8h.1m6.4 0h.1M9.5 17.1c1.3 1 3.7 1 5 0" />
   </>,
   project: <>
     <rect x="2.8" y="3.2" width="7.2" height="6.4" rx="2" />

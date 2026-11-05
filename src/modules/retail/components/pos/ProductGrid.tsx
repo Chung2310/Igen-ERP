@@ -1,5 +1,6 @@
 import React from "react";
-import { ChevronDown, Folder, FolderOpen, Store, Tag } from "lucide-react";
+import { ChevronDown, Folder, FolderOpen, Tag } from "lucide-react";
+import { StudentEmptyIllustration } from "../../../student-management/components/Erp/StudentEmptyIllustration";
 import { ProductCard, type ProductGroup, groupProductsBySku } from "./ProductCard";
 import type { RetailProduct } from "../../types";
 
@@ -265,7 +266,7 @@ export function ProductGrid({
   if (groups.length === 0) {
     return (
       <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500 shadow-2xs">
-        <Store className="mb-2 h-10 w-10 text-slate-400" />
+        <StudentEmptyIllustration kind="resource" />
         <p className="text-sm font-medium text-slate-700">Không tìm thấy sản phẩm nào.</p>
         <p className="text-xs text-slate-400">Hãy thử từ khóa khác hoặc quét mã vạch.</p>
       </div>

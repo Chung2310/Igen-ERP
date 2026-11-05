@@ -1,10 +1,10 @@
 import React from "react";
+import { ErpRefreshButton } from "../../../../components/common/ErpRefreshButton";
 import {
   Keyboard,
   Lock,
   Maximize,
   Minimize,
-  RefreshCw,
   ScanBarcode,
   Search,
   User,
@@ -142,16 +142,7 @@ export function PosHeader({
           <span className="hidden md:inline">Phím tắt</span>
         </button>
 
-        <button
-          type="button"
-          aria-label="Làm mới danh sách sản phẩm"
-          className="inline-flex cursor-pointer items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest p-2 text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
-          onClick={() => void onRefreshCatalog()}
-          disabled={reloading}
-          title="Làm mới danh sách sản phẩm"
-        >
-          <RefreshCw className={`h-4 w-4 text-slate-500 ${reloading ? "animate-spin" : ""}`} />
-        </button>
+        <ErpRefreshButton iconOnly aria-label="Làm mới danh sách sản phẩm" title="Làm mới danh sách sản phẩm" loading={reloading} onClick={() => void onRefreshCatalog()} />
       </div>
     </header>
   );

@@ -1,4 +1,5 @@
 import CashSessionPicker from "../components/orders/CashSessionPicker";
+import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
 import { Dropdown } from "../../../components/common/Dropdown";
 import React from "react";
 import {
@@ -13,7 +14,6 @@ import {
   FileText,
   Loader2,
   Package,
-  RefreshCw,
   RotateCcw,
   Search,
   ShoppingBag,
@@ -35,6 +35,7 @@ import { toast } from "../../../pages/Toast";
 import { ApiClientError } from "../../../services/apiClientError";
 import { TableFilterToolbar } from "../../../components/common/TableFilterToolbar";
 import { cn } from "../../student-management/lib/utils";
+import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
 
@@ -148,15 +149,7 @@ export default function RetailOrdersPageV2() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            disabled={loading}
-            className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 text-cyan-600 ${loading ? "animate-spin" : ""}`} />
-            <span>Làm mới</span>
-          </button>
+          <ErpRefreshButton onClick={() => void refresh()} loading={loading} />
         </div>
       </header>
 
@@ -229,9 +222,7 @@ export default function RetailOrdersPageV2() {
       {/* Orders Data Table */}
       {orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-            <ShoppingBag className="h-6 w-6" />
-          </div>
+          <StudentEmptyIllustration kind="resource" />
           <h3 className="mt-3 text-sm font-semibold text-slate-800">Không tìm thấy đơn hàng</h3>
           <p className="mt-1 text-xs text-slate-500">
             Không có đơn hàng nào khớp với điều kiện tìm kiếm hoặc bộ lọc hiện tại.
@@ -278,12 +269,12 @@ export default function RetailOrdersPageV2() {
                       className="hover:bg-cyan-50/40 transition-colors group cursor-pointer"
                     >
                       <td className="px-4 py-3">
-                        <span className="font-mono font-semibold text-slate-900 group-hover:text-cyan-700 transition">
+                        <span className="font-mono font-medium text-slate-900 group-hover:text-cyan-700 transition">
                           {order.orderCode || "Đơn hàng"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="font-semibold text-slate-800">
+                        <div className="font-medium text-slate-800">
                           {order.customerName || "Khách lẻ"}
                         </div>
                         {order.customerPhone && (

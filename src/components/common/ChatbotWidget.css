@@ -124,8 +124,25 @@
   stroke: var(--assistant-rail-gradient);
 }
 
-.assistant-side-item:not(:disabled):is(:hover, :focus-visible) .assistant-side-icon svg {
+.assistant-side-item:not(:disabled):is(.assistant-chat-entry, .is-active, :hover, :focus-visible) .assistant-side-icon svg {
   stroke: var(--assistant-rail-gradient);
+}
+
+.assistant-side-item:not(:disabled):is(.assistant-chat-entry, .is-active, :hover, :focus-visible) > span:not(.assistant-side-icon) {
+  background: linear-gradient(90deg, #00adfc 0%, #199bff 55%, #7567ff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.assistant-message-author {
+  display: inline-block;
+  background: linear-gradient(90deg, #00adfc 0%, #199bff 55%, #7567ff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .assistant-action-chip[data-tone="brand"],
@@ -157,23 +174,13 @@
 }
 
 .assistant-side-item.is-active {
-  background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface-container-lowest));
-  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-on-surface) 5%, var(--color-surface-container-lowest));
   font-weight: 600;
 }
 
 .assistant-side-item:not(:disabled):hover,
 .assistant-side-item:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--color-on-surface) 5%, var(--color-surface-container-lowest));
-  color: var(--color-primary);
-}
-
-.assistant-side-item:not(:disabled):is(:hover, :focus-visible) > span:last-child {
-  background: linear-gradient(90deg, #00adfc 0%, #199bff 55%, #7567ff 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
 }
 
 .assistant-reference-sidebar.is-collapsed .assistant-side-item {
@@ -189,11 +196,16 @@
 
 .assistant-reference-welcome {
   background-color: var(--color-surface-container-lowest);
-  background-image: radial-gradient(color-mix(in srgb, var(--color-outline-variant) 55%, transparent) 0.7px, transparent 0.7px);
-  background-size: 22px 22px;
+  background-image:
+    radial-gradient(color-mix(in srgb, var(--color-outline-variant) 55%, transparent) 0.7px, transparent 0.7px),
+    radial-gradient(ellipse 65% 62% at 50% 46%,
+      color-mix(in srgb, #83bfff 24%, var(--color-surface-container-lowest)) 0%,
+      color-mix(in srgb, #83bfff 10%, var(--color-surface-container-lowest)) 54%,
+      transparent 100%);
+  background-size: 22px 22px, 100% 100%;
 }
 
-.assistant-workspace[data-standalone="true"] .assistant-reference-content {
+.assistant-workspace .assistant-reference-content {
   max-width: 840px;
   justify-content: flex-start;
   padding-block: 40px 96px;
@@ -213,12 +225,12 @@
 }
 
 .assistant-landing-composer {
-  border: 1px solid transparent;
+  border: 1.5px solid transparent;
   border-radius: 28px;
   background: linear-gradient(var(--color-surface-container-lowest), var(--color-surface-container-lowest)) padding-box,
     linear-gradient(115deg, color-mix(in srgb, #00adfc 55%, var(--color-surface-container-lowest)), color-mix(in srgb, #199bff 55%, var(--color-surface-container-lowest)) 52%, color-mix(in srgb, #7567ff 55%, var(--color-surface-container-lowest))) border-box;
-  box-shadow: 0 0 14px color-mix(in srgb, #00adfc 12%, transparent),
-    0 8px 28px color-mix(in srgb, #7567ff 12%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, #00adfc 16%, transparent),
+    0 12px 30px color-mix(in srgb, #7567ff 15%, transparent);
 }
 
 .assistant-landing-composer:focus-within {
@@ -227,42 +239,42 @@
     0 10px 32px color-mix(in srgb, #7567ff 18%, transparent);
 }
 
-.assistant-workspace[data-standalone="true"] .assistant-landing-composer-wrap {
+.assistant-workspace .assistant-landing-composer-wrap {
   max-width: 780px;
   margin-inline: auto;
 }
 
-.assistant-workspace[data-standalone="true"] .assistant-landing-composer button:not(:disabled) {
+.assistant-workspace .assistant-landing-composer button:not(:disabled) {
   border-color: color-mix(in srgb, #7567ff 28%, var(--color-outline-variant));
   background: color-mix(in srgb, #7567ff 8%, var(--color-surface-container-lowest));
   color: #5844b7;
 }
 
-.assistant-workspace[data-standalone="true"] .assistant-landing-composer button:not(:disabled):hover {
+.assistant-workspace .assistant-landing-composer button:not(:disabled):hover {
   border-color: #7567ff;
   background: color-mix(in srgb, #7567ff 14%, var(--color-surface-container-lowest));
 }
 
-.assistant-workspace[data-standalone="true"] .assistant-landing-composer button[type="submit"]:not(:disabled) {
+.assistant-workspace .assistant-landing-composer button[type="submit"]:not(:disabled) {
   border-color: transparent;
   background: linear-gradient(125deg, #00adfc, #7567ff);
   color: var(--color-on-primary);
   box-shadow: 0 4px 12px color-mix(in srgb, #7567ff 28%, transparent);
 }
 
-.assistant-workspace[data-standalone="true"] .assistant-landing-composer button[type="submit"]:disabled {
+.assistant-workspace .assistant-landing-composer button[type="submit"]:disabled {
   background: color-mix(in srgb, var(--color-primary) 28%, var(--color-surface-container-lowest));
   color: var(--color-on-primary);
 }
 
-.assistant-workspace[data-standalone="true"] .assistant-landing-composer .assistant-composer-toolbar {
+.assistant-workspace .assistant-landing-composer .assistant-composer-toolbar {
   border-top: 0;
   gap: 4px;
   padding-top: 8px;
   margin-bottom: -8px;
 }
 
-.assistant-workspace[data-standalone="true"] .assistant-landing-composer button.assistant-composer-tool {
+.assistant-workspace .assistant-landing-composer button.assistant-composer-tool {
   width: 36px;
   height: 36px;
   border: 0;
@@ -270,11 +282,22 @@
   color: var(--color-on-surface);
 }
 
-.assistant-workspace[data-standalone="true"] .assistant-landing-composer button.assistant-composer-tool:not(:disabled):hover {
+.assistant-workspace .assistant-landing-composer button.assistant-composer-tool:not(:disabled):hover {
   border: 0;
   background: transparent;
   color: var(--color-on-surface);
   opacity: .72;
+}
+
+.assistant-workspace .assistant-composer-toolbar button.assistant-live-voice-button:disabled {
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--color-on-surface) 48%, var(--color-surface-container-lowest));
+  opacity: 1;
+}
+
+.assistant-workspace .assistant-conversation-composer .assistant-composer-toolbar button.assistant-live-voice-button:disabled {
+  background: var(--color-surface-container-low);
 }
 
 .assistant-quick-actions {
@@ -285,36 +308,77 @@
 }
 
 .assistant-action-chip {
+  position: relative;
   display: inline-flex;
   min-height: 34px;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 1px solid transparent;
+  border: 1.5px solid var(--color-outline-variant);
   border-radius: 999px;
-  background: linear-gradient(110deg,
-    color-mix(in srgb, #00adfc 10%, var(--color-surface-container-lowest)),
-    color-mix(in srgb, var(--assistant-accent-end, #199bff) 14%, var(--color-surface-container-lowest))) padding-box,
-    linear-gradient(110deg,
-      color-mix(in srgb, #00adfc 43%, var(--color-surface-container-lowest)),
-      color-mix(in srgb, var(--assistant-accent-end, #199bff) 50%, var(--color-surface-container-lowest))) border-box;
+  background: var(--color-surface-container-lowest);
   padding: 6px 12px;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   color: var(--color-on-surface);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--assistant-accent, var(--color-on-surface)) 8%, transparent);
 }
 
-.assistant-action-chip:not(:disabled):hover {
-  background: linear-gradient(110deg,
-    color-mix(in srgb, #00adfc 15%, var(--color-surface-container-lowest)),
-    color-mix(in srgb, var(--assistant-accent-end, #199bff) 20%, var(--color-surface-container-lowest))) padding-box,
-    linear-gradient(110deg,
-      color-mix(in srgb, #00adfc 60%, var(--color-surface-container-lowest)),
-      color-mix(in srgb, var(--assistant-accent-end, #199bff) 65%, var(--color-surface-container-lowest))) border-box;
-  color: var(--color-on-surface);
-  box-shadow: 0 3px 10px color-mix(in srgb, var(--assistant-accent) 12%, transparent);
+.assistant-action-chip:not(:disabled) {
+  border: 1.5px solid transparent;
+  background: linear-gradient(105deg,
+    color-mix(in srgb, #00adfc 9%, var(--color-surface-container-lowest)),
+    color-mix(in srgb, #199bff 9%, var(--color-surface-container-lowest)) 55%,
+    color-mix(in srgb, #7567ff 11%, var(--color-surface-container-lowest)));
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--assistant-accent) 9%, transparent);
+}
+
+.assistant-action-chip::before {
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #00adfc 0%, #199bff 55%, #7567ff 100%);
+  padding: 1.5px;
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.assistant-action-chip:not(:disabled)::before {
+  opacity: 1;
+}
+
+.assistant-action-chip:is(:hover, :focus-visible)::before {
+  background: conic-gradient(
+    from var(--landing-rainbow-angle),
+    #ff57b3,
+    #ff9d43,
+    #ffe66d,
+    #4ed9a2,
+    #00adfc,
+    #7567ff,
+    #ff57b3
+  );
+  opacity: 1;
+  animation: landing-rainbow-spin 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-action-chip:is(:hover, :focus-visible)::before {
+    animation: none;
+  }
+}
+
+.assistant-action-chip:not(:disabled):is(:hover, :focus-visible) {
+  background: linear-gradient(105deg,
+    color-mix(in srgb, #00adfc 14%, var(--color-surface-container-lowest)),
+    color-mix(in srgb, #199bff 14%, var(--color-surface-container-lowest)) 55%,
+    color-mix(in srgb, #7567ff 16%, var(--color-surface-container-lowest)));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--assistant-accent) 14%, transparent);
 }
 
 .assistant-action-chip:disabled {
@@ -328,6 +392,44 @@
 .assistant-action-chip:disabled svg {
   filter: grayscale(1);
   opacity: .45;
+}
+
+.assistant-action-chip.is-preview:disabled {
+  color: var(--color-on-surface);
+  border-color: var(--color-outline-variant);
+  background: var(--color-surface-container-lowest);
+  cursor: default;
+}
+
+.assistant-action-chip.is-preview:disabled svg {
+  filter: none;
+  opacity: 1;
+}
+
+.assistant-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.assistant-thinking-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: assistant-thinking-wave 900ms ease-in-out infinite;
+}
+
+.assistant-thinking-dots span:nth-child(2) { animation-delay: 120ms; }
+.assistant-thinking-dots span:nth-child(3) { animation-delay: 240ms; }
+
+@keyframes assistant-thinking-wave {
+  0%, 60%, 100% { transform: translateY(0); opacity: .55; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-thinking-dots span { animation: none; opacity: 1; }
 }
 
 .assistant-reference-suggestions {
@@ -428,11 +530,11 @@
   --assistant-accent-strong: color-mix(in srgb, var(--assistant-accent-end) 78%, white);
 }
 
-.dark .assistant-workspace[data-standalone="true"] .assistant-landing-composer button:not(:disabled) {
+.dark .assistant-workspace .assistant-landing-composer button:not(:disabled) {
   color: #c6bcff;
 }
 
-.dark .assistant-workspace[data-standalone="true"] .assistant-landing-composer button[type="submit"]:not(:disabled) {
+.dark .assistant-workspace .assistant-landing-composer button[type="submit"]:not(:disabled) {
   color: var(--color-on-primary);
 }
 
@@ -442,7 +544,7 @@
     right: 12px;
   }
 
-  .assistant-workspace[data-standalone="true"] .assistant-reference-content {
+  .assistant-workspace .assistant-reference-content {
     padding-block: 76px 64px;
   }
 
@@ -481,10 +583,10 @@
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-  .assistant-workspace[data-standalone="true"] .assistant-sidebar {
+  .assistant-workspace .assistant-sidebar {
     display: none;
   }
-  .assistant-workspace[data-standalone="true"] .assistant-mobile-mode-nav {
+  .assistant-workspace .assistant-mobile-mode-nav {
     display: flex;
   }
 }

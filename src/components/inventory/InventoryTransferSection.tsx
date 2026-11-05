@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { StyledSelect } from "../common/StyledSelect";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -399,15 +400,7 @@ export function InventoryTransferSection({
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 active:scale-98 transition disabled:opacity-50"
-              onClick={() => setRevision((v) => v + 1)}
-              title="Làm mới danh sách"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-cyan-600" : ""}`} />
-              <span>Làm mới</span>
-            </button>
+            <ErpRefreshButton onClick={() => setRevision((v) => v + 1)} loading={loading} title="Làm mới danh sách" />
 
             {canManage && (
               <button

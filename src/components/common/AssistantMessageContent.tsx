@@ -12,14 +12,22 @@ function MessageParagraph({ content }: { content: string }) {
   return <p className="whitespace-pre-wrap break-words text-pretty" style={{ overflowWrap: "anywhere" }}>{formattedText(content)}</p>;
 }
 
-export function AssistantMessageContent({ content }: { content: string }) {
+export function AssistantMessageContent({ content, visibleCharacters }: { content: string; visibleCharacters?: number }) {
   const resultTable = parseAssistantResultTable(content);
-  if (!resultTable) return <MessageParagraph content={content} />;
+  if (!resultTable) return <MessageParagraph content={visibleCharacters === undefined ? content : Array.from(content).slice(0, visibleCharacters).join("")} />;
+
+  const totalParts = resultTable.before.length + resultTable.rows.length + resultTable.after.length;
+  const visibleParts = visibleCharacters === undefined
+    ? totalParts
+    : Math.min(totalParts, Math.floor(visibleCharacters / Array.from(content).length * totalParts));
+  const visibleBefore = resultTable.before.slice(0, visibleParts);
+  const visibleRows = resultTable.rows.slice(0, Math.max(0, visibleParts - resultTable.before.length));
+  const visibleAfter = resultTable.after.slice(0, Math.max(0, visibleParts - resultTable.before.length - resultTable.rows.length));
 
   return (
     <div className="min-w-0 space-y-3">
-      {resultTable.before.map((line, index) => <MessageParagraph key={`before-${index}`} content={line} />)}
-      <div
+      {visibleBefore.map((line, index) => <MessageParagraph key={`before-${index}`} content={line} />)}
+      {visibleRows.length > 0 && <div
         role="region"
         aria-label="Bảng kết quả. Có thể cuộn ngang để xem đủ các cột."
         tabIndex={0}
@@ -37,7 +45,7 @@ export function AssistantMessageContent({ content }: { content: string }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant">
-            {resultTable.rows.map(row => (
+            {visibleRows.map(row => (
               <tr key={row.number}>
                 <td className="w-12 px-2 py-2.5 align-top tabular-nums text-on-surface/70">{row.number}</td>
                 {resultTable.headers.map(header => <td key={header} className="max-w-prose whitespace-normal break-words px-2 py-2.5 align-top sm:px-3">{row.values[header] || "—"}</td>)}
@@ -45,8 +53,8 @@ export function AssistantMessageContent({ content }: { content: string }) {
             ))}
           </tbody>
         </table>
-      </div>
-      {resultTable.after.map((line, index) => <MessageParagraph key={`after-${index}`} content={line} />)}
+      </div>}
+      {visibleAfter.map((line, index) => <MessageParagraph key={`after-${index}`} content={line} />)}
     </div>
   );
 }

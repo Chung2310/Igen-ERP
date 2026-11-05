@@ -4,7 +4,7 @@ import { dashboardService } from "../../services/dashboardService";
 import { useAuth } from "../../context/AuthContext";
 import { useBranchOptional } from "../../context/BranchContext";
 import type { DashboardSummary } from "../../types/dashboard";
-import { RotateCcw } from "lucide-react";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 
 export default function HrOverviewSection() {
   const { userProfile, hasPermission } = useAuth();
@@ -68,15 +68,7 @@ export default function HrOverviewSection() {
             Theo dõi quân số, chấm công và cảnh báo hợp đồng tháng này
           </p>
         </div>
-        <button
-          type="button"
-          onClick={loadData}
-          disabled={loading}
-          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 text-xs font-medium shadow-xs hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60 cursor-pointer"
-        >
-          <RotateCcw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-          <span>Làm mới</span>
-        </button>
+        <ErpRefreshButton onClick={loadData} loading={loading} />
       </header>
 
       <HrOverviewDashboard

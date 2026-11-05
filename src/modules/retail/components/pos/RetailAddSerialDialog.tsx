@@ -67,7 +67,7 @@ export default function RetailAddSerialDialog({ product, unavailable, onClose, o
         </div>
         <label className="mt-4 block text-sm font-medium">
           Tìm mã hàng
-          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-outline-variant bg-surface px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-primary" placeholder="Nhập hoặc quét mã" />
+          <input data-erp-search autoFocus value={query} onChange={(event) => setQuery(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-outline-variant bg-surface px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-primary" placeholder="Nhập hoặc quét mã" />
         </label>
       </div>
 

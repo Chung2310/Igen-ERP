@@ -1,4 +1,5 @@
 import React from "react";
+import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
 import { Dropdown } from "../../../components/common/Dropdown";
 import { createPortal } from "react-dom";
 import {
@@ -12,7 +13,6 @@ import {
   Loader2,
   Printer,
   QrCode,
-  RefreshCw,
   ScanLine,
   Wallet,
   X,
@@ -29,6 +29,7 @@ import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { toast } from "../../../pages/Toast";
 import { socketService } from "../../../services/socketService";
 import { cn } from "../../student-management/lib/utils";
+import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 import { TableFilterToolbar } from "../../../components/common/TableFilterToolbar";
 import { Pagination } from "../../../components/common/Pagination";
 import { emptyDatePeriodFilter, getDatePeriodRange, type DatePeriodFilterValue } from "../../../utils/datePeriodFilter";
@@ -330,15 +331,7 @@ export default function RetailInvoicesPageContent() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void loadInvoices()}
-          disabled={loading}
-          className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 text-cyan-600 ${loading ? "animate-spin" : ""}`} />
-          <span>Làm mới</span>
-        </button>
+        <ErpRefreshButton onClick={() => void loadInvoices()} loading={loading} />
       </header>
 
       {/* Quick Summary KPIs */}
@@ -488,9 +481,7 @@ export default function RetailInvoicesPageContent() {
       {/* Invoice list */}
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-            <FileText className="h-6 w-6" />
-          </div>
+          <StudentEmptyIllustration kind="fee" />
           <h3 className="mt-3 text-sm font-semibold text-slate-800">Không tìm thấy hóa đơn</h3>
           <p className="mt-1 text-xs text-slate-500">
             Không có hóa đơn nào khớp với từ khóa tìm kiếm hoặc bộ lọc hiện tại.
@@ -562,7 +553,7 @@ export default function RetailInvoicesPageContent() {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <span title={invoice.invoiceNo} className="block max-w-56 truncate font-mono font-semibold text-slate-900 group-hover:text-cyan-700 transition">
+                        <span title={invoice.invoiceNo} className="block max-w-56 truncate font-mono font-medium text-slate-900 group-hover:text-cyan-700 transition">
                           {invoice.invoiceNo}
                         </span>
                         <span className="mt-0.5 block text-[11px] font-normal text-slate-500">
@@ -570,7 +561,7 @@ export default function RetailInvoicesPageContent() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div title={invoice.snapshot.customerName || "Khách lẻ"} className="max-w-56 truncate font-semibold text-slate-800">
+                        <div title={invoice.snapshot.customerName || "Khách lẻ"} className="max-w-56 truncate font-medium text-slate-800">
                           {invoice.snapshot.customerName || "Khách lẻ"}
                         </div>
                         <div title={invoice.orderCode} className="max-w-56 truncate text-[11px] text-slate-400 font-mono">

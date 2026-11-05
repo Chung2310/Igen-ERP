@@ -5,12 +5,12 @@ import {
   FileText,
   Search,
   Settings,
-  ShoppingCart,
   Ticket,
   Users,
   X,
 } from "lucide-react";
 import { Dropdown } from "../../../../components/common/Dropdown";
+import { StudentEmptyIllustration } from "../../../student-management/components/Erp/StudentEmptyIllustration";
 import CustomerPicker from "./CustomerPicker";
 import RetailCollaboratorSelect from "./RetailCollaboratorSelect";
 import RetailPointsInput from "./RetailPointsInput";
@@ -116,9 +116,7 @@ export function CartPanel({
       <div className="my-3 flex-1 min-h-[140px] space-y-2 overflow-y-auto pr-1 scrollbar-thin">
         {cart.lines.length === 0 ? (
           <div className="flex h-full min-h-[160px] flex-col items-center justify-center gap-3 p-4 text-center">
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#e8f2ff] via-[#edf3ff] to-[#f5f0ff] text-[#5875a6] shadow-inner" aria-hidden="true">
-              <ShoppingCart className="h-8 w-8" strokeWidth={1.8} />
-            </span>
+            <StudentEmptyIllustration kind="resource" />
             <p className="text-sm font-medium text-slate-400">Chưa có sản phẩm nào trong giỏ hàng</p>
           </div>
         ) : (

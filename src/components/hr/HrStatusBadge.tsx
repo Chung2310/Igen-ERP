@@ -12,14 +12,16 @@ const toneClass: Record<Tone, string> = {
   violet: "bg-violet-100 text-violet-800",
 };
 
-export function HrStatusBadge({ children, tone = "neutral", className = "", title }: {
+export function HrStatusBadge({ children, tone = "neutral", className = "", title, dot = false }: {
   children: ReactNode;
   tone?: Tone;
   className?: string;
   title?: string;
+  dot?: boolean;
 }) {
   return (
-    <span className={cn("inline-flex max-w-full min-w-0 items-center rounded-sm px-2 py-0.5 text-xs font-semibold uppercase", toneClass[tone], className)} title={title}>
+    <span className={cn("inline-flex max-w-full min-w-0 items-center rounded-sm px-2 py-0.5 text-xs font-semibold uppercase", toneClass[tone], dot && "gap-1.5 rounded-full border border-current/20 font-medium normal-case", className)} title={title}>
+      {dot && <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-current" />}
       <span className="block min-w-0 truncate">{children}</span>
     </span>
   );

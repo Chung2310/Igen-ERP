@@ -14,7 +14,6 @@ import {
   Plus,
   Smartphone,
   Star,
-  Store,
   Tablet,
   Tag,
 } from "lucide-react";
@@ -42,6 +41,7 @@ import {
   groupProductsBySku,
 } from "../components/pos/ProductCard";
 import { ProductGrid } from "../components/pos/ProductGrid";
+import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
 import { CartPanel } from "../components/pos/CartPanel";
 import {
   HidScannerListener,
@@ -920,7 +920,7 @@ export default function RetailPosPage({
               />
             ) : displayProductGroups.length === 0 ? (
               <div className="flex h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-[#c2d7ff] bg-white p-8 text-center text-slate-500 shadow-2xs">
-                <Store className="mb-2 h-10 w-10 text-[#0866f5]" />
+                <StudentEmptyIllustration kind="resource" />
                 <p className="text-sm font-medium text-slate-700">Không tìm thấy sản phẩm nào trong danh mục này.</p>
                 <p className="text-xs text-slate-400">Hãy thử chọn phân loại khác hoặc xóa bộ lọc.</p>
               </div>

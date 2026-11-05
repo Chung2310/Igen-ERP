@@ -1,5 +1,6 @@
 import React from "react";
 import { RefreshCw } from "lucide-react";
+import { RetailEmptyState } from "../RetailEmptyState";
 import { useRetailScope } from "../../hooks/useRetailScope";
 import { retailOrdersApi } from "../../api/retailOrders.api";
 import { getApiErrorMessage } from "../../../../utils/errorMessage";
@@ -56,7 +57,7 @@ export default function PendingCancellations({ onResolved }: { onResolved: () =>
         Tải lại yêu cầu hủy
       </button>
     </div>
-    {!rows.length && !error && <p className="border-t border-outline-variant px-3 py-3 text-sm text-on-surface-variant sm:px-4">Không có yêu cầu cần đối chiếu.</p>}
+    {!rows.length && !error && <RetailEmptyState kind="fee" compact className="border-t border-outline-variant">Không có yêu cầu cần đối chiếu.</RetailEmptyState>}
     {rows.map((row, index) => <div key={row.key + index} className="flex flex-col gap-3 border-t border-outline-variant px-3 py-3 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="min-w-0 space-y-1 text-sm">
         <p className="text-on-surface">Yêu cầu {index + 1} · Đơn <span className="font-medium text-primary">{row.orderId}</span> · {row.request.reason}</p>

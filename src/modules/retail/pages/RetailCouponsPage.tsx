@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
 import { Dropdown } from "../../../components/common/Dropdown";
 import {
   AlertCircle,
@@ -33,6 +34,7 @@ import {
 import { useRetailScope } from "../hooks/useRetailScope";
 import CustomerPicker from "../components/pos/CustomerPicker";
 import CouponAutomationEditor from "../components/coupons/CouponAutomationEditor";
+import RetailPointsPanel from "../components/coupons/RetailPointsPanel";
 import { toast } from "../../../pages/Toast";
 import { cn } from "../../student-management/lib/utils";
 
@@ -116,9 +118,9 @@ function StatusBadge({ status }: { status: CouponStatus }) {
   }
 }
 
-export default function RetailCouponsPage() {
+export default function RetailCouponsPage({ canManagePoints = false }: { canManagePoints?: boolean }) {
   const { scope } = useRetailScope();
-  const [activeSubTab, setActiveSubTab] = useState<"coupons" | "automations">("coupons");
+  const [activeSubTab, setActiveSubTab] = useState<"coupons" | "automations" | "points">("coupons");
   const [tiers, setTiers] = useState<Array<{ code: string; name: string }>>([]);
   const [tierError, setTierError] = useState("");
   const [isTierDropdownOpen, setIsTierDropdownOpen] = useState(false);
@@ -298,7 +300,7 @@ export default function RetailCouponsPage() {
   }
 
   const inputClass =
-    "w-full rounded-md border border-outline bg-surface px-3 py-2 text-sm text-on-surface transition focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50";
+    "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none disabled:opacity-50";
 
   return (
     <div className="space-y-3">
@@ -315,7 +317,7 @@ export default function RetailCouponsPage() {
                 type="button"
                 onClick={() => setRevision((v) => v + 1)}
                 disabled={loading}
-                className="flex h-9 w-9 items-center justify-center rounded-md border border-outline bg-surface text-on-surface transition hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+                className="flex size-9 items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest text-on-surface transition hover:bg-primary/5 focus-visible:border-primary focus-visible:outline-none disabled:opacity-50"
                 aria-label="Tải lại danh sách mã ưu đãi"
                 title="Tải lại danh sách"
               >
@@ -335,13 +337,13 @@ export default function RetailCouponsPage() {
                 Tạo mã ưu đãi
               </button>
             </>
-          ) : (
+          ) : activeSubTab === "automations" ? (
             <>
               <button
                 type="button"
                 onClick={() => setAutomationsRevision((v) => v + 1)}
                 disabled={loadingAutomations}
-                className="flex h-9 w-9 items-center justify-center rounded-md border border-outline bg-surface text-on-surface transition hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+                className="flex size-9 items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest text-on-surface transition hover:bg-primary/5 focus-visible:border-primary focus-visible:outline-none disabled:opacity-50"
                 aria-label="Tải lại danh sách chương trình tự động"
                 title="Tải lại danh sách tự động"
               >
@@ -356,11 +358,11 @@ export default function RetailCouponsPage() {
                 Thêm chương trình
               </button>
             </>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* 2-Tab Navigation Bar */}
+      {/* Offer sections */}
       <div className="flex gap-2 overflow-x-auto border-b border-outline-variant">
         <button
           type="button"
@@ -393,7 +395,18 @@ export default function RetailCouponsPage() {
             </span>
           )}
         </button>
+        {canManagePoints && <button
+          type="button"
+          aria-pressed={activeSubTab === "points"}
+          onClick={() => setActiveSubTab("points")}
+          className={cn("flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeSubTab === "points" ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")}
+        >
+          <Gift className="h-4 w-4" aria-hidden="true" />
+          Điểm thưởng
+        </button>}
       </div>
+
+      {activeSubTab === "points" && canManagePoints && <RetailPointsPanel />}
 
       {activeSubTab === "coupons" && (
         <div className="space-y-3">
@@ -518,7 +531,7 @@ export default function RetailCouponsPage() {
                       <tr key={item._id} className="group transition hover:bg-cyan-50/25">
                         <td className="py-4 pl-6 pr-3">
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50/80 px-2.5 py-1 font-mono text-xs font-semibold text-cyan-800 shadow-xs">
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50/80 px-2.5 py-1 font-mono text-xs font-medium text-cyan-800 shadow-xs">
                               {item.code}
                               <button
                                 type="button"
@@ -534,7 +547,7 @@ export default function RetailCouponsPage() {
                               </button>
                             </span>
                           </div>
-                          <div className="mt-1.5 text-xs font-semibold text-slate-800">{item.name}</div>
+                          <div className="mt-1.5 text-xs font-medium text-slate-800">{item.name}</div>
                           {item.emailDelivery?.status && <div className="mt-1 text-xs text-slate-500" title={item.emailDelivery.reason}>Email: {{ pending: "Chờ gửi", sending: "Đang gửi / chờ xác nhận", sent: "Đã gửi", failed: "Gửi thất bại", skipped: "Không gửi" }[item.emailDelivery.status]}{item.emailDelivery.reason ? " · " + item.emailDelivery.reason : ""}</div>}
                           <div className="mt-1 text-xs text-slate-500">{item.customerId ? `Riêng: ${item.customerName || item.customerId} · ${item.customerCode || ""}${item.source === "birthday" ? " · Sinh nhật" : item.source === "purchase" ? " · Quà mua hàng" : ""}` : item.customerTierCodes?.length ? "Hạng: " + item.customerTierCodes.map((code) => tiers.find((tier) => tier.code === code)?.name || code).join(", ") : "Tất cả khách hàng"}</div>
                         </td>
@@ -618,9 +631,7 @@ export default function RetailCouponsPage() {
                   {!filteredItems.length && (
                     <tr>
                       <td colSpan={6} className="py-12 text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                          <Ticket className="h-6 w-6" />
-                        </div>
+                        {!loading && <StudentEmptyIllustration kind="fee" className="mx-auto block" />}
                         <div className="mt-3 text-sm font-semibold text-slate-700">
                           {loading ? "Đang tải dữ liệu..." : searchQuery ? "Không tìm thấy mã ưu đãi phù hợp" : "Chưa có mã ưu đãi nào"}
                         </div>
@@ -754,15 +765,13 @@ export default function RetailCouponsPage() {
 
           {/* Programs List / Grid */}
           {loadingAutomations ? (
-            <div className="flex min-h-40 flex-col items-center justify-center rounded-md border border-outline bg-surface p-4 text-center text-on-surface-variant">
+            <div className="flex min-h-40 flex-col items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-center text-on-surface-variant">
               <RefreshCw className="h-6 w-6 animate-spin text-cyan-600 mb-2" />
               <p className="text-sm font-medium">Đang tải danh sách chương trình tự động...</p>
             </div>
           ) : automations.length === 0 && !automationsError ? (
-            <div className="flex flex-col items-center justify-center rounded-md border border-outline bg-surface px-4 py-7 text-center">
-              <div className="mb-2 flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <Gift className="h-5 w-5" />
-              </div>
+            <div className="flex flex-col items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-7 text-center">
+              <StudentEmptyIllustration kind="fee" />
               <h3 className="text-balance text-sm font-medium text-on-surface">Chưa có chương trình tự động tặng mã</h3>
               <p className="mt-1 max-w-md text-pretty text-xs text-on-surface-variant">
                 Tự động gửi mã ưu đãi đến khách hàng khi đến ngày sinh nhật hoặc khi đơn hàng thanh toán đạt mức tiền chỉ định.

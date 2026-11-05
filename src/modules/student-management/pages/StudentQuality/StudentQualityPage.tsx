@@ -1,5 +1,6 @@
 import React from "react";
-import { AlertTriangle, BookOpenCheck, Check, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Eye, FileText, Loader2, Pencil, Plus, RefreshCw, Save, Search, Settings, Trash2, Users, X } from "lucide-react";
+import { AlertTriangle, BookOpenCheck, Check, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Eye, FileText, Loader2, Pencil, Plus, Save, Search, Settings, Trash2, Users, X } from "lucide-react";
+import { ErpRefreshButton } from "../../../../components/common/ErpRefreshButton";
 import { apiFetch } from "../../lib/api";
 import { useBatches } from "../../hooks/useBatches";
 import { useCourses } from "../../hooks/useCourses";
@@ -117,11 +118,11 @@ export function StudentQualityPage({ selectedCenter, canManage, onSelectStudent,
     <header className="flex flex-col gap-2 border-b border-outline-variant pb-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 h-5 w-1 shrink-0 rounded-full bg-primary" />
-        <div><h1 className="text-balance text-xl font-medium text-on-surface">Chất lượng học viên</h1><p className="mt-1 text-pretty text-sm text-on-surface-variant">Theo dõi quá trình đào tạo và kết quả học tập theo từng lớp.</p></div>
+        <h1 className="text-balance text-xl font-medium text-on-surface">Chất lượng học viên</h1>
       </div>
       <div className="flex shrink-0 gap-2 self-start sm:self-auto">
         {canManage ? <button type="button" title="Thiết lập ngưỡng đánh giá" aria-label="Thiết lập ngưỡng đánh giá" onClick={() => setShowThresholds(true)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-brand-primary"><Settings className="h-4 w-4" /></button> : null}
-        <button type="button" onClick={() => void refetch()} className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-brand-primary"><RefreshCw className="h-3.5 w-3.5" />Làm mới</button>
+        <ErpRefreshButton onClick={() => void refetch()} />
       </div>
     </header>
     <div className="grid grid-cols-2 gap-3 border-b border-outline-variant pb-3 md:grid-cols-3 xl:grid-cols-5"><Summary icon={Users} label="Học viên" value={summary.totalStudents} /><Summary icon={AlertTriangle} label="Cần can thiệp" value={summary.riskCount} tone="rose" /><Summary icon={AlertTriangle} label="Cần theo dõi" value={summary.watchCount} tone="amber" /><Summary icon={ClipboardCheck} label="Chuyên cần trung bình" value={percent(summary.averageAttendanceRate)} tone="cyan" /><Summary icon={BookOpenCheck} label="Bài tập trung bình" value={percent(summary.averageAssignmentRate)} tone="violet" /></div>

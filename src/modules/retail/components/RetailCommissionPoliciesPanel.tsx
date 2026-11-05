@@ -109,7 +109,7 @@ export default function RetailCommissionPoliciesPanel({ companyCode, partners }:
       {message && <p role="status" className="mt-4 text-sm text-on-surface-variant">{message}</p>}
       {error ? <p role="alert" className="mt-4 text-sm text-error">{error} <button type="button" onClick={() => void load()} className="font-semibold underline focus-visible:outline-2 focus-visible:outline-primary">Thử lại</button></p>
         : loading ? <div role="status" aria-live="polite"><ErpLoadingState message="Đang tải chính sách hoa hồng..." /></div>
-          : policies.length === 0 ? <ErpEmptyState title="Chưa có phiên bản chính sách mới" subtitle="Tạo chính sách chung hoặc chính sách riêng cho cộng tác viên bán lẻ." icon={Plus} />
+          : policies.length === 0 ? <ErpEmptyState title="Chưa có phiên bản chính sách mới" subtitle="Tạo chính sách chung hoặc chính sách riêng cho cộng tác viên bán lẻ." illustration="fee" />
             : <div className="mt-4 overflow-x-auto rounded-xl border border-outline-variant">
               <table className="w-full min-w-[44rem] text-left text-sm">
                 <thead><tr className="border-b border-outline-variant bg-surface text-on-surface-variant"><th scope="col" className="px-3 py-2.5 font-semibold">Áp dụng cho</th><th scope="col" className="px-3 py-2.5 font-semibold">Hiệu lực từ</th><th scope="col" className="px-3 py-2.5 font-semibold">Điện thoại / máy</th><th scope="col" className="px-3 py-2.5 font-semibold">Phụ kiện</th><th scope="col" className="px-3 py-2.5 font-semibold">Công sửa chữa</th><th scope="col" className="px-3 py-2.5 font-semibold">Thao tác</th></tr></thead>

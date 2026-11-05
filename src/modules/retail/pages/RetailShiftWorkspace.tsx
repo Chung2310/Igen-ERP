@@ -1,6 +1,8 @@
 import { lockCollection } from "../components/orders/collectionRequest";
+import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
 import React from "react";
-import { CalendarDays, ClipboardCheck, ClipboardList, Clock3, Minus, Plus, RefreshCw, Wallet, X } from "lucide-react";
+import { CalendarDays, ClipboardCheck, ClipboardList, Clock3, Minus, Plus, Wallet, X } from "lucide-react";
+import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 import { retailShiftsApi } from "../api/retailShifts.api";
 import { CurrencyInput as SharedCurrencyInput } from "../../../components/common/CurrencyInput";
 import { Dropdown } from "../../../components/common/Dropdown";
@@ -139,7 +141,7 @@ export default function RetailShiftWorkspace() {
   if (!scope) return <p>Vui lòng chọn chi nhánh.</p>;
   return <section className="mx-auto max-w-7xl space-y-5">
     <header className="border-b border-outline-variant pb-3">
-      <h1 className="retail-page-title text-balance text-lg font-semibold text-on-surface">Phiên POS</h1><p className="mt-0.5 text-pretty text-sm text-on-surface-variant">Quản lý phiên bán hàng của nhân viên.</p>
+      <h1 className="retail-page-title text-balance text-lg font-semibold text-on-surface">Phiên POS</h1>
     </header>
     <form onSubmit={(event) => void open(event)} className="relative z-10 overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-outline-variant bg-surface-container-lowest px-4 py-4 sm:px-5">
@@ -172,10 +174,7 @@ export default function RetailShiftWorkspace() {
               </div>
             </div>
           </div>
-          <button type="button" onClick={() => void refresh()} className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20">
-            <RefreshCw className="h-4 w-4" />
-            Làm mới
-          </button>
+          <ErpRefreshButton onClick={() => void refresh()} />
         </div>
         <div className="mt-5 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
           <Field label="Từ ngày" type="date" value={filters.from} max={filters.to || undefined} onChange={(value) => setFilter("from", value)} />
@@ -215,7 +214,7 @@ export default function RetailShiftWorkspace() {
           ))}
         </div>      ) : (
         <div className="px-4 py-12 text-center sm:px-6">
-          <span className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-slate-100 text-slate-400"><ClipboardList className="h-5 w-5" /></span>
+          <StudentEmptyIllustration kind="batch" />
           <p className="mt-3 font-semibold text-slate-700">Chưa có phiên phù hợp</p>
           <p className="mt-1 text-sm text-slate-500">Thử thay đổi ngày, nhân viên hoặc trạng thái phiên.</p>
         </div>

@@ -84,6 +84,13 @@ const ACTIVE_COURSE_STATUS: Course['status'] = 'Hoạt động';
 const PAUSED_COURSE_STATUS: Course['status'] = 'Tạm dừng';
 const COURSE_HEADER_TONES = ['blue', 'cyan', 'green', 'orange', 'rose', 'purple'] as const;
 
+function renderCourseFee(fee: string) {
+  const match = fee.match(/^([\d.,]+)(.*)$/);
+  if (!match) return fee;
+
+  return <><span className="font-bold text-error">{match[1]}</span>{match[2]}</>;
+}
+
 const DEFAULT_DELETE_CONFIRM: DeleteConfirmState = {
   isOpen: false,
   id: '',
@@ -567,7 +574,7 @@ export function CoursesPage({ selectedCenter, canManage = true }: { selectedCent
                   <div className={cn('grid grid-cols-2 gap-x-1.5 gap-y-1.5 border-t pt-2 text-[11px] font-normal', darkMode ? 'text-slate-400 border-slate-800/30' : 'text-slate-600 border-[#E8F0F6]')}>
                     <div className="flex items-center gap-1"><CourseIcon name="duration" className="size-3.5 shrink-0 text-on-surface" /> {course.duration} buổi</div>
                     {usesCourseFeePolicy && (
-                      <div className="flex items-center gap-1"><CourseIcon name="fee" className="size-3.5 shrink-0 text-on-surface" /> {course.fee}</div>
+                      <div className="flex items-center gap-1"><CourseIcon name="fee" className="size-3.5 shrink-0 text-on-surface" /> {renderCourseFee(course.fee)}</div>
                     )}
                     <div className="flex items-center gap-1"><CourseIcon name="learners" className="size-3.5 shrink-0 text-on-surface" /> {copy.capacitySummary(course.maxLearners)}</div>
                     <div className="flex items-center gap-1"><CourseIcon name="batches" className="size-3.5 shrink-0 text-on-surface" /> {course.activeBatches} {copy.activeBatchUnit}</div>

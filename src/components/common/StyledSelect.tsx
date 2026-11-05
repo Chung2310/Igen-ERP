@@ -146,7 +146,7 @@ export function StyledSelect({
             openMenu();
           }
         }}
-        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm font-normal text-on-surface outline-none transition-colors hover:border-primary focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60", className)}
+        className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm font-normal text-on-surface outline-none transition-colors hover:border-primary focus-visible:border-primary focus-visible:ring-0 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60", className)}
       >
         <span className={cn("min-w-0 truncate", showingPlaceholder && "text-on-surface-variant/60")}>
           {selectedOption?.label ?? placeholder}

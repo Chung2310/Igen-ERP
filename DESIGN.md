@@ -41,6 +41,8 @@ Dùng vai trò màu theo ngữ cảnh: `primary` cho hành động chính, `surf
 
 ## Search fields
 
+Khi ô nhập liệu, ô tìm kiếm hoặc dropdown nhận focus, chỉ dùng viền 1 px màu thương hiệu `primary`. Không thêm vòng sáng hoặc outline dày bên ngoài. Giữ sự thay đổi màu viền đủ nhận biết khi dùng bàn phím.
+
 Thanh tìm kiếm trong các màn hình nghiệp vụ dùng viền 1 px màu `outline-variant` (`#d8e2f0` ở giao diện sáng), theo ô tìm kiếm của trang Phòng ban. Khi focus, viền dùng `primary`. Giữ kích thước và bố cục riêng của từng màn hình. Tìm kiếm toàn ERP mở từ biểu tượng kính lúp ở hàng đầu sidebar phân hệ; header không có ô tìm kiếm.
 
 ## Dropdowns

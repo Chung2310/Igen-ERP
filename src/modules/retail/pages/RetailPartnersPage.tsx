@@ -190,7 +190,6 @@ export default function RetailPartnersPage() {
             <span aria-hidden="true" className="h-5 w-1 shrink-0 rounded-full bg-primary" />
             <div>
               <h1 className="text-balance text-xl font-medium tracking-tight text-slate-900">Đối tác bán lẻ</h1>
-              <p className="mt-0.5 text-pretty text-xs font-medium text-slate-500">Hồ sơ cộng tác viên bán lẻ, đại lý và nhà cung cấp của công ty.</p>
             </div>
           </div>
           {canManage && tab === "partners" && <ErpPrimaryButton type="button" onClick={startCreate} className="min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton>}
@@ -272,7 +271,7 @@ export default function RetailPartnersPage() {
 
           <ErpCard className="overflow-hidden border border-slate-200/80">
             {loading ? <div role="status" aria-live="polite"><ErpLoadingState message="Đang tải danh sách đối tác..." /></div> : visible.length === 0 ? <>
-              <ErpEmptyState icon={Handshake} title={filter || statusFilter !== "all" ? "Không tìm thấy đối tác nào" : "Chưa có đối tác bán lẻ"} subtitle={filter || statusFilter !== "all" ? "Không có đối tác khớp với nội dung tìm kiếm hoặc trạng thái đã chọn." : "Khai báo đối tác để quản lý cộng tác viên, đại lý và nhà cung cấp bán lẻ."} />
+              <ErpEmptyState illustration={filter || statusFilter !== "all" ? "generic" : "partner"} title={filter || statusFilter !== "all" ? "Không tìm thấy đối tác nào" : "Chưa có đối tác bán lẻ"} subtitle={filter || statusFilter !== "all" ? "Không có đối tác khớp với nội dung tìm kiếm hoặc trạng thái đã chọn." : "Khai báo đối tác để quản lý cộng tác viên, đại lý và nhà cung cấp bán lẻ."} />
               {canManage && !(filter || statusFilter !== "all") && <div className="flex justify-center pb-8"><ErpPrimaryButton type="button" onClick={startCreate} className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton></div>}
               {(filter || statusFilter !== "all") && <div className="flex justify-center pb-8"><button type="button" onClick={() => { setFilter(""); setStatusFilter("all"); }} className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xóa bộ lọc</button></div>}
             </> : <>
@@ -321,7 +320,7 @@ export default function RetailPartnersPage() {
                       const linkedUser = getLinkedUser(partner);
                       const role = getRetailPartnerRole(partner);
                       return <tr key={partner._id} className="text-slate-700 transition-colors hover:bg-slate-50/60">
-                      <td className="px-3.5 py-3"><div className="text-xs font-semibold text-slate-900">{partner.name}</div><div className="mt-0.5 text-[11px] font-normal text-slate-500">{partner.code}</div></td>
+                      <td className="px-3.5 py-3"><div className="text-xs font-medium text-slate-900">{partner.name}</div><div className="mt-0.5 text-[11px] font-normal text-slate-500">{partner.code}</div></td>
                       <td className="px-3.5 py-3"><span className="inline-block rounded-full border border-slate-200/60 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">{roleLabels[role]}</span></td>
                       <td className="px-3.5 py-3"><div className="text-xs font-medium text-slate-800">{partner.phone || "Chưa có số điện thoại"}</div><div className="mt-0.5 text-[11px] font-normal text-slate-500">{partner.email || "Chưa có email"}</div></td>
                       <td className="max-w-64 px-3.5 py-3 text-xs text-slate-600">{partner.address || "Chưa cập nhật"}</td>

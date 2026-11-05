@@ -26,6 +26,11 @@ import { useWorkers } from "../hooks/useWorkers";
 import { WorkerTimekeepingPanel } from "../components/WorkerTimekeepingPanel";
 import { WorkerQrAttendance } from "../components/WorkerQrAttendance";
 import { WorkerTimekeepingHistory } from "../components/WorkerTimekeepingHistory";
+import { HrEmptyIllustration, type HrEmptyIllustrationKind } from "../../../components/hr/HrEmptyIllustration";
+import { HrPageTitle } from "../../../components/hr/HrPageTitle";
+import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
+import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
+import { cn } from "../../student-management/lib/utils";
 import { workerAttendanceApi } from "../api/workerAttendance.api";
 import type {
   Worker,
@@ -69,6 +74,18 @@ const STATUS_OPTIONS: Array<{ value: ProjectStatus; label: string }> = [
   { value: "active", label: "Đang triển khai" },
   { value: "completed", label: "Đã kết thúc" },
 ];
+
+const projectStatusTone: Record<ProjectStatus, "info" | "success" | "neutral"> = {
+  planned: "info",
+  active: "success",
+  completed: "neutral",
+};
+
+const projectStatusClass: Record<ProjectStatus, string> = {
+  planned: "border-sky-200 bg-sky-50 text-sky-800",
+  active: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  completed: "border-outline-variant bg-surface-container-low text-on-surface-variant",
+};
 
 const DAY_OPTIONS = [
   { value: 1, label: "T2" },
@@ -407,25 +424,22 @@ export function WorkerProjectsPage({
 
   const statusSelect = (project: WorkerProject) => (
     <div className="w-36 shrink-0">
-      <StyledSelect
+      {canManage ? <StyledSelect
         ariaLabel={`Trạng thái ${project.code}`}
         value={project.status}
-        disabled={!canManage}
         onChange={(value) => void changeStatus(project, value as ProjectStatus)}
         options={STATUS_OPTIONS}
-        className="h-8 px-2.5 text-xs"
-      />
+        className={cn("h-8 rounded-full px-2.5 text-xs font-medium", projectStatusClass[project.status])}
+      /> : <HrStatusBadge tone={projectStatusTone[project.status]} dot>{STATUS_OPTIONS.find((option) => option.value === project.status)?.label}</HrStatusBadge>}
     </div>
   );
 
   return (
-    <div className="space-y-4 text-left">
+    <div className="space-y-3 text-left">
       {/* Row 1: Title + count */}
       <div>
-        <h1 className="border-l-[3px] border-[#00ADFC] pl-3 text-xl font-medium tracking-tight text-slate-900">
-          Dự án tuyển dụng
-        </h1>
-        <p className="mt-1 pl-3 text-xs text-slate-500">
+        <HrPageTitle level={1}>Dự án tuyển dụng</HrPageTitle>
+        <p className="mt-1 pl-4 text-xs tabular-nums text-on-surface-variant">
           {loading ? "..." : `${total}`} dự án
         </p>
       </div>
@@ -442,14 +456,14 @@ export function WorkerProjectsPage({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Tìm theo mã, tên, địa điểm..."
-            className="h-10 w-full rounded-xl border border-[#DCE7F4] bg-white pl-9 pr-3 text-sm outline-none focus:border-[#00ADFC]"
+            className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-2 focus:outline-primary"
           />
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
         </div>
 
         {/* Filters + view toggle + add button */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1">
+          <div className="flex max-w-full items-center gap-1 overflow-x-auto">
             <FilterButton active={status === "all"} onClick={() => setStatus("all")}>
               Tất cả
             </FilterButton>
@@ -463,20 +477,24 @@ export function WorkerProjectsPage({
               </FilterButton>
             ))}
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-[#DCE7F4] bg-white p-1">
+          <div className="flex items-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest p-1">
             <button
               type="button"
               title="Dạng bảng"
+              aria-label="Dạng bảng"
+              aria-pressed={viewMode === "table"}
               onClick={() => changeView("table")}
-              className={`rounded-lg p-1.5 ${viewMode === "table" ? "bg-brand-primary text-white" : "text-slate-400"}`}
+              className={cn("rounded-md p-1.5 focus-visible:outline-2 focus-visible:outline-primary", viewMode === "table" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-primary/5")}
             >
               <Rows3 className="h-4 w-4" />
             </button>
             <button
               type="button"
               title="Dạng thẻ"
+              aria-label="Dạng thẻ"
+              aria-pressed={viewMode === "card"}
               onClick={() => changeView("card")}
-              className={`rounded-lg p-1.5 ${viewMode === "card" ? "bg-brand-primary text-white" : "text-slate-400"}`}
+              className={cn("rounded-md p-1.5 focus-visible:outline-2 focus-visible:outline-primary", viewMode === "card" ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-primary/5")}
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
@@ -485,7 +503,7 @@ export function WorkerProjectsPage({
             <button
               type="button"
               onClick={openCreate}
-              className="flex h-9 items-center gap-1.5 rounded-lg bg-[#00ADFC] px-3 text-xs font-medium text-white transition-colors hover:bg-[#0097dc]"
+              className={cn(primaryCreateButtonClass, "h-9")}
             >
               <Plus className="h-3.5 w-3.5" /> Thêm dự án
             </button>
@@ -498,13 +516,13 @@ export function WorkerProjectsPage({
       ) : error ? (
         <StatePanel error>{error}</StatePanel>
       ) : !filtered.length ? (
-        <StatePanel>Chưa có dự án nào phù hợp.</StatePanel>
+        <StatePanel illustration={projects.length ? "search" : "project"}>Chưa có dự án nào phù hợp.</StatePanel>
       ) : viewMode === "card" ? (
         <div className="project-cards grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((project) => (
             <article
               key={project._id}
-              className="flex flex-col gap-3 rounded-2xl border border-[#DCE7F4] bg-white p-4"
+              className="flex flex-col gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -526,11 +544,11 @@ export function WorkerProjectsPage({
           ))}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-[#DCE7F4] bg-white">
+        <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1000px] text-left text-sm">
               <thead>
-                <tr className="border-b border-[#DCE7F4] bg-[#E8F7FF] text-xs font-medium text-slate-600">
+                <tr className="border-b border-outline-variant bg-surface-container-low text-xs font-medium text-on-surface-variant">
                   <th className="px-4 py-3">Mã dự án</th>
                   <th className="px-4 py-3">Tên dự án</th>
                   <th className="px-4 py-3">Lịch hoạt động</th>
@@ -540,9 +558,9 @@ export function WorkerProjectsPage({
                   <th className="px-4 py-3">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-outline-variant">
                 {filtered.map((project) => (
-                  <tr key={project._id} className="hover:bg-[#F5FAFE]">
+                  <tr key={project._id} className="hover:bg-primary/5">
                     <td className="px-4 py-3 font-medium text-slate-800">
                       {project.code}
                     </td>
@@ -1001,7 +1019,7 @@ export function WorkerProjectsPage({
                   <span className="text-sm font-medium text-slate-700">{worker.fullName}</span>
                   <span className="text-xs text-slate-500">{worker.partnerCode || worker.phone || ""}</span>
                 </label>;
-              }) : <p className="px-3 py-4 text-center text-sm text-slate-500">Không còn lao động phù hợp để thêm.</p>}
+              }) : <div className="flex flex-col items-center px-3 py-4 text-center"><HrEmptyIllustration kind={availableWorkers.length ? "search" : "worker"} className="h-16 w-28" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Không còn lao động phù hợp để thêm.</p></div>}
             </div>
           </div>
           <div className="mt-4 divide-y divide-[#E7EFF7]">
@@ -1029,9 +1047,7 @@ export function WorkerProjectsPage({
                 );
               })
             ) : (
-              <p className="px-3 py-5 text-center text-sm text-slate-500">
-                Chưa có lao động trong dự án.
-              </p>
+              <div className="flex flex-col items-center px-3 py-5 text-center"><HrEmptyIllustration kind="worker" className="h-20 w-32" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Chưa có lao động trong dự án.</p></div>
             )}
           </div>
         </Modal>
@@ -1183,7 +1199,7 @@ function WorkerAttendanceHistory({ projectId, workers, projectName }: { projectI
 
     {loading ? <p className="text-sm text-slate-400">Đang tải...</p>
       : error ? <p role="alert" className="text-sm text-red-600">{error}</p>
-      : days.length === 0 ? <p className="text-sm text-slate-400">Chưa có dữ liệu trong khoảng ngày đã chọn.</p>
+      : days.length === 0 ? <div className="flex flex-col items-center rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-6 text-center"><HrEmptyIllustration kind="calendar" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Chưa có dữ liệu trong khoảng ngày đã chọn.</p></div>
       : selectedDate === null ? (
         <div className="overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full min-w-[640px] text-left text-[13px]">
@@ -1250,8 +1266,9 @@ function ActionButton({
     <button
       type="button"
       title={title}
+      aria-label={title}
       onClick={onClick}
-      className={`grid h-8 w-8 place-items-center rounded-lg border border-[#DCE7F4] bg-white transition-colors ${tone === "danger" ? "text-rose-500 hover:border-rose-200 hover:bg-rose-50" : "text-[#007EB8] hover:border-[#00ADFC] hover:bg-[#E8F7FF]"}`}
+      className={cn("grid size-8 place-items-center rounded-md border border-outline-variant bg-surface-container-lowest focus-visible:outline-2 focus-visible:outline-primary", tone === "danger" ? "text-error hover:bg-error/5" : "text-primary hover:bg-primary/5")}
     >
       {children}
     </button>
@@ -1270,8 +1287,9 @@ function FilterButton({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
-      className={`whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-medium ${active ? "border-[#00ADFC] bg-[#00ADFC] text-white" : "border-[#DCE7F4] bg-white text-slate-600 hover:border-[#00ADFC]"}`}
+      className={cn("whitespace-nowrap rounded-md border px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary", active ? "border-primary bg-primary text-on-primary" : "border-outline-variant bg-surface-container-lowest text-on-surface hover:border-primary hover:bg-primary/5")}
     >
       {children}
     </button>
@@ -1281,15 +1299,17 @@ function FilterButton({
 function StatePanel({
   children,
   error,
+  illustration,
 }: {
   children: React.ReactNode;
   error?: boolean;
+  illustration?: HrEmptyIllustrationKind;
 }) {
   return (
     <div
-      className={`rounded-xl border border-slate-100 bg-white px-4 py-16 text-center text-xs italic shadow-sm ${error ? "text-rose-500" : "text-slate-400"}`}
+      className={cn("rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-12 text-center text-xs shadow-xs", error ? "text-error" : "text-on-surface-variant")}
     >
-      {children}
+      {illustration ? <div className="flex flex-col items-center"><HrEmptyIllustration kind={illustration} /><p className="mt-1 text-pretty text-sm not-italic text-on-surface-variant">{children}</p></div> : children}
     </div>
   );
 }

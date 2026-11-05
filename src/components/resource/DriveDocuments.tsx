@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ExternalLink, Loader2, RefreshCw, HardDrive, Settings, Upload, FolderOpen, Trash2, AlertTriangle, File as FileIcon,
+  ExternalLink, Loader2, HardDrive, Settings, Upload, FolderOpen, Trash2, AlertTriangle, File as FileIcon,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { authService } from "../../services/authService";
@@ -8,6 +8,7 @@ import { resourceService } from "../../services/resourceService";
 import { toast } from "../../pages/Toast";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { formatDate } from "./resourceHelpers";
 import type { DriveApiFile } from "../../types";
 
@@ -177,13 +178,7 @@ export const DriveDocuments: React.FC = () => {
             Mở thư mục
           </a>
         )}
-        <button
-          onClick={load}
-          className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 transition active:scale-95"
-          title="Làm mới"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <ErpRefreshButton onClick={load} loading={loading} className="ml-auto" />
       </div>
 
       {/* Vùng nội dung */}

@@ -6,6 +6,7 @@ import { useSubTabRouter } from "../../hooks/useSubTabRouter";
 import { getAllowedRetailTabSlugs } from "./retailTabPermissions";
 import { retailShiftsApi } from "./api/retailShifts.api";
 import { useRetailScope } from "./hooks/useRetailScope";
+import { cn } from "../student-management/lib/utils";
 import { toast } from "../../pages/Toast";
 import "./retail-workspace.css";
 
@@ -18,7 +19,6 @@ const ReportsPage = lazy(() => import("./pages/RetailReportsPage"));
 const OrderWarrantyPage = lazy(() => import("./pages/OrderWarrantyPage"));
 const ShiftWorkspace = lazy(() => import("./pages/RetailShiftWorkspace"));
 const FinancePage = lazy(() => import("./pages/RetailFinancePage"));
-const PromotionsPage = lazy(() => import("./pages/RetailPromotionsPage"));
 
 type RetailSubTab = (typeof SUB_TABS)[number]["value"];
 
@@ -30,9 +30,8 @@ const SUB_TABS = [
   { slug: "bao-cao", value: "BÁO CÁO" as const, label: "Báo cáo", icon: ChartColumn },
   { slug: "ca-pos", value: "CA POS" as const, label: "Ca POS", icon: Clock3 },
   { slug: "tai-chinh", value: "TÀI CHÍNH" as const, label: "Tài chính", icon: ChartColumn },
-  { slug: "uu-dai", value: "ƯU ĐÃI" as const, label: "Ưu đãi và điểm", icon: Ticket },
   { slug: "cai-dat", value: "CÀI ĐẶT" as const, label: "Cài đặt", icon: Settings },
-  { slug: "ma-uu-dai", value: "MÃ ƯU ĐÃI" as const, label: "Mã ưu đãi", icon: Ticket },
+  { slug: "ma-uu-dai", value: "MÃ ƯU ĐÃI" as const, label: "Ưu đãi và điểm", icon: Ticket },
 ];
 
 export default function RetailWorkspace() {
@@ -44,7 +43,10 @@ export default function RetailWorkspace() {
     userProfile?.role === "admin" || userProfile?.role === "superadmin" ? ["*"] : userProfile?.permissions || [],
   );
   const tabs = SUB_TABS.filter((tab) => allowed.includes(tab.slug as (typeof allowed)[number]));
-  const [activeTab, setActiveTab] = useSubTabRouter<RetailSubTab>(tabs, tabs[0]?.value || "ĐƠN HÀNG");
+  const routes = tabs.some((tab) => tab.slug === "ma-uu-dai")
+    ? [...tabs, { slug: "uu-dai", value: "MÃ ƯU ĐÃI" as const }]
+    : tabs;
+  const [activeTab, setActiveTab] = useSubTabRouter<RetailSubTab>(routes, tabs[0]?.value || "ĐƠN HÀNG");
   const contentRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -81,7 +83,7 @@ export default function RetailWorkspace() {
         {canOpenPos && <ModuleNavigationButton active={false} disabled={openingPos} icon={<Store />} onClick={() => void openPos()} title="Vào quầy POS bằng phiên của tài khoản đang đăng nhập" className="text-primary">Vào quầy POS</ModuleNavigationButton>}
       </ModuleNavigation>
       <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:pb-4 lg:pl-0 [overflow-anchor:none]">
-        <div className="min-h-full rounded-md border border-outline-variant bg-surface-container-lowest p-4">
+        <div className={cn("min-h-full rounded-md border border-outline-variant bg-surface-container-lowest p-4", activeTab === "BẢO HÀNH" && "flex flex-col")}>
           <Suspense fallback={<div role="status" className="text-sm text-on-surface-variant">Đang tải phân hệ bán hàng...</div>}>
           {activeTab === "ĐƠN HÀNG" && <OrdersPage />}
           {activeTab === "ĐỔI TRẢ" && <ReturnsPage />}
@@ -89,9 +91,8 @@ export default function RetailWorkspace() {
           {activeTab === "BÁO CÁO" && <ReportsPage />}
           {activeTab === "CA POS" && <ShiftWorkspace />}
           {activeTab === "CÀI ĐẶT" && <SettingsPage />}
-          {activeTab === "MÃ ƯU ĐÃI" && <CouponsPage />}
+          {activeTab === "MÃ ƯU ĐÃI" && <CouponsPage canManagePoints={userProfile?.role === "admin" || userProfile?.role === "superadmin" || Boolean(userProfile?.permissions?.includes("*")) || Boolean(userProfile?.permissions?.includes("retail-points:manage") && userProfile?.permissions?.includes("retail-coupon:manage"))} />}
           {activeTab === "TÀI CHÍNH" && <FinancePage />}
-          {activeTab === "ƯU ĐÃI" && <PromotionsPage />}
           {activeTab === "BẢO HÀNH" && <OrderWarrantyPage />}
           </Suspense>
         </div>

@@ -2,6 +2,7 @@ import React, { Fragment, useCallback, useEffect, useMemo, useState } from "reac
 import { StyledSelect } from "../common/StyledSelect";
 import { DatePeriodFilter } from "../common/DatePeriodFilter";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { Pagination } from "../common/Pagination";
 import {
   Check,
@@ -207,16 +208,7 @@ export function ReceivingSection() {
             <PackagePlus className="size-4 shrink-0" aria-hidden="true" />
             Tạo phiếu nhập mới
           </button>
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
-            className="inline-flex size-9.5 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"
-            title="Làm mới danh sách"
-            aria-label="Làm mới danh sách"
-          >
-            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
-          </button>
+          <ErpRefreshButton onClick={() => void load()} loading={loading} title="Làm mới danh sách" />
         </div>
       </div>
 

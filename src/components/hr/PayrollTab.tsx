@@ -449,7 +449,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
         disabled={inputSaving}
         value={value}
         onChange={(event) => setInputDrafts(current => setLineOverrideDraftValue(current, employeeId, field, event.target.value === "" ? 0 : Number(event.target.value)))}
-        className={`no-number-spinner w-full rounded-lg border px-2 py-1.5 text-right text-xs outline-none transition-colors focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15 ${isDirty ? "border-amber-400 bg-amber-50" : hasPersisted ? "border-[#8BDCF9] bg-[#F1FAFE]" : "border-slate-200 bg-white"}`}
+        className={`no-number-spinner w-full rounded-lg border px-2 py-1.5 text-center text-xs tabular-nums outline-none transition-colors focus:border-primary ${isDirty ? "border-amber-400 bg-amber-50" : hasPersisted ? "border-[#8BDCF9] bg-[#F1FAFE]" : "border-outline-variant bg-surface-container-lowest"}`}
       />
       <div className="mt-1 flex items-center justify-between gap-1 text-[9px]">
         <span className={isDirty ? "font-normal text-amber-700" : hasPersisted ? "font-normal text-[#007EB8]" : "text-slate-400"}>{isDirty ? "Chưa lưu" : `Hệ thống: ${formatVnd(Number(systemValue))}`}</span>
@@ -740,28 +740,28 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                   <th className="border-l border-rose-100 bg-rose-50 p-2 text-center font-normal text-rose-800">Khoản khấu trừ</th>
                   <th className="border-l border-[#DCE7F4] bg-slate-100 p-2 text-center font-normal text-slate-800">Thực nhận</th>
                 </tr>
-                <tr className="border-b text-xs text-slate-500">
+                <tr className="border-b border-outline-variant text-xs text-slate-500">
                   <th className="sticky left-0 z-20 min-w-[180px] border-r border-[#DCE7F4] bg-slate-50 p-3 text-center font-normal">Thông tin nhân viên</th>
                   {PAYROLL_RESULT_FIELDS.map(field => <SortHeader key={field.key} label={field.label} sortKey={field.key} activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />)}
                   {customVariables.map((variable: any) => <th key={variable.code} className="min-w-[145px] border-l border-slate-200 p-3 text-center font-normal text-slate-500">{variable.name}</th>)}
-                  <th className="border-l border-slate-200 p-3 text-right font-normal text-slate-500">Hoa hồng</th>
+                  <th className="border-l border-slate-200 p-3 text-center font-normal text-slate-500">Hoa hồng</th>
                   <SortHeader label="Tổng khấu trừ" sortKey="deductionTotal" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Thực nhận" sortKey="net" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
-                  {canManage && <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap">KPI công việc</th>}
+                  {canManage && <th className="border-l border-outline-variant p-3 text-center font-normal text-on-surface-variant whitespace-nowrap">KPI công việc</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredSortedRunRows.length === 0 ? (
                   <tr><td colSpan={14 + customVariables.length + (canManage ? 1 : 0)}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : filteredSortedRunRows.map((line: any) => (
-                  <tr key={line.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
+                  <tr key={line.employeeId} className="border-b border-outline-variant last:border-0 hover:bg-slate-50/50">
                     <td className="sticky left-0 z-10 border-r border-[#DCE7F4] bg-white p-3 text-center font-normal text-slate-700">
                       <div>{line.employeeName || "Chưa có tên"}</div>
                       {inputErrors[String(line.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(line.employeeId)]}</div>}
                     </td>
                     {PAYROLL_RESULT_FIELDS.map(field => inlineEditable
                       ? renderResultCell(line, field.key, Number(line.systemValues[field.key]), Number(line[field.key]))
-                        : <td key={field.key} className="border-l border-slate-100 p-3 text-right text-slate-600">{field.key === "adjustedBase"
+                        : <td key={field.key} className="border-l border-slate-100 p-3 text-center tabular-nums text-slate-600">{field.key === "adjustedBase"
                         ? <button aria-label={`Chi tiết adjustedBase-${line.employeeId}`} onClick={() => void openFormulaRow(line)} className="font-normal text-[#007EB8] underline decoration-dotted cursor-pointer">{formatVnd(Number(line[field.key]))}</button>
                         : formatVnd(Number(line[field.key]))}</td>)}
                     {customVariables.map((variable: any) => {
@@ -770,25 +770,25 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                       const effectiveValue = Number(line.customValues?.[variable.code] ?? systemValue);
                       return inlineEditable
                         ? renderResultCell(line, field, systemValue, effectiveValue)
-                        : <td key={field} className="border-l border-slate-100 p-3 text-right text-slate-600">{effectiveValue.toLocaleString()}</td>;
+                        : <td key={field} className="border-l border-slate-100 p-3 text-center tabular-nums text-slate-600">{effectiveValue.toLocaleString()}</td>;
                     })}
-                    <td className="border-l border-slate-100 p-3 text-right text-slate-600">{formatVnd(Number(line.commission))}</td>
-                    <td className="p-3 text-right font-normal text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{formatVnd(Number(line.deductionTotal))}</span></td>
-                    <td className="p-3 text-right font-normal text-slate-900"><span aria-label={`net-${line.employeeId}`}>{formatVnd(Number(line.net))}</span></td>
-                    {canManage && <td className="border-l border-outline-variant p-3 text-right text-on-surface tabular-nums">{formatKpiPercent(kpiPercentByEmployee[String(line.employeeId)])}</td>}
+                    <td className="border-l border-slate-100 p-3 text-center tabular-nums text-slate-600">{formatVnd(Number(line.commission))}</td>
+                    <td className="p-3 text-center font-normal tabular-nums text-rose-700"><span aria-label={`deductionTotal-${line.employeeId}`}>{formatVnd(Number(line.deductionTotal))}</span></td>
+                    <td className="p-3 text-center font-normal tabular-nums text-slate-900"><span aria-label={`net-${line.employeeId}`}>{formatVnd(Number(line.net))}</span></td>
+                    {canManage && <td className="border-l border-outline-variant p-3 text-center text-on-surface tabular-nums">{formatKpiPercent(kpiPercentByEmployee[String(line.employeeId)])}</td>}
                   </tr>
                 ))}
               </tbody>
               {filteredSortedRunRows.length > 0 && (
                 <tfoot>
-                  <tr className="border-t bg-slate-50 font-normal text-slate-700">
+                  <tr className="border-t border-outline-variant bg-slate-50 font-normal text-slate-700">
                     <td className="p-3">Tổng cộng ({filteredSortedRunRows.length})</td>
-                    {PAYROLL_RESULT_FIELDS.map(field => <td key={field.key} className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row[field.key]), 0))}</td>)}
-                    {customVariables.map((variable: any) => <td key={variable.code} className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.customValues?.[variable.code] ?? row.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0), 0))}</td>)}
-                    <td className="p-3 text-right">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.commission ?? 0), 0))}</td>
-                    <td className="p-3 text-right text-rose-700">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.deductionTotal, 0))}</td>
-                    <td className="p-3 text-right text-slate-900">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0))}</td>
-                    {canManage && <td className="border-l border-outline-variant p-3 text-right text-on-surface-variant tabular-nums">—</td>}
+                    {PAYROLL_RESULT_FIELDS.map(field => <td key={field.key} className="p-3 text-center tabular-nums">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row[field.key]), 0))}</td>)}
+                    {customVariables.map((variable: any) => <td key={variable.code} className="p-3 text-center tabular-nums">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.customValues?.[variable.code] ?? row.systemValues?.customValues?.[variable.code] ?? variable.defaultValue ?? 0), 0))}</td>)}
+                    <td className="p-3 text-center tabular-nums">{formatVnd(filteredSortedRunRows.reduce((sum: number, row: any) => sum + Number(row.commission ?? 0), 0))}</td>
+                    <td className="p-3 text-center tabular-nums text-rose-700">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.deductionTotal, 0))}</td>
+                    <td className="p-3 text-center tabular-nums text-slate-900">{formatVnd(filteredSortedRunRows.reduce((s: number, r: any) => s + r.net, 0))}</td>
+                    {canManage && <td className="border-l border-outline-variant p-3 text-center text-on-surface-variant tabular-nums">—</td>}
                   </tr>
                 </tfoot>
               )}
@@ -800,12 +800,12 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
           ) : (
             <>
               <thead className="sticky top-0 z-10 bg-surface-container-low">
-                <tr className="border-b text-xs text-slate-500">
+                <tr className="border-b border-outline-variant text-xs text-slate-500">
                   <SortHeader label="Nhân viên" sortKey="employeeName" activeKey={sortKey} dir={sortDir} onSort={onSort} />
                   <SortHeader label="Lương cơ bản" sortKey="monthlySalary" activeKey={sortKey} dir={sortDir} onSort={onSort} align="right" />
                   <SortHeader label="Ngày công" sortKey="workedDays" activeKey={sortKey} dir={sortDir} onSort={onSort} align="center" />
                   <th className="p-3 text-center font-normal text-slate-500">Trạng thái công</th>
-                  {canManage && <th className="border-l border-outline-variant p-3 text-right font-normal text-on-surface-variant whitespace-nowrap">KPI công việc</th>}
+                  {canManage && <th className="border-l border-outline-variant p-3 text-center font-normal text-on-surface-variant whitespace-nowrap">KPI công việc</th>}
                 </tr>
               </thead>
               <tbody>
@@ -815,9 +815,9 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                   <tr><td colSpan={4 + (canManage ? 1 : 0)}><EmptyState icon={Search} title="Không tìm thấy nhân viên phù hợp" /></td></tr>
                 ) : (
                   filteredSortedDraftRows.map((row: any) => (
-                    <tr key={row.employeeId} className="border-b last:border-0 hover:bg-slate-50/50">
+                    <tr key={row.employeeId} className="border-b border-outline-variant last:border-0 hover:bg-slate-50/50">
                       <td className="sticky left-0 z-10 border-r border-[#DCE7F4] bg-white p-3 font-normal text-slate-700"><div>{row.employeeName || "Chưa có tên"}</div>{inputErrors[String(row.employeeId)] && <div className="mt-1 text-[10px] text-rose-600">{inputErrors[String(row.employeeId)]}</div>}</td>
-                    <td className="p-3 text-right text-slate-600">{formatVnd(Number(row.monthlySalary))}</td>
+                    <td className="p-3 text-center tabular-nums text-slate-600">{formatVnd(Number(row.monthlySalary))}</td>
                       <td className="p-3 text-center font-normal text-emerald-600">{row.workedDays.toFixed(2)} ngày</td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-normal  ${
@@ -826,7 +826,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
                           {row.status === "locked" ? "Đã khóa" : "Bản nháp"}
                         </span>
                       </td>
-                      {canManage && <td className="border-l border-outline-variant p-3 text-right text-on-surface tabular-nums">{formatKpiPercent(kpiPercentByEmployee[String(row.employeeId)])}</td>}
+                      {canManage && <td className="border-l border-outline-variant p-3 text-center text-on-surface tabular-nums">{formatKpiPercent(kpiPercentByEmployee[String(row.employeeId)])}</td>}
                     </tr>
                   ))
                 )}

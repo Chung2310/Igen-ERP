@@ -1,23 +1,13 @@
 .worker-workspace :is(.font-black, .font-extrabold) {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .worker-workspace .font-bold {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .worker-workspace #worker_sub_tabs_bar [aria-current="page"] {
   font-weight: 700;
-}
-
-.worker-workspace h1 {
-  font-size: 1.25rem;
-  font-weight: 500;
-  color: #0f172a;
-}
-
-.worker-workspace :is(h2, h3) {
-  font-weight: 500;
 }
 
 .worker-workspace .uppercase {
@@ -26,14 +16,14 @@
 }
 
 .worker-workspace :is(input, textarea, select):focus-visible {
-  outline: 2px solid rgba(0, 173, 252, 0.25);
-  outline-offset: 1px;
+  outline: none;
+  border-color: var(--color-primary);
 }
 
 .worker-contract-form-dialog :is(input, textarea, select):focus {
   outline: none !important;
-  border-color: #70d5ff;
-  box-shadow: 0 0 0 3px rgb(0 173 252 / 15%);
+  border-color: var(--color-primary);
+  box-shadow: none;
 }
 
 .worker-workspace input[type="number"]::-webkit-inner-spin-button,

@@ -1,4 +1,5 @@
 import React from 'react';
+import { ErpRefreshButton } from '../../../../../../components/common/ErpRefreshButton';
 import {
   Trash2,
   Upload,
@@ -186,7 +187,7 @@ export function EditorPanel(props: EditorPanelProps) {
                   <p className="mt-1 text-xs text-emerald-800">Kết nối lúc {new Date(props.canvaStatus.connectedAt).toLocaleString('vi-VN')}</p>
                 )}
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button type="button" onClick={props.onRefreshCanva} className="rounded-xl border border-emerald-300 bg-white px-3 py-2 text-xs font-extrabold text-emerald-800 transition hover:bg-emerald-100">Làm mới</button>
+                  <ErpRefreshButton onClick={props.onRefreshCanva} />
                   <button type="button" onClick={props.onStartCanvaConnection} className="rounded-xl bg-violet-600 px-3 py-2 text-xs font-extrabold text-white transition hover:bg-violet-700">Đổi tài khoản</button>
                 </div>
               </div>
