@@ -5,6 +5,7 @@ import RetailKpiGrid from "../components/reports/RetailKpiGrid";
 import RetailReportFilters from "../components/reports/RetailReportFilters";
 import RetailReportTables from "../components/reports/RetailReportTables";
 import RetailSalesCharts from "../components/reports/RetailSalesCharts";
+import RetailOverviewDashboard from "../components/reports/RetailOverviewDashboard";
 import { validateRetailReportRange } from "../components/reports/retailReportRange";
 import { useRetailScope } from "../hooks/useRetailScope";
 import { useBranchOptional } from "../../../context/BranchContext";
@@ -117,7 +118,7 @@ function RetailReportsSkeleton() {
   );
 }
 
-export default function RetailReportsPage() {
+export default function RetailReportsPage({ overview = false }: { overview?: boolean }) {
   const { scope: workingScope, userProfile, branchName: scopeBranchName, activeBranch: scopeBranch } = useRetailScope() as any;
   const branchContext = useBranchOptional();
   const canSelectBranches = userProfile?.role === "admin" || userProfile?.role === "superadmin";
@@ -363,8 +364,7 @@ export default function RetailReportsPage() {
               </p>
             </div>
           )}
-          <RetailKpiGrid report={visibleReport} />
-          <RetailSalesCharts report={visibleReport} />
+          {overview ? <RetailOverviewDashboard report={visibleReport} filters={filters} scope={scope} /> : <><RetailKpiGrid report={visibleReport} /><RetailSalesCharts report={visibleReport} /></>}
           <RetailReportTables report={visibleReport} />
         </div>
       )}

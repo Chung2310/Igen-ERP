@@ -19,10 +19,6 @@ vi.mock("../context/AuthContext", () => ({
   }),
 }));
 
-vi.mock("./BusinessDashboardTab", () => ({
-  default: () => <div data-testid="business-section">Business Dashboard Content</div>,
-}));
-
 vi.mock("../components/dashboard/FinanceOverviewSection", () => ({
   default: () => <div data-testid="finance-section">Finance Dashboard Content</div>,
 }));
@@ -47,11 +43,35 @@ describe("DashboardTab consolidated hub", () => {
     mockAuth.enabledModules = ["hr", "finance", "retail", "student", "worker", "marketing"];
   });
 
-  it("renders the sidebar and defaults to Doanh nghiệp section", async () => {
+  it("defaults to the first available overview section", async () => {
     render(<DashboardTab />);
+    expect(document.querySelector("#dashboard_sub_tabs_bar")?.getAttribute("data-layout")).toBe("horizontal");
+    expect(document.querySelector("#dashboard_tab_wrapper")?.classList.contains("h-full")).toBe(true);
     expect(screen.getByRole("navigation", { name: "Phân hệ Tổng quan" }).textContent).not.toContain("Tổng quan hệ thống");
-    expect(screen.getAllByText("Doanh nghiệp").length).toBeGreaterThan(0);
-    expect(await screen.findByTestId("business-section")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Doanh nghiệp" })).toBeNull();
+    expect(await screen.findByTestId("finance-section")).toBeTruthy();
+    expect(window.location.search).toBe("?sub=tai-chinh");
+  });
+
+  it("redirects the removed enterprise overview link to an available section", async () => {
+    window.history.replaceState(null, "", "/tong-quan?sub=doanh-nghiep");
+    render(<DashboardTab />);
+    expect(await screen.findByTestId("finance-section")).toBeTruthy();
+    expect(window.location.search).toBe("?sub=tai-chinh");
+  });
+
+  it("uses the first enabled section when finance is unavailable", async () => {
+    mockAuth.enabledModules = ["hr"];
+    render(<DashboardTab />);
+    expect(await screen.findByTestId("hr-section")).toBeTruthy();
+    expect(window.location.search).toBe("?sub=nhan-su");
+  });
+
+  it("shows an empty state when no overview sections are available", () => {
+    mockAuth.enabledModules = [];
+    render(<DashboardTab />);
+    expect(screen.getByText("Chưa có phân hệ tổng quan khả dụng.")).toBeTruthy();
+    expect(screen.queryByTestId("finance-section")).toBeNull();
   });
 
   it("switches to Finance section when clicked", async () => {

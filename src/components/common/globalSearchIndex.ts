@@ -1,7 +1,7 @@
 import type { TabType } from '../../types';
 
 export const globalSearchIndex = [
-  { label: 'Tổng quan Doanh nghiệp', tab: 'TỔNG QUAN' as TabType, keywords: 'tong quan dashboard kpi hieu suat bieu do' },
+  { label: 'Tổng quan', tab: 'TỔNG QUAN' as TabType, keywords: 'tong quan dashboard kpi hieu suat bieu do' },
   { label: 'Sơ đồ tổ chức', tab: 'NHÂN SỰ' as TabType, subTab: 'SƠ ĐỒ TỔ CHỨC', keywords: 'hr so do to chuc nhan su phong ban' },
   { label: 'Giao Việc', tab: 'NHÂN SỰ' as TabType, subTab: 'Giao Việc', keywords: 'hr giao viec task list cong viec' },
   { label: 'Đào tạo e-Learning', tab: 'NHÂN SỰ' as TabType, subTab: 'ĐÀO TẠO', keywords: 'onboarding hoc tap dao tao kien thuc video' },
