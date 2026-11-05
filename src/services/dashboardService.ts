@@ -10,6 +10,15 @@ export interface DashboardSummaryParams {
 }
 
 export const dashboardService = {
+  async getAttendanceForDate(date: string, options: { branchId?: string } = {}) {
+    const response = await fetch(`/api/v1/timekeeping/records?${new URLSearchParams({ date })}`, {
+      headers: { Authorization: `Bearer ${getAccessToken()}`, ...(options.branchId ? { 'x-branch-id': options.branchId } : {}) },
+    });
+    if (!response.ok) throw new Error('Không thể tải chấm công ngày trước.');
+    const body = await response.json() as { data?: Array<{ checkIn: string | null; attendanceStatus: string }> };
+    if (!Array.isArray(body.data)) throw new Error('Dữ liệu chấm công không hợp lệ.');
+    return { checkedIn: body.data.filter(row => row.checkIn != null).length, late: body.data.filter(row => row.attendanceStatus.includes('Đi muộn')).length, total: body.data.length };
+  },
   async getBusinessOverview(from: string, to: string, options: { signal?: AbortSignal; branchId?: string } = {}): Promise<BusinessOverview> {
     return withRequestTimeout(async signal => {
       const qs = new URLSearchParams({ filter: 'custom', startDate: from, endDate: to });

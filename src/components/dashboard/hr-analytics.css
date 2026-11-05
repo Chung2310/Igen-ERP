@@ -1,0 +1,14 @@
+.hr-analytics { --hr-analytics-blue: #3b64df; --hr-analytics-teal: #20bfa3; --hr-analytics-orange: #f09936; --hr-analytics-violet: #7655d8; --hr-analytics-red: #e85b64; --hr-analytics-cyan: #0b9bc4; --hr-analytics-gold: #d49b21; --hr-analytics-green: #20a66b; }
+.hr-overview-metrics .overview-kpi :is(p, span, svg) { color: #fff; }
+.hr-analytics-panel { min-width: 0; border: 1px solid var(--color-outline-variant); border-radius: 6px; background: var(--color-surface-container-lowest); padding: 16px; box-shadow: 0 1px 2px rgb(15 23 42 / 4%); }
+.hr-analytics-link { display: grid; width: 32px; height: 32px; flex: none; place-items: center; border: 1px solid var(--color-outline-variant); border-radius: 6px; color: var(--color-primary); }
+.hr-analytics-link:hover { background: var(--color-surface-container-low); }
+.hr-analytics-link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.hr-analytics-stat { border-radius: 6px; background: var(--color-surface-container-low); padding: 12px; }
+.hr-analytics-stat dt { color: var(--color-on-surface-variant); font-size: 12px; }
+.hr-analytics-stat dd { margin-top: 4px; color: var(--color-on-surface); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hr-analytics-gauge { display: grid; width: 138px; height: 138px; place-items: center; border-radius: 50%; }
+.hr-analytics-gauge > div { display: flex; width: 104px; height: 104px; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; background: var(--color-surface-container-lowest); }
+.hr-analytics .recharts-cartesian-axis-tick-value { fill: var(--color-on-surface-variant); }
+.dark .hr-analytics { --hr-analytics-blue: #7694ff; --hr-analytics-teal: #3bd4b8; --hr-analytics-orange: #f5ae61; --hr-analytics-violet: #a28aff; --hr-analytics-red: #f17e88; --hr-analytics-cyan: #45c9eb; --hr-analytics-gold: #f1c862; --hr-analytics-green: #56d69a; }
+@media (max-width: 390px) { .hr-analytics-panel { padding: 12px; } .hr-analytics-gauge { width: 112px; height: 112px; } .hr-analytics-gauge > div { width: 84px; height: 84px; } }

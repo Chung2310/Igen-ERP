@@ -5,7 +5,7 @@ export type RetailPeriod = "day" | "week" | "month" | "quarter" | "year";
 const asDate = (value: string) => new Date(`${value}T12:00:00Z`);
 const isoDate = (value: Date) => value.toISOString().slice(0, 10);
 
-export function previousRangeFilters(range: RetailReport["range"], filters: RetailReportFilters): RetailReportFilters {
+export function previousRangeFilters(range: RetailReport["range"], filters: RetailReportFilters): RetailReportFilters & { from: string; to: string; preset?: never } {
   const days = Math.round((asDate(range.to).getTime() - asDate(range.from).getTime()) / 86_400_000) + 1;
   const previousTo = asDate(range.from);
   previousTo.setUTCDate(previousTo.getUTCDate() - 1);
