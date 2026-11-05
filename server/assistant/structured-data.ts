@@ -62,7 +62,10 @@ export function validateStructuredField(
     }
     if (!["string", "number", "boolean"].includes(typeof item)) throw new Error(`${field.label}: giá trị không hợp lệ.`);
     if (shape && (shape.type === "date" ? typeof item !== "string" : typeof item !== shape.type)) throw new Error(`${field.label}: sai kiểu dữ liệu.`);
-    if (shape?.options && !shape.options.includes(item as any)) throw new Error(`${field.label}: giá trị ngoài danh sách cho phép.`);
+    if (shape?.options && !shape.options.includes(item as any)) {
+      const location = path.length ? `${field.label} · ${path.join(" · ")}` : field.label;
+      throw new Error(`${location}: giá trị ngoài danh sách cho phép.`);
+    }
     if (shape?.pattern && (typeof item !== "string" || !new RegExp(shape.pattern).test(item))) throw new Error(`${field.label}: định dạng không hợp lệ.`);
     if (shape?.integer && (typeof item !== "number" || !Number.isSafeInteger(item))) throw new Error(`${field.label}: cần số nguyên.`);
     if (typeof item === "number" && (!Number.isFinite(item) || item < (shape?.min ?? -Infinity) || item > (shape?.max ?? Infinity))) throw new Error(`${field.label}: số không hợp lệ.`);

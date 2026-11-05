@@ -1,7 +1,7 @@
 ﻿import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { animate, motion, useReducedMotion } from "motion/react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowUpRight, AudioLines, Building2, ChartNoAxesCombined, ClipboardList, FileImage, FileText, History, Image, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, Music2, NotebookPen, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, Presentation, RefreshCw, SendHorizontal, Settings2, UserRoundPlus, Video, Volume2, VolumeX, WandSparkles, X, Youtube } from "lucide-react";
+import { ArrowUpRight, AudioLines, Building2, ChartNoAxesCombined, ClipboardList, FileImage, FileText, History, Image, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, Music2, NotebookPen, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, Presentation, RefreshCw, SendHorizontal, Settings2, UserRound, UserRoundPlus, Video, Volume2, VolumeX, WandSparkles, X, Youtube } from "lucide-react";
 import { assistantService, type AssistantConversationCursor, type AssistantConversationSummary, type AssistantTurnInput } from "../../services/assistantService";
 import { defaultAssistantSettings, type AssistantSettings, type AssistantTableAttachment } from "../../shared/assistant-workflow";
 import { AssistantSettingsEditor } from "./AssistantSettingsEditor";
@@ -163,21 +163,24 @@ function RevealingAssistantMessage({ content, requestId, onComplete, onProgress 
       return;
     }
     const playback = animate(0, length, {
-      duration: Math.min(14, Math.max(0.8, length / 45)),
+      duration: Math.min(18, Math.max(0.8, length / 32)),
       ease: "linear",
       onUpdate: value => {
-        const next = Math.min(length, Math.floor(value / 3) * 3);
+        const next = Math.min(length, Math.floor(value));
         setVisibleCharacters(previous => previous === next ? previous : next);
         onProgress();
       },
-      onComplete: () => onComplete(requestId),
+      onComplete: () => {
+        setVisibleCharacters(length);
+        onComplete(requestId);
+      },
     });
     return () => playback.stop();
   }, [content, onComplete, onProgress, reduceMotion, requestId]);
 
   return <>
     <span className="sr-only">{content}</span>
-    <div aria-hidden="true"><AssistantMessageContent content={content} visibleCharacters={visibleCharacters} /></div>
+    <div aria-hidden="true" className="assistant-message-reveal"><AssistantMessageContent content={content} visibleCharacters={visibleCharacters} /></div>
   </>;
 }
 function AssistantGradientIcon({ Icon, from = "#00adfc", middle = "#199bff", to = "#7567ff", className = "size-6" }: { Icon: LucideIcon; from?: string; middle?: string; to?: string; className?: string }) {
@@ -209,6 +212,12 @@ function AssistantPopupBrandIcon() {
 
 function AssistantRailIcon({ name }: { name: AssistantSidebarIconName }) {
   return <span className="assistant-side-icon" aria-hidden="true"><AssistantSidebarIcon name={name} /></span>;
+}
+
+function AssistantMessageAvatar() {
+  return <span className="assistant-message-avatar mt-0.5 grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-outline-variant bg-surface-container-lowest" aria-hidden="true">
+    <img src="/assistant-igen-head.webp" alt="" className="size-full object-contain" />
+  </span>;
 }
 
 function AssistantLiveVoiceIcon() {
@@ -1298,13 +1307,20 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         </div> : <>
         <div ref={logRef} role="log" aria-label="Nội dung trò chuyện" aria-live="polite" className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-container-lowest px-4 py-5 sm:px-8 sm:py-6">
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-          {messages.filter((message, index) => !(index === 0 && message.role === "assistant" && message.content === activeWelcomeMessage.content)).map((message, index) => <div key={index} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
-            {message.role === "user" ? <div className="max-w-3xl rounded-full bg-primary/10 px-5 py-3 text-sm leading-relaxed text-on-surface">
+          {messages.filter((message, index) => !(index === 0 && message.role === "assistant" && message.content === activeWelcomeMessage.content)).map((message, index) => <div key={index} className={cn("flex w-full items-start gap-2.5", message.role === "user" ? "justify-end" : "justify-start")}>
+            {message.role === "user" ? <>
+            <div className="max-w-3xl rounded-full bg-primary/10 px-5 py-3 text-sm leading-relaxed text-on-surface">
               <span className="sr-only">Bạn: </span>
               <p className="whitespace-pre-wrap break-words text-pretty" style={{ overflowWrap: "anywhere" }}>
                 {message.content.split(/(\*\*.*?\*\*)/g).map((part, i) => part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part)}
               </p>
-            </div> : <div className="w-full max-w-4xl">
+            </div>
+            <span className="assistant-user-avatar mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
+              <UserRound className="size-5" />
+            </span>
+            </> : <>
+            <AssistantMessageAvatar />
+            <div className="min-w-0 w-full max-w-4xl">
               <div className="min-w-0 flex-1">
                 <p aria-hidden="true" className="assistant-message-author mb-1.5 text-sm font-semibold">iGen AI</p>
                 <div className="text-sm leading-relaxed text-on-surface">
@@ -1317,10 +1333,11 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                       onProgress={followReplyReveal}
                       onComplete={finishReplyReveal}
                     />
-                    : <AssistantMessageContent content={message.content} />}
+                      : <div aria-hidden="true" className="assistant-message-final"><AssistantMessageContent content={message.content} /></div>}
                 </div>
               </div>
-            </div>}
+            </div>
+            </>}
           </div>)}
           {lastReply?.referenceSelections?.length ? <section aria-labelledby="assistant-reference-selection-title" className="max-w-4xl space-y-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm sm:p-4">
             <header>
@@ -1385,9 +1402,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             </div>}
           </section>}
           {lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Mở phân hệ để xem kết quả</a>}
-          {isLoading && isOpen && <div role="status" className="assistant-thinking-status flex items-center gap-2 text-sm text-on-surface-variant">
-            <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
-            <span>Đang suy nghĩ ...</span>
+          {isLoading && isOpen && <div role="status" className="assistant-thinking-status flex items-start gap-2.5 text-sm text-on-surface-variant">
+            <AssistantMessageAvatar />
+            <div className="min-w-0">
+              <p aria-hidden="true" className="assistant-message-author mb-1.5 text-sm font-semibold">iGen AI</p>
+              <div className="flex items-center gap-2">
+                <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
+                <span>{retryRef.current ? "Đang soạn câu trả lời..." : "Đang tải cuộc trò chuyện..."}</span>
+              </div>
+            </div>
           </div>}
           </div>
         </div>

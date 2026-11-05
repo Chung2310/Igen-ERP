@@ -45,7 +45,7 @@ const unsafePath=/(?:^|\/)(?:auth|login|logout|register|webhooks?|oauth|callback
 function fields(schema,source){if(!schema)return [];if(schema.type!=='object'||(schema.open&&!Object.keys(schema.keys||{}).length))return null;const out=[];for(const [key,v]of Object.entries(schema.keys||{})){
  if(key==='idempotencyKey')continue;
  const scopedBranchSelector=source==='query'&&key==='branchId'&&v.reference==='branch.list';if(sensitive.test(key)&&!scopedBranchSelector&&!v.assistantSafe){if(v.required)return null;continue;}
- if(!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(key))return null;if(!['string','number','boolean','date','array','object'].includes(v.type)){if(v.required)return null;continue;}
+ if(!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(key))return null;if(!['string','number','boolean','date','datetime','array','object'].includes(v.type)){if(v.required)return null;continue;}
  if(v.type==='array'&&!v.items)return null;
  const nested=v.type==='array'||v.type==='object';
  const type=nested?'json':v.type==='string'?(key==='email'||v.format==='email'?'email':key==='phone'?'phone':'text'):v.type==='date'?'date':v.type;

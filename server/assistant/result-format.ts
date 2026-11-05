@@ -39,6 +39,7 @@ const commonStatusLabels: Record<string, string> = {
   started: "Đã bắt đầu", reviewing: "Đang xem xét", negotiating: "Đang thương lượng", converted: "Đã chuyển đổi",
 };
 const enumValueLabelsByKey: Record<string, Record<string, string>> = {
+  discountType: { amount: "Giảm theo số tiền", percent: "Giảm theo phần trăm" },
   productType: { physical: "Hàng hóa", service: "Dịch vụ", bundle: "Gói sản phẩm" },
   type: {
     physical: "Hàng hóa", service: "Dịch vụ", bundle: "Gói sản phẩm", sale_refund: "Hoàn tiền đơn bán",
@@ -120,6 +121,13 @@ Object.assign(labels, { grossPay: "Tổng thu nhập", deductions: "Khấu trừ
 Object.assign(labels, { receivableCode: "Mã khoản phải thu", sourceCode: "Mã chứng từ nguồn", sourceType: "Loại nguồn", dueDate: "Hạn thu", originalAmount: "Số tiền ban đầu", adjustedAmount: "Điều chỉnh", balance: "Số dư còn lại", daysOverdue: "Số ngày quá hạn", daysUntilDue: "Số ngày đến hạn", bucket: "Nhóm tuổi nợ", alert: "Cảnh báo", reminderCount: "Số lần nhắc", paymentMethod: "Phương thức thu", direction: "Chiều công nợ", partyName: "Đối tượng", partyKind: "Loại đối tượng", shiftCode: "Mã ca POS", cashierName: "Nhân viên thu ngân", paymentIndex: "Khoản thu số", paymentAmount: "Số tiền thu" });
 Object.assign(labels, { type: "Loại bút toán", createdAt: "Ngày giao dịch", signedAmount: "Biến động số dư", runningBalance: "Số dư sau giao dịch" });
 Object.assign(labels, { itemsSummary: "Sản phẩm", orderCode: "Mã đơn hàng" });
+Object.assign(labels, {
+  invoiceNo: "Số hóa đơn", issuedAt: "Ngày phát hành", invoiceCount: "Tổng số hóa đơn",
+  issuedCount: "Đang phát hành", voidCount: "Đã hủy", issuedAmount: "Giá trị hóa đơn phát hành",
+  voidAmount: "Giá trị hóa đơn đã hủy", averageOrderValue: "Giá trị đơn trung bình", grossSales: "Doanh số trước hoàn",
+  netSales: "Doanh số sau hoàn", refunds: "Tiền hoàn", collectedAmount: "Đã thu", grossProfit: "Lợi nhuận gộp",
+  grossMarginPercent: "Biên lợi nhuận (%)", paymentMix: "Theo phương thức thanh toán", timeSeries: "Theo ngày",
+});
 Object.assign(labels, { appId: "Facebook App ID", source: "Nguồn cấu hình" });
 Object.assign(labels, { revertedRows: "Số dòng đã hoàn tác", conflictCount: "Số dòng xung đột" });
 Object.assign(labels, { minGrossProfit: "Ngưỡng lợi nhuận gộp", customerTiers: "Các hạng khách hàng", evaluationWindow: "Khoảng xét hạng", tierEvaluationMetric: "Tiêu chí xếp hạng", connected: "Đã kết nối", created: "Đã tạo" });
@@ -180,6 +188,7 @@ Object.assign(labels, {
   profitCategory: "Nhóm thu chi", costBearer: "Bên chịu chi phí", channel: "Kênh", connectionType: "Loại kết nối", connectionStatus: "Trạng thái kết nối",
   network: "Mạng", networkType: "Loại mạng",
 });
+Object.assign(labels, { experience: "Kinh nghiệm", education: "Trình độ học vấn", skills: "Kỹ năng", expectedSalary: "Lương mong muốn" });
 
 const fieldWordLabels: Record<string, string> = {
   account: "tài khoản", action: "thao tác", active: "hoạt động", address: "địa chỉ", amount: "số tiền",
@@ -209,6 +218,13 @@ function localizedFieldKey(key: string) {
   const translated = words.map(word => fieldWordLabels[word]);
   if (translated.every(Boolean)) return translated.map((word, index) => index ? word : word[0].toLocaleUpperCase("vi") + word.slice(1)).join(" ");
   return "Thông tin";
+}
+
+export function localizedAssistantFieldLabel(key: string, label: string, operationId = ""): string {
+  if (operationId.startsWith("recruitment.applicant.") && key === "source") return "Nguồn ứng viên";
+  const configured = label.trim();
+  if (configured && configured.toLocaleLowerCase("vi") !== key.toLocaleLowerCase("vi")) return configured;
+  return labels[key] || localizedFieldKey(key);
 }
 
 function labelFor(operation: ResultOperation, key: string): string {
@@ -329,10 +345,9 @@ function labelFor(operation: ResultOperation, key: string): string {
     if (payrollRunLabels[key]) return payrollRunLabels[key];
   }
   const relatedCreate = operationById(operation.id.replace(/\.(?:list|update|delete)$/, ".create"));
-  return operation.fields.find(field => field.key === key)?.label
-    || relatedCreate?.fields.find(field => field.key === key)?.label
-    || labels[key]
-    || localizedFieldKey(key);
+  const configured = operation.fields.find(field => field.key === key)?.label
+    || relatedCreate?.fields.find(field => field.key === key)?.label || "";
+  return localizedAssistantFieldLabel(key, configured, operation.id);
 }
 
 function celebrationHtmlToText(value: unknown): string {
@@ -419,6 +434,15 @@ function formatValueRaw(operation: ResultOperation, key: string, value: unknown,
     }
     if (operation.id === "student.list" && key === "fee" && /^\d+(?:\.\d+)?$/.test(value.trim())) {
       return `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value))} \u20AB`;
+    }
+    if (["retail.order.list", "retail.order.detail", "retail.invoice.list", "retail.invoice.detail"].includes(operation.id) && key === "paymentStatus") {
+      return ({ unpaid: "Chưa thanh toán", partial: "Thanh toán một phần", paid: "Đã thanh toán", refunded: "Đã hoàn tiền" } as Record<string, string>)[value] || value;
+    }
+    if (["retail.invoice.list", "retail.invoice.detail"].includes(operation.id) && key === "status") {
+      return ({ issued: "Đang phát hành", void: "Đã hủy" } as Record<string, string>)[value] || value;
+    }
+    if (operation.id === "retail.report.summary" && key === "method") {
+      return ({ cash: "Tiền mặt", card: "Thẻ", transfer: "Chuyển khoản", ewallet: "Ví điện tử" } as Record<string, string>)[value] || value;
     }
     if (operation.id.startsWith("recruitment.job.") && key === "status") return ({ draft: "Bản nháp", open: "Đang tuyển", paused: "Tạm dừng", closed: "Đã đóng" } as Record<string, string>)[value] || value;
     if (operation.id.startsWith("recruitment.job.") && key === "employmentType") return ({ full_time: "Toàn thời gian", part_time: "Bán thời gian", contract: "Hợp đồng", internship: "Thực tập" } as Record<string, string>)[value] || value;
@@ -611,6 +635,32 @@ function formatRecord(operation: ResultOperation, value: unknown): string {
   const displayRecord = (operation.id === "worker.partner.settlements.list" || operation.id === "worker.partner.worker-referral.list") && populatedPartner
     ? { ...record, partnerName: populatedPartner.name, partnerCode: populatedPartner.code }
     : record;
+  if (operation.id === "retail.coupon.create") {
+    const amount = (input: unknown) => typeof input === "number" && Number.isFinite(input)
+      ? new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(input) + " ₫"
+      : "";
+    const valueText = Number.isFinite(Number(displayRecord.value))
+      ? displayRecord.discountType === "percent"
+        ? new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(Number(displayRecord.value)) + "%"
+        : amount(displayRecord.value)
+      : "";
+    const start = formatValue(operation, "startsAt", displayRecord.startsAt);
+    const end = formatValue(operation, "endsAt", displayRecord.endsAt);
+    const tiers = Array.isArray(displayRecord.customerTierCodes) ? displayRecord.customerTierCodes : [];
+    return [
+      typeof displayRecord.code === "string" ? "Mã ưu đãi: " + displayRecord.code : "",
+      typeof displayRecord.name === "string" ? "Tên chương trình: " + displayRecord.name : "",
+      valueText ? "Mức giảm: " + valueText : "",
+      amount(displayRecord.minSubtotal) ? "Đơn tối thiểu: " + amount(displayRecord.minSubtotal) : "",
+      amount(displayRecord.maxDiscount) ? "Mức giảm tối đa: " + amount(displayRecord.maxDiscount) : "",
+      start && end ? "Thời gian áp dụng: " + start + " đến " + end : "",
+      displayRecord.usageLimit == null ? "Lượt sử dụng: Không giới hạn" : "Lượt sử dụng tối đa: " + formatValue(operation, "usageLimit", displayRecord.usageLimit),
+      typeof displayRecord.customerName === "string" && displayRecord.customerName
+        ? "Khách hàng nhận mã: " + displayRecord.customerName
+        : tiers.length ? "Đối tượng: Khách hàng thuộc các hạng đã chọn" : "Đối tượng: Tất cả khách hàng",
+      typeof displayRecord.active === "boolean" ? "Trạng thái: " + (displayRecord.active ? "Đã kích hoạt" : "Đang tạm dừng") : "",
+    ].filter(Boolean).join("\n");
+  }
   const resultFields = operation.id === "department.list"
     ? ["name", "code", "managerName", "isActive", "employeeCount"]
     : operation.id === "employee.list"
@@ -783,6 +833,131 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
   const redacted = redactAssistantResult(input);
   const recalculatedSettlement = operation.id === "worker.partner.settlement.recalculate" ? recordOf(recordOf(redacted)?.settlement) : null;
   const safeResult = recalculatedSettlement || redacted;
+  const wrappedResult = recordOf(safeResult);
+  const dataResult = recordOf(wrappedResult?.data) || wrappedResult || {};
+  const reportDateRange = (value: unknown) => {
+    const range = recordOf(value);
+    if (!range) return "";
+    const from = typeof range.from === "string" ? formatIsoDate(range.from) : "";
+    const to = typeof range.to === "string" ? formatIsoDate(range.to) : "";
+    return from && to ? from === to ? from : `${from} đến ${to}` : from || to;
+  };
+  const countValue = (value: unknown) => Number.isSafeInteger(Number(value)) && Number(value) >= 0
+    ? new Intl.NumberFormat("vi-VN").format(Number(value))
+    : "0";
+  const moneyValue = (value: unknown) => Number.isFinite(Number(value))
+    ? `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(Number(value))} ₫`
+    : "0 ₫";
+  if (operation.id === "retail.invoice.summary") {
+    return [
+      operation.title,
+      ...(reportDateRange(dataResult.range) ? [`Thời gian: ${reportDateRange(dataResult.range)}`] : []),
+      `Tổng số hóa đơn: ${countValue(dataResult.invoiceCount)}`,
+      `Đang phát hành: ${countValue(dataResult.issuedCount)} · ${moneyValue(dataResult.issuedAmount)}`,
+      `Đã hủy: ${countValue(dataResult.voidCount)} · ${moneyValue(dataResult.voidAmount)}`,
+      `Đã thanh toán: ${moneyValue(dataResult.paidAmount)} · Còn phải thu: ${moneyValue(dataResult.dueAmount)}`,
+    ].join("\n");
+  }
+  if (operation.id === "retail.report.summary") {
+    const summary = recordOf(dataResult.summary) || {};
+    const paymentMix = Array.isArray(dataResult.paymentMix) ? dataResult.paymentMix : [];
+    const products = Array.isArray(dataResult.products) ? dataResult.products : [];
+    const timeSeries = Array.isArray(dataResult.timeSeries) ? dataResult.timeSeries : [];
+    const lines = [
+      operation.title,
+      ...(reportDateRange(dataResult.range) ? [`Thời gian: ${reportDateRange(dataResult.range)}`] : []),
+      `Đơn hàng: ${countValue(summary.orderCount)}`,
+      `Doanh số: ${moneyValue(summary.grossSales)} · Hoàn tiền: ${moneyValue(summary.refunds)} · Sau hoàn: ${moneyValue(summary.netSales)}`,
+      `Đã thu: ${moneyValue(summary.collectedAmount)} · Còn phải thu: ${moneyValue(summary.dueAmount)}`,
+      `Giá trị đơn trung bình: ${moneyValue(summary.averageOrderValue)}`,
+      ...(typeof summary.grossProfit === "number" ? [`Lợi nhuận gộp: ${moneyValue(summary.grossProfit)}${typeof summary.grossMarginPercent === "number" ? ` · Biên ${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(summary.grossMarginPercent)}%` : ""}`] : []),
+      ...(paymentMix.length ? [`Thanh toán: ${paymentMix.slice(0, 4).flatMap((value: unknown) => {
+        const method = recordOf(value);
+        return method ? [`${formatValue(operation, "method", method.method)} ${moneyValue(method.amount)}`] : [];
+      }).join(" · ")}`] : []),
+      ...(products.length ? ["Sản phẩm bán chạy:", ...products.slice(0, 5).flatMap((value: unknown, index: number) => {
+        const product = recordOf(value);
+        if (!product) return [];
+        const name = typeof product.productName === "string" && product.productName ? product.productName : "Sản phẩm";
+        return [`${index + 1}. ${name} · ${countValue(product.netQuantity)} sản phẩm · ${moneyValue(product.netSales)}`];
+      })] : []),
+      ...(timeSeries.length > 1 ? [`Số ngày có dữ liệu: ${countValue(timeSeries.filter((value: unknown) => Number(recordOf(value)?.orderCount) > 0).length)} / ${countValue(timeSeries.length)}`] : []),
+    ];
+    return lines.join("\n");
+  }
+  if (operation.id === "retail.invoice.list") {
+    const rows = Array.isArray(dataResult.items) ? dataResult.items : collection(safeResult) || [];
+    const total = Number.isSafeInteger(Number(dataResult.total)) && Number(dataResult.total) >= 0 ? Number(dataResult.total) : rows.length;
+    if (!total) return `${operation.title}\nKhông có kết quả phù hợp.`;
+    const displayed = rows.slice(0, 8).map((value: unknown, index: number) => {
+      const invoice = recordOf(value);
+      if (!invoice) return "";
+      const snapshot = recordOf(invoice.snapshot) || {};
+      const row = {
+        invoiceNo: invoice.invoiceNo,
+        orderCode: invoice.orderCode,
+        customerName: snapshot.customerName,
+        status: invoice.status,
+        issuedAt: invoice.issuedAt,
+        grandTotal: snapshot.grandTotal,
+        paymentStatus: snapshot.paymentStatus,
+        paidAmount: snapshot.paidAmount,
+        dueAmount: snapshot.dueAmount,
+      };
+      const summary = formatRecord(operation, row).replace(/\n/g, " · ");
+      return summary ? `${index + 1}. ${summary}` : "";
+    }).filter(Boolean);
+    const shown = displayed.length < total ? ` (hiển thị ${displayed.length})` : "";
+    return `${operation.title} · ${total} kết quả${shown}:\n${displayed.join("\n")}`;
+  }
+  if (operation.id === "retail.order.detail") {
+    const items = Array.isArray(dataResult.items) ? dataResult.items : [];
+    const payments = Array.isArray(dataResult.payments) ? dataResult.payments : [];
+    return [
+      operation.title,
+      ...(typeof dataResult.orderCode === "string" ? [`Mã đơn hàng: ${dataResult.orderCode}`] : []),
+      ...(typeof dataResult.customerName === "string" ? [`Khách hàng: ${dataResult.customerName}`] : []),
+      ...(typeof dataResult.status === "string" ? [`Trạng thái đơn: ${formatValue(operation, "status", dataResult.status)}`] : []),
+      ...(typeof dataResult.paymentStatus === "string" ? [`Thanh toán: ${formatValue(operation, "paymentStatus", dataResult.paymentStatus)}`] : []),
+      ...(typeof dataResult.businessDate === "string" ? [`Ngày bán: ${formatValue(operation, "businessDate", dataResult.businessDate)}`] : []),
+      ...(items.length ? ["Sản phẩm:", ...items.slice(0, 10).flatMap((value: unknown, index: number) => {
+        const item = recordOf(value);
+        if (!item) return [];
+        const product = String(item.productName || item.sku || "Sản phẩm");
+        const sku = typeof item.sku === "string" && item.sku && item.sku !== product ? ` (${item.sku})` : "";
+        return [`${index + 1}. ${product}${sku} · ${countValue(item.quantity)} × ${moneyValue(item.unitPrice)} · Thành tiền ${moneyValue(item.lineTotal)}`];
+      })] : ["Sản phẩm: Chưa có thông tin dòng hàng."]),
+      `Tổng đơn: ${moneyValue(dataResult.grandTotal)} · Đã thanh toán: ${moneyValue(dataResult.paidAmount)}`,
+      ...(Number(dataResult.refundedAmount) > 0 ? [`Đã hoàn: ${moneyValue(dataResult.refundedAmount)}`] : []),
+      `Còn phải trả: ${moneyValue(dataResult.dueAmount)}`,
+      ...(payments.length ? [`Các khoản thu: ${payments.slice(0, 5).flatMap((value: unknown) => {
+        const payment = recordOf(value);
+        return payment ? [`${formatValue(operation, "paymentMethod", payment.method)} ${moneyValue(payment.amount)}`] : [];
+      }).join(" · ")}`] : []),
+    ].join("\n");
+  }
+  if (operation.id === "retail.invoice.detail") {
+    const snapshot = recordOf(dataResult.snapshot) || {};
+    const lines = [
+      typeof dataResult.invoiceNo === "string" ? `Số hóa đơn: ${dataResult.invoiceNo}` : "",
+      typeof dataResult.orderCode === "string" ? `Mã đơn hàng: ${dataResult.orderCode}` : "",
+      typeof dataResult.status === "string" ? `Trạng thái: ${formatValue(operation, "status", dataResult.status)}` : "",
+      typeof dataResult.issuedAt === "string" ? `Ngày phát hành: ${formatValue(operation, "issuedAt", dataResult.issuedAt)}` : "",
+      typeof snapshot.customerName === "string" ? `Khách hàng: ${snapshot.customerName}` : "",
+      ...(Array.isArray(snapshot.items) && snapshot.items.length ? ["Sản phẩm:", ...snapshot.items.slice(0, 10).flatMap((value: unknown, index: number) => {
+        const item = recordOf(value);
+        if (!item) return [];
+        return [`${index + 1}. ${String(item.productName || item.sku || "Sản phẩm")} · ${countValue(item.quantity)} × ${moneyValue(item.unitPrice)} · Thành tiền ${moneyValue(item.lineTotal)}`];
+      })] : []),
+      `Tổng hóa đơn: ${moneyValue(snapshot.grandTotal)}`,
+      `Đã thanh toán: ${moneyValue(snapshot.paidAmount)} · Còn phải trả: ${moneyValue(snapshot.dueAmount)}`,
+      ...(Array.isArray(snapshot.payments) && snapshot.payments.length ? [`Các khoản thu: ${snapshot.payments.slice(0, 5).flatMap((value: unknown) => {
+        const payment = recordOf(value);
+        return payment ? [`${formatValue(operation, "paymentMethod", payment.method)} ${moneyValue(payment.amount)}`] : [];
+      }).join(" · ")}`] : []),
+    ].filter(Boolean);
+    return [operation.title, ...(lines.length ? lines : ["Không tìm thấy hóa đơn phù hợp."])].join("\n");
+  }
   if (["retail.points.policy.get", "retail.points.policy.update"].includes(operation.id)) {
     const wrapped = recordOf(safeResult);
     const policy = recordOf(wrapped?.data) || wrapped || {};
@@ -1334,6 +1509,39 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
     });
     if (rows.length > records.length) options.push(`Còn ${rows.length - records.length} kết quả khác.`);
     return [`Mình tìm thấy ${rows.length} hồ sơ phù hợp. Bạn cho mình biết họ tên đầy đủ hoặc phòng ban để chọn đúng người nhé.`, ...options].join("\n");
+  }
+
+  if (operation.id === "recruitment.job.detail" && operation.method === "GET") {
+    const response = recordOf(redactAssistantResult(input));
+    const job = recordOf(response?.data) || response;
+    if (job) {
+      const textValue = (key: string) => typeof job[key] === "string" ? String(job[key]).trim() : "";
+      const missingToOpen: string[] = [];
+      if (!textValue("title")) missingToOpen.push("Tiêu đề");
+      if (!textValue("description")) missingToOpen.push("Mô tả công việc");
+      if (!textValue("requirements")) missingToOpen.push("Yêu cầu ứng viên");
+      if (!Number.isFinite(Number(job.headcount)) || Number(job.headcount) <= 0) missingToOpen.push("Số lượng tuyển");
+      if (!textValue("workplaceType")) missingToOpen.push("Hình thức làm việc");
+      if (!textValue("location")) missingToOpen.push("Địa điểm làm việc");
+      const deadline = job.applicationDeadline ? new Date(String(job.applicationDeadline)) : null;
+      if (!deadline || Number.isNaN(deadline.valueOf()) || deadline <= new Date()) missingToOpen.push("Hạn nhận hồ sơ trong tương lai");
+
+      const optionalMissing: string[] = [];
+      if (!textValue("department")) optionalMissing.push("Phòng ban");
+      if (!textValue("benefits")) optionalMissing.push("Quyền lợi");
+      if (job.salaryMin == null && job.salaryMax == null) optionalMissing.push("Khoảng lương");
+      const title = textValue("title");
+      const code = textValue("code");
+      return [
+        `Mình đã kiểm tra${title ? ` vị trí “${title}”` : " vị trí tuyển dụng này"} giúp bạn rồi nhé.`,
+        code ? `Mã vị trí tuyển dụng: ${code}` : "",
+        typeof job.status === "string" ? `Trạng thái: ${formatValue(operation, "status", job.status)}` : "",
+        missingToOpen.length
+          ? `Để mở tuyển, còn thiếu: ${missingToOpen.join(", ")}.`
+          : "Tin tuyển dụng đã đủ thông tin bắt buộc để mở tuyển.",
+        optionalMissing.length ? `Có thể bổ sung thêm (không bắt buộc để mở tuyển): ${optionalMissing.join(", ")}.` : "",
+      ].filter(Boolean).join("\n");
+    }
   }
 
   if (operation.path === "/inventory/catalog/products" && operation.method === "POST") {

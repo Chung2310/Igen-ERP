@@ -196,7 +196,7 @@ function safeRetailAfterSale(doc: any) {
   };
 }
 function isCommissionLevelOperation(op: AssistantOperation) { return op.path.startsWith("/partners/commission-levels"); }
-function isRetailPosOperation(op: AssistantOperation) { return op.path.startsWith("/retail/orders") || op.path.startsWith("/retail/shifts"); }
+function isRetailPosOperation(op: AssistantOperation) { return op.path.startsWith("/retail/orders") || op.path.startsWith("/retail/shifts") || op.path.startsWith("/retail/invoices") || op.path === "/retail/reports/summary"; }
 function isRetailCashbookOperation(op: AssistantOperation) { return op.path.startsWith("/retail/finance/cashbook"); }
 function isRetailFinanceCommissionOperation(op: AssistantOperation) { return op.path.startsWith("/retail/finance/commission/"); }
 function isRetailReceivableOperation(op: AssistantOperation) { return op.path.startsWith("/retail/receivables/"); }
@@ -216,10 +216,10 @@ function missingRecruitmentJobReadiness(job: Record<string, any>, now = new Date
   return missing;
 }
 function isBranchScopedAssistantOperation(op: AssistantOperation) {
-  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || isCommissionLevelOperation(op) || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
+  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || isCommissionLevelOperation(op) || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 function requiresBranchChoice(op: AssistantOperation) {
-  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || (isCommissionLevelOperation(op) && op.method !== "GET") || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
+  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || (isCommissionLevelOperation(op) && op.method !== "GET") || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 
 function assertScheduledCampaignInput(input: Record<string, AssistantValue>) {
@@ -532,6 +532,8 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
             ? "Cần chọn chi nhánh bán lẻ theo tên trước khi xem hoặc chạy nhắc công nợ."
           : isRetailCashbookOperation(op)
             ? "Cần chọn chi nhánh bán lẻ theo tên trước khi tra cứu hoặc tạo phiếu thu chi."
+          : (op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list")
+            ? op.id === "retail.coupon.create" ? "C\u1EA7n ch\u1ECDn chi nh\u00E1nh b\u00E1n l\u1EBB theo t\u00EAn tr\u01B0\u1EDBc khi t\u1EA1o m\u00E3 \u01B0u \u0111\u00E3i." : "C\u1EA7n ch\u1ECDn chi nh\u00E1nh b\u00E1n l\u1EBB theo t\u00EAn tr\u01B0\u1EDBc khi tra c\u1EE9u h\u1EA1ng kh\u00E1ch h\u00E0ng."
           : isRetailFinanceCommissionOperation(op)
             ? "Cần chọn chi nhánh bán lẻ theo tên trước khi xem hoặc cấu hình hoa hồng POS."
           : isRetailReceivableOperation(op)
@@ -599,8 +601,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     if (!url.searchParams.has("limit")) url.searchParams.set("limit", "100");
     if (!url.searchParams.has("page")) url.searchParams.set("page", "1");
   }
-  if (input.search && ["customer.list", "product.list", "repair.list"].includes(op.id)) url.searchParams.set("q", String(input.search));
-  if (input.search && ["category.list", "training.list"].includes(op.id)) url.searchParams.set("search", String(input.search));
+  if (input.search && op.id === "customer.list") url.searchParams.set("q", String(input.search));
   const headers: Record<string, string> = { "Content-Type": "application/json", Authorization: req.headers.authorization || "" };
   const branchId = branchScopedOperation ? effectiveBranchId : req.user?.branchId || (typeof input.branchId === "string" ? input.branchId : "");
   if (branchId) headers["x-branch-id"] = branchId;
@@ -611,7 +612,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     headers[key] = requestId;
   }
   const body: Record<string, unknown> = {};
-  for (const field of op.fields) if (input[field.key] !== undefined) {
+  for (const field of op.fields) if (input[field.key] !== undefined && !op.assistantOnlyFields?.includes(field.key)) {
     if (op.adapter === "contract") {
       if (field.source === "body") {
         const rawValue = input[field.key];
@@ -3055,7 +3056,15 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     }
     if (op.id === "retail.invoice.list") {
       if (typeof item.invoiceNo === "string") safe.code = item.invoiceNo;
+      if (typeof item.invoiceNo === "string") safe.invoiceNo = item.invoiceNo;
+      if (typeof item.orderCode === "string") safe.orderCode = item.orderCode;
       if (typeof item.snapshot?.customerName === "string") safe.customerName = item.snapshot.customerName;
+      if (typeof item.status === "string") safe.status = item.status;
+      if (typeof item.issuedAt === "string") safe.issuedAt = item.issuedAt;
+      else if (item.issuedAt instanceof Date && !Number.isNaN(item.issuedAt.valueOf())) safe.issuedAt = item.issuedAt.toISOString();
+      for (const key of ["grandTotal", "paymentStatus", "paidAmount", "dueAmount"]) {
+        if (item.snapshot?.[key] !== undefined && ["string", "boolean", "number"].includes(typeof item.snapshot[key])) safe[key] = item.snapshot[key];
+      }
     }
     if (["batch.attendance.learners", "student.list"].includes(op.id) && typeof item.phone === "string" && item.phone.trim()) {
       Object.defineProperty(safe, "__assistantReferencePhone", { value: item.phone.trim(), enumerable: false });
@@ -3986,6 +3995,9 @@ export async function suggestReferenceOptions(
     candidates = candidates.filter(candidate => ["physical", "bundle"].includes(String(candidate.productType || ""))
       && ["active", "draft"].includes(String(candidate.status || "")));
   }
+  if (op.id === "finance.treasury.bank-lines.create" && field.key === "accountId") {
+    candidates = candidates.filter(candidate => candidate.kind === "bank");
+  }
   if (parentValue !== undefined && !parentPathField && (!parentQueryField || parentQueryField.apiKey === "branchId")) {
     candidates = candidates.filter(candidate => String(candidate.branchId || "") === String(parentValue));
   }
@@ -4012,6 +4024,14 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
   const resolved = { ...values };
   const labels: Record<string, string> = {};
   const errors: string[] = [];
+  const unresolvedReferenceKeys = new Set<string>();
+  const unresolvedReferenceErrors = new Map<string, string>();
+  const selectionPath = (path: string) => path.replace(/\[(\d+)\]/g, (_match, index: string) => `[${Number(index) + 1}]`);
+  const addUnresolvedReferenceError = (key: string, error: string) => {
+    errors.push(error);
+    unresolvedReferenceKeys.add(key);
+    unresolvedReferenceErrors.set(key, error);
+  };
   const resolvedReferences: Record<string, Record<string, any>> = {};
   const confirmationDetails: Record<string, Array<{ label: string; value: string }>> = {};
   const isReferenceParent = (field: AssistantField) => op.fields.some(candidate => candidate.referenceParentKey === field.key);
@@ -4117,11 +4137,11 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
         : importingInvoiceTax && !candidates.length ? "chỉ có thể ghi nhận VAT từ hóa đơn đã phát hành trong chi nhánh đã chọn"
         : reversingStockLog && !candidates.length ? "chỉ có thể đảo phiếu xuất thủ công nội bộ hoặc hủy hàng chưa bị đảo"
         : exact.length > 1 ? "có nhiều bản ghi trùng tên" : "chưa tìm thấy bản ghi theo tên hoặc mã";
-      errors.push(`${field.label}: ${explanation}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
+      addUnresolvedReferenceError(field.key, `${field.label}: ${explanation}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
       continue;
     }
     if (op.id === "finance.treasury.bank-lines.create" && field.key === "accountId" && record.kind !== "bank") {
-      errors.push(`${field.label}: hãy chọn một tài khoản ngân hàng, không phải quỹ tiền mặt.`);
+      addUnresolvedReferenceError(field.key, `${field.label}: hãy chọn một tài khoản ngân hàng, không phải quỹ tiền mặt.`);
       continue;
     }
     if (op.id === "timekeeping.work-calendar.update" && field.key === "path_id") {
@@ -4213,6 +4233,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     if (!selectedBranch && req.user?.branchId && branchField) resolved[branchField.key] = req.user.branchId;
     else if (!selectedBranch && req.user?.role === "admin" && requiresBranchChoice(op) && isRetailAfterSaleOperation(op)) errors.push(op.method === "POST" ? "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần lập phiếu đổi trả hoặc thu mua." : "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần tra cứu chứng từ đổi trả hoặc thu mua.");
     else if (!selectedBranch && req.user?.role === "admin" && requiresBranchChoice(op) && isRetailReceivableOperation(op)) errors.push("Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần xem hoặc đối soát công nợ.");
+    else if (!selectedBranch && req.user?.role === "admin" && requiresBranchChoice(op) && (op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list")) errors.push(op.id === "retail.coupon.create" ? "Chi nh\u00E1nh b\u00E1n l\u1EBB: h\u00E3y n\u00EAu t\u00EAn chi nh\u00E1nh c\u1EA7n t\u1EA1o m\u00E3 \u01B0u \u0111\u00E3i." : "Chi nh\u00E1nh b\u00E1n l\u1EBB: h\u00E3y n\u00EAu t\u00EAn chi nh\u00E1nh c\u1EA7n tra c\u1EE9u h\u1EA1ng kh\u00E1ch h\u00E0ng.");
     else if (!selectedBranch && req.user?.role === "admin" && requiresBranchChoice(op)) errors.push(isRecruitmentOperation(op) ? "Chi nhánh tuyển dụng: hãy nêu tên chi nhánh cần tra cứu hoặc cập nhật." : op.id.startsWith("inventory.serial.") ? "Chi nhánh: hãy nêu tên chi nhánh cần tra cứu hoặc đăng ký IMEI/serial." : op.id === "inventory.warehouse.locations.list" ? "Chi nhánh kho: hãy nêu tên chi nhánh cần tra cứu kho." : op.path.startsWith("/inventory/transfers") ? "Chi nhánh điều chuyển: hãy nêu tên chi nhánh gửi hoặc nhận." : isInventoryCountOperation(op) ? "Chi nhánh kiểm kê: hãy nêu tên chi nhánh cần tra cứu hoặc cập nhật phiếu." : op.path.startsWith("/inventory/reconciliation/") ? "Chi nhánh kiểm kho: hãy nêu tên chi nhánh cần đối soát." : op.path.startsWith("/finance/reminders/") ? "Chi nhánh tài chính: hãy nêu tên chi nhánh cần rà soát công nợ quá hạn." : op.path.startsWith("/finance/management/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") ? "Chi nhánh tài chính: hãy nêu tên chi nhánh cần tra cứu hoặc thao tác." : op.path.startsWith("/payroll/periods/") ? "Chi nhánh bảng lương: hãy nêu tên chi nhánh cần xem hoặc thao tác kỳ lương." : op.path.startsWith("/retail/debt-reminders/") ? "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần xem hoặc chạy nhắc công nợ." : isRetailFinanceCommissionOperation(op) ? "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần xem hoặc cấu hình hoa hồng POS." : op.path === "/retail/settings" || isRetailPosOperation(op) ? "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần thao tác." : "Chi nhánh áp dụng: hãy nêu tên chi nhánh cần cấu hình cấp bậc hoa hồng.");
     else if (!selectedBranch && requiresBranchChoice(op)) errors.push("Tài khoản cần được gán vào một chi nhánh trước khi thực hiện thao tác này.");
     else if (req.user?.branchId && selectedBranch !== req.user.branchId) errors.push("Chi nhánh được chọn không khớp với chi nhánh của tài khoản.");
@@ -4339,7 +4360,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
         const label = nestedReferenceLabel(shape, path);
         if (exact.length !== 1 || !record || value === undefined || value === null || value === "") {
           const choices = candidates.slice(0, 8).map(referenceLabel).join("; ");
-          errors.push(`${label}: ${exact.length > 1 ? "có nhiều bản ghi trùng tên" : "chưa tìm thấy bản ghi theo tên hoặc mã"}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
+          addUnresolvedReferenceError(selectionPath(path), `${label}: ${exact.length > 1 ? "có nhiều bản ghi trùng tên" : "chưa tìm thấy bản ghi theo tên hoặc mã"}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
           return node;
         }
         return String(value);
@@ -4388,7 +4409,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
           const label = nestedReferenceLabel(childShape, key);
           if (exact.length !== 1 || !record || value === undefined || value === null || value === "") {
             const choices = candidates.slice(0, 8).map(referenceLabel).join("; ");
-            errors.push(`${label}: ${exact.length > 1 ? "có nhiều bản ghi trùng tên" : "chưa tìm thấy bản ghi theo tên hoặc mã"}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
+            addUnresolvedReferenceError(selectionPath(`${path}.${key}`), `${label}: ${exact.length > 1 ? "có nhiều bản ghi trùng tên" : "chưa tìm thấy bản ghi theo tên hoặc mã"}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
           } else {
             node[key] = String(value);
             if (displayNode && typeof displayNode === "object") displayNode[key] = referenceLabel(record);
@@ -5069,5 +5090,5 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     && !op.fields.some(field => field.source === "body" && resolved[field.key] !== undefined)) {
     errors.push("Hãy nêu ít nhất một cài đặt AI cần thay đổi cho tài khoản đã chọn.");
   }
-  return { values: resolved, labels, errors: [...new Set(errors)], confirmationDetails };
+  return { values: resolved, labels, errors: [...new Set(errors)], confirmationDetails, unresolvedReferenceKeys: [...unresolvedReferenceKeys], unresolvedReferenceErrors: Object.fromEntries(unresolvedReferenceErrors) };
 }
