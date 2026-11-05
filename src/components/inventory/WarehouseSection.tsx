@@ -418,6 +418,7 @@ export function WarehouseSection() {
 
       {/* 2. Compact Sleek Metric Bar */}
       <MetricBar
+        id="inventory_warehouse_metrics"
         items={[
           {
             label: "Tổng giá trị tồn kho",
@@ -532,7 +533,7 @@ export function WarehouseSection() {
       {/* 4. Main Inventory Stock Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-sm">
+          <table id="inventory_stock_table" className="w-full min-w-[960px] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">
               <tr>
                 <th className="w-[36%] px-4 py-3.5">Sản phẩm & Biến thể SKU</th>

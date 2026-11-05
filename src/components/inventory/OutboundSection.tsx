@@ -356,7 +356,7 @@ export function OutboundSection({
       </div>
 
       {/* 2. KPI Metrics Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="inventory-outbound-metrics grid grid-cols-2 gap-3 md:grid-cols-5">
         <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs">
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
             Tổng phiếu xuất

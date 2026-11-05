@@ -381,7 +381,7 @@ export function InventoryTransferSection({
   return (
     <section className="space-y-6" aria-label="Điều chuyển kho">
       {/* Top Header Card */}
-      <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white via-slate-50/50 to-cyan-50/30 p-5 shadow-xs">
+      <div className="inventory-transfer-overview">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cyan-600 text-white shadow-md shadow-cyan-600/20">
@@ -405,7 +405,7 @@ export function InventoryTransferSection({
             {canManage && (
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-cyan-600/20 hover:from-cyan-500 hover:to-teal-500 active:scale-98 transition"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-xs hover:opacity-90 transition-colors"
                 onClick={handleOpenCreateModal}
               >
                 <Plus className="h-4 w-4" />
@@ -627,7 +627,7 @@ export function InventoryTransferSection({
 
                   {/* Items Table */}
                   <div className="overflow-x-auto rounded-xl border border-slate-200">
-                    <table className="w-full text-left text-sm">
+                    <table className="inventory-transfer-items-table w-full text-left text-sm">
                       <thead className="bg-slate-50/90 text-xs font-semibold text-slate-600">
                         <tr>
                           <th className="px-3.5 py-2.5">SKU / sản phẩm</th>

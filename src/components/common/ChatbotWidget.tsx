@@ -145,12 +145,10 @@ const previewActions = [
   { label: "Tạo mindmap", Icon: WandSparkles, from: "#d4743c", middle: "#e79545", to: "#cb563e" },
   { label: "Tóm tắt YouTube", Icon: Youtube, from: "#ca494f", middle: "#ea654c", to: "#d78446" },
 ] as const;
-const welcomePlaceholder = "Tôi có thể giúp gì cho bạn ?";
-
-function AssistantTypingPlaceholder() {
+function AssistantTypingPlaceholder({ text }: { text: string }) {
   const reduceMotion = useReducedMotion();
   return <span aria-hidden="true" className="pointer-events-none absolute left-2 top-2 text-base text-on-surface/60 sm:text-lg">
-    {reduceMotion ? welcomePlaceholder : Array.from(welcomePlaceholder).map((character, index) => <motion.span key={index} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0, delay: index * 0.055 }}>{character === " " ? "\u00a0" : character}</motion.span>)}
+    {reduceMotion ? text : Array.from(text).map((character, index) => <motion.span key={index} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0, delay: index * 0.055 }}>{character === " " ? "\u00a0" : character}</motion.span>)}
   </span>;
 }
 
@@ -348,6 +346,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const requestKey = `${storageKey}:request`;
   const draftKey = `${storageKey}:draft`;
   const activeWelcomeMessage = assistantMode === "qa" ? qaWelcomeMessage : welcomeMessage;
+  const promptPlaceholder = assistantMode === "work" ? "Bạn muốn thực hiện việc gì?" : "Hãy hỏi tôi điều gì đó?";
   const [conversationId, setConversationId] = useState(() => initialConversationId || storedConversation(conversationKey));
   const [settings, setSettings] = useState<AssistantSettings>(defaultAssistantSettings);
   const [settingsReady, setSettingsReady] = useState(false);
@@ -1072,8 +1071,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     <form onSubmit={(event) => { event.preventDefault(); void handleSend(); }} className={cn("border border-outline-variant bg-surface-container-lowest", placement === "landing" ? "assistant-landing-composer rounded-2xl p-3 shadow-sm sm:p-4" : "assistant-conversation-composer flex flex-wrap items-center gap-1 rounded-full px-2 py-1 shadow-sm")}>
       <label className="sr-only" htmlFor="erp-chatbot-input">Tin nhắn cho trợ lý ảo</label>
       <div className={cn("relative", placement === "conversation" && "order-2 min-w-0 flex-1")}>
-        <textarea ref={inputRef} id="erp-chatbot-input" rows={placement === "landing" ? 2 : 1} autoFocus={mode !== "standalone"} onKeyDown={event => { if ((placement === "conversation" || settings.enterToSend) && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} value={input} onChange={(event) => setInput(event.target.value)} placeholder={placement === "landing" ? "" : "Nhắn cho iGen AI"} aria-describedby={["erp-chatbot-voice-help", placement === "conversation" && "erp-chatbot-keyboard-help", error && "erp-chatbot-error", voiceError && "erp-chatbot-voice-error"].filter(Boolean).join(" ")} className={cn("block w-full min-w-0 border-0 bg-transparent px-2 py-2 text-base text-on-surface placeholder:text-on-surface/60 focus-visible:outline-none focus-visible:ring-0", placement === "landing" ? "resize-none sm:text-lg" : "max-h-24 resize-none leading-6 focus-visible:bg-surface-container-low/40")} />
-        {placement === "landing" && !input && <AssistantTypingPlaceholder />}
+        <textarea ref={inputRef} id="erp-chatbot-input" rows={placement === "landing" ? 2 : 1} autoFocus={mode !== "standalone"} onKeyDown={event => { if ((placement === "conversation" || settings.enterToSend) && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void handleSend(); } }} value={input} onChange={(event) => setInput(event.target.value)} placeholder={placement === "landing" ? "" : promptPlaceholder} aria-describedby={["erp-chatbot-voice-help", placement === "conversation" && "erp-chatbot-keyboard-help", error && "erp-chatbot-error", voiceError && "erp-chatbot-voice-error"].filter(Boolean).join(" ")} className={cn("block w-full min-w-0 border-0 bg-transparent px-2 py-2 text-base text-on-surface placeholder:text-on-surface/60 focus-visible:outline-none focus-visible:ring-0", placement === "landing" ? "resize-none sm:text-lg" : "max-h-24 resize-none leading-6 focus-visible:bg-surface-container-low/40")} />
+        {placement === "landing" && !input && <AssistantTypingPlaceholder key={assistantMode} text={promptPlaceholder} />}
       </div>
       {assistantMode === "work" && <input ref={attachmentInputRef} className="sr-only" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" aria-label="Chọn tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} aria-invalid={Boolean(attachmentError)} tabIndex={-1} onChange={event => { void selectAttachment(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />}
       {assistantMode === "work" && attachment && <div className={cn("mx-1 mb-2 rounded-xl border border-outline-variant bg-surface-container-low p-3", placement === "conversation" && "order-5 w-full")}>
@@ -1275,15 +1274,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         {isWelcomeScreen ? <div ref={logRef} className="assistant-welcome assistant-reference-welcome min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-8 sm:px-8">
           <section aria-labelledby="assistant-welcome-title" className="assistant-reference-content mx-auto flex min-h-full w-full max-w-5xl flex-col justify-center gap-7 sm:gap-8">
             <div className="space-y-3 text-center">
-              <h1 id="assistant-welcome-title" className="text-balance text-2xl font-semibold sm:text-3xl">Xin chào {userProfile?.displayName || "bạn"}, mình là Trợ lí AI của <span className="assistant-brand-name">iGen</span> <span aria-hidden="true">👋</span></h1>
+              <h1 id="assistant-welcome-title" className="text-balance text-2xl font-semibold sm:text-3xl">{assistantMode === "work" ? <>Xin chào {userProfile?.displayName || "bạn"}, tôi sẽ giúp bạn thao tác ngay trên hệ thống <span className="assistant-brand-name">iGen</span></> : <>Xin chào {userProfile?.displayName || "bạn"}, mình là Trợ lí AI của <span className="assistant-brand-name">iGen</span></>} <span aria-hidden="true">👋</span></h1>
             </div>
             {isLoading && <p role="status" className="text-center text-sm text-on-surface/70">Đang tải cuộc trò chuyện…</p>}
             {renderComposer("landing")}
-            {assistantMode === "work" && <div className="assistant-quick-actions" aria-label="Tác vụ trợ lý">
-              <button type="button" data-tone="cyan" disabled={!synced || isLoading || isReadingAttachment} onClick={() => attachmentInputRef.current?.click()} className={cn("assistant-action-chip", focusClass)}><AssistantGradientIcon Icon={Paperclip} from="#1478dc" middle="#00adfc" to="#6859e4" className="size-4" />Phân tích tệp</button>
+            <div className="assistant-quick-actions" aria-label="Tính năng AI">
+              <button type="button" data-tone="cyan" disabled={!synced || isLoading || isReadingAttachment} onClick={() => { if (assistantMode === "work") attachmentInputRef.current?.click(); else openMode("work"); }} title={assistantMode === "qa" ? "Chuyển sang Trợ lý AI để phân tích tệp" : "Phân tích tệp"} className={cn("assistant-action-chip", focusClass)}><AssistantGradientIcon Icon={Paperclip} from="#1478dc" middle="#00adfc" to="#6859e4" className="size-4" />Phân tích tệp</button>
               <button type="button" data-tone="violet" disabled title="Trò chuyện thoại hai chiều với AI chưa có" className="assistant-action-chip is-preview"><AssistantVoiceChatIcon />iGen Voice</button>
               {previewActions.map(({ label, Icon, from, middle, to }) => <button key={label} type="button" disabled title={`${label} chưa có trong trợ lý`} className="assistant-action-chip is-preview"><AssistantGradientIcon Icon={Icon} from={from} middle={middle} to={to} className="size-4" />{label}</button>)}
-            </div>}
+            </div>
             {settings.showSuggestions && synced && <section aria-label={assistantMode === "qa" ? "Gợi ý câu hỏi" : "Gợi ý yêu cầu"} className="space-y-3">
               <div className="assistant-reference-suggestions grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {(assistantMode === "qa" ? qaSuggestions : suggestions).map(({ prompt, category, Icon }) => <button key={prompt} data-tone={category === "Nhân sự" ? "cyan" : category === "Khách hàng" ? "brand" : "violet"} type="button" onClick={() => void handleSend(prompt)} className={cn("assistant-promo-card group flex min-h-20 w-full items-center gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3 text-left hover:border-primary hover:bg-surface-container-low sm:p-4", focusClass)}>
