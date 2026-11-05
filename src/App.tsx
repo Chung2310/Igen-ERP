@@ -342,6 +342,8 @@ function AppContent() {
           className={`min-w-0 flex-1 bg-surface ${
             resolvedActiveTab === "TRỢ LÝ AI"
               ? "flex min-h-0 flex-col overflow-hidden p-0"
+              : resolvedActiveTab === "TÍCH HỢP MARKETING"
+                ? "flex min-h-0 flex-col overflow-hidden p-2"
               : `overflow-x-hidden overflow-y-auto ${activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-2" : "p-2"}`
           }`}
           id="primary_page_container"

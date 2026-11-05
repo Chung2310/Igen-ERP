@@ -1,3 +1,4 @@
+import '../../../../components/dashboard/overview-dashboard.css';
 import { Banknote, CreditCard, QrCode, Smartphone, TrendingUp, Wallet } from "lucide-react";
 import type { RetailReport } from "../../types";
 import { RetailEmptyState } from "../RetailEmptyState";
@@ -139,7 +140,7 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
       {/* Revenue Trend Chart */}
-      <article className="min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
+      <article className="overview-panel min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -328,7 +329,7 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
       </article>
 
       {/* Payment Mix Breakdown */}
-      <article className="flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
+      <article className="overview-panel flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
         <div>
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
