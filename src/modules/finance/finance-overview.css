@@ -1,0 +1,45 @@
+.finance-overview {
+  --finance-chart-blue: #3b64df;
+  --finance-chart-teal: #20bfa3;
+  --finance-chart-orange: #f09936;
+  --finance-chart-violet: #7655d8;
+  --finance-chart-red: #e85b64;
+  --finance-chart-teal-soft: color-mix(in srgb, var(--finance-chart-teal) 20%, transparent);
+}
+
+.finance-chart-card {
+  min-width: 0;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 0.875rem;
+  background: var(--color-surface-container-lowest);
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.finance-kpi {
+  min-width: 0;
+  min-height: 5.25rem;
+  border-radius: 0.625rem;
+  padding: 0.75rem 0.875rem;
+  background: linear-gradient(110deg, #7146ec, #5a37d8);
+}
+.finance-kpi p { text-shadow: 0 1px 2px rgb(0 0 0 / 0.35); }
+.finance-kpi-1 { background: linear-gradient(110deg, #3269de, #285ae8); }
+.finance-kpi-2 { background: linear-gradient(110deg, #075f82, #064e74); }
+.finance-kpi-3 { background: linear-gradient(110deg, #9c450f, #85400c); }
+.finance-kpi-4 { background: linear-gradient(110deg, #7b5800, #614600); }
+.finance-kpi-5 { background: linear-gradient(110deg, #d73b52, #c73046); }
+
+.finance-overview .recharts-cartesian-axis-tick-value,
+.finance-overview .recharts-legend-item-text {
+  fill: var(--color-on-surface-variant);
+  color: var(--color-on-surface-variant) !important;
+}
+
+.dark .finance-overview {
+  --finance-chart-blue: #7694ff;
+  --finance-chart-teal: #3bd4b8;
+  --finance-chart-orange: #f5ae61;
+  --finance-chart-violet: #a28aff;
+  --finance-chart-red: #f17e88;
+}

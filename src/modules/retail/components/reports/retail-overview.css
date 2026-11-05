@@ -1,0 +1,19 @@
+.retail-overview .finance-kpi {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 7rem;
+}
+
+.retail-overview .recharts-pie-label-text {
+  fill: var(--color-on-surface-variant);
+  font-size: 10px;
+}
+
+.retail-overview .recharts-tooltip-wrapper {
+  z-index: 2;
+}
+
+@media (max-width: 639px) {
+  .retail-overview .finance-kpi { min-height: 6rem; }
+}
