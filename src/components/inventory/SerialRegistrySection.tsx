@@ -322,6 +322,7 @@ export function SerialRegistrySection({ onTransfers }: { onTransfers?: () => voi
 
       {/* 2. Compact Sleek Metric Bar (4 segments) */}
       <MetricBar
+        id="inventory_serial_metrics"
         items={[
           {
             label: "Quy mô thiết bị",

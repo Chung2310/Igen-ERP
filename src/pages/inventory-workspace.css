@@ -1,0 +1,261 @@
+/* Inventory uses the same content frame, spacing and table hierarchy as HR. */
+#inventory_tab_content > :is(section, div) {
+  min-width: 0;
+}
+
+#inventory_tab_content :is(.rounded-xl, .rounded-2xl):not(.rounded-full) {
+  border-radius: 0.5rem;
+}
+
+#inventory_tab_content > :is(section, div).space-y-6 > * + *,
+#inventory_tab_content > :is(section, div).space-y-5 > * + * {
+  margin-block-start: 1rem;
+}
+
+#inventory_tab_content :is(section, #product_catalog_menu) > div:first-child :is(h2, h3) {
+  color: var(--color-on-surface);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+#inventory_tab_content :is(section, #product_catalog_menu) > div:first-child :is(h2, h3)::before {
+  display: inline-block;
+  width: 4px;
+  height: 1.4rem;
+  margin-right: 0.75rem;
+  border-radius: 999px;
+  background: var(--color-primary);
+  content: "";
+  vertical-align: -0.25rem;
+}
+
+#inventory_tab_content :is(section, #product_catalog_menu) > div:first-child {
+  padding-bottom: 0.75rem;
+  border-bottom-color: var(--color-outline-variant);
+}
+
+#inventory_tab_content .inventory-transfer-overview h2::before {
+  display: none;
+}
+
+#inventory_tab_content .inventory-transfer-overview > div:first-child > div:first-child > div:first-child {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+  box-shadow: none;
+}
+
+#inventory_tab_content :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]) {
+  border-color: var(--color-outline-variant);
+  background-color: var(--color-surface-container-lowest);
+}
+
+#inventory_tab_content :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+#inventory_tab_content table {
+  color: var(--color-on-surface);
+}
+
+#inventory_tab_content table thead {
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+#inventory_tab_content table thead th {
+  background-color: var(--color-surface-container-low);
+  font-weight: 600;
+}
+
+#inventory_tab_content table tbody {
+  background-color: var(--color-surface-container-lowest);
+}
+
+#inventory_tab_content table tbody tr {
+  border-color: var(--color-outline-variant);
+}
+
+#inventory_tab_content table tbody tr:hover {
+  background: var(--color-surface-container-low);
+}
+
+#inventory_tab_content table tbody td {
+  color: var(--color-on-surface);
+}
+
+#inventory_tab_content table tbody td > span.rounded-full {
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+#inventory_tab_content .inventory-outbound-metrics > div,
+#inventory_tab_content .inventory-transfer-overview > div:last-child > div {
+  min-height: 5rem;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 0.75rem;
+  background: var(--color-surface-container-lowest);
+  box-shadow: none;
+}
+
+#inventory_tab_content :is(#inventory_warehouse_metrics, #inventory_serial_metrics, #stock_log_stats_strip, #forecast_kpi_bar) {
+  gap: 0.75rem;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#inventory_tab_content :is(#inventory_warehouse_metrics, #inventory_serial_metrics, #stock_log_stats_strip, #forecast_kpi_bar) > div {
+  min-width: 0;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 0.75rem;
+  background: var(--color-surface-container-low);
+  box-shadow: none;
+}
+
+#inventory_tab_content :is(#inventory_warehouse_metrics, #inventory_serial_metrics, #stock_log_stats_strip, #forecast_kpi_bar) > div:first-child {
+  background: var(--color-primary-container);
+}
+
+#inventory_tab_content :is(#inventory_warehouse_metrics, #inventory_serial_metrics, #stock_log_stats_strip, #forecast_kpi_bar) > div:nth-child(2),
+#inventory_tab_content .inventory-outbound-metrics > div:first-child,
+#inventory_tab_content .inventory-transfer-overview > div:last-child > div:first-child {
+  background: var(--color-secondary-container);
+}
+
+#inventory_tab_content :is(#inventory_warehouse_metrics, #inventory_serial_metrics, #stock_log_stats_strip, #forecast_kpi_bar) > div:nth-child(3),
+#inventory_tab_content .inventory-outbound-metrics > div:nth-child(4),
+#inventory_tab_content .inventory-transfer-overview > div:last-child > div:nth-child(3) {
+  background: var(--color-primary-container);
+}
+
+#inventory_tab_content :is(#inventory_warehouse_metrics, #inventory_serial_metrics, #stock_log_stats_strip, #forecast_kpi_bar) > div:nth-child(4),
+#inventory_tab_content .inventory-outbound-metrics > div:nth-child(2),
+#inventory_tab_content .inventory-outbound-metrics > div:nth-child(3),
+#inventory_tab_content .inventory-transfer-overview > div:last-child > div:nth-child(2) {
+  background: var(--color-tertiary-container);
+}
+
+#inventory_tab_content :is(#inventory_warehouse_metrics, #inventory_serial_metrics, #stock_log_stats_strip, #forecast_kpi_bar) > div > span:first-child {
+  color: var(--color-on-surface-variant);
+  font-size: 0.75rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+#inventory_tab_content :is(#inventory_warehouse_metrics, #inventory_serial_metrics, #stock_log_stats_strip, #forecast_kpi_bar) > div > p {
+  color: var(--color-on-surface);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+#inventory_tab_content .inventory-outbound-metrics > div {
+  padding: 0.875rem;
+}
+
+#inventory_tab_content .inventory-outbound-metrics > div > div:first-child,
+#inventory_tab_content .inventory-transfer-overview > div:last-child > div p:first-child {
+  color: var(--color-on-surface-variant);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+#inventory_tab_content .inventory-outbound-metrics > div > div:nth-child(2),
+#inventory_tab_content .inventory-transfer-overview > div:last-child > div p:nth-child(2) {
+  color: var(--color-on-surface);
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+#inventory_tab_content .inventory-transfer-overview > div:last-child {
+  margin-top: 1rem;
+}
+
+#inventory_tab_content .inventory-transfer-overview > div:last-child > div {
+  padding: 0.875rem;
+}
+
+#inventory_tab_content #product_classification_tab > .grid > div {
+  padding: 0.875rem;
+  border-color: var(--color-outline-variant);
+  border-radius: 0.75rem;
+  box-shadow: none;
+}
+
+#inventory_tab_content #product_classification_tab > .grid > div:first-child {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+#inventory_tab_content #product_classification_tab > .grid > div:nth-child(2) {
+  background: var(--color-secondary-container);
+  color: var(--color-on-secondary-container);
+}
+
+#inventory_tab_content #product_classification_tab > .grid > div > div > div:first-child {
+  box-shadow: none;
+}
+
+#inventory_tab_content #product_classification_tab > .grid > div p:last-child {
+  color: var(--color-on-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Money takes visual priority over counts; the existing currency text is untouched. */
+#inventory_tab_content #inventory_warehouse_metrics > div:first-child > p,
+#inventory_tab_content #inventory_stock_table tbody td:nth-child(5),
+#inventory_tab_content #inventory_receiving_table tbody td:nth-child(4) {
+  color: var(--color-on-primary-fixed-variant);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+#inventory_tab_content #inventory_stock_table tbody td:nth-child(4),
+#inventory_tab_content .inventory-transfer-items-table tbody td:nth-child(3) {
+  color: var(--color-tertiary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+#inventory_tab_content .inventory-transfer-overview > div:last-child > div > div:first-child {
+  box-shadow: none;
+}
+
+#inventory_tab_content #product_catalog_menu .border-dashed {
+  border-style: solid;
+  border-color: var(--color-outline-variant);
+}
+
+#inventory_tab_content #product_catalog_menu .border-dashed > div:first-child {
+  width: 4.5rem;
+  height: 4.5rem;
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface-variant);
+}
+
+#inventory_tab_content #product_catalog_menu .border-dashed > div:first-child svg {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+@media (max-width: 640px) {
+  #inventory_tab_content :is(section, #product_catalog_menu) > div:first-child :is(h2, h3) {
+    font-size: 1.125rem;
+  }
+
+  #inventory_tab_content .inventory-outbound-metrics > div,
+  #inventory_tab_content .inventory-transfer-overview > div:last-child > div {
+    min-height: 4.5rem;
+  }
+}

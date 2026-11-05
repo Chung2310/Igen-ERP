@@ -9,6 +9,7 @@ import { getApiErrorMessage } from "../utils/errorMessage";
 import { CategoryModal } from "../components/inventory/CategoryModal";
 import { ConfirmDialog } from "../components/inventory/InventoryConfirmDialog";
 import { SummaryCard } from "../components/inventory/SummaryCard";
+import "./inventory-workspace.css";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
 import { inventoryCategoryService } from "../services/inventoryCategoryService";
@@ -692,7 +693,7 @@ function InventoryWorkspace() {
         })}
       </ModuleNavigation>
 
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6" id="inventory_tab_content">
+      <div className="inventory-workspace m-2 min-h-0 flex-1 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:m-3 sm:p-5" id="inventory_tab_content">
         {subTab === "SẢN PHẨM" && (
           <div className="space-y-6" id="product_catalog_menu">
             <ProductCatalogV2Section />
