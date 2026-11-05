@@ -2471,11 +2471,11 @@ const recruitmentJobFields={
  employmentType:text(false,['full_time','part_time','contract','internship']),workplaceType:{...text(false,['onsite','hybrid','remote']),requiredWhen:openRecruitmentJob},location:{...text(),requiredWhen:openRecruitmentJob},applicationDeadline:{type:'date',requiredWhen:openRecruitmentJob},status:text(false,['draft','open','paused','closed']),
 };
 const recruitmentApplicantFields={
- jobId:{...text(true),reference:'recruitment.job.list',referenceValueKey:'id',label:'Vị trí tuyển dụng'},fullName:{...text(true),max:200},email:{...text(),format:'email'},phone:text(),birthDate:{type:'date'},address:text(),experience:text(),education:text(),skills:list(text()),expectedSalary:number(false,0),availableDate:{type:'date'},source:text(),notes:text(),
- recruiterId:{...text(),reference:'employee.list',referenceValueKey:'id',label:'Nhân sự phụ trách'},confirmDuplicate:{type:'boolean',defaultValue:false},
+ jobId:{...text(true),reference:'recruitment.job.list',referenceValueKey:'id',label:'Vị trí tuyển dụng'},fullName:{...text(true),max:200},email:{...text(),format:'email'},phone:text(),birthDate:{type:'date'},address:text(),experience:{...text(),label:'Kinh nghiệm'},education:{...text(),label:'Trình độ học vấn'},skills:{...list(text()),label:'Kỹ năng'},expectedSalary:{...number(false,0),label:'Lương mong muốn'},availableDate:{type:'date'},source:{...text(),label:'Nguồn ứng viên'},notes:text(),
+ recruiterId:{...text(),reference:'employee.list',referenceValueKey:'id',label:'Nhân sự phụ trách'},confirmDuplicate:{type:'boolean',defaultValue:false,label:'Xác nhận hồ sơ trùng'},
 };
 const recruitmentInterviewFields={
- applicantId:{...text(true),reference:'recruitment.applicant.list',referenceValueKey:'id',label:'Ứng viên'},jobId:{...text(),reference:'recruitment.job.list',referenceValueKey:'id',label:'Vị trí tuyển dụng'},scheduledStart:{type:'date',required:true},scheduledEnd:{type:'date',required:true},
+ applicantId:{...text(true),reference:'recruitment.applicant.list',referenceValueKey:'id',label:'Ứng viên'},jobId:{...text(),reference:'recruitment.job.list',referenceValueKey:'id',label:'Vị trí tuyển dụng'},scheduledStart:{type:'datetime',required:true,label:'Thời gian bắt đầu'},scheduledEnd:{type:'datetime',required:true,label:'Thời gian kết thúc'},
  format:text(true,['onsite','online','phone']),location:text(),meetingLink:text(),interviewerIds:list({...text(),reference:'employee.list',referenceValueKey:'id',label:'Người phỏng vấn'}),status:text(false,['scheduled','completed','cancelled']),result:text(),notes:text(),
 };
 const recruitmentPartial=shape=>object(Object.fromEntries(Object.entries(shape.keys).map(([key,value])=>[key,{...value,required:false}])));
