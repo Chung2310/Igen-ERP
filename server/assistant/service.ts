@@ -18,6 +18,13 @@ import { mapAssistantTableAttachment } from "./table-import";
 import { answerAssistantGeneralQuestion, normalizeAssistantReply } from "./general-answer";
 export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
 interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
+function restorePendingActionId(pending: PendingAction | null): PendingAction | null {
+  if (!pending || operationById(pending.actionId)) return pending;
+  const previousTitle = String(pending.preview?.title || "").trim();
+  if (!previousTitle) return pending;
+  const matches = ASSISTANT_OPERATIONS.filter(operation => operation.title.trim() === previousTitle);
+  return matches.length === 1 ? { ...pending, actionId: matches[0].id } : pending;
+}
 const internalAssistantIdPattern = /\b(?:[a-f\d]{24}|[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12})\b/gi;
 function hideInternalAssistantIds(value: string): string;
 function hideInternalAssistantIds(value: AssistantValue): AssistantValue;
@@ -601,6 +608,16 @@ function unavailableReferencePrompt(op: AssistantOperation, field: AssistantFiel
   return `Chưa có lựa chọn khả dụng cho ${label}.${skipHint}`;
 }
 function assistantOptionLabel(op: AssistantOperation, field: AssistantField, value: string) {
+  if (op.id === "retail.coupon.create" && field.key === "targetType") {
+    const labels: Record<string, string> = {
+      all_customers: "Tất cả khách hàng",
+      specific_customer: "Một khách hàng cụ thể",
+    };
+    return labels[value] || value;
+  }
+  if (op.id === "retail.coupon.create" && field.apiKey === "discountType") {
+    return value === "amount" ? "Giảm theo số tiền" : value === "percent" ? "Giảm theo phần trăm" : value;
+  }
   if (op.path.startsWith("/worker-management/partners/policies")) {
     const labels: Record<string, string> = {
       "settlementCycle.type.calendar_month": "Theo tháng dương lịch",
@@ -721,20 +738,22 @@ export async function missingReferencePrompts(
   intent: string,
   skipped: Set<string>,
   suggestOptions: typeof suggestReferenceOptions = suggestReferenceOptions,
+  unresolvedReferenceKeys: ReadonlySet<string> = new Set(),
 ) {
   const prompts: string[] = [];
   const textPrompts: string[] = [];
   const referenceSelections: AssistantReferenceSelection[] = [];
+  const optionSelectionKeys = new Set<string>();
   const awaitingOptional: string[] = [];
   const awaitingLabels: Record<string, string> = {};
   const missingRequiredDetailReference = op.method === "GET" && op.fields.some(field => {
-    if (field.source !== "path" || !field.reference || values[field.key] !== undefined) return false;
+    if (field.source !== "path" || !field.reference || values[field.key] !== undefined || unresolvedReferenceKeys.has(field.key)) return false;
     const configured = workflow.fields.find(candidate => candidate.key === field.key);
     return Boolean(field.required || field.systemRequired || configured?.required);
   });
   if (missingRequiredDetailReference && op.id !== "student.batch.detail") {
     const missingPathFields = op.fields.filter(field => {
-      if (field.source !== "path" || !field.reference || values[field.key] !== undefined) return false;
+      if (field.source !== "path" || !field.reference || values[field.key] !== undefined || unresolvedReferenceKeys.has(field.key)) return false;
       const configured = workflow.fields.find(candidate => candidate.key === field.key);
       return Boolean(field.required || field.systemRequired || configured?.required);
     });
@@ -779,13 +798,14 @@ export async function missingReferencePrompts(
   };
   for (const field of op.fields) {
     if (!isAssistantFieldApplicable(workflow, field)) continue;
+    if (op.id === "retail.coupon.create" && field.apiKey === "customerId" && values.targetType !== "specific_customer") continue;
     if (op.path === "/inventory/catalog/resources/:kind") {
       const applicableKind = INVENTORY_RESOURCE_FIELD_KINDS[field.apiKey || field.key];
       const resourceKind = op.fixedPathValues?.kind ?? values.path_kind;
       if (applicableKind && resourceKind !== applicableKind) continue;
     }
     if (isCatalogProductCreate && field.apiKey === "baseUnitCode" && values[field.key] === undefined) continue;
-    if (!field.reference || values[field.key] !== undefined || skipped.has(field.key)) continue;
+    if (!field.reference || (values[field.key] !== undefined && !unresolvedReferenceKeys.has(field.key)) || skipped.has(field.key)) continue;
     const configured = workflow.fields.find(item => item.key === field.key);
     const required = Boolean(field.systemRequired || configured?.required || conditionApplies(field));
     const relationRequested = relationMentioned(intent, field);
@@ -794,7 +814,10 @@ export async function missingReferencePrompts(
     if (!shouldPrompt) continue;
     let options: string[] = [];
     let lookupFailed = false;
-    try { options = await suggestOptions(req, op, field, values); } catch { lookupFailed = true; /* permission or endpoint failures do not expose another scope */ }
+    const referenceValues = unresolvedReferenceKeys.has(field.key) && values[field.key] !== undefined
+      ? { ...values, [referenceSearchKey(field.key)]: String(values[field.key]) }
+      : values;
+    try { options = await suggestOptions(req, op, field, referenceValues); } catch { lookupFailed = true; /* permission or endpoint failures do not expose another scope */ }
     if (!mustResolve && options.length === 0) continue;
     if (!mustResolve) { awaitingOptional.push(field.key); awaitingLabels[field.key] = field.label; }
     const skipHint = mustResolve ? ""
@@ -811,11 +834,15 @@ export async function missingReferencePrompts(
 
   for (const field of op.fields) {
     if (!isAssistantFieldApplicable(workflow, field)) continue;
-    if (!field.options?.length || field.reference || values[field.key] !== undefined || skipped.has(field.key)) continue;
+    const currentValue = values[field.key];
+    const currentOptionIsValid = currentValue !== undefined && field.options?.some(option => String(option) === String(currentValue));
+    const hasInvalidProvidedOption = currentValue !== undefined && !isBlank(currentValue);
+    if (!field.options?.length || field.reference || currentOptionIsValid || skipped.has(field.key)) continue;
     const configured = workflow.fields.find(item => item.key === field.key);
     const required = Boolean(field.systemRequired || configured?.required || conditionApplies(field));
-    if (!required) continue;
+    if (!required && !hasInvalidProvidedOption) continue;
     referenceSelections.push({ key: field.key, label: field.label, required: true, multiple: false, options: assistantChoiceOptions(op, field, field.options) });
+    optionSelectionKeys.add(field.key);
     prompts.push(`${field.label}: cần chọn một giá trị trong danh sách.`);
   }
 
@@ -866,9 +893,10 @@ export async function missingReferencePrompts(
       const nodeIsBlank = node === undefined || node === null || (typeof node === "string" && !node.trim());
       if (condition && !shape.required && !shapeConditionApplies && nodeIsBlank) return;
       if (shape.reference) {
-        if (node !== undefined && node !== null && String(node).trim()) return;
-        if (isCatalogProductCreate && field.key === "variant" && path === ".unitCode") return;
         const key = nestedReferenceKey(field.key, path);
+        const unresolved = unresolvedReferenceKeys.has(key);
+        if (node !== undefined && node !== null && String(node).trim() && !unresolved) return;
+        if (isCatalogProductCreate && field.key === "variant" && path === ".unitCode") return;
         if (skipped.has(key)) return;
         const parentValue = shape.referenceParentKey
           ? currentObject?.[shape.referenceParentKey] ?? values[shape.referenceParentKey]
@@ -898,6 +926,7 @@ export async function missingReferencePrompts(
         try { options = await suggestOptions(req, op, referenceField, {
           ...values,
           ...(currentObject || {}),
+          ...(unresolved && node !== undefined && node !== null && String(node).trim() ? { [referenceSearchKey(key)]: String(node) } : {}),
           ...(receiptProductSearch ? { [`__assistantReferenceSearch_${key}`]: receiptProductSearch } : {}),
           ...(shape.referenceParentKey && parentValue !== undefined ? { [shape.referenceParentKey]: parentValue as AssistantValue } : {}),
         } as Record<string, AssistantValue>); }
@@ -914,8 +943,10 @@ export async function missingReferencePrompts(
         return;
       }
       if (shape.options?.length) {
-        if (node !== undefined && node !== null && String(node).trim()) return;
-        if (!shape.required && !shapeConditionApplies) return;
+        const currentOptionIsValid = node !== undefined && node !== null && shape.options.some(option => String(option) === String(node));
+        const hasInvalidProvidedOption = node !== undefined && node !== null && String(node).trim() !== "";
+        if (currentOptionIsValid) return;
+        if (!shape.required && !shapeConditionApplies && !hasInvalidProvidedOption) return;
         const key = nestedReferenceKey(field.key, path);
         if (skipped.has(key)) return;
         const label = [field.label, ...displayPath].filter(Boolean).join(" · ");
@@ -927,6 +958,7 @@ export async function missingReferencePrompts(
           multiple: false,
           options: assistantChoiceOptions(op, optionField, optionField.options || []),
         });
+        optionSelectionKeys.add(key);
         prompts.push(`${label}: cần chọn một giá trị trong danh sách.`);
         return;
       }
@@ -997,7 +1029,7 @@ export async function missingReferencePrompts(
     };
     await visit(field.structure, data, "", [], undefined);
   }
-  return { prompts, textPrompts, referenceSelections, awaitingOptional, awaitingLabels };
+  return { prompts, textPrompts, referenceSelections, awaitingOptional, awaitingLabels, optionSelectionKeys };
 }
 export function skippedReferenceTargets(text: string, operation: AssistantOperation, awaitingKeys: string[], awaitingLabels: Record<string, string> = {}) {
   if (!awaitingKeys.length || !isSkippingReference(text)) return [];
@@ -1236,7 +1268,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: "completed", result: reply } });
     return reply;
   }
-  let pending = session.pending as PendingAction | null;
+  let pending = restorePendingActionId(session.pending as PendingAction | null);
   if (pending) pending.preview = sanitizeActionPreview(pending.preview);
   let hasDispatched = false;
   let reply: AssistantReply;
@@ -1423,6 +1455,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     if (req.user?.branchId && selectedBranchField && contextualValues[selectedBranchField.key] === undefined) contextualValues[selectedBranchField.key] = req.user.branchId;
     const resolvedNamedValues = await resolveNamedReferenceSelectors(req, op, contextualValues);
     const selectedValues = inferCustomWorkHoursMode(op, inferTaskDeadline(op, resolvedNamedValues, intent), intent, input.text || intent);
+    if (op.id === "retail.coupon.create" && selectedValues.targetType === "all_customers") delete selectedValues.customerId;
     const kpiPeriodWasDefaulted = op.id === "worker.partner.kpi.set"
       && previousPending?.defaultedKeys?.includes("periodAnchor") === true
       && String(previousPending.provided.periodAnchor || "") === String(selectedValues.periodAnchor || "");
@@ -1468,8 +1501,9 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     // tracked separately by collectValues, so valid selected references can
     // still be resolved and retained across turns.
     const promptValues = { ...references.values };
+    const unresolvedReferenceKeys = new Set(references.unresolvedReferenceKeys || []);
     const failedPathReferenceKeys = op.fields
-      .filter(field => field.source === "path" && field.reference && references.errors.some(error => error.startsWith(`${field.label}:`)))
+      .filter(field => field.source === "path" && field.reference && unresolvedReferenceKeys.has(field.key))
       .map(field => field.key);
     for (const key of failedPathReferenceKeys) {
       const failedValue = selectedValues[key];
@@ -1485,7 +1519,16 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     const askBatchEditDetails = op.id === "student.batch.update"
       && explicitReferenceKeys.has("path_id")
       && !hasUpdatePayload(op, references.values);
-    const relationshipPrompts = await missingReferencePrompts(req, op, requestWorkflow, promptValues, askBatchEditDetails ? "" : intent, skippedReferenceKeys);
+    const relationshipPrompts = await missingReferencePrompts(
+      req,
+      op,
+      requestWorkflow,
+      promptValues,
+      askBatchEditDetails ? "" : intent,
+      skippedReferenceKeys,
+      undefined,
+      unresolvedReferenceKeys,
+    );
     const selectionLabels = new Set(relationshipPrompts.referenceSelections.map(selection => selection.label));
     if (relationshipPrompts.referenceSelections.some(selection => selection.key === "laborPolicyTypes")) {
       for (const key of ["official", "seasonal"]) {
@@ -1494,11 +1537,17 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         if (field && enabled) selectionLabels.add(`${field.label} · ${enabled.label || "enabled"}`);
       }
     }
-    const recoveredPathReferenceKeys = new Set(relationshipPrompts.referenceSelections
-      .filter(selection => failedPathReferenceKeys.includes(selection.key))
+    const recoveredReferenceKeys = new Set(relationshipPrompts.referenceSelections
+      .filter(selection => unresolvedReferenceKeys.has(selection.key))
       .map(selection => selection.key));
-    const visibleReferenceErrors = references.errors.filter(error => !op.fields.some(field =>
-      field.source === "path" && recoveredPathReferenceKeys.has(field.key) && error.startsWith(`${field.label}:`)));
+    const recoveredReferenceErrors = new Set([...recoveredReferenceKeys]
+      .map(key => references.unresolvedReferenceErrors?.[key])
+      .filter((error): error is string => Boolean(error)));
+    const visibleReferenceErrors = references.errors.filter(error => !recoveredReferenceErrors.has(error));
+    const visibleCollectedErrors = collected.errors.filter(error => !relationshipPrompts.referenceSelections.some(selection => {
+      if (!relationshipPrompts.optionSelectionKeys.has(selection.key)) return false;
+      return error.startsWith(`${selection.label}:`) || error.startsWith(`${selection.label} ·`);
+    }));
     const receiptQuestion = inventoryReceiptFollowUpQuestion(op, collected.missing, relationshipPrompts.referenceSelections, relationshipPrompts.textPrompts);
     const trainingContentQuestion = trainingContentFollowUpQuestion(op, collected.missing);
     const customWorkHoursQuestion = customWorkHoursFollowUpQuestion(op, missingWorkHours);
@@ -1518,7 +1567,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     pending = {
       id,
       actionId,
-      provided: Object.fromEntries(Object.entries(selectedValues).filter(([key]) => op.fields.some(field => field.key === key) && !failedPathReferenceKeys.includes(key))),
+      provided: Object.fromEntries(Object.entries(selectedValues).filter(([key]) => op.fields.some(field => field.key === key) && !unresolvedReferenceKeys.has(key))),
       intent,
       explicitReferenceKeys: [...explicitReferenceKeys],
       workflowVersion: workflow.version,
@@ -1538,7 +1587,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         ...(receiptQuestion ? [receiptQuestion] : []),
         ...(customWorkHoursQuestion ? [customWorkHoursQuestion] : []),
         ...(trainingContentQuestion ? [trainingContentQuestion] : []),
-        ...(collected.errors.length || visibleReferenceErrors.length ? [`Mình cần bạn kiểm tra lại một chút:\n${[...collected.errors, ...visibleReferenceErrors].join("\n")}`] : []),
+        ...(visibleCollectedErrors.length || visibleReferenceErrors.length ? [`Mình cần bạn kiểm tra lại một chút:\n${[...visibleCollectedErrors, ...visibleReferenceErrors].join("\n")}`] : []),
         ...(relationshipPrompts.textPrompts.length ? [relationshipPrompts.textPrompts.join("\n")] : []),
         ...(relationshipPrompts.referenceSelections.length ? ["Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé."] : []),
         ...(collected.defaulted.length ? [`Với thông tin chưa được nêu, mình sẽ dùng giá trị mặc định của workflow: ${workflow.fields.filter(f => collected.defaulted.includes(f.key)).map(f => `${f.label} = ${String(collected.values[f.key] ?? f.defaultValue)}`).join("; ")}.`] : []),

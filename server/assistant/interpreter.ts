@@ -85,6 +85,15 @@ function contextualInventoryReceiptCreateActionId(text: string, workflows: Assis
     ? "inventory.receipt.create"
     : "";
 }
+function contextualRetailShiftOpenActionId(text: string, workflows: AssistantWorkflow[]) {
+  const intent = normalizeIntentText(text);
+  if (/\b(?:xem|tra cuu|kiem tra|danh sach|liet ke|bao cao|lich su|dong|ket thuc|tam dung|tiep tuc)\b/.test(intent)) return "";
+  const asksToOpenShift = /\b(?:mo|bat dau|khoi dong)\b.{0,36}\b(?:ca thu ngan|ca pos|ca ban hang|phien thu ngan|phien pos|phien ban hang)\b/.test(intent)
+    || /\b(?:ca thu ngan|ca pos|ca ban hang|phien thu ngan|phien pos|phien ban hang)\b.{0,36}\b(?:mo|bat dau|khoi dong)\b/.test(intent);
+  if (!asksToOpenShift) return "";
+  const operation = ASSISTANT_OPERATIONS.find(item => item.method === "POST" && item.path === "/retail/shifts/open");
+  return operation && workflows.some(workflow => workflow.actionId === operation.id) ? operation.id : "";
+}
 function contextualTimekeepingActionIds(text: string, workflows: AssistantWorkflow[]) {
   const intent = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0111\u0110]/g, "d").toLowerCase();
   if (!/\bcham cong\b/.test(intent) || !/\b(?:kiem tra|tra cuu|xem|danh sach|bao cao|tong hop)\b/.test(intent)) return [];
@@ -348,6 +357,23 @@ function contextualPartnerCreate(text: string, workflows: AssistantWorkflow[], m
 function normalizeIntentText(text: string) {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0111\u0110]/g, "d").toLowerCase();
 }
+function contextualMissingRecruitmentJobInfo(text: string, workflows: AssistantWorkflow[], messages: { role: string; content: string }[], pending: unknown): AssistantInterpretation | null {
+  const intent = normalizeIntentText(text);
+  const asksForMissingInfo = /\b(?:con thieu|thieu|bo trong|chua co|can bo sung|bo sung)\b/.test(intent)
+    && /\b(?:thong tin|truong|muc|gi|ho so)\b/.test(intent);
+  if (!asksForMissingInfo) return null;
+
+  const previous = messages.at(-1);
+  if (previous?.role !== "assistant" || !/\bda tao vi tri tuyen dung\b/.test(normalizeIntentText(previous.content))) return null;
+  const detailActionId = "recruitment.job.detail";
+  if (!workflows.some(workflow => workflow.actionId === detailActionId)) return null;
+
+  const code = previous.content.match(/Mã vị trí tuyển dụng\s*:\s*([^\r\n]+)/i)?.[1]?.trim();
+  const title = previous.content.match(/Tiêu đề\s*:\s*([^\r\n]+)/i)?.[1]?.trim();
+  const identifier = code || title;
+  if (!identifier) return null;
+  return { actionId: detailActionId, values: { path_id: identifier }, intentType: "workflow", ...(pending ? { newRequest: true } : {}) };
+}
 function contextualLaborPartnerPolicyCreateActionId(text: string, workflows: AssistantWorkflow[]) {
   const intent = normalizeIntentText(text);
   const startsPartnerCreation = /\b(?:tao|them|lap|bo sung|khai bao|dang ky)\s+(?:(?:mot|moi)\s+)?(?:doi tac|partner)\b/.test(intent);
@@ -438,6 +464,7 @@ function directEntityListRequest(text: string, workflows: AssistantWorkflow[], p
     "employee.list": [["nhan", "vien"], ["can", "bo"]],
     "department.list": [["bo", "phan"]],
     "task.list": [["nhiem", "vu"]],
+    "recruitment.job.list": [["tin", "tuyen", "dung"]],
   };
   const matchScore = (input: string[], expected: string[]) => {
     if (!input.length || input.length > expected.length) return 0;
@@ -607,6 +634,8 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
   if (directWorkWorkflowUpdate) return directWorkWorkflowUpdate;
   const directWorkWorkflowCreate = directWorkWorkflowCreateRequest(text, workflows, pending);
   if (directWorkWorkflowCreate) return directWorkWorkflowCreate;
+  const missingRecruitmentJobInfo = contextualMissingRecruitmentJobInfo(text, workflows, messages, pending);
+  if (missingRecruitmentJobInfo) return missingRecruitmentJobInfo;
   const pendingCourseCategoryName = contextualCourseCategoryNameReply(text, workflows, pending);
   if (pendingCourseCategoryName) return pendingCourseCategoryName;
   const trainingUpdate = contextualTrainingUpdate(text, workflows, pending);
@@ -630,7 +659,8 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
   const directCatalogActionId = directPartnerActionId || categoryCreateActionId || unitCreateActionId;
   const directStudentActionId = directCatalogActionId ? null : directStudentRecordActionId(text, workflows);
   const inventoryReceiptCreateActionId = directCatalogActionId || directStudentActionId ? "" : contextualInventoryReceiptCreateActionId(text, workflows);
-  const directOperationActionId = directCourseActionId || directLaborPartnerPolicyCreateActionId || directCatalogActionId || directStudentActionId || inventoryReceiptCreateActionId;
+  const retailShiftOpenActionId = directCatalogActionId || directStudentActionId ? "" : contextualRetailShiftOpenActionId(text, workflows);
+  const directOperationActionId = directCourseActionId || directLaborPartnerPolicyCreateActionId || directCatalogActionId || directStudentActionId || inventoryReceiptCreateActionId || retailShiftOpenActionId;
   if (directOperationActionId) workflows = workflows.filter(workflow => workflow.actionId === directOperationActionId);
   const contextualChoice = directOperationActionId ? null : contextualSuggestedWorkflow(text, workflows, messages, pending);
   if (contextualChoice) return contextualChoice;

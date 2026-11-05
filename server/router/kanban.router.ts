@@ -10,6 +10,7 @@ import { notificationService } from "../service/notification.service";
 import { kanbanAuditService } from "../service/kanban-audit.service";
 import { sourceUploadFinalizer } from "../service/source-upload-finalizer.service";
 import { calculateProjectProgress, deriveProjectLifecycle, newUploadAttachments, validateProjectPayload } from "../service/kanban-project.service";
+import { buildKanbanProjectListFilter, buildKanbanTaskListFilter } from "../service/kanban-list-filter";
 import { currentPeriodKey, getMonthlyKpiReport } from "../service/kanban-monthly-kpi.service";
 import { emitToCompany, emitToUser } from "../socket";
 
@@ -235,9 +236,7 @@ kanbanRouter.get("/tasks", requirePermission("work:read") as any, async (req: Au
     } else if (req.query.branchId) {
       filter.branchId = req.query.branchId;
     }
-    if (!isManager(req.user?.role)) {
-      filter.$or = [{ assigneeUid: req.user?.id }, { creatorUid: req.user?.id }];
-    }
+    Object.assign(filter, buildKanbanTaskListFilter(req.query as Record<string, unknown>, { id: req.user?.id, role: req.user?.role }));
     const tasks = await KanbanTaskModel.find(filter).sort("-createdAt").lean();
     const now = Date.now();
     const nextDay = now + 24 * 60 * 60 * 1000;
@@ -494,6 +493,7 @@ kanbanRouter.get("/projects", requirePermission("work:read") as any, async (req:
     } else if (req.query.branchId) {
       filter.branchId = req.query.branchId;
     }
+    Object.assign(filter, buildKanbanProjectListFilter(req.query as Record<string, unknown>));
     const projects: any[] = await ProjectModel.find(filter).sort("-createdAt").lean();
     const ids = projects.map((project) => String(project._id));
     const companyCodes = [...new Set(projects.map((project) => project.companyCode))];

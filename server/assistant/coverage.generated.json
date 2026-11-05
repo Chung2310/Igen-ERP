@@ -1,8 +1,8 @@
 {
-  "total": 1155,
+  "total": 1157,
   "connectedContracts": 795,
-  "connectedManualRoutes": 19,
-  "connectedRoutes": 814,
+  "connectedManualRoutes": 21,
+  "connectedRoutes": 816,
   "reviewPending": 0,
   "intentionallyUnsupported": 341,
   "unresolved": [],
@@ -7211,7 +7211,7 @@
       "method": "GET",
       "path": "/retail/coupons/tiers",
       "status": "contract",
-      "id": "api.get.bf54b32b824b72a8",
+      "id": "retail.coupon.tier.list",
       "file": "server/modules/retail/routes/retail-coupon.routes.ts",
       "line": 27
     },
@@ -7643,7 +7643,7 @@
       "method": "GET",
       "path": "/retail/reports/summary",
       "status": "contract",
-      "id": "api.get.c05d54c535dd6f01",
+      "id": "retail.report.summary",
       "file": "server/modules/retail/routes/retail-report.routes.ts",
       "line": 9
     },
@@ -9246,6 +9246,22 @@
       "id": "inventory.stock-log.list",
       "file": "server/router/crud.router.ts",
       "line": 173
+    },
+    {
+      "method": "POST",
+      "path": "/retail/coupons",
+      "status": "manual",
+      "id": "retail.coupon.create",
+      "file": "server/modules/retail/routes/retail-coupon.routes.ts",
+      "line": 76
+    },
+    {
+      "method": "GET",
+      "path": "/retail/invoices/summary",
+      "status": "manual",
+      "id": "retail.invoice.summary",
+      "file": "server/modules/retail/routes/retail-invoice.routes.ts",
+      "line": 6
     }
   ]
 }
