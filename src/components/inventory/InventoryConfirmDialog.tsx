@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { AlertTriangle, Loader2, X } from "lucide-react";
 
 type ConfirmDialogProps = {
@@ -35,10 +35,44 @@ export function ConfirmDialog({
   title,
   tone = "danger",
 }: ConfirmDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const isSubmittingRef = useRef(isSubmitting);
+  onCloseRef.current = onClose;
+  isSubmittingRef.current = isSubmitting;
+
   useEffect(() => {
     if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    dialog?.querySelector<HTMLElement>("[data-dialog-initial-focus]")?.focus({ preventScroll: true });
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !isSubmitting) onClose();
+      if (event.key === "Escape") {
+        if (!isSubmittingRef.current) onCloseRef.current();
+        return;
+      }
+
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+      if (event.shiftKey && (activeElement === first || !dialogRef.current.contains(activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (activeElement === last || !dialogRef.current.contains(activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     const previousOverflow = document.body.style.overflow;
@@ -46,8 +80,9 @@ export function ConfirmDialog({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
-  }, [isOpen, isSubmitting, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -55,20 +90,20 @@ export function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs" role="presentation" onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) onClose(); }}>
-      <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-gray-200/70 bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+      <div ref={dialogRef} className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-gray-200/70 bg-white shadow-2xl" role="alertdialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description" tabIndex={-1}>
         {/* Header with icon and title */}
         <div className="flex items-center justify-between px-6 pt-6 pb-2">
           <div className="flex items-center gap-3">
             <span className={`rounded-xl p-2 ${styles.accent}`}>
               <AlertTriangle className="h-5 w-5" />
             </span>
-            <h3 id="confirm-dialog-title" className="text-base font-bold text-slate-800">{title}</h3>
+            <h3 id="confirm-dialog-title" className="text-balance text-base font-bold text-slate-800">{title}</h3>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Đóng"
            data-erp-modal-close>
             <X className="h-4 w-4" />
@@ -77,7 +112,7 @@ export function ConfirmDialog({
 
         {/* Description body */}
         <div className="px-6 py-4">
-          <p className="text-sm leading-relaxed text-gray-500">{description}</p>
+          <p id="confirm-dialog-description" className="text-pretty text-sm leading-relaxed text-gray-500">{description}</p>
         </div>
 
         {/* Action buttons */}
@@ -86,7 +121,8 @@ export function ConfirmDialog({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            data-dialog-initial-focus
+            className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
             {cancelLabel}
           </button>
@@ -94,7 +130,7 @@ export function ConfirmDialog({
             type="button"
             onClick={() => void onConfirm()}
             disabled={isSubmitting}
-            className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-colors focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${styles.button}`}
+            className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${styles.button}`}
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {isSubmitting ? "Đang xử lý..." : confirmLabel}

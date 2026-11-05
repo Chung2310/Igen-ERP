@@ -1,9 +1,12 @@
 import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
 import { runInTransaction } from "../../../config/database";
+import { publishDomainEvent } from "../../../integrations/shared/event-bus";
 import { GoodsReceiptModel } from "../../../model/goods-receipt.model";
 import { InventoryBalanceModel } from "../../../model/inventory-balance.model";
 import { InventoryLedgerEntryModel } from "../../../model/inventory-ledger-entry.model";
 import { ProductCatalogModel } from "../../../model/product-catalog.model";
+import { ProductPriceModel } from "../../../model/product-price.model";
 import { ProductTemplateModel } from "../../../model/product-template.model";
 import { ProductVariantModel } from "../../../model/product-variant.model";
 import { SerialUnitModel } from "../serials/serial-unit.model";
@@ -75,7 +78,7 @@ export interface ProductCatalogCreateInput {
   status?: (typeof PRODUCT_STATUSES)[number];
   mediaIds?: string[];
   documentIds?: string[];
-  variant: ProductVariantInput;
+  variant?: Partial<ProductVariantInput>;
 }
 
 export interface ProductCatalogBulkCreateInput extends Omit<ProductCatalogCreateInput, "variant"> {
@@ -117,6 +120,15 @@ export interface ProductVariantInput {
   mediaIds?: string[];
   status?: (typeof VARIANT_STATUSES)[number];
 }
+
+export interface ProductSellableVariantInput extends Omit<ProductVariantInput, "sku" | "unitCode" | "displayName"> {
+  displayName: string;
+  sellingPrice: number;
+  costPrice?: number;
+  unitCode?: string;
+}
+
+type ProductBranchPriceContext = { branchId: string; sellingPrice: number; costPrice: number };
 
 export interface ProductVariantUpdateInput extends Omit<Partial<ProductVariantInput>, "sku"> {}
 
@@ -285,7 +297,7 @@ export function normalizeProductInput(input: unknown, partial = false): ProductC
   const value = input as Record<string, unknown>;
   const output: Record<string, unknown> = {};
   if (!partial || value.name !== undefined) output.name = normalizeName(value.name);
-  if (!partial || value.categoryCode !== undefined) output.categoryCode = normalizeCode(value.categoryCode, "Mã danh mục");
+  if (!partial || value.categoryCode !== undefined) output.categoryCode = normalizeCode(value.categoryCode, "Mã thể loại / thư mục");
   if (value.baseUnitCode !== undefined && value.baseUnitCode !== null && String(value.baseUnitCode).trim()) {
     output.baseUnitCode = normalizeCode(value.baseUnitCode, "Mã đơn vị cơ sở");
   }
@@ -374,16 +386,18 @@ async function assertActiveMasterResources(
   companyCode: string,
   input: { categoryCode: string; brandCode?: string; baseUnitCode: string },
   session?: mongoose.ClientSession,
-): Promise<void> {
+): Promise<{ defaultTrackingMode?: ProductTrackingMode }> {
   const categoryQuery = ProductCatalogCategoryModel.findOne({ companyCode, code: input.categoryCode, status: "active" });
   if (session) categoryQuery.session(session);
-  if (!(await categoryQuery.lean())) throw new ProductCatalogValidationError(`Danh mục chưa được khai báo hoặc đã ngừng dùng: ${input.categoryCode}.`);
+  const category = await categoryQuery.lean();
+  if (!category) throw new ProductCatalogValidationError(`Thể loại / thư mục chưa được khai báo hoặc đã ngừng dùng: ${input.categoryCode}.`);
   if (input.brandCode) {
     const brandQuery = ProductCatalogBrandModel.findOne({ companyCode, code: input.brandCode, status: "active" });
     if (session) brandQuery.session(session);
     if (!(await brandQuery.lean())) throw new ProductCatalogValidationError(`Thương hiệu chưa được khai báo hoặc đã ngừng dùng: ${input.brandCode}.`);
   }
   await assertActiveUnit(companyCode, input.baseUnitCode, session);
+  return { defaultTrackingMode: category.defaultTrackingMode };
 }
 
 function normalizeTemplateFields(fields: ProductTemplateInput["fields"]): ProductTemplateField[] {
@@ -513,7 +527,10 @@ export const ProductCatalogService = {
     const q = String(query.q || "").trim();
     if (q) {
       const expression = new RegExp(escapeRegex(q), "i");
-      const variantProductIds = await ProductVariantModel.find({ companyCode, sku: expression }).select("productId").limit(200).lean();
+      const variantProductIds = await ProductVariantModel.find({
+        companyCode,
+        $or: [{ sku: expression }, { displayName: expression }],
+      }).select("productId").limit(200).lean();
       filter.$or = [{ productCode: expression }, { name: expression }, { normalizedName: expression }, { searchKeywords: expression }, { _id: { $in: variantProductIds.map((variant: any) => variant.productId) } }];
     }
     const [items, total] = await Promise.all([
@@ -532,17 +549,17 @@ export const ProductCatalogService = {
     return { ...product, variants };
   },
 
-  async create(companyCodeValue: unknown, input: ProductCatalogCreateInput, actor: unknown) {
+  async create(companyCodeValue: unknown, input: ProductCatalogCreateInput, actor: unknown, priceContext?: ProductBranchPriceContext) {
     const companyCode = normalizeCompanyCode(companyCodeValue);
     const createdBy = actorId(actor);
     const normalized = normalizeProductInput(input) as ProductCatalogCreateInput;
     if (!normalized.productType) throw new ProductCatalogValidationError("productType là bắt buộc.");
     const productCode = normalized.productCode || await resolveNextCatalogCode(ProductCatalogModel, companyCode, "SP", normalized.name, "productCode");
     const baseUnitCode = normalized.baseUnitCode || DEFAULT_UNIT_CODE;
-    const variant = normalizeVariantInput({ ...input.variant, unitCode: input.variant.unitCode || baseUnitCode }, normalized.productType);
-    if (variant.status === "active" && (normalized.status === "inactive" || normalized.status === "archived")) {
-      throw new ProductCatalogValidationError("Sản phẩm inactive/archived không thể có SKU đang hoạt động.");
-    }
+    const requestedVariant = input.variant || {};
+    const sku = String(requestedVariant.sku || "").trim()
+      || await resolveNextCatalogCode(ProductVariantModel, companyCode, "SKU", normalized.name, "sku");
+    let variant!: ProductVariantInput;
     let productId = "";
     await runInTransaction(async (session) => {
       await ensureDefaultUnit(companyCode, createdBy, session);
@@ -555,13 +572,70 @@ export const ProductCatalogService = {
       } else if (normalized.attributes?.length) {
         throw new ProductCatalogValidationError("Thuộc tính tùy biến chỉ được dùng khi sản phẩm có mẫu sản phẩm.");
       }
-      await assertActiveMasterResources(companyCode, { ...normalized, baseUnitCode } as { categoryCode: string; brandCode?: string; baseUnitCode: string }, session);
+      const categoryDefaults = await assertActiveMasterResources(companyCode, { ...normalized, baseUnitCode } as { categoryCode: string; brandCode?: string; baseUnitCode: string }, session);
+      const defaultTrackingMode = normalized.productType === "service"
+        ? "none"
+        : categoryDefaults.defaultTrackingMode || "quantity";
+      const displayName = typeof requestedVariant.displayName === "string" && requestedVariant.displayName.trim()
+        ? requestedVariant.displayName
+        : normalized.name;
+      variant = normalizeVariantInput({
+        ...requestedVariant,
+        sku,
+        displayName,
+        unitCode: requestedVariant.unitCode || baseUnitCode,
+        trackingMode: requestedVariant.trackingMode || defaultTrackingMode,
+      }, normalized.productType);
+      if (variant.status === "active" && (normalized.status === "inactive" || normalized.status === "archived")) {
+        throw new ProductCatalogValidationError("Sản phẩm inactive/archived không thể có SKU đang hoạt động.");
+      }
       await assertActiveUnit(companyCode, variant.unitCode, session);
       const [product] = await ProductCatalogModel.create([{ ...normalized, productCode, baseUnitCode, companyCode, normalizedName: normalized.name!.toLocaleLowerCase("vi-VN"), createdBy, updatedBy: createdBy }], { session });
       productId = String(product._id);
-      await ProductVariantModel.create([{ ...variant, companyCode, productId, createdBy, updatedBy: createdBy }], { session });
+      const [createdVariant] = await ProductVariantModel.create([{ ...variant, companyCode, productId, createdBy, updatedBy: createdBy }], { session });
+      if (priceContext) {
+        await ProductPriceModel.create([{
+          companyCode,
+          branchId: priceContext.branchId,
+          productId,
+          variantId: String(createdVariant._id),
+          sku: variant.sku,
+          sellingPrice: priceContext.sellingPrice,
+          costPrice: priceContext.costPrice,
+          status: "active",
+          createdBy,
+          updatedBy: createdBy,
+        }], session ? { session } : {});
+        await publishDomainEvent({
+          eventId: randomUUID(),
+          eventType: "inventory.price.changed",
+          companyCode,
+          branchId: priceContext.branchId,
+          aggregateType: "product-variant",
+          aggregateId: String(createdVariant._id),
+          payload: { variantId: String(createdVariant._id), sku: variant.sku },
+          occurredAt: new Date(),
+          actorId: createdBy,
+          actorName: createdBy,
+        }, session);
+      }
     });
-    return this.get(companyCode, productId);
+    const createdProduct = await this.get(companyCode, productId);
+    return priceContext ? { ...createdProduct, sellingPrice: priceContext.sellingPrice, costPrice: priceContext.costPrice } : createdProduct;
+  },
+
+  async createWithPrice(companyCodeValue: unknown, input: ProductCatalogCreateInput & { sellingPrice: number; costPrice?: number }, branchIdValue: unknown, actor: unknown) {
+    const branchId = String(branchIdValue ?? "").trim();
+    if (!branchId) throw new ProductCatalogValidationError("Cần chọn chi nhánh để lưu giá bán.");
+    const sellingPrice = Number(input?.sellingPrice);
+    const rawCostPrice: unknown = input?.costPrice;
+    const costPrice = rawCostPrice === undefined || rawCostPrice === null || rawCostPrice === "" ? 0 : Number(rawCostPrice);
+    if (!Number.isSafeInteger(sellingPrice) || sellingPrice < 0) throw new ProductCatalogValidationError("Giá bán phải là số nguyên không âm.");
+    if (!Number.isSafeInteger(costPrice) || costPrice < 0) throw new ProductCatalogValidationError("Giá nhập (giá vốn) phải là số nguyên không âm.");
+    const { sellingPrice: _sellingPrice, costPrice: _costPrice, ...productInput } = input;
+    const productStatus = productInput.status ?? "active";
+    if (productStatus !== "active") throw new ProductCatalogValidationError("Sản phẩm cần ở trạng thái đang kinh doanh để tạo kèm giá bán.");
+    return this.create(companyCodeValue, { ...productInput, status: "active" }, actor, { branchId, sellingPrice, costPrice });
   },
 
   async bulkCreateWithVariants(companyCodeValue: unknown, input: ProductCatalogBulkCreateInput, actor: unknown) {
@@ -671,6 +745,68 @@ export const ProductCatalogService = {
     await assertActiveUnit(companyCode, variant.unitCode);
     const document = await ProductVariantModel.create({ ...variant, companyCode, productId, createdBy, updatedBy: createdBy });
     return document.toObject();
+  },
+
+  async createVariantWithPrice(companyCodeValue: unknown, productId: string, input: ProductSellableVariantInput, branchIdValue: unknown, actor: unknown) {
+    const companyCode = normalizeCompanyCode(companyCodeValue);
+    const branchId = String(branchIdValue ?? "").trim();
+    if (!branchId) throw new ProductCatalogValidationError("Cần chọn chi nhánh để lưu giá bán.");
+    const createdBy = actorId(actor);
+    assertObjectId(productId, "ID sản phẩm");
+    const product = await ProductCatalogModel.findOne({ _id: productId, companyCode }).select("productType status baseUnitCode productCode name").lean();
+    if (!product) throw Object.assign(new Error("Không tìm thấy sản phẩm."), { statusCode: 404 });
+    if (product.status !== "active") throw new ProductCatalogValidationError("Chỉ có thể thêm SKU bán hàng cho sản phẩm đang kinh doanh.");
+
+    const displayName = String(input?.displayName ?? "").trim();
+    if (!displayName) throw new ProductCatalogValidationError("Tên SKU / tên biến thể là bắt buộc.");
+    if (displayName.length > 200) throw new ProductCatalogValidationError("Tên SKU không được vượt quá 200 ký tự.");
+    const sellingPrice = Number(input?.sellingPrice);
+    const rawCostPrice: unknown = input?.costPrice;
+    const costPrice = rawCostPrice === undefined || rawCostPrice === null || rawCostPrice === "" ? 0 : Number(rawCostPrice);
+    if (!Number.isSafeInteger(sellingPrice) || sellingPrice < 0) throw new ProductCatalogValidationError("Giá bán phải là số nguyên không âm.");
+    if (!Number.isSafeInteger(costPrice) || costPrice < 0) throw new ProductCatalogValidationError("Giá nhập (giá vốn) phải là số nguyên không âm.");
+
+    const sku = await resolveNextCatalogCode(ProductVariantModel, companyCode, "SKU", `${product.productCode || product.name}-${displayName}`, "sku");
+    const { sellingPrice: _sellingPrice, costPrice: _costPrice, displayName: _displayName, unitCode, ...variantFields } = input;
+    const variant = normalizeVariantInput({
+      ...variantFields,
+      sku,
+      displayName,
+      unitCode: unitCode || product.baseUnitCode || DEFAULT_UNIT_CODE,
+      status: "active",
+    }, product.productType);
+
+    return runInTransaction(async (session) => {
+      await assertActiveUnit(companyCode, variant.unitCode, session);
+      const [createdVariant] = await ProductVariantModel.create([{
+        ...variant,
+        companyCode,
+        productId,
+        createdBy,
+        updatedBy: createdBy,
+      }], session ? { session } : {});
+      const price = await ProductPriceModel.findOneAndUpdate(
+        { companyCode, branchId, variantId: String(createdVariant._id) },
+        {
+          $set: { productId, variantId: String(createdVariant._id), sku, sellingPrice, costPrice, status: "active", updatedBy: createdBy },
+          $setOnInsert: { companyCode, branchId, createdBy },
+        },
+        { returnDocument: "after", upsert: true, runValidators: true, ...(session ? { session } : {}) },
+      ).lean();
+      await publishDomainEvent({
+        eventId: randomUUID(),
+        eventType: "inventory.price.changed",
+        companyCode,
+        branchId,
+        aggregateType: "product-variant",
+        aggregateId: String(createdVariant._id),
+        payload: { variantId: String(createdVariant._id), sku },
+        occurredAt: new Date(),
+        actorId: createdBy,
+        actorName: createdBy,
+      }, session);
+      return { ...createdVariant.toObject(), sellingPrice: price?.sellingPrice ?? sellingPrice, costPrice: price?.costPrice ?? costPrice };
+    });
   },
 
   async createVariants(companyCodeValue: unknown, productId: string, inputs: ProductVariantInput[], actor: unknown) {

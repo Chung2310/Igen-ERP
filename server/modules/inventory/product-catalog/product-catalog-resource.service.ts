@@ -42,7 +42,7 @@ const RESOURCE_CODE_PREFIX: Record<ProductCatalogResourceKind, string> = {
 };
 
 function duplicateResourceMessage(kind: ProductCatalogResourceKind, code: string, existing?: { name?: string; status?: string }) {
-  const label = kind === "categories" ? "danh mục" : kind === "brands" ? "thương hiệu" : kind === "units" ? "đơn vị tính" : "thuộc tính";
+  const label = kind === "categories" ? "thể loại / thư mục" : kind === "brands" ? "thương hiệu" : kind === "units" ? "đơn vị tính" : "thuộc tính";
   const owner = existing?.name ? ` cho "${existing.name}"` : "";
   const statusHint = existing?.status === "inactive"
     ? " Mục này đang ngừng dùng; hãy mở phần quản lý, tìm theo mã và bật lại để sử dụng."
@@ -84,9 +84,9 @@ function normalizeResourceInput(kind: ProductCatalogResourceKind, input: any, ac
     updatedBy: actor,
   };
   if (kind === "categories") {
-    const parentCode = input.parentCode ? normalizeCode(input.parentCode, "Mã danh mục cha") : undefined;
+    const parentCode = input.parentCode ? normalizeCode(input.parentCode, "Mã thể loại / thư mục cha") : undefined;
     if (parentCode && parentCode === base.code) {
-      throw new ProductCatalogValidationError("Danh mục cha không thể là chính nó.");
+      throw new ProductCatalogValidationError("Thể loại / thư mục cha không thể là chính nó.");
     }
     const validTrackingModes = ["none", "quantity", "unit_barcode", "lot", "serial"];
     const defaultTrackingMode = input.defaultTrackingMode ? String(input.defaultTrackingMode).trim() : undefined;
@@ -160,12 +160,21 @@ export const ProductCatalogResourceService = {
     const raw = input as Record<string, unknown>;
 
     if (kindValue === "categories" && raw?.parentCode) {
-      const parentCode = normalizeCode(raw.parentCode, "Mã danh mục cha");
+      const parentCode = normalizeCode(raw.parentCode, "Mã thể loại / thư mục cha");
       const parent = await ProductCatalogCategoryModel.findOne({ companyCode, code: parentCode }).lean();
-      if (parent && parent.parentCode) {
+      if (!parent) {
+        throw new ProductCatalogValidationError(`Không tìm thấy thể loại / thư mục cha "${parentCode}" trong doanh nghiệp này. Hãy chọn mục có sẵn hoặc bỏ trống để tạo mục gốc.`);
+      }
+      if (parent.status === "inactive") {
+        throw new ProductCatalogValidationError(`Thể loại / thư mục "${parent.name}" đang ngừng sử dụng. Hãy chọn mục đang hoạt động hoặc bỏ trống để tạo mục gốc.`);
+      }
+      if (parent.parentCode) {
         const grandParent = await ProductCatalogCategoryModel.findOne({ companyCode, code: parent.parentCode }).lean();
-        if (grandParent && grandParent.parentCode) {
-          throw new ProductCatalogValidationError("Cây thư mục thể loại chỉ hỗ trợ tối đa 3 cấp (Ngành hàng > Hãng/Dòng > Đời máy).");
+        if (!grandParent) {
+          throw new ProductCatalogValidationError("Không thể tạo mục con vì cây thể loại / thư mục hiện có liên kết không hợp lệ. Hãy chọn một mục cha khác.");
+        }
+        if (grandParent.parentCode) {
+          throw new ProductCatalogValidationError("Cây thể loại / thư mục chỉ hỗ trợ tối đa 3 cấp.");
         }
       }
     }
@@ -212,12 +221,12 @@ export const ProductCatalogResourceService = {
     }
 
     if (kindValue === "categories" && raw?.parentCode) {
-      const parentCode = normalizeCode(raw.parentCode, "Mã danh mục cha");
+      const parentCode = normalizeCode(raw.parentCode, "Mã thể loại / thư mục cha");
       const parent = await ProductCatalogCategoryModel.findOne({ companyCode, code: parentCode }).lean();
       if (parent && parent.parentCode) {
         const grandParent = await ProductCatalogCategoryModel.findOne({ companyCode, code: parent.parentCode }).lean();
         if (grandParent && grandParent.parentCode) {
-          throw new ProductCatalogValidationError("Cây thư mục thể loại chỉ hỗ trợ tối đa 3 cấp (Ngành hàng > Hãng/Dòng > Đời máy).");
+          throw new ProductCatalogValidationError("Cây thể loại / thư mục chỉ hỗ trợ tối đa 3 cấp.");
         }
       }
       const hasChildren = await ProductCatalogCategoryModel.exists({ companyCode, parentCode: current.code });

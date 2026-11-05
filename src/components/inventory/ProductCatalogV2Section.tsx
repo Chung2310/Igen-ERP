@@ -59,11 +59,6 @@ export function ProductCatalogV2Section() {
   const [editor, setEditor] = useState<CatalogProductDetail | "create" | null>(null);
   const [viewer, setViewer] = useState<CatalogProductDetail | null>(null);
   const [setupKind, setSetupKind] = useState<ProductResourceKind | "templates" | null>(null);
-  const [setupResources, setSetupResources] = useState<{
-    kind: ProductResourceKind;
-    items: ProductResource[];
-    categories: ProductResource[];
-  } | null>(null);
   const [variantTarget, setVariantTarget] = useState<VariantTarget | null>(null);
   const [productToDelete, setProductToDelete] = useState<CatalogProduct | null>(null);
   const [deletingProduct, setDeletingProduct] = useState(false);
@@ -101,30 +96,6 @@ export function ProductCatalogV2Section() {
     } catch (error) {
       console.error("Không thể tải dữ liệu master data dùng chung:", error);
     }
-  };
-
-  const loadSetupResources = async (kind: ProductResourceKind) => {
-    const allCategories = productCatalogService.listResources("categories", { status: "all", forceRefresh: true });
-    const [items, categories] = await Promise.all([
-      kind === "categories" ? allCategories : productCatalogService.listResources(kind, { status: "all", forceRefresh: true }),
-      allCategories,
-    ]);
-    setSetupResources({ kind, items, categories });
-  };
-
-  const openSetup = async (kind: ProductResourceKind) => {
-    try {
-      await loadSetupResources(kind);
-      setSetupKind(kind);
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, "KhÃ´ng thá»ƒ táº£i dá»¯ liá»‡u quáº£n lÃ½ danh má»¥c."));
-    }
-  };
-
-  const openCreateProduct = async () => {
-    await loadMasterResources(true);
-    setEditor("create");
-    void loadProducts(page);
   };
 
   // Tải Master Data đúng 1 lần khi trang mount
@@ -200,7 +171,6 @@ export function ProductCatalogV2Section() {
 
   const openEdit = async (product: CatalogProduct) => {
     try {
-      await loadMasterResources(true);
       const detail = await productCatalogService.getProduct(product._id);
       setEditor(detail);
     } catch (error) {
@@ -316,7 +286,7 @@ export function ProductCatalogV2Section() {
           <div className="inline-flex items-center rounded-xl border border-outline-variant bg-surface-container-lowest p-1 shadow-2xs">
             <button
               type="button"
-              onClick={() => void openSetup("categories")}
+              onClick={() => setSetupKind("categories")}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
               title="Quản lý cây thư mục và thể loại (Ngành hàng > Hãng > Đời máy)"
             >
@@ -326,7 +296,7 @@ export function ProductCatalogV2Section() {
             <div className="h-4 w-px bg-outline-variant mx-0.5" />
             <button
               type="button"
-              onClick={() => void openSetup("brands")}
+              onClick={() => setSetupKind("brands")}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
               title="Khai báo thương hiệu dùng chung"
             >
@@ -336,7 +306,7 @@ export function ProductCatalogV2Section() {
             <div className="h-4 w-px bg-outline-variant mx-0.5" />
             <button
               type="button"
-              onClick={() => void openSetup("attributes")}
+              onClick={() => setSetupKind("attributes")}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-on-surface-variant hover:bg-surface hover:text-primary transition-colors cursor-pointer"
               title="Cấu hình thuộc tính biến thể: Màu sắc, Dung lượng, Tình trạng..."
             >
@@ -347,7 +317,10 @@ export function ProductCatalogV2Section() {
 
           <button
             type="button"
-            onClick={() => void openCreateProduct()}
+            onClick={() => {
+              void load();
+              setEditor("create");
+            }}
             className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-on-primary shadow-xs hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
           >
             <PackagePlus className="h-4 w-4" />
@@ -662,14 +635,21 @@ export function ProductCatalogV2Section() {
       {setupKind && (
         <CatalogSetupModal
           kind={setupKind}
-          items={setupResources?.kind === setupKind ? setupResources.items : []}
-          categories={setupResources?.categories || resources.categories}
+          items={
+            setupKind === "categories"
+              ? resources.categories
+              : setupKind === "brands"
+                ? resources.brands
+                : setupKind === "attributes"
+                  ? resources.attributes
+                  : []
+          }
+          categories={resources.categories}
           onClose={() => {
             setSetupKind(null);
           }}
           onSaved={async () => {
             await loadMasterResources(true);
-            if (setupKind !== "templates") await loadSetupResources(setupKind);
           }}
         />
       )}

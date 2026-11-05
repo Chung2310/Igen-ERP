@@ -7,17 +7,18 @@ import { cn } from "../../modules/student-management/lib/utils";
 const control = "w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-base text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
-type ToggleKey = "enterToSend" | "showSuggestions" | "alwaysConfirm" | "speakReplies" | "autoMemoryEnabled" | "memoryEnabled";
+type ToggleKey = "enterToSend" | "showSuggestions" | "alwaysConfirm" | "speakReplies" | "wakeWordEnabled" | "autoMemoryEnabled" | "memoryEnabled";
 type ToggleSetting = { key: ToggleKey; label: string; help: string };
 
 const conversationSettings: ToggleSetting[] = [
   { key: "enterToSend", label: "Nhấn Enter để gửi tin nhắn", help: "Nhấn Shift + Enter để xuống dòng." },
   { key: "showSuggestions", label: "Hiện gợi ý yêu cầu khi bắt đầu trò chuyện", help: "Gợi ý giúp bạn bắt đầu một yêu cầu mới nhanh hơn." },
+  { key: "wakeWordEnabled", label: "Nghe lệnh bằng từ khóa “Hey Igen”", help: "Khi bật, trình duyệt sẽ chờ từ khóa qua micro. Sau khi nghe câu lệnh, trợ lý tự dừng ghi âm, gửi yêu cầu rồi tiếp tục chờ từ khóa. Cần cấp quyền dùng micro cho trình duyệt." },
 ];
 
 const responseSettings: ToggleSetting[] = [
   { key: "alwaysConfirm", label: "Luôn xác nhận trước khi thay đổi dữ liệu", help: "Các xác nhận bắt buộc của từng workflow vẫn được giữ nguyên khi tắt tùy chọn này." },
-  { key: "speakReplies", label: "Đọc câu trả lời thành tiếng", help: "Dùng giọng tiếng Việt của Google cho câu trả lời mới. Bạn có thể dừng đọc ngay trong khung chat; câu trả lời cũ không tự phát." },
+  { key: "speakReplies", label: "Đọc câu trả lời thành tiếng", help: "Dùng giọng tiếng Việt có sẵn trên trình duyệt hoặc thiết bị, không cần khóa API. Nếu chưa có giọng tiếng Việt, hãy thêm giọng trong cài đặt hệ điều hành; câu trả lời cũ không tự phát." },
 ];
 
 const memorySettings: ToggleSetting[] = [

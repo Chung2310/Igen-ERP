@@ -102,7 +102,7 @@ export const crudController = {
       if (req.user?.branchId) {
         if (modelName === "timekeeping-logs") {
           filters.branchId = { $in: [req.user.branchId, null, undefined] };
-        } else if (modelName !== "training-courses" && modelName !== "training-enrollments" && modelName !== "workflows") {
+        } else if (modelName !== "training-courses" && modelName !== "training-enrollments" && modelName !== "workflows" && modelName !== "categories") {
           filters.branchId = req.user.branchId;
         }
       }
@@ -216,7 +216,7 @@ export const crudController = {
       const companyCode = req.user?.companyCode || "SYSTEM";
       let branchId = req.user?.branchId;
 
-      if (["products", "categories", "stock-logs"].includes(modelName) && !branchId && ["admin", "superadmin"].includes(String(req.user?.role || ""))) {
+      if (["products", "stock-logs"].includes(modelName) && !branchId && ["admin", "superadmin"].includes(String(req.user?.role || ""))) {
         branchId = String(req.body?.branchId || "").trim();
         if (!branchId) throw Object.assign(new Error("Hãy nêu tên chi nhánh để tạo dữ liệu kho."), { statusCode: 400 });
         const branch = await BranchModel.findOne({ _id: branchId, companyCode, isActive: true }).select("_id").lean();

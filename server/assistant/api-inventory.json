@@ -13703,6 +13703,10 @@
               "type": "boolean",
               "required": true
             },
+            "wakeWordEnabled": {
+              "type": "boolean",
+              "required": true
+            },
             "memoryEnabled": {
               "type": "boolean"
             },
@@ -13712,7 +13716,7 @@
           }
         }
       },
-      "handlers": "validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid(\"window\", \"fullscreen\").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow(\"\").required(), responseRules: Joi.string().max(2000).allow(\"\"), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required(), memoryEnabled: Joi.boolean(), autoMemoryEnabled: Joi.boolean() }) }), wrap(req => saveSettings(req, req.body))"
+      "handlers": "validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid(\"window\", \"fullscreen\").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow(\"\").required(), responseRules: Joi.string().max(2000).allow(\"\"), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required(), wakeWordEnabled: Joi.boolean().required(), memoryEnabled: Joi.boolean(), autoMemoryEnabled: Joi.boolean() }) }), wrap(req => saveSettings(req, req.body))"
     },
     {
       "method": "GET",
@@ -14019,9 +14023,9 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 40,
+      "line": 57,
       "contracts": {},
-      "handlers": "validateRequest({ body: Joi.object({ conversationId: id, requestId: id, text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor(\"text\", \"decision\").with(\"attachment\", \"text\") }), wrap(req => processTurn(req, req.body))"
+      "handlers": "validateRequest({ body: Joi.object({ conversationId: id, requestId: id, mode: Joi.string().valid(\"work\", \"qa\"), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\\[\\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\\[\\]-]+$/).max(160)).max(100), trainingContent, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor(\"text\", \"decision\", \"referenceSelections\", \"trainingContent\").with(\"skipReferenceKeys\", \"referenceSelections\").with(\"attachment\", \"text\") }), wrap(req => processTurn(req, req.body))"
     },
     {
       "method": "POST",
@@ -14032,7 +14036,7 @@
         ]
       ],
       "file": "server/assistant/router.ts",
-      "line": 41,
+      "line": 58,
       "contracts": {
         "body": {
           "type": "object",
@@ -19456,7 +19460,7 @@
     },
     {
       "method": "POST",
-      "path": "/inventory/catalog/products/bulk-create-with-variants",
+      "path": "/inventory/catalog/products/with-price",
       "permissions": [
         [
           "inventory:manage"
@@ -19464,6 +19468,19 @@
       ],
       "file": "server/modules/inventory/product-catalog/router.ts",
       "line": 20,
+      "contracts": {},
+      "handlers": "requirePermission(\"inventory:manage\") as any, productCatalogController.createSellableProduct"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/catalog/products/bulk-create-with-variants",
+      "permissions": [
+        [
+          "inventory:manage"
+        ]
+      ],
+      "file": "server/modules/inventory/product-catalog/router.ts",
+      "line": 21,
       "contracts": {},
       "handlers": "requirePermission(\"inventory:manage\") as any, productCatalogController.bulkCreateWithVariants"
     },
@@ -19476,7 +19493,7 @@
         ]
       ],
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 21,
+      "line": 22,
       "contracts": {},
       "handlers": "requirePermission(\"inventory:read\") as any, productCatalogController.get"
     },
@@ -19489,7 +19506,7 @@
         ]
       ],
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 22,
+      "line": 23,
       "contracts": {},
       "handlers": "requirePermission(\"inventory:manage\") as any, productCatalogController.update"
     },
@@ -19502,7 +19519,7 @@
         ]
       ],
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 23,
+      "line": 24,
       "contracts": {},
       "handlers": "requirePermission(\"inventory:manage\") as any, productCatalogController.delete"
     },
@@ -19515,9 +19532,22 @@
         ]
       ],
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 24,
+      "line": 25,
       "contracts": {},
       "handlers": "requirePermission(\"inventory:manage\") as any, productCatalogController.createVariants"
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/catalog/products/:id/variants/with-price",
+      "permissions": [
+        [
+          "inventory:manage"
+        ]
+      ],
+      "file": "server/modules/inventory/product-catalog/router.ts",
+      "line": 26,
+      "contracts": {},
+      "handlers": "requirePermission(\"inventory:manage\") as any, productCatalogController.createSellableVariant"
     },
     {
       "method": "POST",
@@ -19528,7 +19558,7 @@
         ]
       ],
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 25,
+      "line": 27,
       "contracts": {},
       "handlers": "requirePermission(\"inventory:manage\") as any, productCatalogController.createVariant"
     },
@@ -19541,7 +19571,7 @@
         ]
       ],
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 26,
+      "line": 28,
       "contracts": {},
       "handlers": "requirePermission(\"inventory:manage\") as any, productCatalogController.updateVariants"
     },
@@ -19554,7 +19584,7 @@
         ]
       ],
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 27,
+      "line": 29,
       "contracts": {},
       "handlers": "requirePermission(\"inventory:manage\") as any, productCatalogController.deleteVariants"
     },
@@ -19567,7 +19597,7 @@
         ]
       ],
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 28,
+      "line": 30,
       "contracts": {},
       "handlers": "requirePermission(\"inventory:manage\") as any, productCatalogController.updateVariant"
     },

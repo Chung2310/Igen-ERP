@@ -2,11 +2,90 @@ import { operationById, type AssistantOperation } from "./catalog";
 import { redactAssistantResult } from "./structured-data";
 import { PERMISSION_CATALOG } from "../config/permission-catalog";
 
-type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields">;
+type ResultOperation = Pick<AssistantOperation, "id" | "title" | "fields" | "resultFields"> & Partial<Pick<AssistantOperation, "path">>;
 type ResultRecord = Record<string, unknown>;
 
 const collectionKeys = ["items", "records", "results", "rows", "transactions", "vouchers", "workers", "partners", "students", "assets", "campaigns", "data"];
 const moneyKey = /(?:amount|salary|price|cost|paid|due|remaining|refund|total|tuition|fee|bookValue|depreciation|grossPay|grossProfit|deductions|netPay|cashNet|bankNet|expectedCash|countedCash|balance)/i;
+const commonStatusLabels: Record<string, string> = {
+  active: "Đang hoạt động", inactive: "Đã ngừng hoạt động", enabled: "Đang bật", disabled: "Đang tắt",
+  pending: "Đang chờ", pending_review: "Đang chờ duyệt", pending_confirmation: "Đang chờ xác nhận",
+  in_progress: "Đang xử lý", processing: "Đang xử lý", running: "Đang xử lý", queued: "Đang chờ xử lý",
+  completed: "Đã hoàn tất", complete: "Đã hoàn tất", succeeded: "Thành công", success: "Thành công",
+  failed: "Thất bại", error: "Có lỗi", approved: "Đã duyệt", rejected: "Đã từ chối",
+  cancelled: "Đã hủy", canceled: "Đã hủy", open: "Đang mở", closed: "Đã đóng", draft: "Bản nháp",
+  archived: "Đã lưu trữ", paused: "Đã tạm dừng", published: "Đã đăng", scheduled: "Đã lên lịch",
+  confirmed: "Đã xác nhận", paid: "Đã thanh toán", unpaid: "Chưa thanh toán", expired: "Đã hết hạn",
+  overdue: "Quá hạn", available: "Có sẵn", unavailable: "Không khả dụng", in_stock: "Còn hàng",
+  out_of_stock: "Hết hàng", in_transit: "Đang vận chuyển", resolved: "Đã xử lý", waiting: "Đang chờ",
+  on_hold: "Tạm hoãn", partial: "Hoàn tất một phần", partially_completed: "Hoàn tất một phần",
+  review: "Chờ duyệt", unknown: "Chưa xác định", not_started: "Chưa bắt đầu", skipped: "Đã bỏ qua",
+  sent: "Đã gửi", preview: "Bản xem trước", counting: "Đang kiểm đếm",
+  pending_approval: "Chờ duyệt", conflict: "Xung đột tồn kho", needs_assets: "Thiếu ảnh",
+  ready: "Sẵn sàng", bulk_queued: "Đang tạo", expiring: "Sắp hết hạn", planned: "Đã lên kế hoạch",
+  reviewed: "Đã duyệt", verified: "Đã xác minh", reversed: "Đã đảo", synced: "Đã đồng bộ", received: "Đã nhận",
+  ready_for_review: "Chờ duyệt", awaiting_review: "Chờ duyệt", awaiting_provider: "Đang chờ nhà cung cấp",
+  generating_context: "Đang tạo nội dung ngữ cảnh", transcribing: "Đang nhận dạng lời thoại", rendering: "Đang kết xuất",
+  analyzing: "Đang phân tích", retrying: "Đang thử lại", publishing: "Đang đăng",
+  none: "Không áp dụng", unrecorded: "Chưa ghi nhận", placed: "Đã bố trí", present: "Có mặt",
+  late: "Đi muộn", absent: "Vắng", excused: "Có phép", "approved-leave": "Nghỉ phép",
+  "left-early": "Về sớm", "half-day": "Nửa ngày", "late-left-early": "Đi muộn, về sớm",
+  online: "Trực tuyến", offline: "Ngoại tuyến", busy: "Đang bận", away: "Vắng mặt",
+  retired: "Đã ngừng áp dụng", ended: "Đã kết thúc", void: "Đã hủy", calculated: "Đã tính", terminated: "Đã chấm dứt",
+  snapshotted: "Đã chốt vào bảng lương", receiving: "Đang nhập kho", shipped: "Đã giao",
+  delivered: "Đã giao", returned: "Đã trả hàng", refunded: "Đã hoàn tiền", suspended: "Đã tạm khóa",
+  locked: "Đã khóa", blocked: "Đã chặn", incomplete: "Chưa hoàn tất", not_required: "Không cần thực hiện",
+  awaiting_receipt: "Đang chờ biên lai", receipt_received: "Đã nhận biên lai", untested: "Chưa kiểm tra",
+  started: "Đã bắt đầu", reviewing: "Đang xem xét", negotiating: "Đang thương lượng", converted: "Đã chuyển đổi",
+};
+const enumValueLabelsByKey: Record<string, Record<string, string>> = {
+  productType: { physical: "Hàng hóa", service: "Dịch vụ", bundle: "Gói sản phẩm" },
+  type: {
+    physical: "Hàng hóa", service: "Dịch vụ", bundle: "Gói sản phẩm", sale_refund: "Hoàn tiền đơn bán",
+    sale_payment: "Thu tiền đơn bán", charge: "Phát sinh công nợ", payment: "Thanh toán", adjustment: "Điều chỉnh",
+    reversal: "Đảo giao dịch", leave: "Nghỉ phép", training: "Đào tạo", campaign: "Chiến dịch", single: "Bài đơn",
+    online: "Trực tuyến", phone: "Điện thoại", onsite: "Tại địa điểm",
+  },
+  kind: {
+    sale_refund: "Hoàn tiền đơn bán", sale_payment: "Thu tiền đơn bán", charge: "Phát sinh công nợ",
+    payment: "Thanh toán", adjustment: "Điều chỉnh", reversal: "Đảo giao dịch", bonus: "Thưởng",
+    allowance: "Phụ cấp", deduction: "Khấu trừ", correction: "Điều chỉnh", advance: "Tạm ứng",
+    content_generation: "Tạo nội dung", image_generation: "Tạo hình ảnh", video_generation: "Tạo video",
+  },
+  trackingMode: { quantity: "Số lượng", serial: "Số sê-ri/IMEI", lot: "Theo lô", none: "Không theo dõi tồn kho" },
+  unitCategory: { count: "Đếm", weight: "Khối lượng", volume: "Thể tích", length: "Chiều dài", time: "Thời gian", other: "Khác" },
+  employmentStatus: { official: "Chính thức", probation: "Thử việc", internship: "Thực tập" },
+  laborType: { official: "Chính thức", seasonal: "Thời vụ", part_time: "Bán thời gian", full_time: "Toàn thời gian" },
+  employmentType: { full_time: "Toàn thời gian", part_time: "Bán thời gian", contract: "Theo hợp đồng", internship: "Thực tập", temporary: "Tạm thời" },
+  workplaceType: { onsite: "Tại văn phòng", hybrid: "Kết hợp", remote: "Từ xa" },
+  gender: { male: "Nam", female: "Nữ", other: "Khác", undisclosed: "Không muốn nêu" },
+  maritalStatus: { single: "Độc thân", married: "Đã kết hôn", divorced: "Đã ly hôn", widowed: "Góa" },
+  contractType: { official: "Chính thức", probation: "Thử việc", internship: "Thực tập", temporary: "Tạm thời", fixed_term: "Có thời hạn", indefinite: "Không xác định thời hạn" },
+  paymentMethod: { cash: "Tiền mặt", bank_transfer: "Chuyển khoản", transfer: "Chuyển khoản", card: "Thẻ", ewallet: "Ví điện tử", wallet: "Ví điện tử" },
+  commissionType: { percentage: "Phần trăm", fixed: "Số tiền cố định" },
+  mode: { speech: "Lời thoại", context: "Ngữ cảnh", combined: "Lời thoại và ngữ cảnh", fullscreen: "Toàn màn hình", window: "Cửa sổ nổi" },
+  visibility: { public: "Công khai", private: "Riêng tư", company: "Trong doanh nghiệp" },
+  sourceType: { manual: "Thủ công", campaign_orders: "Đơn sản xuất chiến dịch", sheet: "Bảng dữ liệu", system: "Hệ thống" },
+  targetType: { standalone: "Tạo riêng", campaign: "Chiến dịch" },
+  direction: { in: "Thu", out: "Chi", incoming: "Tiền vào", outgoing: "Tiền ra" },
+  account: { cash: "Tiền mặt", bank: "Ngân hàng" },
+  profitCategory: { expense: "Chi phí", other: "Khác" },
+  costBearer: { supplier: "Nhà cung cấp", shop: "Cửa hàng", customer: "Khách hàng" },
+  priority: { low: "Thấp", medium: "Trung bình", high: "Cao", urgent: "Khẩn cấp" },
+  role: { owner: "Chủ doanh nghiệp", admin: "Quản trị viên", deputy: "Phó quản trị viên", member: "Thành viên", cashier: "Thu ngân", manager: "Quản lý", employee: "Nhân viên" },
+  actorType: { user: "Người dùng", ai: "Trợ lý AI", system: "Hệ thống" },
+  operation: { create: "Tạo mới", update: "Cập nhật", delete: "Xóa", restore: "Khôi phục", list: "Tra cứu", read: "Xem", approve: "Duyệt", reject: "Từ chối", retry: "Thử lại", cancel: "Hủy" },
+  format: { online: "Trực tuyến", phone: "Điện thoại", onsite: "Tại địa điểm", remote: "Từ xa", hybrid: "Kết hợp", image: "Hình ảnh", video: "Video", text: "Văn bản" },
+  scope: { company: "Toàn doanh nghiệp", branch: "Chi nhánh", personal: "Cá nhân", global: "Toàn hệ thống" },
+  trigger: { manual: "Thủ công", scheduled: "Theo lịch", automatic: "Tự động" },
+  commissionScheme: { official_monthly: "Chính thức theo tháng", seasonal_hourly: "Thời vụ theo giờ" },
+  confirmationSource: { contract: "Hợp đồng", manual: "Thủ công", attendance: "Chấm công" },
+  channel: { online: "Trực tuyến", phone: "Điện thoại", onsite: "Tại địa điểm", network: "Mạng", web: "Web", mobile: "Ứng dụng di động" },
+  connectionType: { network: "Mạng", wifi: "Wi-Fi", ethernet: "Mạng dây", mobile: "Mạng di động", wired: "Mạng dây", wireless: "Mạng không dây" },
+  network: { network: "Mạng", wifi: "Wi-Fi", ethernet: "Mạng dây", mobile: "Mạng di động", wired: "Mạng dây", wireless: "Mạng không dây" },
+  networkType: { network: "Mạng", wifi: "Wi-Fi", ethernet: "Mạng dây", mobile: "Mạng di động", wired: "Mạng dây", wireless: "Mạng không dây" },
+};
+const weekdayLabels = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 const bulkCreateJobOperationIds = ["marketing.bulk-create.jobs.list", "marketing.bulk-create.jobs.detail", "marketing.bulk-create.jobs.cancel", "marketing.bulk-create.jobs.retry"];
 const bulkCreateTemplateOperationIds = ["marketing.bulk-create.templates.list", "marketing.bulk-create.templates.detail"];
 const labels: Record<string, string> = {
@@ -15,7 +94,7 @@ const labels: Record<string, string> = {
   code: "Mã", countCode: "Mã phiếu kiểm kê", customerName: "Khách hàng", date: "Ngày", deliveredAt: "Ngày bàn giao", description: "Mô tả",
   device: "Thiết bị", dueAmount: "Còn phải trả", dueDate: "Hạn hoàn thành", email: "Email", endDate: "Ngày kết thúc", financeVoucherCode: "Mã phiếu chi", fullName: "Họ và tên",
   commissionRate: "Tỷ lệ hoa hồng", commissionType: "Hình thức hoa hồng", commissionValue: "Mức hoa hồng", isActive: "Đang hoạt động", item: "Thông tin giao dịch", kind: "Loại giao dịch", lines: "Hạng mục", maxStock: "Tồn tối đa", minStock: "Tồn tối thiểu", minTuition: "Doanh số tối thiểu", message: "Thông báo",
-  accessoryBps: "Hoa hồng phụ kiện", account: "Tài khoản chi", businessDate: "Ngày giao dịch", effectiveAt: "Ngày áp dụng", effectiveFrom: "Ngày áp dụng từ", phoneAmount: "Hoa hồng mỗi điện thoại", ratePercent: "Tỷ lệ hoa hồng", reference: "Mã giao dịch", repairBps: "Hoa hồng công sửa chữa", sellingPrice: "Giá bán", costPrice: "Giá vốn", productCode: "Mã sản phẩm", productType: "Loại sản phẩm", categoryCode: "Mã danh mục", variant: "SKU", variants: "Các SKU", trackingMode: "Theo dõi tồn theo",
+  accessoryBps: "Hoa hồng phụ kiện", account: "Tài khoản chi", businessDate: "Ngày giao dịch", effectiveAt: "Ngày áp dụng", effectiveFrom: "Ngày áp dụng từ", phoneAmount: "Hoa hồng mỗi điện thoại", ratePercent: "Tỷ lệ hoa hồng", reference: "Mã giao dịch", repairBps: "Hoa hồng công sửa chữa", sellingPrice: "Giá bán", costPrice: "Giá vốn", productCode: "Mã sản phẩm", productType: "Loại sản phẩm", categoryCode: "Mã thể loại / thư mục", variant: "SKU", variants: "Các SKU", trackingMode: "Theo dõi tồn theo",
   assetCode: "Mã tài sản", assetName: "Tài sản", barcode: "Mã vạch", group: "Nhóm tài sản", originalCost: "Nguyên giá", salvageValue: "Giá trị thanh lý", accumulatedDepreciation: "Khấu hao lũy kế", netBookValue: "Giá trị còn lại", usefulLifeMonths: "Thời gian sử dụng (tháng)", inServiceDate: "Ngày đưa vào sử dụng", disposalAmount: "Tiền thu hồi khi thanh lý", disposalReason: "Lý do thanh lý", accumulatedAfter: "Khấu hao lũy kế sau kỳ", netBookValueAfter: "Giá trị còn lại sau kỳ", custodianName: "Người quản lý", supplierName: "Nhà cung cấp", department: "Bộ phận", location: "Vị trí", period: "Kỳ", sessionCode: "Mã phiên kiểm kê", scope: "Phạm vi kiểm kê", total: "Tổng tài sản", counts: "Số lượng theo kết quả", variances: "Chênh lệch kiểm kê", grossPay: "Tổng thu nhập",
   laborType: "Loại lao động", name: "Tên", legalName: "Pháp nhân xuất hóa đơn", taxId: "Mã số thuế", invoiceEmail: "Email nhận hóa đơn", contactName: "Người liên hệ", isDefault: "Hồ sơ mặc định", warnings: "Lưu ý", netCollected: "Thực thu", note: "Ghi chú", occurredAt: "Thời điểm", occurredOn: "Ngày",
   outcome: "Kết quả quét", paidAmount: "Đã thanh toán", parentCode: "Mã đơn liên quan", payments: "Thanh toán", phone: "Điện thoại",
@@ -26,8 +105,15 @@ const labels: Record<string, string> = {
   warehouseName: "Kho", workerName: "Nhân sự",
 };
 
+Object.assign(labels, {
+  workingDays: "Ngày làm việc", daysOfWeek: "Ngày trong tuần", createdAt: "Ngày tạo",
+  productType: "Loại sản phẩm", employmentStatus: "Tình trạng làm việc", trackingMode: "Cách theo dõi tồn kho",
+  unitCategory: "Nhóm đơn vị tính", priority: "Mức độ ưu tiên", role: "Vai trò", format: "Hình thức",
+  sourceType: "Nguồn dữ liệu", trigger: "Cách khởi chạy", visibility: "Chế độ hiển thị", targetType: "Phạm vi tạo",
+});
 Object.assign(labels, { entityPreset: "Loại hồ sơ", isRequired: "Bắt buộc", isVisible: "Đang hiển thị", isArchived: "Đã lưu trữ", placeholder: "Gợi ý nhập" });
 Object.assign(labels, { registrationDate: "Ngày đăng ký", fee: "Học phí", isGroup: "Phòng nhóm" });
+Object.assign(labels, { stepsCount: "Số bước" });
 Object.assign(labels, { contentGroup: "Nhóm nội dung", shootingContent: "Nội dung cần quay/chụp", productionRequirements: "Yêu cầu sản xuất", quantitySuggestion: "Số lượng đề xuất", headline: "Tiêu đề hiển thị", subheadline: "Mô tả ngắn", cta: "Lời kêu gọi hành động", visualBrief: "Mô tả hình ảnh", videoScript: "Kịch bản video", format: "Định dạng", revision: "Phiên bản", warnings: "Lưu ý" });
 Object.assign(labels, { operation: "Loại thao tác", totalItems: "Tổng số mục", completedItems: "Đã xong", failedItems: "Lỗi", skippedItems: "Bỏ qua", conflictedItems: "Xung đột", progress: "Tiến độ" });
 Object.assign(labels, { grossPay: "Tổng thu nhập", deductions: "Khấu trừ" });
@@ -87,7 +173,43 @@ Object.assign(labels, { trigger: "Nguồn khởi chạy", deliveryQueuedCount: "
 Object.assign(labels, { bodyText: "Nội dung bài viết", contentType: "Loại nội dung", outline: "Dàn ý", mediaPrompt: "Gợi ý hình ảnh", generatedAt: "Tạo lúc", scheduledDate: "Ngày đăng", scheduledTime: "Giờ đăng", publishedAt: "Đã đăng lúc" });
 
 Object.assign(labels, { category: "Nhóm giọng", stability: "Độ ổn định", similarity_boost: "Độ tương đồng", style: "Phong cách", use_speaker_boost: "Tăng cường người nói" });
-Object.assign(labels, { windowMode: "Chế độ cửa sổ", enterToSend: "Enter để gửi", showSuggestions: "Hiện gợi ý", alwaysConfirm: "Luôn yêu cầu xác nhận", speakReplies: "Phát âm thanh câu trả lời" });
+Object.assign(labels, { windowMode: "Chế độ cửa sổ", enterToSend: "Enter để gửi", showSuggestions: "Hiện gợi ý", alwaysConfirm: "Luôn yêu cầu xác nhận", speakReplies: "Phát âm thanh câu trả lời", wakeWordEnabled: "Nghe lệnh bằng từ khóa Hey Igen" });
+Object.assign(labels, {
+  employmentType: "Hình thức làm việc", workplaceType: "Nơi làm việc", gender: "Giới tính", maritalStatus: "Tình trạng hôn nhân",
+  contractType: "Loại hợp đồng", commissionType: "Hình thức hoa hồng", targetType: "Phạm vi tạo", account: "Tài khoản",
+  profitCategory: "Nhóm thu chi", costBearer: "Bên chịu chi phí", channel: "Kênh", connectionType: "Loại kết nối", connectionStatus: "Trạng thái kết nối",
+  network: "Mạng", networkType: "Loại mạng",
+});
+
+const fieldWordLabels: Record<string, string> = {
+  account: "tài khoản", action: "thao tác", active: "hoạt động", address: "địa chỉ", amount: "số tiền",
+  annual: "hằng năm", average: "trung bình", bank: "ngân hàng", branch: "chi nhánh", business: "kinh doanh",
+  can: "có thể", category: "danh mục", check: "chấm", checkout: "giờ ra", checkin: "giờ vào", code: "mã",
+  completed: "hoàn thành", company: "doanh nghiệp", connected: "kết nối", count: "số lượng", created: "ngày tạo",
+  customer: "khách hàng", date: "ngày", days: "ngày", deleted: "đã xóa", department: "phòng ban", description: "mô tả",
+  direction: "chiều", display: "hiển thị", document: "tài liệu", due: "hạn", duration: "thời lượng", effective: "hiệu lực",
+  email: "email", employee: "nhân viên", end: "kết thúc", error: "lỗi", expiry: "hết hạn", failed: "thất bại",
+  fee: "phí", first: "đầu tiên", from: "từ", full: "đầy đủ", group: "nhóm", has: "có", high: "cao",
+  id: "mã", inactive: "ngừng hoạt động", in: "vào", item: "mục", items: "mục", kind: "loại", last: "gần nhất",
+  leave: "nghỉ phép", level: "cấp", list: "danh sách", location: "vị trí", low: "thấp", manager: "quản lý",
+  max: "tối đa", medium: "trung bình", min: "tối thiểu", minutes: "phút", mode: "chế độ", month: "tháng",
+  name: "tên", net: "thực", new: "mới", number: "số", old: "cũ", operation: "thao tác", other: "khác",
+  out: "ra", paid: "đã thanh toán", parent: "cha", payment: "thanh toán", percent: "phần trăm", phone: "điện thoại",
+  platform: "nền tảng", price: "giá", product: "sản phẩm", project: "dự án", quantity: "số lượng", rate: "tỷ lệ",
+  reason: "lý do", remaining: "còn lại", result: "kết quả", role: "vai trò", salary: "lương", scope: "phạm vi",
+  serial: "sê-ri", source: "nguồn", start: "bắt đầu", state: "trạng thái", status: "trạng thái", student: "học viên",
+  success: "thành công", summary: "tóm tắt", target: "mục tiêu", time: "thời gian", title: "tiêu đề", to: "đến",
+  total: "tổng", tracking: "theo dõi", type: "loại", unit: "đơn vị", updated: "cập nhật", usage: "sử dụng",
+  user: "người dùng", value: "giá trị", variant: "biến thể", warehouse: "kho", week: "tuần", worker: "lao động", year: "năm",
+};
+
+function localizedFieldKey(key: string) {
+  const words = key.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return "Thông tin";
+  const translated = words.map(word => fieldWordLabels[word]);
+  if (translated.every(Boolean)) return translated.map((word, index) => index ? word : word[0].toLocaleUpperCase("vi") + word.slice(1)).join(" ");
+  return "Thông tin";
+}
 
 function labelFor(operation: ResultOperation, key: string): string {
   if (operation.id.startsWith("task.") && key === "category") return "Danh mục công việc";
@@ -210,7 +332,7 @@ function labelFor(operation: ResultOperation, key: string): string {
   return operation.fields.find(field => field.key === key)?.label
     || relatedCreate?.fields.find(field => field.key === key)?.label
     || labels[key]
-    || key.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").replace(/^./, character => character.toLocaleUpperCase("vi"));
+    || localizedFieldKey(key);
 }
 
 function celebrationHtmlToText(value: unknown): string {
@@ -251,7 +373,23 @@ function parseJsonText(value: string): unknown {
   try { return JSON.parse(trimmed); } catch { return value; }
 }
 
-function formatValue(operation: ResultOperation, key: string, value: unknown, depth = 0): string {
+function formatIsoDate(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(value)) return "";
+  const timestamp = new Date(value.length === 10 ? `${value}T00:00:00.000Z` : value);
+  if (Number.isNaN(timestamp.valueOf())) return "";
+  const utcMidnight = /T00:00(?::00(?:\.0+)?)?(?:Z|\+00:00)$/.test(value);
+  const dateOnly = value.length === 10 || utcMidnight;
+  const dateText = new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit", month: "2-digit", year: "numeric", timeZone: dateOnly ? "UTC" : "Asia/Ho_Chi_Minh",
+  }).format(timestamp);
+  if (dateOnly) return dateText;
+  const timeText = new Intl.DateTimeFormat("vi-VN", {
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Ho_Chi_Minh",
+  }).format(timestamp);
+  return `${dateText} ${timeText}`;
+}
+
+function formatValueRaw(operation: ResultOperation, key: string, value: unknown, depth = 0): string {
   if (value === null || value === undefined || value === "") return "";
   if (typeof value === "boolean") {
     if (operation.id.startsWith("recruitment.job.") && key === "isDeleted") return value ? "Đã xóa mềm" : "Chưa xóa";
@@ -406,6 +544,24 @@ function formatValue(operation: ResultOperation, key: string, value: unknown, de
     }
     if (key === "commissionType" && value === "percentage") return "Phần trăm";
     if (key === "commissionType" && value === "fixed") return "Số tiền cố định";
+    if (key === "kind") {
+      const localizedKind: Record<string, string> = {
+        sale_refund: "Hoàn tiền đơn bán", sale_payment: "Thu tiền đơn bán", charge: "Phát sinh công nợ",
+        payment: "Thanh toán", adjustment: "Điều chỉnh", reversal: "Đảo giao dịch", bonus: "Thưởng",
+        allowance: "Phụ cấp", deduction: "Khấu trừ", correction: "Điều chỉnh", advance: "Tạm ứng",
+      };
+      if (localizedKind[value]) return localizedKind[value];
+    }
+    if (key === "actorType") {
+      const actorTypes: Record<string, string> = { user: "Người dùng", ai: "Trợ lý AI", system: "Hệ thống" };
+      if (actorTypes[value]) return actorTypes[value];
+    }
+    if (/(?:status|state)$/i.test(key)) {
+      const localizedStatus = commonStatusLabels[value.trim().toLowerCase()];
+      if (localizedStatus) return localizedStatus;
+    }
+    const localizedDate = formatIsoDate(value.trim());
+    if (localizedDate) return localizedDate;
     const parsed = parseJsonText(value);
     if (parsed !== value && depth < 2) return formatValue(operation, key, redactAssistantResult(parsed), depth + 1);
     const compact = value.replace(/\s+/g, " ").trim();
@@ -414,6 +570,9 @@ function formatValue(operation: ResultOperation, key: string, value: unknown, de
   if (depth >= 3) return "Có thông tin chi tiết";
   if (Array.isArray(value)) {
     if (value.length === 0) return "Không có";
+    if (["workingDays", "daysOfWeek"].includes(key) && value.every(day => Number.isInteger(Number(day)) && Number(day) >= 0 && Number(day) <= 6)) {
+      return [...new Set(value.map(day => weekdayLabels[Number(day)]))].join(", ");
+    }
     const shown = value.slice(0, 4).map((item, index) => {
       const record = recordOf(item);
       if (!record) return `${index + 1}. ${formatValue(operation, key, item, depth + 1)}`;
@@ -431,6 +590,18 @@ function formatValue(operation: ResultOperation, key: string, value: unknown, de
     .map(([childKey, childValue]) => `${labelFor(operation, childKey)}: ${formatValue(operation, childKey, childValue, depth + 1)}`)
     .filter(entry => !entry.endsWith(": "))
     .join(" · ");
+}
+
+function formatValue(operation: ResultOperation, key: string, value: unknown, depth = 0): string {
+  const formatted = formatValueRaw(operation, key, value, depth);
+  if (typeof value === "string" && (formatted === value || formatted === value.trim())) {
+    const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const enumLabel = enumValueLabelsByKey[key]?.[value.trim()]
+      || enumValueLabelsByKey[key]?.[normalized]
+      || ((/(?:status|state)$/i.test(key)) ? commonStatusLabels[normalized] : undefined);
+    if (enumLabel) return enumLabel;
+  }
+  return formatted;
 }
 
 function formatRecord(operation: ResultOperation, value: unknown): string {
@@ -491,6 +662,120 @@ function collection(value: unknown): unknown[] | null {
   if (!record) return null;
   for (const key of collectionKeys) if (Array.isArray(record[key])) return record[key] as unknown[];
   return null;
+}
+
+function formatLaborPartnerPolicy(operation: ResultOperation, input: unknown): string {
+  const wrapped = recordOf(redactAssistantResult(input));
+  const policy = recordOf(wrapped?.data) || wrapped;
+  if (!policy || typeof policy.name !== "string" || !recordOf(policy.settlementCycle)) return "";
+
+  const lines: string[] = [`Tên: ${policy.name}`];
+  if (policy.version !== undefined) lines.push(`Phiên bản: ${formatValue(operation, "version", policy.version)}`);
+  if (policy.effectiveFrom !== undefined) lines.push(`Ngày áp dụng từ: ${formatValue(operation, "effectiveFrom", policy.effectiveFrom)}`);
+  if (policy.effectiveTo) lines.push(`Ngày áp dụng đến: ${formatValue(operation, "effectiveTo", policy.effectiveTo)}`);
+  if (typeof policy.status === "string") lines.push(`Trạng thái: ${formatValue(operation, "status", policy.status)}`);
+
+  const cycle = recordOf(policy.settlementCycle)!;
+  const cycleType = cycle.type === "calendar_month"
+    ? "Theo tháng dương lịch"
+    : cycle.type === "cutoff_day"
+      ? `Theo ngày chốt${cycle.cutoffDay == null ? "" : ` ngày ${formatValue(operation, "cutoffDay", cycle.cutoffDay)}`}`
+      : "Chưa xác định";
+  lines.push(`Chu kỳ đối soát: ${cycleType}`);
+
+  const official = recordOf(policy.official);
+  if (official) {
+    lines.push(`Hoa hồng lao động chính thức: ${official.enabled === true ? "Đang bật" : "Đang tắt"}`);
+    if (official.enabled === true) {
+      if (official.maxMonths != null) lines.push(`Số tháng tối đa: ${formatValue(operation, "maxMonths", official.maxMonths)}`);
+      if (Array.isArray(official.milestones)) {
+        const eligibilityLabels: Record<string, string> = {
+          contract_active: "Hợp đồng còn hiệu lực",
+          manual_confirmation: "Xác nhận thủ công",
+          attendance_threshold: "Đạt ngưỡng chấm công",
+        };
+        for (const [index, rawMilestone] of official.milestones.entries()) {
+          const milestone = recordOf(rawMilestone);
+          if (!milestone) continue;
+          const fields = [
+            milestone.month == null ? "" : `Tháng ${formatValue(operation, "month", milestone.month)}`,
+            milestone.amount == null ? "" : `Số tiền ${formatValue(operation, "amount", milestone.amount)}`,
+            typeof milestone.eligibilityRule === "string" ? `Điều kiện: ${eligibilityLabels[milestone.eligibilityRule] || milestone.eligibilityRule}` : "",
+            milestone.minWorkedDays == null ? "" : `Tối thiểu ${formatValue(operation, "minWorkedDays", milestone.minWorkedDays)} ngày làm`,
+            milestone.minWorkedHours == null ? "" : `Tối thiểu ${formatValue(operation, "minWorkedHours", milestone.minWorkedHours)} giờ làm`,
+          ].filter(Boolean);
+          if (fields.length) lines.push(`Mốc ${index + 1}: ${fields.join(" · ")}`);
+        }
+      }
+    }
+  }
+
+  const seasonal = recordOf(policy.seasonal);
+  if (seasonal) {
+    lines.push(`Hoa hồng lao động thời vụ: ${seasonal.enabled === true ? "Đang bật" : "Đang tắt"}`);
+    if (seasonal.enabled === true) {
+      const scopeLabels: Record<string, string> = {
+        partner_period: "Cộng giờ theo đối tác trong kỳ",
+        partner_project_period: "Cộng giờ theo đối tác, dự án và kỳ",
+      };
+      const tierModeLabels: Record<string, string> = {
+        flat: "Áp dụng một mức cho toàn bộ số giờ",
+        progressive: "Áp dụng mức theo từng bậc giờ",
+      };
+      if (typeof seasonal.aggregationScope === "string") lines.push(`Phạm vi tổng hợp: ${scopeLabels[seasonal.aggregationScope] || seasonal.aggregationScope}`);
+      if (typeof seasonal.tierMode === "string") lines.push(`Cách tính bậc: ${tierModeLabels[seasonal.tierMode] || seasonal.tierMode}`);
+      if (seasonal.minHoursPerWorker != null) lines.push(`Số giờ tối thiểu mỗi người: ${formatValue(operation, "minHoursPerWorker", seasonal.minHoursPerWorker)}`);
+      if (seasonal.maxEligibleHoursPerWorker != null) lines.push(`Số giờ tối đa được tính mỗi người: ${formatValue(operation, "maxEligibleHoursPerWorker", seasonal.maxEligibleHoursPerWorker)}`);
+
+      const roundingLabels: Record<string, string> = { floor: "Làm tròn xuống", nearest: "Làm tròn đến giá trị gần nhất", ceil: "Làm tròn lên" };
+      const hourRounding = recordOf(seasonal.hourRounding);
+      if (hourRounding) {
+        const mode = typeof hourRounding.mode === "string" ? roundingLabels[hourRounding.mode] || hourRounding.mode : "";
+        const unit = Number(hourRounding.unitMinutes);
+        const interval = Number.isFinite(unit) ? (unit === 1 ? "mỗi phút" : `mỗi ${formatValue(operation, "unitMinutes", unit)} phút`) : "";
+        if (mode || interval) lines.push(`Quy tắc làm tròn giờ: ${[mode, interval].filter(Boolean).join(" ")}`);
+      }
+      const moneyRounding = recordOf(seasonal.moneyRounding);
+      if (moneyRounding) {
+        const mode = typeof moneyRounding.mode === "string" ? roundingLabels[moneyRounding.mode] || moneyRounding.mode : "";
+        const unit = Number(moneyRounding.unitVnd);
+        const interval = Number.isFinite(unit) ? `mỗi ${formatValue(operation, "unitVnd", unit)} ₫` : "";
+        if (mode || interval) lines.push(`Quy tắc làm tròn tiền: ${[mode, interval].filter(Boolean).join(" ")}`);
+      }
+      if (Array.isArray(seasonal.tiers)) {
+        for (const [index, rawTier] of seasonal.tiers.entries()) {
+          const tier = recordOf(rawTier);
+          if (!tier) continue;
+          const range = tier.maxHours == null
+            ? `Từ ${formatValue(operation, "minHours", tier.minHours)} giờ trở lên`
+            : `Từ ${formatValue(operation, "minHours", tier.minHours)} đến ${formatValue(operation, "maxHours", tier.maxHours)} giờ`;
+          const rate = tier.hourlyRate == null ? "" : `${formatValue(operation, "hourlyRate", tier.hourlyRate)} ₫/giờ`;
+          lines.push(`Bậc ${index + 1}: ${[range, rate].filter(Boolean).join(" · ")}`);
+        }
+      }
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function formatLaborPartnerKpi(input: unknown): string {
+  const wrapped = recordOf(redactAssistantResult(input));
+  const kpi = recordOf(wrapped?.data) || wrapped;
+  if (!kpi || kpi.targetReferrals === undefined || kpi.periodStart === undefined) return "";
+  const anchor = kpi.periodStart instanceof Date ? kpi.periodStart.toISOString() : String(kpi.periodStart);
+  const month = anchor.match(/^(\d{4})-(\d{2})/);
+  if (!month) return "";
+  const partnerName = typeof kpi.partnerName === "string" && kpi.partnerName.trim() ? kpi.partnerName.trim() : "đối tác đã chọn";
+  const target = Number(kpi.targetReferrals);
+  if (!Number.isSafeInteger(target) || target < 0) return "";
+  const lines = [
+    `Xong rồi bạn nhé, mình đã đặt KPI giới thiệu cho ${partnerName}.`,
+    `Tháng áp dụng: ${month[2]}/${month[1]}`,
+    `Chỉ tiêu giới thiệu: ${target.toLocaleString("vi-VN")} người`,
+  ];
+  if (typeof kpi.note === "string" && kpi.note.trim()) lines.push(`Ghi chú: ${kpi.note.trim()}`);
+  return lines.join("\n");
 }
 
 /** Format only catalog-approved fields into a short, readable result for the conversation. */
@@ -555,9 +840,9 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
         const item = recordOf(value);
         if (!item) return [];
         const employee = typeof item.employeeName === "string" ? item.employeeName : "Người lao động";
-        const kind = typeof item.contractType === "string" ? ` · ${item.contractType}` : "";
+        const kind = typeof item.contractType === "string" ? ` · ${formatValue(operation, "contractType", item.contractType)}` : "";
         const range = [date(item.startDate), date(item.endDate)].filter(Boolean).join(" đến ");
-        const status = typeof item.status === "string" ? statuses[item.status] || item.status : "";
+        const status = typeof item.status === "string" ? statuses[item.status] || formatValue(operation, "status", item.status) : "";
         return [`- ${employee}${kind}${range ? ` · ${range}` : ""}${status ? ` · ${status}` : ""}`];
       }),
       `Hợp đồng sắp hết hạn: ${Number.isSafeInteger(Number(result.expiryAlertTotal)) ? Number(result.expiryAlertTotal) : alerts.length}`,
@@ -720,8 +1005,8 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const count = (key: string) => Number.isSafeInteger(Number(result[key])) && Number(result[key]) >= 0 ? Number(result[key]) : 0;
     const items = Array.isArray(result.items) ? result.items.slice(0, 20).flatMap((item: any) => {
       const name = typeof item?.employeeName === "string" ? item.employeeName : "Nhân viên";
-      const status = typeof item?.status === "string" ? item.status : "Chưa rõ trạng thái";
-      const fields = Array.isArray(item?.updatedFields) ? item.updatedFields.filter((field: unknown) => typeof field === "string").join(", ") : "";
+      const status = typeof item?.status === "string" ? formatValue(operation, "status", item.status) : "Chưa rõ trạng thái";
+      const fields = Array.isArray(item?.updatedFields) ? item.updatedFields.filter((field: unknown) => typeof field === "string").map((field: string) => labelFor(operation, field)).join(", ") : "";
       const detail = typeof item?.detail === "string" ? item.detail : "";
       return [`${name}: ${status}${fields ? ` (${fields})` : detail ? ` — ${detail}` : ""}`];
     }) : [];
@@ -732,8 +1017,8 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const count = (key: string) => Number.isSafeInteger(Number(result[key])) && Number(result[key]) >= 0 ? Number(result[key]) : 0;
     const items = Array.isArray(result.items) ? result.items.slice(0, 20).flatMap((item: any) => {
       const name = typeof item?.employeeName === "string" ? item.employeeName : "Nhân viên";
-      const status = typeof item?.status === "string" ? item.status : "Chưa rõ trạng thái";
-      const fields = Array.isArray(item?.updatedFields) ? item.updatedFields.filter((field: unknown) => typeof field === "string").join(", ") : "";
+      const status = typeof item?.status === "string" ? formatValue(operation, "status", item.status) : "Chưa rõ trạng thái";
+      const fields = Array.isArray(item?.updatedFields) ? item.updatedFields.filter((field: unknown) => typeof field === "string").map((field: string) => labelFor(operation, field)).join(", ") : "";
       const detail = typeof item?.detail === "string" ? item.detail : "";
       return [`${name}: ${status}${fields ? ` (${fields})` : detail ? ` — ${detail}` : ""}`];
     }) : [];
@@ -755,9 +1040,9 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const trigger = result.trigger === "manual" ? "Chạy thủ công" : result.trigger === "scheduled" ? "Theo lịch" : "";
     return [
       operation.title,
-      ...(typeof result.date === "string" ? [`Ngày: ${result.date}`] : []),
+      ...(typeof result.date === "string" ? [`Ngày: ${formatValue(operation, "date", result.date)}`] : []),
       ...(trigger ? [`Nguồn khởi chạy: ${trigger}`] : []),
-      ...(typeof result.status === "string" ? [`Trạng thái: ${result.status}`] : []),
+      ...(typeof result.status === "string" ? [`Trạng thái: ${formatValue(operation, "status", result.status)}`] : []),
       `Khoản quá hạn đủ điều kiện: ${count("eligibleCount")}`,
       `Thông báo đã xếp hàng: ${count("queuedCount")}`,
       `Kết quả gửi: ${count("deliverySentCount")} đã gửi · ${count("deliveryQueuedCount")} đang chờ · ${count("deliverySkippedCount")} bỏ qua · ${count("deliveryFailedCount")} lỗi`,
@@ -769,7 +1054,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const count = (key: string) => Number.isSafeInteger(Number(result[key])) && Number(result[key]) >= 0 ? Number(result[key]) : 0;
     return [
       operation.title,
-      ...(typeof result.businessDate === "string" ? [`Ngày kinh doanh: ${result.businessDate}`] : []),
+      ...(typeof result.businessDate === "string" ? [`Ngày kinh doanh: ${formatValue(operation, "businessDate", result.businessDate)}`] : []),
       ...(result.skipped === true ? ["Đã bỏ qua: cài đặt đang tắt hoặc chu kỳ này đã được chạy."] : [
         `Đơn quá hạn: ${count("overdueOrders")}`,
         `Người nhận: ${count("recipients")}`,
@@ -802,8 +1087,8 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
         const run = recordOf(value);
         if (!run) return "";
         return [
-          typeof run.businessDate === "string" ? run.businessDate : "",
-          statusLabels[String(run.status)] || "",
+          typeof run.businessDate === "string" ? formatValue(operation, "businessDate", run.businessDate) : "",
+          statusLabels[String(run.status)] || formatValue(operation, "status", run.status),
           `${countFrom(run.overdueOrders)} đơn quá hạn`,
           `${countFrom(run.failed)} lỗi`,
         ].filter(Boolean).join(" · ");
@@ -812,10 +1097,10 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     }
     return [
       operation.title,
-      ...(typeof result.businessDate === "string" ? [`Ngày kinh doanh: ${result.businessDate}`] : []),
-      ...(typeof result.status === "string" ? [`Trạng thái: ${statusLabels[result.status] || result.status}`] : []),
+      ...(typeof result.businessDate === "string" ? [`Ngày kinh doanh: ${formatValue(operation, "businessDate", result.businessDate)}`] : []),
+      ...(typeof result.status === "string" ? [`Trạng thái: ${statusLabels[result.status] || formatValue(operation, "status", result.status)}`] : []),
       `Đơn quá hạn: ${count("overdueOrders")} · Người nhận: ${count("recipients")}`,
-      `Delivery: ${count("deliveryQueuedCount")} chờ · ${count("deliverySentCount")} đã gửi · ${count("deliveryFailedCount")} lỗi · ${count("deliveryDuplicateCount")} trùng`,
+      `Gửi thông báo: ${count("deliveryQueuedCount")} chờ · ${count("deliverySentCount")} đã gửi · ${count("deliveryFailedCount")} lỗi · ${count("deliveryDuplicateCount")} trùng`,
     ].join("\n");
   }
   if (["marketing.campaign.slot.reject", "marketing.campaign.slot.retry", "marketing.campaign.slot.approve", "marketing.campaign.slot.publish-now"].includes(operation.id)) {
@@ -852,7 +1137,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     if (warnings.length) fields.push(`Lưu ý: ${warnings.join("; ")}`);
     return [
       operation.title,
-      ...(typeof result.title === "string" && result.title.trim() ? [`Order: ${result.title.trim().slice(0, 240)}`] : []),
+      ...(typeof result.title === "string" && result.title.trim() ? [`Đơn hàng: ${result.title.trim().slice(0, 240)}`] : []),
       ...fields,
     ].join("\n");
   }
@@ -865,9 +1150,9 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const shown = slots.slice(0, 8).map((item: unknown) => {
       const slot = recordOf(item);
       if (!slot) return "";
-      const date = typeof slot.scheduledDate === "string" ? slot.scheduledDate : "";
+      const date = typeof slot.scheduledDate === "string" ? formatValue(operation, "scheduledDate", slot.scheduledDate) : "";
       const time = typeof slot.scheduledTime === "string" ? slot.scheduledTime : "";
-      const channel = typeof slot.channel === "string" ? slot.channel : "";
+      const channel = typeof slot.channel === "string" ? formatValue(operation, "channel", slot.channel) : "";
       const pillar = typeof slot.pillar === "string" ? slot.pillar : "";
       const topic = typeof slot.topicBrief === "string" ? slot.topicBrief.trim().slice(0, 180) : "";
       return [`${date} ${time} · ${channel}`, pillar, topic].filter(Boolean).join(" — ");
@@ -894,7 +1179,9 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const percent = (value: unknown) => Number.isFinite(Number(value))
       ? `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(Number(value))}%`
       : "0%";
-    const period = [result.startDate, result.endDate].filter((value): value is string => typeof value === "string").join(" – ");
+    const period = [result.startDate, result.endDate]
+      .filter((value): value is string => typeof value === "string")
+      .map(value => formatValue(operation, "date", value)).join(" – ");
     const platform = result.platform === "all" ? "Tất cả kênh" : typeof result.platform === "string" ? result.platform : "";
     const byPlatform = Array.isArray(result.byPlatform) ? result.byPlatform : [];
     const byDate = Array.isArray(result.byDate) ? result.byDate : [];
@@ -907,7 +1194,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const dailyRows = byDate.slice(0, 7).flatMap((value: unknown) => {
       const row = recordOf(value);
       if (!row || typeof row.date !== "string") return [];
-      return [`${row.date}: ${count(row.published)}/${count(row.planned)} bài đã đăng, ${count(row.likes)} lượt thích, ${count(row.views)} lượt xem`];
+      return [`${formatValue(operation, "date", row.date)}: ${count(row.published)}/${count(row.planned)} bài đã đăng, ${count(row.likes)} lượt thích, ${count(row.views)} lượt xem`];
     });
     const engagement = [
       ["Lượt thích", metrics.totalLikes], ["Bình luận", metrics.totalComments], ["Chia sẻ", metrics.totalShares],
@@ -937,7 +1224,7 @@ export function formatAssistantResult(operation: ResultOperation, input: unknown
     const sources = items.slice(0, 3).map((item: unknown) => {
       const source = recordOf(item);
       if (!source || typeof source.title !== "string" || !source.title.trim()) return "";
-      const type = typeof source.documentType === "string" ? ` (${source.documentType})` : "";
+      const type = typeof source.documentType === "string" ? ` (${formatValue(operation, "documentType", source.documentType)})` : "";
       return `- ${source.title.trim().slice(0, 160)}${type}`;
     }).filter(Boolean);
     const lines = [
@@ -1004,6 +1291,20 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
   const listMatch = firstLine.match(/·\s*(\d+)\s+kết quả/i);
   let details = formatted;
 
+  if (operation.id === "worker.partner.kpi.set") {
+    const kpiDetails = formatLaborPartnerKpi(input);
+    if (kpiDetails) return kpiDetails;
+  }
+
+  if (["/worker-management/partners/policies", "/worker-management/partners/policies/:policyId"].includes(operation.path || "")) {
+    const policyDetails = formatLaborPartnerPolicy(operation, input);
+    if (policyDetails) {
+      if (operation.method === "GET") return `Mình kiểm tra giúp bạn rồi nhé:\n${policyDetails}`;
+      const action = operation.title.charAt(0).toLocaleLowerCase("vi") + operation.title.slice(1);
+      return `Xong rồi bạn nhé, mình đã ${action}.\n${policyDetails}`;
+    }
+  }
+
   if (firstLine === operation.title) {
     details = lines.slice(1).join("\n").trim();
   } else if (firstLine.startsWith(`${operation.title} ·`)) {
@@ -1033,6 +1334,19 @@ export function formatFriendlyAssistantResult(operation: ResultOperation & { met
     });
     if (rows.length > records.length) options.push(`Còn ${rows.length - records.length} kết quả khác.`);
     return [`Mình tìm thấy ${rows.length} hồ sơ phù hợp. Bạn cho mình biết họ tên đầy đủ hoặc phòng ban để chọn đúng người nhé.`, ...options].join("\n");
+  }
+
+  if (operation.path === "/inventory/catalog/products" && operation.method === "POST") {
+    const record = recordOf(redactAssistantResult(input));
+    const name = typeof record?.name === "string" ? record.name : "sản phẩm";
+    const productCode = typeof record?.productCode === "string" ? record.productCode : "";
+    const firstVariant = Array.isArray(record?.variants) ? record.variants.map(recordOf).find(Boolean) : null;
+    const sku = typeof firstVariant?.sku === "string" ? firstVariant.sku : "";
+    return [
+      `Xong rồi bạn nhé, mình đã tạo sản phẩm ${name}.`,
+      productCode ? `Mã sản phẩm: ${productCode}` : "",
+      sku ? `SKU đầu tiên: ${sku}` : "",
+    ].filter(Boolean).join("\n");
   }
 
   if (operation.method === "GET") {

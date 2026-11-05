@@ -497,12 +497,24 @@ export class BatchService {
     if (filters.courseId) query.courseId = filters.courseId;
     if (filters.instructorId) query.instructorId = filters.instructorId;
     if (filters.status) query.status = filters.status;
-    if (filters.search) {
+    const search = String(filters.search || "").trim();
+    if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const matchingCourses = await Course.find({
+        ...buildOwnerQuery(resolvedOwnerId),
+        ...buildBranchScopeQuery(branchId),
+        $or: [
+          { title: { $regex: escapedSearch, $options: "i" } },
+          { code: { $regex: escapedSearch, $options: "i" } },
+        ],
+      }).select("_id").lean();
+      const matchingCourseIds = matchingCourses.map((course) => String(course._id));
       query.$or = [
-        { code: { $regex: filters.search, $options: "i" } },
-        { name: { $regex: filters.search, $options: "i" } },
-        { location: { $regex: filters.search, $options: "i" } },
-        { instructorText: { $regex: filters.search, $options: "i" } },
+        { code: { $regex: escapedSearch, $options: "i" } },
+        { name: { $regex: escapedSearch, $options: "i" } },
+        { location: { $regex: escapedSearch, $options: "i" } },
+        { instructorText: { $regex: escapedSearch, $options: "i" } },
+        ...(matchingCourseIds.length ? [{ courseId: { $in: matchingCourseIds } }] : []),
       ];
     }
 

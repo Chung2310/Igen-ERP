@@ -131,8 +131,8 @@ interface ResourceCacheEntry {
 }
 
 const RESOURCE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes TTL
-const resourcesCache = new Map<string, ResourceCacheEntry>();
-const inFlightResourceRequests = new Map<string, Promise<ProductResource[]>>();
+const resourcesCache = new Map<ProductResourceKind, ResourceCacheEntry>();
+const inFlightResourceRequests = new Map<ProductResourceKind, Promise<ProductResource[]>>();
 
 export type ResourceChangeEvent = {
   kind: ProductResourceKind;
@@ -152,8 +152,7 @@ export function subscribeResourceChanges(listener: ResourceChangeListener): () =
 
 function notifyResourceChange(kind: ProductResourceKind, action: "create" | "update" | "delete", item?: any) {
   // 1. Invalidate cache for this kind immediately
-  for (const key of resourcesCache.keys()) if (key.startsWith(`${kind}:`)) resourcesCache.delete(key);
-  for (const key of inFlightResourceRequests.keys()) if (key.startsWith(`${kind}:`)) inFlightResourceRequests.delete(key);
+  resourcesCache.delete(kind);
   // 2. Notify all subscribers
   const event: ResourceChangeEvent = { kind, action, item };
   resourceChangeListeners.forEach((listener) => {
@@ -280,20 +279,14 @@ export const productCatalogService = {
   },
 
 
-  async listResources(
-    kind: ProductResourceKind,
-    options: { forceRefresh?: boolean; status?: "active" | "inactive" | "all"; limit?: number } = {},
-  ) {
-    const status = options.status || "active";
-    const limit = Math.min(1_000, Math.max(1, Math.floor(options.limit || 1_000)));
-    const cacheKey = `${kind}:${status}:${limit}`;
+  async listResources(kind: ProductResourceKind, options: { forceRefresh?: boolean } = {}) {
     const now = Date.now();
     if (!options.forceRefresh) {
-      const cached = resourcesCache.get(cacheKey);
+      const cached = resourcesCache.get(kind);
       if (cached && now - cached.timestamp < RESOURCE_CACHE_TTL_MS) {
         return cached.data;
       }
-      const inFlight = inFlightResourceRequests.get(cacheKey);
+      const inFlight = inFlightResourceRequests.get(kind);
       if (inFlight) {
         return inFlight;
       }
@@ -301,28 +294,24 @@ export const productCatalogService = {
 
     const fetchPromise = (async () => {
       try {
-        const params: Record<string, string | number> = { limit };
-        if (status !== "all") params.status = status;
-        const result = await apiFetch<ApiEnvelope<ProductResource[]>>(`${root}/resources/${kind}`, { params });
+        const result = await apiFetch<ApiEnvelope<ProductResource[]>>(`${root}/resources/${kind}`, { params: { status: "active" } });
         const data = result.data || [];
-        resourcesCache.set(cacheKey, { data, timestamp: Date.now() });
+        resourcesCache.set(kind, { data, timestamp: Date.now() });
         return data;
       } finally {
-        inFlightResourceRequests.delete(cacheKey);
+        inFlightResourceRequests.delete(kind);
       }
     })();
 
-    inFlightResourceRequests.set(cacheKey, fetchPromise);
+    inFlightResourceRequests.set(kind, fetchPromise);
     return fetchPromise;
   },
 
   invalidateResourceCache(kind?: ProductResourceKind) {
     if (kind) {
-      for (const key of resourcesCache.keys()) if (key.startsWith(`${kind}:`)) resourcesCache.delete(key);
-      for (const key of inFlightResourceRequests.keys()) if (key.startsWith(`${kind}:`)) inFlightResourceRequests.delete(key);
+      resourcesCache.delete(kind);
     } else {
       resourcesCache.clear();
-      inFlightResourceRequests.clear();
     }
   },
 

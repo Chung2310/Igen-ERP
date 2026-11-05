@@ -277,20 +277,6 @@ export function CatalogSetupModal({
   // Build 3-level tree
   const categoryResources = (kind === "categories" ? items : categories) as ProductResource[];
   const { tree, levelMap } = useMemo(() => buildCategoryTree3(categoryResources), [categoryResources]);
-  const filteredCategoryTree = useMemo(() => {
-    const query = searchQuery.trim().toLocaleLowerCase("vi-VN");
-    if (!query) return tree;
-    const matches = (category: ProductResource) => `${category.name} ${category.code}`.toLocaleLowerCase("vi-VN").includes(query);
-    return tree.flatMap((root) => {
-      const rootMatches = matches(root.category);
-      const children = root.children.flatMap((l2) => {
-        const l2Matches = matches(l2.category);
-        const l3Children = rootMatches || l2Matches ? l2.children : l2.children.filter((l3) => matches(l3.category));
-        return rootMatches || l2Matches || l3Children.length > 0 ? [{ ...l2, children: l3Children }] : [];
-      });
-      return rootMatches || children.length > 0 ? [{ ...root, children }] : [];
-    });
-  }, [tree, searchQuery]);
 
   // Determine current form target level
   const targetLevel = useMemo(() => {
@@ -305,13 +291,11 @@ export function CatalogSetupModal({
   const eligibleParents = useMemo(() => {
     const list: Array<{ code: string; name: string; level: 1 | 2 }> = [];
     for (const root of tree) {
-      if (root.category.status === "active" && root.category._id !== editingId) {
-        list.push({ code: root.category.code, name: root.category.name, level: 1 });
-      }
+      if (root.category._id === editingId) continue;
+      list.push({ code: root.category.code, name: root.category.name, level: 1 });
       for (const l2 of root.children) {
-        if (l2.category.status === "active" && l2.category._id !== editingId) {
-          list.push({ code: l2.category.code, name: `${root.category.name} > ${l2.category.name}`, level: 2 });
-        }
+        if (l2.category._id === editingId) continue;
+        list.push({ code: l2.category.code, name: `${root.category.name} > ${l2.category.name}`, level: 2 });
       }
     }
     return list;
@@ -418,31 +402,18 @@ export function CatalogSetupModal({
                   Cấp 1 (Ngành hàng) ➔ Cấp 2 (Dòng / Hãng) ➔ Cấp 3 (Đời máy / Chi tiết)
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="relative w-40 sm:w-56">
-                  <Search aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    aria-label="Tìm danh mục theo tên hoặc mã"
-                    placeholder="Tìm tên hoặc mã"
-                    className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest py-1.5 pl-8 pr-2 text-xs text-on-surface placeholder:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetForm();
-                    setParentCode("");
-                  }}
-                  className="inline-flex items-center gap-1 text-xs font-semibold bg-white border border-slate-200 hover:border-cyan-400 hover:text-cyan-700 px-3 py-1.5 rounded-lg shadow-2xs transition-colors"
-                  title="Tạo thể loại hoặc ngành hàng gốc (Cấp 1)"
-                >
-                  <FolderPlus className="h-3.5 w-3.5 text-cyan-600" />
-                  Thêm Cấp 1
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setParentCode("");
+                }}
+                className="inline-flex items-center gap-1 text-xs font-semibold bg-white border border-slate-200 hover:border-cyan-400 hover:text-cyan-700 px-3 py-1.5 rounded-lg shadow-2xs transition-colors"
+                title="Tạo thể loại hoặc ngành hàng gốc (Cấp 1)"
+              >
+                <FolderPlus className="h-3.5 w-3.5 text-cyan-600" />
+                Thêm Cấp 1
+              </button>
             </div>
 
             {/* Tree Items List */}
@@ -455,12 +426,8 @@ export function CatalogSetupModal({
                     Tạo ngành hàng Cấp 1 đầu tiên (ví dụ: Điện thoại, iPad, Củ cáp sạc, Phụ kiện, Linh kiện...).
                   </p>
                 </div>
-              ) : filteredCategoryTree.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest p-6 text-center text-sm text-on-surface-variant">
-                  Không tìm thấy danh mục khớp với “{searchQuery}”.
-                </p>
               ) : (
-                filteredCategoryTree.map((root) => {
+                tree.map((root) => {
                   const isRootSelected = editingId === root.category._id;
                   const isRootParentActive = parentCode === root.category.code && !editingId;
 
@@ -486,9 +453,6 @@ export function CatalogSetupModal({
                               <span className="font-bold text-slate-900 text-sm truncate">{root.category.name}</span>
                               <span className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
                                 {root.category.code}
-                              </span>
-                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${root.category.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                                {root.category.status === "active" ? "Đang dùng" : "Ngừng dùng"}
                               </span>
                               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
                                 Cấp 1
@@ -516,14 +480,13 @@ export function CatalogSetupModal({
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
-                            disabled={root.category.status !== "active"}
                             onClick={() => {
                               resetForm();
                               setParentCode(root.category.code);
                               setDefaultTrackingMode(root.category.defaultTrackingMode || "serial");
                             }}
-                            className="inline-flex items-center gap-1 rounded-md bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition-colors border border-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
-                            title={root.category.status === "active" ? `Tạo thể loại Cấp 2 thuộc "${root.category.name}"` : "Bật lại danh mục trước khi thêm mục con"}
+                            className="inline-flex items-center gap-1 rounded-md bg-cyan-50 hover:bg-cyan-100 px-2.5 py-1 text-xs font-semibold text-cyan-800 transition-colors border border-cyan-200"
+                            title={`Tạo thể loại Cấp 2 thuộc "${root.category.name}"`}
                           >
                             <Plus className="h-3 w-3" />
                             Thêm Cấp 2
@@ -576,9 +539,6 @@ export function CatalogSetupModal({
                                         <span className="font-mono text-[10px] text-slate-400">
                                           ({l2.category.code})
                                         </span>
-                                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${l2.category.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                                          {l2.category.status === "active" ? "Đang dùng" : "Ngừng dùng"}
-                                        </span>
                                         <span className="rounded-full bg-cyan-100 px-1.5 py-0.2 text-[9px] font-bold text-cyan-800">
                                           Cấp 2
                                         </span>
@@ -593,14 +553,13 @@ export function CatalogSetupModal({
                                   <div className="flex items-center gap-1 shrink-0">
                                     <button
                                       type="button"
-                                      disabled={l2.category.status !== "active"}
                                       onClick={() => {
                                         resetForm();
                                         setParentCode(l2.category.code);
                                         setDefaultTrackingMode(l2.category.defaultTrackingMode || "serial");
                                       }}
-                                      className="inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-purple-50 hover:text-purple-700 px-2 py-0.5 text-[11px] font-semibold text-slate-700 transition-colors border border-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-                                      title={l2.category.status === "active" ? `Tạo chi tiết Cấp 3 thuộc "${l2.category.name}"` : "Bật lại danh mục trước khi thêm mục con"}
+                                      className="inline-flex items-center gap-1 rounded bg-slate-100 hover:bg-purple-50 hover:text-purple-700 px-2 py-0.5 text-[11px] font-semibold text-slate-700 transition-colors border border-slate-200"
+                                      title={`Tạo chi tiết Cấp 3 thuộc "${l2.category.name}"`}
                                     >
                                       <Plus className="h-3 w-3" />
                                       Thêm Cấp 3
@@ -650,9 +609,6 @@ export function CatalogSetupModal({
                                             </span>
                                             <span className="font-mono text-[10px] text-slate-400">
                                               ({l3.category.code})
-                                            </span>
-                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${l3.category.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                                              {l3.category.status === "active" ? "Đang dùng" : "Ngừng dùng"}
                                             </span>
                                             <span className="rounded bg-purple-50 px-1.5 py-0.2 text-[9px] font-semibold text-purple-700 border border-purple-200">
                                               Cấp 3 (Lá)

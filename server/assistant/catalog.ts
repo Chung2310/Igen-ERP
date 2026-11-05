@@ -1,6 +1,7 @@
 import type { AssistantField, AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import expandedCatalog from "./expanded-catalog.generated.json";
 import type { ModuleKey } from "../config/module-keys";
+import { TRAINING_CATEGORY_VALUES } from "../../src/shared/training-categories";
 
 export interface AssistantOperation {
   id: string; title: string; description: string; module: ModuleKey;
@@ -11,6 +12,7 @@ export interface AssistantOperation {
   contextBody?: string[];
   contextHeaders?: string[];
   contextQuery?: string[];
+  fixedPathValues?: Record<string, string>;
   fixedBodyValues?: Record<string, unknown>;
   optionalPathFields?: string[];
   systemBodyFields?: string[];
@@ -27,6 +29,7 @@ export interface AssistantOperation {
 const text = (key: string, label: string, required = false): AssistantField => ({ key, label, type: "text", systemRequired: required, required });
 const date = (key: string, label: string, required = false): AssistantField => ({ ...text(key, label, required), type: "date" });
 const number = (key: string, label: string, defaultValue?: number): AssistantField => ({ key, label, type: "number", min: 0, ...(defaultValue === undefined ? {} : { defaultValue }) });
+const structured = (key: string, label: string, structure: NonNullable<AssistantField["structure"]>, required = false): AssistantField => ({ key, label, type: "json", structure, required });
 const ref = (key: string, label: string, reference: string, required = true): AssistantField => ({ ...text(key, label, required), type: "reference", reference });
 const queryField = (field: AssistantField, apiKey = field.key): AssistantField => ({ ...field, source: "query", apiKey });
 const queryRef = (key: string, label: string, reference: string, required = true): AssistantField => queryField(ref(key, label, reference, required));
@@ -106,11 +109,52 @@ operations.push({ id: "customer.transaction.detail", title: "Xem chi tiết giao
   resultFields: ["item", "lines", "payments", "refunds", "note", "adjustments", "device", "financeVoucherCode"] });
 entity({ id: "branch", title: "chi nhánh", module: "hr", permissions: ["access:manage"], readPermissions: ["access:read", "hr:read"], path: "/auth/branches", link: "/nhan-su?sub=chi-nhanh", fields: [text("name", "Tên chi nhánh", true), text("code", "Mã chi nhánh")], resultFields: ["name", "code", "address", "isActive"], create: false });
 entity({ id: "category", title: "danh mục kho", module: "inventory", permissions: ["inventory:manage"], readPermissions: ["inventory:read"], path: "/crud/categories", link: "/kho-san-pham", update: true, remove: true,
-  fields: [text("name", "Tên danh mục", true), text("code", "Mã danh mục", true), description, ref("branchId", "Chi nhánh", "branch.list")] });
-const categoryUpdate = operations.find(op => op.id === "category.update");
-if (categoryUpdate) categoryUpdate.fields = categoryUpdate.fields.filter(field => field.key !== "branchId");
+  fields: [text("name", "Tên danh mục", true), text("code", "Mã danh mục", true), description] });
+for (const categoryOperation of operations.filter(op => op.id.startsWith("category."))) {
+  categoryOperation.description = `${categoryOperation.description} Danh mục áp dụng chung cho toàn doanh nghiệp, không cần chọn chi nhánh.`;
+}
 entity({ id: "training", title: "khóa đào tạo", module: "hr", permissions: ["hr:manage"], readPermissions: ["hr:read"], path: "/crud/training-courses", link: "/nhan-su", update: true,
-  fields: [text("title", "Tên khóa học", true), description, text("category", "Danh mục đào tạo", true), text("duration", "Thời lượng", true), text("instructor", "Giảng viên", true)] });
+  fields: [
+    text("title", "Tên khóa học", true),
+    description,
+    { ...choice("category", "Danh mục đào tạo", TRAINING_CATEGORY_VALUES), systemRequired: true, required: true },
+    text("duration", "Thời lượng", true),
+    text("instructor", "Giảng viên"),
+    structured("lessons", "Danh sách bài giảng (nếu chưa có, nói bỏ qua)", {
+      type: "array",
+      maxItems: 50,
+      items: {
+        type: "object",
+        open: false,
+        keys: {
+          title: { type: "string", required: true, label: "Tên bài giảng" },
+          type: { type: "string", required: true, options: ["youtube", "document", "other", "text", "video"], label: "Loại bài giảng" },
+          url: { type: "string", label: "Đường dẫn bài giảng" },
+          content: { type: "string", label: "Nội dung bài giảng" },
+          fileName: { type: "string", label: "Tên tệp" },
+        },
+      },
+    }, true),
+    structured("quizzes", "Câu hỏi trắc nghiệm (nếu chưa có, nói bỏ qua)", {
+      type: "array",
+      maxItems: 50,
+      items: {
+        type: "object",
+        open: false,
+        keys: {
+          question: { type: "string", required: true, label: "Nội dung câu hỏi" },
+          options: { type: "array", minItems: 2, maxItems: 6, items: { type: "string" }, required: true, label: "Các phương án trả lời" },
+          correctOptionIndex: { type: "number", integer: true, min: 0, max: 5, required: true, label: "Vị trí đáp án đúng (bắt đầu từ 0)" },
+        },
+      },
+    }, true),
+  ],
+  resultFields: ["title", "category", "duration", "instructor"] });
+const trainingCreateOperation = operations.find(op => op.id === "training.create");
+if (trainingCreateOperation) trainingCreateOperation.description = "Tạo khóa đào tạo trong phân hệ nhân sự. Giảng viên mặc định là người tạo. Khi được hỏi, thu thập bài giảng theo tên và đường dẫn hoặc nội dung; thu thập câu hỏi trắc nghiệm theo nội dung, các phương án và đáp án đúng. Nếu người dùng bỏ qua một danh sách, để danh sách đó rỗng.";
+for (const trainingOperation of operations.filter(op => op.id === "training.create" || op.id === "training.update")) {
+  trainingOperation.resultFields = ["title", "category", "duration", "instructor"];
+}
 entity({ id: "product", title: "sản phẩm", module: "inventory", permissions: ["inventory:read"], path: "/inventory/catalog/products", link: "/kho-san-pham", fields: [], create: false, resultFields: ["name", "productCode", "categoryCode", "productType", "status"] });
 
 operations.push({ id: "repair.list", title: "Tra cứu phiếu sửa chữa", description: "Tìm phiếu theo mã phiếu, tên khách hàng hoặc số sê ri trong chi nhánh đã chọn.", module: "repair", permissions: ["repair:read", "repair:manage"], method: "GET", path: "/repair/tickets", link: "/sua-chua-bao-hanh",
@@ -264,7 +308,11 @@ operations.push(
   },
 );
 const existingRoutes = new Set(operations.map(op => op.method + " " + op.path));
-const expandedOperations = (expandedCatalog as AssistantOperation[]).filter(op => !existingRoutes.has(op.method + " " + op.path));
+const expandedOperations = (expandedCatalog as AssistantOperation[]).filter(op =>
+  !existingRoutes.has(op.method + " " + op.path)
+  // Supplier declarations are managed through the supplier role in Retail Partners.
+  && !(op.method === "POST" && op.path === "/inventory/receiving/suppliers"),
+);
 const readablePaths = new Set([...operations, ...expandedOperations].filter(op => op.method === "GET").map(op => op.path));
 const partnerResultFields = ["name", "phone", "email", "bankName", "bankAccountName", "bankAccountNo", "commissionType", "commissionValue", "isActive"];
 const partnerFieldLabels: Record<string, string> = {
@@ -297,16 +345,18 @@ const inventoryCountTitles: Record<string, string> = {
 };
 const inventoryCatalogTitles: Record<string, string> = {
   "GET /inventory/catalog/resources/:kind": "Tra cứu danh mục, thương hiệu, đơn vị tính hoặc thuộc tính sản phẩm",
-  "POST /inventory/catalog/resources/:kind": "Tạo dữ liệu dùng chung cho sản phẩm",
+  "POST /inventory/catalog/resources/:kind": "Tạo thể loại / thư mục, thương hiệu, đơn vị tính hoặc thuộc tính sản phẩm",
   "PATCH /inventory/catalog/resources/:kind/:id": "Cập nhật dữ liệu dùng chung cho sản phẩm",
   "GET /inventory/catalog/templates": "Tra cứu mẫu sản phẩm",
   "POST /inventory/catalog/templates": "Tạo mẫu sản phẩm",
   "PATCH /inventory/catalog/templates/:id": "Cập nhật mẫu sản phẩm",
   "GET /inventory/catalog/prices": "Tra cứu giá bán và giá vốn SKU",
-  "PUT /inventory/catalog/prices/:variantId": "Cập nhật giá bán SKU",
+  "PUT /inventory/catalog/prices/:variantId": "Cập nhật giá nhập và giá bán SKU",
   "POST /inventory/catalog/products": "Tạo sản phẩm và SKU",
+  "POST /inventory/catalog/products/with-price": "Tạo sản phẩm và SKU kèm giá bán",
   "POST /inventory/catalog/products/bulk-create-with-variants": "Tạo sản phẩm với nhiều SKU",
   "POST /inventory/catalog/products/:id/variants": "Thêm SKU cho sản phẩm",
+  "POST /inventory/catalog/products/:id/variants/with-price": "Thêm SKU kèm giá bán",
   "POST /inventory/catalog/products/:id/variants/bulk": "Thêm nhiều SKU cho sản phẩm",
   "PATCH /inventory/catalog/variants/:id": "Cập nhật thông tin SKU",
   "GET /inventory/transfers": "Tra cứu phiếu điều chuyển kho",
@@ -326,6 +376,7 @@ operations.push(...expandedOperations.map(op => {
   const commissionLevel = op.path === "/partners/commission-levels" || op.path.startsWith("/partners/commission-levels/");
   const commissionLevelList = op.method === "GET" && op.path === "/partners/commission-levels";
   const workerPartnerList = op.method === "GET" && op.path === "/worker-management/partners";
+  const workerPartnerCreate = op.method === "POST" && op.path === "/worker-management/partners";
   const workerList = op.method === "GET" && op.path === "/worker-management/workers";
   const workerAttendanceMark = op.method === "POST" && op.path === "/worker-management/attendance/mark";
   const workerAttendanceList = op.method === "GET" && op.path === "/worker-management/attendance";
@@ -349,8 +400,12 @@ operations.push(...expandedOperations.map(op => {
   const studentUpdate = op.method === "PATCH" && op.path === "/students/:id";
   const assignStudentBranch = op.method === "PATCH" && op.path === "/students/:id/assign-branch";
   const courseList = op.method === "GET" && op.path === "/courses";
+  const courseCreate = op.method === "POST" && op.path === "/courses";
   const courseCategoryList = op.method === "GET" && op.path === "/courses/categories";
+  const courseCategoryCreate = op.method === "POST" && op.path === "/courses/categories";
   const batchList = op.method === "GET" && op.path === "/batches";
+  const batchDetail = op.method === "GET" && op.path === "/batches/:id";
+  const batchUpdate = op.method === "PATCH" && op.path === "/batches/:id";
   const assignmentList = op.method === "GET" && op.path === "/assignments";
   const miniTestCreate = op.method === "POST" && op.path === "/student-quality/batches/:batchId/students/:studentId/mini-tests";
   const studentQualityBatchPath = op.path.startsWith("/student-quality/batches/:batchId/students/:studentId");
@@ -464,6 +519,8 @@ operations.push(...expandedOperations.map(op => {
       : financeAssetDepreciationList
         ? [queryField(text("period", "Kỳ khấu hao (YYYY-MM)", true), "period")]
     : op.fields.map(field => {
+      if (batchDetail && field.source === "path" && field.apiKey === "id") return { ...field, label: "T\u00EAn ho\u1EB7c m\u00E3 l\u1EDBp", reference: "batch.list", referenceValueKey: "id" };
+      if (courseCategoryCreate && field.source === "body" && field.apiKey === "name") return { ...field, label: "Tên phân loại khóa học" };
       if (field.source === "query" && field.apiKey === "branchId" && (financeTaxFromInvoice || inventoryStockLogReverse || financeDebtList || financeManagementDebtList || financeManagementPayableCreate || financeManagementFollowup || (op.method !== "GET" && !op.id.startsWith("recruitment.")))) { const label = financeTaxFromInvoice || financeDebtList || financeManagementDebtList || financeManagementPayableCreate || financeManagementFollowup || op.path.startsWith("/finance/") ? "Chi nhánh tài chính" : inventoryStockLogReverse ? "Chi nhánh kho" : "Chi nhánh áp dụng"; return { ...field, key: "targetBranch", type: "reference" as const, label, reference: "branch.list" }; }
       if (op.path.startsWith("/payroll/periods/") && field.source === "path" && field.apiKey === "periodKey") return { ...field, label: "K\u1EF3 l\u01B0\u01A1ng (YYYY-MM)", pattern: "^\\d{4}-(0[1-9]|1[0-2])$" };
       if (op.id === "payroll.period.input.update" && field.source === "path" && field.apiKey === "employeeId") return { ...field, label: "T\u00EAn nh\u00E2n vi\u00EAn", reference: "employee.list" };
@@ -481,7 +538,9 @@ operations.push(...expandedOperations.map(op => {
       if (inventoryCount && field.key === "notes") return { ...field, label: "Ghi chú kiểm kê" };
       if (inventoryTransferPath && field.key === "path_id") return { ...field, label: "Mã phiếu điều chuyển", reference: "inventory.transfer.list" };
       if (inventoryCount && field.key === "warehouseId") return { ...field, label: "Kho kiểm kê" };
-      if (inventoryResource && field.key === "path_kind") return { ...field, label: "Loại dữ liệu sản phẩm", options: op.method === "DELETE" ? ["categories", "brands"] : ["categories", "brands", "units", "attributes"] };
+      if (op.method === "POST" && op.path === "/inventory/catalog/products" && field.key === "productType") return { ...field, options: ["physical", "service"] };
+      if (inventoryResource && field.key === "path_kind") return { ...field, label: "Loại dữ liệu cần tạo", options: op.method === "DELETE" ? ["categories", "brands"] : ["categories", "brands", "units", "attributes"] };
+      if (inventoryResource && field.source === "body" && field.apiKey === "parentCode") return { ...field, label: "Thể loại / thư mục cha" };
       if (inventoryResource && field.key === "path_id") return { ...field, label: "Tên hoặc mã dữ liệu sản phẩm", reference: "inventory.catalog.resource.list" };
       if (inventoryResource && field.source === "body" && field.apiKey === "category" && op.method === "POST") return { ...field, label: "Nhóm đơn vị tính", requiredWhen: { field: "path_kind", equals: "units" } };
       if (inventoryResource && field.source === "body" && field.apiKey === "type" && op.method === "POST") return { ...field, label: "Kiểu thuộc tính", requiredWhen: { field: "path_kind", equals: "attributes" } };
@@ -499,7 +558,7 @@ operations.push(...expandedOperations.map(op => {
       if ((financeReceivableList || financeReceivableByCustomer) && field.apiKey === "customerId") return { ...field, label: "Tên khách hàng", reference: "customer.list" };
       if (op.path === "/retail/points/customers/:id/adjust" && field.key === "path_id") return { ...field, label: "Tên hoặc mã khách hàng", reference: "customer.list" };
       if (op.path.startsWith("/inventory/catalog/products/") && field.key === "path_id") return { ...field, label: "Tên hoặc mã sản phẩm", reference: "product.list" };
-      if (op.method === "PUT" && op.path === "/inventory/catalog/prices/:variantId" && field.key === "path_variantId") return { ...field, label: "SKU hoặc tên biến thể" };
+      if (op.method === "PUT" && op.path === "/inventory/catalog/prices/:variantId" && field.key === "path_variantId") return { ...field, label: "SKU hoặc tên biến thể thuộc sản phẩm đã chọn" };
       if (op.path.startsWith("/inventory/receiving/receipts/") && field.key === "path_id") return { ...field, label: "Mã phiếu nhập" };
       if (field.apiKey === "partnerId" && op.path.includes("commission")) return { ...field, label: "Tên cộng tác viên", reference: "retail.partner.list" };
       if (markInstallmentPaid && field.key === "path_id") return { ...field, label: "Tên, số điện thoại hoặc email học viên", reference: "student.list" };
@@ -566,6 +625,8 @@ operations.push(...expandedOperations.map(op => {
     });
   return {
     ...op,
+    ...(batchDetail ? { id: "student.batch.detail", title: "Xem th\u00F4ng tin l\u1EDBp h\u1ECDc", description: "Tra c\u1EE9u th\u00F4ng tin l\u1EDBp theo t\u00EAn ho\u1EB7c m\u00E3 l\u1EDBp trong chi nh\u00E1nh \u0111ang ch\u1ECDn.", resultFields: ["code", "name", "courseCode", "courseTitle", "location", "instructorName", "startDate", "endDate", "status"] } : {}),
+    ...(batchUpdate ? { description: "Cập nhật lịch, giảng viên, địa điểm, khóa học hoặc lộ trình của lớp. Tên và mã lớp không thể đổi sau khi tạo. Tiêu đề hiển thị lấy từ khóa học; có thể đổi khóa học gắn với lớp này mà không đổi tên các khóa học khác. Cần xác nhận trước khi lưu." } : {}),
     ...(financeTaxFromInvoice ? { id: "finance.tax.from-invoice" } : {}),
     ...(op.method === "POST" && op.path === "/assignments" ? { id: "student.assignment.create", title: "Tạo bài tập cho lớp", description: "Tạo bài tập cho lớp đã chọn theo tên hoặc mã. API gửi email tới học viên trong lớp ở chế độ nền; cần xác nhận trước khi tạo." } : {}),
     ...(assignmentList ? { id: "student.assignment.list", title: "Tra cứu bài tập trong lớp", description: "Liệt kê bài tập của lớp đã chọn theo tên hoặc mã lớp để chọn đúng bài cần xem hoặc xử lý.", resultFields: ["title", "description", "dueDate", "maxScore", "createdAt"] } : {}),
@@ -580,6 +641,16 @@ operations.push(...expandedOperations.map(op => {
     ...(inventoryPriceList ? { id: "inventory.prices.list", title: "Tra cứu giá bán và giá vốn SKU", resultFields: ["variantId", "sku", "sellingPrice", "costPrice", "status"] } : {}),
     ...(inventorySupplierList ? { id: "inventory.supplier.list", title: "Tra cứu nhà cung cấp", resultFields: ["name", "code", "phone", "email", "status"] } : {}),
     ...(courseCategoryList ? { id: "course.category.list", title: "Tra cứu danh mục khóa học", description: "Liệt kê danh mục khóa học trong phạm vi được phép để người dùng chọn khi tạo hoặc sửa khóa học.", resultFields: ["name"] } : {}),
+    ...(courseCategoryCreate ? {
+      id: "course.category.create",
+      title: "Tạo phân loại khóa học",
+      description: "Tạo phân loại khóa học trong phân hệ quản lý học viên. Cần tên phân loại và xác nhận trước khi lưu.",
+      permissions: ["people:manage"],
+      permissionGroups: [["people:manage"]],
+      confirmation: true,
+      resultFields: ["name"],
+    } : {}),
+    ...(courseCreate ? { title: "Tạo khóa học cho học viên", description: "Tạo khóa học trong phân hệ quản lý học viên. Chọn một danh mục khóa học đã có trong phạm vi tài khoản." } : {}),
     ...(inventoryTransferList ? { id: "inventory.transfer.list", title: "Tra cứu phiếu điều chuyển kho", resultFields: ["code", "status", "reason", "items"] } : {}),
     ...(inventoryTransferCreate ? { id: "inventory.transfer.create", title: "Tạo phiếu điều chuyển kho" } : {}),
     ...(inventoryTransferDetail ? { id: "inventory.transfer.detail", title: "Xem chi tiết phiếu điều chuyển kho" } : {}),
@@ -606,7 +677,7 @@ operations.push(...expandedOperations.map(op => {
     ...(retailPartnerSupplierList ? { id: "retail.partner.supplier.list", title: "Tra cứu nhà cung cấp liên kết", resultFields: ["code", "name"] } : {}),
     ...(retailPartnerUserList ? { id: "retail.partner.user.list", title: "Tra cứu tài khoản cộng tác viên", resultFields: ["displayName", "email"] } : {}),
     ...(retailPartnerCustomerList ? { id: "retail.partner.customer.list", title: "Tra cứu khách hàng đại lý", resultFields: ["customerCode", "name", "phone"] } : {}),
-    ...(op.method === "POST" && op.path === "/retail/partners" ? { id: "retail.partner.create", title: "Tạo đối tác bán lẻ" } : {}),
+    ...(op.method === "POST" && op.path === "/retail/partners" ? { id: "retail.partner.create", title: "Tạo đối tác bán lẻ", description: "Tạo hồ sơ trong phân hệ Đối tác bán lẻ với một vai trò cộng tác viên, đại lý hoặc nhà cung cấp. Khi yêu cầu nêu rõ một vai trò, tự chọn đúng vai trò đó; chỉ hỏi vai trò nếu người dùng nói chung là tạo đối tác. Có thể liên kết nhà cung cấp kho đã có nếu người dùng chọn rõ. Cần xác nhận trước khi lưu.", confirmation: true } : {}),
     ...(op.method === "PATCH" && op.path === "/retail/partners/:id" ? { id: "retail.partner.update", title: "Cập nhật đối tác bán lẻ" } : {}),
     ...(retailPointsPolicyList ? { id: "retail.points.policy.get", title: "Tra cứu chính sách tích điểm bán lẻ", resultFields: ["enabled", "earnVndPerPoint", "redeemVndPerPoint", "maxRedeemPercent", "version"] } : {}),
     ...(op.method === "PUT" && op.path === "/retail/points/policy" ? { id: "retail.points.policy.update", title: "Cập nhật chính sách tích điểm bán lẻ", resultFields: ["enabled", "earnVndPerPoint", "redeemVndPerPoint", "maxRedeemPercent", "version"] } : {}),
@@ -641,7 +712,7 @@ operations.push(...expandedOperations.map(op => {
     ...(inventoryCatalogTitles[`${op.method} ${op.path}`] ? { title: inventoryCatalogTitles[`${op.method} ${op.path}`] } : {}),
     ...(inventoryCountTitles[`${op.method} ${op.path}`] ? { title: inventoryCountTitles[`${op.method} ${op.path}`] } : {}),
     ...(markInstallmentPaid ? { title: "Đánh dấu đợt học phí đã thu", description: "Đánh dấu một đợt học phí đã thu cho học viên đã xác định. Thao tác cần xác nhận." } : {}),
-    ...(partnerCreate ? { title: "Tạo đối tác" } : {}),
+    ...(partnerCreate ? { title: "Tạo cộng tác viên giới thiệu học viên", description: "Tạo cộng tác viên giới thiệu học viên; cần tên và số điện thoại. Cần xác nhận trước khi lưu." } : {}),
     ...(partnerBulkCreate ? {
       id: "partner.bulk.create",
       title: "Tạo nhiều đối tác",
@@ -673,6 +744,7 @@ operations.push(...expandedOperations.map(op => {
     ...(inventorySerialTransition ? { id: "inventory.serial.transition", title: "Cập nhật trạng thái IMEI hoặc serial" } : {}),
     ...(commissionLevelList ? { id: "partner.commission.levels.list", resultFields: ["name", "minTuition", "commissionRate"] } : {}),
     ...(workerPartnerList ? { id: "worker.partner.list", title: "Tra cứu đối tác cung ứng lao động" } : {}),
+    ...(workerPartnerCreate ? { title: "Tạo cộng tác viên lao động", description: "Tạo đối tác cung ứng lao động; cần mã, tên và số điện thoại. Cần xác nhận trước khi lưu." } : {}),
     ...(workerList ? { id: "worker.list", title: "Tra cứu người lao động" } : {}),
     ...(chatRoomsList ? { id: "chat.rooms.list", title: "Tra cứu phòng trò chuyện", resultFields: ["name", "isGroup", "updatedAt"] } : {}),
     ...(chatRoomMembersList ? { id: "chat.room.members.list", title: "Tra cứu thành viên trong phòng chat", resultFields: ["displayName", "roleLabel"] } : {}),
@@ -693,6 +765,7 @@ operations.push(...expandedOperations.map(op => {
       return [queryField(ref("targetBranch", label, "branch.list", false), "branchId"), ...mapped.filter(field => field.apiKey !== "branchId")];
     })(),
     resultFields: inventoryResource ? (op.method === "DELETE" ? ["deletedId"] : ["code", "name", "status", "parentCode", "description", "website", "symbol", "category", "decimalPlaces", "baseUnitCode", "conversionFactor", "type", "options", "unitCode"])
+      : batchDetail ? ["code", "name", "courseCode", "courseTitle", "location", "instructorName", "startDate", "endDate", "status"]
       : inventoryVariantBulkUpdate ? ["sku", "displayName", "status", "trackingMode", "unitCode"]
       : inventoryVariantBulkDelete ? []
       : workerLaborContractList ? ["code", "clientName", "workerName", "startDate", "endDate", "status", "alertLevel", "note"]
@@ -842,9 +915,152 @@ if (partnerUpdateOperation) {
     !["bankName", "bankAccountNo", "bankAccountName", "commissionType", "commissionValue"].includes(String(field.apiKey || "")),
   );
 }
+const productUnitCreateBase = operations.find(op => op.method === "POST" && op.path === "/inventory/catalog/resources/:kind");
+if (productUnitCreateBase) {
+  const unitFieldKeys = new Set(["name", "code", "status", "symbol", "category", "decimalPlaces"]);
+  operations.push({
+    ...productUnitCreateBase,
+    id: "inventory.catalog.unit.create",
+    title: "Tạo đơn vị tính",
+    description: "Tạo đơn vị tính dùng chung cho sản phẩm. Cần tên và nhóm đo lường; mã tự sinh, ký hiệu tùy chọn, số chữ số thập phân mặc định là 0. Cần xác nhận trước khi tạo.",
+    fixedPathValues: { kind: "units" },
+    fields: productUnitCreateBase.fields
+      .filter(field => field.source === "body" && unitFieldKeys.has(field.apiKey || field.key))
+      .map(field => field.apiKey === "category" ? { ...field, required: true, systemRequired: true, requiredWhen: undefined } : field),
+    resultFields: ["code", "name", "symbol", "category", "decimalPlaces", "status"],
+  });
+}
+const retailPartnerCreateBase = operations.find(op => op.id === "retail.partner.create");
+if (retailPartnerCreateBase) {
+  operations.splice(operations.indexOf(retailPartnerCreateBase), 1);
+  const relationRoleByApiKey: Record<string, string> = { userId: "collaborator", customerId: "dealer", supplierId: "supplier" };
+  const retailPartnerRoles = [
+    { role: "collaborator", title: "Tạo cộng tác viên bán lẻ", relation: "userId", relationLabel: "tài khoản cộng tác viên" },
+    { role: "dealer", title: "Tạo đại lý bán lẻ", relation: "customerId", relationLabel: "khách hàng liên kết" },
+    { role: "supplier", title: "Tạo nhà cung cấp bán lẻ", relation: "supplierId", relationLabel: "nhà cung cấp đã khai báo trong Đối tác bán lẻ" },
+  ] as const;
+  operations.push(...retailPartnerRoles.map(({ role, title, relation, relationLabel }) => ({
+    ...retailPartnerCreateBase,
+    id: `retail.partner.create.${role}`,
+    title,
+    description: `${title}; cần mã và tên. Có thể liên kết ${relationLabel} đã có nếu cần. Trạng thái mặc định là active. Cần xác nhận trước khi lưu.`,
+    fixedBodyValues: { ...(retailPartnerCreateBase.fixedBodyValues || {}), role },
+    fields: retailPartnerCreateBase.fields.filter(field => {
+      if (field.key === "partnerType" || field.apiKey === "role") return false;
+      const linkedRole = relationRoleByApiKey[field.apiKey || field.key];
+      return !linkedRole || linkedRole === role && (field.apiKey || field.key) === relation;
+    }),
+  })));
+}
+operations.push({
+  id: "hr.workflow.list",
+  title: "Tra cứu quy trình làm việc",
+  description: "Liệt kê hoặc tìm quy trình làm việc trong doanh nghiệp theo tên. Quy trình này thuộc phân hệ Nhân sự, không phải các bước tuyển dụng.",
+  module: "hr",
+  permissions: ["hr:read", "hr:manage"],
+  permissionGroups: [["hr:read", "hr:manage"]],
+  method: "GET",
+  path: "/crud/workflows",
+  adapter: "contract",
+  link: "/nhan-su",
+  fields: [
+    { ...text("search", "Tên quy trình làm việc"), source: "query", apiKey: "search" },
+    { ...number("page", "Trang", 1), min: 1, source: "query", apiKey: "page" },
+    { ...number("limit", "Số kết quả", 100), min: 1, max: 100, source: "query", apiKey: "limit" },
+  ],
+  resultFields: ["name", "category", "description", "stepsCount"],
+});
+operations.push({
+  id: "hr.workflow.create",
+  title: "Tạo quy trình làm việc",
+  description: "Tạo quy trình làm việc trong phân hệ Nhân sự. Cần tên quy trình và ít nhất một bước có tên. Mô tả, nhóm quy trình, số ngày dự kiến, kết quả bàn giao và ghi chú có thể bổ sung nếu người dùng nêu. Người phụ trách có thể gán trong màn hình sau khi tạo. Đây là quy trình phân công công việc, không phải các bước tuyển dụng. Luôn xem trước và xin xác nhận trước khi lưu.",
+  module: "hr",
+  permissions: ["hr:manage"],
+  method: "POST",
+  path: "/crud/workflows",
+  adapter: "contract",
+  link: "/nhan-su",
+  confirmation: true,
+  fields: [
+    { ...text("name", "Tên quy trình làm việc", true), max: 120, source: "body", apiKey: "name" },
+    { ...text("category", "Nhóm quy trình"), max: 100, source: "body", apiKey: "category" },
+    { ...text("description", "Mô tả quy trình"), max: 2000, source: "body", apiKey: "description" },
+    {
+      ...structured("steps", "Các bước quy trình", {
+        type: "array",
+        minItems: 1,
+        maxItems: 30,
+        items: {
+          type: "object",
+          keys: {
+            title: { type: "string", required: true, label: "Tên bước" },
+            description: { type: "string", label: "Mô tả bước" },
+            estDays: { type: "number", min: 0, max: 365, label: "Số ngày dự kiến" },
+            deliverable: { type: "string", label: "Kết quả bàn giao" },
+            note: { type: "string", label: "Ghi chú" },
+          },
+        },
+      }, true),
+      source: "body",
+      apiKey: "steps",
+    },
+  ],
+  resultFields: ["name", "category", "description"],
+});
+operations.push({
+  id: "hr.workflow.update",
+  title: "Cập nhật quy trình làm việc",
+  description: "Cập nhật quy trình làm việc đã chọn trong phân hệ Nhân sự. Chỉ đổi những thông tin người dùng yêu cầu. Nếu thay đổi các bước, cần thu thập đầy đủ danh sách bước theo thứ tự để giữ đúng nội dung; luôn xem trước và xin xác nhận trước khi lưu.",
+  module: "hr",
+  permissions: ["hr:manage"],
+  method: "PATCH",
+  path: "/crud/workflows/:id",
+  adapter: "contract",
+  link: "/nhan-su",
+  confirmation: true,
+  fields: [
+    { ...ref("path_id", "Tên hoặc mã quy trình làm việc", "hr.workflow.list"), source: "path", apiKey: "id" },
+    { ...text("name", "Tên quy trình mới"), max: 120, source: "body", apiKey: "name" },
+    { ...text("category", "Nhóm quy trình"), max: 50, source: "body", apiKey: "category" },
+    { ...text("description", "Mô tả quy trình"), max: 2000, source: "body", apiKey: "description" },
+    {
+      ...structured("steps", "Danh sách đầy đủ các bước mới theo thứ tự", {
+        type: "array",
+        minItems: 1,
+        maxItems: 30,
+        items: {
+          type: "object",
+          keys: {
+            existingTitle: { type: "string", label: "Tên bước hiện tại nếu đổi tên hoặc giữ nguyên chi tiết" },
+            existingStepNumber: { type: "number", integer: true, min: 1, max: 30, label: "Vị trí bước hiện tại nếu tên bước bị trùng" },
+            title: { type: "string", required: true, label: "Tên bước sau cập nhật" },
+            description: { type: "string", label: "Mô tả bước" },
+            estDays: { type: "number", min: 0, max: 365, label: "Số ngày dự kiến" },
+            deliverable: { type: "string", label: "Kết quả bàn giao" },
+            note: { type: "string", label: "Ghi chú" },
+          },
+        },
+      }),
+      source: "body",
+      apiKey: "steps",
+    },
+  ],
+  resultFields: ["name", "category", "description"],
+});
 export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations;
 export function operationById(id: string) { return ASSISTANT_OPERATIONS.find(op => op.id === id); }
 export function defaultWorkflow(op: AssistantOperation): AssistantWorkflow {
+  const instructions = op.id === "training.create"
+    ? "Giảng viên mặc định là người tạo khóa; không hỏi người dùng trường này. Khi danh sách bài giảng còn thiếu, hỏi tên bài kèm đường dẫn hoặc nội dung. Khi câu hỏi trắc nghiệm còn thiếu, hỏi nội dung câu hỏi, các phương án và đáp án đúng; chuyển đáp án đúng thành vị trí bắt đầu từ 0 trong danh sách phương án. Nếu người dùng nói bỏ qua hoặc chưa có một danh sách, dùng danh sách rỗng cho riêng danh sách đó. Bài giảng phải có tên, loại và đường dẫn hoặc nội dung. Mỗi câu trắc nghiệm cần ít nhất hai phương án."
+    : op.id === "task.create"
+      ? "Nếu người dùng nêu thời gian bắt đầu và số giờ dự tính nhưng không nêu riêng hạn hoàn thành, tính hạn hoàn thành bằng thời gian bắt đầu cộng số giờ dự tính. Ví dụ: bắt đầu 8 giờ ngày 5/11, thời gian 24 giờ thì hạn là 8 giờ ngày 6/11. Không đặt hạn vào đầu ngày bắt đầu."
+      : op.id === "api.patch.6bc968347283a069"
+        ? "Khi người dùng yêu cầu giờ làm riêng hoặc đưa ra giờ vào, giờ ra, khung nghỉ cụ thể, tự đặt useCustom=true; không hỏi người dùng bật giờ riêng lần nữa. Chuẩn hóa giờ theo HH:MM: 9h30 sáng thành 09:30, 7h tối thành 19:00, 2h chiều thành 14:00 và 3h30 chiều thành 15:30. Nếu chỉ yêu cầu tắt giờ riêng hoặc dùng giờ công ty thì đặt useCustom=false."
+      : op.id === "hr.workflow.update"
+        ? "Chỉ sửa các thông tin người dùng nêu rõ; các trường bỏ trống sẽ được giữ nguyên. Khi người dùng muốn thay đổi danh sách bước, hỏi và thu thập toàn bộ danh sách bước theo thứ tự trước khi cập nhật. Với bước được giữ hoặc đổi tên, điền tên bước hiện tại vào existingTitle để hệ thống giữ nguyên người phụ trách, nội dung bàn giao, tệp đính kèm và mã bước. Nếu tên bước hiện tại bị trùng, điền thêm existingStepNumber theo thứ tự hiện tại, bắt đầu từ 1. Bước mới không có existingTitle hoặc existingStepNumber. Không tự gán người phụ trách."
+      : op.id === "training.update"
+      ? "Chỉ thay đổi bài giảng hoặc câu hỏi trắc nghiệm khi người dùng yêu cầu rõ. Giữ nguyên các mục không được yêu cầu sửa. Mỗi bài giảng cần tên, loại và đường dẫn hoặc nội dung; mỗi câu trắc nghiệm cần ít nhất hai phương án và đáp án đúng."
+      : "";
   return { actionId: op.id, title: op.title, module: op.module, description: op.description,
-    fields: structuredClone(op.fields).map(field => field.reference ? { ...field, defaultValue: undefined } : field), enabled: true, instructions: "", requireConfirmation: Boolean(op.confirmation), confirmationLocked: Boolean(op.confirmation), version: 0 };
+    fields: structuredClone(op.fields).map(field => field.reference ? { ...field, defaultValue: undefined } : field), enabled: true, instructions, requireConfirmation: Boolean(op.confirmation), confirmationLocked: Boolean(op.confirmation), version: 0 };
 }
