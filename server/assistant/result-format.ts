@@ -188,6 +188,7 @@ Object.assign(labels, {
   profitCategory: "Nhóm thu chi", costBearer: "Bên chịu chi phí", channel: "Kênh", connectionType: "Loại kết nối", connectionStatus: "Trạng thái kết nối",
   network: "Mạng", networkType: "Loại mạng",
 });
+Object.assign(labels, { experience: "Kinh nghiệm", education: "Trình độ học vấn", skills: "Kỹ năng", expectedSalary: "Lương mong muốn" });
 
 const fieldWordLabels: Record<string, string> = {
   account: "tài khoản", action: "thao tác", active: "hoạt động", address: "địa chỉ", amount: "số tiền",
@@ -217,6 +218,13 @@ function localizedFieldKey(key: string) {
   const translated = words.map(word => fieldWordLabels[word]);
   if (translated.every(Boolean)) return translated.map((word, index) => index ? word : word[0].toLocaleUpperCase("vi") + word.slice(1)).join(" ");
   return "Thông tin";
+}
+
+export function localizedAssistantFieldLabel(key: string, label: string, operationId = ""): string {
+  if (operationId.startsWith("recruitment.applicant.") && key === "source") return "Nguồn ứng viên";
+  const configured = label.trim();
+  if (configured && configured.toLocaleLowerCase("vi") !== key.toLocaleLowerCase("vi")) return configured;
+  return labels[key] || localizedFieldKey(key);
 }
 
 function labelFor(operation: ResultOperation, key: string): string {
@@ -337,10 +345,9 @@ function labelFor(operation: ResultOperation, key: string): string {
     if (payrollRunLabels[key]) return payrollRunLabels[key];
   }
   const relatedCreate = operationById(operation.id.replace(/\.(?:list|update|delete)$/, ".create"));
-  return operation.fields.find(field => field.key === key)?.label
-    || relatedCreate?.fields.find(field => field.key === key)?.label
-    || labels[key]
-    || localizedFieldKey(key);
+  const configured = operation.fields.find(field => field.key === key)?.label
+    || relatedCreate?.fields.find(field => field.key === key)?.label || "";
+  return localizedAssistantFieldLabel(key, configured, operation.id);
 }
 
 function celebrationHtmlToText(value: unknown): string {

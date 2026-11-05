@@ -1,4 +1,5 @@
-import { parseAssistantResultTable } from "./assistant-message-format";
+import { parseAssistantResultTable, parseAssistantSuccessCard } from "./assistant-message-format";
+import { cn } from "../../modules/student-management/lib/utils";
 
 function formattedText(content: string) {
   return content.split(/(\*\*.*?\*\*)/g).map((part, index) =>
@@ -13,8 +14,29 @@ function MessageParagraph({ content }: { content: string }) {
 }
 
 export function AssistantMessageContent({ content, visibleCharacters }: { content: string; visibleCharacters?: number }) {
+  const visibleContent = visibleCharacters === undefined ? content : Array.from(content).slice(0, visibleCharacters).join("");
   const resultTable = parseAssistantResultTable(content);
-  if (!resultTable) return <MessageParagraph content={visibleCharacters === undefined ? content : Array.from(content).slice(0, visibleCharacters).join("")} />;
+  if (!resultTable) {
+    const successCard = parseAssistantSuccessCard(visibleContent);
+    if (!successCard) return <MessageParagraph content={visibleContent} />;
+    return (
+      <section className="min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+        <div className="border-b border-outline-variant bg-surface-container-low px-4 py-3">
+          <p className="text-xs font-medium text-primary">Đã hoàn tất</p>
+          <h3 className="mt-1 text-balance text-sm font-semibold text-on-surface">{successCard.title}</h3>
+        </div>
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 p-4 sm:grid-cols-2">
+          {successCard.fields.map((field, index) => <div key={`${field.label}-${index}`} className="min-w-0">
+            <dt className="text-xs text-on-surface-variant">{field.label}</dt>
+            <dd className="mt-1 break-words text-sm text-on-surface tabular-nums" style={{ overflowWrap: "anywhere" }}>{formattedText(field.value)}</dd>
+          </div>)}
+        </dl>
+        {successCard.notes.length > 0 && <div className="space-y-2 border-t border-outline-variant px-4 py-3 text-sm text-on-surface-variant">
+          {successCard.notes.map((note, index) => <MessageParagraph key={index} content={note} />)}
+        </div>}
+      </section>
+    );
+  }
 
   const totalParts = resultTable.before.length + resultTable.rows.length + resultTable.after.length;
   const visibleParts = visibleCharacters === undefined
@@ -35,7 +57,7 @@ export function AssistantMessageContent({ content, visibleCharacters }: { conten
       >
         <table
           aria-label="Kết quả tra cứu"
-          className={`w-full border-collapse text-left text-sm ${resultTable.headers.length <= 3 ? "table-fixed" : "min-w-max"}`}
+          className={cn("w-full border-collapse text-left text-sm", resultTable.headers.length <= 3 ? "table-fixed" : "min-w-max")}
         >
           <caption className="sr-only">Kết quả tra cứu</caption>
           <thead className="bg-surface-container-low text-on-surface">
