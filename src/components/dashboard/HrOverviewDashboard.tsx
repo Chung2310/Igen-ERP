@@ -265,7 +265,7 @@ export function HrOverviewDashboard({
         <Kpi label="Đi muộn" value={canSeeTimekeeping ? summary?.timekeeping.lateToday : null} previous={canSeeTimekeeping ? yesterdayAttendance?.late ?? null : null} note="Hôm nay so với hôm qua, không theo bộ lọc kỳ" comparisonLabel="hôm qua" icon={Clock3} />
         {canSeeRecruitment && overviewPeriod ? <Kpi label="Ứng viên mới" value={loading ? null : currentApplicants} previous={previousApplicants} note="Hồ sơ trong kỳ" icon={FileText} /> : <Kpi label="HĐ sắp hết hạn" value={loading ? null : summary?.personnelNow?.expiringContractCount} note="Trong 30 ngày tới" icon={FileWarning} />}
       </div>
-      <p className="text-pretty text-xs text-on-surface-variant">Biến động nhân sự dựa trên tài khoản còn tồn tại; chấm công và đi muộn luôn là số hôm nay, so với hôm qua.</p>
+      <p className="text-pretty text-xs text-on-surface-variant">Số nhân sự chỉ tính tài khoản còn tồn tại. Chấm công và đi muộn hiển thị số hôm nay, so sánh với hôm qua.</p>
       </section>
       <div className="grid items-stretch gap-4 lg:grid-cols-2">
         <TaskChart summary={summary} previous={previousSummary} loading={loading} />
