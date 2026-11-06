@@ -13,6 +13,7 @@ import { laborPartnersApi } from "../../modules/worker-management/partners/api/l
 import type { LaborPartnerReportSummary } from "../../modules/worker-management/partners/types";
 import type { Worker } from "../../modules/worker-management/types";
 import { workerDistributions } from "./workerOverviewMetrics";
+import { cn } from "../../modules/student-management/lib/utils";
 import "../../modules/finance/finance-overview.css";
 
 const integer = (value: number) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value);
@@ -101,14 +102,14 @@ export default function WorkerOverviewDashboard({ companyCode, branchId, canSeeP
   const workerRows = status ? [{ name: "Hoạt động", count: status.active }, { name: "Đã phân công", count: status.placed }, { name: "Nghỉ", count: status.inactive }] : [];
   const projectRows = projectStatus ? [{ name: "Sắp triển khai", count: projectStatus.planned }, { name: "Đang triển khai", count: projectStatus.active }, { name: "Hoàn thành", count: projectStatus.completed }] : [];
   const typeRows = distributions ? [{ name: "Chính thức", count: distributions.types.official }, { name: "Thời vụ", count: distributions.types.seasonal }, { name: "Nước ngoài", count: distributions.types.foreign }, { name: "Chưa phân loại", count: distributions.types.unknown }] : [];
-  const contractRows: Array<{ label: string; value?: number; format: (value: number) => string }> = [
-    { label: "HĐ sắp hết hạn", value: alerts?.expiringCount, format: integer },
-    { label: "HĐ đã hết hạn", value: alerts?.expiredCount, format: integer },
+  const contractRows: Array<{ label: string; value?: number; format: (value: number) => string; tone: string }> = [
+    { label: "HĐ sắp hết hạn", value: alerts?.expiringCount, format: integer, tone: "orange" },
+    { label: "HĐ đã hết hạn", value: alerts?.expiredCount, format: integer, tone: "red" },
     ...(canSeePartners ? [
-      { label: "Kỳ đối soát", value: partner?.settlementCount, format: integer },
-      { label: "Hoa hồng phát sinh", value: partner?.accruedAmount, format: money },
-      { label: "Đã thanh toán", value: partner?.paidAmount, format: money },
-      { label: "Còn phải trả", value: partner?.balanceAmount, format: money },
+      { label: "Kỳ đối soát", value: partner?.settlementCount, format: integer, tone: "violet" },
+      { label: "Hoa hồng phát sinh", value: partner?.accruedAmount, format: money, tone: "blue" },
+      { label: "Đã thanh toán", value: partner?.paidAmount, format: money, tone: "teal" },
+      { label: "Còn phải trả", value: partner?.balanceAmount, format: money, tone: "orange" },
     ] : []),
   ];
 
@@ -138,7 +139,7 @@ export default function WorkerOverviewDashboard({ companyCode, branchId, canSeeP
     </div>
     <div className="grid gap-3 lg:grid-cols-2">
       <Panel title="Phân bổ theo dự án">{projects.length ? <div className="space-y-3">{projects.map(project => { const percent = project.quota > 0 ? Math.min(100, project.allocated / project.quota * 100) : 0; return <div key={project.name} className="border-b border-outline-variant pb-3 last:border-0"><div className="mb-2 flex justify-between gap-3 text-xs"><span className="min-w-0 truncate">{project.name}</span><strong className="shrink-0 tabular-nums">{integer(project.allocated)} / {integer(project.quota)}</strong></div><div className="h-2 overflow-hidden rounded-full bg-surface-container-low"><div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} /></div></div>; })}</div> : <Empty>Chưa có dự án được phân bổ lao động.</Empty>}</Panel>
-      <Panel title="Hợp đồng và đối tác">{alerts || partner ? <div className="grid grid-cols-2 gap-4 text-xs sm:grid-cols-3">{contractRows.map(row => <div key={row.label} className="border-b border-outline-variant pb-3"><p className="text-on-surface-variant">{row.label}</p><strong className="mt-1 block break-words text-base tabular-nums">{typeof row.value === "number" ? row.format(row.value) : "—"}</strong></div>)}</div> : <Empty>Chưa có dữ liệu hợp đồng và đối tác.</Empty>}</Panel>
+      <Panel title="Hợp đồng và đối tác">{alerts || partner ? <div className="grid grid-cols-2 gap-4 text-xs sm:grid-cols-3">{contractRows.map(row => <div key={row.label} className="border-b border-outline-variant pb-3"><p className="text-on-surface-variant">{row.label}</p><strong className={cn("mt-1 block break-words text-xl font-bold tabular-nums", typeof row.value === "number" ? `finance-detail-value finance-detail-value--${row.tone}` : "text-on-surface-variant")}>{typeof row.value === "number" ? row.format(row.value) : "—"}</strong></div>)}</div> : <Empty>Chưa có dữ liệu hợp đồng và đối tác.</Empty>}</Panel>
     </div>
   </div>;
 }

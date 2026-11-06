@@ -4,7 +4,6 @@ import { dashboardService } from "../../services/dashboardService";
 import { useAuth } from "../../context/AuthContext";
 import { useBranchOptional } from "../../context/BranchContext";
 import type { DashboardSummary } from "../../types/dashboard";
-import { hrDepartmentService, type HrDepartment } from "../../services/hrDepartmentService";
 import { recruitmentApi } from "../../services/recruitmentService";
 import type { RecruitmentApplicant, RecruitmentJob, RecruitmentPipeline } from "../../types/recruitment";
 import { yesterday } from "./OverviewChartSummary";
@@ -24,7 +23,6 @@ export default function HrOverviewSection() {
   const [yesterdayAttendance, setYesterdayAttendance] = useState<{ checkedIn: number; late: number; total: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [departments, setDepartments] = useState<HrDepartment[] | null>(null);
   const [applicants, setApplicants] = useState<RecruitmentApplicant[] | null>(null);
   const [jobs, setJobs] = useState<RecruitmentJob[] | null>(null);
   const [pipeline, setPipeline] = useState<RecruitmentPipeline | null>(null);
@@ -48,25 +46,23 @@ export default function HrOverviewSection() {
         dashboardService.getSummary({ filter: "custom", startDate, endDate }, { branchId: activeBranchId }),
         dashboardService.getSummary({ filter: "custom", startDate: previous.from, endDate: previous.to }, { branchId: activeBranchId }),
         canSeeTimekeeping ? dashboardService.getAttendanceForDate(yesterday(now), { branchId: activeBranchId }) : Promise.resolve(null),
-        userProfile?.companyCode ? hrDepartmentService.list(userProfile.companyCode) : Promise.resolve([]),
-        canSeeRecruitment ? recruitmentApi.listApplicants() : Promise.resolve([]),
-        canSeeRecruitment ? recruitmentApi.listJobs() : Promise.resolve([]),
-        canSeeRecruitment ? recruitmentApi.getPipeline() : Promise.resolve(null),
+        canSeeRecruitment ? recruitmentApi.listApplicants(undefined, activeBranchId) : Promise.resolve([]),
+        canSeeRecruitment ? recruitmentApi.listJobs(undefined, activeBranchId) : Promise.resolve([]),
+        canSeeRecruitment ? recruitmentApi.getPipeline(activeBranchId) : Promise.resolve(null),
       ] as const);
       if (results[0].status === "fulfilled") setSummary(results[0].value); else { setSummary(null); setError(true); }
       setPreviousSummary(results[1].status === "fulfilled" ? results[1].value : null);
       setYesterdayAttendance(results[2].status === "fulfilled" ? results[2].value : null);
-      setDepartments(results[3].status === "fulfilled" ? results[3].value : null);
-      setApplicants(results[4].status === "fulfilled" ? results[4].value : null);
-      setJobs(results[5].status === "fulfilled" ? results[5].value : null);
-      setPipeline(results[6].status === "fulfilled" ? results[6].value : null);
+      setApplicants(results[3].status === "fulfilled" ? results[3].value : null);
+      setJobs(results[4].status === "fulfilled" ? results[4].value : null);
+      setPipeline(results[5].status === "fulfilled" ? results[5].value : null);
       if (results.some(result => result.status === "rejected")) setError(true);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, [activeBranchId, canSeeRecruitment, canSeeTimekeeping, userProfile?.companyCode, selectedFrom, selectedTo, selectedPeriod]);
+  }, [activeBranchId, canSeeRecruitment, canSeeTimekeeping, selectedFrom, selectedTo, selectedPeriod]);
 
   useEffect(() => {
     let active = true;
@@ -78,7 +74,9 @@ export default function HrOverviewSection() {
     };
   }, [loadData]);
 
-  const employeeCount = summary?.timekeeping?.employeesExistingAtRangeEnd ?? summary?.timekeeping?.totalEmployees ?? null;
+  const employeeCount = summary?.timekeeping?.employeesExistingAtRangeEnd
+    ?? (summary?.personnelNow?.departmentHeadcounts.length ? summary.personnelNow.departmentHeadcounts.reduce((sum, row) => sum + row.value, 0) : null)
+    ?? summary?.timekeeping?.totalEmployees ?? null;
   const branchName = branchContext?.activeBranch?.name || userProfile?.branchName || "Toàn công ty";
 
   return (
@@ -95,7 +93,6 @@ export default function HrOverviewSection() {
         error={error}
         canSeeTimekeeping={canSeeTimekeeping}
         canSeeRecruitment={canSeeRecruitment}
-        departments={departments}
         applicants={applicants}
         jobs={jobs}
         pipeline={pipeline}

@@ -7,7 +7,8 @@ import {
 import { UserModel } from "../model/user.model";
 import { BranchModel } from "../model/branch.model";
 import { CompanyModel } from "../model/company.model";
-import { hrContractService } from "../service/hr-contract.service";
+import { hrContractService, startOfVietnamDay } from "../service/hr-contract.service";
+import { summarizeEmployeeContracts } from "../service/hr-contract-overview";
 import {
   managedUploadService,
   type FinalizeManagedUploadInput,
@@ -150,7 +151,7 @@ export const hrContractController = {
       );
       const page = Number(req.query.page) || 1;
       const limit = Number(req.query.limit) || 10;
-      const [paginationResult, employees, expiryAlertData] = await Promise.all([
+      const [paginationResult, employees, expiryAlertData, activeContractEmployeeIds] = await Promise.all([
         hrContractService.list({
           companyCode,
           branchId,
@@ -161,11 +162,11 @@ export const hrContractController = {
         }),
         canViewAll(req)
           ? UserModel.find({ companyCode, isActive: { $ne: false }, ...employeeBranchFilter })
-              .select("_id displayName email department")
+              .select("_id displayName email department role")
               .sort({ displayName: 1 })
               .lean()
           : UserModel.find({ _id: req.user!.id, companyCode })
-              .select("_id displayName email department")
+              .select("_id displayName email department role")
               .lean(),
         (async () => {
           const company = await CompanyModel.findOne({ code: companyCode }).select("contractConfig").lean();
@@ -173,7 +174,20 @@ export const hrContractController = {
           const alerts = await hrContractService.listExpiryAlerts({ companyCode, branchId, employeeId: employeeFilter || undefined, days: configuredAlertDays });
           return { alerts, configuredAlertDays };
         })(),
+        HRContractModel.distinct("employeeId", {
+          companyCode,
+          ...(branchId ? { branchId } : {}),
+          ...(employeeFilter ? { employeeId: employeeFilter } : {}),
+          status: "active",
+          startDate: { $lte: new Date() },
+          endDate: { $gte: startOfVietnamDay(new Date()) },
+        }),
       ]);
+      const withoutContractEmployees = summarizeEmployeeContracts(
+        employees.filter((employee) => employee.role !== "superadmin"),
+        activeContractEmployeeIds,
+        [],
+      ).withoutContractEmployees;
       return res.json({
         status: "success",
         data: {
@@ -182,6 +196,7 @@ export const hrContractController = {
           page: paginationResult.page,
           limit: paginationResult.limit,
           employees,
+          withoutContractEmployees,
           expiryAlerts: expiryAlertData.alerts.items,
           expiryAlertTotal: expiryAlertData.alerts.total,
           expiryAlertDays: expiryAlertData.configuredAlertDays,

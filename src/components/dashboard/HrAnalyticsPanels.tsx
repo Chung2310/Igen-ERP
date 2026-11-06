@@ -2,7 +2,6 @@ import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, Pie, Pi
 import { useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import type { DashboardSummary } from "../../types/dashboard";
-import type { HrDepartment } from "../../services/hrDepartmentService";
 import type { RecruitmentApplicant, RecruitmentJob, RecruitmentPipeline } from "../../types/recruitment";
 import { OverviewChartSummary } from "./OverviewChartSummary";
 import { OverviewChartViewport } from "./OverviewChartViewport";
@@ -11,7 +10,6 @@ import "./hr-analytics.css";
 type Props = {
   summary: DashboardSummary | null;
   yesterdayAttendance: { checkedIn: number; late: number; total: number } | null;
-  departments: HrDepartment[] | null;
   applicants: RecruitmentApplicant[] | null;
   jobs: RecruitmentJob[] | null;
   pipeline: RecruitmentPipeline | null;
@@ -50,14 +48,13 @@ function HorizontalChart({ rows, label }: { rows: { name: string; value: number 
   return <div className="h-60 min-w-0" role="img" aria-label={`${label}: ${rows.map(row => `${row.name} ${row.value}`).join(", ")}`}><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><BarChart data={rows} layout="vertical" margin={{ left: 0, right: 52, top: 4, bottom: 0 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" horizontal={false} /><XAxis axisLine={false} tickLine={false} type="number" allowDecimals={false} tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} type="category" dataKey="name" width={106} tick={{ fontSize: 10 }} tickFormatter={(name: string) => name.length > 16 ? `${name.slice(0, 15)}…` : name} /><Tooltip formatter={tooltipValue} cursor={false} /><Bar dataKey="value" name={label} fill={colors[0]} maxBarSize={20} isAnimationActive={!reduceMotion} animationDuration={700}>{rows.map((row, index) => <Cell key={row.name} fill={colors[index % colors.length]} />)}<LabelList dataKey="value" position="right" fill="var(--color-on-surface-variant)" fontSize={11} formatter={(value: unknown) => typeof value === "number" && value > 0 ? integer(value) : ""} /></Bar></BarChart></ResponsiveContainer></OverviewChartViewport></div>;
 }
 
-export function HrAnalyticsPanels({ summary, yesterdayAttendance, departments, applicants, jobs, pipeline, loading, canSeeTimekeeping, canSeeRecruitment }: Props) {
+export function HrAnalyticsPanels({ summary, yesterdayAttendance, applicants, jobs, pipeline, loading, canSeeTimekeeping, canSeeRecruitment }: Props) {
   const reduceMotion = useReducedMotion();
-  if (loading) return <div className="hr-analytics grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Đang tải biểu đồ nhân sự">{Array.from({ length: canSeeRecruitment ? 7 : 3 }, (_, index) => <div key={index} className="hr-analytics-panel"><div className="h-4 w-1/2 rounded bg-surface-container-low" /><div className="mt-4 h-40 rounded bg-surface-container-low" /></div>)}</div>;
+  if (loading) return <div className="hr-analytics grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Đang tải biểu đồ nhân sự">{Array.from({ length: canSeeRecruitment ? 6 : 2 }, (_, index) => <div key={index} className="hr-analytics-panel"><div className="h-4 w-1/2 rounded bg-surface-container-low" /><div className="mt-4 h-40 rounded bg-surface-container-low" /></div>)}</div>;
   const attendance = summary?.timekeeping;
   const personnel = summary?.personnelNow;
   const totalEmployees = attendance?.totalEmployees ?? 0;
   const attendanceRate = totalEmployees ? Math.min(100, Math.round((attendance?.checkedInToday ?? 0) / totalEmployees * 100)) : 0;
-  const departmentRows = (departments ?? []).filter(row => row.employeeCount > 0).sort((a, b) => b.employeeCount - a.employeeCount).slice(0, 7).map(row => ({ name: row.name, value: row.employeeCount }));
   const applicantRows = applicants ?? [];
   const stageRows = (pipeline?.stages ?? []).filter(stage => stage.isActive).sort((a, b) => a.position - b.position).map(stage => ({ name: stage.name, value: applicantRows.filter(row => row.stageId === stage.id).length })).filter(row => row.value > 0);
   const sourceCounts = new Map<string, number>();
@@ -74,7 +71,6 @@ export function HrAnalyticsPanels({ summary, yesterdayAttendance, departments, a
         ["Đã chấm công", attendance?.checkedInToday, colors[0]], ["Nghỉ phép đã duyệt", attendance?.onApprovedLeaveToday, colors[1]], ["Chưa chấm công", attendance?.absentWithoutLeave, colors[2]], ["Đi muộn", attendance?.lateToday, colors[4]],
       ].map(([name, value, color]) => <li key={String(name)} className="flex justify-between gap-2"><span className="flex items-center gap-2 text-on-surface-variant"><span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: String(color) }} />{name}</span><strong className="tabular-nums text-on-surface">{loading ? "—" : integer(value as number | undefined)}</strong></li>)}</ul></div>
     </ChartPanel>}
-    {departments !== null && <ChartPanel title="Nhân sự theo phòng ban" sub="so-do" value={departmentRows.reduce((sum, row) => sum + row.value, 0)} empty={!departmentRows.length}><HorizontalChart rows={departmentRows} label="Nhân sự" /></ChartPanel>}
     <ChartPanel title="Việc cần chú ý" sub="hop-dong" value={summary?.projects.overdueTasks} empty={false}>
       <dl className="grid grid-cols-2 gap-2"><div className="hr-analytics-stat"><dt>Hợp đồng ≤ 30 ngày</dt><dd>{loading ? "—" : integer(personnel?.expiringContractCount)}</dd></div><div className="hr-analytics-stat"><dt>Đơn chờ duyệt</dt><dd>{loading ? "—" : integer(personnel?.pendingApprovalCount)}</dd></div><div className="hr-analytics-stat"><dt>Việc chờ xử lý</dt><dd>{loading ? "—" : integer(personnel?.pendingTaskCount)}</dd></div><div className="hr-analytics-stat"><dt>Việc quá hạn</dt><dd>{loading ? "—" : integer(summary?.projects.overdueTasks)}</dd></div></dl>
       {!!personnel?.expiringContracts.length && <ul className="mt-3 divide-y divide-outline-variant text-xs">{personnel.expiringContracts.slice(0, 3).map(row => <li key={row.id} className="flex justify-between gap-2 py-1.5"><span className="truncate text-on-surface" title={row.employeeName}>{row.employeeName}</span><span className="shrink-0 tabular-nums text-on-surface-variant">{new Date(row.endDate).toLocaleDateString("vi-VN")}</span></li>)}</ul>}

@@ -4,17 +4,18 @@ import {
   FileText, FileWarning, FolderTree, GraduationCap, Layers3, ShieldCheck, UsersRound,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { ComponentType, ReactNode } from "react";
 import type { DashboardSummary } from "../../types/dashboard";
-import type { HrDepartment } from "../../services/hrDepartmentService";
 import type { RecruitmentApplicant, RecruitmentJob, RecruitmentPipeline } from "../../types/recruitment";
+import { cn } from "../../modules/student-management/lib/utils";
 import { HrAnalyticsPanels } from "./HrAnalyticsPanels";
 import { OverviewChartSummary } from "./OverviewChartSummary";
 import { OverviewChartViewport } from "./OverviewChartViewport";
 import { AnimatedOverviewValue } from "./AnimatedOverviewValue";
 import { OverviewKpiDelta } from "./OverviewKpiDelta";
 import { useOverviewPeriod } from "./OverviewPeriodContext";
-import { overviewDateKey } from "./overviewComparison";
+import { summarizeHrRecruitment } from "./hrRecruitmentOverview";
 
 type Icon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
@@ -83,6 +84,27 @@ function PanelHeader({ title, badge }: { title: string; badge?: string }) {
       </div>
     </div>
   );
+}
+
+const departmentColors = ["var(--hr-analytics-blue)", "var(--hr-analytics-teal)", "var(--hr-analytics-orange)", "var(--hr-analytics-violet)", "var(--hr-analytics-red)", "var(--hr-analytics-cyan)", "var(--hr-analytics-gold)", "var(--hr-analytics-green)"];
+
+function HeadcountChart({ current, departments, loading }: { current: number | null; departments: Array<{ name: string; value: number }> | null; loading: boolean }) {
+  const reduceMotion = useReducedMotion();
+  const departmentRows = (departments ?? []).filter(row => row.value > 0).sort((a, b) => b.value - a.value);
+  const rows = departmentRows.length > 4
+    ? [...departmentRows.slice(0, 4), { name: "Các phòng ban khác", value: departmentRows.slice(4).reduce((sum, row) => sum + row.value, 0) }]
+    : departmentRows;
+  const percent = (value: number) => current ? `${(value / current * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%` : "0%";
+
+  return <Card className="hr-analytics h-full min-w-0">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="text-balance text-lg font-semibold text-on-surface">Quy mô nhân sự</h2><button type="button" aria-label="Xem chi tiết quy mô nhân sự" onClick={() => openHrTab("so-do")} className="text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary">Chi tiết</button></div>
+    {loading ? <div className="h-40 rounded-md bg-surface-container-low" role="status" aria-label="Đang tải biểu đồ quy mô nhân sự" />
+      : !current || !rows.length ? <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">Chưa có dữ liệu phòng ban. Mở Sơ đồ tổ chức để xem nhân sự.</p>
+        : <div className="min-w-0" role="img" aria-label={`Cơ cấu nhân sự theo phòng ban, tổng ${numberText(current)} người: ${rows.map(row => `${row.name} ${numberText(row.value)} người, ${percent(row.value)}`).join("; ")}`}>
+          <div className="relative h-40 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={rows} dataKey="value" nameKey="name" innerRadius="56%" outerRadius="80%" paddingAngle={1} stroke="none" isAnimationActive={!reduceMotion} animationDuration={700}>{rows.map((row, index) => <Cell key={`${row.name}-${index}`} fill={departmentColors[index % departmentColors.length]} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người · ${percent(value)}` : value} /></PieChart></ResponsiveContainer></OverviewChartViewport><span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><strong className="text-xl font-semibold tabular-nums text-on-surface">{numberText(current)}</strong><span className="text-xs text-on-surface-variant">nhân sự</span></span></div>
+          <ul className="space-y-1.5 text-xs">{rows.map((row, index) => <li key={`${row.name}-${index}`} className="flex items-center justify-between gap-3"><span className="flex min-w-0 items-center gap-2 text-on-surface-variant"><span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: departmentColors[index % departmentColors.length] }} /><span className="truncate" title={row.name}>{row.name}</span></span><strong className="shrink-0 tabular-nums text-on-surface">{numberText(row.value)} · {percent(row.value)}</strong></li>)}</ul>
+        </div>}
+  </Card>;
 }
 
 function TaskChart({ summary, previous, loading }: { summary: DashboardSummary | null; previous: DashboardSummary | null; loading: boolean }) {
@@ -201,6 +223,7 @@ function TrainingChart({ summary, previous, loading }: { summary: DashboardSumma
 }
 
 function Attendance({ summary, yesterdayAttendance, loading }: { summary: DashboardSummary | null; yesterdayAttendance: { checkedIn: number; late: number; total: number } | null; loading: boolean }) {
+  const reduceMotion = useReducedMotion();
   const attendance = summary?.timekeeping;
   const total = attendance?.totalEmployees ?? 0;
   const checkedIn = attendance?.checkedInToday ?? 0;
@@ -223,13 +246,13 @@ function Attendance({ summary, yesterdayAttendance, loading }: { summary: Dashbo
         ))}
       </div>
       <div className="mt-4 flex items-center justify-between text-xs text-on-surface-variant"><span>Tỷ lệ đã chấm công</span><span className="font-medium text-primary">{loading || !summary ? "—" : `${percent}%`}</span></div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-container-low" role="img" aria-label={`Tỷ lệ chấm công: ${percent}%`}><div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} /></div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-container-low" role="img" aria-label={`Tỷ lệ chấm công: ${percent}%`}><OverviewChartViewport><motion.div initial={reduceMotion ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.65, ease: "easeOut" }} className="h-full rounded-full bg-primary" style={{ width: `${percent}%`, transformOrigin: "left" }} /></OverviewChartViewport></div>
     </Card>
   );
 }
 
 export function HrOverviewDashboard({
-  summary, previousSummary, yesterdayAttendance, employeeCount, employeeScope, loading, error, canSeeTimekeeping, canSeeRecruitment, departments, applicants, jobs, pipeline,
+  summary, previousSummary, yesterdayAttendance, employeeCount, employeeScope, loading, error, canSeeTimekeeping, canSeeRecruitment, applicants, jobs, pipeline,
 }: {
   summary: DashboardSummary | null;
   previousSummary: DashboardSummary | null;
@@ -240,39 +263,73 @@ export function HrOverviewDashboard({
   error: boolean;
   canSeeTimekeeping: boolean;
   canSeeRecruitment: boolean;
-  departments: HrDepartment[] | null;
   applicants: RecruitmentApplicant[] | null;
   jobs: RecruitmentJob[] | null;
   pipeline: RecruitmentPipeline | null;
 }) {
+  const reduceMotion = useReducedMotion();
   const overviewPeriod = useOverviewPeriod();
-  const applicantCount = (from: string, to: string) => applicants?.filter(applicant => {
-    const date = overviewDateKey(applicant.createdAt);
-    return date != null && date >= from && date <= to;
-  }).length ?? null;
-  const currentApplicants = overviewPeriod ? applicantCount(overviewPeriod.from, overviewPeriod.to) : null;
-  const previousApplicants = overviewPeriod ? applicantCount(overviewPeriod.previousFrom, overviewPeriod.previousTo) : null;
+  const previousEmployeeCount = previousSummary?.timekeeping.employeesExistingAtRangeEnd
+    ?? (previousSummary?.personnelNow?.departmentHeadcounts.length ? previousSummary.personnelNow.departmentHeadcounts.reduce((sum, row) => sum + row.value, 0) : null);
+  const recruitment = summarizeHrRecruitment(jobs, applicants, overviewPeriod);
+  const personnel = summary?.personnelNow;
+  const contractCovered = personnel?.activeContractEmployeeCount ?? 0;
+  const contractMissing = personnel?.withoutContractCount ?? 0;
+  const contractTotal = contractCovered + contractMissing;
+  const contractCoverage = contractTotal ? contractMissing === 0 ? 100 : Math.floor(contractCovered / contractTotal * 1000) / 10 : 0;
+  const contractRows = [{ name: "Có hợp đồng hiệu lực", value: contractCovered, color: "var(--hr-analytics-teal)" }, { name: "Chưa có hợp đồng hiệu lực", value: contractMissing, color: "var(--hr-analytics-orange)" }];
+  const recruitmentShare = (headcount: number) => recruitment.openHeadcount ? Math.round(headcount / recruitment.openHeadcount * 100) : 0;
+  const recruitmentWidth = (headcount: number) => recruitment.openHeadcount ? headcount / recruitment.openHeadcount * 100 : 0;
+  const recruitmentRows = recruitment.departmentRows.slice(0, 4);
   return (
     <div className="space-y-4 pb-5">
       {error && <div role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">Không tải được số liệu nhân sự. Vui lòng thử lại sau.</div>}
       <section className="overview-panel space-y-3" aria-label="Tình hình nhân sự">
       <h3 className="text-balance text-lg font-semibold text-on-surface">Tình hình nhân sự</h3>
       <div className="hr-overview-metrics grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Kpi label="Nhân sự" value={employeeCount} previous={previousSummary?.timekeeping.employeesExistingAtRangeEnd ?? null} note={`${employeeScope}. So sánh theo tài khoản còn tồn tại và ngày tạo; không bao gồm tài khoản đã xóa.`} icon={UsersRound} />
+        <Kpi label="Nhân sự" value={employeeCount} previous={previousEmployeeCount} note={`${employeeScope}. So sánh theo tài khoản còn tồn tại và ngày tạo; không bao gồm tài khoản đã xóa.`} icon={UsersRound} />
         <Kpi label="Đã chấm công" value={canSeeTimekeeping ? summary?.timekeeping.checkedInToday : null} previous={canSeeTimekeeping ? yesterdayAttendance?.checkedIn ?? null : null} note="Hôm nay so với hôm qua, không theo bộ lọc kỳ" comparisonLabel="hôm qua" icon={CalendarDays} />
         <Kpi label="Công việc" value={loading ? null : summary?.projects.tasks.total} previous={previousSummary?.projects.tasks.total ?? null} note="Công việc trong kỳ" icon={BriefcaseBusiness} />
         <Kpi label="Khóa đào tạo" value={loading ? null : summary?.training.totalCourses} previous={previousSummary?.training.totalCourses ?? null} note="Khóa trong kỳ" icon={GraduationCap} />
         <Kpi label="Đi muộn" value={canSeeTimekeeping ? summary?.timekeeping.lateToday : null} previous={canSeeTimekeeping ? yesterdayAttendance?.late ?? null : null} note="Hôm nay so với hôm qua, không theo bộ lọc kỳ" comparisonLabel="hôm qua" icon={Clock3} />
-        {canSeeRecruitment && overviewPeriod ? <Kpi label="Ứng viên mới" value={loading ? null : currentApplicants} previous={previousApplicants} note="Hồ sơ trong kỳ" icon={FileText} /> : <Kpi label="HĐ sắp hết hạn" value={loading ? null : summary?.personnelNow?.expiringContractCount} note="Trong 30 ngày tới" icon={FileWarning} />}
+        {canSeeRecruitment && overviewPeriod ? <Kpi label="Ứng viên mới" value={loading ? null : recruitment.currentApplicantCount} previous={recruitment.previousApplicantCount} note="Hồ sơ trong kỳ" icon={FileText} /> : <Kpi label="HĐ sắp hết hạn" value={loading ? null : summary?.personnelNow?.expiringContractCount} note="Trong 30 ngày tới" icon={FileWarning} />}
       </div>
       <p className="text-pretty text-xs text-on-surface-variant">Số nhân sự chỉ tính tài khoản còn tồn tại. Chấm công và đi muộn hiển thị số hôm nay, so sánh với hôm qua.</p>
       </section>
+      <div className={cn("grid items-stretch gap-4", canSeeRecruitment ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
+      <HeadcountChart current={employeeCount} departments={summary?.personnelNow?.departmentHeadcounts ?? null} loading={loading} />
+      <section className="overview-panel hr-analytics min-w-0 space-y-3" aria-labelledby="hr-contract-summary-heading">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="hr-contract-summary-heading" className="text-balance text-lg font-semibold text-on-surface">Tình hình hợp đồng</h2>
+          <button type="button" aria-label="Xem chi tiết tình hình hợp đồng" onClick={() => openHrTab("hop-dong")} className="text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary">Chi tiết</button>
+        </div>
+        {loading ? <div className="h-40 rounded-md bg-surface-container-low" role="status" aria-label="Đang tải biểu đồ hợp đồng" />
+          : !personnel || !contractTotal ? <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">Chưa có dữ liệu hợp đồng. Mở Chi tiết để kiểm tra.</p>
+            : <div className="min-w-0" role="img" aria-label={`Tỷ lệ có hợp đồng hiệu lực ${contractCoverage}%. ${contractRows.map(row => `${row.name}: ${numberText(row.value)} người`).join("; ")}`}>
+              <div className="relative h-40 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={contractRows.filter(row => row.value > 0)} dataKey="value" nameKey="name" innerRadius="56%" outerRadius="80%" stroke="none" isAnimationActive={!reduceMotion} animationDuration={700}>{contractRows.filter(row => row.value > 0).map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người` : value} /></PieChart></ResponsiveContainer></OverviewChartViewport><span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><strong className="text-xl font-semibold tabular-nums text-on-surface">{contractCoverage}%</strong><span className="text-xs text-on-surface-variant">có hợp đồng</span></span></div>
+              <ul className="space-y-1.5 text-xs">{contractRows.map(row => <li key={row.name} className="flex items-center justify-between gap-3"><span className="flex min-w-0 items-center gap-2 text-on-surface-variant"><span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: row.color }} />{row.name}</span><strong className="shrink-0 tabular-nums text-on-surface">{numberText(row.value)}</strong></li>)}</ul>
+            </div>}
+        {!loading && personnel && <p className="border-t border-outline-variant pt-2 text-pretty text-xs tabular-nums text-on-surface-variant">Sắp hết hạn: {numberText(personnel.expiringContractCount)} · Gia hạn trong kỳ: {numberText(personnel.renewedEmployeeCount)}</p>}
+      </section>
+      {canSeeRecruitment && <section className="overview-panel min-w-0 space-y-3" aria-labelledby="hr-recruitment-summary-heading">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="hr-recruitment-summary-heading" className="text-balance text-lg font-semibold text-on-surface">Tình hình tuyển dụng</h2>
+          <button type="button" aria-label="Xem chi tiết tình hình tuyển dụng" onClick={() => openHrTab("tuyen-dung")} className="text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary">Chi tiết</button>
+        </div>
+        <p className="text-pretty text-xs tabular-nums text-on-surface-variant">{numberText(recruitment.openJobCount, loading || jobs == null)} vị trí · {numberText(recruitment.openHeadcount, loading || jobs == null)} cần tuyển · {numberText(recruitment.currentApplicantCount, loading)} ứng viên trong kỳ</p>
+        {loading ? <div className="h-40 rounded-md bg-surface-container-low" role="status" aria-label="Đang tải biểu đồ tuyển dụng" />
+          : jobs == null || !recruitmentRows.length ? <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">{jobs == null ? "Chưa tải được dữ liệu tuyển dụng." : "Chưa có vị trí đang mở. Mở Chi tiết để tạo vị trí mới."}</p>
+            : <div role="img" aria-label={`Phòng ban tuyển nhiều nhất: ${recruitmentRows.map(row => `${row.name} cần ${numberText(row.headcount)} người, chiếm ${recruitmentShare(row.headcount)}% chỉ tiêu`).join("; ")}`} className="space-y-3">
+              {recruitmentRows.map((row, index) => <div key={row.name} className="space-y-1"><div className="flex items-baseline justify-between gap-2 text-xs"><strong className="min-w-0 truncate text-on-surface" title={row.name}>{row.name}</strong><span className="shrink-0 tabular-nums text-on-surface">{numberText(row.headcount)} · {recruitmentShare(row.headcount)}%</span></div><div className="h-2.5 overflow-hidden rounded-full bg-surface-container-low" aria-hidden="true"><OverviewChartViewport><motion.div initial={reduceMotion ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.65, delay: index * 0.08, ease: "easeOut" }} className="h-full rounded-full bg-primary" style={{ width: `${recruitmentWidth(row.headcount)}%`, transformOrigin: "left" }} /></OverviewChartViewport></div></div>)}
+            </div>}
+      </section>}
+      </div>
       <div className="grid items-stretch gap-4 lg:grid-cols-2">
         <TaskChart summary={summary} previous={previousSummary} loading={loading} />
         <TrainingChart summary={summary} previous={previousSummary} loading={loading} />
       </div>
       {canSeeTimekeeping && <Attendance summary={summary} yesterdayAttendance={yesterdayAttendance} loading={loading && !summary} />}
-      <HrAnalyticsPanels summary={summary} yesterdayAttendance={yesterdayAttendance} departments={departments} applicants={applicants} jobs={jobs} pipeline={pipeline} loading={loading} canSeeTimekeeping={canSeeTimekeeping} canSeeRecruitment={canSeeRecruitment} />
+      <HrAnalyticsPanels summary={summary} yesterdayAttendance={yesterdayAttendance} applicants={applicants} jobs={jobs} pipeline={pipeline} loading={loading} canSeeTimekeeping={canSeeTimekeeping} canSeeRecruitment={canSeeRecruitment} />
       <section aria-labelledby="hr-quick-links-heading">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
           <h2 id="hr-quick-links-heading" className="text-balance text-base font-semibold text-on-surface">Truy cập nhanh</h2>

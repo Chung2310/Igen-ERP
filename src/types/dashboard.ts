@@ -78,6 +78,11 @@ export interface DashboardSummary {
   personnelNow?: {
     expiringContractCount: number;
     expiringContracts: Array<{ id: string; employeeName: string; endDate: string }>;
+    departmentHeadcounts: Array<{ name: string; value: number }>;
+    activeContractEmployeeCount: number;
+    withoutContractCount: number;
+    withoutContractEmployees: Array<{ id: string; name: string }>;
+    renewedEmployeeCount: number;
     pendingTaskCount: number;
     pendingTasks: Array<{ id: string; title: string; assignee: string; dueDate: string; status: string }>;
     inProgressTaskCount: number;
