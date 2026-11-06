@@ -1,9 +1,11 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode } from 'react';
 import { cn } from '../../modules/student-management/lib/utils';
-import { getSidebarMenuIcon } from './SidebarMenuIcon';
+import { getSidebarMenuFilledIcon, getSidebarMenuIcon } from './SidebarMenuIcon';
+import { HrFilledSidebarToggleIcon } from './HrFilledSidebarIcon';
+import { GlobalSidebarSearch } from './GlobalSidebarSearch';
 import './module-navigation.css';
 
-function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
+export function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
   return (
     <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="2.7" y="3.6" width="18.6" height="16.8" rx="4" />
@@ -11,6 +13,13 @@ function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
       <path d={collapsed ? 'm13 8.8 3.2 3.2-3.2 3.2' : 'm16.2 8.8-3.2 3.2 3.2 3.2'} />
     </svg>
   );
+}
+
+function SystemSettingsLink() {
+  return <a href="/cai-dat?sub=ho-so" aria-label="Cài đặt hệ thống" title="Cài đặt hệ thống" className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
+    <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">{getSidebarMenuFilledIcon('Cài đặt')}</span>
+    <span>Cài đặt hệ thống</span>
+  </a>;
 }
 
 interface ModuleNavigationProps {
@@ -22,6 +31,9 @@ interface ModuleNavigationProps {
   className?: string;
   wheelScroll?: boolean;
   layout?: 'sidebar' | 'horizontal';
+  toggleIcon?: (collapsed: boolean) => ReactNode;
+  headerAction?: ReactNode;
+  footer?: ReactNode;
 }
 
 /** Shared module navigation. Its desktop layout is placed beside the workspace in CSS. */
@@ -34,10 +46,13 @@ export function ModuleNavigation({
   className,
   wheelScroll = true,
   layout = 'sidebar',
+  toggleIcon,
+  headerAction,
+  footer,
 }: ModuleNavigationProps) {
   const [collapsed, setCollapsed] = useState(false);
   const navId = useId();
-  const gradientId = `module-nav-gradient-${navId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const iconGradientId = `${navId.replace(/:/g, '')}-sidebar-icon`;
   const railRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const revealedItemRef = useRef<{ element: HTMLElement; value: string | undefined } | null>(null);
@@ -110,22 +125,21 @@ export function ModuleNavigation({
       data-module-navigation
       data-layout={layout}
       data-collapsed={collapsed}
-      style={{ '--module-nav-icon-gradient': `url(#${gradientId})` } as CSSProperties}
+      style={layout === 'sidebar' ? { '--module-nav-icon-gradient': `url(#${iconGradientId})` } as CSSProperties : undefined}
       className={cn(
         'flex min-w-0 shrink-0 flex-col gap-3 border-b border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-5',
         className
       )}
     >
-      <svg className="absolute size-0" aria-hidden="true" focusable="false">
+      {layout === 'sidebar' && <svg className="absolute size-0" aria-hidden="true" focusable="false">
         <defs>
-          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#007db8" />
-            <stop offset="25%" stopColor="#00adfc" />
-            <stop offset="58%" stopColor="#7567ff" />
-            <stop offset="100%" stopColor="#a21caf" />
+          <linearGradient id={iconGradientId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="0">
+            <stop offset="0%" stopColor="#00adfc" />
+            <stop offset="55%" stopColor="#199bff" />
+            <stop offset="100%" stopColor="#7567ff" />
           </linearGradient>
         </defs>
-      </svg>
+      </svg>}
       {layout === 'sidebar' && <button
         type="button"
         data-module-navigation-toggle
@@ -136,9 +150,12 @@ export function ModuleNavigation({
         onClick={() => setCollapsed((current) => !current)}
         className="hidden size-10 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:flex"
       >
-        <SidebarToggleIcon collapsed={collapsed} />
+        {toggleIcon ? toggleIcon(collapsed) : <HrFilledSidebarToggleIcon collapsed={collapsed} twoTone />}
       </button>}
-      <div className="flex min-w-0 flex-1 items-center">
+      {layout === 'sidebar' && headerAction !== null && (headerAction !== undefined || !collapsed) && <div data-module-navigation-header-action className="hidden lg:flex">
+        {headerAction ?? <GlobalSidebarSearch />}
+      </div>}
+      <div data-module-navigation-items className="flex min-w-0 flex-1 items-center">
         <nav
           id={navId}
           ref={navRef}
@@ -161,7 +178,8 @@ export function ModuleNavigation({
           {children}
         </nav>
       </div>
-      {actions && <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-3">{actions}</div>}
+      {actions && <div data-module-navigation-actions className="flex min-w-0 shrink-0 flex-wrap items-center gap-3">{actions}</div>}
+      {layout === 'sidebar' && footer !== null && <div data-module-navigation-footer className="hidden min-w-0">{footer ?? <SystemSettingsLink />}</div>}
     </div>
   );
 }
@@ -169,6 +187,8 @@ export function ModuleNavigation({
 interface ModuleNavigationButtonProps extends ComponentProps<'button'> {
   active: boolean;
   icon?: ReactNode;
+  preferProvidedIcon?: boolean;
+  filledOnHover?: boolean;
 }
 
 function getMenuLabel(children: ReactNode): string {
@@ -177,9 +197,10 @@ function getMenuLabel(children: ReactNode): string {
   return '';
 }
 
-export function ModuleNavigationButton({ active, icon, children, className, ...props }: ModuleNavigationButtonProps) {
+export function ModuleNavigationButton({ active, icon, preferProvidedIcon = false, filledOnHover = true, children, className, ...props }: ModuleNavigationButtonProps) {
   const menuLabel = getMenuLabel(children).trim();
-  const displayIcon = (menuLabel ? getSidebarMenuIcon(menuLabel) : null) ?? icon;
+  const displayIcon = preferProvidedIcon ? icon : (menuLabel ? getSidebarMenuIcon(menuLabel) : null) ?? icon;
+  const filledIcon = filledOnHover && !preferProvidedIcon && menuLabel ? getSidebarMenuFilledIcon(menuLabel) : null;
   return (
     <button
       {...props}
@@ -192,7 +213,12 @@ export function ModuleNavigationButton({ active, icon, children, className, ...p
         className
       )}
     >
-      {displayIcon && <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">{displayIcon}</span>}
+      {displayIcon && <span aria-hidden="true" className="relative flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
+        {filledIcon ? <>
+          <span className="module-nav-outline absolute inset-0 [&>svg]:size-5">{displayIcon}</span>
+          <span className="module-nav-filled absolute inset-0 text-primary [&>svg]:size-5">{filledIcon}</span>
+        </> : displayIcon}
+      </span>}
       <span>{children}</span>
     </button>
   );

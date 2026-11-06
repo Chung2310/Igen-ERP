@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Folder, Package, Percent, Search, Settings2,
 import { apiFetch } from "../../shared/lib/apiFetch";
 import { ErpCard, ErpLoadingState, ErpPrimaryButton, erpInputClass } from "../../student-management/components/Erp/ErpUI";
 import { cn } from "../../student-management/lib/utils";
+import { RetailEmptyState } from "./RetailEmptyState";
 
 type Rule = { kind: "phone"; amount: number } | { kind: "accessory"; rateBps: number };
 type Product = { _id: string; name: string; categoryCode: string };
@@ -185,7 +186,7 @@ export default function RetailProductCommissionsPanel({ companyCode }: { company
       {error ? <p role="alert" className="mt-4 text-sm text-error">{error} <button type="button" onClick={() => void load()} className="font-semibold underline">Thử lại</button></p> : loading ? <div role="status" aria-live="polite"><ErpLoadingState message="Đang tải sản phẩm..." /></div> : <>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-3"><span className="text-xs text-on-surface-variant">{visibleSkus.length} SKU phù hợp · {selected.length} SKU đã chọn</span><button type="button" disabled={!visibleSkus.length} onClick={() => select(visibleSkus, visibleSkus.every((sku) => selected.includes(sku)))} className="min-h-9 rounded-lg border border-outline-variant px-3 text-xs font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">{visibleSkus.every((sku) => selected.includes(sku)) && visibleSkus.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}</button></div>
         {selected.length > 0 && <div className="my-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary bg-primary-container p-3"><span className="text-sm font-semibold text-on-surface">Đang chọn {selected.length} SKU</span><div className="flex flex-wrap gap-2"><ErpPrimaryButton type="button" icon={Settings2} onClick={() => configure(selected)} className="min-h-10 focus-visible:outline-2 focus-visible:outline-primary">Cấu hình đã chọn</ErpPrimaryButton><button type="button" onClick={() => setSelected([])} className="min-h-10 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-primary">Bỏ chọn</button></div></div>}
-        {visibleTree.length ? <ul className="mt-3 space-y-3">{visibleTree.map(renderNode)}</ul> : <p className="mt-3 rounded-xl border border-outline-variant p-5 text-pretty text-sm text-on-surface-variant">{data?.variants.length ? "Không có SKU phù hợp. Thử đổi từ khóa hoặc bộ lọc." : "Chưa có sản phẩm bán lẻ. Khai báo sản phẩm trong danh mục để cấu hình hoa hồng."}</p>}
+        {visibleTree.length ? <ul className="mt-3 space-y-3">{visibleTree.map(renderNode)}</ul> : <RetailEmptyState kind="resource" className="mt-3 rounded-xl border border-outline-variant">{data?.variants.length ? "Không có SKU phù hợp. Thử đổi từ khóa hoặc bộ lọc." : "Chưa có sản phẩm bán lẻ. Khai báo sản phẩm trong danh mục để cấu hình hoa hồng."}</RetailEmptyState>}
       </>}
     </ErpCard>
 

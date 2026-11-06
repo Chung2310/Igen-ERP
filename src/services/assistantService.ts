@@ -1,9 +1,8 @@
-import type { AssistantSettings, AssistantReply, AssistantWorkflow, AssistantWorkflowUpdate, AssistantTableAttachment } from "../shared/assistant-workflow";
-export interface AssistantTurnInput { conversationId: string; requestId: string; text?: string; attachment?: AssistantTableAttachment; decision?: { id: string; confirmed: boolean; password?: string }; }
-export interface AssistantConversationSummary { conversationId: string; title: string; preview: string; messageCount: number; updatedAt: string; }
+import type { AssistantSettings, AssistantReply, AssistantWorkflow, AssistantWorkflowUpdate, AssistantTableAttachment, AssistantTrainingContentForm } from "../shared/assistant-workflow";
+export interface AssistantTurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
+export interface AssistantConversationSummary { conversationId: string; mode?: "work" | "qa"; title: string; preview: string; messageCount: number; updatedAt: string; }
 export interface AssistantConversationCursor { before: string; beforeId: string; }
 export interface AssistantConversationPage { items: AssistantConversationSummary[]; nextCursor: AssistantConversationCursor | null; }
-export interface AssistantSpeech { audioChunks: string[]; mimeType: "audio/mpeg"; }
 export interface AssistantMemory { id: string; content: string; source?: "explicit" | "manual" | "automatic"; createdAt: string; updatedAt: string; }
 async function request<T>(path: string, init: RequestInit = {}, branchId?: string, deviceId?: string): Promise<T> {
   const token = localStorage.getItem("accessToken");
@@ -27,7 +26,6 @@ export const assistantService = {
     const query = new URLSearchParams({ limit: "30", ...(cursor || {}) });
     return request<AssistantConversationPage>(`/conversations?${query.toString()}`, { signal }, branchId);
   },
-  state: (id: string, signal?: AbortSignal, branchId?: string) => request<{ messages: { role: "user" | "assistant"; content: string }[]; lastReply: AssistantReply | null; busy: boolean; requestId?: string }>(`/conversations/${encodeURIComponent(id)}`, { signal }, branchId),
+  state: (id: string, signal?: AbortSignal, branchId?: string) => request<{ messages: { role: "user" | "assistant"; content: string }[]; lastReply: AssistantReply | null; busy: boolean; mode?: "work" | "qa"; requestId?: string }>(`/conversations/${encodeURIComponent(id)}`, { signal }, branchId),
   turn: (data: AssistantTurnInput, signal?: AbortSignal, branchId?: string, deviceId?: string) => request<AssistantReply>("/turns", { method: "POST", body: JSON.stringify(data), signal }, branchId, deviceId),
-  synthesizeSpeech: (text: string, signal?: AbortSignal) => request<AssistantSpeech>("/speech", { method: "POST", body: JSON.stringify({ text }), signal }),
 };

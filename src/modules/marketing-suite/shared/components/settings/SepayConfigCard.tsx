@@ -66,14 +66,14 @@ export default function SepayConfigCard({ userProfile }: { userProfile: UserProf
     toast.success("Đã sao chép URL webhook SePay.");
   };
 
-  if (busy && !config) return <div className="rounded-2xl border border-slate-200 bg-white p-5 text-xs text-slate-500">Đang tải cấu hình SePay...</div>;
+  if (busy && !config) return <div role="status" className="rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-sm text-on-surface-variant">Đang tải cấu hình SePay...</div>;
   if (!config) return null;
 
   return (
-    <div className="space-y-4 rounded-2xl border border-emerald-200 bg-white p-5 shadow-xs">
+    <div className="space-y-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
       <div className="flex items-start justify-between gap-3">
         <div className="flex gap-3 text-left">
-          <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600"><Landmark className="h-5 w-5" /></div>
+          <div className="text-primary"><Landmark className="h-5 w-5" aria-hidden="true" /></div>
           <div>
             <h3 className="text-sm font-bold text-slate-800">SePay xác nhận tiền cọc</h3>
             <p className="mt-1 text-[11px] text-slate-500">Webhook và tài khoản ngân hàng dùng riêng cho <b>{config.companyName}</b>.</p>
@@ -85,7 +85,7 @@ export default function SepayConfigCard({ userProfile }: { userProfile: UserProf
         </label>
       </div>
 
-      <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3 text-left">
+      <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-left">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-bold text-slate-800">Yêu cầu đặt cọc cho đơn Messenger</p>
@@ -114,7 +114,7 @@ export default function SepayConfigCard({ userProfile }: { userProfile: UserProf
         URL webhook nhập trên SePay
         <div className="flex gap-2">
           <input readOnly value={config.webhookUrl} className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 font-mono text-[10px]" />
-          <button type="button" onClick={copyUrl} className="rounded-xl border border-emerald-200 px-3 text-emerald-700"><Copy className="h-4 w-4" /></button>
+          <button type="button" aria-label="Sao chép URL webhook SePay" onClick={copyUrl} className="rounded-md border border-outline-variant px-3 text-primary"><Copy className="h-4 w-4" aria-hidden="true" /></button>
         </div>
       </div>
 

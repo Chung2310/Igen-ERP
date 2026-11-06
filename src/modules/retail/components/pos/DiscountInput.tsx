@@ -40,7 +40,7 @@ export default function DiscountInput({ label, value, onChange }: Props) {
               onChange({ ...value, value: Math.max(0, Number(event.target.value) || 0) })
             }
           />
-          <span className="pointer-events-none absolute right-3 text-xs font-bold text-slate-400 select-none">
+          <span className="pointer-events-none absolute right-3 text-xs font-semibold text-slate-400 select-none">
             {value.type === "percent" ? "%" : "₫"}
           </span>
         </div>

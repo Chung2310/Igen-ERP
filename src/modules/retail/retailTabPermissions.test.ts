@@ -16,7 +16,7 @@ describe("retail subtab permissions", () => {
 
   it("treats wildcard permission as manager access", () => {
     expect(getAllowedRetailTabSlugs(["*"])).toEqual([
-      "don-hang", "doi-tra", "hoa-don", "bao-cao", "ca-pos", "bao-hanh", "ma-uu-dai", "tai-chinh", "uu-dai", "cai-dat",
+      "don-hang", "doi-tra", "hoa-don", "bao-cao", "ca-pos", "bao-hanh", "ma-uu-dai", "tai-chinh", "cai-dat",
     ]);
   });
 

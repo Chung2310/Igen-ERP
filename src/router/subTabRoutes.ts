@@ -8,13 +8,10 @@ import type {
 
 export type SettingsSubTabType =
   | "profile"
-  | "security"
   | "erp"
-  | "face-recognition"
-  | "branches";
+  | "face-recognition";
 
 export type DashboardSubTabType =
-  | "DOANH_NGHIEP"
   | "TAI_CHINH"
   | "BAN_LE"
   | "NHAN_SU"
@@ -23,7 +20,6 @@ export type DashboardSubTabType =
   | "MARKETING";
 
 export const DASHBOARD_SUB_TAB_ROUTES: SubTabRouteMap<DashboardSubTabType> = [
-  { slug: "doanh-nghiep", value: "DOANH_NGHIEP" },
   { slug: "tai-chinh", value: "TAI_CHINH" },
   { slug: "ban-le", value: "BAN_LE" },
   { slug: "nhan-su", value: "NHAN_SU" },
@@ -68,10 +64,8 @@ export const RESOURCE_SUB_TAB_ROUTES: SubTabRouteMap<ResourceSubTabType> = [
 
 export const SETTINGS_SUB_TAB_ROUTES: SubTabRouteMap<SettingsSubTabType> = [
   { slug: "ho-so", value: "profile" },
-  { slug: "bao-mat", value: "security" },
   { slug: "cau-hinh", value: "erp" },
   { slug: "nhan-dien-khuon-mat", value: "face-recognition" },
-  { slug: "chi-nhanh", value: "branches" },
 ];
 
 export const STUDENT_SUB_TAB_ROUTES: SubTabRouteMap<string> = [
@@ -89,6 +83,11 @@ export const STUDENT_SUB_TAB_ROUTES: SubTabRouteMap<string> = [
   { slug: "lo-trinh-va-cho-lop", value: "LO_TRINH_CHO_LOP" },
 ];
 
+export const AI_SUBSCRIPTION_SUB_TAB_ROUTES: SubTabRouteMap<"usage" | "plans"> = [
+  { slug: "han-muc", value: "usage" },
+  { slug: "goi-nang-cap", value: "plans" },
+];
+
 const SUB_TAB_ROUTES_BY_TAB: Partial<Record<TabType, SubTabRouteMap<string>>> = {
   "TỔNG QUAN": DASHBOARD_SUB_TAB_ROUTES as SubTabRouteMap<string>,
   "NHÂN SỰ": HR_SUB_TAB_ROUTES,
@@ -96,6 +95,7 @@ const SUB_TAB_ROUTES_BY_TAB: Partial<Record<TabType, SubTabRouteMap<string>>> = 
   "QUẢN LÝ TÀI NGUYÊN": RESOURCE_SUB_TAB_ROUTES,
   "TÀI NGUYÊN": RESOURCE_SUB_TAB_ROUTES,
   "QUẢN LÝ HỌC VIÊN": STUDENT_SUB_TAB_ROUTES,
+  "GÓI AI & LƯỢT SỬ DỤNG": AI_SUBSCRIPTION_SUB_TAB_ROUTES,
   "CÀI ĐẶT": SETTINGS_SUB_TAB_ROUTES,
 };
 

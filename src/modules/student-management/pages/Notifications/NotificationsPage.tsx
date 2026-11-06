@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { 
   Send, History, UserCheck, 
   SendHorizontal,
@@ -122,7 +121,7 @@ function HistoryCard({ notification, onDelete }: HistoryCardProps) {
             title="Xóa lịch sử"
             aria-label="Xóa lịch sử thông báo"
           >
-            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {isDeleting ? <Loader2 className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
           </button>}
         </div>
       </div>
@@ -205,10 +204,8 @@ function InstallmentPlanEditor({
       {/* Danh sách đợt */}
       <div className="space-y-2">
         {plan.map((item, idx) => (
-          <motion.div
+          <div
             key={item.installmentNo}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
             className={cn(
               "flex items-center gap-2 rounded-lg border p-2 transition-colors cursor-pointer",
               selectedInstallmentNo === item.installmentNo
@@ -278,7 +275,7 @@ function InstallmentPlanEditor({
               lang="vi"
               className="h-9 w-36 rounded-lg border border-slate-200 bg-white px-2 text-xs font-normal text-slate-700 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
             />
-          </motion.div>
+          </div>
         ))}
       </div>
 
@@ -949,21 +946,10 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
   return (
     <div className="space-y-4 p-3 sm:p-4">
       {/* Send Progress Modal */}
-      <AnimatePresence>
-        {sendProgress.showModal && (
+      {sendProgress.showModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
-            >
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" />
+            <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
               <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 h-5 w-1 shrink-0 rounded-full bg-cyan-500" aria-hidden="true" />
@@ -994,13 +980,12 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                     <span>{Math.round((sendProgress.current / sendProgress.total) * 100)}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <motion.div 
+                    <div
                       className={cn(
                         "h-full rounded-full",
                         currentInstallment ? "bg-violet-500" : "bg-cyan-600"
                       )}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(sendProgress.current / sendProgress.total) * 100}%` }}
+                      style={{ width: `${(sendProgress.current / sendProgress.total) * 100}%` }}
                     />
                   </div>
                 </div>
@@ -1013,10 +998,8 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                       // index trong mảng gốc (chưa reverse)
                       const originalIdx = sendProgress.results.length - 1 - i;
                       return (
-                        <motion.div 
+                        <div
                           key={i}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
                           className={cn(
                             "flex items-center justify-between gap-2 rounded-lg border p-2.5 text-xs font-normal",
                             res.status === 'Thành công' ? "bg-emerald-50/50 border-emerald-100 text-emerald-700" : "bg-rose-50/50 border-rose-100 text-rose-700"
@@ -1047,7 +1030,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                                     : "bg-cyan-600 text-white hover:bg-cyan-700"
                                 )}
                               >
-                                {res.markingPaid ? <Loader2 className="w-3 h-3 animate-spin" /> : <BadgeCheck className="w-3 h-3" />}
+                                {res.markingPaid ? <Loader2 className="w-3 h-3" /> : <BadgeCheck className="w-3 h-3" />}
                                 {res.markingPaid ? "..." : "Đã thu"}
                               </button>
                             )}
@@ -1073,7 +1056,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                               {res.status} {res.error ? `- ${res.error}` : ''}
                             </span>
                           </div>
-                        </motion.div>
+                        </div>
                       );
                     })}
                   </div>
@@ -1090,24 +1073,21 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                   </button>
                 </div>
               )}
-            </motion.div>
+            </div>
           </div>
         )}
-      </AnimatePresence>
 
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
-          <h1 className="text-balance text-xl font-medium text-on-surface text-left">BOT Thông báo</h1>
-          <p className="text-slate-400 text-[11px] font-medium mt-0.5 text-left">{operationalCopy.notificationSubtitle}</p>
+          <h1 className="text-balance text-xl font-medium text-on-surface text-left">Gửi thông báo hàng loạt</h1>
+          {operationalCopy.notificationSubtitle ? <p className="text-slate-400 text-[11px] font-medium mt-0.5 text-left">{operationalCopy.notificationSubtitle}</p> : null}
         </div>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
         {/* Composer */}
-        {canManage && <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+        {canManage && <div
           className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
         >
           <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
@@ -1136,14 +1116,8 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
             </div>
 
             {/* ── Installment Plan Section ── */}
-            <AnimatePresence>
-              {!operationalCopy.isWorker && !operationalCopy.isCustomer && isDebtFilter && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
+            {!operationalCopy.isWorker && !operationalCopy.isCustomer && isDebtFilter && (
+                <div>
                   <div className="space-y-3 rounded-lg border border-cyan-100 bg-cyan-50/40 p-3">
                     {/* Toggle */}
                     <button
@@ -1166,14 +1140,8 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                     </button>
 
                     {/* Plan editor */}
-                    <AnimatePresence>
-                      {useInstallment && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden space-y-3 pt-1"
-                        >
+                    {useInstallment && (
+                        <div className="space-y-3 pt-1">
                           <p className="text-xs font-medium text-cyan-700">
                             Cấu hình đợt · Chọn đợt muốn gửi thông báo lần này
                           </p>
@@ -1192,13 +1160,11 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                               </p>
                             </div>
                           )}
-                        </motion.div>
+                        </div>
                       )}
-                    </AnimatePresence>
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
 
             <div className="space-y-1">
               <label className="block text-xs font-medium text-slate-600 text-left">Tiêu đề</label>
@@ -1290,7 +1256,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                     {channels.includes('Email') && (
                       <div className="flex items-center gap-1.5 border-r border-slate-100 pr-4">
                         <span className="text-[11px] font-normal text-slate-500">Dịch vụ gửi Email:</span>
-                        {apiStatus === 'Checking' && <Loader2 className="w-2.5 h-2.5 text-slate-400 animate-spin" />}
+                        {apiStatus === 'Checking' && <Loader2 className="w-2.5 h-2.5 text-slate-400" />}
                         {apiStatus === 'Ready' && (
                           <div className="flex flex-col items-end gap-0.5">
                             <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
@@ -1305,7 +1271,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                     {channels.includes('SMS') && (
                       <div className="flex items-center gap-1.5">
                         <span className="text-[11px] font-normal text-slate-500">Dịch vụ gửi tin nhắn SMS:</span>
-                        {smsApiStatus === 'Checking' && <Loader2 className="w-2.5 h-2.5 text-slate-400 animate-spin" />}
+                        {smsApiStatus === 'Checking' && <Loader2 className="w-2.5 h-2.5 text-slate-400" />}
                         {smsApiStatus === 'Ready' && (
                           <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
                             <CheckCircle2 size={8} /> Sẵn sàng
@@ -1387,7 +1353,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
                       : "bg-cyan-600 hover:bg-cyan-700"
                   )}
                 >
-                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  {isSubmitting ? <Loader2 className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
                   {useInstallment && currentInstallment
                     ? `Gửi ${currentInstallment.label}`
                     : 'Gửi hàng loạt'}
@@ -1395,12 +1361,10 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
               </div>
             </div>
           </form>
-        </motion.div>}
+        </div>}
 
         {/* History */}
-        <motion.div 
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
+        <div
           className="flex min-h-[400px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
         >
           <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
@@ -1413,7 +1377,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
           <div className="flex-1 overflow-y-auto p-4">
             {loadingHistory ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3">
-                <Loader2 className="w-6 h-6 animate-spin" />
+                <Loader2 className="w-6 h-6" />
                 <p className="text-xs font-medium">Đang nạp lịch sử...</p>
               </div>
             ) : history.length === 0 ? (
@@ -1429,7 +1393,7 @@ export function NotificationsPage({ canManage = true }: { canManage?: boolean })
               </div>
             )}
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {isPaymentModalOpen && selectedStudentForPayment && (

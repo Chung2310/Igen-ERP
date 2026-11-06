@@ -1,6 +1,7 @@
 import { Activity, MoreVertical, Pencil, Shield, Trash2 } from "lucide-react";
 import { UserTableProps } from "./types";
 import { getRoleDisplayName } from "../../utils/permissionUtils";
+import { StyledSelect } from "../common/StyledSelect";
 
 export function UserListTable({
   users,
@@ -18,25 +19,25 @@ export function UserListTable({
   onViewActivity,
 }: UserTableProps) {
   return (
-    <div className="max-w-full rounded-2xl border border-gray-150 bg-white shadow-xs" style={{ overflow: "clip" }}>
-      <div className="max-w-full overflow-x-auto overscroll-x-contain">
-        <table className="w-full min-w-[820px] border-collapse text-left font-sans text-xs sm:min-w-[1180px]">
+    <div className="flex min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
+      <div className="min-h-0 max-w-full flex-1 overflow-auto overscroll-contain">
+        <table className="w-full min-w-[900px] border-collapse text-left font-sans text-sm">
           <thead>
-            <tr className="bg-slate-50 text-xs font-medium text-slate-500">
-              <th className="p-4 pl-6">Thành viên</th>
-              <th className="p-4">Địa chỉ email</th>
-              {currentUser?.role === "superadmin" && <th className="p-4">Doanh nghiệp</th>}
-              <th className="p-4">Ngày đăng ký</th>
-              <th className="p-4">Vai trò</th>
-              <th className="p-4 pr-6 text-center">Hành động</th>
+            <tr className="bg-surface text-xs font-medium text-on-surface-variant">
+              <th className="px-3 py-2.5">Thành viên</th>
+              <th className="px-3 py-2.5">Địa chỉ email</th>
+              {currentUser?.role === "superadmin" && <th className="px-3 py-2.5">Doanh nghiệp</th>}
+              <th className="px-3 py-2.5">Ngày đăng ký</th>
+              <th className="px-3 py-2.5">Vai trò</th>
+              <th className="px-3 py-2.5 text-center">Hành động</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 text-slate-700">
+          <tbody className="divide-y divide-outline-variant text-on-surface">
             {users.map((usr) => {
               const isSelf = usr.uid === currentUser?.uid;
               return (
-                <tr key={usr.uid} className="transition-colors hover:bg-slate-50/40">
-                  <td className="flex items-center gap-3 p-4 pl-6">
+                <tr key={usr.uid} className="transition-colors hover:bg-surface">
+                  <td className="flex items-center gap-2.5 px-3 py-2.5">
                     {usr.photoURL && (usr.photoURL.startsWith("http") || usr.photoURL.startsWith("/")) ? (
                       <img src={usr.photoURL} alt={usr.displayName} className="h-8 w-8 rounded-full border border-gray-200 object-cover" />
                     ) : (
@@ -44,8 +45,8 @@ export function UserListTable({
                         {(usr.displayName || usr.email || "US").slice(0, 2).toUpperCase()}
                       </div>
                     )}
-                    <div>
-                      <span className="flex items-center gap-1.5 font-semibold text-slate-800">
+                    <div className="min-w-0">
+                      <span className="flex items-center gap-1.5 truncate font-medium text-on-surface" title={usr.displayName}>
                         {usr.displayName}
                         {isSelf && (
                           <span className="rounded-md bg-cyan-50 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">
@@ -53,12 +54,12 @@ export function UserListTable({
                           </span>
                         )}
                       </span>
-                      <span className="mt-0.5 block font-mono text-[10px] text-gray-400">UID: {usr.uid.slice(0, 8)}...</span>
+                      <span className="mt-0.5 block text-xs font-normal text-on-surface-variant">UID: {usr.uid.slice(0, 8)}...</span>
                     </div>
                   </td>
-                  <td className="p-4 font-mono">{usr.email}</td>
+                  <td className="px-3 py-2.5 font-normal" title={usr.email}>{usr.email}</td>
                   {currentUser?.role === "superadmin" && (
-                    <td className="p-4 font-semibold text-slate-700">
+                    <td className="px-3 py-2.5 font-normal text-on-surface">
                       {usr.companyName ? (
                         <span title={usr.companyCode}>{usr.companyName}</span>
                       ) : (
@@ -66,10 +67,10 @@ export function UserListTable({
                       )}
                     </td>
                   )}
-                  <td className="p-4 font-mono text-gray-400">
+                  <td className="px-3 py-2.5 font-normal tabular-nums text-on-surface-variant">
                     {usr.createdAt ? new Date(usr.createdAt).toLocaleDateString("vi-VN") : "Hôm nay"}
                   </td>
-                  <td className="p-4">
+                  <td className="px-3 py-2.5">
                     <span
                       className={`flex w-max items-center gap-1.5 rounded-full px-2.5 py-0.75 text-xs font-medium ${
                         usr.role === "superadmin"
@@ -87,34 +88,28 @@ export function UserListTable({
                       {getRoleDisplayName(usr.role, rolePermissionsList.find((rp) => rp.role === usr.role)?.displayName)}
                     </span>
                   </td>
-                  <td className="p-4 pr-6">
-                    <div className="flex items-center justify-end gap-3">
-                      <select
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center justify-end gap-2">
+                      <StyledSelect
+                        ariaLabel={`Vai trò của ${usr.displayName || usr.email}`}
                         disabled={isSelf || usr.role === "superadmin" || (usr.role === "admin" && currentUser?.role === "admin")}
                         value={usr.role}
-                        onChange={(e) => onRoleChange(usr.uid, usr.displayName, e.target.value as any)}
-                        className={`cursor-pointer rounded-lg border px-2.5 py-1.5 text-xs font-semibold outline-none transition focus:ring-2 focus:ring-indigo-500 ${
-                          isSelf || usr.role === "superadmin" || (usr.role === "admin" && currentUser?.role === "admin")
-                            ? "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 opacity-50"
-                            : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300"
-                        }`}
-                      >
-                        {[
+                        onChange={(value) => onRoleChange(usr.uid, usr.displayName, value as any)}
+                        appearance="erp"
+                        className="min-w-52 max-w-72 rounded-md text-xs"
+                        options={[
                           ...getAvailableRoles(),
                           ...(!getAvailableRoles().some((r) => r.role === usr.role) ? [{ role: usr.role, displayName: getRoleDisplayName(usr.role), level: 99 }] : []),
-                        ].map((r, index) => (
-                          <option key={`${usr.uid}-${r.role}-${index}`} value={r.role}>
-                            {r.displayName}
-                          </option>
-                        ))}
-                      </select>
+                        ].map((r) => ({ value: r.role, label: r.displayName }))}
+                      />
 
                       <div className="relative" data-action-menu>
                         <button
                           type="button"
                           onClick={() => onToggleActionMenu(usr.uid)}
-                          className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition hover:bg-gray-50"
+                          className="rounded-md border border-outline-variant bg-surface-container-lowest p-2 text-on-surface-variant transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"
                           title="Thao tác"
+                          aria-label={`Thao tác với ${usr.displayName || usr.email}`}
                         >
                           <MoreVertical className="h-4 w-4" />
                         </button>
@@ -151,8 +146,8 @@ export function UserListTable({
           </tbody>
         </table>
       </div>
-      <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="font-mono text-[11px] text-slate-500">
+      <div className="flex shrink-0 flex-col gap-2 border-t border-outline-variant bg-surface px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-xs font-normal tabular-nums text-on-surface-variant">
           Trang {userPage} / {totalUserPages} · Hiển thị {users.length} tài khoản
         </div>
         <div className="flex items-center gap-2">
@@ -160,7 +155,7 @@ export function UserListTable({
             type="button"
             onClick={() => onPageChange((prev) => Math.max(1, Number(prev) - 1))}
             disabled={userPage === 1}
-            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs font-medium text-on-surface transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
           >
             Trang trước
           </button>
@@ -171,8 +166,8 @@ export function UserListTable({
                 key={page}
                 type="button"
                 onClick={() => onPageChange(page)}
-                className={`h-9 min-w-9 rounded-xl px-3 text-xs font-medium transition ${
-                  page === userPage ? "bg-cyan-600 text-white" : "bg-slate-50 text-slate-700 hover:bg-cyan-50"
+                className={`h-9 min-w-9 rounded-md px-3 text-xs font-medium transition-colors ${
+                  page === userPage ? "bg-primary text-on-primary" : "bg-surface-container-lowest text-on-surface hover:bg-surface"
                 }`}
               >
                 {page}
@@ -182,7 +177,7 @@ export function UserListTable({
             type="button"
             onClick={() => onPageChange((prev) => Math.min(totalUserPages, Number(prev) + 1))}
             disabled={userPage === totalUserPages}
-            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs font-medium text-on-surface transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
           >
             Trang sau
           </button>

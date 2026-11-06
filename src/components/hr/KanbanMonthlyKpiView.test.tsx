@@ -22,8 +22,7 @@ describe("KanbanMonthlyKpiView", () => {
     } }) }));
     render(<KanbanMonthlyKpiView activeBranchId="B1" initialPeriod="2026-08" />);
 
-    expect(await screen.findByText("Tạm tính")).toBeTruthy();
-    expect(screen.getByText("66,7%")).toBeTruthy();
+    expect(await screen.findByText("66,7%")).toBeTruthy();
     expect(screen.getByText("Chưa có công việc")).toBeTruthy();
     expect(screen.getByRole("row", { name: /An 2 3 1 66,7%/ })).toBeTruthy();
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining("period=2026-08&branchId=B1"), expect.anything());

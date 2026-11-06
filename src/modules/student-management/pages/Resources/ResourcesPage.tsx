@@ -124,7 +124,7 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
       {(resourceLoadError || categoryLoadError) && <StudentLoadState error={resourceLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadResources(), reloadCategories()]); }} />}
       <ErpPageHeader
         title={forceType === 'Phòng học' ? "Quản lý phòng học" : "Quản lý thiết bị & tài nguyên"}
-        subtitle={forceType === 'Phòng học' ? "Quản lý danh sách các phòng học của trung tâm." : "Bấm 'Khai báo tài nguyên mới' để thêm phòng học, thiết bị hoặc công cụ giảng dạy."}
+        subtitle={forceType === 'Phòng học' ? "Quản lý danh sách các phòng học của trung tâm." : undefined}
         action={canManage ? (
           <div className="flex gap-2">
             {!forceType && (
@@ -193,9 +193,6 @@ export function ResourcesPage({ canManage = true, forceType, excludeType }: { ca
           <div className="flex min-h-[220px] flex-col items-center justify-center px-5 py-8 text-center">
             <StudentEmptyIllustration kind="resource" />
             <h2 className="text-base font-medium text-slate-800">Chưa có tài nguyên nào</h2>
-            <p className="mt-1 max-w-lg text-sm font-normal text-slate-500">
-              Bấm “Khai báo tài nguyên mới” để thêm phòng học, thiết bị hoặc công cụ giảng dạy.
-            </p>
           </div>
         </ErpCard>
       ) : viewMode === 'grid' ? (

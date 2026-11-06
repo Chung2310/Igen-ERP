@@ -29,7 +29,7 @@ function warrantyState(endAt?: string) {
 function DeviceCard({ device }: { device: CustomerPurchaseHistoryDevice }) {
   const warranty = warrantyState(device.warrantyEndAt);
   return (
-    <article className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+    <article className="rounded-md border border-outline-variant bg-surface-container-lowest p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h4 className="break-words text-sm font-semibold text-on-surface text-balance">{device.productName}</h4>
@@ -84,9 +84,9 @@ export default function CustomerPurchaseHistoryPanel({ customerId, companyCode, 
     return () => { active = false; };
   }, [branchId, companyCode, customerId]);
 
-  if (!branchId) return <section className="mt-6 rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">Vui lòng chọn chi nhánh để xem lịch sử mua hàng.</section>;
-  if (loading) return <section className="mt-6 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-sm text-on-surface-variant" role="status" aria-live="polite" aria-busy="true">Đang tải lịch sử mua hàng...</section>;
-  if (error) return <section className="mt-6 rounded-xl border border-error bg-error-container p-4 text-sm text-on-error-container" role="alert">{error}</section>;
+  if (!branchId) return <section className="mt-6 rounded-md border border-dashed border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">Vui lòng chọn chi nhánh để xem lịch sử mua hàng.</section>;
+  if (loading) return <section className="mt-6 rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-sm text-on-surface-variant" role="status" aria-live="polite" aria-busy="true">Đang tải lịch sử mua hàng...</section>;
+  if (error) return <section className="mt-6 rounded-md border border-error bg-error-container p-4 text-sm text-on-error-container" role="alert">{error}</section>;
   if (!history) return null;
 
   const cards = [
@@ -104,18 +104,18 @@ export default function CustomerPurchaseHistoryPanel({ customerId, companyCode, 
         <p className="mt-1 text-xs text-on-surface-variant text-pretty">Đơn hàng và thiết bị đã mua tại chi nhánh đang chọn.</p>
       </div>
       <div className="grid gap-2.5 sm:grid-cols-2">
-        {cards.map(([label, value]) => <div key={label} className="min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-3.5"><p className="text-xs text-on-surface-variant">{label}</p><p className="mt-1 break-words text-sm font-semibold tabular-nums text-on-surface">{value}</p></div>)}
+        {cards.map(([label, value]) => <div key={label} className="min-w-0 rounded-md border border-outline-variant bg-surface-container-lowest p-3.5"><p className="text-xs text-on-surface-variant">{label}</p><p className="mt-1 break-words text-sm font-semibold tabular-nums text-on-surface">{value}</p></div>)}
       </div>
       {history.items.length === 0
-        ? <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant text-pretty">Chưa có đơn mua tại chi nhánh này. Khi bán hàng, chọn khách này tại POS để lưu đơn vào hồ sơ.</div>
-        : <div className="space-y-2.5">{history.items.map((order) => <article key={order._id} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-semibold text-on-surface">{orderLabel(order)}</p><p className="mt-1 text-xs text-on-surface-variant">{date(order.businessDate)} · {statusLabel(order.status)}</p></div><p className="break-words font-semibold tabular-nums text-primary">{currency.format(order.grandTotal)}</p></div><div className="mt-3 grid gap-2 text-xs text-on-surface-variant sm:grid-cols-3"><p className="min-w-0 break-words">Đã thanh toán: <span className="font-semibold tabular-nums text-on-surface">{currency.format(order.paidAmount)}</span></p><p className="min-w-0 break-words">Công nợ: <span className="font-semibold tabular-nums text-on-surface">{currency.format(order.dueAmount)}</span></p><p className="min-w-0">{order.itemCount} sản phẩm</p></div><p className="mt-2 text-xs text-on-surface-variant">Nhân viên: {order.salespersonName || "—"}</p></article>)}</div>}
+        ? <div className="rounded-md border border-dashed border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant text-pretty">Chưa có đơn mua tại chi nhánh này. Khi bán hàng, chọn khách này tại POS để lưu đơn vào hồ sơ.</div>
+        : <div className="space-y-2.5">{history.items.map((order) => <article key={order._id} className="rounded-md border border-outline-variant bg-surface-container-lowest p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="break-words font-semibold text-on-surface">{orderLabel(order)}</p><p className="mt-1 text-xs text-on-surface-variant">{date(order.businessDate)} · {statusLabel(order.status)}</p></div><p className="break-words font-semibold tabular-nums text-primary">{currency.format(order.grandTotal)}</p></div><div className="mt-3 grid gap-2 text-xs text-on-surface-variant sm:grid-cols-3"><p className="min-w-0 break-words">Đã thanh toán: <span className="font-semibold tabular-nums text-on-surface">{currency.format(order.paidAmount)}</span></p><p className="min-w-0 break-words">Công nợ: <span className="font-semibold tabular-nums text-on-surface">{currency.format(order.dueAmount)}</span></p><p className="min-w-0">{order.itemCount} sản phẩm</p></div><p className="mt-2 text-xs text-on-surface-variant">Nhân viên: {order.salespersonName || "—"}</p></article>)}</div>}
       <div className="space-y-3 border-t border-outline-variant pt-4">
         <div>
           <h3 className="text-sm font-semibold text-on-surface text-balance">Thiết bị đã mua</h3>
           <p className="mt-1 text-xs text-on-surface-variant text-pretty">IMEI / serial, mã vạch và thời hạn bảo hành theo từng máy.</p>
         </div>
         {history.devices.length === 0
-          ? <div className="rounded-xl border border-dashed border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant text-pretty">Chưa có máy có IMEI / serial tại chi nhánh này. Nếu vừa bán máy, quét mã tại POS để theo dõi bảo hành theo từng thiết bị.</div>
+          ? <div className="rounded-md border border-dashed border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant text-pretty">Chưa có máy có IMEI / serial tại chi nhánh này. Nếu vừa bán máy, quét mã tại POS để theo dõi bảo hành theo từng thiết bị.</div>
           : <div className="space-y-2.5">{history.devices.map((device) => <DeviceCard key={device._id} device={device} />)}</div>}
       </div>
     </section>

@@ -306,7 +306,7 @@ export type WorkerOperationalCopy = {
   partnerReferralUnit: string;
   partnerValueLabel: string;
   notificationAudienceLabel: string;
-  notificationSubtitle: string;
+  notificationSubtitle?: string;
   settingsSavedMessage: string;
   settingsMailDescription: string;
 };
@@ -324,7 +324,6 @@ const EDUCATION_OPERATIONAL_COPY: WorkerOperationalCopy = {
   partnerReferralUnit: "học viên",
   partnerValueLabel: "Học phí",
   notificationAudienceLabel: "Tất cả học viên đang học",
-  notificationSubtitle: "Gửi thông báo tự động đến học viên",
   settingsSavedMessage: "Cấu hình form học viên đã được lưu thành công!",
   settingsMailDescription: "Kết nối tài khoản Gmail của bạn để tự động gửi thông báo lớp học, lịch học cho giảng viên và học viên.",
 };

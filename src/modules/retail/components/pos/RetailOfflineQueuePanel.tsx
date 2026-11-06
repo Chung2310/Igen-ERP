@@ -22,7 +22,7 @@ export default function RetailOfflineQueuePanel({
   if (!items.length) return null;
   return (
     <section className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-      <h2 className="font-bold text-amber-900">
+      <h2 className="font-semibold text-amber-900">
         Yêu cầu thanh toán ({items.length})
       </h2>
       <div className="mt-2 space-y-2">

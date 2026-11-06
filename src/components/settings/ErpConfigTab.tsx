@@ -100,7 +100,7 @@ export default function ErpConfigTab() {
       return;
     }
 
-    if (workingDays.length === 0) { toast.error("Please select at least one working day."); return; }
+    if (workingDays.length === 0) { toast.error("Vui lòng chọn ít nhất một ngày làm việc."); return; }
 
     setSavingLocation(true);
     try {
@@ -137,10 +137,10 @@ export default function ErpConfigTab() {
   };
 
   return (
-    <div className="space-y-5 rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+    <section className="settings-erp-card space-y-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-5">
       {/* Tab bar nội bộ của Cấu hình ERP */}
       {(canManageLocation || canManageCompanyModules) && (
-        <div className="flex gap-1.5 overflow-x-auto border-b border-slate-100 pb-3 no-scrollbar" role="tablist" aria-label="Mục cấu hình ERP">
+        <div className="flex gap-1.5 overflow-x-auto border-b border-outline-variant pb-3 no-scrollbar" aria-label="Mục cấu hình ERP">
           <ModuleNavigationButton
             active={activeTab === "general"}
             icon={<Sliders className="size-4" />}
@@ -163,7 +163,7 @@ export default function ErpConfigTab() {
 
       {/* Preferences Section */}
       {activeTab === "companyModules" && canManageCompanyModules && (
-        <div className="space-y-5">
+        <div className="space-y-3">
           {canViewStudentSettings && <StudentManagementErpSettings />}
           {hasPermission("settings:manage") && <CompanyPaymentSettingsTab />}
           {canManageSmtp && <CompanySmtpSettingsTab />}
@@ -172,29 +172,25 @@ export default function ErpConfigTab() {
       {activeTab === "general" && (
       <>
       <div>
-        <h3 className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 text-base font-medium text-slate-800">
+        <h2 className="mb-3 flex items-center gap-2 border-b border-outline-variant pb-3 text-balance text-sm font-semibold text-on-surface">
           <Sliders className="h-4 w-4 text-brand-primary" />
           Cài đặt hiển thị & Thông báo
-        </h3>
+        </h2>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Dark Mode toggle has been moved to the global top Header bar */}
 
           {/* Email notification toggle */}
-          <div className="flex items-center justify-between rounded-xl p-3 transition-colors hover:bg-sky-50/50">
+          <div className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface p-3">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-sky-50 p-2 text-brand-primary">
+              <div className="rounded-md bg-primary/10 p-2 text-primary">
                 <Bell className="h-4 w-4" />
               </div>
               <div className="text-left">
-                <h4 className="text-sm font-medium text-slate-800">Nhận thông báo qua Email</h4>
-                <p className="mt-0.5 text-xs text-slate-500">Nhận các báo cáo tóm tắt hàng ngày qua email đăng ký.</p>
+                <h3 className="text-balance text-sm font-medium text-on-surface">Nhận thông báo qua Email</h3>
+                <p className="mt-0.5 text-pretty text-xs text-on-surface-variant">Nhận các báo cáo tóm tắt hàng ngày qua email đăng ký.</p>
               </div>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-
-              <div className="w-9 h-5 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all after:content-[''] peer-focus:outline-none peer-checked:bg-brand-primary peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
-            </label>
           </div>
         </div>
       </div>
@@ -204,16 +200,17 @@ export default function ErpConfigTab() {
       {/* Cấu hình Vị trí Chấm công (GPS) — chỉ admin/superadmin */}
       {canManageLocation && (
         <div>
-          <h3 className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 text-base font-medium text-slate-800">
+          <h2 className="mb-3 flex items-center gap-2 border-b border-outline-variant pb-3 text-balance text-sm font-semibold text-on-surface">
             <MapPin className="h-4 w-4 text-brand-primary" />
             Cấu hình Vị trí Chấm công (GPS)
-          </h3>
+          </h2>
 
           <form onSubmit={handleSaveLocation} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-1.5 text-left md:col-span-2">
-                <label className="block text-xs font-medium text-slate-600">Tên địa điểm / Văn phòng</label>
+                <label htmlFor="settings-location-name" className="block text-xs font-medium text-on-surface-variant">Tên địa điểm / Văn phòng</label>
                 <input
+                  id="settings-location-name"
                   type="text"
                   value={addressName}
                   onChange={(e) => setAddressName(e.target.value)}
@@ -223,8 +220,9 @@ export default function ErpConfigTab() {
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="block text-xs font-medium text-slate-600">Vĩ độ (Latitude)</label>
+                <label htmlFor="settings-latitude" className="block text-xs font-medium text-on-surface-variant">Vĩ độ (Latitude)</label>
                 <input
+                  id="settings-latitude"
                   type="number"
                   step="any"
                   value={latitude}
@@ -236,8 +234,9 @@ export default function ErpConfigTab() {
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="block text-xs font-medium text-slate-600">Kinh độ (Longitude)</label>
+                <label htmlFor="settings-longitude" className="block text-xs font-medium text-on-surface-variant">Kinh độ (Longitude)</label>
                 <input
+                  id="settings-longitude"
                   type="number"
                   step="any"
                   value={longitude}
@@ -249,8 +248,9 @@ export default function ErpConfigTab() {
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="block text-xs font-medium text-slate-600">Bán kính cho phép (mét)</label>
+                <label htmlFor="settings-radius" className="block text-xs font-medium text-on-surface-variant">Bán kính cho phép (mét)</label>
                 <input
+                  id="settings-radius"
                   type="number"
                   value={allowedRadius}
                   onChange={(e) => setAllowedRadius(e.target.value === "" ? "" : Number(e.target.value))}
@@ -261,8 +261,9 @@ export default function ErpConfigTab() {
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="block text-xs font-medium text-slate-600">Giờ giới hạn Check-in (Vào)</label>
+                <label htmlFor="settings-checkin" className="block text-xs font-medium text-on-surface-variant">Giờ giới hạn Check-in (Vào)</label>
                 <input
+                  id="settings-checkin"
                   type="text"
                   value={checkInLimit}
                   onChange={(e) => setCheckInLimit(e.target.value)}
@@ -273,8 +274,9 @@ export default function ErpConfigTab() {
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="block text-xs font-medium text-slate-600">Giờ giới hạn Check-out (Ra)</label>
+                <label htmlFor="settings-checkout" className="block text-xs font-medium text-on-surface-variant">Giờ giới hạn Check-out (Ra)</label>
                 <input
+                  id="settings-checkout"
                   type="text"
                   value={checkOutLimit}
                   onChange={(e) => setCheckOutLimit(e.target.value)}
@@ -285,8 +287,9 @@ export default function ErpConfigTab() {
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="block text-xs font-medium text-slate-600">Bắt đầu nghỉ trưa</label>
+                <label htmlFor="settings-lunch-start" className="block text-xs font-medium text-on-surface-variant">Bắt đầu nghỉ trưa</label>
                 <input
+                  id="settings-lunch-start"
                   type="text"
                   value={lunchBreakStart}
                   onChange={(e) => setLunchBreakStart(e.target.value)}
@@ -297,8 +300,9 @@ export default function ErpConfigTab() {
               </div>
 
               <div className="space-y-1.5 text-left">
-                <label className="block text-xs font-medium text-slate-600">Kết thúc nghỉ trưa</label>
+                <label htmlFor="settings-lunch-end" className="block text-xs font-medium text-on-surface-variant">Kết thúc nghỉ trưa</label>
                 <input
+                  id="settings-lunch-end"
                   type="text"
                   value={lunchBreakEnd}
                   onChange={(e) => setLunchBreakEnd(e.target.value)}
@@ -309,7 +313,7 @@ export default function ErpConfigTab() {
               </div>
 
               <div className="space-y-2 text-left md:col-span-2">
-                <label className="block text-xs font-medium text-slate-600">Ngày làm việc để lên lịch quy trình</label>
+                <p className="text-xs font-medium text-on-surface-variant">Ngày làm việc để lên lịch quy trình</p>
                 <div className="flex flex-wrap gap-2">
                   {[{ day: 1, label: "T2" }, { day: 2, label: "T3" }, { day: 3, label: "T4" }, { day: 4, label: "T5" }, { day: 5, label: "T6" }, { day: 6, label: "T7" }, { day: 0, label: "CN" }].map(({ day, label }) => (
                     <label key={day} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-sky-100 bg-white px-2.5 py-1.5 text-xs text-slate-700 transition hover:bg-sky-50">
@@ -348,6 +352,6 @@ export default function ErpConfigTab() {
       )}
       </>
       )}
-    </div>
+    </section>
   );
 }

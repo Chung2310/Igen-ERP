@@ -5,8 +5,6 @@ import {
   Calendar,
   Image as ImageIcon,
   Sliders,
-  Building2,
-  Shield,
   UserCheck
 } from "lucide-react";
 import { toast } from "./Toast";
@@ -14,13 +12,15 @@ import { ModuleNavigation, ModuleNavigationButton } from "../components/common/M
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { SETTINGS_SUB_TAB_ROUTES, type SettingsSubTabType } from "../router/subTabRoutes";
 import { canManageFaces } from "../services/faceManagementService";
+import { HrPageTitle } from "../components/hr/HrPageTitle";
+import { cn } from "../modules/student-management/lib/utils";
+import "./settings-tab.css";
 
 // Lazy-loaded subcomponents
 const ProfileTab = lazy(() => import("../components/settings/ProfileTab"));
 const SecurityTab = lazy(() => import("../components/settings/SecurityTab"));
 const ErpConfigTab = lazy(() => import("../components/settings/ErpConfigTab"));
 const FaceRecognitionSettingsTab = lazy(() => import("../components/settings/FaceRecognitionSettingsTab"));
-const BranchManagementTab = lazy(() => import("../components/settings/BranchManagementTab"));
 
 export default function SettingsTab() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -39,8 +39,7 @@ export default function SettingsTab() {
     if (activeSubTab === "face-recognition" && !faceManagementAllowed) {
       setActiveSubTab("profile");
     }
-    if (activeSubTab === "branches" && userProfile?.role !== "admin") setActiveSubTab("profile");
-  }, [activeSubTab, faceManagementAllowed, userProfile?.role, setActiveSubTab]);
+  }, [activeSubTab, faceManagementAllowed, setActiveSubTab]);
 
 
   // Synchronize display name and photo url from context if it updates
@@ -109,93 +108,89 @@ export default function SettingsTab() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface font-sans" id="settings_tab_container">
-      <h1 className="sr-only text-balance">Cài đặt Hệ thống & Cá nhân</h1>
-      <ModuleNavigation label="Mục Cài đặt" activeValue={activeSubTab}>
+      <ModuleNavigation label="Mục Cài đặt" activeValue={activeSubTab} className="mb-2 lg:mb-0">
         {[
           { id: "profile", label: "Hồ sơ cá nhân", icon: User },
-          { id: "security", label: "Bảo mật", icon: Shield },
           { id: "erp", label: "Cấu hình ERP", icon: Sliders },
           ...(faceManagementAllowed ? [{ id: "face-recognition", label: "Nhận diện khuôn mặt", icon: UserCheck }] : []),
-          ...(userProfile?.role === "admin" ? [{ id: "branches", label: "Chi nhánh", icon: Building2 }] : []),
         ].map(tab => <ModuleNavigationButton key={tab.id} active={activeSubTab === tab.id} icon={<tab.icon />} onClick={() => setActiveSubTab(tab.id as SettingsSubTabType)}>{tab.label}</ModuleNavigationButton>)}
       </ModuleNavigation>
 
-      {/* Main Settings Body Grid */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+      <div className="settings-workspace min-h-0 flex-1 overflow-y-auto">
+        <section className="settings-content-card min-h-full rounded-md border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
+          <div className="mb-3">
+            <HrPageTitle level={1}>{activeSubTab === "profile" ? "Hồ sơ cá nhân" : activeSubTab === "erp" ? "Cấu hình ERP" : "Nhận diện khuôn mặt"}</HrPageTitle>
+          </div>
+          <div className={cn("grid grid-cols-1 items-start gap-3", activeSubTab === "profile" && "lg:grid-cols-3")}>
 
         {/* Left Column: Quick Profile Card */}
-        <div className={`relative flex flex-col items-center gap-3 overflow-hidden rounded-2xl border border-sky-100 bg-white p-4 text-center shadow-sm sm:p-5 ${
-          activeSubTab !== "profile" ? "hidden lg:flex" : "flex"
+        <div className={`relative flex flex-col items-center gap-3 overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-center shadow-sm sm:p-5 ${
+          activeSubTab !== "profile" ? "hidden" : "flex"
         }`}>
-          <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-sky-500 to-cyan-500" />
+          <div className="absolute inset-x-0 top-0 h-16 bg-primary/10" />
 
-          <div className="group relative mt-7 cursor-pointer" onClick={handleAvatarClick}>
-            <input
+          <input
               type="file"
               ref={fileInputRef}
-              className="hidden"
+              className="sr-only"
+              tabIndex={-1}
+              aria-label="Chọn ảnh đại diện"
               accept="image/*"
               onChange={handleFileChange}
             />
+          <button type="button" className="group relative mt-6 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" onClick={handleAvatarClick} aria-label="Thay ảnh đại diện" disabled={uploading}>
             {uploading ? (
-              <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-slate-100 shadow-md">
-                <div className="w-6 h-6 border-2 border-indigo-650 border-t-transparent rounded-full animate-spin" />
+              <div className="relative z-10 flex size-20 items-center justify-center rounded-full border-4 border-surface-container-lowest bg-surface shadow-sm">
+                <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             ) : photoURL ? (
               <img
                 src={photoURL}
                 alt={displayName}
-                className="relative z-10 h-20 w-20 rounded-full border-4 border-white object-cover shadow-md transition-opacity group-hover:opacity-90"
+                className="relative z-10 size-20 rounded-full border-4 border-surface-container-lowest object-cover shadow-sm group-hover:opacity-90"
               />
             ) : (
-              <div className="relative z-10 flex h-20 w-20 select-none items-center justify-center rounded-full border-4 border-white bg-teal-600 text-2xl font-medium text-white shadow-md transition-colors group-hover:bg-teal-700">
+              <div className="relative z-10 flex size-20 select-none items-center justify-center rounded-full border-4 border-surface-container-lowest bg-primary text-2xl font-semibold text-on-primary shadow-sm">
                 {displayName.slice(0, 2).toUpperCase() || "AD"}
               </div>
             )}
-            <div className="absolute bottom-0 right-0 z-20 flex h-7 w-7 items-center justify-center rounded-full border border-sky-100 bg-white shadow-sm transition-transform group-hover:scale-105">
-              <ImageIcon className="h-3.5 w-3.5 text-slate-500" />
+            <div className="absolute bottom-0 right-0 z-20 flex size-7 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest shadow-sm">
+              <ImageIcon className="size-3.5 text-on-surface-variant" />
             </div>
-          </div>
+          </button>
 
           <div className="relative z-10 mt-1 space-y-1">
-            <h3 className="text-sm font-medium text-slate-800">{displayName}</h3>
-            <p className="text-xs font-normal text-slate-500">{userProfile?.email}</p>
+            <h2 className="text-balance text-sm font-semibold text-on-surface">{displayName}</h2>
+            <p className="break-all text-xs text-on-surface-variant">{userProfile?.email}</p>
             <div className="pt-2 flex justify-center">
-              <span className={`rounded-full border px-2.5 py-1 font-mono text-[9px] font-medium uppercase tracking-wider ${userProfile?.role === "superadmin"
-                ? "bg-rose-50 border-rose-200 text-rose-600"
-                : userProfile?.role === "admin"
-                  ? "bg-amber-50 border-amber-200 text-amber-600"
-                  : "bg-slate-50 border-slate-200 text-slate-600"
-                }`}>
+              <span className="rounded-md border border-outline-variant bg-surface px-2.5 py-1 text-xs font-medium text-on-surface-variant">
                 Quyền hạn: {userProfile?.role}
               </span>
             </div>
           </div>
 
-          <div className="mt-1 w-full space-y-3 border-t border-slate-100 pt-3 text-left text-xs text-slate-600">
+          <div className="mt-1 w-full space-y-3 border-t border-outline-variant pt-3 text-left text-xs text-on-surface-variant">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-slate-500">
+              <span className="flex items-center gap-1.5 text-on-surface-variant">
                 <Calendar className="h-4 w-4" />
                 Ngày tham gia
               </span>
-              <span className="font-medium text-slate-700">{formattedDate}</span>
+              <span className="font-medium tabular-nums text-on-surface">{formattedDate}</span>
             </div>
           </div>
         </div>
 
         {/* Right Columns: Settings Forms */}
-        <div className="space-y-4 lg:col-span-2">
+        <div className={cn("min-w-0 space-y-3", activeSubTab === "profile" && "lg:col-span-2")}>
           <Suspense fallback={<TabLoader label="Đang tải cấu hình..." />}>
-            {activeSubTab === "profile" && <ProfileTab />}
-            {activeSubTab === "security" && <SecurityTab />}
+            {activeSubTab === "profile" && <><ProfileTab /><SecurityTab /></>}
             {activeSubTab === "erp" && <ErpConfigTab />}
             {activeSubTab === "face-recognition" && faceManagementAllowed && <FaceRecognitionSettingsTab />}
-            {activeSubTab === "branches" && userProfile?.role === "admin" && <BranchManagementTab />}
           </Suspense>
         </div>
 
-      </div>
+          </div>
+        </section>
       </div>
     </div>
   );
@@ -203,9 +198,9 @@ export default function SettingsTab() {
 
 function TabLoader({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-[250px] flex-col items-center justify-center gap-3 rounded-2xl bg-white border border-gray-150 p-6 text-center">
-      <div className="w-8 h-8 border-3 border-indigo-650 border-t-transparent rounded-full animate-spin" />
-      <span className="text-xs text-gray-500 font-semibold">{label}</span>
+    <div role="status" className="flex min-h-[250px] flex-col items-center justify-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-6 text-center">
+      <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <span className="text-xs font-medium text-on-surface-variant">{label}</span>
     </div>
   );
 }

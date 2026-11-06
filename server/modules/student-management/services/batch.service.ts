@@ -1,6 +1,8 @@
 ﻿import { Batch } from "../models/batch.model";
 import { Course } from "../models/course.model";
 import { User } from "../models/user.model";
+import { BranchModel } from "../../../model/branch.model";
+import { buildBranchRosterFilter } from "../../../utils/branch-roster-filter";
 import { Student } from "../models/student.model";
 import { BatchEnrollment } from "../models/batch-enrollment.model";
 import { BatchEnrollmentStatus } from "../interfaces/batch-enrollment.interface";
@@ -156,19 +158,26 @@ async function resolveRoadmapFee(ownerScope: string | string[], branchId: string
   return roadmap.steps.reduce((total, step) => total + (feeByCourseId.get(String(step.courseId)) || 0), 0);
 }
 
-export function buildInstructorAssignmentQuery(actor: BatchActor, instructorId: unknown): Record<string, unknown> {
+export function buildInstructorAssignmentQuery(actor: BatchActor, instructorId: unknown, includeUnassigned = false): Record<string, unknown> {
   const companyCode = actor.companyCode || actor.centerId;
   if (!companyCode) throw new Error("Không xác định được công ty khi gán người phụ trách.");
   if (!actor.branchId) throw new Error("Vui lòng chọn chi nhánh trước khi gán người phụ trách.");
-  return { _id: instructorId, companyCode, branchId: actor.branchId, isActive: true };
+  return { _id: instructorId, companyCode, ...buildBranchRosterFilter(actor.branchId, includeUnassigned), isActive: { $ne: false } };
 }
 
 async function assertInstructorAssignable(actor: BatchActor, instructorId: unknown) {
   if (!instructorId) return;
-  const instructor = await User.findOne(buildInstructorAssignmentQuery(actor, instructorId));
-  if (!instructor) {
-    throw new Error("Không tìm thấy tài khoản đang hoạt động trong chi nhánh được chọn.");
-  }
+  const scopedQuery = buildInstructorAssignmentQuery(actor, instructorId);
+  if (await User.findOne(scopedQuery)) return;
+
+  // Danh sách chọn giảng viên của chi nhánh MAIN còn hiển thị tài khoản cũ
+  // chưa được gán chi nhánh. Chỉ cho phép cùng phạm vi ở bước lưu lớp.
+  const branch = await BranchModel.findOne({ _id: actor.branchId, companyCode: actor.companyCode || actor.centerId })
+    .select("code").lean();
+  if (String(branch?.code || "").toUpperCase() === "MAIN"
+    && await User.findOne(buildInstructorAssignmentQuery(actor, instructorId, true))) return;
+
+  throw new Error("Không tìm thấy tài khoản đang hoạt động trong chi nhánh được chọn.");
 }
 
 /**
@@ -488,12 +497,24 @@ export class BatchService {
     if (filters.courseId) query.courseId = filters.courseId;
     if (filters.instructorId) query.instructorId = filters.instructorId;
     if (filters.status) query.status = filters.status;
-    if (filters.search) {
+    const search = String(filters.search || "").trim();
+    if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const matchingCourses = await Course.find({
+        ...buildOwnerQuery(resolvedOwnerId),
+        ...buildBranchScopeQuery(branchId),
+        $or: [
+          { title: { $regex: escapedSearch, $options: "i" } },
+          { code: { $regex: escapedSearch, $options: "i" } },
+        ],
+      }).select("_id").lean();
+      const matchingCourseIds = matchingCourses.map((course) => String(course._id));
       query.$or = [
-        { code: { $regex: filters.search, $options: "i" } },
-        { name: { $regex: filters.search, $options: "i" } },
-        { location: { $regex: filters.search, $options: "i" } },
-        { instructorText: { $regex: filters.search, $options: "i" } },
+        { code: { $regex: escapedSearch, $options: "i" } },
+        { name: { $regex: escapedSearch, $options: "i" } },
+        { location: { $regex: escapedSearch, $options: "i" } },
+        { instructorText: { $regex: escapedSearch, $options: "i" } },
+        ...(matchingCourseIds.length ? [{ courseId: { $in: matchingCourseIds } }] : []),
       ];
     }
 

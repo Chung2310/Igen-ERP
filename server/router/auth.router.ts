@@ -264,6 +264,7 @@ const getUsersSchema = {
   query: Joi.object({
     companyCode: Joi.string().optional().allow(""),
     branchId: Joi.string().optional().allow(""),
+    search: Joi.string().trim().max(100).optional().allow(""),
   }),
 };
 

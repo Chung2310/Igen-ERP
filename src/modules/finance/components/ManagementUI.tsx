@@ -1,3 +1,4 @@
+import '../../../components/dashboard/overview-dashboard.css';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode, type ElementType } from "react";
 import {
   X,
@@ -229,11 +230,11 @@ export function getStatConfig(title: string): StatTheme {
   };
 }
 
-export function Stats({ values }: { values: [string, ReactNode][] }) {
+export function Stats({ values, overview = false }: { values: [string, ReactNode][]; overview?: boolean }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {values.map(([title, value]) => (
-        <div key={title} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+        <div key={title} className={overview ? "overview-kpi" : "rounded-xl border border-outline-variant bg-surface-container-lowest p-4"}>
           <p className="text-pretty text-sm text-on-surface-variant">{title}</p>
           <div className="mt-1 break-words text-lg font-semibold tabular-nums text-on-surface">{value}</div>
         </div>

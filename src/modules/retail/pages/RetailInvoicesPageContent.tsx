@@ -1,4 +1,6 @@
 import React from "react";
+import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
+import { Dropdown } from "../../../components/common/Dropdown";
 import { createPortal } from "react-dom";
 import {
   AlertCircle,
@@ -11,7 +13,6 @@ import {
   Loader2,
   Printer,
   QrCode,
-  RefreshCw,
   ScanLine,
   Wallet,
   X,
@@ -28,6 +29,7 @@ import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { toast } from "../../../pages/Toast";
 import { socketService } from "../../../services/socketService";
 import { cn } from "../../student-management/lib/utils";
+import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 import { TableFilterToolbar } from "../../../components/common/TableFilterToolbar";
 import { Pagination } from "../../../components/common/Pagination";
 import { emptyDatePeriodFilter, getDatePeriodRange, type DatePeriodFilterValue } from "../../../utils/datePeriodFilter";
@@ -317,13 +319,10 @@ export default function RetailInvoicesPageContent() {
   return (
     <section className="space-y-3.5">
       {/* Header card */}
-      <header className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-2xs">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-xs">
-            <FileText className="h-4 w-4" />
-          </div>
           <div className="flex items-center gap-2">
-            <h1 className="text-on-surface">
+            <h1 data-typography="page-title" className="retail-page-title text-on-surface">
               Hóa đơn nội bộ
             </h1>
             <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200/60">
@@ -332,49 +331,41 @@ export default function RetailInvoicesPageContent() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void loadInvoices()}
-          disabled={loading}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 active:scale-95 disabled:opacity-60 cursor-pointer"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 text-cyan-600 ${loading ? "animate-spin" : ""}`} />
-          <span>Làm mới</span>
-        </button>
+        <ErpRefreshButton onClick={() => void loadInvoices()} loading={loading} />
       </header>
 
       {/* Quick Summary KPIs */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tổng hóa đơn</span>
-            <FileText className="h-3.5 w-3.5 text-cyan-600" />
+        <div className="retail-stat-card retail-stat-card--blue rounded-md px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-white/90">
+            <span className="text-xs font-medium">Tổng hóa đơn</span>
+            <FileText className="size-4" aria-hidden="true" />
           </div>
-          <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-slate-900">{total}</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-white sm:text-xl">{total}</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Doanh số trang này</span>
-            <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+        <div className="retail-stat-card retail-stat-card--green rounded-md px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-white/90">
+            <span className="text-xs font-medium">Doanh số trang này</span>
+            <DollarSign className="size-4" aria-hidden="true" />
           </div>
-          <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-emerald-700">{money(totalGrand)}</p>
+          <p className="mt-1 break-words text-lg font-semibold tabular-nums text-white sm:text-xl">{money(totalGrand)}</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Đã thu trang này</span>
-            <Wallet className="h-3.5 w-3.5 text-blue-600" />
+        <div className="retail-stat-card retail-stat-card--cyan rounded-md px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-white/90">
+            <span className="text-xs font-medium">Đã thu trang này</span>
+            <Wallet className="size-4" aria-hidden="true" />
           </div>
-          <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-blue-700">{money(totalPaid)}</p>
+          <p className="mt-1 break-words text-lg font-semibold tabular-nums text-white sm:text-xl">{money(totalPaid)}</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Công nợ trang này</span>
-            <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+        <div className="retail-stat-card retail-stat-card--orange rounded-md px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-white/90">
+            <span className="text-xs font-medium">Công nợ trang này</span>
+            <AlertCircle className="size-4" aria-hidden="true" />
           </div>
-          <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-amber-600">{money(totalDue)}</p>
+          <p className="mt-1 break-words text-lg font-semibold tabular-nums text-white sm:text-xl">{money(totalDue)}</p>
         </div>
       </div>
 
@@ -436,19 +427,7 @@ export default function RetailInvoicesPageContent() {
         }
       >
         <div className="w-full sm:w-48 shrink-0">
-          <select
-            aria-label="Trạng thái hóa đơn"
-            className="h-9.5 w-full rounded-xl border border-outline-variant bg-surface-container-low/60 px-3 py-1.5 text-xs sm:text-sm font-medium text-on-surface transition focus:border-primary focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="issued">Đã phát hành</option>
-            <option value="void">Đã vô hiệu</option>
-          </select>
+          <Dropdown aria-label="Trạng thái hóa đơn" value={status} onChange={(value) => { setStatus(value); setPage(1); }} options={[{ value: "", label: "Tất cả trạng thái" }, { value: "issued", label: "Đã phát hành" }, { value: "void", label: "Đã vô hiệu" }]} variant="filter" size="md" className="w-full" />
         </div>
       </TableFilterToolbar>
 
@@ -456,7 +435,7 @@ export default function RetailInvoicesPageContent() {
       {selectedIds.size > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-xs text-on-surface animate-in fade-in duration-150">
           <div className="flex items-center gap-2">
-            <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-on-primary">
+            <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-on-primary">
               {selectedIds.size}
             </span>
             <span className="font-semibold text-primary">
@@ -502,10 +481,8 @@ export default function RetailInvoicesPageContent() {
       {/* Invoice list */}
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-            <FileText className="h-6 w-6" />
-          </div>
-          <h3 className="mt-3 text-sm font-bold text-slate-800">Không tìm thấy hóa đơn</h3>
+          <StudentEmptyIllustration kind="fee" />
+          <h3 className="mt-3 text-sm font-semibold text-slate-800">Không tìm thấy hóa đơn</h3>
           <p className="mt-1 text-xs text-slate-500">
             Không có hóa đơn nào khớp với từ khóa tìm kiếm hoặc bộ lọc hiện tại.
           </p>
@@ -576,7 +553,7 @@ export default function RetailInvoicesPageContent() {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <span title={invoice.invoiceNo} className="block max-w-56 truncate font-mono font-bold text-slate-900 group-hover:text-cyan-700 transition">
+                        <span title={invoice.invoiceNo} className="block max-w-56 truncate font-mono font-medium text-slate-900 group-hover:text-cyan-700 transition">
                           {invoice.invoiceNo}
                         </span>
                         <span className="mt-0.5 block text-[11px] font-normal text-slate-500">
@@ -584,7 +561,7 @@ export default function RetailInvoicesPageContent() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div title={invoice.snapshot.customerName || "Khách lẻ"} className="max-w-56 truncate font-semibold text-slate-800">
+                        <div title={invoice.snapshot.customerName || "Khách lẻ"} className="max-w-56 truncate font-medium text-slate-800">
                           {invoice.snapshot.customerName || "Khách lẻ"}
                         </div>
                         <div title={invoice.orderCode} className="max-w-56 truncate text-[11px] text-slate-400 font-mono">
@@ -599,7 +576,7 @@ export default function RetailInvoicesPageContent() {
                         </p>
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <span className="font-mono text-sm font-bold text-slate-900">
+                        <span className="font-mono text-sm font-semibold tabular-nums text-cyan-700">
                           {money(invoice.snapshot.grandTotal)}
                         </span>
                       </td>
@@ -718,7 +695,7 @@ export default function RetailInvoicesPageContent() {
       {selected && selected.status === "issued" && Number(selected.snapshot.dueAmount || 0) > 0 && (
         <button
           type="button"
-          className="fixed bottom-6 right-6 z-[60] flex items-center gap-2 rounded-full bg-cyan-600 px-5 py-3 font-bold text-white shadow-xl shadow-cyan-600/30 transition hover:bg-cyan-700 hover:shadow-cyan-600/40 active:scale-95"
+          className="fixed bottom-6 right-6 z-[60] flex items-center gap-2 rounded-full bg-cyan-600 px-5 py-3 font-semibold text-white shadow-xl shadow-cyan-600/30 transition hover:bg-cyan-700 hover:shadow-cyan-600/40 active:scale-95"
           onClick={() => void showPaymentQr(selected)}
         >
           <QrCode className="h-5 w-5" />
@@ -756,7 +733,7 @@ function PaymentQrDialog({ qr, onClose }: { qr: RetailPaymentQr; onClose: () => 
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 p-4 text-left">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-slate-900">QR thanh toán</h2>
+            <h2 className="text-lg font-semibold text-slate-900">QR thanh toán</h2>
           </div>
           <button
             type="button"
@@ -778,13 +755,13 @@ function PaymentQrDialog({ qr, onClose }: { qr: RetailPaymentQr; onClose: () => 
           />
         </div>
 
-        <p className="mt-4 text-2xl font-black tracking-tight text-cyan-700">
+        <p className="mt-4 text-2xl font-semibold tracking-tight text-cyan-700">
           {money(qr.amount)}
         </p>
 
         <div className="mt-2 rounded-xl bg-slate-50 p-3 text-left text-sm border border-slate-100">
           <p className="text-xs text-slate-400 uppercase font-semibold">Nội dung chuyển khoản:</p>
-          <p className="mt-0.5 font-mono text-base font-bold text-slate-900">
+          <p className="mt-0.5 font-mono text-base font-semibold text-slate-900">
             {qr.transferContent || qr.orderCode}
           </p>
         </div>
@@ -866,7 +843,7 @@ function InvoiceDialog({
                 const serialText = serials.join(", ");
                 return <div key={item.productId + "-" + item.sku + "-" + idx} className="grid min-w-0 gap-2 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-4">
                   <p className="min-w-0 font-medium [overflow-wrap:anywhere]">{item.productName} × {item.quantity}</p>
-                  <p className="min-w-0 text-right font-semibold tabular-nums [overflow-wrap:anywhere] sm:max-w-64">{money(item.lineTotal)}</p>
+                  <p className="min-w-0 text-right font-semibold tabular-nums text-cyan-700 [overflow-wrap:anywhere] sm:max-w-64">{money(item.lineTotal)}</p>
                   {serials.length > 0 && (serials.length > 3 || serialText.length > 160 ? <details className="min-w-0 text-xs text-on-surface-variant sm:col-span-2"><summary className="min-h-9 cursor-pointer rounded-lg py-2 focus-visible:outline-2 focus-visible:outline-primary">S/N: {serials.length} mã</summary><p className="leading-5 [overflow-wrap:anywhere]">S/N: {serialText}</p></details> : <p className="min-w-0 text-xs leading-5 text-on-surface-variant [overflow-wrap:anywhere] sm:col-span-2">S/N: {serialText}</p>)}
                 </div>;
               })}
@@ -895,6 +872,6 @@ function InvoiceDialog({
 function Row({ label, value, strong }: { label: string; value: number; strong?: boolean }) {
   return <div className={cn("grid grid-cols-2 items-start gap-x-4", strong ? "text-base font-semibold text-on-surface" : "text-on-surface-variant")}>
     <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
-    <span className="min-w-0 text-right tabular-nums [overflow-wrap:anywhere]">{money(value)}</span>
+    <span className="min-w-0 text-right tabular-nums text-cyan-700 [overflow-wrap:anywhere]">{money(value)}</span>
   </div>;
 }

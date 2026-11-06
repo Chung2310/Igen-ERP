@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, CalendarDays, RotateCcw } from 'lucide-react';
+import { Building2, CalendarDays } from 'lucide-react';
+import { ErpRefreshButton } from '../components/common/ErpRefreshButton';
 import { useAuth } from '../context/AuthContext';
 import { useBranch } from '../context/BranchContext';
 import { AdminDatePicker } from '../components/user-admin/AdminDatePicker';
@@ -46,7 +47,7 @@ export default function BusinessDashboardTab() {
         <p className="mt-2 text-pretty text-sm text-on-surface-variant">{greeting}, <strong className="font-medium text-on-surface">{name}</strong>. Theo dõi hoạt động và những việc cần chú ý hôm nay.</p>
         <p className="mt-1 text-pretty text-xs text-on-surface-variant">{activeBranchId ? activeBranch?.name || userProfile?.branchName || 'Chi nhánh đang chọn' : 'Toàn doanh nghiệp'}{data?.primary && data.primary !== businessType ? ' · Nội dung ưu tiên theo module ' + (data.primary === 'retail' ? 'Bán hàng' : BUSINESS_TYPE_LABELS[data.primary]) + ' đang được cấp quyền' : ''}</p>
       </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-2"><div className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs shadow-sm"><CalendarDays aria-hidden="true" className="size-4 shrink-0 text-primary" /><p className="text-pretty">{date}</p></div><button type="button" onClick={refresh} disabled={loading || !range.valid} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 text-sm font-medium shadow-sm hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-60"><RotateCcw aria-hidden="true" className="size-4" />Làm mới</button></div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2"><div className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs shadow-sm"><CalendarDays aria-hidden="true" className="size-4 shrink-0 text-primary" /><p className="text-pretty">{date}</p></div><ErpRefreshButton onClick={refresh} loading={loading} disabled={!range.valid} /></div>
     </header>
     <section aria-label="Khoảng thời gian thống kê" className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-sm font-medium"><CalendarDays aria-hidden="true" className="size-4 text-primary" />Thống kê theo kỳ</div>

@@ -32,14 +32,9 @@ export function PayrollCustomVariableManager() {
   };
 
   return (
-    <div className="rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-      <div className="flex items-start gap-2.5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D8F5E7] text-[#009965]" aria-hidden="true">
-          <WalletCards size={18} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-medium text-[#08734E]">Khoản bổ sung</h3>
+    <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant px-4 py-3">
+            <h3 className="flex items-center gap-2 text-base font-medium text-on-surface text-balance"><WalletCards className="size-4 text-primary" aria-hidden="true" />Khoản bổ sung</h3>
             <button
               type="button"
               aria-expanded={open}
@@ -47,24 +42,26 @@ export function PayrollCustomVariableManager() {
               onClick={() => setOpen(!open)}
               className={primaryCreateButtonClass}
             >
-              <Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Thêm khoản
+              <Plus className="size-4" aria-hidden="true" /> Thêm khoản
             </button>
-          </div>
+      </div>
+      <div className="p-4">
           {open && (
             <div id="payroll-add-variable-form" className="mb-2 grid gap-2 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px_minmax(0,1fr)_auto]">
-              <input aria-label="Mã khoản" className="h-9 min-w-0 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15" placeholder="Mã khoản" value={form.code} onChange={event => setForm({ ...form, code: event.target.value })} />
-              <input aria-label="Tên khoản" className="h-9 min-w-0 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15" placeholder="Tên khoản" value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} />
+              <input aria-label="Mã khoản" className="h-9 min-w-0 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary" placeholder="Mã khoản" value={form.code} onChange={event => setForm({ ...form, code: event.target.value })} />
+              <input aria-label="Tên khoản" className="h-9 min-w-0 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary" placeholder="Tên khoản" value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} />
               <StyledSelect className="!h-9" value={form.unit} onChange={value => setForm({ ...form, unit: value })} ariaLabel="Đơn vị khoản" options={[{ value: "money", label: "Tiền" }, { value: "number", label: "Số" }, { value: "days", label: "Ngày" }, { value: "hours", label: "Giờ" }, { value: "minutes", label: "Phút" }, { value: "percent", label: "%" }]} />
-              <input className="no-number-spinner h-9 min-w-0 w-full rounded-xl border border-[#DCE7F4] bg-white px-3 text-sm text-slate-700 outline-none transition-colors focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15" type="number" inputMode="decimal" placeholder="Mặc định" value={form.defaultValue} onChange={event => setForm({ ...form, defaultValue: event.target.value })} />
-              <button onClick={() => void create()} className="h-9 rounded-xl bg-[#00A4E8] px-5 text-sm font-medium text-white transition-colors hover:bg-[#008FCB]">Lưu</button>
+              <input aria-label="Giá trị mặc định" className="no-number-spinner h-9 min-w-0 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary" type="number" inputMode="decimal" placeholder="Mặc định" value={form.defaultValue} onChange={event => setForm({ ...form, defaultValue: event.target.value })} />
+              <button type="button" onClick={() => void create()} className="h-9 rounded-lg bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary">Lưu</button>
             </div>
           )}
-          <div className="space-y-2">
+          <div className="divide-y divide-outline-variant">
             {items.map(item => (
-              <div key={item._id} className={`rounded-xl bg-[#E8F8F0] px-3 py-1.5 text-xs ${item.status === "active" ? "text-[#08734E]" : "text-slate-500"}`}>
+              <div key={item._id} className="flex items-center justify-between gap-3 py-2 text-sm text-on-surface">
                 <span className="font-medium">{item.name}</span>
-                <div className="mt-0.5">
+                <div>
                   <button
+                    type="button"
                     onClick={async () => {
                       try {
                         item.status === "active"
@@ -75,7 +72,7 @@ export function PayrollCustomVariableManager() {
                         toast.error(error instanceof Error ? error.message : "Không thể cập nhật");
                       }
                     }}
-                    className="text-[#008C67]"
+                    className="text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"
                   >
                     {item.status === "active" ? "Tắt" : "Bật"}
                   </button>
@@ -83,7 +80,6 @@ export function PayrollCustomVariableManager() {
               </div>
             ))}
           </div>
-        </div>
       </div>
     </div>
   );

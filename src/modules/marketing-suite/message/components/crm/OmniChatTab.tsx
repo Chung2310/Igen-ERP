@@ -8,7 +8,7 @@ import { ExtendedLeadCard } from "../../services/crmService";
 import { AiAssistantConfigPanel } from "./AiAssistantConfigPanel";
 import { resolveAiReplyScope } from "../../../shared/utils/aiReplyScope";
 import { SocialPlatformIcon } from "./SocialPlatformIcon";
-import { DashboardFilledIcon } from "../../../shared/components/common/DashboardFilledIcon";
+import { HrEmptyIllustration } from "../../../../../components/hr/HrEmptyIllustration";
 
 type OmniChatTabProps = {
   inboxCustomers: CustomerInbox[];
@@ -667,10 +667,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   };
 
   return (
-    <div className="flex h-full overflow-hidden bg-[linear-gradient(180deg,#f8fbff_0%,#f4f7fb_100%)]" id="omni_inbox_layout">
+    <div className="flex h-full min-h-0 overflow-hidden bg-surface-container-lowest" id="omni_inbox_layout">
 
       {/* L-Col: Inbox Customers list */}
-      <div className="w-80 border-r border-slate-100 bg-white flex flex-col justify-between shrink-0 h-full shadow-sm" id="inbox_sidebar">
+      <div className="flex h-full w-80 shrink-0 flex-col justify-between border-r border-outline-variant bg-surface-container-lowest" id="inbox_sidebar">
 
         {/* Search & Channel Filters Group */}
         <div className="flex flex-col gap-3 p-4 border-b border-slate-100 shrink-0">
@@ -680,10 +680,11 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
             </div>
             <input
               type="text"
+              aria-label="Tìm tên khách hàng"
               placeholder="Tìm tên khách hàng..."
               value={filterInbox}
               onChange={(e) => setFilterInbox(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-slate-200 bg-slate-50/60 focus:bg-white rounded-xl text-xs outline-none focus:ring-4 focus:ring-[#00ADFC]/10 focus:border-[#00ADFC] transition-all duration-200"
+              className="min-h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant outline-none focus:border-primary focus:ring-0"
               id="inbox_sidebar_search"
             />
           </div>
@@ -703,13 +704,13 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
               onMouseLeave={handleMouseLeave}
               onMouseUp={handleMouseUp}
               onMouseMove={handleMouseMove}
-              className="relative flex bg-slate-100/90 p-1 rounded-xl w-full overflow-x-auto no-scrollbar scroll-smooth select-none cursor-grab active:cursor-grabbing gap-1 border border-slate-200/40"
+              className="relative flex w-full gap-1 overflow-x-auto rounded-md border border-outline-variant bg-surface-container p-1 no-scrollbar select-none cursor-grab active:cursor-grabbing"
               id="inbox_sidebar_channel_tabs"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               {/* Sliding Pill Background Indicator */}
               <div
-                className="absolute top-1 bottom-1 bg-white rounded-lg shadow-sm border border-slate-200/30 transition-all duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                className="absolute top-1 bottom-1 rounded bg-surface-container-lowest border border-outline-variant transition-[transform] duration-150"
                 style={{
                   width: `${indicatorStyle.width}px`,
                   left: `${indicatorStyle.left}px`,
@@ -734,12 +735,12 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                     onClick={() => setActiveChannel(tab.key)}
                     className={`relative z-10 shrink-0 flex items-center gap-1.5 py-1.5 px-3 rounded-lg transition-all duration-300 cursor-pointer whitespace-nowrap ${
                       isTabActive
-                        ? "text-slate-900 font-extrabold"
-                        : "text-slate-500 hover:text-slate-800 font-bold"
+                        ? "text-on-surface font-semibold"
+                        : "text-on-surface-variant hover:text-on-surface font-medium"
                     }`}
                   >
                     {tab.icon}
-                    <span className="text-[10px] leading-none">{tab.label}</span>
+                    <span className="text-xs leading-none">{tab.label}</span>
                     <span className={`px-1 py-0.5 rounded-full text-[8px] font-extrabold transition-colors duration-300 leading-none ${
                       isTabActive ? "bg-[#00ADFC] text-white" : "bg-slate-200/80 text-slate-500"
                     }`}>
@@ -857,7 +858,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 })}
 
               {inboxCustomers.length === 0 && (
-                <div className="p-8 text-center text-slate-400 text-xs italic">
+                <div className="flex flex-col items-center gap-1 p-6 text-center text-xs text-on-surface-variant">
+                  <HrEmptyIllustration kind="notification" className="h-16 w-28" />
                   Chưa có cuộc hội thoại nào.
                 </div>
               )}
@@ -867,7 +869,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       </div>
 
       {/* M-Col: Active Conversation details */}
-      <div className="flex-1 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.22),_transparent_32%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] flex flex-col justify-between h-full overflow-hidden" id="chat_conversation_area">
+      <div className="flex h-full min-w-0 flex-1 flex-col justify-between overflow-hidden bg-surface-container-lowest" id="chat_conversation_area">
         {isInboxLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-white">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-[#00ADFC] mb-3" />
@@ -876,11 +878,9 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
           </div>
         ) : !activeCustomer ? (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-white">
-            <span className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#EAF8FF] text-[#00ADFC]">
-              <DashboardFilledIcon name="inbox" className="h-8 w-8" />
-            </span>
-            <h4 className="font-medium text-slate-800 text-sm font-sans mb-1">Chưa chọn cuộc hội thoại</h4>
-            <p className="text-[11px] text-slate-400 leading-normal max-w-xs font-sans">Vui lòng chọn một cuộc trò chuyện từ danh sách bên trái hoặc nhắn tin từ thẻ cơ hội bán hàng để bắt đầu.</p>
+            <HrEmptyIllustration kind="notification" className="mb-2 h-24 w-40" />
+            <h4 className="mb-1 text-sm font-medium text-on-surface">Chưa chọn cuộc hội thoại</h4>
+            <p className="max-w-xs text-pretty text-xs leading-normal text-on-surface-variant">Vui lòng chọn một cuộc trò chuyện từ danh sách bên trái hoặc nhắn tin từ thẻ cơ hội bán hàng để bắt đầu.</p>
           </div>
         ) : (
           <>

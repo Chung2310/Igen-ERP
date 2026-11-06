@@ -63,3 +63,11 @@ it("requires a new token when changing the account identity", async () => {
   fireEvent.submit(form);
   expect(socialIntegrationService.updateIntegration).not.toHaveBeenCalled();
 });
+
+it.each(["Facebook", "Zalo"] as const)("renders the new %s connection form without crashing", async (platform) => {
+  vi.mocked(socialIntegrationService.getIntegrations).mockResolvedValue([]);
+  render(<CompanyIntegrationsTab userProfile={{ email: "user@erp.test", companyCode: "ERP", role: "admin" }} />);
+  await waitFor(() => expect(socialIntegrationService.getIntegrations).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("radio", { name: platform }));
+  expect(screen.getByPlaceholderText(platform === "Facebook" ? "Vi du: Fanpage Chinh thuc" : "Vi du: Zalo OA Shop")).toBeTruthy();
+});

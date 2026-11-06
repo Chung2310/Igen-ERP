@@ -535,7 +535,7 @@ export function VariantMatrixBuilder({
                   />
                 </div>
               )}
-              {validOptions.length > 0 && (
+              {validOptions.length > 0 && variantsMatrix.length > 0 ? <ErpRefreshButton onClick={handleConfirmGenerate} title="Tạo lại danh sách phiên bản từ các thuộc tính đã chọn" /> : validOptions.length > 0 && (
                 <button
                   type="button"
                   onClick={handleConfirmGenerate}
@@ -543,7 +543,7 @@ export function VariantMatrixBuilder({
                   className="inline-flex items-center gap-1.5 rounded-md bg-cyan-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-cyan-800 transition-colors"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  {variantsMatrix.length === 0 ? "Tạo danh sách" : "Làm mới"}
+                  Tạo danh sách
                 </button>
               )}
               {variantsMatrix.length > 0 && (
@@ -837,3 +837,4 @@ export function VariantMatrixBuilder({
     </div>
   );
 }
+import { ErpRefreshButton } from "../../common/ErpRefreshButton";

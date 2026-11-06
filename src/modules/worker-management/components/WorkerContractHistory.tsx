@@ -3,6 +3,16 @@ import { History, Lock } from "lucide-react";
 import { toDisplayDate } from "../utils/contractDate";
 import { workerContractStatusLabel } from "../types";
 import type { WorkerLaborContract } from "../types";
+import { HrEmptyIllustration } from "../../../components/hr/HrEmptyIllustration";
+import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
+
+const statusTone: Record<WorkerLaborContract["status"], "neutral" | "success" | "info" | "danger"> = {
+  draft: "neutral",
+  active: "success",
+  renewed: "info",
+  expired: "danger",
+  terminated: "neutral",
+};
 
 type Props = {
   contracts: WorkerLaborContract[];
@@ -21,9 +31,7 @@ export function WorkerContractHistory({ contracts, emptyText }: Props) {
 
   if (!ordered.length) {
     return (
-      <p className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
-        {emptyText || "Chưa có hợp đồng nào."}
-      </p>
+      <div className="flex flex-col items-center rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-6 text-center"><HrEmptyIllustration kind="contract" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">{emptyText || "Chưa có hợp đồng nào."}</p></div>
     );
   }
 
@@ -32,39 +40,37 @@ export function WorkerContractHistory({ contracts, emptyText }: Props) {
       {ordered.map((contract) => (
         <li
           key={contract._id}
-          className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
+          className="flex items-start gap-3 rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 shadow-xs"
         >
-          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs text-slate-600">
+          <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-container-low text-xs tabular-nums text-on-surface-variant">
             {contract.sequence || 1}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium text-slate-900">{contract.code}</span>
-              <span className="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-500">
-                {workerContractStatusLabel[contract.status]}
-              </span>
+              <span className="text-sm font-medium text-on-surface">{contract.code}</span>
+              <HrStatusBadge tone={statusTone[contract.status]} dot>{workerContractStatusLabel[contract.status]}</HrStatusBadge>
               {contract.lockedAt && (
                 <span
                   title="Kỳ đã kết thúc, không thể sửa ngày và điều khoản"
-                  className="flex items-center gap-1 text-xs text-slate-500"
+                  className="flex items-center gap-1 text-xs text-on-surface-variant"
                 >
                   <Lock className="h-3 w-3" />
                   Đã khóa
                 </span>
               )}
             </div>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-pretty text-sm text-on-surface-variant">
               {contract.clientName} · {toDisplayDate(contract.startDate)} →{" "}
               {toDisplayDate(contract.endDate)}
             </p>
             {contract.previousEndDate && (
-              <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+              <p className="mt-0.5 flex items-center gap-1 text-pretty text-xs text-on-surface-variant">
                 <History className="h-3 w-3" />
                 Gia hạn từ kỳ trước kết thúc {toDisplayDate(contract.previousEndDate)}
               </p>
             )}
             {contract.note && (
-              <p className="mt-0.5 text-xs italic text-slate-500">{contract.note}</p>
+              <p className="mt-0.5 text-pretty text-xs italic text-on-surface-variant">{contract.note}</p>
             )}
           </div>
         </li>

@@ -18,3 +18,17 @@ test("shows Vietnamese dates and keeps ISO values for the payroll form", () => {
   expect(onChange).toHaveBeenCalledWith("2026-10-18");
   expect(screen.queryByRole("dialog", { name: "Chọn hiệu lực từ" })).toBeNull();
 });
+
+test("renders the calendar inside its owning modal and keeps a required date", () => {
+  const modal = document.createElement("dialog");
+  modal.setAttribute("open", "");
+  document.body.appendChild(modal);
+  render(<PayrollDatePicker label="Ngày chi" value="2026-11-04" onChange={vi.fn()} clearable={false} portalTarget={() => modal} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Ngày chi" }));
+  const calendar = screen.getByRole("dialog", { name: "Chọn ngày chi" });
+  expect(calendar.parentElement).toBe(modal);
+  expect(within(calendar).queryByRole("button", { name: "Xóa ngày" })).toBeNull();
+
+  modal.remove();
+});

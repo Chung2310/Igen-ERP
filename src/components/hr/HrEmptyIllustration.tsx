@@ -12,6 +12,9 @@ export type HrEmptyIllustrationKind =
   | "payroll"
   | "leave"
   | "recruitment"
+  | "worker"
+  | "project"
+  | "notification"
   | "search";
 
 function Subject({ kind }: { kind: HrEmptyIllustrationKind }) {
@@ -38,6 +41,12 @@ function Subject({ kind }: { kind: HrEmptyIllustrationKind }) {
       return <><path d="M57 21h35l12 12v41H57a5 5 0 0 1-5-5V26a5 5 0 0 1 5-5Z" /><path d="M92 21v12h12M65 47h23M65 56h16m3 12 5 5 10-12" /></>;
     case "recruitment":
       return <><rect x="48" y="25" width="64" height="48" rx="5" /><path d="M69 25v-6h22v6M48 39h64" /><circle cx="70" cy="51" r="6" /><path d="M59 66c1-6 5-9 11-9s10 3 11 9M91 50h13M91 58h10" /></>;
+    case "worker":
+      return <><rect x="49" y="22" width="62" height="53" rx="5" /><circle cx="69" cy="43" r="7" /><path d="M57 64c1-8 5-12 12-12s11 4 12 12M89 39h14M89 47h11M89 55h8" /></>;
+    case "project":
+      return <><rect x="43" y="31" width="74" height="43" rx="5" /><path d="M64 31v-8h32v8M43 46h74M73 45v8h14v-8" /></>;
+    case "notification":
+      return <><path d="M80 22c-12 0-20 9-20 22v11c0 5-3 8-7 11h54c-4-3-7-6-7-11V44c0-13-8-22-20-22Z" /><path d="M74 72c1 5 3 7 6 7s5-2 6-7" /></>;
     case "search":
       return <><path d="M55 22h34l12 12v39a5 5 0 0 1-5 5H55a5 5 0 0 1-5-5V27a5 5 0 0 1 5-5Z" /><path d="M89 22v12h12M61 43h24M61 52h17" /><circle cx="93" cy="63" r="10" /><path d="m100 70 9 9" /></>;
   }

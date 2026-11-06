@@ -1,4 +1,5 @@
 import "../../shared/marketing-workspace.css";
+import { ErpRefreshButton } from "../../../../components/common/ErpRefreshButton";
 import {
   AlertCircle,
   AlertTriangle,
@@ -10,7 +11,6 @@ import {
   Link2,
   LoaderCircle,
   MessageSquare,
-  RefreshCw,
   Search,
   Send,
   Settings2,
@@ -532,17 +532,7 @@ export default function CompanyKnowledgePage() {
                 <span>Xóa toàn bộ tri thức</span>
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => void loadData()}
-              disabled={loading}
-              className="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-blue-650 disabled:opacity-50 cursor-pointer"
-              title="Làm mới"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-              />
-            </button>
+            <ErpRefreshButton onClick={() => void loadData()} loading={loading} />
           </div>
         </header>
 

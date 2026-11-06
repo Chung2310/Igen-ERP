@@ -1,13 +1,15 @@
 import React from "react";
-import { ChartColumn, Download, RefreshCw, Store } from "lucide-react";
+import { Download, RefreshCw, Store } from "lucide-react";
 import { retailReportsApi } from "../api/retailReports.api";
 import RetailKpiGrid from "../components/reports/RetailKpiGrid";
 import RetailReportFilters from "../components/reports/RetailReportFilters";
 import RetailReportTables from "../components/reports/RetailReportTables";
 import RetailSalesCharts from "../components/reports/RetailSalesCharts";
+import RetailOverviewDashboard from "../components/reports/RetailOverviewDashboard";
 import { validateRetailReportRange } from "../components/reports/retailReportRange";
 import { useRetailScope } from "../hooks/useRetailScope";
 import { useBranchOptional } from "../../../context/BranchContext";
+import { Dropdown } from "../../../components/common/Dropdown";
 import type { RetailReport, RetailReportFilters as RetailReportFilterValue } from "../types";
 
 const REPORT_PRESET_PARAM = "reportPreset";
@@ -116,7 +118,7 @@ function RetailReportsSkeleton() {
   );
 }
 
-export default function RetailReportsPage() {
+export default function RetailReportsPage({ overview = false }: { overview?: boolean }) {
   const { scope: workingScope, userProfile, branchName: scopeBranchName, activeBranch: scopeBranch } = useRetailScope() as any;
   const branchContext = useBranchOptional();
   const canSelectBranches = userProfile?.role === "admin" || userProfile?.role === "superadmin";
@@ -254,7 +256,7 @@ export default function RetailReportsPage() {
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-amber-200 bg-amber-50/70 p-12 text-center text-amber-800">
         <Store className="mb-3 h-10 w-10 text-amber-500" />
-        <p className="font-bold text-sm">Vui lòng chọn chi nhánh để xem báo cáo.</p>
+        <p className="font-semibold text-sm">Vui lòng chọn chi nhánh để xem báo cáo.</p>
       </div>
     );
   }
@@ -262,14 +264,11 @@ export default function RetailReportsPage() {
   return (
     <section className="space-y-3.5" aria-busy={loading}>
       {/* Top Header Card with integrated Branch Selector */}
-      <header className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+      <header className="flex flex-col gap-3 border-b border-outline-variant pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white shadow-xs">
-            <ChartColumn className="h-4 w-4" />
-          </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-base sm:text-lg font-bold text-slate-900">Báo cáo bán hàng</h1>
+              <h1 className="retail-page-title text-balance text-base font-semibold text-on-surface sm:text-lg">Báo cáo bán hàng</h1>
               {branchDisplayName && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50/80 px-2 py-0.5 text-xs font-semibold text-cyan-800">
                   <Store className="h-3 w-3" />
@@ -282,24 +281,14 @@ export default function RetailReportsPage() {
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* Branch selector inline */}
-            <select
-              id="report-branch"
-              aria-label="Chi nhánh báo cáo"
-              value={selectedBranch || ""}
-              disabled={!canSelectBranches || branchContext?.loading}
-              onChange={event => setReportBranch({ workingKey, id: event.target.value })}
-              className="text-xs font-medium text-slate-800 outline-none cursor-pointer disabled:opacity-50"
-            >
-              {canSelectBranches && <option value="all">Tất cả chi nhánh</option>}
-              {branchOptions.map(branch => <option key={branch._id} value={branch._id}>{branch.name}</option>)}
-            </select>
+            <Dropdown id="report-branch" aria-label="Chi nhánh báo cáo" value={selectedBranch || ""} disabled={!canSelectBranches || branchContext?.loading} onChange={(value) => setReportBranch({ workingKey, id: value })} options={[...(canSelectBranches ? [{ value: "all", label: "Tất cả chi nhánh" }] : []), ...branchOptions.map((branch) => ({ value: branch._id, label: branch.name }))]} variant="filter" size="sm" searchable />
 
           <button
             type="button"
             aria-label="Tải lại báo cáo"
             disabled={loading}
             onClick={() => setReloadToken((value) => value + 1)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-xs font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw
               aria-hidden="true"
@@ -311,7 +300,7 @@ export default function RetailReportsPage() {
             type="button"
             disabled={exporting}
             onClick={() => void exportReport()}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-2xs transition hover:from-cyan-500 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition hover:from-cyan-500 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
           >
             <Download aria-hidden="true" className="h-3.5 w-3.5" />
             <span>{exporting ? "Đang xuất..." : "Xuất Excel"}</span>
@@ -337,7 +326,7 @@ export default function RetailReportsPage() {
           <button
             type="button"
             onClick={() => setReloadToken((value) => value + 1)}
-            className="shrink-0 rounded-xl bg-white px-3.5 py-1.5 font-bold text-red-700 shadow-xs border border-red-200 hover:bg-red-50 cursor-pointer"
+            className="shrink-0 rounded-xl bg-white px-3.5 py-1.5 font-semibold text-red-700 shadow-xs border border-red-200 hover:bg-red-50 cursor-pointer"
           >
             Thử tải lại
           </button>
@@ -370,13 +359,12 @@ export default function RetailReportsPage() {
           {loading && (
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-cyan-600 animate-ping" />
-              <p role="status" className="text-xs font-bold text-cyan-700">
+              <p role="status" className="text-xs font-semibold text-cyan-700">
                 Đang cập nhật dữ liệu...
               </p>
             </div>
           )}
-          <RetailKpiGrid report={visibleReport} />
-          <RetailSalesCharts report={visibleReport} />
+          {overview ? <RetailOverviewDashboard report={visibleReport} filters={filters} scope={scope} /> : <><RetailKpiGrid report={visibleReport} /><RetailSalesCharts report={visibleReport} /></>}
           <RetailReportTables report={visibleReport} />
         </div>
       )}

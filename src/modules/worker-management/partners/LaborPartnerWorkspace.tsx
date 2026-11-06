@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ModuleNavigation, ModuleNavigationButton } from "../../../components/common/ModuleNavigation";
-import { FileSliders, Handshake, Plus, RefreshCw, Target, UsersRound } from "lucide-react";
+import { FileSliders, Handshake, Plus, Target, UsersRound } from "lucide-react";
+import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 import { useAuth } from "../../../context/AuthContext";
 import type { WorkerScope } from "../types";
 import { laborPartnersApi } from "./api/laborPartners.api";
@@ -77,28 +78,28 @@ export function LaborPartnerWorkspace() {
   const tabs: Array<{ value: WorkspaceTab; label: string; icon: typeof Handshake }> = [
     { value: "partners", label: "Đối tác", icon: Handshake }, { value: "policies", label: "Chính sách hoa hồng", icon: FileSliders }, { value: "kpi", label: "KPI giới thiệu", icon: Target }, { value: "settlements", label: "Đối soát", icon: UsersRound },
   ];
-  const navigation = <ModuleNavigation label="Mục Đối tác lao động" activeValue={tab} actions={<button type="button" onClick={() => { void reload(); void loadPolicies(); }} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-3 text-xs font-semibold text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary sm:min-h-9"><RefreshCw className="size-4" aria-hidden="true" />Làm mới</button>}>
+  const navigation = <ModuleNavigation label="Mục Đối tác lao động" activeValue={tab} actions={<ErpRefreshButton onClick={() => { void reload(); void loadPolicies(); }} />}>
     {tabs.map(({ value, label, icon: Icon }) => <ModuleNavigationButton key={value} active={tab === value} icon={<Icon />} onClick={() => setTab(value)}>{label}</ModuleNavigationButton>)}
   </ModuleNavigation>;
-  if (tab === "partners") return <div className="labor-partner-workspace mx-auto flex w-full max-w-none flex-col gap-4">
+  if (tab === "partners") return <div className="labor-partner-workspace mx-auto flex min-h-full w-full max-w-none flex-col gap-3 bg-surface px-3 py-0 text-on-surface">
     <h1 className="sr-only text-balance">Đối tác lao động</h1>
     {navigation}
-    <LaborPartnerManagementPanel scope={scope} partners={partners} policies={policies} policyError={policyError} workers={workers} loading={loading} error={error} canManage={canManagePartners} reload={reload} openPartnerId={partnerToOpen} />
+    <main className="labor-partner-content min-w-0 flex-1 rounded-md border border-outline-variant bg-surface-container-lowest p-4"><LaborPartnerManagementPanel scope={scope} partners={partners} policies={policies} policyError={policyError} workers={workers} loading={loading} error={error} canManage={canManagePartners} reload={reload} openPartnerId={partnerToOpen} /></main>
   </div>;
-  if (tab === "policies") return <div className="labor-partner-workspace mx-auto flex w-full max-w-none flex-col gap-4">
+  if (tab === "policies") return <div className="labor-partner-workspace mx-auto flex min-h-full w-full max-w-none flex-col gap-3 bg-surface px-3 py-0 text-on-surface">
     <h1 className="sr-only text-balance">Đối tác lao động</h1>
     {navigation}
-    <LaborPartnerPoliciesPanel scope={scope} policies={policies} error={policyError} canManage={canManagePolicies} reload={loadPolicies} />
+    <main className="labor-partner-content min-w-0 flex-1 rounded-md border border-outline-variant bg-surface-container-lowest p-4"><LaborPartnerPoliciesPanel scope={scope} policies={policies} error={policyError} canManage={canManagePolicies} reload={loadPolicies} /></main>
   </div>;
-  if (tab === "kpi") return <div className="labor-partner-workspace mx-auto flex w-full max-w-none flex-col gap-4">
+  if (tab === "kpi") return <div className="labor-partner-workspace mx-auto flex min-h-full w-full max-w-none flex-col gap-3 bg-surface px-3 py-0 text-on-surface">
     <h1 className="sr-only text-balance">Đối tác lao động</h1>
     {navigation}
-    <LaborPartnerKpiPanel scope={scope} canManage={canManagePartners} onOpenSettlements={() => setTab("settlements")} />
+    <main className="labor-partner-content min-w-0 flex-1 rounded-md border border-outline-variant bg-surface-container-lowest p-4"><LaborPartnerKpiPanel scope={scope} canManage={canManagePartners} onOpenSettlements={() => setTab("settlements")} /></main>
   </div>;
-  if (tab === "settlements") return <div className="labor-partner-workspace mx-auto flex w-full max-w-none flex-col gap-4">
+  if (tab === "settlements") return <div className="labor-partner-workspace mx-auto flex min-h-full w-full max-w-none flex-col gap-3 bg-surface px-3 py-0 text-on-surface">
     <h1 className="sr-only text-balance">Đối tác lao động</h1>
     {navigation}
-    <LaborPartnerSettlementsPanel scope={scope} partners={partners} workers={workers} canCalculate={canCalculate} canApprove={canApprove} canPayout={canPayout} onSettlementCalculated={(partnerId) => { setPartnerToOpen(partnerId); setTab("partners"); }} />
+    <main className="labor-partner-content min-w-0 flex-1 rounded-md border border-outline-variant bg-surface-container-lowest p-4"><LaborPartnerSettlementsPanel scope={scope} partners={partners} workers={workers} canCalculate={canCalculate} canApprove={canApprove} canPayout={canPayout} onSettlementCalculated={(partnerId) => { setPartnerToOpen(partnerId); setTab("partners"); }} /></main>
   </div>;
   return <div className="mx-auto flex max-w-7xl flex-col gap-5">
     <h1 className="sr-only text-balance">Đối tác lao động</h1>

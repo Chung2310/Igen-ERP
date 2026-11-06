@@ -26,6 +26,10 @@ import { ConfirmDialog } from "../../common/ConfirmDialog";
 import { DateInput24 } from "../../common/TimeInput24";
 import { StyledSelect } from "../../common/StyledSelect";
 import { primaryCreateButtonClass } from "../../common/primaryCreateButton";
+import { useAuth } from "../../../context/AuthContext";
+import { useBranch } from "../../../context/BranchContext";
+import { authService } from "../../../services/authService";
+import { hrDepartmentService } from "../../../services/hrDepartmentService";
 
 const emptyJob = {
   code: "",
@@ -135,8 +139,8 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
     }
   };
   return (
-    <div className="space-y-4 p-4 sm:p-5">
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-3 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
+    <div className="space-y-4 px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full min-w-0 sm:w-80">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#91A6BF]" />
           <input
@@ -169,52 +173,52 @@ export default function RecruitmentJobsView({ canManage }: { canManage: boolean 
         }
       />
       {!loading && jobs.length > 0 && (
-        <div className="overflow-x-auto rounded-2xl bg-white shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
-          <table className="w-full min-w-[820px] text-left text-sm">
-            <thead className="bg-[#EAF6FE] text-xs font-medium text-[#087BDF]">
+        <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest">
+          <table className="w-full min-w-[820px] border-collapse text-left text-sm text-on-surface">
+            <thead className="bg-surface text-xs text-on-surface-variant">
               <tr>
-                <th className="px-4 py-3">Vị trí</th>
-                <th className="px-4 py-3">Phòng ban</th>
-                <th className="px-4 py-3">Số lượng</th>
-                <th className="px-4 py-3">Hạn nộp</th>
-                <th className="px-4 py-3">Trạng thái</th>
-                {canManage && <th className="px-4 py-3 text-right">Thao tác</th>}
+                <th scope="col" className="px-4 py-3 font-medium">Vị trí</th>
+                <th scope="col" className="px-4 py-3 font-medium">Phòng ban</th>
+                <th scope="col" className="px-4 py-3 font-medium">Số lượng</th>
+                <th scope="col" className="px-4 py-3 font-medium">Hạn nộp</th>
+                <th scope="col" className="px-4 py-3 font-medium">Trạng thái</th>
+                {canManage && <th scope="col" className="px-4 py-3 text-right font-medium">Thao tác</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EDF3F9] text-[#15396C]">
+            <tbody className="divide-y divide-outline-variant">
               {jobs.map((job) => (
-                <tr key={job._id} className="hover:bg-[#F8FCFF]">
-                  <td className="px-4 py-3">
+                <tr key={job._id} className="hover:bg-surface/60">
+                  <td className="px-4 py-2">
                     {canManage ? (
                       <button
-                        className="font-medium text-[#087BDF] hover:underline"
+                        className="font-medium text-on-surface hover:underline"
                         onClick={() => setEditing(job)}
                       >
                         {job.title || "Chưa đặt tên"}
                       </button>
                     ) : (
-                      <div className="font-medium text-[#15396C]">{job.title || "Chưa đặt tên"}</div>
+                      <div className="font-medium text-on-surface">{job.title || "Chưa đặt tên"}</div>
                     )}
-                    <div className="text-xs text-slate-500">{job.code}</div>
+                    <div className="text-xs text-on-surface-variant">{job.code}</div>
                   </td>
-                  <td className="px-4 py-3">{job.department || "-"}</td>
-                  <td className="px-4 py-3">{job.headcount}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2">{job.department || "-"}</td>
+                  <td className="px-4 py-2 tabular-nums">{job.headcount}</td>
+                  <td className="px-4 py-2 tabular-nums">
                     {job.applicationDeadline
                       ? new Date(job.applicationDeadline).toLocaleDateString(
                           "vi-VN",
                         )
                       : "-"}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2">
                     {canManage ? (
-                      <StyledSelect ariaLabel={`Trạng thái ${job.code}`} className={`min-w-32 ${statusTone[job.status]}`} value={job.status} disabled={changingStatusJobId === job._id} onChange={(value) => void changeStatus(job, value as RecruitmentJobStatus)} options={Object.entries(statusLabel).map(([value, label]) => ({ value, label }))} />
+                      <StyledSelect ariaLabel={`Trạng thái ${job.code}`} className="h-9 min-w-32 rounded-md" appearance="erp" value={job.status} disabled={changingStatusJobId === job._id} onChange={(value) => void changeStatus(job, value as RecruitmentJobStatus)} options={Object.entries(statusLabel).map(([value, label]) => ({ value, label }))} />
                     ) : (
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusTone[job.status]}`}>{statusLabel[job.status]}</span>
                     )}
                   </td>
                   {canManage && (
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       <div className="flex justify-end gap-1">
                         <button
                           type="button"
@@ -273,6 +277,11 @@ function JobDialog({
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
+  const { userProfile } = useAuth();
+  const { activeBranchId } = useBranch();
+  const [departmentOptions, setDepartmentOptions] = useState<{ value: string; label: string; disabled?: boolean }[]>([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [departmentsError, setDepartmentsError] = useState("");
   const [form, setForm] = useState<any>(
     job
       ? {
@@ -288,6 +297,34 @@ function JobDialog({
   const [temporaryPublicId, setTemporaryPublicId] = useState("");
   const [saved, setSaved] = useState(false);
   const [submitError, setSubmitError] = useState<{ message: string; details: string[] } | null>(null);
+  useEffect(() => {
+    let active = true;
+    const companyCode = userProfile?.companyCode;
+    if (!companyCode || !activeBranchId) {
+      setDepartmentOptions([]);
+      setDepartmentsError("");
+      setDepartmentsLoading(false);
+      return () => { active = false; };
+    }
+    setDepartmentsLoading(true);
+    setDepartmentsError("");
+    Promise.all([
+      hrDepartmentService.list(companyCode),
+      authService.getUsersByCompany(companyCode, activeBranchId),
+    ]).then(([departments, users]) => {
+      if (!active) return;
+      const branchDepartments = new Set(users.map((user) => user.department?.trim().toLocaleLowerCase("vi")).filter(Boolean));
+      setDepartmentOptions(departments
+        .filter((department) => department.isActive !== false && branchDepartments.has(department.name.trim().toLocaleLowerCase("vi")))
+        .map((department) => ({ value: department.name, label: department.name })));
+    }).catch((reason) => {
+      if (active) setDepartmentsError(getApiErrorMessage(reason, "Không thể tải phòng ban của chi nhánh."));
+    }).finally(() => { if (active) setDepartmentsLoading(false); });
+    return () => { active = false; };
+  }, [userProfile?.companyCode, activeBranchId]);
+  const availableDepartmentOptions = job?.department && !departmentOptions.some((option) => option.value === job.department)
+    ? [{ value: job.department, label: `${job.department} (phòng ban cũ)`, disabled: true }, ...departmentOptions]
+    : departmentOptions;
   const set = (key: string, value: any) =>
     setForm((old: any) => ({ ...old, [key]: value }));
   const submit = async (e: React.FormEvent) => {
@@ -361,14 +398,21 @@ function JobDialog({
             onChange={(e) => set("title", e.target.value)}
           />
         </label>
-        <label className={labelClass}>
+        <div className={labelClass}>
           Phòng ban
-          <input
-            className={fieldClass}
+          <StyledSelect
+            ariaLabel="Phòng ban"
             value={form.department}
-            onChange={(e) => set("department", e.target.value)}
+            onChange={(value) => set("department", value)}
+            options={availableDepartmentOptions}
+            placeholder={departmentsLoading ? "Đang tải phòng ban..." : "Chọn phòng ban"}
+            disabled={departmentsLoading || Boolean(departmentsError) || availableDepartmentOptions.length === 0}
+            appearance="erp"
+            describedBy={departmentsError || (!departmentsLoading && availableDepartmentOptions.length === 0) ? "recruitment-department-note" : undefined}
           />
-        </label>
+          {departmentsError && <span id="recruitment-department-note" role="alert" className="text-xs text-error">{departmentsError}</span>}
+          {!departmentsLoading && !departmentsError && availableDepartmentOptions.length === 0 && <span id="recruitment-department-note" className="text-xs text-on-surface-variant">Chi nhánh này chưa có phòng ban được sử dụng.</span>}
+        </div>
         <label className={labelClass}>
           Số lượng
           <input

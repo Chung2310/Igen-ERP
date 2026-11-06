@@ -1,4 +1,5 @@
-import { ArrowRight, BookOpenCheck, RefreshCw } from "lucide-react";
+import { ArrowRight, BookOpenCheck } from "lucide-react";
+import { ErpRefreshButton } from "../../../../../components/common/ErpRefreshButton";
 import { useCallback, useEffect, useState } from "react";
 import {
   CompanyKnowledgeHealth,
@@ -70,15 +71,7 @@ export function KnowledgeCenterSummaryCard({
             </span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void loadHealth()}
-          disabled={loading}
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-indigo-650 disabled:opacity-50"
-          title="Làm mới trạng thái"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <ErpRefreshButton iconOnly aria-label="Làm mới trạng thái" title="Làm mới trạng thái" loading={loading} onClick={() => void loadHealth()} />
       </div>
       <button
         type="button"

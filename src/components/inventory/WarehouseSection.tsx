@@ -9,6 +9,8 @@ import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
 import { MetricBar } from "../common/MetricBar";
+import { InventoryEmptyIllustration } from "./InventoryEmptyIllustration";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { InventoryCountingModal } from "./InventoryCountingSection";
 import { WarehouseSerialDetailModal } from "./WarehouseSerialDetailModal";
 import { useBranch } from "../../context/BranchContext";
@@ -389,14 +391,7 @@ export function WarehouseSection() {
             Xuất Excel
           </button>
 
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs whitespace-nowrap"
-            title="Tải lại số dư kho"
-          >
-            Làm mới
-          </button>
+          <ErpRefreshButton onClick={() => void load()} title="Tải lại số dư kho" />
         </div>
       </div>
 
@@ -424,6 +419,7 @@ export function WarehouseSection() {
 
       {/* 2. Compact Sleek Metric Bar */}
       <MetricBar
+        id="inventory_warehouse_metrics"
         items={[
           {
             label: "Tổng giá trị tồn kho",
@@ -538,7 +534,7 @@ export function WarehouseSection() {
       {/* 4. Main Inventory Stock Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-sm">
+          <table id="inventory_stock_table" className="w-full min-w-[960px] text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">
               <tr>
                 <th className="w-[36%] px-4 py-3.5">Sản phẩm & Biến thể SKU</th>
@@ -560,12 +556,8 @@ export function WarehouseSection() {
               ) : pageGroups.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-16 text-center text-slate-500">
+                    <InventoryEmptyIllustration kind={searchQuery || stockFilter !== "all" ? "search" : "warehouse"} className="mx-auto" />
                     <p className="font-semibold text-slate-700">Không tìm thấy sản phẩm nào phù hợp</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {searchQuery || stockFilter !== "all"
-                        ? "Thử xóa bộ lọc hoặc tìm với từ khóa khác."
-                        : "Kho hiện chưa có sản phẩm nào được nhập vào."}
-                    </p>
                   </td>
                 </tr>
               ) : (

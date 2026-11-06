@@ -4,14 +4,15 @@ import { StyledSelect } from "../../../components/common/StyledSelect";
 import { cn } from "../../student-management/lib/utils";
 import { orderWarrantyService, type OrderWarrantyResult, type OrderWarrantyStatus } from "../../../services/orderWarrantyService";
 import { useRetailScope } from "../hooks/useRetailScope";
+import { RetailEmptyState } from "../components/RetailEmptyState";
 
 const statusLabels: Record<OrderWarrantyStatus, string> = {
   active: "Còn bảo hành", expiring: "Sắp hết hạn", expired: "Hết bảo hành",
   pending: "Chưa bắt đầu", none: "Không áp dụng", unrecorded: "Chưa ghi nhận",
 };
 const dateLabel = (value?: string) => value ? new Date(value).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
-const controlClass = "h-11 w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal leading-5 text-on-surface placeholder:text-on-surface/60 hover:border-primary focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary focus-visible:ring-0";
-const buttonClass = "min-h-11 rounded-lg border border-outline px-4 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50";
+const controlClass = "h-10 w-full min-w-0 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal leading-5 text-on-surface placeholder:text-on-surface-variant hover:border-primary focus-visible:border-primary focus-visible:outline-2 focus-visible:outline-primary focus-visible:ring-0";
+const buttonClass = "h-9 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
 
 function OrderWarrantyContent({ companyCode, branchId }: { companyCode: string; branchId: string }) {
   const [search, setSearch] = useState("");
@@ -30,12 +31,11 @@ function OrderWarrantyContent({ companyCode, branchId }: { companyCode: string; 
     return () => controller.abort();
   }, [companyCode, branchId, filters, reload]);
 
-  return <section className="space-y-4 text-on-surface">
-    <header>
-      <h2 className="text-balance text-xl font-semibold">Bảo hành theo đơn hàng</h2>
-      <p className="mt-1 text-pretty text-sm text-on-surface-variant">Tra cứu sản phẩm đã bán theo đơn hàng, hóa đơn hoặc khách hàng. Thời hạn được ghi nhận theo chính sách tại lúc bán.</p>
+  return <section className="flex flex-1 flex-col gap-4 text-on-surface">
+    <header className="border-b border-outline-variant pb-3">
+      <h2 className="retail-page-title text-balance text-lg font-semibold">Bảo hành theo đơn hàng</h2>
     </header>
-    <form onSubmit={event => { event.preventDefault(); setFilters(previous => ({ ...previous, q: search.trim(), page: 1 })); }} className="grid grid-cols-1 items-end gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:grid-cols-2 xl:flex">
+    <form onSubmit={event => { event.preventDefault(); setFilters(previous => ({ ...previous, q: search.trim(), page: 1 })); }} className="grid grid-cols-1 items-end gap-3 border-b border-outline-variant pb-4 sm:grid-cols-2 xl:flex">
       <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-on-surface sm:col-span-2 xl:flex-1">Tìm bảo hành
         <span className="relative block">
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface/60" />
@@ -50,13 +50,13 @@ function OrderWarrantyContent({ companyCode, branchId }: { companyCode: string; 
         <span aria-hidden="true" className="text-sm font-medium text-on-surface">Ngưỡng sắp hết hạn</span>
         <StyledSelect ariaLabel="Ngưỡng sắp hết hạn" className={controlClass} value={String(filters.days)} onChange={days => setFilters(previous => ({ ...previous, days: Number(days), page: 1 }))} options={[7, 30, 60, 90].map(days => ({ value: String(days), label: `${days} ngày` }))} />
       </div>
-      <button type="submit" className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-5 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:col-span-2"><Search aria-hidden="true" className="size-4" />Tra cứu</button>
+      <button type="submit" className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary px-5 text-sm font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary sm:col-span-2"><Search aria-hidden="true" className="size-4" />Tra cứu</button>
     </form>
     {error && <div role="alert" className="space-y-2 rounded-xl border border-outline p-4"><p>{error}</p><button type="button" className={buttonClass} onClick={() => setReload(value => value + 1)}>Thử lại</button></div>}
-    <div aria-busy={loading} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+    <div aria-busy={loading} className="min-h-64">
       {loading && <p role="status" className="text-sm text-on-surface-variant">Đang tải bảo hành…</p>}
       {result && <>
-        <p role="status" className="mb-3 text-sm tabular-nums">{result.total} dòng sản phẩm phù hợp</p>
+        <p role="status" className="mb-3 text-sm tabular-nums"><span className="font-semibold text-cyan-700">{result.total}</span> dòng sản phẩm phù hợp</p>
         {result.items.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm tabular-nums">
           <caption className="sr-only">Bảo hành sản phẩm đã bán tại chi nhánh đang chọn</caption>
           <thead className="border-b border-outline-variant text-on-surface-variant"><tr>
@@ -71,15 +71,17 @@ function OrderWarrantyContent({ companyCode, branchId }: { companyCode: string; 
             <td className="px-3 py-3">{row.warrantyStartAt && row.warrantyEndAt ? <><p>{dateLabel(row.warrantyStartAt)} – {dateLabel(row.warrantyEndAt)}</p>{row.warrantyMonths != null && <p className="text-on-surface-variant">{row.warrantyMonths} tháng</p>}</> : statusLabels[row.status]}</td>
             <td className="px-3 py-3"><p className="font-medium">{statusLabels[row.status]}</p>{row.daysLeft != null && <p className="text-on-surface-variant">Còn {row.daysLeft} ngày</p>}</td>
           </tr>)}</tbody>
-        </table></div> : <div className="space-y-2 py-4"><p className="text-pretty text-sm text-on-surface-variant">Không có sản phẩm phù hợp. Đơn cần được xác nhận bán; sản phẩm đã hoàn trả toàn bộ sẽ không xuất hiện.</p><button type="button" className={buttonClass} onClick={() => { setSearch(""); setFilters({ q: "", status: "all", days: 30, page: 1 }); }}>Xóa bộ lọc</button></div>}
-        <div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-sm tabular-nums">
-          <button type="button" className={buttonClass} disabled={filters.page <= 1} onClick={() => setFilters(previous => ({ ...previous, page: previous.page - 1 }))}>Trang trước</button>
-          <span>Trang {result.page} / {Math.max(1, Math.ceil(result.total / result.limit))}</span>
-          <button type="button" className={buttonClass} disabled={result.page * result.limit >= result.total} onClick={() => setFilters(previous => ({ ...previous, page: previous.page + 1 }))}>Trang sau</button>
-        </div>
+        </table></div> : <div className="flex flex-col items-center py-4"><RetailEmptyState kind={filters.q || filters.status !== "all" ? "generic" : "resource"}>Không có sản phẩm phù hợp. Đơn cần được xác nhận bán; sản phẩm đã hoàn trả toàn bộ sẽ không xuất hiện.</RetailEmptyState><button type="button" className={buttonClass} onClick={() => { setSearch(""); setFilters({ q: "", status: "all", days: 30, page: 1 }); }}>Xóa bộ lọc</button></div>}
       </>}
     </div>
-    <p className="text-pretty text-sm text-on-surface-variant">“Chưa ghi nhận” là đơn cũ chưa lưu thời hạn bảo hành. Số lượng hiển thị đã trừ hàng trả lại hoặc thu mua lại.</p>
+    <footer className="mt-auto flex flex-col gap-3 border-t border-outline-variant pt-3 xl:flex-row xl:items-center xl:justify-between">
+      <p className="text-pretty text-sm text-on-surface-variant">“Chưa ghi nhận” là đơn cũ chưa lưu thời hạn bảo hành. Số lượng hiển thị đã trừ hàng trả lại hoặc thu mua lại.</p>
+      {result && <nav aria-label="Phân trang bảo hành" className="flex shrink-0 flex-wrap items-center gap-3 text-sm tabular-nums">
+        <button type="button" className={buttonClass} disabled={filters.page <= 1} onClick={() => setFilters(previous => ({ ...previous, page: previous.page - 1 }))}>Trang trước</button>
+        <span>Trang {result.page} / {Math.max(1, Math.ceil(result.total / result.limit))}</span>
+        <button type="button" className={buttonClass} disabled={result.page * result.limit >= result.total} onClick={() => setFilters(previous => ({ ...previous, page: previous.page + 1 }))}>Trang sau</button>
+      </nav>}
+    </footer>
   </section>;
 }
 

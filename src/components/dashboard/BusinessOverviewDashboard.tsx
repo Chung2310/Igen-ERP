@@ -1,3 +1,4 @@
+import './overview-dashboard.css';
 import { useId, useState, type ReactNode } from 'react';
 import { ArrowDownRight, ArrowUpRight, Bell, BookOpen, BriefcaseBusiness, CheckCheck, ChevronRight, CircleHelp, Handshake, Package, Receipt, UsersRound, Wallet, Wrench, type LucideIcon } from 'lucide-react';
 import type { BusinessOverview, OverviewPoint, OverviewProject, OverviewSection, OverviewStatus } from '../../../shared/business-overview';
@@ -10,7 +11,7 @@ import { BUSINESS_TIME_ZONE, businessDateKey, parseBusinessDate } from '../../..
 const count = (value: number) => value.toLocaleString('vi-VN');
 const money = (value: number) => `${count(value)} ₫`;
 const compactMoney = (value: number) => Math.abs(value) >= 1e9 ? `${(value / 1e9).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} tỷ ₫` : Math.abs(value) >= 1e6 ? `${(value / 1e6).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} triệu ₫` : money(value);
-const card = 'min-w-0 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-5';
+const card = 'overview-panel min-w-0 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-5';
 const focus = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
 const button = `inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-3 text-sm font-medium text-on-surface hover:bg-surface-container ${focus}`;
 const sectionLabels: Record<OverviewSection, string> = { education: 'Học viên & học phí', labor: 'Lao động & dự án', retail: 'Bán hàng/POS', partners: 'Đối tác lao động', hr: 'Nhân sự', inventory: 'Kho hàng', repair: 'Sửa chữa & bảo hành', finance: 'Công nợ tài chính', customer: 'Khách hàng' };
@@ -18,7 +19,7 @@ function navigate(href: string) { window.history.pushState(null, '', href); wind
 
 function Panel({ title, description, children, action, headerAction, className }: { title: string; description?: string; children: ReactNode; action?: { label: string; href: string }; headerAction?: ReactNode; className?: string }) {
   return <section className={cn(card, 'flex h-full flex-col', className)}>
-    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0"><h2 className="text-balance text-base font-semibold">{title}</h2>{description && <p className="mt-1 text-pretty text-xs leading-5 text-on-surface-variant">{description}</p>}</div>
       {headerAction || (action && <button type="button" onClick={() => navigate(action.href)} className={cn(focus, 'inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-1 text-xs font-medium text-primary')}>{action.label}<ArrowUpRight aria-hidden="true" className="size-3.5" /></button>)}
     </div><div className="min-w-0 flex-1">{children}</div>
@@ -26,7 +27,7 @@ function Panel({ title, description, children, action, headerAction, className }
 }
 
 function Kpi({ icon: Icon, label, value, display, detail, href, change, unavailable }: { icon: LucideIcon; label: string; value: string; display?: string; detail: string; href: string; change?: number | null; unavailable?: boolean }) {
-  return <button type="button" onClick={() => navigate(href)} disabled={unavailable} className={cn(card, focus, 'group flex w-full items-start gap-3 text-left transition-colors enabled:hover:border-primary disabled:cursor-default')}>
+  return <button type="button" onClick={() => navigate(href)} disabled={unavailable} className={cn(card, focus, 'overview-kpi group flex w-full items-start gap-3 text-left transition-colors enabled:hover:border-primary disabled:cursor-default')}>
     <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Icon aria-hidden="true" className="size-5" /></span>
     <span className="min-w-0 flex-1"><strong className={cn('block truncate font-semibold tabular-nums', display ? 'text-xl' : 'text-2xl')} title={value}>{display || value}</strong><span className="mt-1 block text-xs font-medium text-on-surface-variant">{label}</span><span className="mt-2 flex items-center gap-1 text-xs text-on-surface-variant">
       {change != null && <>{change >= 0 ? <ArrowUpRight aria-hidden="true" className="size-3 shrink-0" /> : <ArrowDownRight aria-hidden="true" className="size-3 shrink-0" />}<span className="tabular-nums">{change > 0 ? '+' : ''}{change}%</span></>}

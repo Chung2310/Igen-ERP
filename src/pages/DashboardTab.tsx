@@ -1,6 +1,5 @@
 import React, { Component, Suspense, lazy, useMemo, type ReactNode } from "react";
 import {
-  Building2,
   Landmark,
   ShoppingCart,
   Users,
@@ -17,7 +16,6 @@ import {
 } from "../router/subTabRoutes";
 import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
 import { HrSidebarIcon, type HrSidebarIconName } from "../components/common/HrSidebarIcon";
-import BusinessDashboardTab from "./BusinessDashboardTab";
 
 // Lazy-loaded secondary dashboard sections
 const FinanceOverviewSection = lazy(
@@ -48,13 +46,6 @@ interface SectionConfig {
 }
 
 const ALL_SECTIONS: SectionConfig[] = [
-  {
-    value: "DOANH_NGHIEP",
-    slug: "doanh-nghiep",
-    label: "Doanh nghiệp",
-    subtitle: "Toàn cảnh điều hành & KPI",
-    icon: Building2,
-  },
   {
     value: "TAI_CHINH",
     slug: "tai-chinh",
@@ -163,8 +154,6 @@ export default function DashboardTab() {
 
     return ALL_SECTIONS.filter((section) => {
       switch (section.value) {
-        case "DOANH_NGHIEP":
-          return true;
         case "TAI_CHINH":
           return (
             modules.includes("finance") &&
@@ -217,22 +206,25 @@ export default function DashboardTab() {
     });
   }, [isAdmin, isManager, isTeacher, enabledModulesStr, hasPermission]);
 
+  const defaultSubTab = allowedSections[0]?.value ?? "TAI_CHINH";
+
   // Use the static DASHBOARD_SUB_TAB_ROUTES constant to avoid infinite re-render loops
   const [activeSubTab, setActiveSubTab] = useSubTabRouter<DashboardSubTabType>(
     DASHBOARD_SUB_TAB_ROUTES,
-    "DOANH_NGHIEP"
+    defaultSubTab
   );
 
-  // If the active tab from URL is not in allowed sections, fallback to DOANH_NGHIEP
+  // If the active tab from URL is not allowed, show the first available section.
   const isCurrentAllowed = allowedSections.some((s) => s.value === activeSubTab);
-  const resolvedSubTab: DashboardSubTabType = isCurrentAllowed ? activeSubTab : "DOANH_NGHIEP";
+  const resolvedSubTab: DashboardSubTabType = isCurrentAllowed ? activeSubTab : defaultSubTab;
   const currentSection =
     allowedSections.find((s) => s.value === resolvedSubTab) || allowedSections[0];
 
   const renderContent = () => {
+    if (allowedSections.length === 0) {
+      return <p className="text-pretty text-sm text-on-surface-variant">Chưa có phân hệ tổng quan khả dụng.</p>;
+    }
     switch (resolvedSubTab) {
-      case "DOANH_NGHIEP":
-        return <BusinessDashboardTab />;
       case "TAI_CHINH":
         return (
           <SectionErrorBoundary fallbackTitle="Tài chính">
@@ -270,13 +262,13 @@ export default function DashboardTab() {
           </SectionErrorBoundary>
         );
       default:
-        return <BusinessDashboardTab />;
+        return null;
     }
   };
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface"
+      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface"
       id="dashboard_tab_wrapper"
     >
       <h1 className="sr-only text-balance">
@@ -287,13 +279,14 @@ export default function DashboardTab() {
       <ModuleNavigation
         label="Phân hệ Tổng quan"
         activeValue={resolvedSubTab}
-        className="mb-3"
+        layout="horizontal"
+        className="mb-0"
         id="dashboard_sub_tabs_bar"
       >
         {allowedSections.map((tab) => {
           const isActive = resolvedSubTab === tab.value;
           const iconName = ({
-            DOANH_NGHIEP: 'business', TAI_CHINH: 'finance', BAN_LE: 'retail',
+            TAI_CHINH: 'finance', BAN_LE: 'retail',
             NHAN_SU: 'people', HOC_VIEN: 'students', LAO_DONG: 'labor', MARKETING: 'marketing',
           } as Partial<Record<DashboardSubTabType, HrSidebarIconName>>)[tab.value];
           return (
@@ -314,7 +307,7 @@ export default function DashboardTab() {
         className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-5 sm:py-3"
         id="dashboard_tab_content"
       >
-        <div className="mx-auto max-w-7xl">
+        <div className="w-full">
           <Suspense fallback={<TabLoader label={`Đang tải dữ liệu ${currentSection?.label || "tổng quan"}...`} />}>
             {renderContent()}
           </Suspense>

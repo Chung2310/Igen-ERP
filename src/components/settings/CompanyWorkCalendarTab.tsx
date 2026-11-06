@@ -53,96 +53,98 @@ export default function CompanyWorkCalendarTab() {
   const openCreate = () => { setEditingId(null); setForm({ date: `${year}-01-01`, name: "", dayType: "holiday" }); setFormOpen(true); };
   const openEdit = (day: WorkCalendarDay) => { setEditingId(day._id); setForm({ date: day.date, name: day.name, dayType: day.dayType }); setFormOpen(true); };
 
-  return <div className="space-y-4 text-left">
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
-      <div><HrPageTitle level={3}>Lịch nghỉ lễ & ngày làm bù</HrPageTitle><p className="mt-1 text-[10px] text-gray-500">Áp dụng cho toàn bộ công ty.</p></div>
-      <div className="flex gap-2"><select aria-label="Năm lịch" value={year} onChange={(e) => setYear(Number(e.target.value))} className="rounded-lg border px-3 py-2 text-xs"><option value={2026}>2026</option></select><button onClick={sync} className="flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-bold"><RefreshCw className="h-3.5 w-3.5" />Đồng bộ</button><button onClick={openCreate} className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white"><Plus className="h-3.5 w-3.5" />Thêm ngày</button></div>
+  return <div className="space-y-4 text-left text-on-surface">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
+      <HrPageTitle level={3}>Lịch nghỉ lễ & ngày làm bù</HrPageTitle>
+      <div className="flex items-center gap-2"><StyledSelect appearance="erp" ariaLabel="Năm lịch" value={String(year)} onChange={(value) => setYear(Number(value))} options={[{ value: "2026", label: "2026" }]} className="w-32" /><button type="button" onClick={sync} className="flex min-h-10 items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"><RefreshCw className="size-4" aria-hidden="true" />Đồng bộ</button><button type="button" onClick={openCreate} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"><Plus className="size-4" aria-hidden="true" />Thêm ngày</button></div>
     </div>
-    {loading ? <p className="py-5 text-center text-xs text-gray-500">Đang tải lịch...</p> : <div className="overflow-x-auto rounded-xl border"><table className="w-full text-xs"><thead className="bg-gray-50 text-gray-500"><tr><th className="p-3">Ngày</th><th className="p-3">Tên</th><th className="p-3">Loại</th><th className="p-3">Nguồn</th><th className="p-3">Áp dụng</th><th className="p-3">Thao tác</th></tr></thead><tbody>{days.map((day) => <tr key={day._id} className={!day.isApplied ? "opacity-50" : ""}><td className="p-3">{day.date.split("-").reverse().join("/")}</td><td className="p-3 font-semibold">{day.name}</td><td className="p-3">{TYPE_LABELS[day.dayType]}</td><td className="p-3"><span className="rounded-full bg-gray-100 px-2 py-1">{day.source === "system" ? "Hệ thống" : "Admin"}</span></td><td className="p-3"><input aria-label={`Áp dụng ${day.name}`} type="checkbox" checked={day.isApplied} onChange={() => void toggle(day)} /></td><td className="p-3">{day.source === "admin" && <button aria-label={`Sửa ${day.name}`} onClick={() => openEdit(day)} className="font-semibold text-indigo-600">Sửa</button>}</td></tr>)}</tbody></table></div>}
+    {loading ? <p className="py-5 text-center text-sm text-on-surface-variant">Đang tải lịch...</p> : <div className="overflow-x-auto rounded-xl"><table className="w-full text-sm"><thead className="bg-surface-container-low text-on-surface"><tr><th scope="col" className="p-3 text-left font-medium">Ngày</th><th scope="col" className="p-3 text-left font-medium">Tên</th><th scope="col" className="p-3 text-left font-medium">Loại</th><th scope="col" className="p-3 text-left font-medium">Nguồn</th><th scope="col" className="p-3 text-left font-medium">Áp dụng</th><th scope="col" className="p-3 text-left font-medium">Thao tác</th></tr></thead><tbody>{days.map((day) => <tr key={day._id} className={!day.isApplied ? "opacity-50" : ""}><td className="p-3">{day.date.split("-").reverse().join("/")}</td><td className="p-3 font-medium">{day.name}</td><td className="p-3">{TYPE_LABELS[day.dayType]}</td><td className="p-3"><span className="rounded-full bg-surface-container-low px-2 py-1">{day.source === "system" ? "Hệ thống" : "Admin"}</span></td><td className="p-3"><input aria-label={`Áp dụng ${day.name}`} type="checkbox" checked={day.isApplied} onChange={() => void toggle(day)} /></td><td className="p-3">{day.source === "admin" && <button type="button" aria-label={`Sửa ${day.name}`} onClick={() => openEdit(day)} className="font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary">Sửa</button>}</td></tr>)}</tbody></table></div>}
     {formOpen && createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="work-calendar-form-title" className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/55 p-4">
         <form
           onSubmit={save}
-          className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto text-left"
+          className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 text-left text-on-surface shadow-lg"
         >
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-            <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-800 font-sans">
+          <div className="flex items-center justify-between gap-3 border-b border-outline-variant pb-3">
+            <h4 id="work-calendar-form-title" className="border-l-4 border-primary pl-3 text-base font-normal normal-case">
               {editingId ? "Sửa ngày công ty" : "Thêm ngày công ty"}
             </h4>
             <button
               type="button"
               onClick={() => setFormOpen(false)}
-              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
               aria-label="Đóng"
              data-erp-modal-close>
-              <X className="h-4 w-4" />
+              <X className="size-4" aria-hidden="true" />
             </button>
           </div>
-          <div className="space-y-3 pt-2">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Ngày</label>
+          <div className="mt-4 space-y-3">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-normal normal-case">Ngày</label>
               <DateInput24 required ariaLabel="Ngày công ty" value={form.date} onChange={(date) => setForm({ ...form, date })} />
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Tên ngày</label>
+            <div className="space-y-1.5">
+              <label htmlFor="work-calendar-name" className="block text-sm font-normal normal-case">Tên ngày</label>
               <input
+                id="work-calendar-name"
                 required
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="Ví dụ: Tết Dương Lịch"
-                className="w-full rounded-xl border border-gray-200 p-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="min-h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/15"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Loại ngày</label>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-normal normal-case">Loại ngày</label>
               <StyledSelect appearance="erp" ariaLabel="Loại ngày" value={form.dayType} onChange={(dayType) => setForm({ ...form, dayType: dayType as WorkCalendarDayType })} options={Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }))} />
             </div>
           </div>
-          <button className="w-full rounded-xl bg-indigo-600 p-2.5 font-bold text-xs text-white hover:bg-indigo-700 transition active:scale-95 shadow-md shadow-indigo-600/10 mt-4 cursor-pointer">
+          <div className="mt-5 flex justify-end border-t border-outline-variant pt-4"><button type="submit" className="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-normal normal-case text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary">
             Lưu thay đổi
-          </button>
+          </button></div>
         </form>
       </div>,
       document.body
     )}
     {reasonTarget && createPortal(
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-        <div className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto text-left">
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-            <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-800 font-sans">
+      <div role="dialog" aria-modal="true" aria-labelledby="work-calendar-reason-title" className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/55 p-4">
+        <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 text-left text-on-surface shadow-lg">
+          <div className="flex items-center justify-between gap-3 border-b border-outline-variant pb-3">
+            <h4 id="work-calendar-reason-title" className="border-l-4 border-primary pl-3 text-base font-normal normal-case">
               Tắt áp dụng {reasonTarget.name}
             </h4>
             <button
               type="button"
               onClick={() => setReasonTarget(null)}
-              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
               aria-label="Đóng"
              data-erp-modal-close>
-              <X className="h-4 w-4" />
+              <X className="size-4" aria-hidden="true" />
             </button>
           </div>
-          <div className="space-y-1.5 text-left pt-2">
-            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+          <div className="mt-4 space-y-1.5">
+            <label htmlFor="work-calendar-reason" className="block text-sm font-normal normal-case">
               Lý do tắt áp dụng *
             </label>
             <textarea
+              id="work-calendar-reason"
               required
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Nhập lý do chi tiết..."
-              className="w-full rounded-xl border border-gray-200 p-2.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-24"
+              className="min-h-24 w-full rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
           </div>
-          <div className="flex justify-end gap-2.5 pt-3">
+          <div className="mt-5 flex justify-end gap-2 border-t border-outline-variant pt-4">
             <button
+              type="button"
               onClick={() => setReasonTarget(null)}
-              className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-50 transition cursor-pointer"
+              className="min-h-10 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 text-sm font-normal text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"
             >
               Hủy
             </button>
             <button
+              type="button"
               onClick={() => void disable()}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-red-650/10 cursor-pointer"
+              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-normal normal-case text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
             >
               Xác nhận
             </button>

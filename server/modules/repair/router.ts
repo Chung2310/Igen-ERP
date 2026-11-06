@@ -2,6 +2,7 @@
 import { requirePermission } from "../../middleware/auth";
 import { retailScopeFromRequest } from "../retail/contracts";
 import { RepairTicketModel } from "./repair-ticket.model";
+import { buildRepairTicketListFilter } from "./repair-list-filter";
 import { repairRefundRouter } from './repair-refund.router';
 import { approveRepairQuote, cancelRepairTicket, createFeedbackQr, createRepairTicket, deliverRepairTicket, quoteRepairTicket, transitionRepairTicket } from "./repair-ticket.service";
 import { lookupSoldDevice } from "../retail/contracts";
@@ -50,7 +51,18 @@ const actor = (req: any) => ({ id: String(req.user?.id || req.user?.uid || ""), 
 
 repairRouter.post("/tickets/lookup-device", manage, async (req, res, next) => { try { return res.json({ success: true, data: await lookupSoldDevice(scope(req), String(req.body?.serialNumber || "")) }); } catch (error) { next(error); } });
 repairRouter.get("/tickets/by-serial/:serialNumber", read, async (req, res, next) => { try { const data = await RepairTicketModel.find({ ...scope(req), "device.serialNumber": String(req.params.serialNumber).trim().toUpperCase() }).sort({ receivedAt: -1 }).lean(); return res.json({ success: true, data }); } catch (error) { next(error); } });
-repairRouter.get("/tickets", read, async (req, res, next) => { try { const filter: any = { ...scope(req) }; if (req.query.status) filter.status = String(req.query.status); if (req.query.customerId) filter.customerId = String(req.query.customerId); if (req.query.technicianId) filter.technicianId = String(req.query.technicianId); if (req.query.q) filter.$or = [{ ticketCode: { $regex: String(req.query.q), $options: "i" } }, { customerName: { $regex: String(req.query.q), $options: "i" } }, { "device.serialNumber": { $regex: String(req.query.q), $options: "i" } }]; const page = Math.max(1, Number(req.query.page) || 1); const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25)); const [items, total] = await Promise.all([RepairTicketModel.find(filter).sort({ receivedAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), RepairTicketModel.countDocuments(filter)]); return res.json({ success: true, data: { items, total, page, limit } }); } catch (error) { next(error); } });
+repairRouter.get("/tickets", read, async (req, res, next) => {
+  try {
+    const filter = { ...scope(req), ...buildRepairTicketListFilter(req.query as Record<string, unknown>) };
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
+    const [items, total] = await Promise.all([
+      RepairTicketModel.find(filter).sort({ receivedAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      RepairTicketModel.countDocuments(filter),
+    ]);
+    return res.json({ success: true, data: { items, total, page, limit } });
+  } catch (error) { next(error); }
+});
 repairRouter.get("/tickets/board", read, async (req, res, next) => { try { const items: any[] = await RepairTicketModel.find(scope(req)).sort({ receivedAt: -1 }).lean(); const board = items.reduce<Record<string, any[]>>((result, ticket) => { (result[ticket.status] ||= []).push(ticket); return result; }, {}); return res.json({ success: true, data: board }); } catch (error) { next(error); } });
 repairRouter.get("/tickets/:id", read, async (req, res, next) => { try { const data = await RepairTicketModel.findOne({ _id: req.params.id, ...scope(req) }).lean(); if (!data) return res.status(404).json({ success: false, message: "Không tìm thấy phiếu sửa chữa." }); return res.json({ success: true, data }); } catch (error) { next(error); } });
 repairRouter.post("/tickets", manage, async (req, res, next) => { try { const data = await createRepairTicket(scope(req), req.body, actor(req)); return res.status(201).json({ success: true, data }); } catch (error) { next(error); } });

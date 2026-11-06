@@ -1,10 +1,7 @@
 .user-admin-ui {
   --user-admin-primary: var(--color-primary);
-  color: #14273b;
-}
-
-.user-admin-ui :is(h1, h2, h3, h4, h5, h6) {
-  letter-spacing: -0.02em;
+  color: var(--color-on-surface);
+  background: var(--color-surface);
 }
 
 .user-admin-ui :is(.font-bold, .font-extrabold, .font-black) {
@@ -22,27 +19,26 @@
 
 .user-admin-ui :is(input:not([type="checkbox"]), select, textarea) {
   min-height: 40px;
-  border: 0;
-  border-radius: 12px;
-  background: #f2f8fd;
-  color: #14273b;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 6px;
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
   box-shadow: none;
   font-weight: 400;
-  transition: background-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color 160ms ease;
 }
 
 .user-admin-ui :is(input:not([type="checkbox"]), select, textarea):focus {
   outline: none;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgb(0 173 252 / 18%);
+  border-color: var(--color-primary);
+  box-shadow: none;
 }
 
 .user-admin-ui :is(input:not([type="checkbox"]), select, textarea)::placeholder {
-  color: #91a2b7;
+  color: var(--color-on-surface-variant);
 }
 
 .user-admin-ui input[type="date"] {
-  color-scheme: light;
   cursor: pointer;
 }
 
@@ -56,73 +52,106 @@
   padding-right: 2rem;
 }
 
+.user-admin-ui select:not([multiple]):not(.sr-only) {
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 6px !important;
+  background-color: var(--color-surface-container-lowest) !important;
+  color: var(--color-on-surface) !important;
+  font-size: 0.875rem;
+  font-weight: 400 !important;
+}
+
+.user-admin-ui select:not([multiple]):not(.sr-only):focus-visible {
+  border-color: var(--color-primary) !important;
+  box-shadow: none !important;
+}
+
+.user-admin-ui select:not([multiple]):not(.sr-only):disabled {
+  background-color: var(--color-surface) !important;
+  color: var(--color-on-surface-variant) !important;
+}
+
 .user-admin-ui select option {
-  background: #fff;
-  color: #14273b;
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
 }
 
 .user-admin-ui button {
-  border: 0;
-  transition: background-color 160ms ease, box-shadow 160ms ease;
+  transition: background-color 160ms ease, border-color 160ms ease;
 }
 
 .user-admin-ui button:focus-visible {
-  outline: 3px solid rgb(0 173 252 / 30%);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
 .user-admin-ui button:is([class~="bg-indigo-600"], [class~="bg-cyan-600"], [class~="bg-slate-900"], [class~="bg-emerald-600"], [class~="bg-blue-600"]) {
   background: var(--user-admin-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .user-admin-ui button:is([class~="bg-indigo-600"], [class~="bg-cyan-600"], [class~="bg-slate-900"], [class~="bg-emerald-600"], [class~="bg-blue-600"]):hover:not(:disabled) {
-  background: #0095d9;
+  background: color-mix(in srgb, var(--color-primary) 88%, var(--color-on-surface));
+}
+
+.user-admin-ui .user-admin-create-button {
+  border-radius: 6px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.user-admin-ui .user-admin-create-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 88%, var(--color-on-surface));
 }
 
 .user-admin-ui button[class~="border"] {
-  background: #e9f7ff;
-  color: #0077b3;
+  border: 1px solid var(--color-outline-variant);
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
 }
 
 .user-admin-ui button[class~="text-red-650"],
-.user-admin-ui button[class~="text-rose-700"] {
-  background: #fff0f2;
-  color: #be123c;
+.user-admin-ui button[class~="text-rose-700"],
+.user-admin-ui button[class~="text-error"] {
+  border-color: color-mix(in srgb, var(--color-error) 30%, var(--color-outline-variant));
+  background: var(--color-error-container);
+  color: var(--color-error);
 }
 
 .user-admin-ui #user_admin_content,
 .user-admin-ui #roles_permissions_tab_content {
-  background: #f8fbff;
+  background: var(--color-surface);
 }
 
 .user-admin-ui #roles_permissions_tab_content > div[class~="border"],
 .user-admin-ui #roles_permissions_tab_content > div.grid > div[class~="border"],
 .user-admin-ui #user_admin_content > div[class~="border"] {
-  border: 0;
-  box-shadow: 0 5px 20px rgb(20 68 108 / 5%);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
 }
 
 .user-admin-ui #roles_permissions_tab_content > div.grid > div[class~="border"] {
-  background: #fff;
+  background: var(--color-surface-container-lowest);
 }
 
 .user-admin-ui table thead {
-  background: #f2f8fd;
+  background: var(--color-surface);
 }
 
-.user-admin-ui table :is(th, td) {
-  font-size: 0.8125rem;
+.user-admin-ui table td {
+  font-size: 0.875rem;
 }
 
 .user-admin-ui table th {
+  font-size: 0.75rem;
   font-weight: 500;
 }
 
 .user-admin-ui table td span[class~="rounded-full"] {
-  border: 0;
-  background: #e8f7ff;
-  color: #0077b3;
+  border-color: var(--color-outline-variant);
+  background: var(--color-primary-container);
+  color: var(--color-on-surface);
 }
 
 .user-admin-ui div[data-action-menu] > div[class~="absolute"] {

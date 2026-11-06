@@ -12,7 +12,9 @@ import {
 import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { MetricBar } from "../common/MetricBar";
+import { InventoryEmptyIllustration } from "./InventoryEmptyIllustration";
 
 const statuses: Array<"" | SerialUnitStatus> = [
   "",
@@ -315,19 +317,13 @@ export function SerialRegistrySection({ onTransfers }: { onTransfers?: () => voi
 
         {/* Right Action Bar */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-semibold shadow-2xs transition-colors whitespace-nowrap cursor-pointer"
-            title="Tải lại danh sách"
-          >
-            Làm mới
-          </button>
+          <ErpRefreshButton onClick={() => void load()} title="Tải lại danh sách" />
         </div>
       </div>
 
       {/* 2. Compact Sleek Metric Bar (4 segments) */}
       <MetricBar
+        id="inventory_serial_metrics"
         items={[
           {
             label: "Quy mô thiết bị",
@@ -516,6 +512,7 @@ export function SerialRegistrySection({ onTransfers }: { onTransfers?: () => voi
             </div>
           ) : machineGroups.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-xs text-slate-400">
+              <InventoryEmptyIllustration kind="search" className="mx-auto" />
               Không tìm thấy dòng máy nào phù hợp với bộ lọc.
             </div>
           ) : (
@@ -781,6 +778,7 @@ export function SerialRegistrySection({ onTransfers }: { onTransfers?: () => voi
                 ) : pagedItems.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-xs text-slate-400">
+                      <InventoryEmptyIllustration kind="search" className="mx-auto" />
                       Không tìm thấy mã IMEI nào phù hợp với bộ lọc.
                     </td>
                   </tr>

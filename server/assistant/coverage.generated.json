@@ -1,10 +1,10 @@
 {
-  "total": 1153,
+  "total": 1157,
   "connectedContracts": 795,
-  "connectedManualRoutes": 19,
-  "connectedRoutes": 814,
+  "connectedManualRoutes": 21,
+  "connectedRoutes": 816,
   "reviewPending": 0,
-  "intentionallyUnsupported": 339,
+  "intentionallyUnsupported": 341,
   "unresolved": [],
   "entries": [
     {
@@ -4965,7 +4965,7 @@
       "status": "unsupported",
       "reason": "API điều phối chính của trợ lý AI; không gọi lồng từ một workflow để tránh đệ quy và gửi lại nội dung hội thoại.",
       "file": "server/assistant/router.ts",
-      "line": 40
+      "line": 57
     },
     {
       "method": "POST",
@@ -4973,7 +4973,7 @@
       "status": "unsupported",
       "reason": "Endpoint nội bộ tạo âm thanh tiếng Việt cho giao diện trợ lý; chỉ được gọi theo tùy chọn đọc câu trả lời, không phải thao tác nghiệp vụ cho AI thực hiện.",
       "file": "server/assistant/router.ts",
-      "line": 41
+      "line": 58
     },
     {
       "method": "POST",
@@ -6202,10 +6202,18 @@
     {
       "method": "POST",
       "path": "/inventory/catalog/products",
-      "status": "contract",
-      "id": "api.post.1c04c35c772be5d2",
+      "status": "unsupported",
+      "reason": "Luồng trợ lý tạo sản phẩm cần tạo SKU đầu tiên kèm giá bán theo chi nhánh để có thể bán ngay; dùng route tạo sản phẩm và SKU có giá bán.",
       "file": "server/modules/inventory/product-catalog/router.ts",
       "line": 19
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/catalog/products/with-price",
+      "status": "contract",
+      "id": "inventory.product.create.sellable",
+      "file": "server/modules/inventory/product-catalog/router.ts",
+      "line": 20
     },
     {
       "method": "POST",
@@ -6213,7 +6221,7 @@
       "status": "contract",
       "id": "api.post.5905a76c5b33f482",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 20
+      "line": 21
     },
     {
       "method": "GET",
@@ -6221,7 +6229,7 @@
       "status": "contract",
       "id": "api.get.7df3c08a8aea7a6d",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 21
+      "line": 22
     },
     {
       "method": "PATCH",
@@ -6229,7 +6237,7 @@
       "status": "contract",
       "id": "api.patch.ec4179bd45d62cbf",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 22
+      "line": 23
     },
     {
       "method": "DELETE",
@@ -6237,7 +6245,7 @@
       "status": "contract",
       "id": "api.delete.cc58d03a74329723",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 23
+      "line": 24
     },
     {
       "method": "POST",
@@ -6245,15 +6253,23 @@
       "status": "contract",
       "id": "api.post.435334a57fb9c949",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 24
+      "line": 25
+    },
+    {
+      "method": "POST",
+      "path": "/inventory/catalog/products/:id/variants/with-price",
+      "status": "contract",
+      "id": "inventory.variant.create.sellable",
+      "file": "server/modules/inventory/product-catalog/router.ts",
+      "line": 26
     },
     {
       "method": "POST",
       "path": "/inventory/catalog/products/:id/variants",
-      "status": "contract",
-      "id": "api.post.7ee0d5b45139f05d",
+      "status": "unsupported",
+      "reason": "Luồng trợ lý cần tạo SKU kèm tên hiển thị và giá bán theo chi nhánh; dùng route tạo SKU có giá bán để không tạo SKU chưa thể bán.",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 25
+      "line": 27
     },
     {
       "method": "PATCH",
@@ -6261,7 +6277,7 @@
       "status": "contract",
       "id": "api.patch.49a564e9d96cc548",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 26
+      "line": 28
     },
     {
       "method": "DELETE",
@@ -6269,7 +6285,7 @@
       "status": "contract",
       "id": "api.delete.5bce70e422eef763",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 27
+      "line": 29
     },
     {
       "method": "PATCH",
@@ -6277,7 +6293,7 @@
       "status": "contract",
       "id": "api.patch.78eb0c3b82d1f735",
       "file": "server/modules/inventory/product-catalog/router.ts",
-      "line": 28
+      "line": 30
     },
     {
       "method": "GET",
@@ -7195,7 +7211,7 @@
       "method": "GET",
       "path": "/retail/coupons/tiers",
       "status": "contract",
-      "id": "api.get.bf54b32b824b72a8",
+      "id": "retail.coupon.tier.list",
       "file": "server/modules/retail/routes/retail-coupon.routes.ts",
       "line": 27
     },
@@ -7627,7 +7643,7 @@
       "method": "GET",
       "path": "/retail/reports/summary",
       "status": "contract",
-      "id": "api.get.c05d54c535dd6f01",
+      "id": "retail.report.summary",
       "file": "server/modules/retail/routes/retail-report.routes.ts",
       "line": 9
     },
@@ -8779,7 +8795,7 @@
       "method": "PUT",
       "path": "/worker-management/partners/kpi/:partnerId",
       "status": "contract",
-      "id": "api.put.bac93de813d6d275",
+      "id": "worker.partner.kpi.set",
       "file": "server/modules/worker-management/labor-partners/routes/labor-partner.routes.ts",
       "line": 37
     },
@@ -9230,6 +9246,22 @@
       "id": "inventory.stock-log.list",
       "file": "server/router/crud.router.ts",
       "line": 173
+    },
+    {
+      "method": "POST",
+      "path": "/retail/coupons",
+      "status": "manual",
+      "id": "retail.coupon.create",
+      "file": "server/modules/retail/routes/retail-coupon.routes.ts",
+      "line": 76
+    },
+    {
+      "method": "GET",
+      "path": "/retail/invoices/summary",
+      "status": "manual",
+      "id": "retail.invoice.summary",
+      "file": "server/modules/retail/routes/retail-invoice.routes.ts",
+      "line": 6
     }
   ]
 }

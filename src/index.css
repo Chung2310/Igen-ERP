@@ -2,6 +2,96 @@
 @import "tailwindcss";
 @import "./typography.css";
 
+/* Keep select menus aligned with the HR department dropdown across modules. */
+select:not([multiple]):not(.sr-only),
+select:not([multiple]):not(.sr-only) option {
+  font-weight: 400 !important;
+}
+
+select:not([multiple]):not(.sr-only) {
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 0.75rem !important;
+  background-color: var(--color-surface-container-lowest) !important;
+  color: var(--color-on-surface) !important;
+}
+
+select:not([multiple]):not(.sr-only):focus-visible {
+  border-color: var(--color-primary) !important;
+  outline: none;
+}
+
+select:not([multiple]):not(.sr-only) option {
+  background-color: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+}
+
+select:not([multiple]):not(.sr-only) option:checked {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container-lowest));
+  color: color-mix(in srgb, var(--color-primary) 72%, var(--color-on-surface));
+}
+
+[role="listbox"]:has(> [role="option"]) {
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 0.75rem !important;
+  background-color: var(--color-surface-container-lowest) !important;
+  box-shadow: 0 10px 20px rgb(11 65 99 / 0.12) !important;
+}
+
+[role="listbox"] [role="option"],
+[role="listbox"] [role="option"] span {
+  font-weight: 400 !important;
+}
+
+[role="listbox"] [role="option"]:not([aria-selected="true"]):not(:disabled) {
+  color: var(--color-on-surface) !important;
+}
+
+[role="listbox"] [role="option"]:not([aria-selected="true"]):hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface-container-lowest)) !important;
+}
+
+[role="listbox"] [role="option"][aria-selected="true"] {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container-lowest)) !important;
+  color: color-mix(in srgb, var(--color-primary) 72%, var(--color-on-surface)) !important;
+}
+
+/* Keep the module launcher and product pages visually connected during navigation. */
+@view-transition {
+  navigation: auto;
+}
+
+:is(.module-launcher, #app_root_layout) {
+  view-transition-name: erp-module-page;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+@keyframes erp-page-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes erp-page-fade-in {
+  from { opacity: 0; }
+}
+
+::view-transition-old(erp-module-page) {
+  animation: 170ms ease-in both erp-page-fade-out;
+}
+
+::view-transition-new(erp-module-page) {
+  animation: 170ms ease-out both erp-page-fade-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(erp-module-page),
+  ::view-transition-new(erp-module-page) {
+    animation: none;
+  }
+}
+
 /* Search fields use the same one-pixel outline as the HR department search.
    The ERP-wide header search has its own established appearance. */
 :is(input[type="search"], input[placeholder^="Tìm"], input[aria-label^="Tìm"], input[placeholder^="Search"], input[aria-label^="Search"], :is(div, label):has(> svg.lucide-search) > input):not(#global_search_input):not([class*="border-none"]):not([class*="border-0"]):not([class*="bg-transparent"]):not(.sa-ai-search input) {
@@ -23,6 +113,23 @@ label[class*="border"]:has(> input:is([type="search"], [placeholder^="Tìm"], [a
 label[class*="border"]:has(> svg.lucide-search ~ input[class*="bg-transparent"]):focus-within,
 .sa-ai-search:focus-within {
   border-color: var(--color-primary) !important;
+}
+
+/* One quiet focus border for editable controls throughout the ERP. The color
+   change remains visible for keyboard navigation without a second ring. */
+:is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]), textarea, select, [role="combobox"], button[aria-haspopup="listbox"]):not([aria-invalid="true"]):not([class*="border-none"]):not([class*="border-0"]):focus:not(:disabled),
+button[aria-haspopup="listbox"][aria-expanded="true"]:not([aria-invalid="true"]) {
+  border-color: var(--color-primary) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+:is(label, div)[class*="border"]:not(:has([aria-invalid="true"])):has(> input:focus):focus-within,
+:is(label, div, form, span)[class*="focus-within"]:not(:has([aria-invalid="true"])):has(:is(input:not([type="checkbox"]):not([type="radio"]), textarea, select, [contenteditable="true"]):focus):focus-within,
+.sa-ai-search:focus-within {
+  border-color: var(--color-primary) !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Shared close affordance for ERP dialogs and popups. */
@@ -211,6 +318,10 @@ input[type="number"]::-webkit-outer-spin-button,
   --color-on-error: #ffffff;
   --color-error-container: #ffe4e6;
   --color-on-error-container: #be123c;
+
+  --color-change-up: #15803d;
+  --color-change-down: #be123c;
+  --color-change-flat: #143963;
 
   --color-background: #f6f8fd;
   --color-on-background: #071629;
@@ -510,6 +621,26 @@ html:not(.dark) #app_root_layout :is(input, textarea):not([class*="placeholder:"
   opacity: 1;
 }
 
+/* Search hints share one muted treatment, including fields with local placeholder classes. */
+:is(
+  input[type="search"],
+  input[role="searchbox"],
+  input[placeholder^="Tìm"],
+  input[placeholder^="Search"],
+  input[placeholder^="Tra cứu"],
+  input[placeholder^="Lọc"],
+  input[aria-label^="Tìm"],
+  input[aria-label^="Search"],
+  input[aria-label^="Tra cứu"],
+  input[aria-label^="Lọc"],
+  input[data-erp-search],
+  :is(div, label):has(> svg.lucide-search) > input
+)::placeholder {
+  color: currentColor !important;
+  opacity: 0.5 !important;
+  font-weight: 400 !important;
+}
+
 /* Brand Color (#00ADFC) standard: override green / teal / emerald text to brand color */
 .text-emerald-500,
 .text-emerald-600,
@@ -546,6 +677,9 @@ body {
 
 .dark {
   color-scheme: dark;
+  --color-change-up: #4ade80;
+  --color-change-down: #fb7185;
+  --color-change-flat: #a7c7ec;
   --color-background: #0d0f14;
   --color-on-background: #f1f5f9;
   --color-surface: #0d0f14;
@@ -699,29 +833,29 @@ code, kbd, samp, pre {
 /* Explicitly Visible Scrollbar Utility */
 .visible-scrollbar {
   -ms-overflow-style: auto !important;
-  scrollbar-width: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: color-mix(in srgb, var(--color-primary) 25%, var(--color-outline-variant)) transparent !important;
 }
 
 .visible-scrollbar::-webkit-scrollbar {
   display: block !important;
-  width: 10px !important;
-  height: 12px !important;
-  background: #f1f5f9 !important;
+  width: 6px !important;
+  height: 6px !important;
+  background: transparent !important;
 }
 
 .visible-scrollbar::-webkit-scrollbar-track {
-  background: #e2e8f0 !important;
-  border-radius: 6px !important;
+  background: transparent !important;
 }
 
 .visible-scrollbar::-webkit-scrollbar-thumb {
-  background: #00ADFC !important;
-  border-radius: 6px !important;
-  border: 2px solid #e2e8f0 !important;
+  background: color-mix(in srgb, var(--color-primary) 25%, var(--color-outline-variant)) !important;
+  border-radius: 999px !important;
+  border: 0 !important;
 }
 
 .visible-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #0095d9 !important;
+  background: color-mix(in srgb, var(--color-primary) 45%, var(--color-outline-variant)) !important;
 }
 
 /* Study popup: keep long lessons draggable without a heavy scrollbar. */

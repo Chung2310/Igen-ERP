@@ -7,6 +7,7 @@ import { WorkerContractHistory } from "./WorkerContractHistory";
 import { alertText, resolveAlertLevel, toDisplayDate } from "../utils/contractDate";
 import { workerContractStatusLabel } from "../types";
 import type { Worker, WorkerLaborContract, WorkerLaborContractInput, WorkerScope } from "../types";
+import { HrEmptyIllustration } from "../../../components/hr/HrEmptyIllustration";
 
 type Props = {
   worker: Worker;
@@ -116,9 +117,7 @@ export function WorkerContractPanel({ worker, scope, canManage = false }: Props)
             {current.note && <Detail label="Ghi chú" value={current.note} />}
           </div>
         ) : (
-          <p className="text-sm text-slate-500">
-            Người lao động này chưa có hợp đồng đang hiệu lực.
-          </p>
+          <div className="flex flex-col items-center py-2 text-center"><HrEmptyIllustration kind="contract" className="h-20 w-32" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Người lao động này chưa có hợp đồng đang hiệu lực.</p></div>
         )}
       </div>
 

@@ -19,7 +19,7 @@ export const HEADER_MODULE_LABELS: Record<TabType, string> = {
   "KHO TRI THỨC": "CRM",
   "TÍCH HỢP MARKETING": "CRM",
   "CHIẾN DỊCH NỘI DUNG": "CRM",
-  "GÓI AI & LƯỢT SỬ DỤNG": "CRM",
+  "GÓI AI & LƯỢT SỬ DỤNG": "TRỢ LÝ AI",
   "TRỢ LÝ AI": "TRỢ LÝ AI",
   "QUẢN LÝ TÀI NGUYÊN": "TÀI NGUYÊN",
   "TÀI NGUYÊN": "TÀI NGUYÊN",

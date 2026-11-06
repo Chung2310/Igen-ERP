@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from "react";
-import { Users, Wallet, TrendingUp, BookOpen, Banknote, CalendarCheck, Clock, UserX, CheckCircle2, UserPlus, TimerReset, Receipt, Search, RotateCcw } from "./DashboardIcons";
+import { Users, Wallet, TrendingUp, BookOpen, Banknote, CalendarCheck, Clock, UserX, CheckCircle2, UserPlus, TimerReset, Receipt, Search } from "./DashboardIcons";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { DashboardSummary, DashboardActionItems } from "../../types/dashboard";
 import { formatDashboardCurrency } from "./dashboardUtils";
 import { ActionItemsWidget } from "./ActionItemsWidget";
@@ -155,9 +156,7 @@ export function OverviewPanel({
             </button>
           ))}
         </div>
-        <button type="button" onClick={onRefresh} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-[#00ADFC] hover:text-[#007EB8]" aria-label="Làm mới dữ liệu tổng quan" title="Làm mới dữ liệu">
-          <RotateCcw className="h-4 w-4" />
-        </button>
+        <ErpRefreshButton onClick={onRefresh} title="Làm mới dữ liệu" />
       </div>
 
       {/* KPI strip gọn */}

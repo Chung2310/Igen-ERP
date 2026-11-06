@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertCircle, ArrowUpRight, Building2, Layers3, RefreshCw,
+  AlertCircle, ArrowUpRight, Building2, Layers3,
 } from "lucide-react";
 import { useAuth } from "../../../../context/AuthContext";
 import { getCurrentAiSubscription, type AiSubscriptionSummary } from "../../../../services/aiSubscriptionService";
@@ -8,6 +8,9 @@ import AiPlanCatalog from "./AiPlanCatalog";
 import AiSubscriptionHistory from "./AiSubscriptionHistory";
 import { socketService } from "../../../../services/socketService";
 import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
+import { ErpRefreshButton } from "../../../../components/common/ErpRefreshButton";
+import { useSubTabRouter } from "../../../../hooks/useSubTabRouter";
+import { AI_SUBSCRIPTION_SUB_TAB_ROUTES } from "../../../../router/subTabRoutes";
 import { cn } from "../../../student-management/lib/utils";
 import "./ai-subscription.css";
 
@@ -27,7 +30,7 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [now, setNow] = useState(Date.now);
-  const [view, setView] = useState<"usage" | "plans">("usage");
+  const [view, setView] = useSubTabRouter(AI_SUBSCRIPTION_SUB_TAB_ROUTES, "usage");
   const [mobileDock, setMobileDock] = useState<HTMLDivElement | null>(null);
   const plansButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -101,7 +104,7 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
         <div className="mx-auto w-full max-w-7xl space-y-5">
           <header className="flex items-start justify-between gap-3">
             <h1 className="min-w-0 text-balance text-xl font-semibold sm:text-2xl">{view === 'usage' ? 'Hạn mức AI' : 'Nâng cấp gói AI'}</h1>
-            <div className="flex shrink-0 items-center gap-3">{companyName && <span title={companyName} className="hidden max-w-48 items-center gap-1.5 text-xs text-on-surface-variant md:flex"><Building2 className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">{companyName}</span></span>}<button type="button" disabled={refreshing || !loaded} onClick={refresh} aria-label={refreshing ? 'Đang cập nhật' : 'Làm mới'} className="ai-subscription-back"><RefreshCw className="size-4" aria-hidden="true" /><span className="hidden text-xs sm:inline">{refreshing ? 'Đang cập nhật…' : 'Làm mới'}</span></button></div>
+            <div className="flex shrink-0 items-center gap-3">{companyName && <span title={companyName} className="hidden max-w-48 items-center gap-1.5 text-xs text-on-surface-variant md:flex"><Building2 className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">{companyName}</span></span>}<ErpRefreshButton disabled={!loaded} loading={refreshing} onClick={refresh}>{refreshing ? 'Đang cập nhật…' : 'Làm mới'}</ErpRefreshButton></div>
           </header>
           {error && <div role="alert" className="ai-subscription-notice flex items-start gap-3 rounded-xl border p-4"><AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><div className="min-w-0"><p className="text-sm font-semibold">Chưa cập nhật được hạn mức AI</p><p className="mt-1 text-pretty text-sm leading-6">{error} {subscription ? 'Số liệu hiển thị là lần tải thành công gần nhất.' : 'Bấm Làm mới để thử lại.'}</p></div></div>}
           <div id="ai_subscription_usage" hidden={view !== 'usage'} className="space-y-5">

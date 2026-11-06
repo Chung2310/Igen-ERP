@@ -2,11 +2,12 @@ import React from "react";
 import { Save, X } from "lucide-react";
 import { VietnameseDatePicker } from "../../student-management/components/Batches/VietnameseDatePicker";
 import { RoadmapPicker } from "../../student-management/components/ui/RoadmapPicker";
+import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
 import type { BillingProfileInput, Customer, CustomerInput } from "../types";
 
 const empty: CustomerInput = { name: "", phone: "", customerKind: "individual", contactName: "", type: "regular", email: "", dateOfBirth: "", address: "", notes: "" };
 const emptyBilling: BillingProfileInput = { legalName: "", taxId: "", address: "", invoiceEmail: "", contactName: "" };
-const inputClass = "mt-1.5 h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal text-on-surface outline-none transition placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20";
+const inputClass = "mt-1.5 h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal text-on-surface outline-none transition placeholder:text-on-surface-variant focus-visible:border-primary";
 
 export default function CustomerFormDialog({ customer, onClose, onSave }: { customer?: Customer; onClose: () => void; onSave: (input: CustomerInput, billingProfile?: BillingProfileInput) => Promise<void> }) {
   const dialogRef = React.useRef<HTMLDialogElement>(null);
@@ -98,8 +99,8 @@ export default function CustomerFormDialog({ customer, onClose, onSave }: { cust
           {error && <p role="alert" className="rounded-lg border border-error bg-error-container px-3 py-2 text-sm text-on-error-container">{error}</p>}
         </div>
         <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-outline-variant px-5 py-3 sm:px-6">
-          <button type="button" disabled={saving} onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">Hủy</button>
-          <button type="submit" disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary transition hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"><Save className="h-4 w-4" aria-hidden="true" />{saving ? "Đang lưu..." : "Lưu khách hàng"}</button>
+          <button type="button" disabled={saving} onClick={onClose} className="inline-flex items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface transition hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">Hủy</button>
+          <button type="submit" disabled={saving} className={primaryCreateButtonClass}><Save className="size-4" aria-hidden="true" />{saving ? "Đang lưu..." : "Lưu khách hàng"}</button>
         </div>
       </form>
     </dialog>

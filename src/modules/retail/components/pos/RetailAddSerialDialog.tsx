@@ -60,14 +60,14 @@ export default function RetailAddSerialDialog({ product, unavailable, onClose, o
       <div className="border-b border-outline-variant p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 id="retail-add-unit-title" className="text-balance text-lg font-bold">Chọn {isSerial ? "IMEI / Serial" : "mã vạch nội bộ"} để thêm vào giỏ</h2>
+            <h2 id="retail-add-unit-title" className="text-balance text-lg font-semibold">Chọn {isSerial ? "IMEI / Serial" : "mã vạch nội bộ"} để thêm vào giỏ</h2>
             <p className="mt-1 text-sm text-on-surface-variant">{product.name} · {product.sku}</p>
           </div>
           <button type="button" aria-label="Đóng chọn mã hàng" onClick={onClose} className="min-h-10 rounded-lg px-3 text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Đóng</button>
         </div>
         <label className="mt-4 block text-sm font-medium">
           Tìm mã hàng
-          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-outline-variant bg-surface px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-primary" placeholder="Nhập hoặc quét mã" />
+          <input data-erp-search autoFocus value={query} onChange={(event) => setQuery(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-outline-variant bg-surface px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-primary" placeholder="Nhập hoặc quét mã" />
         </label>
       </div>
 

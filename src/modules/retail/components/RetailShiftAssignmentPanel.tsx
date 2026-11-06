@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import CurrencyInput from "./pos/CurrencyInput";
 import { retailShiftsApi } from "../api/retailShifts.api";
 import type { RetailScope } from "../types";
+import { Dropdown } from "../../../components/common/Dropdown";
 
 type Cashier = { _id: string; displayName: string; email: string };
 
@@ -49,12 +50,7 @@ export function RetailShiftAssignmentPanel({ scope, onOpened }: { scope: RetailS
     <h2 id="retail-shift-assignment-title" className="text-balance text-lg font-semibold text-on-surface">Mở ca cho thu ngân</h2>
     <p className="mt-1 text-pretty text-sm text-on-surface-variant">Chọn nhân viên cùng chi nhánh đã có quyền bán lẻ và lịch làm việc hợp lệ.</p>
     {loading ? <p role="status" className="mt-3 text-sm text-on-surface-variant">Đang tải thu ngân...</p> : <form onSubmit={(event) => void submit(event)} aria-busy={saving} className="mt-3 grid gap-3 sm:grid-cols-2">
-      <label className="text-sm font-medium text-on-surface">Thu ngân
-        <select required value={cashierId} onChange={(event) => setCashierId(event.target.value)} aria-describedby={error ? "retail-shift-assignment-error" : undefined} className="mt-1 min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 focus-visible:outline-2 focus-visible:outline-primary">
-          <option value="">Chọn thu ngân</option>
-          {cashiers.map((cashier) => <option key={cashier._id} value={cashier._id}>{cashier.displayName || cashier.email}</option>)}
-        </select>
-      </label>
+      <Dropdown label="Thu ngân" aria-required aria-describedby={error ? "retail-shift-assignment-error" : undefined} value={cashierId} onChange={setCashierId} options={[{ value: "", label: "Chọn thu ngân" }, ...cashiers.map((cashier) => ({ value: cashier._id, label: cashier.displayName || cashier.email }))]} variant="form" size="md" className="w-full" searchable />
       <CurrencyInput label="Tiền đầu ca" value={openingFloat} onChange={setOpeningFloat} />
       <label className="text-sm font-medium text-on-surface sm:col-span-2">Mã quầy
         <input maxLength={60} value={terminalId} onChange={(event) => setTerminalId(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 focus-visible:outline-2 focus-visible:outline-primary" />
