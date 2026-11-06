@@ -6,11 +6,12 @@ import RetailReportFilters from "../components/reports/RetailReportFilters";
 import RetailReportTables from "../components/reports/RetailReportTables";
 import RetailSalesCharts from "../components/reports/RetailSalesCharts";
 import RetailOverviewDashboard from "../components/reports/RetailOverviewDashboard";
-import { useOverviewPeriod } from "../../../components/dashboard/OverviewPeriodContext";
+import { OverviewPeriodActions, useOverviewPeriod } from "../../../components/dashboard/OverviewPeriodContext";
 import { validateRetailReportRange } from "../components/reports/retailReportRange";
 import { useRetailScope } from "../hooks/useRetailScope";
 import { useBranchOptional } from "../../../context/BranchContext";
 import { Dropdown } from "../../../components/common/Dropdown";
+import { cn } from "../../student-management/lib/utils";
 import type { RetailReport, RetailReportFilters as RetailReportFilterValue } from "../types";
 
 const REPORT_PRESET_PARAM = "reportPreset";
@@ -140,8 +141,7 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
   const [filters, setFilters] = React.useState<RetailReportFilterValue>(readFiltersFromUrl);
   const effectiveFilters = React.useMemo<RetailReportFilterValue>(() => {
     if (!overview || !overviewPeriod) return filters;
-    const { preset: _preset, from: _from, to: _to, ...dimensions } = filters;
-    return { ...dimensions, from: overviewPeriod.from, to: overviewPeriod.to };
+    return { from: overviewPeriod.from, to: overviewPeriod.to };
   }, [filters, overview, overviewPeriod?.from, overviewPeriod?.to]);
   const [report, setReport] = React.useState<RetailReport | null>(null);
   const [reportScopeKey, setReportScopeKey] = React.useState("");
@@ -264,7 +264,12 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
     type="button"
     disabled={exporting}
     onClick={() => void exportReport()}
-    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition hover:from-cyan-500 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+    className={cn(
+      "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold shadow-2xs transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50",
+      embeddedOverview
+        ? "h-8 bg-excel-export px-3 text-on-excel-export hover:bg-excel-export-hover"
+        : "bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500",
+    )}
   >
     <Download aria-hidden="true" className="h-3.5 w-3.5" />
     <span>{exporting ? "Đang xuất..." : "Xuất Excel"}</span>
@@ -320,15 +325,12 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
       </header>}
 
       {/* Date & Dimension Filter Bar */}
-      <RetailReportFilters
+      {embeddedOverview ? <OverviewPeriodActions>{exportButton}</OverviewPeriodActions> : <RetailReportFilters
         filters={effectiveFilters}
-        hideDateControls={embeddedOverview}
-        compact={embeddedOverview}
-        actions={embeddedOverview ? exportButton : undefined}
         currentRange={visibleReport?.range}
         today={vietnamToday()}
         onChange={changeFilters}
-      />
+      />}
 
       {/* Load Error Alert */}
       {visibleLoadError && (

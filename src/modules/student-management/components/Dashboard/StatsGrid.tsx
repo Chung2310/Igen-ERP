@@ -1,4 +1,4 @@
-import { Users, Stethoscope, CheckCircle2, FolderIcon, BookOpen, GraduationCap, Trophy, RotateCcw, Wallet, UserX, UserCheck } from 'lucide-react';
+import { Users, Stethoscope, CheckCircle2, FolderIcon, BookOpen, GraduationCap, Trophy, RotateCcw, Wallet, UserX, UserCheck, CalendarDays } from 'lucide-react';
 import '../../../../components/dashboard/overview-dashboard.css';
 import { useStudents } from '../../hooks/useStudents';
 import { useAuth } from '../../../../context/AuthContext';
@@ -136,26 +136,24 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
   return (
     <div className={gridClass}>
       {overviewPeriod && <article className="overview-kpi flex min-h-28 flex-col gap-2">
-        <p className="text-xs font-medium">Học viên mới trong kỳ</p>
-        <p className="text-xl font-semibold tabular-nums">{loading || !user ? '—' : currentRegistrations}</p>
+        <div className="flex items-start justify-between gap-2"><p className="min-w-0 flex-1 text-xs font-medium">Học viên mới trong kỳ</p><CalendarDays className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden="true" /></div>
+        <p className="text-lg font-semibold tabular-nums sm:text-xl">{loading || !user ? '—' : currentRegistrations}</p>
         <OverviewKpiDelta value={loading || !user ? null : currentRegistrations} previous={loading || !user ? null : previousRegistrations} unit="học viên" />
       </article>}
       {displayStats.map((stat, idx) => (
         <article
           key={idx}
-          className={`overview-kpi flex items-center gap-2.5 ${getItemClass(idx)}`}
+          className={`overview-kpi flex min-h-28 items-start gap-2.5 ${getItemClass(idx)}`}
         >
-          <div className="shrink-0 rounded-md bg-white/15 p-2">
-            <stat.icon className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xl font-semibold leading-tight tabular-nums">
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-semibold leading-tight tabular-nums sm:text-xl">
               {loading || !user ? '—' : stat.value}
             </p>
             <p className="mt-1 text-xs font-normal leading-snug">
               {stat.label}
             </p>
           </div>
+          <stat.icon className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden="true" />
         </article>
       ))}
     </div>

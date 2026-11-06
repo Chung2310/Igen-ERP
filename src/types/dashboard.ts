@@ -44,6 +44,8 @@ export interface DashboardSummary {
     checkedInToday: number;
     lateToday: number;
     totalEmployees: number;
+    /** Current accounts created no later than the requested range end; deleted accounts cannot be reconstructed. */
+    employeesExistingAtRangeEnd?: number | null;
     date: string;
     onApprovedLeaveToday?: number;
     absentWithoutLeave?: number;

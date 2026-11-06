@@ -203,7 +203,7 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
 }
 
 /** Chấm công toàn doanh nghiệp trong ngày hôm nay */
-export async function getTimekeepingStats(user: DashboardUser) {
+export async function getTimekeepingStats(user: DashboardUser, range?: DashboardRange) {
   const todayStr = getLocalDateString();
   const tkQ = buildCompanyQuery(user);
 
@@ -212,10 +212,11 @@ export async function getTimekeepingStats(user: DashboardUser) {
   const endOfToday = new Date(today);
   endOfToday.setHours(23, 59, 59, 999);
 
-  const [checkedInToday, lateToday, totalEmployees, onApprovedLeaveToday] = await Promise.all([
+  const [checkedInToday, lateToday, totalEmployees, employeesExistingAtRangeEnd, onApprovedLeaveToday] = await Promise.all([
     TimekeepingLogModel.countDocuments({ ...tkQ, date: todayStr, checkIn: { $ne: null } }),
     TimekeepingLogModel.countDocuments({ ...tkQ, date: todayStr, status: { $in: ["Late", "Late-Left-Early"] } }),
     UserModel.countDocuments({ ...tkQ, role: { $ne: "superadmin" } }),
+    range ? UserModel.countDocuments({ ...tkQ, role: { $ne: "superadmin" }, createdAt: { $lte: range.end } }) : Promise.resolve(null),
     HRLeaveApplicationModel.countDocuments({
       ...tkQ,
       status: "approved",
@@ -227,7 +228,7 @@ export async function getTimekeepingStats(user: DashboardUser) {
 
   const absentWithoutLeave = Math.max(0, totalEmployees - checkedInToday - onApprovedLeaveToday);
 
-  return { checkedInToday, lateToday, totalEmployees, onApprovedLeaveToday, absentWithoutLeave, date: todayStr };
+  return { checkedInToday, lateToday, totalEmployees, employeesExistingAtRangeEnd, onApprovedLeaveToday, absentWithoutLeave, date: todayStr };
 }
 
 export async function getPersonnelNow(user: DashboardUser) {
@@ -398,8 +399,8 @@ export const dashboardService = {
         ? getStudentStats(user, range)
         : Promise.resolve({ students: { totalStudents: 0, newStudents: 0, tuitionRevenue: 0, paymentCount: 0, outstandingDebt: 0, activeCourses: 0, activeBatches: 0, unpaidStudentCount: 0 }, batches: { activeCount: 0, openingTodayCount: 0, missingInstructorCount: 0, endingSoonCount: 0, frequentAbsentStudents: 0 }, instructors: { onLeaveToday: 0 }, receivables: { overdueAmount: 0, dueTodayAmount: 0, collectedTodayAmount: 0 } }),
       access.timekeeping
-        ? getTimekeepingStats(user)
-        : Promise.resolve({ checkedInToday: 0, lateToday: 0, totalEmployees: 0, onApprovedLeaveToday: 0, absentWithoutLeave: 0, date: getLocalDateString() }),
+        ? getTimekeepingStats(user, range)
+        : Promise.resolve({ checkedInToday: 0, lateToday: 0, totalEmployees: 0, employeesExistingAtRangeEnd: null, onApprovedLeaveToday: 0, absentWithoutLeave: 0, date: getLocalDateString() }),
       access.chat ? getChatStats(user) : Promise.resolve({ unreadMessages: 0, roomCount: 0 }),
       access.resource ? getResourceStats(companyQ, range) : Promise.resolve({ fileCount: 0, recentUploads: 0, totalSize: 0 }),
       access.hr

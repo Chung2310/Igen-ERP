@@ -53,6 +53,26 @@ describe("DashboardTab consolidated hub", () => {
     expect(window.location.search).toBe("?sub=tai-chinh");
   });
 
+  it("places the period selector beside the tabs and shows dates only for a custom range", async () => {
+    render(<DashboardTab />);
+    const navigation = document.querySelector("#dashboard_sub_tabs_bar");
+    const period = screen.getByRole("region", { name: "Kỳ thống kê Tổng quan" });
+    expect(navigation?.contains(period)).toBe(true);
+    expect(document.querySelector("#dashboard_tab_content")?.contains(period)).toBe(false);
+    expect(screen.queryByRole("region", { name: "Khoảng ngày tùy chọn" })).toBeNull();
+    expect(period.querySelector("#overview-period-comparison")?.textContent).toMatch(/^So với T\d{1,2}\/\d{4}$/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Kỳ thống kê" }));
+    fireEvent.click(screen.getByRole("option", { name: "Khoảng ngày" }));
+    const customRange = screen.getByRole("region", { name: "Khoảng ngày tùy chọn" });
+    expect(customRange.classList.contains("justify-end")).toBe(true);
+    expect(customRange.querySelectorAll(".w-36")).toHaveLength(2);
+    expect(period.querySelector("#overview-period-comparison")).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Từ ngày Tổng quan" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "Đến ngày Tổng quan" })).toBeTruthy();
+    expect(await screen.findByTestId("finance-section")).toBeTruthy();
+  });
+
   it("redirects the removed enterprise overview link to an available section", async () => {
     window.history.replaceState(null, "", "/tong-quan?sub=doanh-nghiep");
     render(<DashboardTab />);
@@ -90,7 +110,9 @@ describe("DashboardTab consolidated hub", () => {
 
   it("keeps the Marketing dashboard in the consolidated overview", async () => {
     render(<DashboardTab />);
-    fireEvent.click(screen.getAllByRole("button", { name: /Marketing & Nội dung/ })[0]);
+    const marketingTab = screen.getByRole("button", { name: "Marketing & CRM" });
+    expect(marketingTab.querySelector("svg")?.classList.contains("lucide-messages-square")).toBe(true);
+    fireEvent.click(marketingTab);
     expect(await screen.findByTestId("marketing-section")).toBeTruthy();
   });
 

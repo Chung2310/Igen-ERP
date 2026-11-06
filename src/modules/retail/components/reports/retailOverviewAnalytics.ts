@@ -2,6 +2,15 @@ import type { RetailReport, RetailReportFilters } from "../../types";
 
 export type RetailPeriod = "day" | "week" | "month" | "quarter" | "year";
 
+export function salesChartPeriod(from: string, to: string, yearSelected = false): RetailPeriod {
+  if (yearSelected) return "month";
+  const days = (Date.parse(to) - Date.parse(from)) / 86_400_000 + 1;
+  if (!Number.isFinite(days) || days <= 31) return "day";
+  if (days <= 180) return "week";
+  if (days <= 400) return "month";
+  return "quarter";
+}
+
 const asDate = (value: string) => new Date(`${value}T12:00:00Z`);
 const isoDate = (value: Date) => value.toISOString().slice(0, 10);
 

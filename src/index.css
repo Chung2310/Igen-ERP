@@ -314,6 +314,9 @@ input[type="number"]::-webkit-outer-spin-button,
   --color-change-up: #15803d;
   --color-change-down: #be123c;
   --color-change-flat: #143963;
+  --color-excel-export: #22c55e;
+  --color-excel-export-hover: #16a34a;
+  --color-on-excel-export: #052e16;
 
   --color-background: #f6f8fd;
   --color-on-background: #071629;

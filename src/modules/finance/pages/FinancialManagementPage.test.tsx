@@ -16,10 +16,12 @@ describe("Finance management screens", () => {
     expect(screen.getByRole("button", { name: "Kỳ nhanh" }).textContent).toContain("Năm nay");
     await vi.waitFor(() => expect(vi.mocked(financeManagement).mock.calls.some(call => call[0].includes(`from=${new Date().getFullYear()}-01-01`))).toBe(true));
   });
-  it("updates both the quick filter and report request from the revenue chart period", async () => {
+  it("uses the top filter without a second chart period selector", async () => {
     render(<FinancialManagementPage view="overview" />);
-    const chartPeriod = await screen.findByLabelText("Kỳ biểu đồ doanh thu", {}, { timeout: 4000 });
-    fireEvent.change(chartPeriod, { target: { value: "year" } });
+    await screen.findByText("Doanh thu theo kỳ", {}, { timeout: 4000 });
+    expect(screen.queryByLabelText("Kỳ biểu đồ doanh thu")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Kỳ nhanh" }));
+    fireEvent.click(screen.getByRole("option", { name: "Năm nay" }));
     expect(screen.getByRole("button", { name: "Kỳ nhanh" }).textContent).toContain("Năm nay");
     await vi.waitFor(() => expect(vi.mocked(financeManagement).mock.calls.some(call => call[0].includes(`from=${new Date().getFullYear()}-01-01`))).toBe(true));
   });

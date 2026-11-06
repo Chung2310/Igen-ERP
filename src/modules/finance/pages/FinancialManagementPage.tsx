@@ -130,7 +130,7 @@ export default function FinancialManagementPage({ view }: {
       {error && <div role="alert" className="flex items-center gap-2 rounded-md border border-error bg-error-container p-4 text-sm font-medium text-on-error-container"><LockKeyhole size={18}/>{error}</div>}
       {data && <>
         {s.missingCostCount > 0 && <p role="alert" className="rounded-md border border-tertiary bg-tertiary-container p-3.5 text-sm text-on-tertiary-container font-medium">Có {s.missingCostCount} dòng chưa xác định được giá vốn. Chưa đủ dữ liệu để tính tổng giá vốn, lợi nhuận và hòa vốn; cần đối chiếu chứng từ nhập/xuất liên kết.</p>}
-        {view === "overview" && <Suspense fallback={<p role="status" className="text-sm text-on-surface-variant">Đang tải biểu đồ tài chính…</p>}><FinanceOverviewDashboard report={data} period={reportPeriod} from={reportFrom} to={reportTo} onPeriodChange={overviewPeriod ? undefined : preset} /></Suspense>}
+        {view === "overview" && <Suspense fallback={<p role="status" className="text-sm text-on-surface-variant">Đang tải biểu đồ tài chính…</p>}><FinanceOverviewDashboard report={data} period={reportPeriod} from={reportFrom} to={reportTo} comparisonShownInToolbar={embeddedOverview} /></Suspense>}
         {view === "profit" && (
           <div className="space-y-2.5">
             <Stats values={[["Doanh thu hàng hóa", money(s.revenue)], ["Giá vốn", money(s.cost)], ["Lãi gộp", money(s.grossProfit)], ["Lãi ròng quản trị", money(s.netProfit)]]}/>

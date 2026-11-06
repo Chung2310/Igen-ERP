@@ -10,12 +10,13 @@ import type { HrDepartment } from "../../services/hrDepartmentService";
 import type { RecruitmentApplicant, RecruitmentJob, RecruitmentPipeline } from "../../types/recruitment";
 import { HrAnalyticsPanels } from "./HrAnalyticsPanels";
 import { OverviewChartSummary } from "./OverviewChartSummary";
+import { OverviewChartViewport } from "./OverviewChartViewport";
 import { AnimatedOverviewValue } from "./AnimatedOverviewValue";
 import { OverviewKpiDelta } from "./OverviewKpiDelta";
 import { useOverviewPeriod } from "./OverviewPeriodContext";
 import { overviewDateKey } from "./overviewComparison";
 
-type Icon = ComponentType<{ className?: string }>;
+type Icon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
 const quickLinks: Array<{ label: string; sub: string; icon: Icon }> = [
   { label: "Sơ đồ tổ chức", sub: "so-do", icon: FolderTree },
@@ -49,24 +50,23 @@ function Card({
 }
 
 function Kpi({
-  label, value, previous, note, icon: IconComponent,
+  label, value, previous, note, comparisonLabel, icon: IconComponent,
 }: {
   label: string;
   value: number | null | undefined;
   previous?: number | null;
   note: string;
+  comparisonLabel?: string;
   icon: Icon;
 }) {
   return (
-    <Card className="overview-kpi flex min-w-0 flex-col px-4 py-3.5">
-      <div className="flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-md bg-white/15 text-white"><IconComponent className="size-5" /></span>
-        <div className="min-w-0">
-          <p className="line-clamp-2 min-h-8 text-pretty text-xs font-medium leading-4 text-white">{label}</p>
-          <p className="mt-1 text-2xl font-semibold leading-none tabular-nums text-white"><AnimatedOverviewValue value={value} format={numberText} /></p>
-        </div>
+    <Card className="overview-kpi flex min-h-28 min-w-0 flex-col">
+      <div className="flex items-start justify-between gap-2">
+        <p className="line-clamp-2 min-w-0 flex-1 text-pretty text-xs font-medium leading-4 text-white">{label}</p>
+        <IconComponent className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden={true} />
       </div>
-      {previous !== undefined && <OverviewKpiDelta value={value} previous={previous} unit="" />}
+      <p className="mt-1 text-lg font-semibold leading-none tabular-nums text-white sm:text-xl"><AnimatedOverviewValue value={value} format={numberText} /></p>
+      {previous !== undefined ? <OverviewKpiDelta value={value} previous={previous} unit="" comparisonLabel={comparisonLabel} /> : <p className="finance-kpi-delta mt-auto w-full bg-surface-container-lowest px-2 py-1 text-xs font-medium leading-4 text-on-surface-variant">Số hiện tại</p>}
       <span className="sr-only">{note}</span>
     </Card>
   );
@@ -115,7 +115,7 @@ function TaskChart({ summary, previous, loading }: { summary: DashboardSummary |
           role="img"
           aria-label={loading || !summary ? "Đang tải biểu đồ công việc" : `Công việc: ${segments.map((item) => `${item.label} ${item.count}`).join(", ")}`}
         >
-          <svg viewBox="0 0 176 176" className="h-full w-full -rotate-90" aria-hidden="true">
+          <OverviewChartViewport><svg viewBox="0 0 176 176" className="h-full w-full -rotate-90" aria-hidden="true">
             <circle cx="88" cy="88" r={radius} fill="none" stroke="var(--color-outline-variant)" strokeWidth="15" />
             {arcs.map((arc) => arc.length > 0 && (
               <motion.circle key={arc.label} cx="88" cy="88" r={radius} fill="none" stroke={arc.color} strokeWidth="15" strokeLinecap="round"
@@ -123,7 +123,7 @@ function TaskChart({ summary, previous, loading }: { summary: DashboardSummary |
                 strokeDasharray={`${Math.max(0, arc.length - 4)} ${circumference}`}
                 strokeDashoffset={-arc.offset} />
             ))}
-          </svg>
+          </svg></OverviewChartViewport>
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <span className="text-3xl font-semibold tabular-nums text-on-surface">{loading || !summary ? "—" : total ? `${completedPercent}%` : "0"}</span>
             <span className="mt-1 text-xs text-on-surface-variant">{total ? "hoàn thành" : "chưa có việc"}</span>
@@ -181,13 +181,13 @@ function TrainingChart({ summary, previous, loading }: { summary: DashboardSumma
                 <span className={`font-semibold tabular-nums ${row.text}`}>{numberText(row.count, loading)}</span>
               </div>
               <div className="h-2.5 overflow-hidden rounded-full bg-surface-container-low" role="img" aria-label={`${row.label}: ${numberText(row.count, loading)} trên ${numberText(total, loading)} lượt học`}>
-                <motion.div
+                <OverviewChartViewport><motion.div
                   initial={reduceMotion ? false : { scaleX: 0 }}
                   animate={{ scaleX: 1 }}
                   transition={{ duration: 0.65, delay: 0.3 + index * 0.1 }}
                   className={`h-full rounded-full ${row.bar}`}
                   style={{ width: `${percent}%`, transformOrigin: "left" }}
-                />
+                /></OverviewChartViewport>
               </div>
             </div>
           );
@@ -254,20 +254,24 @@ export function HrOverviewDashboard({
   const previousApplicants = overviewPeriod ? applicantCount(overviewPeriod.previousFrom, overviewPeriod.previousTo) : null;
   return (
     <div className="space-y-4 pb-5">
-      {error && <div role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">Không tải được số liệu nhân sự. Bấm Làm mới để thử lại.</div>}
+      {error && <div role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">Không tải được số liệu nhân sự. Vui lòng thử lại sau.</div>}
+      <section className="overview-panel space-y-3" aria-label="Tình hình nhân sự">
+      <h3 className="text-balance text-lg font-semibold text-on-surface">Tình hình nhân sự</h3>
       <div className="hr-overview-metrics grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Kpi label="Nhân sự" value={employeeCount} note={employeeScope} icon={UsersRound} />
-        <Kpi label="Đã chấm công" value={canSeeTimekeeping && !loading ? summary?.timekeeping.checkedInToday : null} note="Hôm nay" icon={CalendarDays} />
+        <Kpi label="Nhân sự" value={employeeCount} previous={previousSummary?.timekeeping.employeesExistingAtRangeEnd ?? null} note={`${employeeScope}. So sánh theo tài khoản còn tồn tại và ngày tạo; không bao gồm tài khoản đã xóa.`} icon={UsersRound} />
+        <Kpi label="Đã chấm công" value={canSeeTimekeeping ? summary?.timekeeping.checkedInToday : null} previous={canSeeTimekeeping ? yesterdayAttendance?.checkedIn ?? null : null} note="Hôm nay so với hôm qua, không theo bộ lọc kỳ" comparisonLabel="hôm qua" icon={CalendarDays} />
         <Kpi label="Công việc" value={loading ? null : summary?.projects.tasks.total} previous={previousSummary?.projects.tasks.total ?? null} note="Công việc trong kỳ" icon={BriefcaseBusiness} />
         <Kpi label="Khóa đào tạo" value={loading ? null : summary?.training.totalCourses} previous={previousSummary?.training.totalCourses ?? null} note="Khóa trong kỳ" icon={GraduationCap} />
-        <Kpi label="Đi muộn" value={canSeeTimekeeping && !loading ? summary?.timekeeping.lateToday : null} note="Ghi nhận trong ngày" icon={Clock3} />
+        <Kpi label="Đi muộn" value={canSeeTimekeeping ? summary?.timekeeping.lateToday : null} previous={canSeeTimekeeping ? yesterdayAttendance?.late ?? null : null} note="Hôm nay so với hôm qua, không theo bộ lọc kỳ" comparisonLabel="hôm qua" icon={Clock3} />
         {canSeeRecruitment && overviewPeriod ? <Kpi label="Ứng viên mới" value={loading ? null : currentApplicants} previous={previousApplicants} note="Hồ sơ trong kỳ" icon={FileText} /> : <Kpi label="HĐ sắp hết hạn" value={loading ? null : summary?.personnelNow?.expiringContractCount} note="Trong 30 ngày tới" icon={FileWarning} />}
       </div>
+      <p className="text-pretty text-xs text-on-surface-variant">Biến động nhân sự dựa trên tài khoản còn tồn tại; chấm công và đi muộn luôn là số hôm nay, so với hôm qua.</p>
+      </section>
       <div className="grid items-stretch gap-4 lg:grid-cols-2">
         <TaskChart summary={summary} previous={previousSummary} loading={loading} />
         <TrainingChart summary={summary} previous={previousSummary} loading={loading} />
       </div>
-      {canSeeTimekeeping && <Attendance summary={summary} yesterdayAttendance={yesterdayAttendance} loading={loading} />}
+      {canSeeTimekeeping && <Attendance summary={summary} yesterdayAttendance={yesterdayAttendance} loading={loading && !summary} />}
       <HrAnalyticsPanels summary={summary} yesterdayAttendance={yesterdayAttendance} departments={departments} applicants={applicants} jobs={jobs} pipeline={pipeline} loading={loading} canSeeTimekeeping={canSeeTimekeeping} canSeeRecruitment={canSeeRecruitment} />
       <section aria-labelledby="hr-quick-links-heading">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
@@ -278,7 +282,7 @@ export function HrOverviewDashboard({
           {quickLinks.filter((link) => link.sub !== "tuyen-dung" || canSeeRecruitment).map(({ label, sub, icon: IconComponent }) => (
             <Card key={sub}>
               <button type="button" onClick={() => openHrTab(sub)} className="group flex w-full items-center gap-3 rounded-md px-4 py-3.5 text-left hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary">
-                <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary group-hover:bg-primary/15"><IconComponent aria-hidden="true" className="size-4.5" /></span>
+                <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary group-hover:bg-primary/15"><IconComponent aria-hidden={true} className="size-4.5" /></span>
                 <span className="min-w-0 flex-1 text-sm font-medium text-on-surface">{label}</span>
                 <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-on-surface-variant" />
               </button>

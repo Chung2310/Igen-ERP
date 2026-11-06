@@ -27,7 +27,7 @@
   --kpi-start: #7344ee;
   --kpi-end: #6237de;
   min-width: 0;
-  min-height: 5.25rem;
+  min-height: 7rem;
   border-radius: 6px;
   padding: 0.75rem 0.875rem;
   background: linear-gradient(90deg, rgb(255 255 255 / 20%), rgb(255 255 255 / 4%) 42%, transparent 72%), linear-gradient(110deg, var(--kpi-start), var(--kpi-end));

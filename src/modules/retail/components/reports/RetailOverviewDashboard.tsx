@@ -1,17 +1,20 @@
 import React from "react";
+import { ChartNoAxesCombined, Receipt, RotateCcw, ShoppingCart, TrendingUp, Wallet } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import { OverviewChartSummary, previousCalendarMonth, yesterday } from "../../../../components/dashboard/OverviewChartSummary";
 import { useOverviewPeriod } from "../../../../components/dashboard/OverviewPeriodContext";
 import { AnimatedOverviewValue } from "../../../../components/dashboard/AnimatedOverviewValue";
-import { Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { OverviewChartViewport } from "../../../../components/dashboard/OverviewChartViewport";
+import { Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { retailReportsApi } from "../../api/retailReports.api";
 import type { RetailReport, RetailReportFilters, RetailScope } from "../../types";
 import { cn } from "../../../student-management/lib/utils";
-import { aggregateSales, comparison, groupProducts, previousRangeFilters, type RetailPeriod } from "./retailOverviewAnalytics";
+import { aggregateSales, comparison, groupProducts, previousRangeFilters, salesChartPeriod } from "./retailOverviewAnalytics";
 import "../../../finance/finance-overview.css";
 import "./retail-overview.css";
 
 const colors = ["var(--finance-chart-blue)", "var(--finance-chart-teal)", "var(--finance-chart-orange)", "var(--finance-chart-violet)", "var(--finance-chart-red)"];
+const kpiIcons = [ChartNoAxesCombined, ShoppingCart, Receipt, Wallet, TrendingUp, RotateCcw] as const;
 const integer = (value: number) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value);
 const money = (value: number) => `${integer(value)} đ`;
 const displayDate = (value: string) => value.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3-$2-$1");
@@ -26,11 +29,11 @@ const tooltipCount = (value: number | string | undefined) => typeof value === "n
 type ChartMetric = { value: number | null | undefined; previous?: number | null; count?: boolean };
 const ChartMetrics = React.createContext<Record<string, ChartMetric>>({});
 
-function ChartCard({ title, hasData, children, className = "", action }: { title: string; hasData: boolean; children: React.ReactNode; className?: string; action?: React.ReactNode }) {
+function ChartCard({ title, hasData, children, className = "" }: { title: string; hasData: boolean; children: React.ReactNode; className?: string }) {
   const metric = React.useContext(ChartMetrics)[title];
   return <section className={cn("finance-chart-card", className)}>
     <h3 className="mb-2 text-balance text-sm font-semibold text-on-surface">{title}</h3>
-    <OverviewChartSummary value={metric?.value} previous={metric?.previous} metricLabel={title} format={metric?.count ? integer : shortMoney} detailsHref="/erp?sub=bao-cao" action={action} />
+    <OverviewChartSummary value={metric?.value} previous={metric?.previous} metricLabel={title} format={metric?.count ? integer : shortMoney} detailsHref="/erp?sub=bao-cao" />
     {hasData ? <div role="img" aria-label={title} className="h-56 min-w-0 sm:h-64">{children}</div> : <div className="flex min-h-36 items-center justify-center rounded-lg bg-surface-container-low px-4 text-center text-xs text-on-surface-variant">Chưa có dữ liệu trong phạm vi đã chọn.</div>}
   </section>;
 }
@@ -53,11 +56,11 @@ function DonutCard({ title, rows, unit = "money" }: { title: string; rows: { nam
   const total = items.reduce((sum, row) => sum + row.value, 0);
   return <ChartCard title={title} hasData={items.length > 0}>
     <div className="grid h-full min-w-0 grid-cols-1 items-center gap-1 sm:grid-cols-[56%_minmax(0,1fr)]">
-      <ResponsiveContainer width="100%" height="100%"><PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+      <OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
         <Pie data={items} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="51%" outerRadius="70%" paddingAngle={2} stroke="none" labelLine={{ stroke: "var(--color-on-surface-variant)", strokeWidth: 1 }} label={({ name, percent }) => `${String(name).slice(0, 12)} ${(Number(percent || 0) * 100).toFixed(0)}%`} isAnimationActive={!reduceMotion} animationDuration={700}>
           {items.map((item, index) => <Cell key={item.name} fill={colors[index % colors.length]} />)}
         </Pie><Tooltip formatter={(value) => typeof value === "number" ? unit === "count" ? `${integer(value)} sản phẩm` : money(value) : value ?? "—"} />
-      </PieChart></ResponsiveContainer>
+      </PieChart></ResponsiveContainer></OverviewChartViewport>
       <ul className="space-y-2 text-xs">{items.map((item, index) => <li key={item.name} className="flex min-w-0 items-start justify-between gap-2">
         <span className="flex min-w-0 items-start gap-1.5 text-on-surface-variant"><span className="mt-1 size-2 shrink-0 rounded-full" style={{ background: colors[index % colors.length] }} /><span className="break-words">{item.name}</span></span>
         <strong className="shrink-0 text-right font-semibold tabular-nums text-on-surface">{unit === "count" ? integer(item.value) : shortMoney(item.value)}<span className="block text-[10px] font-normal text-on-surface-variant">{(item.value / total * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%</span></strong>
@@ -70,21 +73,21 @@ function HorizontalCard({ title, rows, valueLabel = "Doanh thu", count = false, 
   const reduceMotion = useReducedMotion();
   const items = rows.filter(row => row.value > 0).slice(0, 7);
   return <ChartCard title={title} hasData={items.length > 0}>
-    <ResponsiveContainer width="100%" height="100%"><ComposedChart data={items} layout="vertical" margin={{ top: 4, right: 16, bottom: 0, left: 2 }}>
+    <OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><ComposedChart data={items} layout="vertical" margin={{ top: 4, right: count ? 52 : 16, bottom: 0, left: 2 }}>
       <CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" horizontal={false} />
-      <XAxis type="number" tickFormatter={count ? integer : shortMoney} tick={{ fontSize: 10 }} />
-      <YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 10 }} tickFormatter={(name: string) => name.length > 14 ? `${name.slice(0, 13)}…` : name} />
+      <XAxis axisLine={false} tickLine={false} type="number" tickFormatter={count ? integer : shortMoney} tick={{ fontSize: 10 }} />
+      <YAxis axisLine={false} tickLine={false} type="category" dataKey="name" width={95} tick={{ fontSize: 10 }} tickFormatter={(name: string) => name.length > 14 ? `${name.slice(0, 13)}…` : name} />
       <Tooltip formatter={count ? (value) => typeof value === "number" ? `${integer(value)} ${countUnit}` : value ?? "—" : tooltipMoney} /><Bar dataKey="value" name={valueLabel} fill={colors[0]} maxBarSize={22} isAnimationActive={!reduceMotion} animationDuration={700}>
         {items.map((item, index) => <Cell key={item.name} fill={colors[index % colors.length]} />)}
+        {count && <LabelList dataKey="value" position="right" fill="var(--color-on-surface-variant)" fontSize={11} formatter={(value: unknown) => typeof value === "number" && value > 0 ? integer(value) : ""} />}
       </Bar>
-    </ComposedChart></ResponsiveContainer>
+    </ComposedChart></ResponsiveContainer></OverviewChartViewport>
   </ChartCard>;
 }
 
 export default function RetailOverviewDashboard({ report, filters, scope }: { report: RetailReport; filters: RetailReportFilters; scope: RetailScope }) {
   const overviewPeriod = useOverviewPeriod();
   const reduceMotion = useReducedMotion();
-  const [period, setPeriod] = React.useState<RetailPeriod>("day");
   const [previous, setPrevious] = React.useState<{ key: string; report: RetailReport } | null>(null);
   const [previousErrorKey, setPreviousErrorKey] = React.useState("");
   const currentDay = new Date().toLocaleDateString("en-CA");
@@ -110,7 +113,7 @@ export default function RetailOverviewDashboard({ report, filters, scope }: { re
     { title: "Lợi nhuận gộp", value: summary.grossProfit, previous: prior?.summary.grossProfit, unit: "money" as const },
     { title: "Hoàn tiền", value: summary.refunds, previous: prior?.summary.refunds, unit: "money" as const },
   ];
-  const series = aggregateSales(report.timeSeries, period);
+  const series = aggregateSales(report.timeSeries, salesChartPeriod(report.range.from, report.range.to, overviewPeriod?.selection === "year"));
   const dayRows = aggregateSales(report.timeSeries, "day");
   const productRows = report.products.filter(row => row.netSales > 0).sort((a, b) => b.netSales - a.netSales);
   const categoryRows = groupProducts(report.products, "category");
@@ -140,11 +143,15 @@ export default function RetailOverviewDashboard({ report, filters, scope }: { re
   return <ChartMetrics.Provider value={metrics}><div className="finance-overview retail-overview space-y-3">
     <section className="finance-chart-card" aria-label="Chỉ số bán lẻ">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><h2 className="text-balance text-lg font-semibold text-on-surface">Tình hình bán lẻ & POS</h2><span className="text-xs text-on-surface-variant">Đơn vị: VND</span></div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{kpis.map((item, index) => <div key={item.title} className={`finance-kpi finance-kpi-${index}`}>
-        <p className="text-xs font-medium text-white">{item.title}</p><p className="mt-1 break-words text-lg font-semibold tabular-nums text-white sm:text-xl"><AnimatedOverviewValue value={item.value} format={item.unit === "count" ? integer : money} /></p>
-        {item.value != null && <Delta value={item.value} previous={item.previous} unit={item.unit} />}
-      </div>)}</div>
-      <p className="mt-3 text-xs text-on-surface-variant">Kỳ so sánh: {displayDate(previousFilters.from)} – {displayDate(previousFilters.to)}. Công nợ bên dưới là số dư hiện tại.</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">{kpis.map((item, index) => {
+        const Icon = kpiIcons[index];
+        return <div key={item.title} className={`finance-kpi finance-kpi-${index} flex min-h-28 flex-col`}>
+          <div className="flex items-start justify-between gap-2"><p className="text-xs font-medium text-white">{item.title}</p><Icon className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden="true" /></div>
+          <p className="mt-1 break-words text-lg font-semibold tabular-nums text-white sm:text-xl"><AnimatedOverviewValue value={item.value} format={item.unit === "count" ? integer : money} /></p>
+          {item.value != null && <Delta value={item.value} previous={item.previous} unit={item.unit} />}
+        </div>;
+      })}</div>
+      <p className="mt-3 text-xs text-on-surface-variant">{!overviewPeriod && <>Kỳ so sánh: {displayDate(previousFilters.from)} – {displayDate(previousFilters.to)}. </>}Công nợ bên dưới là số dư hiện tại.</p>
     </section>
 
       <section className="finance-chart-card"><h3 className="mb-3 text-balance text-sm font-semibold text-on-surface">Số liệu bán hàng chi tiết</h3><dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -152,15 +159,15 @@ export default function RetailOverviewDashboard({ report, filters, scope }: { re
     </dl></section>
 
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
-      <ChartCard title="Doanh thu theo kỳ" hasData={hasSales} className="xl:col-span-2" action={<select aria-label="Kỳ biểu đồ doanh thu" value={period} onChange={event => setPeriod(event.target.value as RetailPeriod)} className="min-h-9 rounded-lg border border-outline-variant bg-surface-container-lowest px-2 text-xs text-on-surface focus:border-primary focus:outline-none"><option value="day">Ngày</option><option value="week">Tuần</option><option value="month">Tháng</option><option value="quarter">Quý</option><option value="year">Năm</option></select>}>
-        <ResponsiveContainer width="100%" height="100%"><ComposedChart data={series} margin={{ top: 8, right: 10, bottom: 0, left: 2 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} /><YAxis tickFormatter={shortMoney} tick={{ fontSize: 10 }} width={62} /><Tooltip formatter={tooltipMoney} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="netSales" name="Doanh thu thuần" fill={colors[0]} maxBarSize={42} isAnimationActive={!reduceMotion} animationDuration={700} /><Line type="monotone" dataKey="collectedAmount" name="Đã thu" stroke={colors[1]} strokeWidth={2} dot={false} isAnimationActive={!reduceMotion} animationDuration={700} /><Line type="monotone" dataKey="refunds" name="Hoàn tiền" stroke={colors[4]} strokeWidth={2} dot={false} isAnimationActive={!reduceMotion} animationDuration={700} /></ComposedChart></ResponsiveContainer>
+      <ChartCard title="Doanh thu theo kỳ" hasData={hasSales} className="xl:col-span-2">
+        <OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><ComposedChart data={series} margin={{ top: 8, right: 10, bottom: 0, left: 2 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis axisLine={false} tickLine={false} dataKey="label" tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} tickFormatter={shortMoney} tick={{ fontSize: 10 }} width={62} /><Tooltip formatter={tooltipMoney} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="netSales" name="Doanh thu thuần" fill={colors[0]} maxBarSize={42} isAnimationActive={!reduceMotion} animationDuration={700} /><Line type="monotone" dataKey="collectedAmount" name="Đã thu" stroke={colors[1]} strokeWidth={2} dot={false} isAnimationActive={!reduceMotion} animationDuration={700} /><Line type="monotone" dataKey="refunds" name="Hoàn tiền" stroke={colors[4]} strokeWidth={2} dot={false} isAnimationActive={!reduceMotion} animationDuration={700} /></ComposedChart></ResponsiveContainer></OverviewChartViewport>
       </ChartCard>
       <DonutCard title="Cơ cấu thanh toán" rows={paymentRows} />
       <ChartCard title="Số đơn theo ngày" hasData={dayRows.some(row => row.orderCount > 0)}>
-        <ResponsiveContainer width="100%" height="100%"><ComposedChart data={dayRows}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} /><YAxis allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip formatter={tooltipCount} /><Bar dataKey="orderCount" name="Số đơn" fill={colors[2]} maxBarSize={36} isAnimationActive={!reduceMotion} animationDuration={700} /></ComposedChart></ResponsiveContainer>
+        <OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><ComposedChart data={dayRows} margin={{ top: 20, right: 8, bottom: 0, left: 2 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis axisLine={false} tickLine={false} dataKey="label" tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip formatter={tooltipCount} /><Bar dataKey="orderCount" name="Số đơn" fill={colors[2]} maxBarSize={36} isAnimationActive={!reduceMotion} animationDuration={700}><LabelList dataKey="orderCount" position="top" fill="var(--color-on-surface-variant)" fontSize={11} formatter={(value: unknown) => typeof value === "number" && value > 0 ? integer(value) : ""} /></Bar></ComposedChart></ResponsiveContainer></OverviewChartViewport>
       </ChartCard>
       <ChartCard title="Giá trị đơn trung bình" hasData={dayRows.some(row => row.orderCount > 0)}>
-        <ResponsiveContainer width="100%" height="100%"><ComposedChart data={dayRows}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} /><YAxis tickFormatter={shortMoney} tick={{ fontSize: 10 }} width={60} /><Tooltip formatter={tooltipMoney} /><Line type="monotone" dataKey="averageOrderValue" name="Trung bình đơn" stroke={colors[3]} strokeWidth={2.5} isAnimationActive={!reduceMotion} animationDuration={700} /></ComposedChart></ResponsiveContainer>
+        <OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><ComposedChart data={dayRows}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis axisLine={false} tickLine={false} dataKey="label" tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} tickFormatter={shortMoney} tick={{ fontSize: 10 }} width={60} /><Tooltip formatter={tooltipMoney} /><Line type="monotone" dataKey="averageOrderValue" name="Trung bình đơn" stroke={colors[3]} strokeWidth={2.5} isAnimationActive={!reduceMotion} animationDuration={700} /></ComposedChart></ResponsiveContainer></OverviewChartViewport>
       </ChartCard>
       <DonutCard title="Doanh thu theo danh mục" rows={categoryRows.map(row => ({ name: row.name, value: row.sales }))} />
       <HorizontalCard title="Doanh thu theo thương hiệu" rows={brandRows.map(row => ({ name: row.name, value: row.sales }))} />

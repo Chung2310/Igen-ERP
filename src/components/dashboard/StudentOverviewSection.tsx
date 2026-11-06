@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { useReducedMotion } from "motion/react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArrowRight } from "lucide-react";
-import { ErpRefreshButton } from "../common/ErpRefreshButton";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ArrowRight, BookOpen, CalendarDays, GraduationCap, UserPlus, UsersRound, Wallet } from "lucide-react";
 import { HrEmptyIllustration, type HrEmptyIllustrationKind } from "../hr/HrEmptyIllustration";
 import { AnimatedOverviewValue } from "./AnimatedOverviewValue";
 import { OverviewKpiDelta } from "./OverviewKpiDelta";
-import { OverviewPeriodActions, useOverviewPeriod } from "./OverviewPeriodContext";
+import { useOverviewPeriod } from "./OverviewPeriodContext";
+import { OverviewChartViewport } from "./OverviewChartViewport";
 import { buildStudentOverview } from "./studentOverviewMetrics";
 import { useStudents } from "../../modules/student-management/hooks/useStudents";
 import { useCourses } from "../../modules/student-management/hooks/useCourses";
@@ -16,6 +16,7 @@ import "./overview-dashboard.css";
 import "../../modules/finance/finance-overview.css";
 
 const colors = ["var(--finance-chart-blue)", "var(--finance-chart-teal)", "var(--finance-chart-orange)", "var(--finance-chart-violet)", "var(--finance-chart-red)"];
+const kpiIcons = [UsersRound, UserPlus, BookOpen, GraduationCap, CalendarDays, Wallet] as const;
 const integer = (value: number) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(value);
 const money = (value: number) => `${integer(value)} đ`;
 const shortMoney = (value: number) => {
@@ -41,9 +42,9 @@ function ChartCard({ title, children, hasData, kind = "training", className = ""
 
 export default function StudentOverviewSection() {
   const period = useOverviewPeriod();
-  const { students, loading: studentsLoading, error: studentsError, refetch: refetchStudents } = useStudents();
-  const { courses, loading: coursesLoading, error: coursesError, refetch: refetchCourses } = useCourses();
-  const { batches, loading: batchesLoading, error: batchesError, refetch: refetchBatches } = useBatches();
+  const { students, loading: studentsLoading, error: studentsError } = useStudents();
+  const { courses, loading: coursesLoading, error: coursesError } = useCourses();
+  const { batches, loading: batchesLoading, error: batchesError } = useBatches();
   const reduceMotion = useReducedMotion();
   const today = new Date().toLocaleDateString("en-CA");
   const from = period?.from || `${today.slice(0, 7)}-01`;
@@ -53,7 +54,6 @@ export default function StudentOverviewSection() {
   const data = useMemo(() => buildStudentOverview(students, courses, batches, { from, to, previousFrom, previousTo }), [students, courses, batches, from, to, previousFrom, previousTo]);
   const loading = studentsLoading || coursesLoading || batchesLoading;
   const error = studentsError || coursesError || batchesError;
-  const refresh = () => { void Promise.all([refetchStudents(), refetchCourses(), refetchBatches()]); };
   const chartMotion = !reduceMotion;
   const feeSplit = [{ name: "Đã đóng", value: Math.min(data.tuition.totalPaid, data.tuition.totalFee) }, { name: "Còn phải thu", value: data.tuition.outstanding }].filter(row => row.value > 0);
   const studentHref = "/quan-ly-hoc-vien?sub=hoc-vien";
@@ -74,17 +74,23 @@ export default function StudentOverviewSection() {
   ];
 
   return <div className="finance-overview space-y-3 text-left text-on-surface">
-    <OverviewPeriodActions>
-      <h2 className="sr-only">Tổng quan Học viên</h2>
-      <ErpRefreshButton onClick={refresh} loading={loading} />
-    </OverviewPeriodActions>
+    <h2 className="sr-only">Tổng quan Học viên</h2>
     {error && <div role="alert" className="rounded-md border border-error bg-error-container px-4 py-3 text-sm text-on-error-container">{error}</div>}
     {loading && !students.length && <div role="status" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6" aria-label="Đang tải Tổng quan Học viên">{Array.from({ length: 6 }, (_, index) => <div key={index} className="h-28 animate-pulse rounded-md bg-surface-container-low" />)}</div>}
     {!loading && !students.length && !studentsError && <section className="finance-chart-card flex flex-wrap items-center justify-between gap-3"><p className="text-pretty text-sm text-on-surface-variant">Chưa có học viên trong chi nhánh này. Các biểu đồ bên dưới sẽ cập nhật khi có dữ liệu.</p><a className="inline-flex items-center gap-1 text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-primary" href={studentHref}>Mở danh sách học viên <ArrowRight className="size-4" aria-hidden="true" /></a></section>}
     {(!loading || students.length > 0) && <>
             <section className="finance-chart-card" aria-label="Chỉ số học viên">
-              <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><h3 className="text-balance text-sm font-semibold text-on-surface">Tình hình học viên</h3><span className="text-xs text-on-surface-variant">{coursesError ? "—" : integer(data.counts.courses)} khóa học</span></div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">{kpis.map((item, index) => <article key={item.label} className={`finance-kpi finance-kpi-${index} flex min-h-28 flex-col`}><p className="text-pretty text-xs font-medium text-white">{item.label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-white"><AnimatedOverviewValue value={studentsError || (index === 4 && batchesError) ? null : item.value} format={integer} /></p>{item.previous !== undefined && <OverviewKpiDelta value={studentsError ? null : item.value} previous={studentsError ? null : item.previous} unit="học viên" />}</article>)}</div>
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><h3 className="text-balance text-lg font-semibold text-on-surface">Tình hình học viên</h3><span className="text-xs text-on-surface-variant">{coursesError ? "—" : integer(data.counts.courses)} khóa học</span></div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+                {kpis.map((item, index) => {
+                  const Icon = kpiIcons[index];
+                  return <article key={item.label} className={`finance-kpi finance-kpi-${index} flex min-h-28 flex-col`}>
+                    <div className="flex items-start justify-between gap-2"><p className="text-pretty text-xs font-medium text-white">{item.label}</p><Icon className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden="true" /></div>
+                    <p className="mt-1 text-lg font-semibold tabular-nums text-white sm:text-xl"><AnimatedOverviewValue value={studentsError || (index === 4 && batchesError) ? null : item.value} format={integer} /></p>
+                    {item.previous !== undefined && <OverviewKpiDelta value={studentsError ? null : item.value} previous={studentsError ? null : item.previous} unit="học viên" />}
+                  </article>;
+                })}
+              </div>
             </section>
             <section className="finance-chart-card" aria-label="Số liệu học phí chi tiết">
               <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><h3 className="text-balance text-sm font-semibold text-on-surface">Số liệu học phí chi tiết</h3><span className="text-xs text-on-surface-variant">Đơn vị: VND</span></div>
@@ -94,31 +100,31 @@ export default function StudentOverviewSection() {
 
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
               <ChartCard title="Xu hướng đăng ký học viên" hasData={data.trend.some(row => row.registrations > 0)} className="xl:col-span-2" href={studentHref}>
-                <div role="img" aria-label="Xu hướng đăng ký học viên trong kỳ" className="h-56 min-w-0"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.trend} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} /><YAxis allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip formatter={countTooltip} /><Area type="monotone" dataKey="registrations" name="Học viên mới" stroke={colors[0]} fill="var(--finance-chart-teal-soft)" strokeWidth={2} isAnimationActive={chartMotion} /></AreaChart></ResponsiveContainer></div>
+                <div role="img" aria-label="Xu hướng đăng ký học viên trong kỳ" className="h-56 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.trend} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis axisLine={false} tickLine={false} dataKey="label" tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip formatter={countTooltip} /><Area type="monotone" dataKey="registrations" name="Học viên mới" stroke={colors[0]} fill="var(--finance-chart-teal-soft)" strokeWidth={2} isAnimationActive={chartMotion} /></AreaChart></ResponsiveContainer></OverviewChartViewport></div>
               </ChartCard>
               <ChartCard title="Trạng thái học viên" hasData={data.status.length > 0} href={studentHref}>
-                <div role="img" aria-label="Số học viên theo trạng thái chính" className="h-56 min-w-0"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.status} layout="vertical" margin={{ left: 0, right: 10, top: 4, bottom: 0 }}><XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} /><YAxis type="category" dataKey="name" width={82} tick={{ fontSize: 10 }} /><Tooltip formatter={countTooltip} /><Bar dataKey="value" name="Học viên" fill={colors[3]} maxBarSize={19} isAnimationActive={chartMotion} /></BarChart></ResponsiveContainer></div>
+                <div role="img" aria-label="Số học viên theo trạng thái chính" className="h-56 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><BarChart data={data.status} layout="vertical" margin={{ left: 0, right: 52, top: 4, bottom: 0 }}><XAxis axisLine={false} tickLine={false} type="number" allowDecimals={false} tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} type="category" dataKey="name" width={82} tick={{ fontSize: 10 }} /><Tooltip formatter={countTooltip} /><Bar dataKey="value" name="Học viên" fill={colors[3]} maxBarSize={19} isAnimationActive={chartMotion}><LabelList dataKey="value" position="right" fill="var(--color-on-surface-variant)" fontSize={11} formatter={(value: unknown) => typeof value === "number" && value > 0 ? integer(value) : ""} /></Bar></BarChart></ResponsiveContainer></OverviewChartViewport></div>
               </ChartCard>
               <ChartCard title="Thu học phí trong kỳ" hasData={data.trend.some(row => row.collected > 0)} className="xl:col-span-2" href={tuitionHref} kind="payroll" emptyText="Chưa có giao dịch học phí có ngày hợp lệ trong kỳ này.">
-                <div role="img" aria-label="Tiền học phí đã thu theo thời gian" className="h-56 min-w-0"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.trend} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} /><YAxis tickFormatter={shortMoney} tick={{ fontSize: 10 }} width={55} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="collected" name="Đã thu" fill={colors[1]} maxBarSize={34} isAnimationActive={chartMotion} /></BarChart></ResponsiveContainer></div>
+                <div role="img" aria-label="Tiền học phí đã thu theo thời gian" className="h-56 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><BarChart data={data.trend} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis axisLine={false} tickLine={false} dataKey="label" tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} tickFormatter={shortMoney} tick={{ fontSize: 10 }} width={55} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="collected" name="Đã thu" fill={colors[1]} maxBarSize={34} isAnimationActive={chartMotion} /></BarChart></ResponsiveContainer></OverviewChartViewport></div>
               </ChartCard>
               <ChartCard title="Cơ cấu học phí" hasData={feeSplit.length > 0} kind="payroll" href={tuitionHref}>
-                <div role="img" aria-label="Học phí đã đóng và còn phải thu" className="h-56 min-w-0"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={feeSplit} dataKey="value" nameKey="name" cx="50%" cy="47%" innerRadius="52%" outerRadius="75%" stroke="none" paddingAngle={2} isAnimationActive={chartMotion}>{feeSplit.map((row, index) => <Cell key={row.name} fill={index === 0 ? colors[1] : colors[2]} />)}</Pie><Tooltip formatter={moneyTooltip} /><Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} /></PieChart></ResponsiveContainer></div>
+                <div role="img" aria-label="Học phí đã đóng và còn phải thu" className="h-56 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={feeSplit} dataKey="value" nameKey="name" cx="50%" cy="47%" innerRadius="52%" outerRadius="75%" stroke="none" paddingAngle={2} isAnimationActive={chartMotion}>{feeSplit.map((row, index) => <Cell key={row.name} fill={index === 0 ? colors[1] : colors[2]} />)}</Pie><Tooltip formatter={moneyTooltip} /><Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} /></PieChart></ResponsiveContainer></OverviewChartViewport></div>
               </ChartCard>
               <ChartCard title="Học viên theo khóa học" hasData={data.courses.length > 0} href="/quan-ly-hoc-vien?sub=khoa-hoc">
-                <div role="img" aria-label="Số học viên theo khóa học" className="h-56 min-w-0"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.courses} layout="vertical" margin={{ left: 0, right: 10, top: 4, bottom: 0 }}><XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} /><YAxis type="category" dataKey="name" width={96} tick={{ fontSize: 10 }} /><Tooltip formatter={countTooltip} /><Bar dataKey="value" name="Học viên" fill={colors[0]} maxBarSize={19} isAnimationActive={chartMotion} /></BarChart></ResponsiveContainer></div>
+                <div role="img" aria-label="Số học viên theo khóa học" className="h-56 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><BarChart data={data.courses} layout="vertical" margin={{ left: 0, right: 52, top: 4, bottom: 0 }}><XAxis axisLine={false} tickLine={false} type="number" allowDecimals={false} tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} type="category" dataKey="name" width={96} tick={{ fontSize: 10 }} /><Tooltip formatter={countTooltip} /><Bar dataKey="value" name="Học viên" fill={colors[0]} maxBarSize={19} isAnimationActive={chartMotion}><LabelList dataKey="value" position="right" fill="var(--color-on-surface-variant)" fontSize={11} formatter={(value: unknown) => typeof value === "number" && value > 0 ? integer(value) : ""} /></Bar></BarChart></ResponsiveContainer></OverviewChartViewport></div>
               </ChartCard>
               <ChartCard title="Học phí theo khóa học" hasData={data.tuitionByCourse.some(row => row.total > 0)} className="xl:col-span-2" kind="payroll" href={tuitionHref}>
-                <div role="img" aria-label="Học phí đã đóng và còn phải thu theo khóa học" className="h-56 min-w-0"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={data.tuitionByCourse} layout="vertical" margin={{ left: 0, right: 12, top: 4, bottom: 0 }}><XAxis type="number" tickFormatter={shortMoney} tick={{ fontSize: 10 }} /><YAxis type="category" dataKey="name" width={105} tick={{ fontSize: 10 }} /><Tooltip formatter={moneyTooltip} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="paid" name="Đã đóng" stackId="tuition" fill={colors[1]} maxBarSize={21} isAnimationActive={chartMotion} /><Bar dataKey="outstanding" name="Còn phải thu" stackId="tuition" fill={colors[2]} maxBarSize={21} isAnimationActive={chartMotion} /></ComposedChart></ResponsiveContainer></div>
+                <div role="img" aria-label="Học phí đã đóng và còn phải thu theo khóa học" className="h-56 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><ComposedChart data={data.tuitionByCourse} layout="vertical" margin={{ left: 0, right: 12, top: 4, bottom: 0 }}><XAxis axisLine={false} tickLine={false} type="number" tickFormatter={shortMoney} tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} type="category" dataKey="name" width={105} tick={{ fontSize: 10 }} /><Tooltip formatter={moneyTooltip} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="paid" name="Đã đóng" stackId="tuition" fill={colors[1]} maxBarSize={21} isAnimationActive={chartMotion} /><Bar dataKey="outstanding" name="Còn phải thu" stackId="tuition" fill={colors[2]} maxBarSize={21} isAnimationActive={chartMotion} /></ComposedChart></ResponsiveContainer></OverviewChartViewport></div>
               </ChartCard>
               <ChartCard title="Nguồn học viên" hasData={data.referral.length > 0} href={studentHref}>
-                <div role="img" aria-label="Cơ cấu nguồn học viên" className="h-56 min-w-0"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data.referral} dataKey="value" nameKey="name" cx="50%" cy="47%" outerRadius="74%" stroke="none" isAnimationActive={chartMotion}>{data.referral.map((row, index) => <Cell key={row.name} fill={colors[index % colors.length]} />)}</Pie><Tooltip formatter={countTooltip} /><Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} /></PieChart></ResponsiveContainer></div>
+                <div role="img" aria-label="Cơ cấu nguồn học viên" className="h-56 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data.referral} dataKey="value" nameKey="name" cx="50%" cy="47%" outerRadius="74%" stroke="none" isAnimationActive={chartMotion}>{data.referral.map((row, index) => <Cell key={row.name} fill={colors[index % colors.length]} />)}</Pie><Tooltip formatter={countTooltip} /><Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} /></PieChart></ResponsiveContainer></OverviewChartViewport></div>
               </ChartCard>
               <ChartCard title="Phương thức đóng học phí" hasData={data.paymentMethods.length > 0} kind="payroll" href={tuitionHref} emptyText="Chưa có giao dịch học phí có ngày hợp lệ trong kỳ này.">
-                <div role="img" aria-label="Cơ cấu phương thức đóng học phí" className="h-56 min-w-0"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data.paymentMethods} dataKey="value" nameKey="name" cx="50%" cy="47%" innerRadius="52%" outerRadius="75%" stroke="none" isAnimationActive={chartMotion}>{data.paymentMethods.map((row, index) => <Cell key={row.name} fill={colors[index % colors.length]} />)}</Pie><Tooltip formatter={moneyTooltip} /><Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} /></PieChart></ResponsiveContainer></div>
+                <div role="img" aria-label="Cơ cấu phương thức đóng học phí" className="h-56 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data.paymentMethods} dataKey="value" nameKey="name" cx="50%" cy="47%" innerRadius="52%" outerRadius="75%" stroke="none" isAnimationActive={chartMotion}>{data.paymentMethods.map((row, index) => <Cell key={row.name} fill={colors[index % colors.length]} />)}</Pie><Tooltip formatter={moneyTooltip} /><Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} /></PieChart></ResponsiveContainer></OverviewChartViewport></div>
               </ChartCard>
               <ChartCard title="Sĩ số lớp đang mở" hasData={data.batchLoad.length > 0} href="/quan-ly-hoc-vien?sub=lop-hoc">
-                <div role="img" aria-label="Sĩ số và chỉ tiêu các lớp đang mở" className="h-56 min-w-0"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={data.batchLoad} layout="vertical" margin={{ left: 0, right: 10, top: 4, bottom: 0 }}><XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} /><YAxis type="category" dataKey="name" width={95} tick={{ fontSize: 10 }} /><Tooltip formatter={countTooltip} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="capacity" name="Chỉ tiêu" fill={colors[0]} maxBarSize={14} isAnimationActive={chartMotion} /><Bar dataKey="learners" name="Đã xếp" fill={colors[1]} maxBarSize={14} isAnimationActive={chartMotion} /></ComposedChart></ResponsiveContainer></div>
+                <div role="img" aria-label="Sĩ số và chỉ tiêu các lớp đang mở" className="h-56 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><ComposedChart data={data.batchLoad} layout="vertical" margin={{ left: 0, right: 52, top: 4, bottom: 0 }}><XAxis axisLine={false} tickLine={false} type="number" allowDecimals={false} tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} type="category" dataKey="name" width={95} tick={{ fontSize: 10 }} /><Tooltip formatter={countTooltip} /><Legend wrapperStyle={{ fontSize: 11 }} /><Bar dataKey="capacity" name="Chỉ tiêu" fill={colors[0]} maxBarSize={14} isAnimationActive={chartMotion}><LabelList dataKey="capacity" position="right" fill="var(--color-on-surface-variant)" fontSize={11} formatter={(value: unknown) => typeof value === "number" && value > 0 ? integer(value) : ""} /></Bar><Bar dataKey="learners" name="Đã xếp" fill={colors[1]} maxBarSize={14} isAnimationActive={chartMotion}><LabelList dataKey="learners" position="right" fill="var(--color-on-surface-variant)" fontSize={11} formatter={(value: unknown) => typeof value === "number" && value > 0 ? integer(value) : ""} /></Bar></ComposedChart></ResponsiveContainer></OverviewChartViewport></div>
               </ChartCard>
             </div>
             <section className="finance-chart-card"><div className="mb-3 flex items-center justify-between gap-2"><h3 className="text-balance text-sm font-semibold text-on-surface">Học phí cần thu</h3><a className="text-xs font-semibold text-primary focus-visible:outline-2 focus-visible:outline-primary" href={tuitionHref}>Mở học phí</a></div>

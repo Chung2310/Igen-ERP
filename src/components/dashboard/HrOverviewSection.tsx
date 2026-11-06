@@ -4,12 +4,11 @@ import { dashboardService } from "../../services/dashboardService";
 import { useAuth } from "../../context/AuthContext";
 import { useBranchOptional } from "../../context/BranchContext";
 import type { DashboardSummary } from "../../types/dashboard";
-import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { hrDepartmentService, type HrDepartment } from "../../services/hrDepartmentService";
 import { recruitmentApi } from "../../services/recruitmentService";
 import type { RecruitmentApplicant, RecruitmentJob, RecruitmentPipeline } from "../../types/recruitment";
 import { yesterday } from "./OverviewChartSummary";
-import { OverviewPeriodActions, useOverviewPeriod } from "./OverviewPeriodContext";
+import { useOverviewPeriod } from "./OverviewPeriodContext";
 import { previousComparisonRange } from "./overviewComparison";
 
 export default function HrOverviewSection() {
@@ -79,15 +78,12 @@ export default function HrOverviewSection() {
     };
   }, [loadData]);
 
-  const employeeCount = summary?.timekeeping?.totalEmployees ?? null;
+  const employeeCount = summary?.timekeeping?.employeesExistingAtRangeEnd ?? summary?.timekeeping?.totalEmployees ?? null;
   const branchName = branchContext?.activeBranch?.name || userProfile?.branchName || "Toàn công ty";
 
   return (
     <div className="space-y-5 text-left text-on-surface">
-      <OverviewPeriodActions>
-        <h2 className="sr-only">Tổng quan Nhân sự</h2>
-        <ErpRefreshButton onClick={loadData} loading={loading} />
-      </OverviewPeriodActions>
+      <h2 className="sr-only">Tổng quan Nhân sự</h2>
 
       <HrOverviewDashboard
         summary={summary}

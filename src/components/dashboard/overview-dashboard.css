@@ -9,11 +9,12 @@
 .overview-kpi {
   --metric-start: #7344ee;
   --metric-end: #6237de;
+  min-height: 7rem;
   border: 0;
   border-radius: 6px;
   background: linear-gradient(90deg, rgb(255 255 255 / 20%), rgb(255 255 255 / 4%) 42%, transparent 72%), linear-gradient(115deg, var(--metric-start), var(--metric-end));
   color: #fff;
-  padding: 14px 16px;
+  padding: 0.75rem 0.875rem;
   box-shadow: none;
 }
 .overview-kpi:nth-child(6n + 2) { --metric-start: #326ef1; --metric-end: #285fe3; }
@@ -26,10 +27,8 @@
 .overview-kpi .finance-kpi-delta.text-change-up { color: var(--color-change-up); }
 .overview-kpi .finance-kpi-delta.text-change-down { color: var(--color-change-down); }
 .overview-kpi .finance-kpi-delta.text-change-flat { color: var(--color-change-flat); }
-.overview-kpi svg { color: #fff; }
-.overview-kpi > span:first-child,
-.overview-kpi > div > span:first-child { background: rgb(255 255 255 / 16%); border-radius: 6px; }
+.overview-kpi svg { color: var(--color-on-primary); }
 .overview-kpi:disabled { opacity: .65; }
 @media (max-width: 640px) {
-  .overview-panel, .overview-kpi { padding: 12px; }
+  .overview-panel:not(.overview-kpi) { padding: 12px; }
 }
