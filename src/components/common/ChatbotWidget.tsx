@@ -1,7 +1,7 @@
 ﻿import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { animate, motion, useReducedMotion } from "motion/react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowUpRight, AudioLines, Building2, ChartNoAxesCombined, ClipboardList, FileImage, FileText, History, Image, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, Music2, NotebookPen, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, Presentation, RefreshCw, SendHorizontal, Settings2, UserRound, UserRoundPlus, Video, Volume2, VolumeX, WandSparkles, X, Youtube } from "lucide-react";
+import { ArrowUpRight, AudioLines, Building2, ChartNoAxesCombined, ClipboardList, FileImage, FileText, History, Image, Maximize2, MessageSquare, MessageSquarePlus, Mic, MicOff, Minimize2, Music2, NotebookPen, PanelLeftClose, PanelLeftOpen, Paperclip, Plus, Presentation, RefreshCw, SendHorizontal, Settings2, Trash2, UserRound, UserRoundPlus, Video, Volume2, VolumeX, WandSparkles, X, Youtube } from "lucide-react";
 import { assistantService, type AssistantConversationCursor, type AssistantConversationSummary, type AssistantTurnInput } from "../../services/assistantService";
 import { defaultAssistantSettings, type AssistantSettings, type AssistantTableAttachment } from "../../shared/assistant-workflow";
 import { AssistantSettingsEditor } from "./AssistantSettingsEditor";
@@ -17,6 +17,7 @@ import { AssistantSidebarIcon, type AssistantSidebarIconName } from "./Assistant
 import { cn } from "../../modules/student-management/lib/utils";
 import { readAssistantTableFile } from "./assistant-table-file";
 import { AssistantTrainingContentForm } from "./AssistantTrainingContentForm";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 interface SpeechRecognitionInstance {
   lang: string;
@@ -35,7 +36,7 @@ type SpeechRecognitionResult = { isFinal: boolean; 0: { transcript: string } };
 type SpeechRecognitionEvent = { resultIndex: number; results: ArrayLike<SpeechRecognitionResult> };
 type SpeechRecognitionErrorEvent = { error: string };
 type SpeechWindow = Window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor };
-type VoiceStatus = "off" | "manual" | "waiting" | "command";
+type VoiceStatus = "off" | "manual" | "auto" | "waiting" | "command";
 
 interface Message {
   role: "user" | "assistant";
@@ -66,69 +67,11 @@ function commandAfterWakeWord(text: string): string | null {
   const match = /\b(?:hey|hei)[,\s]+(?:i\s*gen|ai\s*gen)\b[,:.!?]?\s*/i.exec(text);
   return match ? text.slice(match.index + match[0].length).trim() : null;
 }
-function chooseVietnameseVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  const vietnamese = voices.filter(voice => /^vi(?:-|$)/i.test(voice.lang));
-  return vietnamese.find(voice => /^vi-VN$/i.test(voice.lang) && voice.default)
-    || vietnamese.find(voice => /^vi-VN$/i.test(voice.lang))
-    || vietnamese.find(voice => voice.default)
-    || vietnamese[0]
-    || null;
-}
-function waitForVietnameseVoice(synthesis: SpeechSynthesis, signal: AbortSignal): Promise<SpeechSynthesisVoice | null> {
-  const voices = synthesis.getVoices();
-  const available = chooseVietnameseVoice(voices);
-  if (available || signal.aborted) return Promise.resolve(available);
-  return new Promise(resolve => {
-    let timeout: number | null = null;
-    let settled = false;
-    const finish = (voice: SpeechSynthesisVoice | null) => {
-      if (settled) return;
-      settled = true;
-      if (timeout !== null) window.clearTimeout(timeout);
-      synthesis.removeEventListener("voiceschanged", onVoicesChanged);
-      signal.removeEventListener("abort", onAbort);
-      resolve(voice);
-    };
-    const onVoicesChanged = () => {
-      const voice = chooseVietnameseVoice(synthesis.getVoices());
-      if (voice) finish(voice);
-    };
-    const onAbort = () => finish(null);
-    synthesis.addEventListener("voiceschanged", onVoicesChanged);
-    signal.addEventListener("abort", onAbort, { once: true });
-    timeout = window.setTimeout(() => finish(chooseVietnameseVoice(synthesis.getVoices())), 1200);
-    onVoicesChanged();
-  });
-}
-function splitSpeechText(text: string, maxLength = 220): string[] {
-  const sentences = text.match(/[^.!?。！？]+[.!?。！？]*/gu) || [text];
-  const chunks: string[] = [];
-  let current = "";
-  for (const sentence of sentences) {
-    const normalized = sentence.trim();
-    if (!normalized) continue;
-    if (normalized.length <= maxLength) {
-      if (current && current.length + normalized.length + 1 > maxLength) {
-        chunks.push(current);
-        current = normalized;
-      } else {
-        current = current ? current + " " + normalized : normalized;
-      }
-      continue;
-    }
-    if (current) chunks.push(current);
-    current = "";
-    for (const word of normalized.split(/\s+/u)) {
-      if (current && current.length + word.length + 1 > maxLength) {
-        chunks.push(current);
-        current = word;
-      } else {
-        current = current ? current + " " + word : word;
-      }
-    }
-  }
-  if (current) chunks.push(current);
-  return chunks;
+function voiceContextError(): string {
+  const loopback = /^(?:localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
+  return window.isSecureContext === false && !loopback
+    ? "Trình duyệt chỉ cho dùng micro trên HTTPS hoặc localhost. Hãy mở ứng dụng bằng địa chỉ HTTPS rồi thử lại."
+    : "";
 }
 type LauncherPosition = { x: number; y: number };
 const previewActions = [
@@ -382,6 +325,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [historyReload, setHistoryReload] = useState(0);
+  const [pendingConversationDelete, setPendingConversationDelete] = useState<AssistantConversationSummary | null>(null);
+  const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
   const [lastReply, setLastReply] = useState<AssistantReply | null>(null);
   const [selectedReferences, setSelectedReferences] = useState<Record<string, string[]>>({});
   const [referenceSelectionError, setReferenceSelectionError] = useState("");
@@ -406,8 +351,10 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const [isListening, setIsListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("off");
   const [voiceError, setVoiceError] = useState("");
+  const [pendingVoiceCommand, setPendingVoiceCommand] = useState("");
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const speechBaseRef = useRef("");
+  const voiceTranscriptRef = useRef("");
   const voiceStatusRef = useRef<VoiceStatus>("off");
   const commandTextRef = useRef("");
   const commandResultIndexRef = useRef<number | null>(null);
@@ -416,8 +363,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const [wakeRestartVersion, setWakeRestartVersion] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechError, setSpeechError] = useState("");
-  const speechSynthesisRef = useRef<SpeechSynthesis | null>(null);
-  const speechUtterancesRef = useRef<SpeechSynthesisUtterance[]>([]);
+  const speechAudioRef = useRef<HTMLAudioElement | null>(null);
+  const speechAudioUrlRef = useRef<string | null>(null);
   const speechRequestRef = useRef<AbortController | null>(null);
   const speechRunIdRef = useRef(0);
   useEffect(() => {
@@ -437,82 +384,65 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     if (recognition) recognition.abort();
     setIsListening(false);
     setVoiceStatus("off");
+    setPendingVoiceCommand("");
     setWakeRestartVersion(value => value + 1);
   }, []);
   const stopReplySpeech = useCallback(() => {
     speechRunIdRef.current += 1;
     speechRequestRef.current?.abort();
     speechRequestRef.current = null;
-    speechUtterancesRef.current.forEach(utterance => { utterance.onend = null; utterance.onerror = null; });
-    speechUtterancesRef.current = [];
-    speechSynthesisRef.current?.cancel();
-    speechSynthesisRef.current = null;
+    if (speechAudioRef.current) {
+      speechAudioRef.current.onended = null;
+      speechAudioRef.current.onerror = null;
+      speechAudioRef.current.pause();
+      speechAudioRef.current = null;
+    }
+    if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
+    speechAudioUrlRef.current = null;
     setIsSpeaking(false);
   }, []);
   const speakReply = useCallback(async (text: string) => {
     if (!settings.speakReplies) return;
     stopReplySpeech();
-    const synthesis = typeof window !== "undefined" ? window.speechSynthesis : undefined;
-    if (!synthesis || typeof SpeechSynthesisUtterance === "undefined") {
-      setSpeechError("Trình duyệt này chưa hỗ trợ đọc câu trả lời thành tiếng.");
-      return;
-    }
     const runId = speechRunIdRef.current;
     const controller = new AbortController();
     speechRequestRef.current = controller;
     setSpeechError("");
     setIsSpeaking(true);
-    speechSynthesisRef.current = synthesis;
     const finish = () => {
       if (runId !== speechRunIdRef.current) return;
       speechRequestRef.current = null;
-      speechUtterancesRef.current = [];
-      speechSynthesisRef.current = null;
+      speechAudioRef.current = null;
+      if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
+      speechAudioUrlRef.current = null;
       setIsSpeaking(false);
     };
     try {
-      const voice = await waitForVietnameseVoice(synthesis, controller.signal);
+      const audioBlob = await assistantService.speech(text, controller.signal, settings.speechVoice);
       if (controller.signal.aborted || runId !== speechRunIdRef.current) return;
-      if (!voice) throw new Error("Thiết bị chưa có giọng đọc tiếng Việt. Hãy thêm giọng tiếng Việt trong cài đặt hệ điều hành hoặc trình duyệt.");
-      const utterances = splitSpeechText(text).map(chunk => {
-        const utterance = new SpeechSynthesisUtterance(chunk);
-        utterance.lang = voice.lang || "vi-VN";
-        utterance.voice = voice;
-        utterance.rate = 1;
-        utterance.pitch = 1;
-        return utterance;
-      });
-      speechUtterancesRef.current = utterances;
-      const failPlayback = () => {
+      const url = URL.createObjectURL(audioBlob);
+      speechAudioUrlRef.current = url;
+      const audio = new Audio(url);
+      speechAudioRef.current = audio;
+      audio.onended = finish;
+      audio.onerror = () => {
         if (runId !== speechRunIdRef.current) return;
-        speechRunIdRef.current += 1;
-        speechRequestRef.current = null;
-        speechUtterancesRef.current = [];
-        speechSynthesisRef.current?.cancel();
-        speechSynthesisRef.current = null;
-        setIsSpeaking(false);
-        setSpeechError("Không thể phát giọng đọc tiếng Việt trên thiết bị này.");
+        finish();
+        setSpeechError("Không thể phát tệp âm thanh trên thiết bị này.");
       };
-      const speakNext = (index: number) => {
-        if (controller.signal.aborted || runId !== speechRunIdRef.current) return;
-        const utterance = utterances[index];
-        if (!utterance) { finish(); return; }
-        utterance.onend = () => speakNext(index + 1);
-        utterance.onerror = failPlayback;
-        try { synthesis.speak(utterance); } catch { failPlayback(); }
-      };
-      if (!utterances.length) { finish(); return; }
-      speakNext(0);
+      await audio.play();
     } catch (cause) {
       if (!controller.signal.aborted && runId === speechRunIdRef.current) {
-        speechRequestRef.current = null;
-        speechUtterancesRef.current = [];
-        speechSynthesisRef.current = null;
-        setIsSpeaking(false);
-        setSpeechError((cause as Error).message || "Không thể đọc câu trả lời thành tiếng.");
+        finish();
+        const error = cause as Error;
+        setSpeechError(error.name === "NotAllowedError"
+          ? "Trình duyệt đang chặn phát âm thanh tự động. Hãy cho phép trang này phát âm thanh rồi thử lại."
+          : error.name === "NotSupportedError"
+            ? "Thiết bị này không hỗ trợ phát tệp âm thanh MP3."
+            : error.message || "Không thể đọc câu trả lời thành tiếng.");
       }
     }
-  }, [settings.speakReplies, stopReplySpeech]);
+  }, [settings.speakReplies, settings.speechVoice, stopReplySpeech]);
   const applySettings = (value: AssistantSettings) => {
     setSettings(value);
     setFullscreen(value.windowMode === "fullscreen");
@@ -544,10 +474,14 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     speechRunIdRef.current += 1;
     speechRequestRef.current?.abort();
     speechRequestRef.current = null;
-    speechUtterancesRef.current.forEach(utterance => { utterance.onend = null; utterance.onerror = null; });
-    speechUtterancesRef.current = [];
-    window.speechSynthesis?.cancel();
-    speechSynthesisRef.current = null;
+    if (speechAudioRef.current) {
+      speechAudioRef.current.onended = null;
+      speechAudioRef.current.onerror = null;
+      speechAudioRef.current.pause();
+      speechAudioRef.current = null;
+    }
+    if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
+    speechAudioUrlRef.current = null;
   }, []);
   useEffect(() => {
     const onlyWelcome = messages.length === 1 && messages[0].role === "assistant" && messages[0].content === welcomeMessage.content;
@@ -713,6 +647,32 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     }
   };
 
+  const deleteConversation = async () => {
+    if (!pendingConversationDelete || deletingConversationId) return;
+    const conversation = pendingConversationDelete;
+    setDeletingConversationId(conversation.conversationId);
+    setHistoryError("");
+    try {
+      await assistantService.deleteConversation(conversation.conversationId, branchId);
+      setConversations(current => current.filter(item => item.conversationId !== conversation.conversationId));
+      setPendingConversationDelete(null);
+      if (conversation.conversationId === conversationId) {
+        const nextId = crypto.randomUUID();
+        try { localStorage.setItem(conversationKey, nextId); localStorage.removeItem(requestKey); } catch { /* Keep the next session in memory. */ }
+        setConversationId(nextId);
+        setIsViewingHistory(false);
+        setSynced(false);
+        setLastReply(null);
+        saveHistory([activeWelcomeMessage], true);
+      }
+    } catch (cause) {
+      setHistoryError((cause as Error).message);
+      setPendingConversationDelete(null);
+    } finally {
+      setDeletingConversationId(null);
+    }
+  };
+
   const openPreviousConversation = (conversation: AssistantConversationSummary) => {
     if (isLoading || retryRef.current) return;
     closeSpeech();
@@ -753,6 +713,11 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(pendingAttachment ? { attachment: pendingAttachment } : {}) });
   };
   recognizedVoiceHandlerRef.current = text => { void submitRecognizedVoice(text); };
+  useEffect(() => {
+    if (!pendingVoiceCommand || !isOpen || !synced || isLoading || isViewingHistory || retryRef.current) return;
+    setPendingVoiceCommand("");
+    recognizedVoiceHandlerRef.current(pendingVoiceCommand);
+  }, [pendingVoiceCommand, isOpen, synced, isLoading, isViewingHistory]);
   const toggleReferenceSelection = (key: string, value: string, checked: boolean, multiple: boolean) => {
     setSelectedReferences(current => {
       const selected = current[key] || [];
@@ -816,15 +781,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     if (attachmentInputRef.current) attachmentInputRef.current.value = "";
     attachmentButtonRef.current?.focus({ preventScroll: true });
   };
-  const toggleVoiceInput = () => {
+  const toggleVoiceInput = (mode: "manual" | "auto") => {
+    const contextError = voiceContextError();
+    if (contextError) { setVoiceError(contextError); return; }
     if (recognitionRef.current && voiceStatusRef.current === "waiting") {
-      closeSpeech();
-      setWorkflowsVisited(true);
-      setConfigView("settings");
-      setIsSettingsDialogOpen(true);
-      return;
+      const waitingRecognition = recognitionRef.current;
+      recognitionRef.current = null;
+      waitingRecognition.abort();
     }
-    if (recognitionRef.current) {
+    else if (recognitionRef.current) {
       recognitionRef.current.stop();
       return;
     }
@@ -838,9 +803,10 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     recognition.continuous = true;
     recognition.interimResults = true;
     recognitionRef.current = recognition;
-    voiceStatusRef.current = "manual";
-    setVoiceStatus("manual");
-    speechBaseRef.current = input.trimEnd();
+    voiceStatusRef.current = mode;
+    setVoiceStatus(mode);
+    speechBaseRef.current = mode === "manual" ? input.trimEnd() : "";
+    voiceTranscriptRef.current = "";
     setVoiceError("");
     setIsListening(true);
     recognition.onstart = () => setVoiceError("");
@@ -854,7 +820,14 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         (event.results[index].isFinal ? finalParts : interimParts).push(transcript);
       }
       const transcript = [...finalParts, ...interimParts].join(" ");
+      voiceTranscriptRef.current = transcript;
       setInput([speechBaseRef.current, transcript].filter(Boolean).join(speechBaseRef.current ? " " : ""));
+      if (mode === "auto") {
+        if (voiceSilenceTimerRef.current !== null) window.clearTimeout(voiceSilenceTimerRef.current);
+        voiceSilenceTimerRef.current = finalParts.length && !interimParts.length
+          ? window.setTimeout(() => recognition.stop(), 1400)
+          : null;
+      }
     };
     recognition.onerror = event => {
       if (recognitionRef.current !== recognition) return;
@@ -863,6 +836,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       voiceStatusRef.current = "off";
       setVoiceStatus("off");
       recognitionRef.current = null;
+      if (voiceSilenceTimerRef.current !== null) window.clearTimeout(voiceSilenceTimerRef.current);
+      voiceSilenceTimerRef.current = null;
+      setWakeRestartVersion(value => value + 1);
       const messages: Record<string, string> = {
         "not-allowed": "Micro chưa được cấp quyền. Hãy cho phép trình duyệt dùng micro rồi thử lại.",
         "service-not-allowed": "Dịch vụ nhận giọng nói của trình duyệt không được phép sử dụng.",
@@ -874,11 +850,16 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     };
     recognition.onend = () => {
       if (recognitionRef.current !== recognition) return;
+      const spokenText = voiceTranscriptRef.current.trim();
       recognitionRef.current = null;
+      if (voiceSilenceTimerRef.current !== null) window.clearTimeout(voiceSilenceTimerRef.current);
+      voiceSilenceTimerRef.current = null;
       setIsListening(false);
       voiceStatusRef.current = "off";
       setVoiceStatus("off");
-      setInput(current => current.trim() ? current : speechBaseRef.current);
+      if (mode === "auto" && spokenText) recognizedVoiceHandlerRef.current(spokenText);
+      else setInput(current => current.trim() ? current : speechBaseRef.current);
+      setWakeRestartVersion(value => value + 1);
     };
     try { recognition.start(); }
     catch {
@@ -886,11 +867,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       setIsListening(false);
       voiceStatusRef.current = "off";
       setVoiceStatus("off");
+      setWakeRestartVersion(value => value + 1);
       setVoiceError("Không thể bắt đầu nhận giọng nói. Hãy thử lại hoặc nhập yêu cầu bằng bàn phím.");
     }
   };
+  const voiceTurnBusy = isLoading && synced;
   useEffect(() => {
-    if (!settingsReady || !settings.wakeWordEnabled || isLoading || isSpeaking || isViewingHistory || view !== "chat" || isSettingsDialogOpen) return;
+    if (!settingsReady || !settings.wakeWordEnabled || voiceTurnBusy || pendingVoiceCommand || isSpeaking || isViewingHistory || view !== "chat" || isSettingsDialogOpen) return;
+    const contextError = voiceContextError();
+    if (contextError) { setVoiceError(contextError); return; }
     const SpeechRecognition = (window as SpeechWindow).SpeechRecognition || (window as SpeechWindow).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setVoiceError("Trình duyệt này chưa hỗ trợ nghe từ khóa “Hey Igen”. Bạn có thể dùng nút micro để đọc yêu cầu.");
@@ -899,29 +884,32 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     let active = true;
     let paused = false;
     let restartTimer: number | null = null;
+    let wakeText = "";
+    let interimCommand = "";
+    const spokenCommand = () => [commandTextRef.current, interimCommand].filter(Boolean).join(" ").trim();
     const cancelCommandTimer = () => {
       if (voiceSilenceTimerRef.current !== null) window.clearTimeout(voiceSilenceTimerRef.current);
       voiceSilenceTimerRef.current = null;
     };
     const submitCommand = () => {
-      const text = commandTextRef.current.trim();
+      const text = spokenCommand();
       cancelCommandTimer();
       if (!text) return;
       const current = recognitionRef.current;
       recognitionRef.current = null;
       voiceStatusRef.current = "off";
       commandTextRef.current = "";
+      interimCommand = "";
       commandResultIndexRef.current = null;
       setVoiceStatus("off");
       setIsListening(false);
-      setWakeRestartVersion(value => value + 1);
       setInput(text);
       current?.stop();
-      recognizedVoiceHandlerRef.current(text);
+      setPendingVoiceCommand(text);
     };
     const scheduleCommand = () => {
       cancelCommandTimer();
-      if (!commandTextRef.current.trim()) return;
+      if (!spokenCommand()) return;
       voiceSilenceTimerRef.current = window.setTimeout(submitCommand, 1400);
     };
     const openChat = () => {
@@ -932,14 +920,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     };
     const begin = () => {
       if (!active || paused || recognitionRef.current) return;
+      const awaitingCommand = voiceStatusRef.current === "command";
       const recognition = new SpeechRecognition();
       recognition.lang = "vi-VN";
       recognition.continuous = true;
       recognition.interimResults = true;
       recognitionRef.current = recognition;
-      voiceStatusRef.current = "waiting";
-      setVoiceStatus("waiting");
-      setIsListening(false);
+      voiceStatusRef.current = awaitingCommand ? "command" : "waiting";
+      setVoiceStatus(awaitingCommand ? "command" : "waiting");
+      setIsListening(awaitingCommand);
       recognition.onstart = () => setVoiceError("");
       recognition.onresult = event => {
         if (!active || recognitionRef.current !== recognition) return;
@@ -949,8 +938,11 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           const transcript = result[0].transcript.trim();
           if (!transcript) continue;
           if (voiceStatusRef.current === "waiting") {
-            const remainder = commandAfterWakeWord(transcript);
+            const heard = [wakeText, transcript].filter(Boolean).join(" ");
+            if (result.isFinal) wakeText = heard.slice(-100);
+            const remainder = commandAfterWakeWord(heard);
             if (remainder === null) continue;
+            wakeText = "";
             voiceStatusRef.current = "command";
             commandTextRef.current = remainder;
             commandResultIndexRef.current = index;
@@ -959,10 +951,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             setVoiceError("");
             openChat();
             setInput(remainder);
-            if (result.isFinal) {
-              commandResultIndexRef.current = null;
-              scheduleCommand();
-            }
+            if (result.isFinal) commandResultIndexRef.current = null;
             continue;
           }
           if (voiceStatusRef.current !== "command") continue;
@@ -975,10 +964,11 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           } else {
             interim = transcript;
           }
-          if (result.isFinal) scheduleCommand();
         }
         if (voiceStatusRef.current === "command") {
-          setInput([commandTextRef.current, interim].filter(Boolean).join(" "));
+          interimCommand = interim;
+          setInput(spokenCommand());
+          scheduleCommand();
         }
       };
       recognition.onerror = event => {
@@ -1003,10 +993,12 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         if (recognitionRef.current !== recognition) return;
         recognitionRef.current = null;
         if (!active || paused) return;
-        if (voiceStatusRef.current === "command" && commandTextRef.current.trim()) {
+        if (voiceStatusRef.current === "command" && spokenCommand()) {
           submitCommand();
           return;
         }
+        interimCommand = "";
+        commandResultIndexRef.current = null;
         restartTimer = window.setTimeout(begin, 400);
       };
       try { recognition.start(); }
@@ -1029,7 +1021,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       setVoiceStatus("off");
       setIsListening(false);
     };
-  }, [settingsReady, settings.wakeWordEnabled, isLoading, isSpeaking, isViewingHistory, view, isSettingsDialogOpen, mode, wakeRestartVersion]);
+  }, [settingsReady, settings.wakeWordEnabled, voiceTurnBusy, pendingVoiceCommand, isSpeaking, isViewingHistory, view, isSettingsDialogOpen, mode, wakeRestartVersion]);
   const decide = (confirmed: boolean) => {
     if (isViewingHistory || !lastReply?.action || isLoading || retryRef.current) return;
     stopReplySpeech();
@@ -1112,10 +1104,10 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         {assistantMode === "work" && <button ref={attachmentButtonRef} type="button" aria-label="Đính kèm tệp CSV hoặc Excel" aria-describedby={`erp-chatbot-file-help${attachmentError ? " erp-chatbot-file-error" : ""}`} disabled={isLoading || !synced || isReadingAttachment || Boolean(retryRef.current)} onClick={() => attachmentInputRef.current?.click()} title="Tải bảng CSV hoặc Excel lên" className={cn("assistant-composer-tool flex shrink-0 items-center justify-center disabled:cursor-not-allowed disabled:opacity-40", placement === "landing" ? "size-10 rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-low" : "order-1 size-9 rounded-full border-0 bg-transparent hover:bg-surface-container-low", focusClass)}>
           {placement === "landing" ? <Paperclip className="size-4" aria-hidden="true" /> : <Plus className="size-5" aria-hidden="true" />}
         </button>}
-        <button type="button" onClick={toggleVoiceInput} aria-label={isListening ? "Dừng nhận giọng nói" : "Nhập yêu cầu bằng giọng nói"} aria-pressed={voiceStatus === "manual" || voiceStatus === "command"} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={isLoading || !synced || Boolean(retryRef.current)} title={isListening ? "Dừng và kiểm tra nội dung đã nhận" : "Nhập yêu cầu bằng giọng nói"} className={cn("assistant-composer-tool flex shrink-0 items-center justify-center disabled:cursor-not-allowed disabled:opacity-40", placement === "landing" ? "size-10 rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-low" : "order-3 size-9 rounded-full border-0 bg-transparent hover:bg-surface-container-low", focusClass)}>
+        <button type="button" onClick={() => toggleVoiceInput("manual")} aria-label={voiceStatus === "manual" ? "Dừng nhận giọng nói" : "Nhập yêu cầu bằng giọng nói"} aria-pressed={voiceStatus === "manual"} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={isLoading || !synced || Boolean(retryRef.current)} title={voiceStatus === "manual" ? "Dừng và kiểm tra nội dung đã nhận" : "Nhập yêu cầu bằng giọng nói"} className={cn("assistant-composer-tool flex shrink-0 items-center justify-center disabled:cursor-not-allowed disabled:opacity-40", placement === "landing" ? "size-10 rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-low" : "order-3 size-9 rounded-full border-0 bg-transparent hover:bg-surface-container-low", focusClass)}>
           {isListening ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}
         </button>
-        <button type="button" disabled aria-label="Trò chuyện thoại trực tiếp với AI (chưa có)" title="Trò chuyện thoại trực tiếp với AI (chưa có)" className={cn("assistant-composer-tool assistant-live-voice-button flex shrink-0 items-center justify-center border-0 bg-transparent disabled:cursor-not-allowed", placement === "landing" ? "size-10" : "order-4 size-9 rounded-full")}><AssistantLiveVoiceIcon /></button>
+        <button type="button" onClick={() => toggleVoiceInput("auto")} aria-label={voiceStatus === "auto" ? "Dừng và gửi yêu cầu thoại" : "Nói yêu cầu và tự gửi"} aria-pressed={voiceStatus === "auto"} aria-describedby={voiceError ? "erp-chatbot-voice-error" : "erp-chatbot-voice-help"} disabled={isLoading || !synced || Boolean(retryRef.current)} title={voiceStatus === "auto" ? "Dừng và gửi yêu cầu thoại" : "Nói yêu cầu và tự gửi"} className={cn("assistant-composer-tool assistant-live-voice-button flex shrink-0 items-center justify-center border-0 bg-transparent disabled:cursor-not-allowed disabled:opacity-40", placement === "landing" ? "size-10" : "order-4 size-9 rounded-full", focusClass)}><AssistantLiveVoiceIcon /></button>
         {placement === "landing" && <button type="submit" aria-label={isLoading ? "Đang chờ trợ lý trả lời" : "Gửi tin nhắn"} disabled={isLoading || !synced || isListening || Boolean(retryRef.current) || !input.trim()} className={cn("ml-auto flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
           <SendHorizontal className="size-4" aria-hidden="true" />
         </button>}
@@ -1125,7 +1117,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     <p id="erp-chatbot-file-help" className="sr-only">Có thể tải tệp CSV, XLSX hoặc XLS, tối đa 100 dòng dữ liệu.</p>
     {voiceError && <p id="erp-chatbot-voice-error" role="alert" className="text-pretty text-sm text-error">{voiceError}</p>}
     {speechError && <p role="status" className="text-pretty text-sm text-error">{speechError}</p>}
-    <p id="erp-chatbot-voice-help" role={voiceStatus !== "off" || isListening ? "status" : undefined} className="sr-only">{voiceStatus === "waiting" ? "Đang chờ Hey Igen." : voiceStatus === "command" ? "Đang nghe yêu cầu." : isListening ? "Đang nghe tiếng Việt. Dừng để kiểm tra nội dung rồi gửi." : "Bạn có thể nhập hoặc nói yêu cầu; nội dung giọng nói sẽ được kiểm tra trước khi gửi."}</p>
+    <p id="erp-chatbot-voice-help" role={voiceStatus !== "off" ? "status" : undefined} className={cn("text-pretty text-xs text-on-surface-variant", voiceStatus === "off" && "sr-only")}>{voiceStatus === "waiting" ? "Đang chờ “Hey Igen”. Hãy nói từ khóa rồi nêu yêu cầu." : voiceStatus === "command" || voiceStatus === "auto" ? "Đang nghe yêu cầu. Mình sẽ tự gửi khi bạn dừng nói." : voiceStatus === "manual" ? "Đang nghe tiếng Việt. Bấm micro để dừng và kiểm tra nội dung." : "Bạn có thể nhập hoặc nói yêu cầu; nội dung giọng nói sẽ được kiểm tra trước khi gửi."}</p>
   </div>;
 
   return <>
@@ -1200,7 +1192,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             <h2 id="erp-chatbot-title" className="text-balance truncate text-lg font-bold text-black dark:text-on-surface">IGEN AI</h2>
           </div>
           <div className="flex items-center gap-1">
-            {isSpeaking && <><span role="status" className="sr-only">Đang đọc câu trả lời thành tiếng.</span><button type="button" aria-label="Dừng đọc câu trả lời" title="Dừng đọc câu trả lời" aria-pressed="true" onClick={stopReplySpeech} className={cn("flex size-10 items-center justify-center rounded-xl hover:bg-surface-container-high", focusClass)}><VolumeX className="size-4" aria-hidden="true" /></button></>}
+            {isSpeaking && <><span role="status" className="sr-only">Đang tạo hoặc phát câu trả lời thành tiếng.</span><button type="button" aria-label="Dừng đọc câu trả lời" title="Dừng đọc câu trả lời" aria-pressed="true" onClick={stopReplySpeech} className={cn("flex size-10 items-center justify-center rounded-xl hover:bg-surface-container-high", focusClass)}><VolumeX className="size-4" aria-hidden="true" /></button></>}
             {mode === "popup" && <button type="button" aria-label={fullscreen ? "Thu về cửa sổ lớn" : "Mở toàn màn hình"} aria-pressed={fullscreen} onClick={() => setFullscreen(value => !value)} className={cn("hidden size-10 items-center justify-center rounded-xl hover:bg-surface-container-high sm:flex", focusClass)}>{fullscreen ? <Minimize2 className="size-4" aria-hidden="true" /> : <Maximize2 className="size-4" aria-hidden="true" />}</button>}
             <button type="button" aria-label="Bắt đầu cuộc trò chuyện mới" title="Bắt đầu cuộc trò chuyện mới" disabled={isLoading || Boolean(retryRef.current) || messages.length <= 1} onClick={startNew} className={cn("flex size-10 items-center justify-center rounded-xl hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
               <MessageSquarePlus className="size-4" aria-hidden="true" />
@@ -1260,14 +1252,17 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             </div>}
             {(isLoading || retryRef.current) && <p role="status" className="p-3 text-pretty text-sm text-on-surface/70">Đợi yêu cầu hiện tại hoàn tất hoặc kiểm tra lại trước khi mở một phiên khác.</p>}
             {conversations.length > 0 && <ul className="divide-y divide-outline-variant" aria-label="Danh sách phiên trò chuyện">
-              {conversations.map(conversation => <li key={conversation.conversationId}>
-                <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={() => openPreviousConversation(conversation)} className={cn("w-full bg-transparent px-1 py-4 text-left hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>
+              {conversations.map(conversation => <li key={conversation.conversationId} className="flex items-center gap-2">
+                <button type="button" disabled={isLoading || Boolean(retryRef.current) || Boolean(deletingConversationId)} onClick={() => openPreviousConversation(conversation)} className={cn("min-w-0 flex-1 bg-transparent px-1 py-4 text-left hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>
                   <span className="flex items-start justify-between gap-3">
                     <span className="line-clamp-2 min-w-0 text-sm font-semibold">{conversation.title}</span>
                     <time className="shrink-0 text-xs tabular-nums text-on-surface/70" dateTime={conversation.updatedAt}>{formatConversationTime(conversation.updatedAt)}</time>
                   </span>
                   <span className="mt-1 block line-clamp-2 text-pretty text-sm text-on-surface/80">{conversation.preview || "Chưa có nội dung tin nhắn."}</span>
                   <span className="mt-2 block text-xs tabular-nums text-on-surface/70">{conversation.messageCount} tin nhắn · {conversation.mode === "qa" ? "Hỏi đáp" : "Thao tác"}</span>
+                </button>
+                <button type="button" aria-label={`Xóa phiên trò chuyện: ${conversation.title}`} title="Xóa phiên trò chuyện" disabled={isLoading || Boolean(retryRef.current) || Boolean(deletingConversationId)} onClick={() => setPendingConversationDelete(conversation)} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl text-error hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+                  <Trash2 className="size-4" aria-hidden="true" />
                 </button>
               </li>)}
             </ul>}
@@ -1276,6 +1271,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             </div>}
           </div>
         </div>
+        <ConfirmDialog isOpen={Boolean(pendingConversationDelete)} isSubmitting={Boolean(deletingConversationId)} title="Xóa phiên trò chuyện?" description={`Tin nhắn và ngữ cảnh riêng của phiên “${pendingConversationDelete?.title || "này"}” sẽ bị xóa vĩnh viễn.`} confirmLabel="Xóa phiên" onClose={() => setPendingConversationDelete(null)} onConfirm={deleteConversation} />
         <div hidden={view !== "chat"} className={cn("min-h-0 flex-1 flex-col", view === "chat" && "flex")}>
         {isViewingHistory && <div ref={historyBannerRef} tabIndex={-1} className={cn("shrink-0 border-b border-outline-variant bg-surface-container-low px-4 py-2", focusClass)}>
           <p className="text-pretty text-sm">Đang xem lại phiên cũ. Phiên này ở chế độ chỉ đọc.</p>
@@ -1453,7 +1449,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                 {settingsError ? <div className="space-y-2 p-4"><p role="alert" className="text-sm text-error">{settingsError}</p><button type="button" onClick={() => setSettingsRetry(value => value + 1)} className={cn("rounded-xl border border-outline-variant px-3 py-2 text-sm", focusClass)}>Thử tải cài đặt lại</button></div> : !settingsReady ? <p role="status" className="p-4 text-sm">Đang tải cài đặt…</p> : <AssistantSettingsEditor settings={settings} onSave={applySettings} />}
               </div>
               <div hidden={configView !== "memory"} className={cn("min-h-0 h-full flex-col", configView === "memory" && "flex")}>
-                {settingsError ? <div className="space-y-2 p-4"><p role="alert" className="text-sm text-error">{settingsError}</p><button type="button" onClick={() => setSettingsRetry(value => value + 1)} className={cn("rounded-xl border border-outline-variant px-3 py-2 text-sm", focusClass)}>Thử tải cài đặt lại</button></div> : !settingsReady ? <p role="status" className="p-4 text-sm">Đang tải cài đặt…</p> : configView === "memory" && <AssistantMemoryManager enabled={settings.memoryEnabled} />}
+                {settingsError ? <div className="space-y-2 p-4"><p role="alert" className="text-sm text-error">{settingsError}</p><button type="button" onClick={() => setSettingsRetry(value => value + 1)} className={cn("rounded-xl border border-outline-variant px-3 py-2 text-sm", focusClass)}>Thử tải cài đặt lại</button></div> : !settingsReady ? <p role="status" className="p-4 text-sm">Đang tải cài đặt…</p> : configView === "memory" && <AssistantMemoryManager enabled={settings.memoryEnabled} conversationId={conversationId} branchId={branchId} />}
               </div>
             </div>
           </div>
