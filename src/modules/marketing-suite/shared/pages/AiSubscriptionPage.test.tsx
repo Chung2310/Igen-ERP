@@ -41,6 +41,17 @@ test('opens the upgrade catalog directly from its URL', async () => {
   expect(screen.getByRole('heading', { name: 'Nâng cấp gói AI' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Gói nâng cấp' }).getAttribute('aria-pressed')).toBe('true');
 });
+
+test('highlights the middle tier as popular even when plans arrive out of order', async () => {
+  const advanced: AiSubscriptionPlan = { ...plans[1], _id: 'advanced', code: 'ADVANCED', name: 'Nâng cao', aiLimit: 5000, priceVnd: 599000 };
+  mocks.plans.mockResolvedValue([advanced, plans[0], plans[1]]);
+  window.history.replaceState(null, '', '/goi-ai?sub=goi-nang-cap');
+  render(<AiSubscriptionPage />);
+  const middleCard = (await screen.findByRole('heading', { name: 'Tăng trưởng' })).closest('article');
+  expect(middleCard?.textContent).toContain('Phổ biến');
+  expect(screen.getByRole('heading', { name: 'Khởi đầu' }).closest('article')?.textContent).not.toContain('Phổ biến');
+  expect(screen.getByRole('heading', { name: 'Nâng cao' }).closest('article')?.textContent).not.toContain('Phổ biến');
+});
 test('quota contains only remaining balance and package transactions while upgrades stay in their own tab', async () => {
   mocks.history.mockResolvedValue({ items: [{ id: 'one:purchase', type: 'purchase', occurredAt: '2026-01-01T00:00:00Z', planName: 'Gói cũ', aiUnits: 1000, priceVnd: 99000 }, { id: 'one:expired', type: 'expired', occurredAt: '2026-02-01T00:00:00Z', planName: 'Gói cũ', aiUnits: null, priceVnd: null }], page: 1, totalPages: 1 });
   const user = userEvent.setup(); render(<AiSubscriptionPage />);
