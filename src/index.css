@@ -243,6 +243,16 @@ button[aria-haspopup="listbox"][aria-expanded="true"]:not([aria-invalid="true"])
   outline-offset: 2px;
 }
 
+/* Recharts focuses its SVG after a pointer click; show a quiet cue for keyboard focus only. */
+.overview-chart-viewport .recharts-surface:focus {
+  outline: none;
+}
+
+.overview-chart-viewport .recharts-surface:focus-visible {
+  outline: 1px solid var(--color-primary);
+  outline-offset: -1px;
+}
+
 .roadmap-number-input {
   appearance: textfield;
   -moz-appearance: textfield;

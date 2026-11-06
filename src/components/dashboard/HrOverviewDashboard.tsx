@@ -137,7 +137,9 @@ function TaskChart({ summary, previous, loading }: { summary: DashboardSummary |
           role="img"
           aria-label={loading || !summary ? "Đang tải biểu đồ công việc" : `Công việc: ${segments.map((item) => `${item.label} ${item.count}`).join(", ")}`}
         >
-          <OverviewChartViewport><svg viewBox="0 0 176 176" className="h-full w-full -rotate-90" aria-hidden="true">
+          <OverviewChartViewport><motion.div className="h-full w-full"
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.65, ease: "easeOut" }}><svg viewBox="0 0 176 176" className="h-full w-full -rotate-90" aria-hidden="true">
             <circle cx="88" cy="88" r={radius} fill="none" stroke="var(--color-outline-variant)" strokeWidth="15" />
             {arcs.map((arc) => arc.length > 0 && (
               <motion.circle key={arc.label} cx="88" cy="88" r={radius} fill="none" stroke={arc.color} strokeWidth="15" strokeLinecap="round"
@@ -145,7 +147,7 @@ function TaskChart({ summary, previous, loading }: { summary: DashboardSummary |
                 strokeDasharray={`${Math.max(0, arc.length - 4)} ${circumference}`}
                 strokeDashoffset={-arc.offset} />
             ))}
-          </svg></OverviewChartViewport>
+          </svg></motion.div></OverviewChartViewport>
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <span className="text-3xl font-semibold tabular-nums text-on-surface">{loading || !summary ? "—" : total ? `${completedPercent}%` : "0"}</span>
             <span className="mt-1 text-xs text-on-surface-variant">{total ? "hoàn thành" : "chưa có việc"}</span>

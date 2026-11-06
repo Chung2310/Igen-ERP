@@ -21,5 +21,5 @@ export function OverviewChartViewport({ children }: { children: ReactNode }) {
     return () => observer.disconnect();
   }, [visible, reduceMotion]);
 
-  return <div ref={ref} className="h-full min-w-0 w-full">{visible || reduceMotion ? children : null}</div>;
+  return <div ref={ref} className="overview-chart-viewport h-full min-w-0 w-full">{visible || reduceMotion ? children : null}</div>;
 }

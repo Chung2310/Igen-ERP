@@ -42,10 +42,12 @@ const PublicSlotApproval = lazy(() => import("./modules/marketing-suite/campaign
 const PublicDailySlotsApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicDailySlotsApproval"));
 const PublicMonthlyApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicMonthlyApproval"));
 const RetailPosEntry = lazy(() => import("./modules/retail/pages/RetailPosEntry"));
+const ChatbotWidget = lazy(() => import("./components/common/ChatbotWidget").then(module => ({ default: module.ChatbotWidget })));
 
 function AppContent() {
   const { user, userProfile, loading, logout, hasPermission, initializationError, retryInitialization } = useAuth();
   const { activeBranchId, loading: branchLoading, error: branchError, retry: retryBranch } = useBranch();
+  const [assistantPanelRequest, requestAssistantPanel] = React.useState(0);
   const pathname = React.useSyncExternalStore(subscribeToPathname, getPathnameSnapshot, getPathnameSnapshot);
   const requestedPath = normalizePublicPath(pathname);
   const isPosOnly = userProfile?.role === "pos_cashier";
@@ -73,6 +75,12 @@ function AppContent() {
     ? "QUẢN LÝ HỌC VIÊN" as TabType
     : activeTab;
   const resolvedActiveTab = resolveEnabledTab(teacherSafeTab, userProfile?.enabledModules, userProfile?.businessType);
+
+  React.useEffect(() => {
+    if (resolvedActiveTab !== "TRỢ LÝ AI") return;
+    const frame = window.requestAnimationFrame(() => requestAssistantPanel(0));
+    return () => window.cancelAnimationFrame(frame);
+  }, [resolvedActiveTab]);
 
   React.useEffect(() => {
     if (isPosOnly && requestedPath !== "/pos") {
@@ -334,6 +342,10 @@ function AppContent() {
         <Header
           currentTab={resolvedActiveTab}
           onSearchSelect={handleSearchNavigation}
+          onAssistantOpen={() => {
+            if (resolvedActiveTab === "TRỢ LÝ AI") return;
+            requestAssistantPanel(value => value + 1);
+          }}
         />
 
         <main
@@ -360,6 +372,12 @@ function AppContent() {
           ) : <AppRouterView scopeKey={activeBranchId} activeTab={resolvedActiveTab} userProfile={userProfile} />}
         </main>
       </div>
+
+      {assistantPanelRequest > 0 && resolvedActiveTab !== "TRỢ LÝ AI" && hasPermission("chat:read") && userProfile?.companyCode && userProfile.uid && (
+        <Suspense fallback={null}>
+          <ChatbotWidget mode="popup" headerPanel openRequest={assistantPanelRequest} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />
+        </Suspense>
+      )}
 
       {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
       <NotificationToastContainer onNavigate={handleSearchNavigation} />

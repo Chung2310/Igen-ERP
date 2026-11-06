@@ -63,7 +63,7 @@ export function StyledSelect({
 
   const openMenu = () => {
     if (disabled || options.length === 0) return;
-    setPortalRoot(triggerRef.current?.closest("dialog") || document.body);
+    setPortalRoot(triggerRef.current?.closest<HTMLElement>("dialog, [popover]") || document.body);
     updatePosition();
     setOpen(true);
   };
