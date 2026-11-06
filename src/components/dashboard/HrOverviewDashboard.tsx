@@ -11,6 +11,9 @@ import type { RecruitmentApplicant, RecruitmentJob, RecruitmentPipeline } from "
 import { HrAnalyticsPanels } from "./HrAnalyticsPanels";
 import { OverviewChartSummary } from "./OverviewChartSummary";
 import { AnimatedOverviewValue } from "./AnimatedOverviewValue";
+import { OverviewKpiDelta } from "./OverviewKpiDelta";
+import { useOverviewPeriod } from "./OverviewPeriodContext";
+import { overviewDateKey } from "./overviewComparison";
 
 type Icon = ComponentType<{ className?: string }>;
 
@@ -46,15 +49,16 @@ function Card({
 }
 
 function Kpi({
-  label, value, note, icon: IconComponent,
+  label, value, previous, note, icon: IconComponent,
 }: {
   label: string;
   value: number | null | undefined;
+  previous?: number | null;
   note: string;
   icon: Icon;
 }) {
   return (
-    <Card className="overview-kpi min-w-0 px-4 py-3.5">
+    <Card className="overview-kpi flex min-w-0 flex-col px-4 py-3.5">
       <div className="flex items-center gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-md bg-white/15 text-white"><IconComponent className="size-5" /></span>
         <div className="min-w-0">
@@ -62,6 +66,7 @@ function Kpi({
           <p className="mt-1 text-2xl font-semibold leading-none tabular-nums text-white"><AnimatedOverviewValue value={value} format={numberText} /></p>
         </div>
       </div>
+      {previous !== undefined && <OverviewKpiDelta value={value} previous={previous} unit="" />}
       <span className="sr-only">{note}</span>
     </Card>
   );
@@ -103,7 +108,7 @@ function TaskChart({ summary, previous, loading }: { summary: DashboardSummary |
   return (
     <Card className="flex h-full min-w-0 flex-col p-5 sm:p-6">
       <PanelHeader title="Tiến độ công việc" badge={`${numberText(total, loading)} việc`} />
-      <OverviewChartSummary value={loading ? null : tasks?.total} previous={previous?.projects.tasks.total} metricLabel="Công việc trong tháng" onDetails={() => openHrTab("kanban")} />
+      <OverviewChartSummary value={loading ? null : tasks?.total} previous={previous?.projects.tasks.total} metricLabel="Công việc trong kỳ" onDetails={() => openHrTab("kanban")} />
       <div className="flex flex-1 flex-col items-center justify-center gap-5 py-5 sm:flex-row sm:gap-7">
         <div
           className="relative h-44 w-44 shrink-0"
@@ -155,7 +160,7 @@ function TrainingChart({ summary, previous, loading }: { summary: DashboardSumma
   return (
     <Card className="flex h-full min-w-0 flex-col p-5 sm:p-6">
       <PanelHeader title="Đào tạo nội bộ" badge={`${numberText(summary?.training.totalCourses, loading)} khóa`} />
-      <OverviewChartSummary value={loading ? null : enrollments?.total} previous={previous?.training.enrollments.total} metricLabel="Lượt tham gia đào tạo trong tháng" onDetails={() => openHrTab("dao-tao")} />
+      <OverviewChartSummary value={loading ? null : enrollments?.total} previous={previous?.training.enrollments.total} metricLabel="Lượt tham gia đào tạo trong kỳ" onDetails={() => openHrTab("dao-tao")} />
       <div className="mt-6 grid grid-cols-2 gap-3">
         <div className="rounded-md bg-primary/10 px-4 py-3.5">
           <p className="text-xs text-on-surface-variant">Khóa đang diễn ra</p>
@@ -240,23 +245,30 @@ export function HrOverviewDashboard({
   jobs: RecruitmentJob[] | null;
   pipeline: RecruitmentPipeline | null;
 }) {
+  const overviewPeriod = useOverviewPeriod();
+  const applicantCount = (from: string, to: string) => applicants?.filter(applicant => {
+    const date = overviewDateKey(applicant.createdAt);
+    return date != null && date >= from && date <= to;
+  }).length ?? null;
+  const currentApplicants = overviewPeriod ? applicantCount(overviewPeriod.from, overviewPeriod.to) : null;
+  const previousApplicants = overviewPeriod ? applicantCount(overviewPeriod.previousFrom, overviewPeriod.previousTo) : null;
   return (
     <div className="space-y-4 pb-5">
       {error && <div role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">Không tải được số liệu nhân sự. Bấm Làm mới để thử lại.</div>}
       <div className="hr-overview-metrics grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Kpi label="Nhân sự" value={employeeCount} note={employeeScope} icon={UsersRound} />
         <Kpi label="Đã chấm công" value={canSeeTimekeeping && !loading ? summary?.timekeeping.checkedInToday : null} note="Hôm nay" icon={CalendarDays} />
-        <Kpi label="Công việc" value={loading ? null : summary?.projects.tasks.total} note="Công việc tạo trong tháng" icon={BriefcaseBusiness} />
-        <Kpi label="Khóa đào tạo" value={loading ? null : summary?.training.totalCourses} note="Khóa tạo trong tháng" icon={GraduationCap} />
+        <Kpi label="Công việc" value={loading ? null : summary?.projects.tasks.total} previous={previousSummary?.projects.tasks.total ?? null} note="Công việc trong kỳ" icon={BriefcaseBusiness} />
+        <Kpi label="Khóa đào tạo" value={loading ? null : summary?.training.totalCourses} previous={previousSummary?.training.totalCourses ?? null} note="Khóa trong kỳ" icon={GraduationCap} />
         <Kpi label="Đi muộn" value={canSeeTimekeeping && !loading ? summary?.timekeeping.lateToday : null} note="Ghi nhận trong ngày" icon={Clock3} />
-        <Kpi label="HĐ sắp hết hạn" value={loading ? null : summary?.personnelNow?.expiringContractCount} note="Trong 30 ngày tới" icon={FileWarning} />
+        {canSeeRecruitment && overviewPeriod ? <Kpi label="Ứng viên mới" value={loading ? null : currentApplicants} previous={previousApplicants} note="Hồ sơ trong kỳ" icon={FileText} /> : <Kpi label="HĐ sắp hết hạn" value={loading ? null : summary?.personnelNow?.expiringContractCount} note="Trong 30 ngày tới" icon={FileWarning} />}
       </div>
       <div className="grid items-stretch gap-4 lg:grid-cols-2">
         <TaskChart summary={summary} previous={previousSummary} loading={loading} />
         <TrainingChart summary={summary} previous={previousSummary} loading={loading} />
       </div>
       {canSeeTimekeeping && <Attendance summary={summary} yesterdayAttendance={yesterdayAttendance} loading={loading} />}
-      <HrAnalyticsPanels summary={summary} previousSummary={previousSummary} yesterdayAttendance={yesterdayAttendance} departments={departments} applicants={applicants} jobs={jobs} pipeline={pipeline} loading={loading} canSeeTimekeeping={canSeeTimekeeping} canSeeRecruitment={canSeeRecruitment} />
+      <HrAnalyticsPanels summary={summary} yesterdayAttendance={yesterdayAttendance} departments={departments} applicants={applicants} jobs={jobs} pipeline={pipeline} loading={loading} canSeeTimekeeping={canSeeTimekeeping} canSeeRecruitment={canSeeRecruitment} />
       <section aria-labelledby="hr-quick-links-heading">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
           <h2 id="hr-quick-links-heading" className="text-balance text-base font-semibold text-on-surface">Truy cập nhanh</h2>

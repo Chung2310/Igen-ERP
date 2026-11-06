@@ -16,9 +16,9 @@ const permitted = (permissions: readonly string[], code: string) =>
 
 function CommandField({ label, description, children }: { label: string; description?: string; children: ReactNode }) {
   return (
-    <label className="block text-sm font-semibold text-slate-700">
+    <label className="block text-sm font-semibold text-on-surface">
       <span>{label}</span>
-      {description && <span className="mt-0.5 block text-xs font-normal text-slate-500">{description}</span>}
+      {description && <span className="mt-0.5 block text-xs font-normal text-on-surface-variant">{description}</span>}
       {children}
     </label>
   );
@@ -47,7 +47,7 @@ function VndCommandInput({
         max={max}
         value={value ? new Intl.NumberFormat("vi-VN").format(value) : ""}
         onChange={(event) => onChange(Number(event.target.value.replace(/\D/g, "")))}
-        className="mt-1 w-full rounded-lg border p-2"
+        className="mt-1 min-h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
       />
     </CommandField>
   );
@@ -100,7 +100,7 @@ export default function ReceivableDetailDrawer({
   };
   if (!detail)
     return (
-      <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl border-l bg-white p-6 shadow-2xl">
+      <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl border-l bg-surface-container-lowest p-4 shadow-2xl">
         {error || "Đang tải chi tiết..."}
       </aside>
     );
@@ -113,18 +113,18 @@ export default function ReceivableDetailDrawer({
   return (
     <aside
       aria-label="Chi tiết công nợ"
-      className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl overflow-y-auto border-l bg-white p-6 shadow-2xl"
+      className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl overflow-y-auto border-l bg-surface-container-lowest p-4 shadow-2xl"
     >
       <button
         type="button"
         aria-label="Đóng chi tiết"
         onClick={onClose}
-        className="float-right"
+        className="float-right flex size-9 items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"
       >
         <X />
       </button>
       <h2 className="text-xl font-bold">{receivable.receivableCode}</h2>
-      <p className="text-sm text-slate-500">{receivable.customerName}</p>
+      <p className="text-sm text-on-surface-variant">{receivable.customerName}</p>
       {receivable.sourceCode && (
         <a
           href={`/ban-le?sub=don-hang&orderId=${encodeURIComponent(receivable.sourceId || "")}`}
@@ -141,14 +141,14 @@ export default function ReceivableDetailDrawer({
           ["Điều chỉnh", receivable.adjustedAmount],
           ["Còn nợ", receivable.balance],
         ].map(([label, amount]) => (
-          <div key={String(label)} className="rounded-xl bg-slate-50 p-3">
-            <p className="text-xs text-slate-500">{label}</p>
+          <div key={String(label)} className="rounded-xl bg-surface-container-low p-3">
+            <p className="text-xs text-on-surface-variant">{label}</p>
             <p className="font-bold">{money.format(Number(amount))}</p>
           </div>
         ))}
       </div>
       {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
         {canCollect && isActive && receivable.balance > 0 && (
           <form
             onSubmit={(event) => {
@@ -175,12 +175,12 @@ export default function ReceivableDetailDrawer({
               <input
                 aria-label="Mã tham chiếu"
                 name="reference"
-                className="mt-1 w-full rounded-lg border p-2"
+                className="mt-1 min-h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none"
               />
             </CommandField>
             <button
               disabled={busy}
-              className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-bold text-white"
+              className="rounded-md bg-primary px-3 py-2 text-sm font-bold text-on-primary"
             >
               Thu tiền
             </button>
@@ -207,17 +207,17 @@ export default function ReceivableDetailDrawer({
               <h3 className="font-bold">Điều chỉnh</h3>
               <VndCommandInput label="Số tiền điều chỉnh" value={adjustmentAmount} onChange={setAdjustmentAmount} />
               <CommandField label="Hướng điều chỉnh">
-                <select aria-label="Hướng điều chỉnh" name="direction" className="mt-1 w-full rounded-lg border p-2">
+                <select aria-label="Hướng điều chỉnh" name="direction" className="finance-select mt-1 w-full">
                   <option value="increase">Tăng nợ</option>
                   <option value="decrease">Giảm nợ</option>
                 </select>
               </CommandField>
               <CommandField label="Lý do điều chỉnh">
-                <input required aria-label="Lý do điều chỉnh" name="reason" className="mt-1 w-full rounded-lg border p-2" />
+                <input required aria-label="Lý do điều chỉnh" name="reason" className="mt-1 min-h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none" />
               </CommandField>
               <button
                 disabled={busy}
-                className="rounded-lg border px-3 py-2 text-sm font-bold"
+                className="min-h-9 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-xs font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
               >
                 Điều chỉnh
               </button>
@@ -240,14 +240,14 @@ export default function ReceivableDetailDrawer({
             >
               <h3 className="font-bold">Gia hạn công nợ</h3>
               <CommandField label="Gia hạn đến ngày">
-                <input required aria-label="Gia hạn đến ngày" name="dueDate" type="date" min={minimumExtensionDate.toISOString().slice(0, 10)} className="mt-1 w-full rounded-lg border p-2" />
+                <input required aria-label="Gia hạn đến ngày" name="dueDate" type="date" min={minimumExtensionDate.toISOString().slice(0, 10)} className="mt-1 min-h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none" />
               </CommandField>
               <CommandField label="Lý do gia hạn">
-                <input required aria-label="Lý do gia hạn" name="reason" className="mt-1 w-full rounded-lg border p-2" />
+                <input required aria-label="Lý do gia hạn" name="reason" className="mt-1 min-h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none" />
               </CommandField>
               <button
                 disabled={busy}
-                className="rounded-lg border px-3 py-2 text-sm font-bold"
+                className="min-h-9 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-xs font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
               >
                 Gia hạn công nợ
               </button>
@@ -300,7 +300,7 @@ function LedgerRow({
         <p className="font-semibold">
           {entryLabel}{entry.type === "due_date_extension" ? extensionDates && ` · ${extensionDates}` : ` · ${money.format(entry.amount)}`}
         </p>
-        <p className="text-slate-500">
+        <p className="text-on-surface-variant">
           {entry.reason || "Không có lý do"} ·{" "}
           {new Date(entry.createdAt).toLocaleString("vi-VN")} · {entry.createdByName || "Hệ thống"}
         </p>
@@ -314,7 +314,7 @@ function LedgerRow({
           className="flex gap-2"
         >
           <CommandField label="Lý do đảo bút toán" description="Được lưu vào lịch sử kiểm toán.">
-            <input required name="reason" aria-label="Lý do đảo bút toán" className="mt-1 w-40 rounded-lg border px-2 py-1" />
+            <input required name="reason" aria-label="Lý do đảo bút toán" className="mt-1 min-h-9 w-40 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm text-on-surface focus:border-primary focus:outline-none" />
           </CommandField>
           <button
             className="text-xs font-bold text-amber-700"

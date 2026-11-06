@@ -5,6 +5,7 @@ import {
   type AssetInventoryVariance,
 } from "../api/financeAssets.api";
 import { canManageAssets } from "./FixedAssetsPage";
+import { FinanceEmptyState } from "../components/FinanceEmptyState";
 
 const RESULT_LABELS: Record<string, string> = {
   pending: "Chưa kiểm",
@@ -122,41 +123,41 @@ export default function AssetInventoryPage({
   };
 
   return (
-    <section className="space-y-4">
+    <section className="finance-page-content">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Kiểm kê tài sản</h1>
-          <p className="text-sm text-slate-500">Quét mã vạch theo phiên, đối chiếu và chốt bảng lệch.</p>
+          <h1 className="finance-page-title">Kiểm kê tài sản</h1>
+          <p className="text-sm text-on-surface-variant">Quét mã vạch theo phiên, đối chiếu và chốt bảng lệch.</p>
         </div>
         {canManage && (
           <button
             type="button"
             onClick={() => setOpening((value) => !value)}
-            className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white"
+            className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary"
           >
             Mở phiên kiểm kê
           </button>
         )}
       </div>
 
-      {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded-md bg-error-container p-4 text-sm text-on-error-container">{error}</p>}
 
       {opening && canManage && (
-        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
+        <div className="grid gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 sm:grid-cols-2">
           {[
             ["sessionCode", "Mã phiên", "text"],
             ["name", "Tên phiên", "text"],
             ["branchIds", "Chi nhánh (để trống = toàn công ty)", "text"],
             ["inventoryDate", "Ngày kiểm kê", "date"],
           ].map(([field, label, type]) => (
-            <label key={field} className="text-sm font-semibold text-slate-700">
+            <label key={field} className="text-sm font-semibold text-on-surface-variant">
               {label}
               <input
                 type={type}
                 aria-label={label}
                 value={(openForm as Record<string, string>)[field]}
                 onChange={(event) => setOpenForm((current) => ({ ...current, [field]: event.target.value }))}
-                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-normal"
+                className="mt-1 w-full rounded-md border border-outline-variant px-3 py-2 font-normal"
               />
             </label>
           ))}
@@ -164,14 +165,14 @@ export default function AssetInventoryPage({
             type="button"
             disabled={busy}
             onClick={() => void openSession()}
-            className="self-end rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+            className="self-end rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary disabled:opacity-50"
           >
             Tạo phiên
           </button>
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
         <div className="divide-y">
           {sessions.map((session) => (
             <button
@@ -179,7 +180,7 @@ export default function AssetInventoryPage({
               type="button"
               aria-label={`Phiên ${session.sessionCode}`}
               onClick={() => void open(session)}
-              className="grid w-full grid-cols-2 gap-2 p-4 text-left text-sm hover:bg-slate-50 sm:grid-cols-4"
+              className="grid w-full grid-cols-2 gap-2 p-4 text-left text-sm hover:bg-surface-container-low sm:grid-cols-4"
             >
               <b>{session.sessionCode}</b>
               <span>{session.name}</span>
@@ -187,17 +188,17 @@ export default function AssetInventoryPage({
               <span>{session.status === "open" ? "Đang mở" : "Đã chốt"}</span>
             </button>
           ))}
-          {!sessions.length && <p className="p-6 text-center text-sm text-slate-500">Chưa có phiên kiểm kê nào.</p>}
+          {!sessions.length && <FinanceEmptyState kind="task">Chưa có phiên kiểm kê nào.</FinanceEmptyState>}
         </div>
       </div>
 
       {selected && (
-        <div className="rounded-2xl border border-slate-200 bg-white">
+        <div className="rounded-md border border-outline-variant bg-surface-container-lowest">
           <div className="flex items-center justify-between border-b p-4">
             <h2 className="font-bold">
               {selected.sessionCode} · {selected.name}
             </h2>
-            <button type="button" onClick={() => setSelected(undefined)} className="text-sm font-bold text-slate-500">
+            <button type="button" onClick={() => setSelected(undefined)} className="text-sm font-bold text-on-surface-variant">
               Đóng
             </button>
           </div>
@@ -210,13 +211,13 @@ export default function AssetInventoryPage({
                 onChange={(event) => setBarcode(event.target.value)}
                 onKeyDown={(event) => event.key === "Enter" && void scan()}
                 placeholder="Quét hoặc nhập mã vạch"
-                className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                className="flex-1 rounded-md border border-outline-variant px-3 py-2 text-sm"
               />
               <select
                 aria-label="Kết quả kiểm kê"
                 value={result}
                 onChange={(event) => setResult(event.target.value as typeof result)}
-                className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                className="finance-select"
               >
                 <option value="present">Khớp</option>
                 <option value="damaged">Hư hỏng</option>
@@ -226,7 +227,7 @@ export default function AssetInventoryPage({
                 type="button"
                 disabled={busy}
                 onClick={() => void scan()}
-                className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                className="min-h-9 rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-2 text-xs font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
               >
                 Ghi nhận
               </button>
@@ -234,7 +235,7 @@ export default function AssetInventoryPage({
                 type="button"
                 disabled={busy}
                 onClick={() => void finalize()}
-                className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary disabled:opacity-50"
               >
                 Chốt phiên
               </button>
@@ -242,7 +243,7 @@ export default function AssetInventoryPage({
           )}
 
           {variance && (
-            <div className="flex flex-wrap gap-4 border-b p-4 text-sm">
+            <div className="flex flex-wrap gap-3 border-b p-4 text-sm">
               <b>Tổng: {variance.total}</b>
               {Object.entries(variance.counts).map(([key, count]) => (
                 <span key={key}>

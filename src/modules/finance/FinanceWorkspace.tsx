@@ -14,6 +14,7 @@ import AssetInventoryPage from "./pages/AssetInventoryPage";
 import FixedAssetsPage from "./pages/FixedAssetsPage";
 import FinanceRemindersPage from "./pages/FinanceRemindersPage";
 import ReceivablesPage from "./pages/ReceivablesPage";
+import "./finance-workspace.css";
 
 type FinanceSubTab =
   | "THU CHI"
@@ -144,12 +145,12 @@ export default function FinanceWorkspace() {
       </div>
     );
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface-container-low">
+    <div className="finance-workspace flex h-full min-h-0 flex-col bg-surface">
       <ModuleNavigation label="Mục Tài chính" activeValue={activeTab} wheelScroll>
         {tabs.map(tab => <ModuleNavigationButton key={tab.slug} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
       </ModuleNavigation>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-full space-y-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
           {(["THU CHI", "LÃI LỖ", "VAT", "HÒA VỐN"].includes(activeTab)) && (
             <FinancialManagementPage
               key={activeTab}
@@ -179,9 +180,9 @@ export default function FinanceWorkspace() {
               onOpen={setSelectedId}
             />
           )}{" "}
-          {activeTab === "TUỔI NỢ" && <details className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4"><summary className="cursor-pointer text-sm font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Xem báo cáo tuổi nợ theo nhóm cũ</summary><AgingReportPage onDrillDown={drillDown} /></details>}{" "}
+          {activeTab === "TUỔI NỢ" && <details className="rounded-md border border-outline-variant bg-surface-container-lowest p-4"><summary className="cursor-pointer text-sm font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Xem báo cáo tuổi nợ theo nhóm cũ</summary><AgingReportPage onDrillDown={drillDown} /></details>}{" "}
           {activeTab === "NHẮC NỢ" && (
-            <details className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4"><summary className="cursor-pointer text-sm font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Xem lịch gửi nhắc nợ</summary><FinanceRemindersPage permissions={permissions} /></details>
+            <details className="rounded-md border border-outline-variant bg-surface-container-lowest p-4"><summary className="cursor-pointer text-sm font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary">Xem lịch gửi nhắc nợ</summary><FinanceRemindersPage permissions={permissions} /></details>
           )}{" "}
           {activeTab === "TÀI SẢN" && <FixedAssetsPage permissions={permissions} />}{" "}
           {activeTab === "KHẤU HAO" && (

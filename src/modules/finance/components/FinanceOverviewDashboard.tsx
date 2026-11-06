@@ -17,11 +17,14 @@ import { ArrowRight, CalendarClock } from "lucide-react";
 import { createContext, useContext, useEffect, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { cn } from "../../student-management/lib/utils";
-import { OverviewChartSummary, previousCalendarMonth } from "../../../components/dashboard/OverviewChartSummary";
+import { OverviewChartSummary } from "../../../components/dashboard/OverviewChartSummary";
+import { OverviewKpiDelta } from "../../../components/dashboard/OverviewKpiDelta";
+import { displayComparisonDate, previousComparisonRange } from "../../../components/dashboard/overviewComparison";
 import { AnimatedOverviewValue } from "../../../components/dashboard/AnimatedOverviewValue";
 import { financeManagement } from "../api/financeManagement.api";
 import { useBranchOptional } from "../../../context/BranchContext";
 import { money } from "./ManagementUI";
+import { FinanceEmptyState } from "./FinanceEmptyState";
 import { aggregateRevenueTrends, type DailyFinanceTrend, type OverviewPeriod } from "./financeOverviewPeriods";
 import "../finance-overview.css";
 
@@ -57,7 +60,7 @@ function ChartCard({ title, hasData, children, className = "", action }: { title
   return <section className={cn("finance-chart-card", className)}>
     <h3 className="mb-2 text-balance text-sm font-semibold text-on-surface">{title}</h3>
     <OverviewChartSummary value={metric?.value} previous={metric?.previous} metricLabel={title} format={metric?.count ? undefined : value => shortMoney(value)} detailsHref={metric?.href || "/tai-chinh?sub=thu-chi"} action={action} />
-    {hasData ? <div role="img" aria-label={title} className="h-52 min-w-0 sm:h-56">{children}</div> : <div className="flex min-h-32 items-center justify-center rounded-lg bg-surface-container-low px-4 text-center text-xs text-on-surface-variant">Chưa có dữ liệu trong phạm vi đã chọn.</div>}
+    {hasData ? <div role="img" aria-label={title} className="h-52 min-w-0 sm:h-56">{children}</div> : <FinanceEmptyState kind="payroll">Chưa có dữ liệu trong phạm vi đã chọn.</FinanceEmptyState>}
   </section>;
 }
 
@@ -108,13 +111,16 @@ function agingRows(rows: Debt[]) {
 export default function FinanceOverviewDashboard({ report, period, from, to, onPeriodChange }: { report: Report; period: OverviewPeriod; from: string; to: string; onPeriodChange?: (period: "week" | "month" | "quarter" | "year") => void }) {
   const reduceMotion = useReducedMotion();
   const branch = useBranchOptional();
-  const [previousReport, setPreviousReport] = useState<Report | null>(null);
+  const [previousResult, setPreviousResult] = useState<{ key: string; report: Report } | null>(null);
+  const comparisonRange = previousComparisonRange(from, to, period);
+  const comparisonKey = `${branch?.activeBranchId || "all"}:${from}:${to}:${period}`;
   useEffect(() => {
     const controller = new AbortController();
-    const previous = previousCalendarMonth();
-    void financeManagement<Report>(`/report?${new URLSearchParams(previous)}`, undefined, undefined, controller.signal).then(setPreviousReport).catch(() => { if (!controller.signal.aborted) setPreviousReport(null); });
+    const previous = previousComparisonRange(from, to, period);
+    void financeManagement<Report>(`/report?${new URLSearchParams(previous)}`, undefined, undefined, controller.signal).then(report => setPreviousResult({ key: comparisonKey, report })).catch(() => { if (!controller.signal.aborted) setPreviousResult(null); });
     return () => controller.abort();
-  }, [branch?.activeBranchId]);
+  }, [branch?.activeBranchId, from, to, period, comparisonKey]);
+  const previousReport = previousResult?.key === comparisonKey ? previousResult.report : null;
   const s = report.summary;
   const trends = report.trends || [];
   const cash = report.cash || [];
@@ -144,9 +150,10 @@ export default function FinanceOverviewDashboard({ report, period, from, to, onP
   const stockBands = ["0-30", "31-60", "61-90", "over90"].map((band, index) => ({ name: ["0–30 ngày", "31–60 ngày", "61–90 ngày", "Trên 90 ngày"][index], value: inventory.filter(row => row.band === band).length }));
   const vatRows = [{ name: "VAT đầu ra", value: report.vat?.output || 0 }, { name: "VAT đầu vào", value: report.vat?.input || 0 }];
   const urgent = [...receivables.map(row => ({ ...row, party: row.customerName || "Khách hàng", type: "Phải thu" })), ...payables.map(row => ({ ...row, party: row.supplierName || "Nhà cung cấp", type: "Phải trả" }))].filter(row => row.balance > 0 && row.daysUntil <= 7).sort((a, b) => a.daysUntil - b.daysUntil).slice(0, 5);
+  const prior = previousReport?.summary;
   const kpis = [
-    ["Doanh thu hàng hóa", s.revenue], ["Giá vốn", s.cost], ["Lãi gộp", s.grossProfit],
-    ["Lãi ròng quản trị", s.netProfit], ["Dòng tiền ròng", s.cashIn != null && s.cashOut != null ? s.cashIn - s.cashOut : null], ["Phải thu quá hạn", s.overdue],
+    ["Doanh thu hàng hóa", s.revenue, prior?.revenue], ["Giá vốn", s.cost, prior?.cost], ["Lãi gộp", s.grossProfit, prior?.grossProfit],
+    ["Lãi ròng quản trị", s.netProfit, prior?.netProfit], ["Dòng tiền ròng", s.cashIn != null && s.cashOut != null ? s.cashIn - s.cashOut : null, prior?.cashIn != null && prior.cashOut != null ? prior.cashIn - prior.cashOut : null], ["Phải thu quá hạn", s.overdue, null],
   ] as const;
   const previousExpenses = previousReport?.expenses || [];
   const previousCash = previousReport?.cash || [];
@@ -173,15 +180,16 @@ export default function FinanceOverviewDashboard({ report, period, from, to, onP
         <h2 className="text-balance text-lg font-semibold text-on-surface">Tình hình tài chính</h2>
         <span className="text-xs text-on-surface-variant">Đơn vị: VND</span>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-        {kpis.map(([label, value], index) => {
-          return <div key={label} className={`finance-kpi finance-kpi-${index}`}>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        {kpis.map(([label, value, previous], index) => {
+          return <div key={label} className={`finance-kpi finance-kpi-${index} flex min-h-28 flex-col`}>
             <p className="text-pretty text-xs font-medium text-white">{label}</p>
             <p className="mt-1 break-words text-lg font-semibold tabular-nums text-white sm:text-xl"><AnimatedOverviewValue value={value} format={money} /></p>
+            {label === "Phải thu quá hạn" ? <p className="mt-auto text-xs text-white">Số dư hiện tại</p> : <OverviewKpiDelta value={value} previous={previous} />}
           </div>;
         })}
       </div>
-      <p className="mt-3 text-pretty text-xs text-on-surface-variant">Công nợ và tồn kho là số dư hiện tại; bộ lọc ngày áp dụng cho doanh thu, chi phí, dòng tiền và VAT.</p>
+      <p className="mt-3 text-pretty text-xs text-on-surface-variant">So sánh: {displayComparisonDate(comparisonRange.from)} – {displayComparisonDate(comparisonRange.to)}. Công nợ và tồn kho là số dư hiện tại; bộ lọc ngày áp dụng cho doanh thu, chi phí, dòng tiền và VAT.</p>
     </section>
 
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
@@ -189,31 +197,31 @@ export default function FinanceOverviewDashboard({ report, period, from, to, onP
         <h3 className="mb-3 text-balance text-sm font-semibold text-on-surface">Số liệu tài chính chi tiết</h3>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
           {([
-            ["Tiền đã thu", s.cashIn], ["Tiền đã chi", s.cashOut], ["Chi phí ghi nhận", s.expense],
-            ["Phải thu hiện tại", s.receivable], ["Phải trả hiện tại", s.payable], ["NCC đến hạn 5 ngày", s.payableSoon],
-            ["Giá trị tồn kho", s.inventoryValue], ["VAT dự kiến phải nộp", report.vat?.payable ?? null],
-          ] as const).map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-pretty text-xs text-on-surface-variant">{label}</dt><dd className="mt-0.5 break-words text-sm font-semibold tabular-nums text-on-surface">{money(value)}</dd></div>)}
+            ["Tiền đã thu", s.cashIn, "blue"], ["Tiền đã chi", s.cashOut, "orange"], ["Chi phí ghi nhận", s.expense, "red"],
+            ["Phải thu hiện tại", s.receivable, "teal"], ["Phải trả hiện tại", s.payable, "violet"], ["NCC đến hạn 5 ngày", s.payableSoon, "orange"],
+            ["Giá trị tồn kho", s.inventoryValue, "blue"], ["VAT dự kiến phải nộp", report.vat?.payable ?? null, "violet"],
+          ] as const).map(([label, value, tone]) => <div key={label} className="min-w-0"><dt className="text-pretty text-xs text-on-surface-variant">{label}</dt><dd className={`mt-0.5 break-words text-xl font-bold tabular-nums ${value == null ? "text-on-surface-variant" : `finance-detail-value finance-detail-value--${tone}`}`}>{money(value)}</dd></div>)}
         </dl>
       </section>
-      <ChartCard title="Doanh thu theo kỳ" hasData={trends.length > 0 && revenueRows.length > 0} className="xl:col-span-2" action={<select aria-label="Kỳ biểu đồ doanh thu" className="min-h-9 rounded-lg border border-outline-variant bg-surface-container-lowest px-2.5 text-xs text-on-surface focus:border-primary focus:outline-none" value={period === "7" || period === "30" || period === "custom" ? "custom" : period} onChange={(event) => onPeriodChange?.(event.target.value as "week" | "month" | "quarter" | "year")} disabled={!onPeriodChange}>
+      <ChartCard title="Doanh thu theo kỳ" hasData={trends.length > 0 && revenueRows.length > 0} className="xl:col-span-2" action={<select aria-label="Kỳ biểu đồ doanh thu" className="finance-select text-xs" value={period === "7" || period === "30" || period === "custom" ? "custom" : period} onChange={(event) => onPeriodChange?.(event.target.value as "week" | "month" | "quarter" | "year")} disabled={!onPeriodChange}>
         {(period === "7" || period === "30" || period === "custom") && <option value="custom" disabled>Khoảng chọn</option>}
         <option value="week">Tuần</option><option value="month">Tháng</option><option value="quarter">Quý</option><option value="year">Năm</option>
       </select>}>
         <ResponsiveContainer width="100%" height="100%"><ComposedChart data={revenueRows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} /><YAxis tickFormatter={shortMoney} tick={{ fontSize: 10 }} width={58} /><Tooltip formatter={chartTooltip} /><Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="revenue" name="Doanh thu" fill={colors[0]} maxBarSize={38} isAnimationActive={!reduceMotion} animationDuration={700} /><Line dataKey="expense" name="Chi phí" stroke={colors[2]} strokeWidth={2} dot={false} isAnimationActive={!reduceMotion} animationDuration={700} /><Line dataKey="net" name="Lãi ròng" stroke={colors[1]} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={!reduceMotion} animationDuration={700} />
+          <Bar dataKey="revenue" name="Doanh thu" fill={colors[0]} maxBarSize={38} isAnimationActive={!reduceMotion} animationDuration={700} /><Line type="monotone" dataKey="expense" name="Chi phí" stroke={colors[2]} strokeWidth={2} dot={false} isAnimationActive={!reduceMotion} animationDuration={700} /><Line type="monotone" dataKey="net" name="Lãi ròng" stroke={colors[1]} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={!reduceMotion} animationDuration={700} />
         </ComposedChart></ResponsiveContainer>
       </ChartCard>
       <ChartCard title="Biên lãi theo ngày" hasData={trendRows.some(row => row.gross != null)}>
         <ResponsiveContainer width="100%" height="100%"><ComposedChart data={trendRows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} /><YAxis tickFormatter={shortMoney} tick={{ fontSize: 10 }} width={58} /><Tooltip formatter={chartTooltip} /><Legend wrapperStyle={{ fontSize: 11 }} />
-          <Area dataKey="gross" name="Lãi gộp" stroke={colors[1]} fill="var(--finance-chart-teal-soft)" strokeWidth={2} connectNulls={false} isAnimationActive={!reduceMotion} animationDuration={700} /><Line dataKey="net" name="Lãi ròng" stroke={colors[3]} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={!reduceMotion} animationDuration={700} />
+          <Area type="monotone" dataKey="gross" name="Lãi gộp" stroke={colors[1]} fill="var(--finance-chart-teal-soft)" strokeWidth={2} connectNulls={false} isAnimationActive={!reduceMotion} animationDuration={700} /><Line type="monotone" dataKey="net" name="Lãi ròng" stroke={colors[3]} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={!reduceMotion} animationDuration={700} />
         </ComposedChart></ResponsiveContainer>
       </ChartCard>
       <ChartCard title="Thu, chi và dòng tiền ròng" hasData={cashRows.length > 0} className="xl:col-span-2">
         <ResponsiveContainer width="100%" height="100%"><ComposedChart data={cashRows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 10 }} /><YAxis tickFormatter={shortMoney} tick={{ fontSize: 10 }} width={58} /><Tooltip formatter={chartTooltip} /><Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="thu" name="Thu" fill={colors[1]} maxBarSize={20} isAnimationActive={!reduceMotion} animationDuration={700} /><Bar dataKey="chi" name="Chi" fill={colors[2]} maxBarSize={20} isAnimationActive={!reduceMotion} animationDuration={700} /><Line dataKey="net" name="Ròng" stroke={colors[0]} strokeWidth={2} dot={false} isAnimationActive={!reduceMotion} animationDuration={700} />
+          <Bar dataKey="thu" name="Thu" fill={colors[1]} maxBarSize={20} isAnimationActive={!reduceMotion} animationDuration={700} /><Bar dataKey="chi" name="Chi" fill={colors[2]} maxBarSize={20} isAnimationActive={!reduceMotion} animationDuration={700} /><Line type="monotone" dataKey="net" name="Ròng" stroke={colors[0]} strokeWidth={2} dot={false} isAnimationActive={!reduceMotion} animationDuration={700} />
         </ComposedChart></ResponsiveContainer>
       </ChartCard>
       <RingCard title="Cơ cấu chi phí" rows={expenseGroups} />
@@ -243,14 +251,14 @@ export default function FinanceOverviewDashboard({ report, period, from, to, onP
       <section className="finance-chart-card">
         <h3 className="mb-3 text-balance text-sm font-semibold text-on-surface">Tiến độ hòa vốn</h3>
         <OverviewChartSummary value={report.breakeven?.progress} previous={previousReport?.breakeven?.progress} metricLabel="Tiến độ hòa vốn" format={value => `${Math.round(value)}%`} detailsHref="/tai-chinh?sub=hoa-von" />
-        {report.breakeven?.progress == null ? <div className="flex min-h-32 items-center justify-center rounded-lg bg-surface-container-low px-4 text-center text-xs text-on-surface-variant">Chưa đủ dữ liệu để tính điểm hòa vốn.</div> : <div className="flex min-h-52 flex-col justify-center gap-4">
+        {report.breakeven?.progress == null ? <FinanceEmptyState kind="payroll">Chưa đủ dữ liệu để tính điểm hòa vốn.</FinanceEmptyState> : <div className="flex min-h-52 flex-col justify-center gap-3">
           <div className="h-3 overflow-hidden rounded-full bg-surface-container-low"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, report.breakeven.progress))}%` }} /></div>
-          <div className="grid grid-cols-2 gap-3 text-xs"><p className="text-on-surface-variant">Chi phí cố định<strong className="mt-1 block font-semibold tabular-nums text-on-surface">{money(report.breakeven.fixedCosts)}</strong></p><p className="text-on-surface-variant">Cần thêm mỗi ngày<strong className="mt-1 block font-semibold tabular-nums text-on-surface">{money(report.breakeven.dailyNeeded)}</strong></p></div>
+          <div className="grid grid-cols-2 gap-3 text-xs"><p className="text-on-surface-variant">Chi phí cố định<strong className="mt-1 block font-semibold tabular-nums text-on-primary-container">{money(report.breakeven.fixedCosts)}</strong></p><p className="text-on-surface-variant">Cần thêm mỗi ngày<strong className="mt-1 block font-semibold tabular-nums text-on-primary-container">{money(report.breakeven.dailyNeeded)}</strong></p></div>
         </div>}
       </section>
       <section className="finance-chart-card">
         <div className="mb-3 flex items-start justify-between gap-2"><h3 className="text-balance text-sm font-semibold text-on-surface">Khoản nợ cần xử lý</h3><CalendarClock className="size-4 shrink-0 text-tertiary" aria-hidden="true" /></div>
-        {urgent.length ? <ul className="divide-y divide-outline-variant">{urgent.map((row, index) => <li key={`${row.party}-${row.dueDate}-${index}`} className="flex items-center justify-between gap-2 py-2 text-xs"><div className="min-w-0"><p className="truncate font-medium text-on-surface">{row.party}</p><p className="text-on-surface-variant">{row.type} · {row.dueDate}</p></div><strong className="shrink-0 font-semibold tabular-nums text-on-surface">{shortMoney(row.balance)}</strong></li>)}</ul> : <div className="flex min-h-40 items-center justify-center rounded-lg bg-surface-container-low px-4 text-center text-xs text-on-surface-variant">Không có khoản nợ cần xử lý.</div>}
+        {urgent.length ? <ul className="divide-y divide-outline-variant">{urgent.map((row, index) => <li key={`${row.party}-${row.dueDate}-${index}`} className="flex items-center justify-between gap-2 py-2 text-xs"><div className="min-w-0"><p className="truncate font-medium text-on-surface">{row.party}</p><p className="text-on-surface-variant">{row.type} · {row.dueDate}</p></div><strong className={cn("finance-detail-value shrink-0 text-xl font-bold tabular-nums", row.type === "Phải thu" ? "finance-detail-value--teal" : "finance-detail-value--orange")}>{shortMoney(row.balance)}</strong></li>)}</ul> : <FinanceEmptyState kind="notification">Không có khoản nợ cần xử lý.</FinanceEmptyState>}
         <a href="/tai-chinh?sub=cong-no" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary focus-visible:outline-2 focus-visible:outline-primary">Mở công nợ <ArrowRight className="size-3" aria-hidden="true" /></a>
       </section>
     </div>

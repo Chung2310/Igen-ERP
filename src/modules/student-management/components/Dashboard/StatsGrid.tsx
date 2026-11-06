@@ -3,11 +3,21 @@ import '../../../../components/dashboard/overview-dashboard.css';
 import { useStudents } from '../../hooks/useStudents';
 import { useAuth } from '../../../../context/AuthContext';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { useOverviewPeriod } from '../../../../components/dashboard/OverviewPeriodContext';
+import { OverviewKpiDelta } from '../../../../components/dashboard/OverviewKpiDelta';
+import { overviewDateKey } from '../../../../components/dashboard/overviewComparison';
 
 export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
   const { students, loading } = useStudents(selectedCenter === 'all' ? undefined : selectedCenter);
   const { userProfile: user } = useAuth();
   const entityLabel = useEntityLabel();
+  const overviewPeriod = useOverviewPeriod();
+  const registeredIn = (from: string, to: string) => students.filter(student => {
+    const date = overviewDateKey(student.registrationDate);
+    return date != null && date >= from && date <= to;
+  }).length;
+  const currentRegistrations = overviewPeriod ? registeredIn(overviewPeriod.from, overviewPeriod.to) : null;
+  const previousRegistrations = overviewPeriod ? registeredIn(overviewPeriod.previousFrom, overviewPeriod.previousTo) : null;
   const totalLabel = `Tổng ${entityLabel.singular}`;
 
   const statDefinitions = [
@@ -87,7 +97,7 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
   };
 
   const displayStats = getRealStats();
-  const count = displayStats.length;
+  const count = displayStats.length + (overviewPeriod ? 1 : 0);
 
   const getLayoutConfig = () => {
     switch (count) {
@@ -125,6 +135,11 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
 
   return (
     <div className={gridClass}>
+      {overviewPeriod && <article className="overview-kpi flex min-h-28 flex-col gap-2">
+        <p className="text-xs font-medium">Học viên mới trong kỳ</p>
+        <p className="text-xl font-semibold tabular-nums">{loading || !user ? '—' : currentRegistrations}</p>
+        <OverviewKpiDelta value={loading || !user ? null : currentRegistrations} previous={loading || !user ? null : previousRegistrations} unit="học viên" />
+      </article>}
       {displayStats.map((stat, idx) => (
         <article
           key={idx}

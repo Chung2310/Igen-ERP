@@ -3,6 +3,9 @@ import { useReducedMotion } from "motion/react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { AnimatedOverviewValue } from "./AnimatedOverviewValue";
+import { OverviewKpiDelta } from "./OverviewKpiDelta";
+import { OverviewPeriodActions, useOverviewPeriod } from "./OverviewPeriodContext";
+import { overviewDateKey } from "./overviewComparison";
 import { workerDashboardApi, type WorkerDashboard } from "../../modules/worker-management/api/workerDashboard.api";
 import { workerApi } from "../../modules/worker-management/api/workers.api";
 import { laborPartnersApi } from "../../modules/worker-management/partners/api/laborPartners.api";
@@ -36,6 +39,7 @@ function Horizontal({ title, rows }: { title: string; rows: { name: string; coun
 }
 
 export default function WorkerOverviewDashboard({ companyCode, branchId, canSeePartners }: { companyCode: string; branchId?: string; canSeePartners: boolean }) {
+  const overviewPeriod = useOverviewPeriod();
   const [summary, setSummary] = useState<WorkerDashboard | null>(null);
   const [workers, setWorkers] = useState<Worker[] | null>(null);
   const [partner, setPartner] = useState<LaborPartnerReportSummary | null>(null);
@@ -71,12 +75,18 @@ export default function WorkerOverviewDashboard({ companyCode, branchId, canSeeP
   const alerts = summary?.contractAlerts;
   const monthly = Array.from({ length: 12 }, (_, index) => ({ name: `T${index + 1}`, count: summary?.monthlyRegistrations?.[index] || 0 }));
   const projects = summary?.topProjects || [];
+  const registeredIn = (from: string, to: string) => workers?.filter(worker => {
+    const date = overviewDateKey(worker.registrationDate);
+    return date != null && date >= from && date <= to;
+  }).length ?? null;
+  const currentRegistrations = overviewPeriod ? registeredIn(overviewPeriod.from, overviewPeriod.to) : null;
+  const previousRegistrations = overviewPeriod ? registeredIn(overviewPeriod.previousFrom, overviewPeriod.previousTo) : null;
   const kpis = [
     { title: "Tổng lao động", value: summary?.totalWorkers ?? workers?.length },
     { title: "Hoạt động", value: status?.active ?? summary?.activeWorkers },
     { title: "Đã phân công", value: status?.placed },
     { title: "Dự án", value: summary?.projects },
-    { title: "Dự án đang triển khai", value: projectStatus?.active },
+    { title: "Lao động mới", value: currentRegistrations },
     { title: "Hợp đồng cần chú ý", value: alerts ? alerts.expiringCount + alerts.expiredCount : null },
   ];
   const workerRows = status ? [{ name: "Hoạt động", count: status.active }, { name: "Đã phân công", count: status.placed }, { name: "Nghỉ", count: status.inactive }] : [];
@@ -94,11 +104,11 @@ export default function WorkerOverviewDashboard({ companyCode, branchId, canSeeP
   ];
 
   return <div className="finance-overview space-y-3 text-left text-on-surface">
-    <header className="flex flex-wrap items-center justify-between gap-4 pb-2"><div><div className="flex items-center gap-2"><span aria-hidden="true" className="h-5 w-1 rounded-sm bg-primary" /><h2 className="text-lg font-semibold">Tổng quan Lao động</h2></div><p className="mt-1 text-xs text-on-surface-variant">Nhân lực, dự án, hợp đồng và đối tác lao động</p></div><ErpRefreshButton onClick={loadData} loading={loading} /></header>
+    <OverviewPeriodActions><h2 className="sr-only">Tổng quan Lao động</h2><ErpRefreshButton onClick={loadData} loading={loading} /></OverviewPeriodActions>
     {error && <p role="status" className="rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">Một số nguồn dữ liệu chưa tải được. Bấm Làm mới để thử lại.</p>}
-    <section className="finance-chart-card" aria-label="Chỉ số tổng quan lao động"><h3 className="mb-3 text-sm font-semibold">Tình hình lao động</h3><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{kpis.map((item, index) => <div key={item.title} className={`finance-kpi finance-kpi-${index}`}><p className="text-xs font-medium text-white">{item.title}</p><p className="mt-2 text-xl font-semibold tabular-nums text-white"><AnimatedOverviewValue value={loading ? null : item.value} format={integer} /></p></div>)}</div></section>
+    <section className="finance-chart-card" aria-label="Chỉ số tổng quan lao động"><h3 className="mb-3 text-sm font-semibold">Tình hình lao động</h3><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{kpis.map((item, index) => <div key={item.title} className={`finance-kpi finance-kpi-${index} flex min-h-28 flex-col`}><p className="text-xs font-medium text-white">{item.title}</p><p className="mt-2 text-xl font-semibold tabular-nums text-white"><AnimatedOverviewValue value={loading ? null : item.value} format={integer} /></p>{item.title === "Lao động mới" && <OverviewKpiDelta value={loading ? null : item.value} previous={previousRegistrations} unit="người" />}</div>)}</div><p className="mt-2 text-pretty text-xs text-on-surface-variant">Các trạng thái lao động, dự án và hợp đồng là số hiện tại.</p></section>
     <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-      <Panel title="Lao động đăng ký theo tháng">{summary?.monthlyRegistrations?.some(value => value > 0) ? <><div role="img" aria-label={`Lao động đăng ký theo tháng: ${monthly.map(row => `${row.name} ${row.count}`).join(", ")}`} className="h-56"><ResponsiveContainer width="100%" height="100%"><LineChart data={monthly} margin={{ top: 6, right: 12, bottom: 4, left: -20 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 10 }} /><YAxis allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip formatter={value => typeof value === "number" ? integer(value) : value} /><Line dataKey="count" name="Đăng ký" stroke={colors[0]} strokeWidth={2.5} dot={{ r: 3 }} isAnimationActive={!reduceMotion} animationDuration={700} /></LineChart></ResponsiveContainer></div><p className="border-t border-outline-variant pt-3 text-xs text-on-surface-variant">Trong năm: <strong className="tabular-nums text-on-surface">{integer(monthly.reduce((sum, row) => sum + row.count, 0))} lao động</strong></p></> : <Empty>{loading ? "Đang tải đăng ký..." : "Chưa có lượt đăng ký trong năm."}</Empty>}</Panel>
+      <Panel title="Lao động đăng ký theo tháng">{summary?.monthlyRegistrations?.some(value => value > 0) ? <><div role="img" aria-label={`Lao động đăng ký theo tháng: ${monthly.map(row => `${row.name} ${row.count}`).join(", ")}`} className="h-56"><ResponsiveContainer width="100%" height="100%"><LineChart data={monthly} margin={{ top: 6, right: 12, bottom: 4, left: -20 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 10 }} /><YAxis allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip formatter={value => typeof value === "number" ? integer(value) : value} /><Line type="monotone" dataKey="count" name="Đăng ký" stroke={colors[0]} strokeWidth={2.5} dot={{ r: 3 }} isAnimationActive={!reduceMotion} animationDuration={700} /></LineChart></ResponsiveContainer></div><p className="border-t border-outline-variant pt-3 text-xs text-on-surface-variant">Trong năm: <strong className="tabular-nums text-on-surface">{integer(monthly.reduce((sum, row) => sum + row.count, 0))} lao động</strong></p></> : <Empty>{loading ? "Đang tải đăng ký..." : "Chưa có lượt đăng ký trong năm."}</Empty>}</Panel>
       <Donut title="Cơ cấu lao động" rows={workerRows} />
       <Donut title="Trạng thái dự án" rows={projectRows} />
       <Donut title="Loại lao động" rows={typeRows} />

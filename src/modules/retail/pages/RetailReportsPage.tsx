@@ -6,6 +6,7 @@ import RetailReportFilters from "../components/reports/RetailReportFilters";
 import RetailReportTables from "../components/reports/RetailReportTables";
 import RetailSalesCharts from "../components/reports/RetailSalesCharts";
 import RetailOverviewDashboard from "../components/reports/RetailOverviewDashboard";
+import { useOverviewPeriod } from "../../../components/dashboard/OverviewPeriodContext";
 import { validateRetailReportRange } from "../components/reports/retailReportRange";
 import { useRetailScope } from "../hooks/useRetailScope";
 import { useBranchOptional } from "../../../context/BranchContext";
@@ -119,6 +120,7 @@ function RetailReportsSkeleton() {
 }
 
 export default function RetailReportsPage({ overview = false }: { overview?: boolean }) {
+  const overviewPeriod = useOverviewPeriod();
   const { scope: workingScope, userProfile, branchName: scopeBranchName, activeBranch: scopeBranch } = useRetailScope() as any;
   const branchContext = useBranchOptional();
   const canSelectBranches = userProfile?.role === "admin" || userProfile?.role === "superadmin";
@@ -136,6 +138,11 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
     ? (rawBranchName.toLowerCase().startsWith("chi nhánh") ? rawBranchName : `Chi nhánh: ${rawBranchName}`)
     : (scope ? (/^[0-9a-fA-F]{24}$/.test(scope.branchId) ? "Chi nhánh hiện tại" : `Chi nhánh: ${scope.branchId}`) : "");
   const [filters, setFilters] = React.useState<RetailReportFilterValue>(readFiltersFromUrl);
+  const effectiveFilters = React.useMemo<RetailReportFilterValue>(() => {
+    if (!overview || !overviewPeriod) return filters;
+    const { preset: _preset, from: _from, to: _to, ...dimensions } = filters;
+    return { ...dimensions, from: overviewPeriod.from, to: overviewPeriod.to };
+  }, [filters, overview, overviewPeriod?.from, overviewPeriod?.to]);
   const [report, setReport] = React.useState<RetailReport | null>(null);
   const [reportScopeKey, setReportScopeKey] = React.useState("");
   const [loading, setLoading] = React.useState(true);
@@ -148,7 +155,7 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
   const exportSequence = React.useRef(0);
   const exportController = React.useRef<AbortController | null>(null);
   const scopeKey = scope ? `${scope.companyCode}:${scope.branchId}` : "";
-  const exportContextKey = `${scopeKey}|${filterKey(filters)}`;
+  const exportContextKey = `${scopeKey}|${filterKey(effectiveFilters)}`;
   const exportContextKeyRef = React.useRef("");
   const visibleReport = scopeKey && reportScopeKey === scopeKey ? report : null;
   const visibleLoadError = loadError?.scopeKey === scopeKey ? loadError.message : "";
@@ -196,7 +203,7 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
     setLoading(true);
     setLoadError(null);
     void retailReportsApi
-      .summary(scope, filters)
+      .summary(scope, effectiveFilters)
       .then((nextReport) => {
         if (requestSequence.current !== requestId) return;
         setReport(nextReport);
@@ -219,7 +226,7 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
     return () => {
       if (requestSequence.current === requestId) requestSequence.current += 1;
     };
-  }, [scope?.companyCode, scope?.branchId, filters, reloadToken]);
+  }, [scope?.companyCode, scope?.branchId, effectiveFilters, reloadToken]);
 
   const changeFilters = (nextFilters: RetailReportFilterValue) => {
     setFilters(nextFilters);
@@ -235,7 +242,7 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
     setExporting(true);
     setExportError("");
     try {
-      await retailReportsApi.export(scope, filters, controller.signal);
+      await retailReportsApi.export(scope, effectiveFilters, controller.signal);
     } catch (cause) {
       if (
         exportSequence.current !== requestId ||
@@ -252,6 +259,17 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
     }
   };
 
+  const embeddedOverview = overview && Boolean(overviewPeriod);
+  const exportButton = <button
+    type="button"
+    disabled={exporting}
+    onClick={() => void exportReport()}
+    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition hover:from-cyan-500 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+  >
+    <Download aria-hidden="true" className="h-3.5 w-3.5" />
+    <span>{exporting ? "Đang xuất..." : "Xuất Excel"}</span>
+  </button>;
+
   if (!scope) {
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-amber-200 bg-amber-50/70 p-12 text-center text-amber-800">
@@ -262,9 +280,10 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
   }
 
   return (
-    <section className="space-y-3.5" aria-busy={loading}>
-      {/* Top Header Card with integrated Branch Selector */}
-      <header className="flex flex-col gap-3 border-b border-outline-variant pb-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="space-y-2.5" aria-busy={loading}>
+      {/* The dashboard already provides its own period and branch context. */}
+      {embeddedOverview && <h1 className="sr-only">Báo cáo bán hàng</h1>}
+      {!embeddedOverview && <header className="flex flex-col gap-3 border-b border-outline-variant pb-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -296,21 +315,16 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
             />
             <span>Tải lại</span>
           </button>
-          <button
-            type="button"
-            disabled={exporting}
-            onClick={() => void exportReport()}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition hover:from-cyan-500 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
-          >
-            <Download aria-hidden="true" className="h-3.5 w-3.5" />
-            <span>{exporting ? "Đang xuất..." : "Xuất Excel"}</span>
-          </button>
+          {exportButton}
         </div>
-      </header>
+      </header>}
 
       {/* Date & Dimension Filter Bar */}
       <RetailReportFilters
-        filters={filters}
+        filters={effectiveFilters}
+        hideDateControls={embeddedOverview}
+        compact={embeddedOverview}
+        actions={embeddedOverview ? exportButton : undefined}
         currentRange={visibleReport?.range}
         today={vietnamToday()}
         onChange={changeFilters}
@@ -355,7 +369,7 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
 
       {/* Main Report Dashboard Content */}
       {visibleReport && (
-        <div className="space-y-5">
+        <div className="space-y-3">
           {loading && (
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-cyan-600 animate-ping" />
@@ -364,7 +378,7 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
               </p>
             </div>
           )}
-          {overview ? <RetailOverviewDashboard report={visibleReport} filters={filters} scope={scope} /> : <><RetailKpiGrid report={visibleReport} /><RetailSalesCharts report={visibleReport} /></>}
+          {overview ? <RetailOverviewDashboard report={visibleReport} filters={effectiveFilters} scope={scope} /> : <><RetailKpiGrid report={visibleReport} /><RetailSalesCharts report={visibleReport} /></>}
           <RetailReportTables report={visibleReport} />
         </div>
       )}

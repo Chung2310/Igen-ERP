@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { retailReportsApi } from "../api/retailReports.api";
+import { OverviewPeriodProvider } from "../../../components/dashboard/OverviewPeriodContext";
 import type { RetailReport } from "../types";
 import RetailReportsPage from "./RetailReportsPage";
 
@@ -129,6 +130,17 @@ afterEach(() => {
 });
 
 describe("RetailReportsPage", () => {
+  it("places overview actions beside the period filter while keeping expanded filters below", async () => {
+    render(<OverviewPeriodProvider><RetailReportsPage overview /></OverviewPeriodProvider>);
+    const periodBar = screen.getByRole("region", { name: "Kỳ thống kê Tổng quan" });
+    expect(within(periodBar).getByRole("button", { name: /Lọc chi tiết/ })).toBeTruthy();
+    expect(within(periodBar).getByRole("button", { name: "Xuất Excel" })).toBeTruthy();
+
+    fireEvent.click(within(periodBar).getByRole("button", { name: /Lọc chi tiết/ }));
+    const salesperson = screen.getByRole("textbox", { name: "Nhân viên bán hàng" });
+    expect(periodBar.contains(salesperson)).toBe(false);
+  });
+
   it("does not expose debt reminder operations in Retail", async () => {
     render(<RetailReportsPage />);
     await screen.findAllByText("Nguyễn An");
@@ -552,8 +564,9 @@ describe("RetailReportsPage", () => {
     expect(view.container.querySelectorAll(".finance-kpi .text-white")).toHaveLength(12);
     expect(screen.getByText("Doanh thu theo kỳ")).toBeTruthy();
     expect(screen.getByText("Cơ cấu thanh toán")).toBeTruthy();
+    expect(screen.getByText(/Kỳ so sánh: 28-07-2026 – 03-08-2026/)).toBeTruthy();
     expect(screen.getByText("Biến động sản phẩm bán chạy")).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "Kỳ biểu đồ doanh thu" })).toBeTruthy();
-    await screen.findByText(/200\.000 đ \(20%\) so với kỳ trước/);
+    await screen.findByText(/200\.000 đ \(20%\)/);
   });
 });

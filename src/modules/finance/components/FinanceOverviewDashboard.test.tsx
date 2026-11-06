@@ -26,7 +26,8 @@ describe("FinanceOverviewDashboard", () => {
     expect(screen.getByText("Khách A")).toBeTruthy();
     expect(screen.getByText("60%")).toBeTruthy();
     expect(view.container.querySelectorAll(".finance-kpi")).toHaveLength(6);
-    expect(view.container.querySelectorAll(".finance-kpi .text-white")).toHaveLength(12);
+    expect(view.container.querySelectorAll(".finance-kpi .text-white")).toHaveLength(13);
+    expect(screen.getByText("Số dư hiện tại")).toBeTruthy();
     expect(screen.getByText("Doanh thu theo kỳ").closest(".finance-chart-card")?.classList.contains("xl:col-span-2")).toBe(true);
     expect(screen.getByText("Thu, chi và dòng tiền ròng").closest(".finance-chart-card")?.classList.contains("xl:col-span-2")).toBe(true);
   });

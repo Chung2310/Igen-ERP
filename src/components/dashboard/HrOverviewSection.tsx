@@ -8,12 +8,18 @@ import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { hrDepartmentService, type HrDepartment } from "../../services/hrDepartmentService";
 import { recruitmentApi } from "../../services/recruitmentService";
 import type { RecruitmentApplicant, RecruitmentJob, RecruitmentPipeline } from "../../types/recruitment";
-import { previousCalendarMonth, yesterday } from "./OverviewChartSummary";
+import { yesterday } from "./OverviewChartSummary";
+import { OverviewPeriodActions, useOverviewPeriod } from "./OverviewPeriodContext";
+import { previousComparisonRange } from "./overviewComparison";
 
 export default function HrOverviewSection() {
   const { userProfile, hasPermission } = useAuth();
   const branchContext = useBranchOptional();
   const activeBranchId = branchContext?.activeBranchId;
+  const overviewPeriod = useOverviewPeriod();
+  const selectedFrom = overviewPeriod?.from;
+  const selectedTo = overviewPeriod?.to;
+  const selectedPeriod = overviewPeriod?.selection;
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<DashboardSummary | null>(null);
   const [yesterdayAttendance, setYesterdayAttendance] = useState<{ checkedIn: number; late: number; total: number } | null>(null);
@@ -36,10 +42,9 @@ export default function HrOverviewSection() {
     setError(false);
     try {
       const now = new Date();
-      const startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      const endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-      const previous = previousCalendarMonth(now);
+      const startDate = selectedFrom || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const endDate = selectedTo || now.toLocaleDateString("en-CA");
+      const previous = previousComparisonRange(startDate, endDate, selectedPeriod || "month");
       const results = await Promise.allSettled([
         dashboardService.getSummary({ filter: "custom", startDate, endDate }, { branchId: activeBranchId }),
         dashboardService.getSummary({ filter: "custom", startDate: previous.from, endDate: previous.to }, { branchId: activeBranchId }),
@@ -62,7 +67,7 @@ export default function HrOverviewSection() {
     } finally {
       setLoading(false);
     }
-  }, [activeBranchId, canSeeRecruitment, canSeeTimekeeping, userProfile?.companyCode]);
+  }, [activeBranchId, canSeeRecruitment, canSeeTimekeeping, userProfile?.companyCode, selectedFrom, selectedTo, selectedPeriod]);
 
   useEffect(() => {
     let active = true;
@@ -79,21 +84,10 @@ export default function HrOverviewSection() {
 
   return (
     <div className="space-y-5 text-left text-on-surface">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="h-5 w-1 rounded-sm bg-primary" />
-            <h2 className="text-balance text-lg font-semibold text-on-surface">Tổng quan Nhân sự</h2>
-            <span className="rounded-md bg-surface-container-low px-2.5 py-1 text-xs font-medium text-on-surface-variant">
-              {branchName}
-            </span>
-          </div>
-          <p className="mt-1 text-pretty text-xs text-on-surface-variant">
-            Theo dõi quân số, chấm công, đào tạo, tuyển dụng và việc cần xử lý
-          </p>
-        </div>
+      <OverviewPeriodActions>
+        <h2 className="sr-only">Tổng quan Nhân sự</h2>
         <ErpRefreshButton onClick={loadData} loading={loading} />
-      </header>
+      </OverviewPeriodActions>
 
       <HrOverviewDashboard
         summary={summary}
