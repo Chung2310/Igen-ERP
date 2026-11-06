@@ -33,7 +33,7 @@ export default function AiPlanReview({ plan, subscription, companyName, companyC
       <ul className="space-y-2 text-xs leading-5 text-on-surface-variant">{[
         'Kỳ mới tính từ lúc kích hoạt.',
         'Cộng lượt dư còn hạn. Dùng chung doanh nghiệp.',
-      ].map(text => <li key={text} className="flex items-start gap-2"><Check className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" /><span>{text}</span></li>)}</ul>
+      ].map(text => <li key={text} className="flex items-start gap-2"><Check className="mt-0.5 size-3.5 shrink-0 text-change-up" aria-hidden="true" /><span>{text}</span></li>)}</ul>
     </details>
   </div>;
   const payment = <div className="space-y-2">

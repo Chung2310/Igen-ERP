@@ -1385,7 +1385,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     : memoryCommand && containsSensitiveMemoryContent(memoryCommand)
       ? "Yêu cầu ghi nhớ bị từ chối vì chứa thông tin nhạy cảm."
       : userContent;
-  const history = [...session.messages, { role: "user", content: historyContent }];
+  const history = [...session.messages, { role: "user", content: historyContent, createdAt: new Date().toISOString() }];
 
   const execute = async (op: AssistantOperation, workflow: AssistantWorkflow, values: Record<string, AssistantValue>, password?: string): Promise<AssistantReply> => {
     const optionalCreateQuestion = async (record: unknown) => {
@@ -2026,7 +2026,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   };
   try {
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: reply.status === "uncertain" ? "uncertain" : "completed", result: reply } });
-    const nextMessages = [...history, { role: "assistant", content: reply.reply }];
+    const nextMessages = [...history, { role: "assistant", content: reply.reply, createdAt: new Date().toISOString() }];
     const nextMessageCount = Math.max(Number(session.messageCount) || 0, session.messages.length) + 2;
     const sessionUpdate: Record<string, unknown> = {
       mode: assistantMode,

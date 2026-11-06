@@ -87,6 +87,13 @@ const projectStatusClass: Record<ProjectStatus, string> = {
   completed: "border-outline-variant bg-surface-container-low text-on-surface-variant",
 };
 
+// Match the bright course-card headers while keeping each project state distinct.
+const projectHeaderClass: Record<ProjectStatus, string> = {
+  planned: "bg-[linear-gradient(105deg,#4269f0,#2a60eb)]",
+  active: "bg-[linear-gradient(105deg,#087c54,#0b8058)]",
+  completed: "bg-[linear-gradient(105deg,#7950e9,#6247e1)]",
+};
+
 const DAY_OPTIONS = [
   { value: 1, label: "T2" },
   { value: 2, label: "T3" },
@@ -524,12 +531,18 @@ export function WorkerProjectsPage({
               key={project._id}
               className="flex flex-col gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs"
             >
-              <div className="flex items-start justify-between gap-2">
+              <div
+                data-project-status={project.status}
+                className={cn(
+                  "-mx-4 -mt-4 flex min-h-14 items-center justify-between gap-2 rounded-t-md px-4 py-3",
+                  projectHeaderClass[project.status],
+                )}
+              >
                 <div className="min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white">
                     {project.code}
                   </p>
-                  <h2 className="truncate text-sm font-bold text-slate-800">
+                  <h2 className="truncate text-balance text-sm font-bold text-white">
                     {project.name}
                   </h2>
                 </div>

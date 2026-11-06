@@ -7,7 +7,6 @@ const base = {
   summary: null,
   previousSummary: null,
   yesterdayAttendance: null,
-  departments: [],
   applicants: [],
   jobs: [],
   pipeline: null,
@@ -19,7 +18,7 @@ describe("HrAnalyticsPanels", () => {
     render(<HrAnalyticsPanels {...base} canSeeTimekeeping={false} canSeeRecruitment={false} />);
     expect(screen.queryByText("Chấm công hôm nay")).toBeNull();
     expect(screen.queryByText("Ứng viên mới 6 tháng")).toBeNull();
-    expect(screen.getByText("Nhân sự theo phòng ban")).toBeTruthy();
+    expect(screen.getByText("Việc cần chú ý")).toBeTruthy();
   });
 
   it("shows recruitment charts and counts when permitted", () => {

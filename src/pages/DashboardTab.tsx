@@ -5,7 +5,7 @@ import {
   Users,
   GraduationCap,
   BriefcaseBusiness,
-  Megaphone,
+  MessagesSquare,
   AlertCircle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -16,6 +16,8 @@ import {
 } from "../router/subTabRoutes";
 import { ModuleNavigation, ModuleNavigationButton } from "../components/common/ModuleNavigation";
 import { HrSidebarIcon, type HrSidebarIconName } from "../components/common/HrSidebarIcon";
+import { OverviewPeriodContent, OverviewPeriodCustomRange, OverviewPeriodProvider, OverviewPeriodToolbar } from "../components/dashboard/OverviewPeriodContext";
+import "../components/dashboard/overview-tooltip.css";
 
 // Lazy-loaded secondary dashboard sections
 const FinanceOverviewSection = lazy(
@@ -84,9 +86,9 @@ const ALL_SECTIONS: SectionConfig[] = [
   {
     value: "MARKETING",
     slug: "marketing",
-    label: "Marketing & Nội dung",
+    label: "Marketing & CRM",
     subtitle: "Chiến dịch, Tương tác & Kênh",
-    icon: Megaphone,
+    icon: MessagesSquare,
   },
 ];
 
@@ -275,6 +277,7 @@ export default function DashboardTab() {
         Tổng quan hệ thống - {currentSection?.label}
       </h1>
 
+      <OverviewPeriodProvider inlineNavigation>
       {/* Top ModuleNavigation Bar (matching HR and ERP standard pattern) */}
       <ModuleNavigation
         label="Phân hệ Tổng quan"
@@ -282,18 +285,20 @@ export default function DashboardTab() {
         layout="horizontal"
         className="mb-0"
         id="dashboard_sub_tabs_bar"
+        actions={<OverviewPeriodToolbar />}
       >
         {allowedSections.map((tab) => {
           const isActive = resolvedSubTab === tab.value;
           const iconName = ({
             TAI_CHINH: 'finance', BAN_LE: 'retail',
-            NHAN_SU: 'people', HOC_VIEN: 'students', LAO_DONG: 'labor', MARKETING: 'marketing',
+            NHAN_SU: 'people', HOC_VIEN: 'students', LAO_DONG: 'labor',
           } as Partial<Record<DashboardSubTabType, HrSidebarIconName>>)[tab.value];
           return (
             <ModuleNavigationButton
               key={tab.value}
               active={isActive}
               icon={iconName ? <HrSidebarIcon name={iconName} /> : <tab.icon />}
+              preferProvidedIcon={tab.value === "MARKETING"}
               onClick={() => setActiveSubTab(tab.value)}
             >
               {tab.label}
@@ -304,15 +309,19 @@ export default function DashboardTab() {
 
       {/* Content Area with independent scroll */}
       <main
-        className="min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-5 sm:py-3"
+        className="min-h-0 flex-1 overflow-y-auto px-2 py-2 sm:px-2 sm:py-3"
         id="dashboard_tab_content"
       >
-        <div className="w-full">
-          <Suspense fallback={<TabLoader label={`Đang tải dữ liệu ${currentSection?.label || "tổng quan"}...`} />}>
-            {renderContent()}
-          </Suspense>
-        </div>
+        <OverviewPeriodCustomRange />
+        <OverviewPeriodContent>
+          <div className="w-full">
+            <Suspense fallback={<TabLoader label={`Đang tải dữ liệu ${currentSection?.label || "tổng quan"}...`} />}>
+              {renderContent()}
+            </Suspense>
+          </div>
+        </OverviewPeriodContent>
       </main>
+      </OverviewPeriodProvider>
     </div>
   );
 }

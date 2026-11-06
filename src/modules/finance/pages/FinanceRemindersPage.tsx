@@ -4,6 +4,7 @@ import {
   type ReminderRun,
   type ReminderRunDetail,
 } from "../api/financeReminders.api";
+import { FinanceEmptyState } from "../components/FinanceEmptyState";
 const permitted = (permissions: readonly string[]) =>
   permissions.includes("*") || permissions.includes("finance-receivable:manage");
 export default function FinanceRemindersPage({
@@ -67,11 +68,11 @@ export default function FinanceRemindersPage({
     }
   };
   return (
-    <section className="space-y-4">
+    <section className="finance-page-content">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Nhắc nợ quá hạn</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="finance-page-title">Nhắc nợ quá hạn</h1>
+          <p className="text-sm text-on-surface-variant">
             Lịch sử quét, delivery và retry theo từng kênh.
           </p>
         </div>
@@ -80,16 +81,16 @@ export default function FinanceRemindersPage({
             type="button"
             onClick={runNow}
             disabled={busy}
-            className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+            className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary disabled:opacity-50"
           >
             Chạy nhắc nợ
           </button>
         )}
       </div>
       {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
+        <p className="rounded-md bg-error-container p-4 text-sm text-on-error-container">{error}</p>
       )}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
         <div className="divide-y">
           {runs.map((run) => (
             <button
@@ -97,7 +98,7 @@ export default function FinanceRemindersPage({
               type="button"
               aria-label={`${run.businessDate} ${run.trigger}`}
               onClick={() => void open(run._id)}
-              className="grid w-full grid-cols-2 gap-2 p-4 text-left text-sm hover:bg-slate-50 sm:grid-cols-6"
+              className="grid w-full grid-cols-2 gap-2 p-4 text-left text-sm hover:bg-surface-container-low sm:grid-cols-6"
             >
               <b>{run.businessDate}</b>
               <span>{run.trigger === "manual" ? "Thủ công" : "Tự động"}</span>
@@ -108,14 +109,12 @@ export default function FinanceRemindersPage({
             </button>
           ))}
           {!runs.length && (
-            <p className="p-6 text-center text-sm text-slate-500">
-              Chưa có lượt nhắc nợ.
-            </p>
+            <FinanceEmptyState kind="notification">Chưa có lượt nhắc nợ.</FinanceEmptyState>
           )}
         </div>
       </div>
       {selected && (
-        <div className="rounded-2xl border border-slate-200 bg-white">
+        <div className="rounded-md border border-outline-variant bg-surface-container-lowest">
           <h2 className="border-b p-4 font-bold">
             Delivery ngày {selected.businessDate}
           </h2>
@@ -132,7 +131,7 @@ export default function FinanceRemindersPage({
                     {delivery.maxAttempts}
                   </p>
                   {delivery.error && (
-                    <p className="text-red-700">{delivery.error}</p>
+                    <p className="text-on-error-container">{delivery.error}</p>
                   )}
                 </div>
                 {canAdjust && delivery.status === "failed" && (
@@ -141,7 +140,7 @@ export default function FinanceRemindersPage({
                     disabled={busy}
                     onClick={() => void retry(delivery._id)}
                     aria-label={`Retry ${delivery._id}`}
-                    className="font-bold text-cyan-700"
+                    className="font-bold text-on-primary-container"
                   >
                     Retry
                   </button>

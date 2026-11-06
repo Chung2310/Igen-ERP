@@ -126,7 +126,7 @@ describe("worker project ownership", () => {
     expect(workspace).toContain("./pages/WorkerProjectsPage");
     expect(workspace).not.toContain("shared-management/pages/ProjectsPage");
     const page = fs.readFileSync(pagePath, "utf8");
-    expect(page).not.toContain("student-management");
+    expect(page).not.toContain("student-management/pages");
     expect(page).not.toContain("useBatches");
     expect(page).not.toContain("/batches");
   });

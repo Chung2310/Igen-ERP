@@ -149,40 +149,34 @@ export function WorkerDashboardPage({
       )}
 
       <section className={`grid grid-cols-1 gap-3 ${hasContractAlerts ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-3"}`} aria-label="Số liệu tổng quan lao động">
-        <div className="overview-kpi flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
-          <div className="rounded-xl bg-[#E8F7FF] p-3 text-[#00ADFC]">
-            <Users className="h-5 w-5" />
-          </div>
-          <div>
+        <div className="overview-kpi flex min-h-28 items-start gap-3 rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-slate-500">Tổng lao động</p>
-            <p className="mt-0.5 text-2xl font-medium tabular-nums text-slate-900">
+            <p className="mt-0.5 text-lg font-medium tabular-nums text-slate-900 sm:text-xl">
               {loading ? <span className="animate-pulse">...</span> : stats.totalWorkers}
             </p>
           </div>
+          <Users className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden="true" />
         </div>
 
-        <div className="overview-kpi flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
-          <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
-            <UserCheck className="h-5 w-5" />
-          </div>
-          <div>
+        <div className="overview-kpi flex min-h-28 items-start gap-3 rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-slate-500">Đang hoạt động</p>
-            <p className="mt-0.5 text-2xl font-medium tabular-nums text-slate-900">
+            <p className="mt-0.5 text-lg font-medium tabular-nums text-slate-900 sm:text-xl">
               {loading ? <span className="animate-pulse">...</span> : stats.activeWorkers}
             </p>
           </div>
+          <UserCheck className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden="true" />
         </div>
 
-        <div className="overview-kpi flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
-          <div className="rounded-xl bg-violet-50 p-3 text-violet-600">
-            <Briefcase className="h-5 w-5" />
-          </div>
-          <div>
+        <div className="overview-kpi flex min-h-28 items-start gap-3 rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-slate-500">Dự án tiếp nhận</p>
-            <p className="mt-0.5 text-2xl font-medium tabular-nums text-slate-900">
+            <p className="mt-0.5 text-lg font-medium tabular-nums text-slate-900 sm:text-xl">
               {loading ? <span className="animate-pulse">...</span> : stats.projects}
             </p>
           </div>
+          <Briefcase className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden="true" />
         </div>
         {hasContractAlerts && (
           <div

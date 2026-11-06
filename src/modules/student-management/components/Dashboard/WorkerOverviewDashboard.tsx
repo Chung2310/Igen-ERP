@@ -244,9 +244,13 @@ export function WorkerOverviewDashboard({
                     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between"><div className="border-t border-dashed border-slate-200" /><div className="border-t border-dashed border-slate-200" /><div className="border-t border-dashed border-slate-200" /></div>
                     {monthlyData.months.map((m, idx) => {
                       const heightPercent = m.count ? Math.max(10, Math.round((m.count / monthlyData.maxCount) * 100)) : 0;
-                      return <div key={idx} className="group relative z-10 flex h-full flex-1 flex-col justify-end">
+                      return <div key={idx} className="group relative z-10 flex h-full flex-1 flex-col justify-end hover:z-20 focus:z-20 focus-visible:outline-2 focus-visible:outline-primary" role="img" tabIndex={0} aria-label={`${m.fullLabel}: ${m.count} ${isEducation ? 'học viên' : entityLabel.singular}`}>
                         {m.count > 0 && <span className="mb-1 text-center text-[10px] font-medium text-[#007EB8]">{m.count}</span>}
-                        <div key={`${m.count}-${timeRange}-${selectedCenter}`} title={`${m.fullLabel}: ${m.count} ${isEducation ? 'học viên' : entityLabel.singular}`} className={cn("mx-auto w-full max-w-[36px] rounded-t-lg transition-[filter] duration-300 group-hover:brightness-105", m.count ? "student-chart-column bg-gradient-to-t from-[#00ADFC] via-[#63CFFF] to-[#C8F0FF] shadow-[0_4px_12px_rgba(0,173,252,.14)]" : "bg-[#EDF5FA]")} style={{ height: `${heightPercent}%`, animationDelay: `${idx * 45}ms` }} />
+                        <div key={`${m.count}-${timeRange}-${selectedCenter}`} className={cn("mx-auto w-full max-w-[36px] rounded-t-lg transition-[filter] duration-300 group-hover:brightness-105", m.count ? "student-chart-column bg-gradient-to-t from-[#00ADFC] via-[#63CFFF] to-[#C8F0FF] shadow-[0_4px_12px_rgba(0,173,252,.14)]" : "bg-[#EDF5FA]")} style={{ height: `${heightPercent}%`, animationDelay: `${idx * 45}ms` }} />
+                        <div aria-hidden="true" className={cn("overview-chart-tooltip pointer-events-none absolute top-2 z-20 hidden min-w-32 text-left group-hover:block group-focus:block", idx < 6 ? "left-0" : "right-0")}>
+                          <div className="overview-chart-tooltip-label">{m.fullLabel}</div>
+                          <div className="overview-chart-tooltip-value">{m.count.toLocaleString('vi-VN')} {isEducation ? 'học viên' : entityLabel.singular}</div>
+                        </div>
                       </div>;
                     })}
                   </div>
