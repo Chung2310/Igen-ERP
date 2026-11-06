@@ -1,6 +1,6 @@
 # Route chưa nối với trợ lý
 
-Tự sinh từ `coverage.generated.json`: 0 route đang chờ rà soát hợp đồng và 341 route đã được đánh giá nhưng chủ ý chưa nối. Lý do dưới đây mô tả điều kiện còn thiếu hoặc rủi ro; route vẫn hoạt động theo quyền của ứng dụng. Chạy lại `node server/assistant/scripts/inventory.mjs` và `node server/assistant/scripts/build-catalog.mjs` sau khi thay đổi route hoặc hợp đồng.
+Tự sinh từ `coverage.generated.json`: 0 route đang chờ rà soát hợp đồng và 343 route đã được đánh giá nhưng chủ ý chưa nối. Lý do dưới đây mô tả điều kiện còn thiếu hoặc rủi ro; route vẫn hoạt động theo quyền của ứng dụng. Chạy lại `node server/assistant/scripts/inventory.mjs` và `node server/assistant/scripts/build-catalog.mjs` sau khi thay đổi route hoặc hợp đồng.
 
 ## Route đang chờ rà soát
 
@@ -320,6 +320,7 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `POST /retail/orders/checkout/revoke` — Thu hồi checkout phải dùng chính khóa chống trùng và payload của lần ghi gốc; gọi sai có thể xung đột giao dịch bán hợp lệ. Chưa có workflow khôi phục gắn với yêu cầu gốc trong chat. — `server/modules/retail/routes/retail-order.routes.ts:11`
 - `POST /retail/orders/draft-requests/reconcile` — Khôi phục yêu cầu tạo đơn nháp cần khóa chống trùng và payload của lần tạo gốc; chat chưa có danh sách yêu cầu treo để chọn theo tên/mã và đối chiếu. — `server/modules/retail/routes/retail-order.routes.ts:13`
 - `POST /retail/orders/draft-requests/revoke` — Thu hồi yêu cầu tạo đơn nháp cần đúng khóa chống trùng và payload ban đầu; chưa có workflow chat gắn với phiên tạo để kiểm tra và xác nhận an toàn. — `server/modules/retail/routes/retail-order.routes.ts:14`
+- `GET /retail/orders/idempotency/:key` — Route kiểm tra khóa chống trùng nội bộ của phiên thanh toán, không phải mã đơn hàng mà người dùng có thể tra cứu. Dùng workflow tra cứu đơn bán lẻ hoặc trạng thái thanh toán theo mã đơn. — `server/modules/retail/routes/retail-order.routes.ts:19`
 - `POST /retail/orders/:id/payments/reconcile` — Đối soát thanh toán phải khớp lần thu tiền gốc và khóa chống trùng; chat chưa có lựa chọn theo mã giao dịch cùng payload gốc. Dùng tra cứu trạng thái thanh toán và xử lý trong giao diện thu ngân. — `server/modules/retail/routes/retail-order.routes.ts:31`
 - `POST /retail/orders/:id/payments/revoke` — Thu hồi thanh toán cần payload và khóa chống trùng của lần thu gốc để tránh đảo nhầm giao dịch; chưa có workflow khôi phục giao dịch chat có xem trước. — `server/modules/retail/routes/retail-order.routes.ts:33`
 - `POST /retail/orders/:id/cancel/reconcile` — Đối soát hủy đơn cần khớp yêu cầu hủy gốc và khóa chống trùng; chat chưa có danh sách phiên hủy để chọn theo mã và xác nhận. — `server/modules/retail/routes/retail-order.routes.ts:35`
@@ -329,6 +330,7 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `POST /retail/invoices/:id/pos-print` — Endpoint tạo lệnh in hóa đơn tại POS, phụ thuộc máy in/phiên quầy đang hoạt động; chat không có kênh chọn và điều khiển thiết bị. Dùng màn hình thu ngân. — `server/modules/retail/routes/retail-invoice.routes.ts:9`
 - `POST /retail/invoices/:id/payment-print` — Endpoint in biên nhận thanh toán qua thiết bị POS đang gắn với ca; chat không thể xác minh máy in và quầy đích. Dùng màn hình thu ngân. — `server/modules/retail/routes/retail-invoice.routes.ts:10`
 - `POST /retail/invoices/:id/reprint` — In lại hóa đơn cần thiết bị/quầy đích và kiểm tra bản in đã phát hành; chat chưa có xác nhận thiết bị. Dùng giao diện hóa đơn/POS. — `server/modules/retail/routes/retail-invoice.routes.ts:11`
+- `GET /retail/invoices/:id/pdf` — Endpoint trả tệp PDF thay vì dữ liệu hội thoại; trợ lý đã có workflow xem chi tiết hóa đơn theo số hóa đơn. Dùng màn hình hóa đơn để tải tệp PDF. — `server/modules/retail/routes/retail-invoice.routes.ts:12`
 - `GET /retail/reports/export` — Xuất báo cáo bán lẻ thành tệp; xem báo cáo tổng hợp đã tích hợp trong chat thay vì tạo file tải xuống. — `server/modules/retail/routes/retail-report.routes.ts:10`
 - `POST /retail/reports/debt-reminders/run` — Alias cũ gọi cùng RetailDebtReminderService.run nhưng không có contract riêng. Dùng POST /retail/debt-reminders/run; workflow chuẩn đã yêu cầu chọn chi nhánh và xác nhận trước khi tạo nhắc nợ. — `server/modules/retail/routes/retail-report.routes.ts:11`
 - `POST /retail/receivables/adjustments` — FinanceRetailCompatibilityAdapter đổi schema giữa customerId và receivableId tùy cờ finance cutover. Dùng POST /finance/receivables/:id/adjustments để chọn khoản phải thu theo mã hiển thị, chi nhánh và xác nhận với một schema ổn định. — `server/modules/retail/routes/retail-receivable.routes.ts:10`

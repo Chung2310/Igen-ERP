@@ -11,7 +11,7 @@ const RETAIL_PARTNER_RELATION_ROLES: Readonly<Record<string, { role: string; lab
   customerId: { role: "dealer", label: "đại lý" },
 };
 export function isAssistantFieldApplicable(workflow: AssistantWorkflow, field: AssistantField) {
-  if (!workflow.actionId.startsWith("retail.partner.create.")) return true;
+  if (!workflow.actionId?.startsWith("retail.partner.create.")) return true;
   const relationRole = RETAIL_PARTNER_RELATION_ROLES[field.apiKey || field.key];
   const fixedRole = operationById(workflow.actionId)?.fixedBodyValues?.role;
   return !relationRole || fixedRole === relationRole.role;
