@@ -51,7 +51,7 @@ try {
         items: [{ productId: `LOCAL-DEMO-${key}`, sku: `LOCAL-DEMO-${key}`, productName: name, unit: "cái", category, brand, quantity, unitPrice: price, unitCost: cost, discountAmount: 0, lineTotal: subtotal }],
         subtotal, orderDiscount: 0, taxRate: 0, taxAmount: 0, shippingFee: 0, grandTotal: subtotal, totalCost: quantity * cost,
         payments: [{ businessDate: date, amount: subtotal, method, paidAt: at(date), receivedBy: "LOCAL-DEMO", receivedByName: "Dữ liệu mẫu" }],
-        paidAmount: subtotal, dueAmount: 0, paymentStatus: "paid", salespersonId: "LOCAL-DEMO", salespersonName: "Dữ liệu mẫu",
+        paidAmount: subtotal, refundedAmount: 0, refunds: [], dueAmount: 0, paymentStatus: "paid", salespersonId: "LOCAL-DEMO", salespersonName: "Dữ liệu mẫu",
         createdBy: "LOCAL-DEMO", createdByName: "Dữ liệu mẫu", confirmedAt: at(date), completedAt: at(date), createdAt: at(date), updatedAt: at(date) };
     }),
     financevouchers: [
