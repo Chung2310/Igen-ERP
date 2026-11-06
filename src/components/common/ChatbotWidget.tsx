@@ -1053,6 +1053,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
 
   const isWelcomeScreen = !isViewingHistory && messages.length === 1 && messages[0].role === "assistant" && messages[0].content === activeWelcomeMessage.content;
   const displayMessages = messages.filter((message, index) => !(index === 0 && message.role === "assistant" && message.content === activeWelcomeMessage.content));
+  const showReplyDetails = !revealingReply;
   const hasMissingRequiredReferenceSelection = Boolean(lastReply?.referenceSelections?.some(group => group.required && !selectedReferences[group.key]?.length));
   const changeView = (nextView: "chat" | "history") => {
     if (nextView !== "chat") { closeSpeech(); stopReplySpeech(); }
@@ -1371,7 +1372,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           </div>
           </React.Fragment>;
           })}
-          {lastReply?.referenceSelections?.length ? <section aria-labelledby="assistant-reference-selection-title" className="max-w-4xl space-y-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm sm:p-4">
+          {showReplyDetails && lastReply?.referenceSelections?.length ? <section aria-labelledby="assistant-reference-selection-title" className="max-w-4xl space-y-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm sm:p-4">
             <header>
               <h3 id="assistant-reference-selection-title" className="text-balance font-semibold">Chọn thông tin liên quan</h3>
               <p className="mt-1 text-pretty text-xs text-on-surface/70">Chọn ngay tại đây để tiếp tục. Mục tùy chọn có thể bỏ qua.</p>
@@ -1402,7 +1403,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
               Dùng lựa chọn
             </button>
           </section> : null}
-          {lastReply?.trainingContentForm && <AssistantTrainingContentForm
+          {showReplyDetails && lastReply?.trainingContentForm && <AssistantTrainingContentForm
             key={lastReply.action?.id || "assistant-training-content"}
             value={lastReply.trainingContentForm}
             readOnly={isViewingHistory}
@@ -1410,7 +1411,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             canSubmit={synced && !isLoading && !retryRef.current}
             onSubmit={trainingContent => void submitTrainingContent(trainingContent)}
           />}
-          {lastReply?.action && <section aria-label="Bản xem trước thao tác" className="max-w-4xl overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest text-sm">
+          {showReplyDetails && lastReply?.action && <section aria-label="Bản xem trước thao tác" className="max-w-4xl overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest text-sm">
             <header className="flex flex-wrap items-start justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest px-3 py-2 sm:px-4">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-primary">{lastReply.status === "confirmation" ? "XEM LẠI TRƯỚC KHI XÁC NHẬN" : "THÔNG TIN THAO TÁC"}</p>
@@ -1433,7 +1434,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
               </div>
             </div>}
           </section>}
-          {lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Mở phân hệ để xem kết quả</a>}
+          {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Mở phân hệ để xem kết quả</a>}
           {isLoading && isOpen && <div role="status" className="assistant-thinking-status flex items-start gap-2.5 text-sm text-on-surface-variant">
             <AssistantMessageAvatar />
             <div className="min-w-0">
