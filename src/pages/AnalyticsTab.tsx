@@ -417,7 +417,7 @@ function StatTile({
         >
           {isUp ? <TrendingUp className="h-3 sm:h-3.5 w-3 sm:w-3.5" /> : <TrendingDown className="h-3 sm:h-3.5 w-3 sm:w-3.5" />}
           {isUp ? "+" : ""}
-          {growthPct}% <span className="hidden sm:inline">so với kỳ trước</span>
+          {growthPct}%
         </p>
       )}
 

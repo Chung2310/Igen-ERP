@@ -17,7 +17,8 @@ import { resolveDashboardModuleAccess } from "./dashboard-module-access";
 import { ProductModel } from "../model/product.model";
 import { HRLeaveApplicationModel } from "../model/hr-leave-application.model";
 import { analyticsService } from "./analytics.service";
-import { HRContractModel } from "../model/hr-contract.model";
+import { HRContractExtensionModel, HRContractModel } from "../model/hr-contract.model";
+import { summarizeEmployeeContracts } from "./hr-contract-overview";
 
 export interface DashboardUser {
   id: string;
@@ -203,7 +204,7 @@ async function getStudentStats(user: DashboardUser, range: DashboardRange) {
 }
 
 /** Chấm công toàn doanh nghiệp trong ngày hôm nay */
-export async function getTimekeepingStats(user: DashboardUser) {
+export async function getTimekeepingStats(user: DashboardUser, range?: DashboardRange) {
   const todayStr = getLocalDateString();
   const tkQ = buildCompanyQuery(user);
 
@@ -212,10 +213,11 @@ export async function getTimekeepingStats(user: DashboardUser) {
   const endOfToday = new Date(today);
   endOfToday.setHours(23, 59, 59, 999);
 
-  const [checkedInToday, lateToday, totalEmployees, onApprovedLeaveToday] = await Promise.all([
+  const [checkedInToday, lateToday, totalEmployees, employeesExistingAtRangeEnd, onApprovedLeaveToday] = await Promise.all([
     TimekeepingLogModel.countDocuments({ ...tkQ, date: todayStr, checkIn: { $ne: null } }),
     TimekeepingLogModel.countDocuments({ ...tkQ, date: todayStr, status: { $in: ["Late", "Late-Left-Early"] } }),
     UserModel.countDocuments({ ...tkQ, role: { $ne: "superadmin" } }),
+    range ? UserModel.countDocuments({ ...tkQ, role: { $ne: "superadmin" }, createdAt: { $lte: range.end } }) : Promise.resolve(null),
     HRLeaveApplicationModel.countDocuments({
       ...tkQ,
       status: "approved",
@@ -227,21 +229,28 @@ export async function getTimekeepingStats(user: DashboardUser) {
 
   const absentWithoutLeave = Math.max(0, totalEmployees - checkedInToday - onApprovedLeaveToday);
 
-  return { checkedInToday, lateToday, totalEmployees, onApprovedLeaveToday, absentWithoutLeave, date: todayStr };
+  return { checkedInToday, lateToday, totalEmployees, employeesExistingAtRangeEnd, onApprovedLeaveToday, absentWithoutLeave, date: todayStr };
 }
 
-export async function getPersonnelNow(user: DashboardUser) {
+export async function getPersonnelNow(user: DashboardUser, range: DashboardRange) {
   const companyQ = buildCompanyQuery(user);
   const canApproveLeave = user.role === "superadmin" || Boolean(user.permissions?.has("*") || user.permissions?.has("timekeeping:manage"));
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const expiringBy = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30, 23, 59, 59, 999);
-  const contractQ = { ...companyQ, status: "active" as const, endDate: { $gte: today, $lte: expiringBy } };
+  const contractQ = { ...companyQ, status: "active" as const, startDate: { $lte: new Date() }, endDate: { $gte: today, $lte: expiringBy } };
   const taskQ = { ...companyQ, status: { $nin: ["Done", "done", "Archived"] as const } };
   const inProgressTaskQ = { ...companyQ, status: { $in: ["In Progress", "doing"] as const } };
-  const [expiringContractCount, contracts, pendingTaskCount, tasks, inProgressTaskCount, inProgressTasks, pendingApprovalCount, pendingApprovals] = await Promise.all([
+  const activeContractQ = { ...companyQ, status: "active" as const, startDate: { $lte: new Date() }, endDate: { $gte: today } };
+  const rosterQ = { ...companyQ, role: { $ne: "superadmin" }, isActive: { $ne: false } };
+  const headcountQ = { ...companyQ, role: { $ne: "superadmin" }, createdAt: { $lte: range.end } };
+  const [expiringContractCount, contracts, roster, departmentCounts, activeContractEmployeeIds, renewedEmployeeIds, pendingTaskCount, tasks, inProgressTaskCount, inProgressTasks, pendingApprovalCount, pendingApprovals] = await Promise.all([
     HRContractModel.countDocuments(contractQ),
     HRContractModel.find(contractQ).select("_id employeeName endDate").sort({ endDate: 1 }).limit(5).lean(),
+    UserModel.find(rosterQ).select("_id displayName email").sort({ displayName: 1 }).lean(),
+    UserModel.aggregate([{ $match: headcountQ }, { $group: { _id: "$department", value: { $sum: 1 } } }]),
+    HRContractModel.distinct("employeeId", activeContractQ),
+    HRContractExtensionModel.distinct("employeeId", { ...companyQ, extensionDate: { $gte: range.start, $lte: range.end } }),
     KanbanTaskModel.countDocuments(taskQ),
     KanbanTaskModel.find(taskQ).select("_id title assignee dueDate status").sort({ dueDate: 1 }).limit(5).lean(),
     KanbanTaskModel.countDocuments(inProgressTaskQ),
@@ -249,9 +258,18 @@ export async function getPersonnelNow(user: DashboardUser) {
     canApproveLeave ? HRLeaveApplicationModel.countDocuments({ ...companyQ, status: "pending" }) : Promise.resolve(0),
     canApproveLeave ? HRLeaveApplicationModel.find({ ...companyQ, status: "pending" }).select("_id employeeName type createdAt").sort({ createdAt: 1 }).limit(3).lean() : Promise.resolve([]),
   ]);
+  const headcountsByName = new Map<string, { name: string; value: number }>();
+  for (const row of departmentCounts as Array<{ _id: string | null; value: number }>) {
+    const name = row._id?.trim() || "Chưa phân phòng ban";
+    const key = name.toLocaleLowerCase("vi");
+    const previous = headcountsByName.get(key);
+    headcountsByName.set(key, { name: previous?.name || name, value: (previous?.value || 0) + row.value });
+  }
   return {
     expiringContractCount,
     expiringContracts: contracts.map((contract) => ({ id: String(contract._id), employeeName: contract.employeeName, endDate: contract.endDate })),
+    departmentHeadcounts: [...headcountsByName.values()],
+    ...summarizeEmployeeContracts(roster, activeContractEmployeeIds, renewedEmployeeIds),
     pendingTaskCount,
     pendingTasks: tasks.map((task) => ({ id: String(task._id), title: task.title, assignee: task.assignee, dueDate: task.dueDate, status: task.status })),
     inProgressTaskCount,
@@ -398,14 +416,14 @@ export const dashboardService = {
         ? getStudentStats(user, range)
         : Promise.resolve({ students: { totalStudents: 0, newStudents: 0, tuitionRevenue: 0, paymentCount: 0, outstandingDebt: 0, activeCourses: 0, activeBatches: 0, unpaidStudentCount: 0 }, batches: { activeCount: 0, openingTodayCount: 0, missingInstructorCount: 0, endingSoonCount: 0, frequentAbsentStudents: 0 }, instructors: { onLeaveToday: 0 }, receivables: { overdueAmount: 0, dueTodayAmount: 0, collectedTodayAmount: 0 } }),
       access.timekeeping
-        ? getTimekeepingStats(user)
-        : Promise.resolve({ checkedInToday: 0, lateToday: 0, totalEmployees: 0, onApprovedLeaveToday: 0, absentWithoutLeave: 0, date: getLocalDateString() }),
+        ? getTimekeepingStats(user, range)
+        : Promise.resolve({ checkedInToday: 0, lateToday: 0, totalEmployees: 0, employeesExistingAtRangeEnd: null, onApprovedLeaveToday: 0, absentWithoutLeave: 0, date: getLocalDateString() }),
       access.chat ? getChatStats(user) : Promise.resolve({ unreadMessages: 0, roomCount: 0 }),
       access.resource ? getResourceStats(companyQ, range) : Promise.resolve({ fileCount: 0, recentUploads: 0, totalSize: 0 }),
       access.hr
         ? getTrainingStats(companyQ, range)
         : Promise.resolve({ totalCourses: 0, ongoingCourses: 0, enrollments: { notStarted: 0, inProgress: 0, completed: 0, total: 0 } }),
-      access.hr ? getPersonnelNow(user) : Promise.resolve({ expiringContractCount: 0, expiringContracts: [], pendingTaskCount: 0, pendingTasks: [], inProgressTaskCount: 0, inProgressTasks: [], pendingApprovalCount: 0, pendingApprovals: [] }),
+      access.hr ? getPersonnelNow(user, range) : Promise.resolve({ expiringContractCount: 0, expiringContracts: [], departmentHeadcounts: [], activeContractEmployeeCount: 0, withoutContractCount: 0, withoutContractEmployees: [], renewedEmployeeCount: 0, pendingTaskCount: 0, pendingTasks: [], inProgressTaskCount: 0, inProgressTasks: [], pendingApprovalCount: 0, pendingApprovals: [] }),
     ]);
 
     let receivables = students.receivables;

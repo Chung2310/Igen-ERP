@@ -351,13 +351,13 @@ export default function WorkerContractsPage({
                     {toDisplayDate(contract.startDate)} → {toDisplayDate(contract.endDate)}
                   </td>
                   <td className="px-3 py-2.5 text-center">
-                    <HrStatusBadge tone={statusTone[contract.status]} dot>{workerContractStatusLabel[contract.status]}</HrStatusBadge>
+                    <HrStatusBadge tone={statusTone[contract.status]} dot className="rounded-md font-semibold uppercase">{workerContractStatusLabel[contract.status]}</HrStatusBadge>
                   </td>
                   <td className="px-3 py-2.5 text-center">
                     {contract.alertLevel === "ok" ? (
                       <span className="text-xs text-slate-400">—</span>
                     ) : (
-                      <HrStatusBadge tone={alertTone[contract.alertLevel]} dot>
+                      <HrStatusBadge tone={alertTone[contract.alertLevel]} dot className="rounded-md font-semibold uppercase">
                         {contract.alertLevel === "expired"
                           ? "Đã hết hạn"
                           : alertText(contract.endDate)}

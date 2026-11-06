@@ -9,7 +9,7 @@ type RetailReportOrder = {
   status: string;
   grandTotal: number;
   totalCost: number;
-  refundedAmount: number;
+  refundedAmount?: number | null;
   dueAmount: number;
   pendingTransferAmount?: number;
   payments?: Array<{ method: RetailPaymentMethod; amount: number; tenderedAmount?: number; changeAmount?: number }>;
@@ -120,6 +120,7 @@ const vietnamDateFormatter = new Intl.DateTimeFormat("en-CA", {
 });
 
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
+const refundedFor = (order: RetailReportOrder) => Number.isFinite(order.refundedAmount) ? order.refundedAmount! : 0;
 const isActive = (order: RetailReportOrder) => order.status === "confirmed" || order.status === "completed";
 const collectedFor = (order: RetailReportOrder) => sum((order.payments || []).map((payment) => payment.amount));
 const debtFor = (order: RetailReportOrder) => Math.max(0, order.dueAmount - Number(order.pendingTransferAmount || 0));
@@ -147,7 +148,7 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
   const orders = input.orders.filter((order) => Boolean(order.orderCode) && same(order.salespersonId, filters.salespersonId));
   const activeOrders = orders.filter(isActive);
   const grossSales = sum(orders.map((order) => order.grandTotal));
-  const refunds = sum(orders.map((order) => order.refundedAmount));
+  const refunds = sum(orders.map(refundedFor));
   const netSales = grossSales - refunds;
   const activeGrossSales = sum(activeOrders.map((order) => order.grandTotal));
   const totalCost = sum(activeOrders.map((order) => order.totalCost));
@@ -167,7 +168,7 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
   const timeSeries = input.days.map((businessDate) => {
     const dayOrders = orders.filter((order) => order.businessDate === businessDate);
     const dayGrossSales = sum(dayOrders.map((order) => order.grandTotal));
-    const dayRefunds = sum(dayOrders.map((order) => order.refundedAmount));
+    const dayRefunds = sum(dayOrders.map(refundedFor));
     return {
       businessDate,
       grossSales: dayGrossSales,
@@ -200,7 +201,7 @@ export function buildRetailReportModel(input: RetailReportInput): RetailReportMo
       activeGrossSales: 0,
     };
     row.grossSales += order.grandTotal;
-    row.refunds += order.refundedAmount;
+    row.refunds += refundedFor(order);
     row.netSales = row.grossSales - row.refunds;
     if (isActive(order)) {
       row.orderCount += 1;

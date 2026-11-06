@@ -17,6 +17,7 @@ type StyledSelectProps = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  menuClassName?: string;
   appearance?: "default" | "erp";
   describedBy?: string;
   required?: boolean;
@@ -30,6 +31,7 @@ export function StyledSelect({
   placeholder = "Chọn một mục",
   disabled = false,
   className = "",
+  menuClassName = "",
   describedBy,
   required = false,
 }: StyledSelectProps) {
@@ -61,7 +63,7 @@ export function StyledSelect({
 
   const openMenu = () => {
     if (disabled || options.length === 0) return;
-    setPortalRoot(triggerRef.current?.closest("dialog") || document.body);
+    setPortalRoot(triggerRef.current?.closest<HTMLElement>("dialog, [popover]") || document.body);
     updatePosition();
     setOpen(true);
   };
@@ -173,7 +175,7 @@ export function StyledSelect({
           role="listbox"
           aria-label={ariaLabel}
           onKeyDown={handleMenuKeyDown}
-          className={cn("fixed z-[200] overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-1 text-on-surface shadow-lg")}
+          className={cn("fixed z-[200] overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-1 text-on-surface shadow-lg", menuClassName)}
           style={position}
         >
           {options.map((option, index) => {

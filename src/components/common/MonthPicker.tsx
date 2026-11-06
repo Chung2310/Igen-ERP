@@ -7,7 +7,8 @@ const MONTHS = [
   "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12",
 ];
 
-export function MonthPicker({ value, onChange, ariaLabel = "Chọn tháng lương" }: { value: string; onChange: (value: string) => void; ariaLabel?: string }) {
+export function MonthPicker({ value, onChange, ariaLabel = "Chọn tháng lương", appearance = "default" }: { value: string; onChange: (value: string) => void; ariaLabel?: string; appearance?: "default" | "erp" }) {
+  const erp = appearance === "erp";
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -70,24 +71,24 @@ export function MonthPicker({ value, onChange, ariaLabel = "Chọn tháng lươn
       aria-haspopup="dialog"
       aria-expanded={open}
       onClick={() => { setYear(Number(value.slice(0, 4))); setOpen((current) => !current); }}
-      className="flex h-10 min-w-40 items-center justify-between gap-3 rounded-xl border border-[#DCE7F4] bg-white px-3.5 text-sm font-normal text-slate-700 outline-none transition-colors hover:border-[#B8E8FF] focus-visible:ring-2 focus-visible:ring-[#00ADFC]/20"
+      className={erp ? "flex h-9 min-w-40 items-center justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal text-on-surface hover:border-primary focus-visible:border-primary focus-visible:outline-none" : "flex h-10 min-w-40 items-center justify-between gap-3 rounded-xl border border-[#DCE7F4] bg-white px-3.5 text-sm font-normal text-slate-700 outline-none transition-colors hover:border-[#B8E8FF] focus-visible:ring-2 focus-visible:ring-[#00ADFC]/20"}
     >
       <span>{displayValue}</span>
-      <CalendarDays className="h-4 w-4 shrink-0 text-[#007EB8]" aria-hidden="true" />
+      <CalendarDays className={erp ? "size-4 shrink-0 text-primary" : "h-4 w-4 shrink-0 text-[#007EB8]"} aria-hidden="true" />
     </button>
     {open && createPortal(
-      <div ref={popoverRef} role="dialog" aria-label={`Lịch ${ariaLabel.toLowerCase()}`} className="fixed z-[200] rounded-2xl border border-[#DCE7F4] bg-white p-3 text-slate-700 shadow-[0_18px_50px_rgba(13,48,78,0.18)]" style={position}>
+      <div ref={popoverRef} role="dialog" aria-label={`Lịch ${ariaLabel.toLowerCase()}`} className={erp ? "fixed z-[200] rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-on-surface shadow-sm" : "fixed z-[200] rounded-2xl border border-[#DCE7F4] bg-white p-3 text-slate-700 shadow-[0_18px_50px_rgba(13,48,78,0.18)]"} style={position}>
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm">Năm {year}</span>
           <div className="flex items-center gap-1">
-            <button type="button" aria-label="Năm trước" onClick={() => setYear((current) => current - 1)} className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-[#E8F7FF] hover:text-[#007EB8]"><ChevronLeft className="h-4 w-4" /></button>
-            <button type="button" aria-label="Năm sau" onClick={() => setYear((current) => current + 1)} className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-[#E8F7FF] hover:text-[#007EB8]"><ChevronRight className="h-4 w-4" /></button>
+            <button type="button" aria-label="Năm trước" onClick={() => setYear((current) => current - 1)} className={erp ? "rounded-md p-1.5 text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary" : "rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-[#E8F7FF] hover:text-[#007EB8]"}><ChevronLeft className="h-4 w-4" /></button>
+            <button type="button" aria-label="Năm sau" onClick={() => setYear((current) => current + 1)} className={erp ? "rounded-md p-1.5 text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary" : "rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-[#E8F7FF] hover:text-[#007EB8]"}><ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-1.5">
           {MONTHS.map((month, index) => {
             const monthValue = `${year}-${String(index + 1).padStart(2, "0")}`;
-            return <button key={month} type="button" aria-label={`${month} năm ${year}`} aria-pressed={monthValue === value} onClick={() => { onChange(monthValue); setOpen(false); triggerRef.current?.focus(); }} className={`rounded-lg px-2 py-2 text-xs transition-colors ${monthValue === value ? "bg-[#00ADFC] text-white" : "text-slate-700 hover:bg-[#E8F7FF] hover:text-[#007EB8]"}`}>{month}</button>;
+            return <button key={month} type="button" aria-label={`${month} năm ${year}`} aria-pressed={monthValue === value} onClick={() => { onChange(monthValue); setOpen(false); triggerRef.current?.focus(); }} className={erp ? `rounded-md px-2 py-2 text-xs focus-visible:outline-2 focus-visible:outline-primary ${monthValue === value ? "bg-primary text-on-primary" : "text-on-surface hover:bg-primary/5"}` : `rounded-lg px-2 py-2 text-xs transition-colors ${monthValue === value ? "bg-[#00ADFC] text-white" : "text-slate-700 hover:bg-[#E8F7FF] hover:text-[#007EB8]"}`}>{month}</button>;
           })}
         </div>
       </div>, document.body,

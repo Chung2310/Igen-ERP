@@ -840,7 +840,7 @@ function WorkerRow({
         {workerLaborTypeLabel[worker.laborType || "official"]}
       </td>
       <td className="px-3 py-3 text-center">
-        <HrStatusBadge tone={statusTone[worker.status]} dot>{statusLabel[worker.status]}</HrStatusBadge>
+        <HrStatusBadge tone={statusTone[worker.status]} dot className="rounded-md font-semibold uppercase">{statusLabel[worker.status]}</HrStatusBadge>
       </td>
       <td className="px-3 py-3">
         <div className="flex items-center justify-end gap-1">

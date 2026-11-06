@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BadgeCheck, BookOpen, BriefcaseBusiness, CircleDollarSign, Target, UserPlus } from "lucide-react";
 import { useReducedMotion } from "motion/react";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAuth } from "../../modules/marketing-suite/shared/context/AuthContext";
-import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { AnimatedOverviewValue } from "./AnimatedOverviewValue";
+import { OverviewKpiDelta } from "./OverviewKpiDelta";
+import { useOverviewPeriod } from "./OverviewPeriodContext";
+import { OverviewChartViewport } from "./OverviewChartViewport";
+import { overviewDateKey } from "./overviewComparison";
 import { crmService, type ExtendedLeadCard } from "../../modules/marketing-suite/message/services/crmService";
 import { fbMessengerService } from "../../modules/marketing-suite/message/services/fbMessengerService";
 import { zaloMessengerService } from "../../modules/marketing-suite/message/services/zaloMessengerService";
@@ -17,6 +21,7 @@ const integer = (value: number) => new Intl.NumberFormat("vi-VN", { maximumFract
 const money = (value: number) => `${integer(value)} đ`;
 const labels: Record<LeadStage, string> = { cold: "Mới", warm: "Đang quan tâm", hot: "Tiềm năng cao", won: "Đã chốt", upsell: "Bán thêm" };
 const colors = ["var(--finance-chart-blue)", "var(--finance-chart-teal)", "var(--finance-chart-orange)", "var(--finance-chart-violet)", "var(--finance-chart-red)"];
+const kpiIcons = [BriefcaseBusiness, Target, BadgeCheck, CircleDollarSign, UserPlus, BookOpen] as const;
 type InboxStat = { channel: string; count: number; unread: number; truncated: boolean };
 
 async function loadInbox(accounts: SocialIntegration[]): Promise<{ rows: InboxStat[]; failed: boolean }> {
@@ -41,6 +46,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 export default function MarketingOverviewSection() {
+  const overviewPeriod = useOverviewPeriod();
   const { hasPermission, userProfile } = useAuth();
   const isAdmin = userProfile?.role === "superadmin" || userProfile?.role === "admin";
   const canReadCrm = isAdmin || hasPermission("omni-inbox:read") || hasPermission("omni-inbox:manage");
@@ -93,25 +99,45 @@ export default function MarketingOverviewSection() {
   const inboxCount = inbox?.reduce((sum, row) => sum + row.count, 0) ?? null;
   const unreadCount = inbox?.reduce((sum, row) => sum + row.unread, 0) ?? null;
   const stages = crm ? (Object.keys(labels) as LeadStage[]).map(stage => ({ name: labels[stage], count: crm.byStage[stage], value: crm.valueByStage[stage] })) : [];
+  const newIn = (from: string, to: string) => leads?.filter(lead => {
+    const date = overviewDateKey(lead.createdAt);
+    return date != null && date >= from && date <= to;
+  }).length ?? null;
+  const newCurrent = overviewPeriod ? newIn(overviewPeriod.from, overviewPeriod.to) : null;
+  const newPrevious = overviewPeriod ? newIn(overviewPeriod.previousFrom, overviewPeriod.previousTo) : null;
   const kpis = [
     { title: "Cơ hội CRM", value: crm?.total, format: integer },
     { title: "Đang theo đuổi", value: crm?.open, format: integer },
     { title: "Đã chốt", value: crm?.byStage.won, format: integer },
     { title: "Giá trị cơ hội", value: crm?.openValue, format: money },
-    { title: "Tin chưa đọc gần đây", value: unreadCount, format: integer },
+    { title: "Cơ hội mới", value: newCurrent, format: integer },
     { title: "Tài liệu tri thức", value: knowledge?.documentsCount, format: integer },
   ];
 
   return <div className="finance-overview space-y-3 text-left text-on-surface">
-    <header className="flex flex-wrap items-center justify-between gap-4 pb-2"><div><div className="flex items-center gap-2"><span aria-hidden="true" className="h-5 w-1 rounded-sm bg-primary" /><h2 className="text-lg font-semibold">Tổng quan Marketing & CRM</h2></div><p className="mt-1 text-xs text-on-surface-variant">Cơ hội bán hàng, hội thoại đa kênh và kho tri thức</p></div><ErpRefreshButton onClick={loadData} loading={loading} /></header>
-    {error && <p role="status" className="rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">Một số nguồn dữ liệu chưa tải được. Bấm Làm mới để thử lại.</p>}
-    <section className="finance-chart-card" aria-label="Chỉ số Marketing và CRM"><h3 className="mb-3 text-sm font-semibold text-on-surface">Tình hình Marketing & CRM</h3><div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{kpis.map((item, index) => <div key={item.title} className={`finance-kpi finance-kpi-${index}`}><p className="text-xs font-medium text-white">{item.title}</p><p className="mt-2 break-words text-lg font-semibold tabular-nums text-white sm:text-xl"><AnimatedOverviewValue value={loading ? null : item.value} format={item.format} /></p></div>)}</div>{inbox?.some(row => row.truncated) && <p className="mt-3 text-xs text-on-surface-variant">Tin chưa đọc được tính trong 100 hội thoại gần nhất của mỗi tài khoản kết nối.</p>}</section>
+    <h2 className="sr-only">Tổng quan Marketing & CRM</h2>
+    {error && <p role="status" className="rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm text-on-surface-variant">Một số nguồn dữ liệu chưa tải được. Vui lòng thử lại sau.</p>}
+    <section className="finance-chart-card" aria-label="Chỉ số Marketing và CRM">
+      <h3 className="mb-3 text-lg font-semibold text-on-surface">Tình hình Marketing & CRM</h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        {kpis.map((item, index) => {
+          const Icon = kpiIcons[index];
+          return <div key={item.title} className={`finance-kpi finance-kpi-${index} flex min-h-28 flex-col`}>
+            <div className="flex items-start justify-between gap-2"><p className="text-xs font-medium text-white">{item.title}</p><Icon className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden="true" /></div>
+            <p className="mt-2 break-words text-lg font-semibold tabular-nums text-white sm:text-xl"><AnimatedOverviewValue value={loading ? null : item.value} format={item.format} /></p>
+            {item.title === "Cơ hội mới" && <OverviewKpiDelta value={loading ? null : item.value} previous={newPrevious} unit="cơ hội" />}
+          </div>;
+        })}
+      </div>
+      <p className="mt-2 text-pretty text-xs text-on-surface-variant">Các trạng thái cơ hội và chỉ số nội dung là số hiện tại.</p>
+      {inbox?.some(row => row.truncated) && <p className="mt-3 text-xs text-on-surface-variant">Tin chưa đọc được tính trong 100 hội thoại gần nhất của mỗi tài khoản kết nối.</p>}
+    </section>
     <div className="grid gap-3 lg:grid-cols-2">
-      <Panel title="Phễu cơ hội CRM">{crm?.total ? <><div role="img" aria-label="Số cơ hội theo trạng thái" className="h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={stages} margin={{ top: 4, right: 8, bottom: 4, left: -20 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 10 }} /><YAxis allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip formatter={value => typeof value === "number" ? integer(value) : value} /><Bar dataKey="count" name="Cơ hội" maxBarSize={44} isAnimationActive={!reduceMotion} animationDuration={700}>{stages.map((row, index) => <Cell key={row.name} fill={colors[index]} />)}</Bar></BarChart></ResponsiveContainer></div><div className="grid grid-cols-2 gap-3 border-t border-outline-variant pt-3 text-xs sm:grid-cols-5">{stages.map(row => <div key={row.name}><p className="text-on-surface-variant">{row.name}</p><strong className="mt-1 block text-sm tabular-nums">{integer(row.count)}</strong></div>)}</div></> : <Empty>{loading ? "Đang tải cơ hội..." : leads ? "Chưa có cơ hội CRM." : "Chưa có dữ liệu CRM."}</Empty>}</Panel>
-      <Panel title="Giá trị theo trạng thái CRM">{crm && stages.some(row => row.value > 0) ? <><div role="img" aria-label="Giá trị cơ hội theo trạng thái" className="h-56"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={stages.filter(row => row.value > 0)} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="52%" outerRadius="77%" stroke="none" isAnimationActive={!reduceMotion} animationDuration={700}>{stages.filter(row => row.value > 0).map((row, index) => <Cell key={row.name} fill={colors[index]} />)}</Pie><Tooltip formatter={value => typeof value === "number" ? money(value) : value} /></PieChart></ResponsiveContainer></div><div className="grid grid-cols-2 gap-3 border-t border-outline-variant pt-3 text-xs sm:grid-cols-3">{[["Tổng giá trị", crm.totalValue], ["Đang theo đuổi", crm.openValue], ["Đã chốt", crm.valueByStage.won]] .map(([label, value]) => <div key={label}><p className="text-on-surface-variant">{label}</p><strong className="mt-1 block text-sm tabular-nums">{money(Number(value))}</strong></div>)}</div></> : <Empty>{loading ? "Đang tải giá trị cơ hội..." : "Chưa có giá trị cơ hội."}</Empty>}</Panel>
+      <Panel title="Phễu cơ hội CRM">{crm?.total ? <><div role="img" aria-label="Số cơ hội theo trạng thái" className="h-56"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><BarChart data={stages} margin={{ top: 20, right: 8, bottom: 4, left: -20 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis axisLine={false} tickLine={false} dataKey="name" tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip formatter={value => typeof value === "number" ? integer(value) : value} /><Bar dataKey="count" name="Cơ hội" maxBarSize={44} isAnimationActive={!reduceMotion} animationDuration={700}>{stages.map((row, index) => <Cell key={row.name} fill={colors[index]} />)}<LabelList dataKey="count" position="top" fill="var(--color-on-surface-variant)" fontSize={11} formatter={(value: unknown) => typeof value === "number" && value > 0 ? integer(value) : ""} /></Bar></BarChart></ResponsiveContainer></OverviewChartViewport></div><div className="grid grid-cols-2 gap-3 border-t border-outline-variant pt-3 text-xs sm:grid-cols-5">{stages.map(row => <div key={row.name}><p className="text-on-surface-variant">{row.name}</p><strong className="mt-1 block text-sm tabular-nums">{integer(row.count)}</strong></div>)}</div></> : <Empty>{loading ? "Đang tải cơ hội..." : leads ? "Chưa có cơ hội CRM." : "Chưa có dữ liệu CRM."}</Empty>}</Panel>
+      <Panel title="Giá trị theo trạng thái CRM">{crm && stages.some(row => row.value > 0) ? <><div role="img" aria-label="Giá trị cơ hội theo trạng thái" className="h-56"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={stages.filter(row => row.value > 0)} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="52%" outerRadius="77%" stroke="none" isAnimationActive={!reduceMotion} animationDuration={700}>{stages.filter(row => row.value > 0).map((row, index) => <Cell key={row.name} fill={colors[index]} />)}</Pie><Tooltip formatter={value => typeof value === "number" ? money(value) : value} /></PieChart></ResponsiveContainer></OverviewChartViewport></div><div className="grid grid-cols-2 gap-3 border-t border-outline-variant pt-3 text-xs sm:grid-cols-3">{[["Tổng giá trị", crm.totalValue], ["Đang theo đuổi", crm.openValue], ["Đã chốt", crm.valueByStage.won]] .map(([label, value]) => <div key={label}><p className="text-on-surface-variant">{label}</p><strong className="mt-1 block text-sm tabular-nums">{money(Number(value))}</strong></div>)}</div></> : <Empty>{loading ? "Đang tải giá trị cơ hội..." : "Chưa có giá trị cơ hội."}</Empty>}</Panel>
     </div>
     <div className="grid gap-3 lg:grid-cols-2">
-      <Panel title="Cơ hội mới theo tháng">{insights?.monthly.length ? <><div role="img" aria-label="Cơ hội CRM mới theo tháng" className="h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={insights.monthly} margin={{ top: 4, right: 8, bottom: 4, left: -20 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" tick={{ fontSize: 10 }} /><YAxis allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip formatter={value => typeof value === "number" ? integer(value) : value} /><Bar dataKey="count" name="Cơ hội mới" fill="var(--finance-chart-blue)" maxBarSize={44} isAnimationActive={!reduceMotion} animationDuration={700} /></BarChart></ResponsiveContainer></div><p className="border-t border-outline-variant pt-3 text-xs text-on-surface-variant">30 ngày gần đây: <strong className="tabular-nums text-on-surface">{integer(insights.newLast30Days ?? 0)} cơ hội</strong></p></> : <Empty>{loading ? "Đang tải cơ hội..." : "Chưa có ngày tạo cơ hội để thống kê."}</Empty>}</Panel>
+      <Panel title="Cơ hội mới theo tháng">{insights?.monthly.length ? <><div role="img" aria-label="Cơ hội CRM mới theo tháng" className="h-56"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><BarChart data={insights.monthly} margin={{ top: 20, right: 8, bottom: 4, left: -20 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis axisLine={false} tickLine={false} dataKey="name" tick={{ fontSize: 10 }} /><YAxis axisLine={false} tickLine={false} allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip formatter={value => typeof value === "number" ? integer(value) : value} /><Bar dataKey="count" name="Cơ hội mới" fill="var(--finance-chart-blue)" maxBarSize={44} isAnimationActive={!reduceMotion} animationDuration={700}><LabelList dataKey="count" position="top" fill="var(--color-on-surface-variant)" fontSize={11} formatter={(value: unknown) => typeof value === "number" && value > 0 ? integer(value) : ""} /></Bar></BarChart></ResponsiveContainer></OverviewChartViewport></div><p className="border-t border-outline-variant pt-3 text-xs text-on-surface-variant">30 ngày gần đây: <strong className="tabular-nums text-on-surface">{integer(insights.newLast30Days ?? 0)} cơ hội</strong></p></> : <Empty>{loading ? "Đang tải cơ hội..." : "Chưa có ngày tạo cơ hội để thống kê."}</Empty>}</Panel>
       <Panel title="Hiệu quả và nhu cầu CRM">{insights && leads?.length ? <><div className="grid grid-cols-2 gap-3 border-b border-outline-variant pb-4 text-xs"><div><p className="text-on-surface-variant">Tỷ lệ đã chốt</p><strong className="mt-1 block text-lg tabular-nums">{insights.winRate?.toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%</strong></div><div><p className="text-on-surface-variant">Giá trị trung bình đã chốt</p><strong className="mt-1 block text-lg tabular-nums">{insights.averageWonValue == null ? "—" : money(insights.averageWonValue)}</strong></div></div>{insights.products.length ? <div className="mt-3 space-y-2">{insights.products.map(item => <div key={item.name} className="flex items-center justify-between gap-3 text-xs"><span className="min-w-0 truncate text-on-surface-variant">{item.name}</span><strong className="shrink-0 tabular-nums">{integer(item.count)} cơ hội</strong></div>)}</div> : <p className="pt-4 text-xs text-on-surface-variant">Chưa có sản phẩm quan tâm được ghi trên cơ hội.</p>}</> : <Empty>{loading ? "Đang tải hiệu quả CRM..." : "Chưa có cơ hội CRM."}</Empty>}</Panel>
     </div>
     <div className="grid gap-3 lg:grid-cols-2">

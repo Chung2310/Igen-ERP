@@ -65,12 +65,13 @@ describe("Header attendance with face checking disabled", () => {
     expect(body.has("file")).toBe(false);
   });
 
-  it("links the grid icon to the feature list", () => {
+  it("keeps the back link to the feature list without the grid icon", () => {
     render(<Header currentTab="TỔNG QUAN" onSearchSelect={vi.fn()} />);
     expect(screen.queryByRole("textbox", { name: "Tìm kiếm trong ERP" })).toBeNull();
     expect(screen.queryByPlaceholderText("Tìm kiếm trong ERP...")).toBeNull();
     const backLink = screen.getByRole("link", { name: "Về danh sách tính năng" });
     expect(backLink.getAttribute("href")).toBe("/modules");
+    expect(backLink.querySelector("circle")).toBeNull();
   });
 
   it("does not offer a dark mode control for a saved dark preference", () => {
@@ -88,6 +89,18 @@ describe("Header attendance with face checking disabled", () => {
     await user.click(screen.getByRole("button", { name: "Mở gói nâng cấp AI" }));
     await user.click(screen.getByRole("button", { name: "Mở Trợ lý AI" }));
     expect(navigate.mock.calls).toEqual([["GÓI AI & LƯỢT SỬ DỤNG", "usage"], ["GÓI AI & LƯỢT SỬ DỤNG", "plans"], ["TRỢ LÝ AI"]]);
+  });
+
+  it("opens the compact assistant from the header without navigating to the full page", async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    const openAssistant = vi.fn();
+    render(<Header currentTab="TRỢ LÝ AI" onSearchSelect={navigate} onAssistantOpen={openAssistant} />);
+
+    await user.click(screen.getByRole("button", { name: "Mở Trợ lý AI" }));
+
+    expect(openAssistant).toHaveBeenCalledOnce();
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it("restores the three legal links and closes the menu with Escape", async () => {

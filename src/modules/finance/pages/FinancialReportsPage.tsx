@@ -1,15 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, Calculator, Download, Plus, RefreshCw, X } from "lucide-react";
+import { AlertCircle, Download, Plus, RefreshCw, X } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { useBranchOptional } from "../../../context/BranchContext";
 import { financialReportRequest as request } from "../api/financialReporting.api";
-import { getStatConfig } from "../components/ManagementUI";
+import { Stats } from "../components/ManagementUI";
+import { FinanceEmptyState } from "../components/FinanceEmptyState";
+import "../finance-workspace.css";
 
 const money = (n: number) => (n || 0).toLocaleString("vi-VN") + " ₫";
 const today = () => new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
-const inputClass = "w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-sm font-medium text-on-surface outline-none transition-all placeholder:text-on-surface-variant focus:border-primary focus:ring-4 focus:ring-primary disabled:bg-surface-container-low";
-const buttonClass = "inline-flex items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 text-xs font-semibold text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50";
+const inputClass = "min-h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary disabled:bg-surface-container-low";
+const selectClass = `${inputClass} finance-select`;
+const buttonClass = "inline-flex items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-2 text-xs font-semibold text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50";
 const kinds: Record<string, string> = { customer: "Khách hàng", dealer: "Đại lý", collaborator: "CTV", supplier: "Nhà cung cấp" };
 const buckets: Record<string, string> = { unscheduled: "Chưa có hạn trả", notDue: "Chưa đến hạn", dueToday: "Đến hạn hôm nay", "1-30": "Quá hạn 1–30 ngày", "31-60": "Quá hạn 31–60 ngày", "61-90": "Quá hạn 61–90 ngày", over90: "Quá hạn trên 90 ngày" };
 
@@ -56,7 +59,7 @@ export function EntryDialog({ title, fields, initial, onClose, onSave, note, sub
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-2xl outline-none"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-md bg-surface-container-lowest shadow-2xl outline-none"
       >
         <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low px-6 py-4">
           <h2 className="text-base font-bold text-on-surface">{title}</h2>
@@ -65,20 +68,20 @@ export function EntryDialog({ title, fields, initial, onClose, onSave, note, sub
             aria-label="Đóng"
             disabled={busy}
             onClick={onClose}
-            className="rounded-xl border border-outline-variant p-2 text-on-surface-variant transition-colors hover:bg-surface-container-lowest hover:text-on-surface"
+            className="rounded-md border border-outline-variant p-2 text-on-surface-variant transition-colors hover:bg-surface-container-lowest hover:text-on-surface"
            data-erp-modal-close>
             <X size={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {note && (
-            <div className="rounded-2xl border border-primary bg-primary-container p-4 text-xs font-medium whitespace-pre-line text-on-primary-container">
+            <div className="rounded-md border border-primary bg-primary-container p-4 text-xs font-medium whitespace-pre-line text-on-primary-container">
               {note}
             </div>
           )}
           {error && (
-            <div role="alert" className="rounded-2xl border border-error bg-error-container p-4 text-xs font-medium text-on-error-container">
+            <div role="alert" className="rounded-md border border-error bg-error-container p-4 text-xs font-medium text-on-error-container">
               {error}
             </div>
           )}
@@ -101,13 +104,13 @@ export function EntryDialog({ title, fields, initial, onClose, onSave, note, sub
               }
             }}
           >
-            <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
+            <fieldset disabled={busy} className="grid gap-3 sm:grid-cols-2">
               {fields.map((field) => (
                 <label key={field.key} className="block text-xs font-semibold text-on-surface">
                   <span>{field.label}</span>
                   {field.options ? (
                     <select
-                      className={inputClass + " mt-1.5"}
+                      className={selectClass + " mt-1.5"}
                       required={!field.optional}
                       value={form[field.key] ?? ""}
                       onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
@@ -147,14 +150,14 @@ export function EntryDialog({ title, fields, initial, onClose, onSave, note, sub
             type="button"
             disabled={busy}
             onClick={onClose}
-            className="rounded-xl border border-outline-variant bg-surface-container-lowest px-5 py-2.5 text-xs font-semibold text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
+            className="rounded-md border border-outline-variant bg-surface-container-lowest px-5 py-2 text-xs font-semibold text-on-surface transition-colors hover:bg-surface-container-low disabled:opacity-50"
           >
             Hủy
           </button>
           <button
             form="entry-dialog-form"
             disabled={busy}
-            className="rounded-xl bg-primary px-6 py-2.5 text-xs font-bold text-on-primary shadow-sm shadow-sm transition-all hover:shadow-md disabled:opacity-50"
+            className="min-h-9 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
           >
             {busy ? "Đang lưu…" : submitLabel}
           </button>
@@ -166,72 +169,29 @@ export function EntryDialog({ title, fields, initial, onClose, onSave, note, sub
 }
 
 export function Cards({ rows }: { rows: Array<[string, number | null, (boolean | string)?]> }) {
-  return (
-    <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-      {rows.map(([label, value, count]) => {
-        const theme = getStatConfig(label);
-        const Icon = theme.icon;
-        return (
-          <div
-            key={label}
-            className={`group relative flex flex-col justify-between overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-3 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${theme.borderColor}`}
-          >
-            <div className="flex items-start justify-between gap-2.5">
-              <span className="text-[11px] sm:text-xs font-semibold text-on-surface-variant line-clamp-1 group-hover:text-on-surface transition-colors">
-                {label}
-              </span>
-              <div
-                className={`flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 ${theme.iconBg} ${theme.iconColor}`}
-              >
-                <Icon className="h-4 w-4" />
-              </div>
-            </div>
-            <div className="mt-1.5 min-w-0">
-              <p
-                className={`break-words ${
-                  value == null
-                    ? "text-xs sm:text-sm font-medium text-on-surface-variant"
-                    : `text-base sm:text-lg font-bold ${
-                        value < 0 ? "text-error" : theme.valueColor
-                      }`
-                }`}
-              >
-                {value == null
-                  ? "Chưa xác định"
-                  : count
-                    ? value.toLocaleString("vi-VN") + " " + (count === true ? "máy" : count)
-                    : money(value)}
-              </p>
-            </div>
-            <div
-              className={`absolute bottom-0 left-0 right-0 h-0.5 bg-primary opacity-0 group-hover:opacity-100 transition-opacity`}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
+  return <Stats values={rows.map(([label, value, count]) => [label, value == null ? "Chưa xác định" : count ? `${value.toLocaleString("vi-VN")} ${count === true ? "máy" : count}` : money(value)])} />;
 }
 
 export function Table({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) {
+  const amountColumn = (header: string) => /số tiền|doanh thu|giá vốn|lãi|chi phí|còn nợ|đã trả|giá trị|dư|tổng|vat|rủi ro|chênh lệch/i.test(header);
   return (
-    <div className="overflow-hidden rounded-3xl border border-outline-variant bg-surface-container-lowest shadow-xs">
+    <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-outline-variant bg-surface-container-low text-[11px] font-bold uppercase text-on-surface-variant">
+          <thead className="border-b border-outline-variant bg-surface-container-low text-xs font-medium text-on-surface-variant">
             <tr>
               {headers.map((header) => (
-                <th key={header} className="whitespace-nowrap px-5 py-3.5">
+                <th key={header} scope="col" className={`whitespace-nowrap px-4 py-3 ${amountColumn(header) ? "text-right" : ""}`}>
                   {header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-outline-variant">
             {rows.map((row, i) => (
               <tr key={i} className="transition-colors hover:bg-surface-container-low">
                 {row.map((cell, j) => (
-                  <td key={j} className="px-5 py-4 align-top">
+                  <td key={j} className={`px-4 py-3 align-top text-on-surface ${amountColumn(headers[j]) ? "text-right font-semibold tabular-nums text-on-primary-container" : ""}`}>
                     {cell}
                   </td>
                 ))}
@@ -240,7 +200,7 @@ export function Table({ headers, rows }: { headers: string[]; rows: React.ReactN
           </tbody>
         </table>
         {!rows.length && (
-          <p className="p-8 text-center text-sm font-medium text-on-surface-variant">Chưa có dữ liệu.</p>
+          <FinanceEmptyState kind="payroll">Chưa có dữ liệu.</FinanceEmptyState>
         )}
       </div>
     </div>
@@ -473,15 +433,12 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
   };
 
   return (
-    <section className="space-y-6">
+    <section className="finance-workspace finance-page-content">
       {/* Header section */}
-      <div className="flex flex-col gap-4 rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-xs sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-on-primary shadow-md shadow-sm">
-            <Calculator className="h-6 w-6" />
-          </div>
+      <div className="flex flex-col gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-xl font-bold text-on-surface">Báo cáo tài chính</h1>
+            <h1 className="finance-page-title">Báo cáo tài chính</h1>
             <p className="text-xs text-on-surface-variant">
               {branch?.activeBranch?.name || "Chi nhánh hiện tại"} · Đơn vị VND · Múi giờ Việt Nam
             </p>
@@ -506,7 +463,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
       </div>
 
       {/* Sub-view selection tabs */}
-      <div className="flex gap-1.5 overflow-x-auto rounded-2xl border border-outline-variant bg-surface-container-low p-1.5 shadow-xs">
+      <div className="flex gap-1.5 overflow-x-auto rounded-md border border-outline-variant bg-surface-container-low p-1.5 shadow-xs">
         {[
           ["debts", "Công nợ tổng hợp"],
           ["vat", "Thuế VAT"],
@@ -517,7 +474,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
             key={key}
             type="button"
             onClick={() => setView(key)}
-            className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-semibold transition-all sm:text-sm ${view === key
+            className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-semibold transition-colors sm:text-sm ${view === key
                 ? "bg-primary text-on-primary shadow-sm shadow-sm"
                 : "text-on-surface-variant hover:bg-surface-container-lowest hover:text-on-surface"
               }`}
@@ -528,14 +485,14 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
       </div>
 
       {/* Filter and Command Toolbar */}
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
+      <div className="flex flex-wrap items-end gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
         {view === "debts" ? (
           <>
             <label className="text-xs font-semibold text-on-surface">
               <span>Cảnh báo NCC trước hạn</span>
               <select
                 aria-label="Cảnh báo NCC trước hạn"
-                className={inputClass + " mt-1"}
+                className={selectClass + " mt-1"}
                 value={warningDays}
                 onChange={(e) => setWarningDays(e.target.value)}
               >
@@ -550,7 +507,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
               <span>Đối tượng</span>
               <select
                 aria-label="Đối tượng"
-                className={inputClass + " mt-1"}
+                className={selectClass + " mt-1"}
                 value={partyFilter}
                 onChange={(e) => setPartyFilter(e.target.value)}
               >
@@ -566,7 +523,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
               <span>Tuổi nợ</span>
               <select
                 aria-label="Tuổi nợ"
-                className={inputClass + " mt-1"}
+                className={selectClass + " mt-1"}
                 value={agingFilter}
                 onChange={(e) => setAgingFilter(e.target.value)}
               >
@@ -586,7 +543,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
                 <span>Kỳ báo cáo</span>
                 <select
                   aria-label="Kỳ báo cáo"
-                  className={inputClass + " mt-1"}
+                  className={selectClass + " mt-1"}
                   value={view === "vat" && !["quarter", "month"].includes(mode) ? "month" : mode}
                   onChange={(e) => setMode(e.target.value)}
                 >
@@ -654,7 +611,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
                     <span>Quý</span>
                     <select
                       aria-label="Quý"
-                      className={inputClass + " mt-1"}
+                      className={selectClass + " mt-1"}
                       value={quarter}
                       onChange={(e) => setQuarter(e.target.value)}
                     >
@@ -672,7 +629,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
         {canManage && (
           <button
             type="button"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary shadow-sm shadow-sm transition-all hover:shadow-md disabled:opacity-50"
+            className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
             onClick={() =>
               view === "debts"
                 ? newDebt()
@@ -716,7 +673,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
       </div>
 
       {error && (
-        <div role="alert" className="rounded-2xl border border-error bg-error-container p-4 text-sm font-medium text-on-error-container">
+        <div role="alert" className="rounded-md border border-error bg-error-container p-4 text-sm font-medium text-on-error-container">
           {error}
         </div>
       )}
@@ -728,7 +685,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
         </div>
       )}
 
-      {visible?.completeness && <div role="status" className="rounded-2xl border border-tertiary bg-tertiary-container p-4 text-sm text-on-tertiary-container"><strong>{visible.completeness.label}</strong>{visible.completeness.issues.map((issue: string) => <p key={issue} className="mt-1">{issue}</p>)}</div>}
+      {visible?.completeness && <div role="status" className="rounded-md border border-tertiary bg-tertiary-container p-4 text-sm text-on-tertiary-container"><strong>{visible.completeness.label}</strong>{visible.completeness.issues.map((issue: string) => <p key={issue} className="mt-1">{issue}</p>)}</div>}
 
       {/* View 1: Debts / Công nợ tổng hợp */}
       {visible && view === "debts" && (
@@ -792,7 +749,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
           />
 
           {!!visible.unrecordedReceipts.length && (
-            <details className="overflow-hidden rounded-2xl border border-tertiary bg-tertiary-container p-4">
+            <details className="overflow-hidden rounded-md border border-tertiary bg-tertiary-container p-4">
               <summary className="cursor-pointer text-sm font-bold text-on-tertiary-container">
                 {visible.unrecordedReceipts.length} phiếu nhập chưa đối soát công nợ
               </summary>
@@ -820,7 +777,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
       {/* View 2: VAT / Thuế VAT */}
       {visible && view === "vat" && (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-primary bg-primary-container p-4 text-xs text-on-primary-container">
+          <div className="rounded-md border border-primary bg-primary-container p-4 text-xs text-on-primary-container">
             Bảng kê theo phương pháp khấu trừ, dựa trên hóa đơn đã nhập. Phiếu bán/nhập kho không tự coi là hóa đơn thuế. Số dư đầu kỳ cần xác nhận cho từng tháng hoặc quý, không cộng dồn đồng thời cả hai.
           </div>
 
@@ -833,7 +790,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
             ]}
           />
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-sm">
             <span>
               Khấu trừ chuyển từ kỳ trước: <strong>{money(visible.totals.openingCredit)}</strong>{" "}
               {visible.openingCreditConfirmed ? "(đã xác nhận)" : "(chưa xác nhận)"}
@@ -930,7 +887,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
             />
           </div>
 
-          <details className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4">
+          <details className="rounded-md border border-outline-variant bg-surface-container-lowest p-4">
             <summary className="cursor-pointer text-sm font-bold text-on-surface">
               Chi tiết doanh thu và giá vốn
             </summary>
@@ -951,7 +908,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
         </div>
       )}
 
-      {visible && view === "profit" && <details className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4"><summary className="cursor-pointer font-bold">Chi tiết chi phí cấu thành lợi nhuận</summary><Table headers={["Ngày / kỳ", "Nhóm", "Chứng từ", "Số tiền phân bổ trong kỳ"]} rows={(visible.expenseDetails || []).map((r: any) => [r.date, r.category, documentLink(r), money(r.amount)])} /></details>}
+      {visible && view === "profit" && <details className="rounded-md border border-outline-variant bg-surface-container-lowest p-4"><summary className="cursor-pointer font-bold">Chi tiết chi phí cấu thành lợi nhuận</summary><Table headers={["Ngày / kỳ", "Nhóm", "Chứng từ", "Số tiền phân bổ trong kỳ"]} rows={(visible.expenseDetails || []).map((r: any) => [r.date, r.category, documentLink(r), money(r.amount)])} /></details>}
       {/* View 4: Breakeven / Điểm hòa vốn */}
       {visible && view === "breakeven" && (
         <div className="space-y-4">
@@ -959,7 +916,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
           {!!visible.result.mixUnits?.length && <Table headers={["Nhóm", "Số lượng theo cơ cấu để hòa vốn"]} rows={visible.result.mixUnits.map((r: any) => [({ phone: "Điện thoại", accessory: "Phụ kiện", repair: "Lượt sửa chữa" } as any)[r.segment], r.units ?? "Chưa xác định"])} />}
           {visible.actualExpenses && <Table headers={["Khoản chi", "Dự toán", "Đã ghi nhận", "Chênh lệch thực tế − dự toán"]} rows={([["rent", "Mặt bằng"], ["payroll", "Lương"], ["otherFixed", "Chi phí khác (thực tế gồm cả khoản không cố định)"]]).map(([key, label]) => [label, money(visible.plan[key] || 0), money(visible.actualExpenses[key] || 0), money((visible.actualExpenses[key] || 0) - (visible.plan[key] || 0))])} />}
           {!visible.configured && (
-            <div className="rounded-2xl border border-tertiary bg-tertiary-container p-4 text-xs text-on-tertiary-container">
+            <div className="rounded-md border border-tertiary bg-tertiary-container p-4 text-xs text-on-tertiary-container">
               Chưa cấu hình định phí và giá bán/giá vốn dự kiến cho tháng này.
             </div>
           )}
@@ -973,7 +930,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
             ]}
           />
 
-          <div className="rounded-3xl border border-outline-variant bg-surface-container-lowest p-6 shadow-xs">
+          <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
             <p className="text-base font-bold text-on-surface">
               {!visible.configured
                 ? "Cần cấu hình trước khi đánh giá hòa vốn"
@@ -1010,7 +967,7 @@ export default function FinancialReportsPage({ permissions }: { permissions: rea
       )}
 
       {!!visible?.warnings?.length && (
-        <div className="space-y-2 rounded-2xl border border-tertiary bg-tertiary-container p-4 text-xs text-on-tertiary-container">
+        <div className="space-y-2 rounded-md border border-tertiary bg-tertiary-container p-4 text-xs text-on-tertiary-container">
           <p className="flex items-center gap-2 font-bold">
             <AlertCircle size={16} />
             Cơ sở số liệu cần lưu ý

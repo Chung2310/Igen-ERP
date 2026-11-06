@@ -3,6 +3,7 @@ import { StatsGrid } from '../../components/Dashboard/StatsGrid';
 import { WorkerOverviewDashboard } from '../../components/Dashboard/WorkerOverviewDashboard';
 import { Student } from '../../types';
 import './dashboard-chart.css';
+import '../../../../components/dashboard/overview-tooltip.css';
 
 interface DashboardPageProps {
   formattedDate: string;

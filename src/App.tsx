@@ -17,7 +17,6 @@ import { pushService } from "./services/pushService";
 import { setFaviconBadge } from "./utils/faviconBadge";
 import { isSuperAdminPath } from "./router/superAdminRoute";
 import { resolveEnabledTab } from "./config/modules";
-import { ChatbotWidget } from "./components/common/ChatbotWidget";
 
 const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
@@ -43,10 +42,12 @@ const PublicSlotApproval = lazy(() => import("./modules/marketing-suite/campaign
 const PublicDailySlotsApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicDailySlotsApproval"));
 const PublicMonthlyApproval = lazy(() => import("./modules/marketing-suite/campaign/pages/PublicMonthlyApproval"));
 const RetailPosEntry = lazy(() => import("./modules/retail/pages/RetailPosEntry"));
+const ChatbotWidget = lazy(() => import("./components/common/ChatbotWidget").then(module => ({ default: module.ChatbotWidget })));
 
 function AppContent() {
   const { user, userProfile, loading, logout, hasPermission, initializationError, retryInitialization } = useAuth();
   const { activeBranchId, loading: branchLoading, error: branchError, retry: retryBranch } = useBranch();
+  const [assistantPanelRequest, requestAssistantPanel] = React.useState(0);
   const pathname = React.useSyncExternalStore(subscribeToPathname, getPathnameSnapshot, getPathnameSnapshot);
   const requestedPath = normalizePublicPath(pathname);
   const isPosOnly = userProfile?.role === "pos_cashier";
@@ -74,6 +75,12 @@ function AppContent() {
     ? "QUẢN LÝ HỌC VIÊN" as TabType
     : activeTab;
   const resolvedActiveTab = resolveEnabledTab(teacherSafeTab, userProfile?.enabledModules, userProfile?.businessType);
+
+  React.useEffect(() => {
+    if (resolvedActiveTab !== "TRỢ LÝ AI") return;
+    const frame = window.requestAnimationFrame(() => requestAssistantPanel(0));
+    return () => window.cancelAnimationFrame(frame);
+  }, [resolvedActiveTab]);
 
   React.useEffect(() => {
     if (isPosOnly && requestedPath !== "/pos") {
@@ -296,7 +303,6 @@ function AppContent() {
       <>
         <SEOHead meta={{ ...getSeoForTab("BÁN LẺ"), path: "/pos" }} />
         <Suspense fallback={<AuthLoader />}><RetailPosEntry /></Suspense>
-        {hasPermission("chat:read") && <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />}
       </>
     ) : (
       <main className="flex min-h-dvh items-center justify-center bg-slate-50 p-6 text-center text-slate-700">
@@ -330,12 +336,16 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-dvh w-full min-w-0 overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
+    <div className="fixed inset-0 flex h-dvh w-full min-w-0 overflow-clip bg-background font-sans text-on-surface" id="app_root_layout">
       <SEOHead meta={getSeoForTab(resolvedActiveTab)} />
-      <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden" id="main_content_area">
+      <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-clip" id="main_content_area">
         <Header
           currentTab={resolvedActiveTab}
           onSearchSelect={handleSearchNavigation}
+          onAssistantOpen={() => {
+            if (resolvedActiveTab === "TRỢ LÝ AI") return;
+            requestAssistantPanel(value => value + 1);
+          }}
         />
 
         <main
@@ -343,7 +353,7 @@ function AppContent() {
             resolvedActiveTab === "TRỢ LÝ AI"
               ? "flex min-h-0 flex-col overflow-hidden p-0"
               : resolvedActiveTab === "TÍCH HỢP MARKETING"
-                ? "flex min-h-0 flex-col overflow-hidden p-2"
+                ? "flex min-h-0 flex-col overflow-clip p-2"
               : `overflow-x-hidden overflow-y-auto ${activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-2" : "p-2"}`
           }`}
           id="primary_page_container"
@@ -363,9 +373,14 @@ function AppContent() {
         </main>
       </div>
 
+      {assistantPanelRequest > 0 && resolvedActiveTab !== "TRỢ LÝ AI" && hasPermission("chat:read") && userProfile?.companyCode && userProfile.uid && (
+        <Suspense fallback={null}>
+          <ChatbotWidget mode="popup" headerPanel openRequest={assistantPanelRequest} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />
+        </Suspense>
+      )}
+
       {/* Popup thông báo nổi thời gian thực ở góc dưới bên phải màn hình */}
       <NotificationToastContainer onNavigate={handleSearchNavigation} />
-      {hasPermission("chat:read") && resolvedActiveTab !== "TRỢ LÝ AI" && <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />}
     </div>
   );
 }

@@ -193,6 +193,7 @@ export default function ContractsTab({
   const [settingDays, setSettingDays] = useState(20);
   const [savingSettings, setSavingSettings] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [withoutContractEmployees, setWithoutContractEmployees] = useState<Array<{ id: string; name: string }>>([]);
   const [extensions, setExtensions] = useState<Extension[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -230,6 +231,7 @@ export default function ContractsTab({
       setExpiryAlertDays(ar.data?.expiryAlertDays || 20);
       setSettingDays(ar.data?.expiryAlertDays || 20);
       setEmployees(ar.data?.employees || []);
+      setWithoutContractEmployees(ar.data?.withoutContractEmployees || []);
       setTotal(ar.data?.total || 0);
       setExtensions(br.data || []);
     } catch (e) {
@@ -653,6 +655,14 @@ export default function ContractsTab({
           </div>
         ) : tab === "contracts" ? (
           <>
+            {withoutContractEmployees.length > 0 && (
+              <section aria-labelledby="without-contract-heading" className="rounded-md border border-outline-variant bg-surface-container-low p-3">
+                <h3 id="without-contract-heading" className="text-balance text-sm font-semibold text-on-surface">Nhân sự chưa có hợp đồng hiệu lực (<span className="tabular-nums">{withoutContractEmployees.length}</span>)</h3>
+                <ul className="mt-2 grid gap-x-4 gap-y-1 text-sm text-on-surface sm:grid-cols-2 lg:grid-cols-3">
+                  {withoutContractEmployees.map((employee) => <li key={employee.id} className="min-w-0 truncate" title={employee.name}>{employee.name}</li>)}
+                </ul>
+              </section>
+            )}
             {expiryAlertTotal > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-amber-800">
                 <div>

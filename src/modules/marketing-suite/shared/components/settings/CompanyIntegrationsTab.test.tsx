@@ -71,3 +71,16 @@ it.each(["Facebook", "Zalo"] as const)("renders the new %s connection form witho
   fireEvent.click(screen.getByRole("radio", { name: platform }));
   expect(screen.getByPlaceholderText(platform === "Facebook" ? "Vi du: Fanpage Chinh thuc" : "Vi du: Zalo OA Shop")).toBeTruthy();
 });
+
+it("switches Facebook and Zalo forms with existing connected accounts", async () => {
+  vi.mocked(socialIntegrationService.getIntegrations).mockResolvedValue([
+    { _id: "facebook", platform: "Facebook", username: "123456", displayName: "Fanpage A", isConnected: true, createdBy: "admin" },
+    { _id: "zalo", platform: "Zalo", username: "654321", displayName: "Zalo OA", isConnected: true, createdBy: "admin" },
+  ]);
+  render(<CompanyIntegrationsTab userProfile={{ email: "user@erp.test", companyCode: "ERP", role: "admin" }} />);
+  await waitFor(() => expect(socialIntegrationService.getIntegrations).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("radio", { name: "Facebook" }));
+  expect(screen.getAllByText("Fanpage A").length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("radio", { name: "Zalo" }));
+  expect(screen.getByPlaceholderText("Vi du: Zalo OA Shop")).toBeTruthy();
+});

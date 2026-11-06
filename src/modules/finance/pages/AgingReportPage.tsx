@@ -34,30 +34,30 @@ export default function AgingReportPage({
       );
   }, []);
   return (
-    <section className="space-y-4">
+    <section className="finance-page-content">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Phân tích tuổi nợ</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="finance-page-title">Phân tích tuổi nợ</h1>
+        <p className="text-sm text-on-surface-variant">
           Chọn một nhóm để xem các khoản công nợ tương ứng.
         </p>
       </div>
       {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
+        <p className="rounded-md bg-error-container p-4 text-sm text-on-error-container">{error}</p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {buckets.map(({ key, label }) => (
           <button
             key={key}
             type="button"
             aria-label={`Xem nhóm ${label}`}
             onClick={() => onDrillDown(key)}
-            className="rounded-2xl border border-slate-200 bg-white p-5 text-left hover:border-cyan-400"
+            className="rounded-md border border-outline-variant bg-surface-container-lowest p-5 text-left hover:border-primary"
           >
-            <p className="text-sm font-semibold text-slate-500">{label}</p>
-            <p className="mt-2 text-2xl font-bold text-slate-900">
+            <p className="text-sm font-semibold text-on-surface-variant">{label}</p>
+            <p className="mt-2 text-2xl font-bold text-on-surface">
               {money.format(data[key]?.balance || 0)}
             </p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-on-surface-variant">
               {data[key]?.count || 0} khoản
             </p>
           </button>
