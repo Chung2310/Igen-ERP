@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { InventoryEmptyIllustration } from "./InventoryEmptyIllustration";
 import { StyledSelect } from "../common/StyledSelect";
 import { ErpRefreshButton } from "../common/ErpRefreshButton";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import {
   ArrowLeftRight,
   ArrowRight,
-  Boxes,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -382,21 +383,15 @@ export function InventoryTransferSection({
     <section className="space-y-6" aria-label="Điều chuyển kho">
       {/* Top Header Card */}
       <div className="inventory-transfer-overview">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cyan-600 text-white shadow-md shadow-cyan-600/20">
-              <ArrowLeftRight className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold tracking-tight text-slate-900">
-                  Điều chuyển kho
-                </h2>
-                <span className="rounded-full bg-cyan-100 px-2.5 py-0.5 text-xs font-semibold text-cyan-800">
-                  {total} phiếu
-                </span>
-              </div>
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-900">
+              <ArrowLeftRight className="mr-1 inline size-5 align-[-0.2em] text-primary" aria-hidden="true" />
+              Điều chuyển kho
+            </h2>
+            <span className="rounded-full bg-cyan-100 px-2.5 py-0.5 text-xs font-semibold text-cyan-800">
+              {total} phiếu
+            </span>
           </div>
 
           <div className="flex items-center gap-2.5">
@@ -405,10 +400,10 @@ export function InventoryTransferSection({
             {canManage && (
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-xs hover:opacity-90 transition-colors"
+                className={`${primaryCreateButtonClass} min-h-9`}
                 onClick={handleOpenCreateModal}
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="size-4" aria-hidden="true" />
                 <span>Tạo phiếu điều chuyển</span>
               </button>
             )}
@@ -517,25 +512,18 @@ export function InventoryTransferSection({
           </p>
         </div>
       ) : !filteredDocuments.length ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-14 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-            <Boxes className="h-7 w-7" />
-          </div>
-          <p className="mt-3 text-base font-semibold text-slate-800">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-outline-variant bg-surface-container-lowest py-7 text-center">
+          <InventoryEmptyIllustration kind={searchQuery || status || dateFilter.mode !== "all" ? "search" : "transfer"} />
+          <p className="mt-1 text-base font-semibold text-slate-800">
             Chưa có phiếu điều chuyển phù hợp.
-          </p>
-          <p className="mt-1 text-sm text-slate-500 max-w-md">
-            {searchQuery || status || dateFilter.mode !== "all"
-              ? "Hãy thử thay đổi điều kiện tìm kiếm hoặc trạng thái lọc."
-              : "Bấm 'Tạo phiếu điều chuyển' để bắt đầu chuyển hàng giữa các kho."}
           </p>
           {canManage && !searchQuery && !status && dateFilter.mode === "all" && (
             <button
               type="button"
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-xs hover:bg-cyan-500 transition"
+              className={`${primaryCreateButtonClass} mt-3 min-h-9`}
               onClick={handleOpenCreateModal}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="size-4" aria-hidden="true" />
               <span>Tạo phiếu điều chuyển mới</span>
             </button>
           )}

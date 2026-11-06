@@ -1,5 +1,7 @@
-import { Plus, RefreshCw, Users } from "lucide-react";
+import { Plus } from "lucide-react";
 import { CompanyProfile, UserProfile } from "../../types";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
+import { StyledSelect } from "../common/StyledSelect";
 
 interface Props {
   userProfile?: UserProfile | null;
@@ -23,41 +25,31 @@ export function UserAdminHeader({
   loading,
 }: Props) {
   return (
-    <div className="flex shrink-0 flex-col justify-between gap-4 bg-white px-5 py-5 sm:flex-row sm:items-center sm:px-6" id="user_admin_header">
-      <div className="flex items-center gap-3">
-        <div className="rounded-2xl bg-cyan-50 p-2.5 text-cyan-700">
-          <Users className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-800">
-            Quản lý người dùng
-          </h1>
-        </div>
+    <div className="flex shrink-0 flex-col justify-between gap-3 border-b border-outline-variant bg-surface-container-lowest px-3 py-3 sm:flex-row sm:items-center" id="user_admin_header">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span aria-hidden="true" className="h-5 w-1 shrink-0 rounded-full bg-primary" />
+        <h1 className="text-balance text-lg font-semibold text-on-surface">Quản lý người dùng</h1>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2">
         {userProfile?.role === "superadmin" && (
           <>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Doanh nghiệp</span>
-              <select
+              <span className="text-xs font-normal text-on-surface-variant">Doanh nghiệp</span>
+              <StyledSelect
+                ariaLabel="Doanh nghiệp"
                 value={selectedCompanyCode}
-                onChange={(e) => onSelectedCompanyCodeChange(e.target.value)}
-                className="min-h-10 cursor-pointer rounded-xl bg-slate-50 px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-cyan-200"
-              >
-                <option value="all">Tất cả doanh nghiệp</option>
-                {companies.map((c) => (
-                  <option key={c.id || c.code} value={c.code}>
-                    {c.name} ({c.code})
-                  </option>
-                ))}
-              </select>
+                onChange={onSelectedCompanyCodeChange}
+                options={[{ value: "all", label: "Tất cả doanh nghiệp" }, ...companies.map((c) => ({ value: c.code, label: `${c.name} (${c.code})` }))]}
+                appearance="erp"
+                className="min-h-9 rounded-md sm:min-w-48"
+              />
             </div>
 
             <button
               type="button"
               onClick={onOpenCompanyModal}
-              className="flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-cyan-600 px-3.5 text-sm font-medium text-white transition-colors hover:bg-cyan-700"
+              className={`${primaryCreateButtonClass} user-admin-create-button min-h-9`}
             >
               <Plus className="h-3.5 w-3.5" />
               Đăng ký doanh nghiệp

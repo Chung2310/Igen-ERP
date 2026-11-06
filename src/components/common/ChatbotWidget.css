@@ -124,11 +124,11 @@
   stroke: var(--assistant-rail-gradient);
 }
 
-.assistant-side-item:not(:disabled):is(.assistant-chat-entry, .is-active, :hover, :focus-visible) .assistant-side-icon svg {
+.assistant-side-item:not(:disabled):is(.is-active, :hover, :focus-visible) .assistant-side-icon svg {
   stroke: var(--assistant-rail-gradient);
 }
 
-.assistant-side-item:not(:disabled):is(.assistant-chat-entry, .is-active, :hover, :focus-visible) > span:not(.assistant-side-icon) {
+.assistant-side-item:not(:disabled):is(.is-active, :hover, :focus-visible) > span:not(.assistant-side-icon) {
   background: linear-gradient(90deg, #00adfc 0%, #199bff 55%, #7567ff 100%);
   background-clip: text;
   -webkit-background-clip: text;

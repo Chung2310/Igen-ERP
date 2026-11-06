@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Box,
   ChevronLeft,
   ChevronRight,
   Eye,
@@ -17,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "../../pages/Toast";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import {
   type CatalogProduct,
@@ -44,6 +44,7 @@ import { ConfirmDialog } from "./InventoryConfirmDialog";
 import { VariantModal } from "./catalog/VariantModal";
 import { BulkVariantModal } from "./catalog/BulkVariantModal";
 import { TrackingModeIcon } from "./TrackingModeIcon";
+import { InventoryEmptyIllustration } from "./InventoryEmptyIllustration";
 
 export function ProductCatalogV2Section() {
   const handledDeepLink = useRef("");
@@ -272,12 +273,12 @@ export function ProductCatalogV2Section() {
   }, [products, resources.categories]);
 
   return (
-    <section className="space-y-4" aria-label="Danh mục sản phẩm dùng chung">
+    <section className="space-y-3" aria-label="Danh mục sản phẩm dùng chung">
       {/* Header bar */}
       <div className="flex flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-lg font-bold tracking-tight text-slate-900">Danh mục sản phẩm</h2>
+            <h2 className="text-lg font-bold text-slate-900">Danh mục sản phẩm</h2>
           </div>
         </div>
 
@@ -321,7 +322,7 @@ export function ProductCatalogV2Section() {
               void load();
               setEditor("create");
             }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-on-primary shadow-xs hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+            className={`${primaryCreateButtonClass} min-h-9`}
           >
             <PackagePlus className="h-4 w-4" />
             Tạo sản phẩm
@@ -414,17 +415,10 @@ export function ProductCatalogV2Section() {
           <p className="text-sm text-slate-500">Đang tải danh mục sản phẩm...</p>
         </div>
       ) : products.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white py-14 text-center shadow-xs">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-            <Box className="h-6 w-6" />
-          </div>
-          <p className="mt-3 text-sm font-semibold text-slate-800">Chưa có sản phẩm nào phù hợp</p>
-          <p className="mt-1 text-xs text-slate-500">
-            {query || selectedCategory || selectedBrand || status
-              ? "Thử thay đổi từ khóa hoặc bộ lọc để tìm kiếm."
-              : "Bấm \"Tạo sản phẩm\" để bắt đầu tạo sản phẩm và ma trận biến thể."}
-          </p>
-          <div className="mt-4">
+        <div className="rounded-xl border border-outline-variant bg-surface-container-lowest py-7 text-center shadow-xs">
+          <InventoryEmptyIllustration kind={query || selectedCategory || selectedBrand || status ? "search" : "product"} className="mx-auto" />
+          <p className="mt-1 text-sm font-semibold text-slate-800">Chưa có sản phẩm nào phù hợp</p>
+          <div className="mt-3">
             {query || selectedCategory || selectedBrand || status ? (
               <button
                 type="button"
@@ -438,7 +432,7 @@ export function ProductCatalogV2Section() {
               <button
                 type="button"
                 onClick={() => setEditor("create")}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-cyan-800 shadow-xs"
+                className={`${primaryCreateButtonClass} min-h-9`}
               >
                 <PackagePlus className="h-4 w-4" />
                 Tạo sản phẩm mới

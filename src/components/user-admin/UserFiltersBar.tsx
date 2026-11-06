@@ -25,7 +25,7 @@ export function UserFiltersBar({
   onClear,
 }: Props) {
   return (
-    <div className="flex shrink-0 flex-col gap-3 bg-white px-5 py-4 lg:flex-row lg:items-end lg:justify-between sm:px-6">
+    <div className="flex shrink-0 flex-col gap-3 border-b border-outline-variant bg-surface-container-lowest px-3 py-3 lg:flex-row lg:items-end lg:justify-between">
       <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="relative w-full sm:max-w-sm sm:flex-1">
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -35,10 +35,10 @@ export function UserFiltersBar({
             placeholder="Tìm tên hoặc email"
             value={searchQuery}
             onChange={(event) => onSearchChange(event.target.value)}
-            className="min-h-10 w-full rounded-xl bg-slate-50 py-2 pl-10 pr-10 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-cyan-200"
+            className="min-h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest py-2 pl-10 pr-10 text-base font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary sm:text-sm"
           />
           {searchQuery && (
-            <button type="button" onClick={() => onSearchChange("")} aria-label="Xóa tìm kiếm" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-700">
+            <button type="button" onClick={() => onSearchChange("")} aria-label="Xóa tìm kiếm" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-on-surface-variant hover:bg-surface hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
@@ -48,10 +48,10 @@ export function UserFiltersBar({
           <AdminDatePicker label="Đến ngày" value={filterEndDate} onChange={onFilterEndDateChange} min={filterStartDate || undefined} />
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3 pb-1 text-xs text-slate-500 lg:justify-end">
-        <span>{visibleUsersCount} / {totalUsersCount} tài khoản</span>
+      <div className="flex items-center justify-between gap-3 pb-1 text-xs font-normal text-on-surface-variant lg:justify-end">
+        <span className="tabular-nums">{visibleUsersCount} / {totalUsersCount} tài khoản</span>
         {(searchQuery || filterStartDate || filterEndDate) && (
-          <button type="button" onClick={onClear} className="inline-flex items-center gap-1 rounded-lg bg-slate-50 px-2.5 py-1.5 font-medium text-slate-600 hover:bg-cyan-50 hover:text-cyan-700">
+          <button type="button" onClick={onClear} className="inline-flex items-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 font-medium text-on-surface-variant hover:bg-surface hover:text-on-surface focus-visible:outline-2 focus-visible:outline-primary">
             <X className="h-3.5 w-3.5" /> Xóa lọc
           </button>
         )}

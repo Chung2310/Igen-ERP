@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useMemo } from "react";
+import { InventoryEmptyIllustration } from "./InventoryEmptyIllustration";
 import {
   Eye,
   Pencil,
@@ -12,6 +13,7 @@ import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
 import { ErpRefreshButton } from "../common/ErpRefreshButton";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import {
   inventoryReceivingService,
   type Warehouse,
@@ -335,9 +337,9 @@ export function OutboundSection({
     <div className="space-y-6">
 
       {/* 1. Header Section */}
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-outline-variant pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-base font-bold text-slate-900">Xuất hàng</h3>
+          <h3 className="inventory-outbound-title text-base font-bold text-slate-900">Xuất hàng</h3>
         </div>
 
         <div className="flex items-center gap-2">
@@ -348,7 +350,7 @@ export function OutboundSection({
               setEditingTicket(null);
               setCreateModalOpen(true);
             }}
-            className="rounded-lg bg-cyan-700 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-cyan-800 transition-colors"
+            className={`${primaryCreateButtonClass} min-h-9`}
           >
             + Tạo phiếu xuất mới
           </button>
@@ -509,8 +511,9 @@ export function OutboundSection({
             ) : visibleLogs.length === 0 ? (
               <tr>
                 <td colSpan={8} className="py-12 text-center text-xs text-slate-500">
+                  <InventoryEmptyIllustration kind={outboundLogs.length === 0 ? "receipt" : "search"} className="mx-auto" />
                   {outboundLogs.length === 0
-                    ? "Chưa có phiếu xuất kho nào. Nhấn 'Tạo phiếu xuất mới' để bắt đầu."
+                    ? "Chưa có phiếu xuất kho nào."
                     : "Không tìm thấy phiếu xuất nào khớp với điều kiện lọc."}
                 </td>
               </tr>

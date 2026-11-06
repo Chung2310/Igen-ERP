@@ -14,6 +14,7 @@ import { Dropdown, type DropdownOption } from "../common/Dropdown";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
 import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { MetricBar } from "../common/MetricBar";
+import { InventoryEmptyIllustration } from "./InventoryEmptyIllustration";
 
 const statuses: Array<"" | SerialUnitStatus> = [
   "",
@@ -511,6 +512,7 @@ export function SerialRegistrySection({ onTransfers }: { onTransfers?: () => voi
             </div>
           ) : machineGroups.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-xs text-slate-400">
+              <InventoryEmptyIllustration kind="search" className="mx-auto" />
               Không tìm thấy dòng máy nào phù hợp với bộ lọc.
             </div>
           ) : (
@@ -776,6 +778,7 @@ export function SerialRegistrySection({ onTransfers }: { onTransfers?: () => voi
                 ) : pagedItems.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center text-xs text-slate-400">
+                      <InventoryEmptyIllustration kind="search" className="mx-auto" />
                       Không tìm thấy mã IMEI nào phù hợp với bộ lọc.
                     </td>
                   </tr>

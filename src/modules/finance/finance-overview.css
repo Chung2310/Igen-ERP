@@ -1,0 +1,47 @@
+.finance-overview {
+  --finance-chart-blue: #3b64df;
+  --finance-chart-teal: #20bfa3;
+  --finance-chart-orange: #f09936;
+  --finance-chart-violet: #7655d8;
+  --finance-chart-red: #e85b64;
+  --finance-chart-teal-soft: color-mix(in srgb, var(--finance-chart-teal) 20%, transparent);
+}
+
+.finance-chart-card {
+  min-width: 0;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 6px;
+  background: var(--color-surface-container-lowest);
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.finance-kpi {
+  --kpi-start: #7344ee;
+  --kpi-end: #6237de;
+  min-width: 0;
+  min-height: 5.25rem;
+  border-radius: 6px;
+  padding: 0.75rem 0.875rem;
+  background: linear-gradient(90deg, rgb(255 255 255 / 20%), rgb(255 255 255 / 4%) 42%, transparent 72%), linear-gradient(110deg, var(--kpi-start), var(--kpi-end));
+}
+.finance-kpi p { text-shadow: 0 1px 3px rgb(0 0 0 / 0.55); }
+.finance-kpi-1 { --kpi-start: #326ef1; --kpi-end: #285fe3; }
+.finance-kpi-2 { --kpi-start: #03ade0; --kpi-end: #0099ce; }
+.finance-kpi-3 { --kpi-start: #f87935; --kpi-end: #eb6328; }
+.finance-kpi-4 { --kpi-start: #f3bd31; --kpi-end: #dfa91d; }
+.finance-kpi-5 { --kpi-start: #ec3b57; --kpi-end: #dc2948; }
+
+.finance-overview .recharts-cartesian-axis-tick-value,
+.finance-overview .recharts-legend-item-text {
+  fill: var(--color-on-surface-variant);
+  color: var(--color-on-surface-variant) !important;
+}
+
+.dark .finance-overview {
+  --finance-chart-blue: #7694ff;
+  --finance-chart-teal: #3bd4b8;
+  --finance-chart-orange: #f5ae61;
+  --finance-chart-violet: #a28aff;
+  --finance-chart-red: #f17e88;
+}

@@ -693,7 +693,7 @@ function InventoryWorkspace() {
         })}
       </ModuleNavigation>
 
-      <div className="inventory-workspace m-2 min-h-0 flex-1 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:m-3 sm:p-5" id="inventory_tab_content">
+      <div className="inventory-workspace min-h-0 flex-1 overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:p-4" id="inventory_tab_content">
         {subTab === "SẢN PHẨM" && (
           <div className="space-y-6" id="product_catalog_menu">
             <ProductCatalogV2Section />

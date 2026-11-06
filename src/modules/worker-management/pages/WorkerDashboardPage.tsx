@@ -1,3 +1,4 @@
+import '../../../components/dashboard/overview-dashboard.css';
 import React from "react";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import type { Worker } from "../types";
@@ -148,7 +149,7 @@ export function WorkerDashboardPage({
       )}
 
       <section className={`grid grid-cols-1 gap-3 ${hasContractAlerts ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-3"}`} aria-label="Số liệu tổng quan lao động">
-        <div className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
+        <div className="overview-kpi flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
           <div className="rounded-xl bg-[#E8F7FF] p-3 text-[#00ADFC]">
             <Users className="h-5 w-5" />
           </div>
@@ -160,7 +161,7 @@ export function WorkerDashboardPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
+        <div className="overview-kpi flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
           <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
             <UserCheck className="h-5 w-5" />
           </div>
@@ -172,7 +173,7 @@ export function WorkerDashboardPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
+        <div className="overview-kpi flex items-center gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
           <div className="rounded-xl bg-violet-50 p-3 text-violet-600">
             <Briefcase className="h-5 w-5" />
           </div>

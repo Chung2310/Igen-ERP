@@ -1212,7 +1212,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             {!sidebarCollapsed && <button type="button" aria-label="Bắt đầu cuộc trò chuyện mới" title="Trò chuyện mới" disabled={isLoading || Boolean(retryRef.current) || messages.length <= 1} onClick={startNew} className={cn("assistant-sidebar-tool flex size-9 shrink-0 items-center justify-center rounded-lg text-on-surface hover:bg-surface-container-low disabled:cursor-not-allowed disabled:text-on-surface/35", focusClass)}><MessageSquarePlus className="size-5" aria-hidden="true" /></button>}
           </div>
           <nav id="assistant-sidebar-navigation" className="flex flex-col gap-1.5" aria-label="Chế độ trợ lý">
-            <button type="button" aria-label="Trò chuyện" aria-current={view === "chat" && assistantMode === "qa" ? "page" : undefined} disabled={isLoading || Boolean(retryRef.current)} onClick={() => openMode("qa")} className={cn("assistant-side-item assistant-chat-entry", view === "chat" && assistantMode === "qa" && "is-active", focusClass)}><AssistantRailIcon name="chat" />{!sidebarCollapsed && <span>Trò chuyện</span>}</button>
+            <button type="button" aria-label="Trò chuyện" aria-current={view === "chat" && assistantMode === "qa" ? "page" : undefined} disabled={isLoading || Boolean(retryRef.current)} onClick={() => openMode("qa")} className={cn("assistant-side-item", view === "chat" && assistantMode === "qa" && "is-active", focusClass)}><AssistantRailIcon name="chat" />{!sidebarCollapsed && <span>Trò chuyện</span>}</button>
             <button type="button" disabled title="Chưa có tính năng AI Studio" className="assistant-side-item" aria-label="AI Studio (chưa có)"><AssistantRailIcon name="studio" />{!sidebarCollapsed && <span>AI Studio</span>}</button>
             <button type="button" disabled title="Chưa có tính năng Notebook" className="assistant-side-item" aria-label="Notebook (chưa có)"><AssistantRailIcon name="notebook" />{!sidebarCollapsed && <span>Notebook</span>}</button>
             <button type="button" disabled title="Chưa có tính năng ghi chép cuộc họp" className="assistant-side-item" aria-label="Ghi chép cuộc họp (chưa có)"><AssistantRailIcon name="meeting" />{!sidebarCollapsed && <span>Ghi chép cuộc họp</span>}</button>
@@ -1273,13 +1273,13 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         </div>
         <ConfirmDialog isOpen={Boolean(pendingConversationDelete)} isSubmitting={Boolean(deletingConversationId)} title="Xóa phiên trò chuyện?" description={`Tin nhắn và ngữ cảnh riêng của phiên “${pendingConversationDelete?.title || "này"}” sẽ bị xóa vĩnh viễn.`} confirmLabel="Xóa phiên" onClose={() => setPendingConversationDelete(null)} onConfirm={deleteConversation} />
         <div hidden={view !== "chat"} className={cn("min-h-0 flex-1 flex-col", view === "chat" && "flex")}>
-        {isViewingHistory && <div ref={historyBannerRef} tabIndex={-1} className={cn("shrink-0 border-b border-outline-variant bg-surface-container-low px-4 py-2", focusClass)}>
+        {isViewingHistory && <div ref={historyBannerRef} tabIndex={-1} className={cn("shrink-0 border-b border-outline-variant bg-surface-container-low px-4 py-2 text-center", focusClass)}>
           <p className="text-pretty text-sm">Đang xem lại phiên cũ. Phiên này ở chế độ chỉ đọc.</p>
         </div>}
         {isWelcomeScreen ? <div ref={logRef} className="assistant-welcome assistant-reference-welcome min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-8 sm:px-8">
           <section aria-labelledby="assistant-welcome-title" className="assistant-reference-content mx-auto flex min-h-full w-full max-w-5xl flex-col justify-center gap-7 sm:gap-8">
             <div className="space-y-3 text-center">
-              <h1 id="assistant-welcome-title" className="text-balance text-2xl font-semibold sm:text-3xl">{assistantMode === "work" ? <>Xin chào {userProfile?.displayName || "bạn"}, tôi sẽ giúp bạn thao tác ngay trên hệ thống <span className="assistant-brand-name">iGen</span></> : <>Xin chào {userProfile?.displayName || "bạn"}, mình là Trợ lí AI của <span className="assistant-brand-name">iGen</span></>} <span aria-hidden="true">👋</span></h1>
+              <h1 id="assistant-welcome-title" className="text-balance text-2xl font-semibold sm:text-3xl">{assistantMode === "work" ? <>Xin chào {userProfile?.displayName || "bạn"}, tôi giúp bạn thao tác trên <span className="assistant-brand-name">iGen</span></> : <>Xin chào {userProfile?.displayName || "bạn"}, mình là Trợ lí AI của <span className="assistant-brand-name">iGen</span></>} <span aria-hidden="true">👋</span></h1>
             </div>
             {isLoading && <p role="status" className="text-center text-sm text-on-surface/70">Đang tải cuộc trò chuyện…</p>}
             {renderComposer("landing")}
@@ -1311,9 +1311,6 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                 {message.content.split(/(\*\*.*?\*\*)/g).map((part, i) => part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part)}
               </p>
             </div>
-            <span className="assistant-user-avatar mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary" aria-hidden="true">
-              <UserRound className="size-5" />
-            </span>
             </> : <>
             <AssistantMessageAvatar />
             <div className="min-w-0 w-full max-w-4xl">
@@ -1335,23 +1332,23 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             </div>
             </>}
           </div>)}
-          {lastReply?.referenceSelections?.length ? <section aria-labelledby="assistant-reference-selection-title" className="max-w-4xl space-y-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 text-sm shadow-sm sm:p-5">
+          {lastReply?.referenceSelections?.length ? <section aria-labelledby="assistant-reference-selection-title" className="max-w-4xl space-y-2 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm sm:p-4">
             <header>
               <h3 id="assistant-reference-selection-title" className="text-balance font-semibold">Chọn thông tin liên quan</h3>
               <p className="mt-1 text-pretty text-xs text-on-surface/70">Chọn ngay tại đây để tiếp tục. Mục tùy chọn có thể bỏ qua.</p>
             </header>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {lastReply.referenceSelections.map((group, groupIndex) => {
                 const useCheckboxes = group.multiple || !group.required;
-                return <fieldset key={group.key} className="space-y-2">
-                  <legend className="mb-2 font-medium">{group.label}<span className="ml-2 text-xs font-normal text-on-surface/70">{group.required ? "Bắt buộc" : "Tùy chọn"}{group.multiple ? " · Có thể chọn nhiều" : ""}</span></legend>
+                return <fieldset key={group.key} className="space-y-1.5">
+                  <legend className="mb-1.5 font-medium">{group.label}<span className="ml-2 text-xs font-normal text-on-surface/70">{group.required ? "Bắt buộc" : "Tùy chọn"}{group.multiple ? " · Có thể chọn nhiều" : ""}</span></legend>
                   <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {group.options.map((option, optionIndex) => {
                       const id = `assistant-reference-${groupIndex}-${optionIndex}`;
                       const checked = Boolean(selectedReferences[group.key]?.includes(option.value));
                       return <li key={option.value}>
-                        <label htmlFor={id} className={cn("flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-outline-variant bg-surface px-3 py-2.5 hover:bg-surface-container-low", focusClass, (isLoading || isViewingHistory || Boolean(retryRef.current)) && "cursor-not-allowed opacity-50")}>
-                          <input id={id} type={useCheckboxes ? "checkbox" : "radio"} name={`assistant-reference-${groupIndex}`} value={option.value} checked={checked} disabled={isLoading || isViewingHistory || Boolean(retryRef.current)} onChange={event => toggleReferenceSelection(group.key, option.value, event.currentTarget.checked, group.multiple)} className="mt-0.5 size-4 shrink-0 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
+                        <label htmlFor={id} className={cn("flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-outline-variant bg-surface px-2.5 py-2 hover:bg-surface-container-low", focusClass, (isLoading || isViewingHistory || Boolean(retryRef.current)) && "cursor-not-allowed opacity-50")}>
+                          <input id={id} type={useCheckboxes ? "checkbox" : "radio"} name={`assistant-reference-${groupIndex}`} value={option.value} checked={checked} disabled={isLoading || isViewingHistory || Boolean(retryRef.current)} onChange={event => toggleReferenceSelection(group.key, option.value, event.currentTarget.checked, group.multiple)} className="size-4 shrink-0 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
                           <span className="min-w-0 break-words text-pretty">{option.label}</span>
                         </label>
                       </li>;
@@ -1362,7 +1359,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             </div>
             {referenceSelectionError && <p role="alert" className="text-pretty text-sm text-error">{referenceSelectionError}</p>}
             {hasMissingRequiredReferenceSelection && <p id="assistant-reference-selection-help" role="status" className="text-pretty text-xs text-on-surface/70">Chọn một mục cho mỗi thông tin bắt buộc để tiếp tục.</p>}
-            <button type="button" aria-describedby={hasMissingRequiredReferenceSelection ? "assistant-reference-selection-help" : undefined} disabled={isLoading || !synced || Boolean(retryRef.current) || hasMissingRequiredReferenceSelection} onClick={() => void submitReferenceSelections()} className={cn("min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
+            <button type="button" aria-describedby={hasMissingRequiredReferenceSelection ? "assistant-reference-selection-help" : undefined} disabled={isLoading || !synced || Boolean(retryRef.current) || hasMissingRequiredReferenceSelection} onClick={() => void submitReferenceSelections()} className={cn("min-h-10 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>
               Dùng lựa chọn
             </button>
           </section> : null}
@@ -1374,26 +1371,26 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             canSubmit={synced && !isLoading && !retryRef.current}
             onSubmit={trainingContent => void submitTrainingContent(trainingContent)}
           />}
-          {lastReply?.action && <section aria-label="Bản xem trước thao tác" className="ml-12 max-w-4xl overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-sm shadow-sm">
-            <header className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant bg-surface-container-low px-4 py-3 sm:px-5">
+          {lastReply?.action && <section aria-label="Bản xem trước thao tác" className="max-w-4xl overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest text-sm">
+            <header className="flex flex-wrap items-start justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest px-3 py-2 sm:px-4">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-primary">{lastReply.status === "confirmation" ? "XEM LẠI TRƯỚC KHI XÁC NHẬN" : "THÔNG TIN THAO TÁC"}</p>
                 <h3 className="mt-1 text-balance font-semibold">{lastReply.action.title}</h3>
               </div>
               {lastReply.status === "confirmation" && <span className="inline-flex shrink-0 items-center rounded-full border border-outline-variant bg-surface-container-lowest px-2.5 py-1 text-xs font-medium">Chờ xác nhận</span>}
             </header>
-            {lastReply.action.values.length > 0 && <dl className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2 sm:p-4">
-              {lastReply.action.values.map(item => <div key={item.label} className="min-w-0 rounded-xl border border-outline-variant bg-surface-container-lowest p-3">
+            {lastReply.action.values.length > 0 && <dl className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2">
+              {lastReply.action.values.map((item, index) => <div key={item.label} className={cn("min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest p-2.5", lastReply.action!.values.length % 2 === 1 && index === lastReply.action!.values.length - 1 && "sm:col-span-2")}>
                 <dt className="text-xs text-on-surface/70">{item.label}</dt>
                 <dd className="mt-1 break-words font-medium tabular-nums">{String(item.value)}{item.defaulted ? " (mặc định)" : ""}</dd>
               </div>)}
             </dl>}
-            {lastReply.status === "confirmation" && <div className="space-y-3 border-t border-outline-variant px-4 py-3 sm:px-5">
+            {lastReply.status === "confirmation" && <div className="space-y-2 border-t border-outline-variant px-3 py-2 sm:px-4">
               <p className="text-pretty text-xs text-on-surface/70">Thao tác chưa được thực hiện. Kiểm tra lại thông tin rồi xác nhận để tiếp tục.</p>
-              {lastReply.action.requiresPassword && <div className="space-y-1.5 text-sm"><label htmlFor="assistant-account-password" className="font-medium">Mật khẩu khởi tạo</label><input id="assistant-account-password" type="password" autoComplete="new-password" minLength={6} maxLength={128} value={password} onChange={event => setPassword(event.target.value)} aria-describedby="assistant-password-help" className={cn("w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-base text-on-surface sm:max-w-sm", focusClass)} /><span id="assistant-password-help" className="block text-xs text-on-surface/70">Tối thiểu 6 ký tự. Mật khẩu không lưu trong hội thoại và không gửi cho AI.</span></div>}
+              {lastReply.action.requiresPassword && <div className="space-y-1.5 text-sm"><label htmlFor="assistant-account-password" className="font-medium">Mật khẩu khởi tạo</label><input id="assistant-account-password" type="password" autoComplete="new-password" minLength={6} maxLength={128} value={password} onChange={event => setPassword(event.target.value)} aria-describedby="assistant-password-help" className={cn("min-h-10 w-full rounded-lg border border-outline-variant bg-surface px-2.5 py-1.5 text-sm text-on-surface sm:max-w-sm", focusClass)} /><span id="assistant-password-help" className="block text-xs text-on-surface/70">Tối thiểu 6 ký tự. Mật khẩu không lưu trong hội thoại và không gửi cho AI.</span></div>}
               <div className="flex flex-wrap gap-2 pt-1">
-                <button type="button" disabled={isLoading || Boolean(retryRef.current) || (lastReply.action.requiresPassword && password.length < 6)} onClick={() => decide(true)} className={cn("min-h-10 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Xác nhận thực hiện</button>
-                <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={() => decide(false)} className={cn("min-h-10 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Hủy thao tác</button>
+                <button type="button" disabled={isLoading || Boolean(retryRef.current) || (lastReply.action.requiresPassword && password.length < 6)} onClick={() => decide(true)} className={cn("min-h-10 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Xác nhận thực hiện</button>
+                <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={() => decide(false)} className={cn("min-h-10 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm font-medium hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Hủy thao tác</button>
               </div>
             </div>}
           </section>}
@@ -1411,12 +1408,12 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           </div>
         </div>
         <footer className="shrink-0 bg-surface-container-lowest px-3 py-2 sm:px-6">
-          {isViewingHistory ? <div className="space-y-2">
+          {isViewingHistory ? <div className="space-y-2 text-center">
             {error && <p role="alert" className="text-pretty text-sm text-error">{error}</p>}
             <p className="text-pretty text-xs text-on-surface/70">Bạn có thể xem lại nội dung trước, hoặc tiếp tục làm việc trong chính phiên này.</p>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={continuePreviousConversation} className={cn("min-h-11 rounded-xl bg-primary px-3 py-2 text-sm text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>Tiếp tục phiên này</button>
-              <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={startNew} className={cn("min-h-11 rounded-xl border border-outline-variant px-3 py-2 text-sm hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>Bắt đầu cuộc trò chuyện mới</button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={continuePreviousConversation} className={cn("min-h-9 rounded-lg bg-primary px-3 py-1.5 text-sm text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>Tiếp tục phiên này</button>
+              <button type="button" disabled={isLoading || Boolean(retryRef.current)} onClick={startNew} className={cn("min-h-9 rounded-lg border border-outline-variant px-3 py-1.5 text-sm hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>Bắt đầu cuộc trò chuyện mới</button>
             </div>
           </div> : renderComposer("conversation")}
         </footer>

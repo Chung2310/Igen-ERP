@@ -9,6 +9,7 @@ import { toast } from "../../pages/Toast";
 import { Dropdown, type DropdownOption } from "../common/Dropdown";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
 import { MetricBar } from "../common/MetricBar";
+import { InventoryEmptyIllustration } from "./InventoryEmptyIllustration";
 import { ErpRefreshButton } from "../common/ErpRefreshButton";
 import { InventoryCountingModal } from "./InventoryCountingSection";
 import { WarehouseSerialDetailModal } from "./WarehouseSerialDetailModal";
@@ -555,12 +556,8 @@ export function WarehouseSection() {
               ) : pageGroups.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-16 text-center text-slate-500">
+                    <InventoryEmptyIllustration kind={searchQuery || stockFilter !== "all" ? "search" : "warehouse"} className="mx-auto" />
                     <p className="font-semibold text-slate-700">Không tìm thấy sản phẩm nào phù hợp</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {searchQuery || stockFilter !== "all"
-                        ? "Thử xóa bộ lọc hoặc tìm với từ khóa khác."
-                        : "Kho hiện chưa có sản phẩm nào được nhập vào."}
-                    </p>
                   </td>
                 </tr>
               ) : (
