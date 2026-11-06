@@ -1,7 +1,7 @@
 import React from "react";
 import { Save, X } from "lucide-react";
 import { VietnameseDatePicker } from "../../student-management/components/Batches/VietnameseDatePicker";
-import { RoadmapPicker } from "../../student-management/components/ui/RoadmapPicker";
+import { StyledSelect } from "../../../components/common/StyledSelect";
 import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
 import type { BillingProfileInput, Customer, CustomerInput } from "../types";
 
@@ -77,13 +77,13 @@ export default function CustomerFormDialog({ customer, onClose, onSave }: { cust
           <div>
             <h3 className="mb-3 text-sm font-semibold text-on-surface text-balance">Thông tin cơ bản</h3>
             <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
-              <label className="block text-xs font-medium text-on-surface-variant">Đối tượng khách hàng<select value={form.customerKind || ''} onChange={(event) => setForm((current) => ({ ...current, customerKind: event.target.value as CustomerInput['customerKind'] }))} className={inputClass}><option value="" disabled>Chưa phân loại</option><option value="individual">Cá nhân</option><option value="business">Doanh nghiệp / tổ chức</option></select></label>
+              <div className="text-xs font-medium text-on-surface-variant"><span>Đối tượng khách hàng</span><StyledSelect ariaLabel="Đối tượng khách hàng" value={form.customerKind || ''} placeholder="Chưa phân loại" onChange={(value) => setForm((current) => ({ ...current, customerKind: value as CustomerInput['customerKind'] }))} options={[{ value: 'individual', label: 'Cá nhân' }, { value: 'business', label: 'Doanh nghiệp / tổ chức' }]} className="mt-1.5 rounded-md" menuClassName="rounded-md shadow-sm" /></div>
               {field("name", form.customerKind === 'business' ? "Tên doanh nghiệp / tổ chức" : "Họ và tên")}
               {form.customerKind === 'business' && field("contactName", "Người liên hệ")}
               {field("phone", "Số điện thoại", "tel")}
               {field("email", "Email", "email")}
               {form.customerKind !== 'business' && <label className="block text-xs font-medium text-on-surface-variant"><span>Ngày sinh</span><div className="mt-1.5"><VietnameseDatePicker ariaLabel="Ngày sinh" value={form.dateOfBirth} onChange={(dateOfBirth) => setForm((current) => ({ ...current, dateOfBirth }))} selectionOnly portalTarget={() => dialogRef.current} /></div></label>}
-              <label className="block text-xs font-medium text-on-surface-variant"><span>Chế độ hóa đơn</span><div className="mt-1.5"><RoadmapPicker value={form.type} onChange={(type) => setForm((current) => ({ ...current, type: type as CustomerInput["type"] }))} placeholder="Chọn chế độ hóa đơn" allowClear={false} options={[{ value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} /></div></label>
+              <div className="text-xs font-medium text-on-surface-variant"><span>Chế độ hóa đơn</span><StyledSelect ariaLabel="Chế độ hóa đơn" value={form.type} onChange={(type) => setForm((current) => ({ ...current, type: type as CustomerInput["type"] }))} options={[{ value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} className="mt-1.5 rounded-md" menuClassName="rounded-md shadow-sm" /></div>
               {field("address", "Địa chỉ")}
             </div>
           </div>

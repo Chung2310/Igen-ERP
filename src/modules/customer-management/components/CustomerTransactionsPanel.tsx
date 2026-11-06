@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { customerApi } from '../customerApi';
 import { primaryCreateButtonClass } from '../../../components/common/primaryCreateButton';
+import { StyledSelect } from '../../../components/common/StyledSelect';
+import { VietnameseDatePicker } from '../../student-management/components/Batches/VietnameseDatePicker';
 import { withRequestTimeout } from '../../../utils/requestTimeout';
 import type { CustomerTransactionFilter, CustomerTransactionRow, CustomerTransactionsResult } from '../../../../shared/customer-transactions';
 
@@ -8,7 +10,6 @@ const DetailDialog = lazy(() => import('./CustomerTransactionDetailDialog'));
 const money = (amount: number) => `${amount.toLocaleString('vi-VN')} ₫`;
 const kindLabels: Record<CustomerTransactionRow['kind'], string> = { sale: 'Mua hàng', repair: 'Sửa chữa / dịch vụ', sale_refund: 'Hoàn tiền mua hàng', repair_refund: 'Hoàn tiền sửa chữa', buyback: 'Thu mua lại' };
 const statuses: Record<string, string> = { draft: 'Nháp', confirmed: 'Đã xác nhận', completed: 'Hoàn tất', cancelled: 'Đã hủy', received: 'Tiếp nhận', diagnosing: 'Kiểm tra', quoted: 'Báo giá', approved: 'Đã duyệt', repairing: 'Đang thực hiện', waiting_parts: 'Chờ vật tư', waiting_supplier: 'Chờ nhà cung cấp', done: 'Hoàn tất', delivered: 'Đã bàn giao', returned: 'Đã trả lại', posted: 'Đã ghi sổ' };
-const field = 'mt-1 min-h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
 const button = 'inline-flex min-h-10 items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-sm font-medium text-on-surface transition hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50';
 const valueLabel = (row: CustomerTransactionRow) => `${row.kind.endsWith('_refund') || row.kind === 'buyback' ? '−' : ''}${money(row.amount)}`;
 
@@ -36,9 +37,9 @@ function Transactions({ customerId, companyCode, branchId }: { customerId: strin
   return <section aria-label="Lịch sử giao dịch khách hàng" aria-busy={loading} className="space-y-4 text-on-surface [--color-on-surface-variant:var(--color-slate-600)]">
     <div><h2 className="text-balance text-lg font-semibold">Lịch sử giao dịch</h2><p className="mt-1 text-pretty text-sm text-on-surface-variant">Mua hàng, sửa chữa và các khoản hoàn tại chi nhánh đang chọn. Mở từng giao dịch để xem chi tiết.</p></div>
     <form onSubmit={submit} className="grid gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-4 sm:grid-cols-2 xl:grid-cols-4 xl:items-end">
-      <label className="text-sm font-medium">Loại giao dịch<select value={filters.type} onChange={(event) => setFilters({ ...filters, type: event.target.value as CustomerTransactionFilter })} className={field}><option value="all">Tất cả giao dịch</option><option value="sale">Mua hàng</option>{data?.repairsVisible !== false && <option value="repair">Sửa chữa / dịch vụ</option>}<option value="refund">Hoàn tiền</option><option value="buyback">Thu mua lại</option></select></label>
-      <label className="text-sm font-medium">Từ ngày<input type="date" value={filters.from} max={filters.to || undefined} onChange={(event) => setFilters({ ...filters, from: event.target.value })} className={field} /></label>
-      <label className="text-sm font-medium">Đến ngày<input type="date" value={filters.to} min={filters.from || undefined} onChange={(event) => setFilters({ ...filters, to: event.target.value })} className={field} /></label>
+      <div className="text-sm font-medium"><span>Loại giao dịch</span><StyledSelect ariaLabel="Loại giao dịch" value={filters.type} onChange={(value) => setFilters((current) => ({ ...current, type: value as CustomerTransactionFilter }))} options={[{ value: 'all', label: 'Tất cả giao dịch' }, { value: 'sale', label: 'Mua hàng' }, ...(data?.repairsVisible !== false ? [{ value: 'repair', label: 'Sửa chữa / dịch vụ' }] : []), { value: 'refund', label: 'Hoàn tiền' }, { value: 'buyback', label: 'Thu mua lại' }]} className="mt-1 rounded-md" menuClassName="rounded-md shadow-sm" /></div>
+      <div className="text-sm font-medium"><span>Từ ngày</span><div className="mt-1"><VietnameseDatePicker ariaLabel="Từ ngày" value={filters.from} max={filters.to || undefined} onChange={(from) => setFilters((current) => ({ ...current, from }))} variant="filter" className="h-10 rounded-md focus-visible:ring-0" /></div></div>
+      <div className="text-sm font-medium"><span>Đến ngày</span><div className="mt-1"><VietnameseDatePicker ariaLabel="Đến ngày" value={filters.to} min={filters.from || undefined} onChange={(to) => setFilters((current) => ({ ...current, to }))} variant="filter" className="h-10 rounded-md focus-visible:ring-0" /></div></div>
       <button type="submit" className={primaryCreateButtonClass}>Xem giao dịch</button>
     </form>
     {loading && <p role="status" className="rounded-md bg-surface-container-low p-4 text-sm">Đang tải lịch sử giao dịch…</p>}

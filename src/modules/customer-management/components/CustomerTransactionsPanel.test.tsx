@@ -23,9 +23,12 @@ describe('unified customer transaction history', () => {
     expect(customerApi.transactions).not.toHaveBeenCalled();
     view.rerender(<CustomerTransactionsPanel customerId="c1" companyCode="ACME" branchId="b1" />);
     await screen.findAllByText('DH-001');
-    fireEvent.change(screen.getByLabelText('Loại giao dịch'), { target: { value: 'refund' } });
-    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: '2026-10-01' } });
-    fireEvent.change(screen.getByLabelText('Đến ngày'), { target: { value: '2026-10-28' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Loại giao dịch' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Hoàn tiền' }));
+    fireEvent.change(screen.getByLabelText('Từ ngày'), { target: { value: '01/10/2026' } });
+    fireEvent.blur(screen.getByLabelText('Từ ngày'));
+    fireEvent.change(screen.getByLabelText('Đến ngày'), { target: { value: '28/10/2026' } });
+    fireEvent.blur(screen.getByLabelText('Đến ngày'));
     fireEvent.click(screen.getByRole('button', { name: 'Xem giao dịch' }));
     await waitFor(() => expect(customerApi.transactions).toHaveBeenLastCalledWith('c1', { companyCode: 'ACME', branchId: 'b1' }, { type: 'refund', from: '2026-10-01', to: '2026-10-28', page: 1, limit: 20 }, expect.any(AbortSignal)));
   });

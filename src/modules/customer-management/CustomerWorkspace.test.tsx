@@ -76,7 +76,8 @@ describe("CustomerWorkspace", () => {
     vi.mocked(customerApi.list).mockResolvedValue({ items: [inactive], total: 1, page: 1, limit: 20 });
     render(<CustomerWorkspace />);
     await waitFor(() => expect(customerApi.list).toHaveBeenCalledTimes(1));
-    fireEvent.change(screen.getByLabelText("Trạng thái"), { target: { value: "inactive" } });
+    fireEvent.click(screen.getByRole("button", { name: "Trạng thái" }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Trạng thái" })).getByRole("option", { name: "Ngừng hoạt động" }));
     await screen.findByText(inactive.name);
     await act(async () => { resolveOld({ items: [customer], total: 1, page: 1, limit: 20 }); });
     expect(screen.getByText(inactive.name)).toBeTruthy();
@@ -95,8 +96,10 @@ describe("CustomerWorkspace", () => {
     render(<CustomerWorkspace />);
     await screen.findByText("Nguyễn Văn An");
     fireEvent.change(screen.getByLabelText("Tìm khách hàng"), { target: { value: "0901" } });
-    fireEvent.change(screen.getByLabelText("Trạng thái"), { target: { value: "inactive" } });
-    fireEvent.change(screen.getByLabelText("Loại khách"), { target: { value: "vat" } });
+    fireEvent.click(screen.getByRole("button", { name: "Trạng thái" }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Trạng thái" })).getByRole("option", { name: "Ngừng hoạt động" }));
+    fireEvent.click(screen.getByRole("button", { name: "Loại khách" }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Loại khách" })).getByRole("option", { name: "Khách xuất VAT" }));
     await waitFor(() => expect(customerApi.list).toHaveBeenLastCalledWith(expect.objectContaining({ q: "0901", status: "inactive", type: "vat" })), { timeout: 1000 });
   });
 
@@ -153,7 +156,7 @@ describe("CustomerWorkspace", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /Họ và tên/ }), { target: { value: "Công ty An" } });
     fireEvent.change(screen.getByRole("textbox", { name: /Số điện thoại/ }), { target: { value: "0901000002" } });
     fireEvent.click(screen.getByRole("button", { name: "Chế độ hóa đơn" }));
-    fireEvent.click(within(screen.getByRole("listbox", { name: "Chọn chế độ hóa đơn" })).getByRole("option", { name: "Khách xuất VAT" }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Chế độ hóa đơn" })).getByRole("option", { name: "Khách xuất VAT" }));
     fireEvent.change(screen.getByRole("textbox", { name: /Tên pháp nhân/ }), { target: { value: "Công ty An" } });
     fireEvent.change(screen.getByRole("textbox", { name: /Mã số thuế/ }), { target: { value: "0123456789" } });
     fireEvent.change(screen.getByRole("textbox", { name: /Địa chỉ hóa đơn/ }), { target: { value: "Hà Nội" } });
