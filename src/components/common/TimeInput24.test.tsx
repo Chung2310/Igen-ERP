@@ -31,3 +31,18 @@ test("birth date can jump directly to an earlier year", () => {
 
   expect(onChange).toHaveBeenCalledWith(expect.stringMatching(/^1990-\d{2}-15$/));
 });
+
+test("date and time menus stay inside their parent modal", () => {
+  render(<dialog open aria-label="Tạo chính sách"><DateTimeInput24 ariaLabel="Hiệu lực" value="" onChange={vi.fn()} /></dialog>);
+  const modal = screen.getByRole("dialog", { name: "Tạo chính sách" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Hiệu lực - ngày" }));
+  const calendar = screen.getByRole("dialog", { name: "Lịch chọn ngày" });
+  expect(modal.contains(calendar)).toBe(true);
+  fireEvent.keyDown(calendar, { key: "Escape", cancelable: true });
+  expect(screen.queryByRole("dialog", { name: "Lịch chọn ngày" })).toBeNull();
+  expect(modal.hasAttribute("open")).toBe(true);
+
+  fireEvent.click(screen.getByRole("button", { name: "Hiệu lực - giờ" }));
+  expect(modal.contains(screen.getByRole("dialog", { name: "Chọn hiệu lực - giờ" }))).toBe(true);
+});

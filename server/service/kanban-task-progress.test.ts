@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { taskActivityUpdate, taskProgress } from "./kanban-task-progress";
+import { taskActivityUpdate, taskHelpRecipients, taskProgress } from "./kanban-task-progress";
 import { aggregateMonthlyKpiRows } from "./kanban-monthly-kpi.service";
 
 const owner = { uid: "owner", name: "An", manager: false };
@@ -51,5 +51,13 @@ describe("task progress and support", () => {
     expect(taskProgress({ status: "done" })).toBe(100);
     expect(taskProgress({ status: "doing" })).toBe(1);
     expect(taskProgress({ status: "todo" })).toBe(0);
+  });
+  it("notifies the requester and branch team when help is open to anyone", () => {
+    expect(taskHelpRecipients({ creatorUid: "owner", assigneeUid: "owner" }, "owner", "", ["owner", "teammate"]))
+      .toEqual(["owner", "teammate"]);
+  });
+  it("limits a nominated help request to involved people", () => {
+    expect(taskHelpRecipients({ creatorUid: "creator", assigneeUid: "owner" }, "owner", "helper", ["teammate"]))
+      .toEqual(["owner", "creator", "helper"]);
   });
 });

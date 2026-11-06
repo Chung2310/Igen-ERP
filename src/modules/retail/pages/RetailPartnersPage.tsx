@@ -183,21 +183,20 @@ export default function RetailPartnersPage() {
     : "";
 
   return (
-    <main className="h-full overflow-y-auto bg-white p-6">
-      <div className="space-y-6 text-left">
+    <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
+      {canRead && <ModuleNavigation label="Quản lý đối tác bán lẻ" activeValue={tab}>
+        {([["partners", "Đối tác & hoa hồng", UsersRound], ["policies", "Chính sách", Percent], ["products", "Hoa hồng sản phẩm", Package]] as const).map(([key, label, Icon]) => <ModuleNavigationButton key={key} active={tab === key} icon={<Icon />} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</ModuleNavigationButton>)}
+      </ModuleNavigation>}
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-xs sm:p-4">
         <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-2.5">
             <span aria-hidden="true" className="h-5 w-1 shrink-0 rounded-full bg-primary" />
             <div>
-              <h1 className="text-balance text-xl font-medium tracking-tight text-slate-900">Đối tác bán lẻ</h1>
+              <h1 className="text-balance text-lg font-semibold text-on-surface">Đối tác bán lẻ</h1>
             </div>
           </div>
           {canManage && tab === "partners" && <ErpPrimaryButton type="button" onClick={startCreate} className="min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton>}
         </header>
-
-        {canRead && <ModuleNavigation label="Quản lý đối tác bán lẻ" activeValue={tab}>
-          {([["partners", "Đối tác & hoa hồng", UsersRound], ["policies", "Chính sách", Percent], ["products", "Hoa hồng sản phẩm", Package]] as const).map(([key, label, Icon]) => <ModuleNavigationButton key={key} active={tab === key} icon={<Icon />} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</ModuleNavigationButton>)}
-        </ModuleNavigation>}
 
         {canManage && <dialog
           ref={formDialogRef}

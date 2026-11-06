@@ -37,9 +37,10 @@ interface VietnameseDatePickerProps {
   disabled?: boolean;
   ariaInvalid?: boolean;
   ariaDescribedBy?: string;
+  className?: string;
 }
 
-export function VietnameseDatePicker({ value, onChange, required, ariaLabel, selectionOnly = false, variant = 'default', min, max, portalTarget, disabled = false, ariaInvalid, ariaDescribedBy }: VietnameseDatePickerProps) {
+export function VietnameseDatePicker({ value, onChange, required, ariaLabel, selectionOnly = false, variant = 'default', min, max, portalTarget, disabled = false, ariaInvalid, ariaDescribedBy, className }: VietnameseDatePickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const [displayValue, setDisplayValue] = useState(() => toDisplayDate(value));
@@ -150,6 +151,7 @@ export function VietnameseDatePicker({ value, onChange, required, ariaLabel, sel
           'h-9 w-full cursor-pointer rounded-xl border border-outline-variant bg-surface-container-lowest text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20',
           variant === 'filter' ? 'pl-3 pr-10' : 'pl-9 pr-10',
           disabled && 'cursor-not-allowed opacity-60',
+          className,
         )}
       />
       <button type="button" disabled={disabled} onClick={() => { setVisibleMonth(toLocalDate(value)); setOpen((current) => !current); }} aria-label={`Chọn ${ariaLabel.toLowerCase()}`} aria-expanded={open} className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-on-surface-variant hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60">
