@@ -330,9 +330,9 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-dvh w-full min-w-0 overflow-hidden bg-background font-sans text-on-surface" id="app_root_layout">
+    <div className="fixed inset-0 flex h-dvh w-full min-w-0 overflow-clip bg-background font-sans text-on-surface" id="app_root_layout">
       <SEOHead meta={getSeoForTab(resolvedActiveTab)} />
-      <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden" id="main_content_area">
+      <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-clip" id="main_content_area">
         <Header
           currentTab={resolvedActiveTab}
           onSearchSelect={handleSearchNavigation}
@@ -343,7 +343,7 @@ function AppContent() {
             resolvedActiveTab === "TRỢ LÝ AI"
               ? "flex min-h-0 flex-col overflow-hidden p-0"
               : resolvedActiveTab === "TÍCH HỢP MARKETING"
-                ? "flex min-h-0 flex-col overflow-hidden p-2"
+                ? "flex min-h-0 flex-col overflow-clip p-2"
               : `overflow-x-hidden overflow-y-auto ${activeTab === "TRÒ CHUYỆN" ? "p-0 sm:p-2" : "p-2"}`
           }`}
           id="primary_page_container"
