@@ -27,6 +27,7 @@ export const suiteAccess: RequestHandler = (request, response, next) => {
   const req = request as AuthenticatedRequest;
   if (!isMarketingSuitePath(req.path)) return next("router");
   if (req.method === "GET" && req.path === "/canva/callback") return next();
+  if (req.method === "GET" && req.path === "/zalo/oauth-callback") return next();
   // Whitelisted CDN streams are embedded by browsers and fetched by TikTok without a session.
   if (req.method === "GET" && ["/marketing-media/audio-proxy", "/marketing-media/video-proxy"].includes(req.path)) return next();
   if (req.path.startsWith("/marketing-campaigns/internal/")) {

@@ -128,6 +128,8 @@ export const zaloMessengerService = {
           headers: {
             access_token: normalizedToken,
           },
+          signal: AbortSignal.timeout(10_000),
+          redirect: "error",
         });
 
         const rawText = await response.text();
@@ -138,7 +140,7 @@ export const zaloMessengerService = {
           data = { raw: rawText };
         }
 
-        if (!response.ok) {
+        if (!response.ok || (data?.error != null && Number(data.error) !== 0)) {
           lastError = `${response.status} - ${typeof data === "string" ? data : JSON.stringify(data)}`;
           continue;
         }
@@ -147,13 +149,17 @@ export const zaloMessengerService = {
         const resolvedOaId = String(oaData?.oa_id || oaData?.oaid || oaData?.id || "").trim();
         const resolvedOaName = String(oaData?.name || oaData?.oa_name || integrationData.oaName || "").trim();
 
-        if (resolvedOaId && resolvedOaId !== normalizedOaId) {
+        if (!resolvedOaId) {
+          lastError = "Zalo khong tra ve OA ID.";
+          continue;
+        }
+        if (resolvedOaId !== normalizedOaId) {
           throw new Error(`Token Zalo hop le nhung dang tro toi OA ID ${resolvedOaId}, khong khop voi OA ID ${normalizedOaId}.`);
         }
 
         return {
           valid: true,
-          oaId: resolvedOaId || normalizedOaId,
+          oaId: resolvedOaId,
           oaName: resolvedOaName || integrationData.oaName || "Zalo OA",
           source: url,
         };
