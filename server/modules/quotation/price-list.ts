@@ -1,7 +1,7 @@
 import { quotationFetch as fetch } from "./ai-transport";
 import { Binary, ObjectId } from "mongodb";
 import * as XLSX from "xlsx";
-import { config } from "./config.js";
+import { config, quotationChatSampling } from "./config.js";
 import { logAiProviderFailure } from "./logger.js";
 import { cleanMissingInformation } from "./quote-terms.js";
 import { parseJsonResponse, requestStructuredAi, responseContent, type AiChatMessage } from "./structured-ai.js";
@@ -120,7 +120,7 @@ export async function extractAttachedRequest(requestText: string, fileParts: Rec
     send: (retryMessages) => fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${config.openRouterApiKey}`, "Content-Type": "application/json", "HTTP-Referer": config.openRouterSiteUrl, "X-Title": config.openRouterAppName },
-      body: JSON.stringify({ model: config.openRouterFileModel, temperature: 0, max_tokens: 1200,
+      body: JSON.stringify({ model: config.openRouterFileModel, ...quotationChatSampling(config.openRouterFileModel), max_tokens: 1200,
         messages: retryMessages,
         response_format: { type: "json_schema", json_schema: { name: "customer_request_extract", strict: true, schema } },
         provider: { require_parameters: true },
