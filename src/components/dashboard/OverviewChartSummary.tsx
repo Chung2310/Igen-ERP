@@ -28,11 +28,14 @@ export function OverviewChartSummary({ value, previous, format, metricLabel, onD
   action?: ReactNode;
 }) {
   const change = percentChange(value, previous);
+  const comparable = value != null && previous != null && Number.isFinite(value) && Number.isFinite(previous);
+  const difference = comparable ? value - previous : null;
   const formatted = value == null ? "—" : format ? format(value) : value.toLocaleString("vi-VN");
-  const delta = change == null ? "—" : change === 0 ? "–" : `${change > 0 ? "▲ " : "▼ "}${Math.abs(change).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%`;
-  const changeLabel = change == null ? "Chưa có dữ liệu kỳ so sánh" : change === 0 ? "Không thay đổi so với kỳ trước" : `${change > 0 ? "Tăng" : "Giảm"} ${Math.abs(change).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% so với kỳ trước`;
+  const absoluteDifference = difference == null ? "" : format ? format(Math.abs(difference)) : Math.abs(difference).toLocaleString("vi-VN");
+  const delta = difference == null ? "—" : difference === 0 ? "–" : `${difference > 0 ? "▲ " : "▼ "}${change == null ? absoluteDifference : `${Math.abs(change).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%`}`;
+  const changeLabel = difference == null ? "Chưa có dữ liệu kỳ so sánh" : difference === 0 ? "Không thay đổi so với kỳ trước" : `${difference > 0 ? "Tăng" : "Giảm"} ${change == null ? `${absoluteDifference} so với kỳ trước (0)` : `${Math.abs(change).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}% so với kỳ trước`}`;
   return <div className="mb-3 flex min-w-0 flex-wrap items-end justify-between gap-2">
-    <div className="flex min-w-0 items-baseline gap-2"><strong className="min-w-0 break-words text-xl font-semibold tabular-nums text-on-surface" aria-label={`${metricLabel}: ${formatted}`}>{formatted}</strong><span className={`shrink-0 text-xs font-semibold tabular-nums ${change == null ? "text-on-surface-variant" : change > 0 ? "text-change-up" : change < 0 ? "text-change-down" : "text-change-flat"}`} aria-label={changeLabel}>{delta}</span></div>
+    <div className="flex min-w-0 items-baseline gap-2"><strong className="min-w-0 break-words text-xl font-semibold tabular-nums text-on-surface" aria-label={`${metricLabel}: ${formatted}`}>{formatted}</strong><span className={`shrink-0 text-xs font-semibold tabular-nums ${difference == null ? "text-on-surface-variant" : difference > 0 ? "text-change-up" : difference < 0 ? "text-change-down" : "text-change-flat"}`} aria-label={changeLabel}>{delta}</span></div>
     <div className="flex items-center gap-2">{action}{onDetails ? <button type="button" className="text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary" onClick={onDetails}>Chi tiết</button> : detailsHref ? <a className="text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary" href={detailsHref}>Chi tiết</a> : null}</div>
   </div>;
 }

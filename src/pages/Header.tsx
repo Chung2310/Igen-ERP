@@ -20,14 +20,16 @@ import BranchSwitcher from "../components/BranchSwitcher";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { ModuleLauncherLogo } from "../components/common/ModuleLauncherLogo";
 import { AiAssistantIcon, AttendanceCheckInIcon, MorePoliciesIcon, PaidWalletIcon, UpgradeGiftIcon } from "../components/common/HeaderShortcutIcons";
+import { cn } from "../modules/student-management/lib/utils";
 
 interface HeaderProps {
   currentTab: TabType;
   onSearchSelect: (tab: TabType, subTab?: string) => void;
+  onAssistantOpen?: () => void;
   variant?: "default" | "launcher";
 }
 
-export default function Header({ currentTab, onSearchSelect, variant = "default" }: HeaderProps) {
+export default function Header({ currentTab, onSearchSelect, onAssistantOpen, variant = "default" }: HeaderProps) {
   const isLauncher = variant === "launcher";
   const { userProfile, hasPermission, logout } = useAuth();
   const { branches, activeBranchId, setActiveBranchId } = useBranch();
@@ -42,6 +44,7 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
   const canOpenPaidPackages = canViewAiSubscription(userProfile);
   const canOpenAssistant = isModuleEnabled(userProfile?.enabledModules, "chat") && hasPermission("chat:read");
   const canUseTimekeeping = isModuleEnabled(userProfile?.enabledModules, "hr");
+  const openAssistant = () => onAssistantOpen ? onAssistantOpen() : onSearchSelect("TRỢ LÝ AI");
 
   useEffect(() => {
     if (!showPoliciesMenu) return;
@@ -338,18 +341,13 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
     <>
       <header className={isLauncher ? "relative z-40 flex min-w-0 flex-1 items-center justify-end" : "sticky top-0 z-40 flex h-18 min-w-0 items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest pl-1 pr-3 shadow-xs sm:gap-4 sm:pr-6"} id={isLauncher ? "launcher_header_controls" : "app_header"}>
         {!isLauncher && <div className="relative flex min-w-0 flex-1 items-center">
-          <div className="ml-3 flex shrink-0 items-center sm:ml-4">
+          <div className={cn("group relative ml-3 flex shrink-0 items-center sm:ml-4", userProfile?.role !== "superadmin" && "pr-10")}>
             {userProfile?.role !== "superadmin" && (
-              <a href="/modules" aria-label="Về danh sách tính năng" title="Về danh sách tính năng" className="group flex size-11 -translate-y-2 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
-                <svg className="size-5 group-hover:hidden group-focus-visible:hidden" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  {[5.5, 12, 18.5].flatMap((cy) =>
-                    [5.5, 12, 18.5].map((cx) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.7" />),
-                  )}
-                </svg>
-                <ArrowLeft className="hidden size-5 group-hover:block group-focus-visible:block" aria-hidden="true" />
+              <a href="/modules" aria-label="Về danh sách tính năng" title="Về danh sách tính năng" className="pointer-events-none absolute left-0 top-1/2 z-10 flex size-9 -translate-x-2 -translate-y-1/2 items-center justify-center rounded-full text-primary opacity-0 transition-[opacity,transform] duration-150 ease-out hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-x-0 group-focus-within:opacity-100 motion-reduce:transition-none [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:translate-x-0 [@media(hover:none)]:opacity-100">
+                <ArrowLeft className="size-5" aria-hidden="true" />
               </a>
             )}
-            <span className="mr-1 flex w-20 shrink-0 flex-col items-start justify-center gap-0.5 sm:mr-4 sm:w-auto">
+            <span className={cn("mr-1 flex w-20 shrink-0 flex-col items-start justify-center gap-0.5 sm:mr-4 sm:w-auto", userProfile?.role !== "superadmin" && "transition-transform duration-150 ease-out group-hover:translate-x-10 group-focus-within:translate-x-10 motion-reduce:transition-none [@media(hover:none)]:translate-x-10")}>
               <ModuleLauncherLogo compact />
               <span className="font-sans text-xs font-semibold leading-tight text-on-surface">{HEADER_MODULE_LABELS[currentTab]}</span>
             </span>
@@ -437,7 +435,8 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
             </button>
             <button
               type="button"
-              onClick={() => onSearchSelect("TRỢ LÝ AI")}
+              onClick={openAssistant}
+              id="header-assistant-trigger"
               disabled={!canOpenAssistant}
               aria-label="Mở Trợ lý AI"
               title={canOpenAssistant ? "Mở Trợ lý AI" : "Bạn chưa được cấp quyền dùng Trợ lý AI"}
@@ -463,7 +462,7 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
                 <div className="border-b border-outline-variant pb-1 lg:hidden">
                   {canOpenPaidPackages && <button type="button" onClick={() => { setShowPoliciesMenu(false); onSearchSelect("GÓI AI & LƯỢT SỬ DỤNG", "usage"); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"><PaidWalletIcon className="size-4" />Hạn mức AI</button>}
                   {canOpenPaidPackages && <button type="button" onClick={() => { setShowPoliciesMenu(false); onSearchSelect("GÓI AI & LƯỢT SỬ DỤNG", "plans"); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"><UpgradeGiftIcon className="size-4" />Gói nâng cấp</button>}
-                  {canOpenAssistant && <button type="button" onClick={() => { setShowPoliciesMenu(false); onSearchSelect("TRỢ LÝ AI"); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"><AiAssistantIcon className="size-4" />Trợ lý AI</button>}
+                  {canOpenAssistant && <button type="button" onClick={() => { setShowPoliciesMenu(false); openAssistant(); }} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"><AiAssistantIcon className="size-4" />Trợ lý AI</button>}
                 </div>
                 <a href={PRIVACY_POLICY_URL} target="_blank" rel="noopener noreferrer" onClick={() => setShowPoliciesMenu(false)} className="flex min-h-10 items-center rounded-lg px-3 hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Bảo mật</a>
                 <a href={TERMS_OF_SERVICE_URL} target="_blank" rel="noopener noreferrer" onClick={() => setShowPoliciesMenu(false)} className="flex min-h-10 items-center rounded-lg px-3 hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Điều khoản</a>

@@ -12,7 +12,7 @@ const permissions = [
   { _id: "3", code: "payroll-period:read", name: "Xem tiền lương", module: "payroll", group: "Tiền lương" },
 ];
 
-function Harness() {
+function Harness({ onLevelChange = vi.fn() }: { onLevelChange?: (level: number) => void }) {
   const [selected, setSelected] = React.useState(["hr:read"]);
   return <RoleModal
     open
@@ -23,7 +23,7 @@ function Harness() {
     roleDisplayName="Nhân viên nhân sự"
     setRoleDisplayName={vi.fn()}
     roleLevel={4}
-    setRoleLevel={vi.fn()}
+    setRoleLevel={onLevelChange}
     selectedPermissions={selected}
     setSelectedPermissions={setSelected}
     userProfile={{ uid: "admin-1", role: "admin" } as any}
@@ -35,6 +35,17 @@ function Harness() {
 }
 
 describe("RoleModal permission module cards", () => {
+  it("uses the shared dropdown for role levels and preserves the numeric value", () => {
+    const onLevelChange = vi.fn();
+    render(<Harness onLevelChange={onLevelChange} />);
+
+    const level = screen.getByRole("button", { name: "Cấp bậc vai trò (Level)" });
+    expect(level.getAttribute("aria-describedby")).toBe("role-level-description");
+    fireEvent.click(level);
+    fireEvent.click(screen.getByRole("option", { name: "Cấp độ 4" }));
+    expect(onLevelChange).toHaveBeenCalledWith(5);
+  });
+
   it("renders always-open module cards with selected permission counts", () => {
     render(<Harness />);
 

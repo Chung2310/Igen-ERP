@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, Search, UsersRound } from "lucide-react";
+import { StyledSelect } from "../../../components/common/StyledSelect";
 import type { Customer, CustomerStatus, CustomerType } from "../types";
 
 type Props = {
@@ -17,8 +18,8 @@ export default function CustomerList(props: Props) {
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
           <input aria-label="Tìm khách hàng" value={props.query} onChange={(event) => props.onQueryChange(event.target.value)} placeholder="Mã, tên, số điện thoại hoặc email" className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm text-on-surface outline-none transition placeholder:text-on-surface-variant/70 focus:border-primary" />
         </label>
-        <select aria-label="Trạng thái" value={props.status} onChange={(event) => props.onStatusChange(event.target.value as CustomerStatus)} className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary"><option value="active">Đang hoạt động</option><option value="inactive">Ngừng hoạt động</option></select>
-        <select aria-label="Loại khách" value={props.type} onChange={(event) => props.onTypeChange(event.target.value as "" | CustomerType)} className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface outline-none focus:border-primary"><option value="">Tất cả loại khách</option><option value="regular">Khách thường</option><option value="vat">Khách xuất VAT</option></select>
+        <StyledSelect ariaLabel="Trạng thái" value={props.status} onChange={(value) => props.onStatusChange(value as CustomerStatus)} options={[{ value: "active", label: "Đang hoạt động" }, { value: "inactive", label: "Ngừng hoạt động" }]} className="rounded-md" menuClassName="rounded-md shadow-sm" />
+        <StyledSelect ariaLabel="Loại khách" value={props.type || "all"} onChange={(value) => props.onTypeChange(value === "all" ? "" : value as CustomerType)} options={[{ value: "all", label: "Tất cả loại khách" }, { value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} className="rounded-md" menuClassName="rounded-md shadow-sm" />
       </div>
 
       <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest">

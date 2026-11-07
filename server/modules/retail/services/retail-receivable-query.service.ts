@@ -31,30 +31,27 @@ export function withRunningReceivableBalance<T extends { signedAmount: number }>
   return chronological.reverse();
 }
 
-export function buildReceivableHistoryPipeline(baseFilter: Record<string, unknown>, displayFilter: Record<string, unknown>, skip: number, limit: number): any[] {
-  return [
-    { $match: baseFilter },
-    { $setWindowFields: { sortBy: { createdAt: 1, _id: 1 }, output: { runningBalance: { $sum: "$signedAmount", window: { documents: ["unbounded", "current"] } } } } },
-    ...(Object.keys(displayFilter).length ? [{ $match: displayFilter }] : []),
-    { $sort: { createdAt: -1, _id: -1 } },
-    { $skip: skip },
-    { $limit: limit },
-  ];
-}
-
 export const RetailReceivableQueryService = {
   async history(scope: RetailBranchScope, customerId: string, query: any) {
     const { filter, page, limit, skip } = buildRetailReceivableHistoryQuery(scope, customerId, query);
     const baseFilter = { companyCode: scope.companyCode, branchId: scope.branchId, customerId };
-    const displayFilter: Record<string, unknown> = {};
-    if (filter.type) displayFilter.type = filter.type;
-    if (filter.createdAt) displayFilter.createdAt = filter.createdAt;
-    const [items, total, before] = await Promise.all([
-      RetailReceivableEntryModel.aggregate(buildReceivableHistoryPipeline(baseFilter, displayFilter, skip, limit)),
+    const [pageItems, total, balanceRows] = await Promise.all([
+      RetailReceivableEntryModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).lean(),
       RetailReceivableEntryModel.countDocuments(filter),
       RetailReceivableEntryModel.aggregate([{ $match: baseFilter }, { $group: { _id: null, balance: { $sum: "$signedAmount" } } }]),
     ]);
-    const currentBalance = Number(before[0]?.balance || 0);
+    const currentBalance = Number(balanceRows[0]?.balance || 0);
+    const newest = pageItems[0];
+    const newerRows = newest ? await RetailReceivableEntryModel.aggregate([
+      { $match: { ...baseFilter, $or: [{ createdAt: { $gt: newest.createdAt } }, { createdAt: newest.createdAt, _id: { $gt: newest._id } }] } },
+      { $group: { _id: null, balance: { $sum: "$signedAmount" } } },
+    ]) : [];
+    let runningBalance = currentBalance - Number(newerRows[0]?.balance || 0);
+    const items = pageItems.map((entry) => {
+      const item = { ...entry, runningBalance };
+      runningBalance -= Number(entry.signedAmount || 0);
+      return item;
+    });
     return { items, total, page, limit, currentBalance };
   },
 };

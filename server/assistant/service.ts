@@ -12,8 +12,8 @@ import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./
 import { formatFriendlyAssistantResult, localizedAssistantFieldLabel } from "./result-format";
 import { applyAssistantResponseRules } from "./reply-rules";
 import { autoSaveAssistantMemories } from "./auto-memory";
-import { assistantMemoryContext, containsSensitiveMemoryContent, parseExplicitMemoryCommand, saveAssistantMemory } from "./memory";
-import { summarizeAssistantSession } from "./session-memory";
+import { assistantMemoryContext, containsSensitiveMemoryContent, forgetAssistantMemoryByContent, parseExplicitMemoryCommand, parseExplicitMemoryForgetCommand, saveAssistantMemory } from "./memory";
+import { SESSION_MEMORY_LIMIT, summarizeAssistantSession } from "./session-memory";
 import { mapAssistantTableAttachment } from "./table-import";
 import { answerAssistantGeneralQuestion, normalizeAssistantReply } from "./general-answer";
 export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
@@ -110,6 +110,9 @@ const conversationReadScope = (req: AuthenticatedRequest) => {
   if (req.user?.role !== "admin") return scope;
   return { ...scope, branchId: { $in: [...new Set(["", scope.branchId])] } };
 };
+const sessionMemoryVersionFilter = (version: number) => version === 0
+  ? { $or: [{ sessionMemoryVersion: 0 }, { sessionMemoryVersion: { $exists: false } }] }
+  : { sessionMemoryVersion: version };
 const friendlyResult = (op: AssistantOperation, value: unknown) => hideInternalAssistantIds(formatFriendlyAssistantResult(op, value));
 export function missingOptionalCreateFields(create: AssistantOperation, workflow: AssistantWorkflow, submitted: Record<string, AssistantValue>, result: unknown, update: AssistantOperation): string[] {
   if (create.method !== "POST" || !result || typeof result !== "object" || Array.isArray(result)) return [];
@@ -1223,6 +1226,83 @@ export async function conversationState(req: AuthenticatedRequest, conversationI
   return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null) || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
 }
 
+export async function conversationMemory(req: AuthenticatedRequest, conversationId: string) {
+  const session = await AssistantSessionModel.findOne({ ...conversationReadScope(req), conversationId })
+    .select("sessionMemory sessionMemoryMessageCount sessionMemoryVersion messageCount busy updatedAt").lean();
+  if (!session) return { summary: "", summaryMessageCount: 0, version: 0, messageCount: 0, busy: false, updatedAt: null };
+  return {
+    summary: typeof session.sessionMemory === "string" ? session.sessionMemory : "",
+    summaryMessageCount: Number(session.sessionMemoryMessageCount) || 0,
+    version: Number(session.sessionMemoryVersion) || 0,
+    messageCount: Number(session.messageCount) || 0,
+    busy: Boolean(session.busy),
+    updatedAt: session.updatedAt,
+  };
+}
+
+export async function saveConversationMemory(req: AuthenticatedRequest, conversationId: string, rawSummary: unknown, expectedVersion?: number) {
+  if (typeof rawSummary !== "string") throw new AssistantError("Nội dung ngữ cảnh phiên không hợp lệ.", 400);
+  const summary = rawSummary.replace(/\s+/g, " ").trim();
+  if (summary.length > SESSION_MEMORY_LIMIT) throw new AssistantError(`Ngữ cảnh phiên tối đa ${SESSION_MEMORY_LIMIT} ký tự.`, 400);
+  if (containsSensitiveMemoryContent(summary)) throw new AssistantError("Không lưu mật khẩu, dữ liệu nhạy cảm hoặc thông tin xác thực trong ngữ cảnh phiên.", 400);
+  const scope = { ...conversationReadScope(req), conversationId };
+  const session = await AssistantSessionModel.findOne(scope).select("_id messageCount sessionMemoryVersion").lean();
+  const currentVersion = Number(session?.sessionMemoryVersion) || 0;
+  if (expectedVersion !== undefined && expectedVersion !== currentVersion) throw new AssistantError("Ngữ cảnh phiên đã được cập nhật ở nơi khác. Tải lại rồi thử lưu lại.", 409);
+  let updated: any;
+  try {
+    const updateFilter: any = { ...(session ? { _id: session._id } : scope), busy: false, ...sessionMemoryVersionFilter(currentVersion) };
+    const updateValues: any = {
+      $set: { sessionMemory: summary, sessionMemoryMessageCount: Number(session?.messageCount) || 0 },
+      $inc: { sessionMemoryVersion: 1 },
+      ...(!session ? { $setOnInsert: { ...scopeOf(req), conversationId, messages: [], messageCount: 0, busy: false } } : {}),
+    };
+    const updateOptions: any = { returnDocument: "after", upsert: !session, setDefaultsOnInsert: true };
+    updated = await AssistantSessionModel.findOneAndUpdate(updateFilter, updateValues, updateOptions)
+      .select("sessionMemory sessionMemoryMessageCount sessionMemoryVersion messageCount updatedAt").lean();
+  } catch (error) {
+    if ((error as { code?: number }).code === 11000) throw new AssistantError("Phiên vừa được tạo hoặc cập nhật. Tải lại rồi thử lưu lại.", 409);
+    throw error;
+  }
+  if (!updated) throw new AssistantError("Phiên đang xử lý. Hãy thử lưu lại sau khi trợ lý trả lời.", 409);
+  return {
+    summary: updated.sessionMemory || "",
+    summaryMessageCount: Number(updated.sessionMemoryMessageCount) || 0,
+    version: Number(updated.sessionMemoryVersion) || 0,
+    messageCount: Number(updated.messageCount) || 0,
+    updatedAt: updated.updatedAt,
+  };
+}
+
+export async function clearConversationMemory(req: AuthenticatedRequest, conversationId: string) {
+  return saveConversationMemory(req, conversationId, "");
+}
+
+export async function deleteConversation(req: AuthenticatedRequest, conversationId: string): Promise<{ deleted: boolean }> {
+  const scope = { ...conversationReadScope(req), conversationId };
+  const session = await AssistantSessionModel.findOneAndUpdate(
+    { ...scope, busy: false }, { $set: { busy: true } }, { returnDocument: "after" },
+  ).lean();
+  if (!session) {
+    const existing = await AssistantSessionModel.findOne(scope).select("_id").lean();
+    if (!existing) return { deleted: false };
+    throw new AssistantError("Phiên đang xử lý. Hãy thử xóa lại sau khi trợ lý trả lời.", 409);
+  }
+  try {
+    await AssistantTurnModel.deleteMany({
+      userId: session.userId,
+      companyCode: session.companyCode,
+      branchId: session.branchId || "",
+      conversationId: session.conversationId,
+    });
+    await AssistantSessionModel.deleteOne({ _id: session._id, busy: true });
+    return { deleted: true };
+  } catch (error) {
+    await AssistantSessionModel.updateOne({ _id: session._id, busy: true }, { $set: { busy: false } }).catch(() => undefined);
+    throw error;
+  }
+}
+
 const conversationText = (value: unknown, maxLength: number) => {
   const text = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
@@ -1299,8 +1379,13 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     : "";
   const userContent = [input.text || referenceSelectionSummary(pending, input.referenceSelections, input.skipReferenceKeys) || trainingContentSummary || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : ""].filter(Boolean).join("\n");
   const memoryCommand = input.text ? parseExplicitMemoryCommand(input.text) : null;
-  const historyContent = memoryCommand && containsSensitiveMemoryContent(memoryCommand) ? "Yêu cầu ghi nhớ bị từ chối vì chứa thông tin nhạy cảm." : userContent;
-  const history = [...session.messages, { role: "user", content: historyContent }];
+  const forgetMemoryCommand = input.text ? parseExplicitMemoryForgetCommand(input.text) : null;
+  const historyContent = forgetMemoryCommand
+    ? "Người dùng đã yêu cầu quên một ghi nhớ cá nhân."
+    : memoryCommand && containsSensitiveMemoryContent(memoryCommand)
+      ? "Yêu cầu ghi nhớ bị từ chối vì chứa thông tin nhạy cảm."
+      : userContent;
+  const history = [...session.messages, { role: "user", content: historyContent, createdAt: new Date().toISOString() }];
 
   const execute = async (op: AssistantOperation, workflow: AssistantWorkflow, values: Record<string, AssistantValue>, password?: string): Promise<AssistantReply> => {
     const optionalCreateQuestion = async (record: unknown) => {
@@ -1681,7 +1766,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     const settings = await getSettings(req);
     responseRules = settings.responseRules || "";
     autoMemoryEnabled = settings.autoMemoryEnabled ?? false;
-    const memories = input.text && settings.memoryEnabled ? await assistantMemoryContext(req) : [];
+    const memories = input.text && settings.memoryEnabled ? await assistantMemoryContext(req, input.text) : [];
     if (assistantMode === "qa") {
       if (!input.text || input.attachment || input.decision || input.referenceSelections || input.trainingContent) {
         throw new AssistantError("Tab Hỏi đáp chỉ nhận câu hỏi dạng tin nhắn. Hãy chuyển sang tab Thao tác để dùng workflow.");
@@ -1735,6 +1820,12 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       } else {
         reply = await prepare(operation.id, provided, false, pending.intent);
       }
+    } else if (forgetMemoryCommand !== null) {
+      const deleted = await forgetAssistantMemoryByContent(req, forgetMemoryCommand);
+      reply = {
+        status: "completed",
+        reply: deleted ? "Mình đã quên ghi nhớ đó khỏi tài khoản của bạn." : "Mình chưa tìm thấy ghi nhớ trùng khớp. Bạn có thể xem và xóa mục trong Cài đặt trợ lý > Ghi nhớ.",
+      };
     } else if (memoryCommand !== null) {
       if (!settings?.memoryEnabled) {
         reply = { status: "completed", reply: "Ghi nhớ đang tắt. Bạn có thể bật lại trong Cài đặt trợ lý để AI dùng các ghi nhớ của tài khoản." };
@@ -1924,7 +2015,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     // interpretation or validation error does not discard the user's draft.
     if (uncertain || (reply.status === "failed" && hasDispatched)) pending = null;
   }
-  if (autoMemoryEnabled && input.text && !memoryCommand && reply.status !== "failed" && reply.status !== "uncertain") {
+  if (autoMemoryEnabled && input.text && !memoryCommand && !forgetMemoryCommand && reply.status !== "failed" && reply.status !== "uncertain") {
     await autoSaveAssistantMemories(req, input.text);
   }
   reply = await applyAssistantResponseRules(reply, responseRules);
@@ -1935,7 +2026,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   };
   try {
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: reply.status === "uncertain" ? "uncertain" : "completed", result: reply } });
-    const nextMessages = [...history, { role: "assistant", content: reply.reply }];
+    const nextMessages = [...history, { role: "assistant", content: reply.reply, createdAt: new Date().toISOString() }];
     const nextMessageCount = Math.max(Number(session.messageCount) || 0, session.messages.length) + 2;
     const sessionUpdate: Record<string, unknown> = {
       mode: assistantMode,
@@ -1946,12 +2037,23 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       busy: false,
     };
     const lastSessionMemoryCount = Number(session.sessionMemoryMessageCount) || 0;
-    if (nextMessageCount >= 40 && nextMessageCount - lastSessionMemoryCount >= 20) {
+    const shouldSummarizeSession = nextMessageCount >= 40 && nextMessageCount - lastSessionMemoryCount >= 20;
+    const sessionMemoryVersion = Number(session.sessionMemoryVersion) || 0;
+    if (shouldSummarizeSession) {
       sessionUpdate.sessionMemoryMessageCount = nextMessageCount;
-      const nextSessionMemory = await summarizeAssistantSession(sessionMemory, nextMessages);
-      if (nextSessionMemory !== null) sessionUpdate.sessionMemory = nextSessionMemory;
     }
     await AssistantSessionModel.updateOne(sessionFilter, { $set: sessionUpdate });
+    if (shouldSummarizeSession) {
+      void summarizeAssistantSession(sessionMemory, nextMessages).then(async nextSessionMemory => {
+        if (nextSessionMemory === null) return;
+        await AssistantSessionModel.updateOne({
+          ...sessionFilter,
+          messageCount: nextMessageCount,
+          sessionMemoryMessageCount: nextMessageCount,
+          ...sessionMemoryVersionFilter(sessionMemoryVersion),
+        }, { $set: { sessionMemory: nextSessionMemory }, $inc: { sessionMemoryVersion: 1 } });
+      }).catch(error => console.warn("[assistant session memory] Background summary failed", error));
+    }
   } catch (error) {
     // A crash after the business API may leave an executing record. Never replay that mutation.
     if (hasDispatched) return { ...uncertainReply(), link: reply.link };

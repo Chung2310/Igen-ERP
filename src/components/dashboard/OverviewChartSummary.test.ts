@@ -25,5 +25,6 @@ describe("overview comparison", () => {
     expect(markup(80, 100)).toContain("▼ 20%");
     expect(markup(100, 100)).toContain("text-change-flat");
     expect(markup(100, 100)).toContain("Không thay đổi so với kỳ trước");
+    expect(markup(100, 0)).toContain("Tăng 100 so với kỳ trước (0)");
   });
 });

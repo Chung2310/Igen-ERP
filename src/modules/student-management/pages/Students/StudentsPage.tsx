@@ -278,17 +278,17 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
 
   const getStatusBadgeClass = (status: string) => {
     const map: Record<string, string> = {
-      'Đang thi': 'bg-teal-100 text-teal-700 border-teal-200',
-      'Đã đậu': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      'Đang học': 'bg-sky-100 text-sky-700 border-sky-200',
-      'Chờ KSK': 'bg-amber-100 text-amber-700 border-amber-200',
-      'Thi lại': 'bg-rose-100 text-rose-700 border-rose-200',
-      'Đã KSK': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      'Đã nộp HS': 'bg-cyan-100 text-cyan-700 border-cyan-200',
-      'Nợ học phí': 'bg-orange-100 text-orange-700 border-orange-200',
-      'Nghỉ học': 'bg-slate-200 text-slate-600 border-slate-300',
+      'Đang thi': 'border-violet-200 bg-violet-50 text-violet-800',
+      'Đã đậu': 'border-emerald-200 bg-emerald-50 text-emerald-800',
+      'Đang học': 'border-sky-200 bg-sky-50 text-sky-800',
+      'Chờ KSK': 'border-amber-200 bg-amber-50 text-amber-800',
+      'Thi lại': 'border-rose-200 bg-rose-50 text-rose-800',
+      'Đã KSK': 'border-emerald-200 bg-emerald-50 text-emerald-800',
+      'Đã nộp HS': 'border-indigo-200 bg-indigo-50 text-indigo-800',
+      'Nợ học phí': 'border-orange-200 bg-orange-50 text-orange-800',
+      'Nghỉ học': 'border-slate-300 bg-slate-100 text-slate-700',
     };
-    return map[status] || 'bg-slate-100 text-slate-700 border-slate-200';
+    return map[status] || 'border-slate-300 bg-slate-100 text-slate-700';
   };
 
   const handleBulkDelete = async () => {
@@ -805,7 +805,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                         <span
                           key={st}
                           className={cn(
-                            "whitespace-nowrap rounded border px-1.5 py-0.5 text-xs font-normal shadow-none",
+                            "whitespace-nowrap rounded border px-2 py-0.5 text-xs font-semibold shadow-none",
                             getStatusBadgeClass(st)
                           )}
                         >

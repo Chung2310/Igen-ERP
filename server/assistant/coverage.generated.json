@@ -1,10 +1,10 @@
 {
   "total": 1157,
-  "connectedContracts": 795,
+  "connectedContracts": 793,
   "connectedManualRoutes": 21,
-  "connectedRoutes": 816,
+  "connectedRoutes": 814,
   "reviewPending": 0,
-  "intentionallyUnsupported": 341,
+  "intentionallyUnsupported": 343,
   "unresolved": [],
   "entries": [
     {
@@ -7458,8 +7458,8 @@
     {
       "method": "GET",
       "path": "/retail/orders/idempotency/:key",
-      "status": "contract",
-      "id": "api.get.aa920d93cbdf3a79",
+      "status": "unsupported",
+      "reason": "Route kiểm tra khóa chống trùng nội bộ của phiên thanh toán, không phải mã đơn hàng mà người dùng có thể tra cứu. Dùng workflow tra cứu đơn bán lẻ hoặc trạng thái thanh toán theo mã đơn.",
       "file": "server/modules/retail/routes/retail-order.routes.ts",
       "line": 19
     },
@@ -7626,8 +7626,8 @@
     {
       "method": "GET",
       "path": "/retail/invoices/:id/pdf",
-      "status": "contract",
-      "id": "api.get.50a4c95af69a5440",
+      "status": "unsupported",
+      "reason": "Endpoint trả tệp PDF thay vì dữ liệu hội thoại; trợ lý đã có workflow xem chi tiết hóa đơn theo số hóa đơn. Dùng màn hình hóa đơn để tải tệp PDF.",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
       "line": 12
     },

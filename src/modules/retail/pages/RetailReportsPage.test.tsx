@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { retailReportsApi } from "../api/retailReports.api";
+import { OverviewPeriodProvider, OverviewPeriodToolbar } from "../../../components/dashboard/OverviewPeriodContext";
 import type { RetailReport } from "../types";
 import RetailReportsPage from "./RetailReportsPage";
 
@@ -129,6 +130,21 @@ afterEach(() => {
 });
 
 describe("RetailReportsPage", () => {
+  it("keeps export beside the overview period and hides detailed filters", async () => {
+    window.history.replaceState(null, "", "/tong-quan?sub=ban-le&reportSku=OLD-SKU");
+    render(<OverviewPeriodProvider inlineNavigation><OverviewPeriodToolbar /><RetailReportsPage overview /></OverviewPeriodProvider>);
+    const periodBar = screen.getByRole("region", { name: "Kỳ thống kê Tổng quan" });
+    expect(screen.queryByRole("button", { name: /Lọc chi tiết/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Nhân viên bán hàng" })).toBeNull();
+    const exportButton = within(periodBar).getByRole("button", { name: "Xuất Excel" });
+    const periodButton = within(periodBar).getByRole("button", { name: "Kỳ thống kê" });
+    expect(exportButton.className).toContain("bg-excel-export");
+    expect(exportButton.compareDocumentPosition(periodButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await waitFor(() => expect(retailReportsApi.summary).toHaveBeenCalled());
+    const filters = vi.mocked(retailReportsApi.summary).mock.calls[0]?.[1];
+    expect(filters).not.toHaveProperty("sku");
+  });
+
   it("does not expose debt reminder operations in Retail", async () => {
     render(<RetailReportsPage />);
     await screen.findAllByText("Nguyễn An");
@@ -552,8 +568,9 @@ describe("RetailReportsPage", () => {
     expect(view.container.querySelectorAll(".finance-kpi .text-white")).toHaveLength(12);
     expect(screen.getByText("Doanh thu theo kỳ")).toBeTruthy();
     expect(screen.getByText("Cơ cấu thanh toán")).toBeTruthy();
+    expect(screen.getByText(/Kỳ so sánh: 28-07-2026 – 03-08-2026/)).toBeTruthy();
     expect(screen.getByText("Biến động sản phẩm bán chạy")).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "Kỳ biểu đồ doanh thu" })).toBeTruthy();
-    await screen.findByText(/200\.000 đ \(20%\) so với kỳ trước/);
+    expect(screen.queryByRole("combobox", { name: "Kỳ biểu đồ doanh thu" })).toBeNull();
+    await screen.findByText(/200\.000 đ \(20%\)/);
   });
 });

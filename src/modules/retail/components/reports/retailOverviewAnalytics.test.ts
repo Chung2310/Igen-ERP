@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { aggregateSales, comparison, groupProducts, previousRangeFilters } from "./retailOverviewAnalytics";
+import { aggregateSales, comparison, groupProducts, previousRangeFilters, salesChartPeriod } from "./retailOverviewAnalytics";
 
 describe("retail overview analytics", () => {
+  it("chooses a readable chart grouping from the selected report range", () => {
+    expect(salesChartPeriod("2026-11-01", "2026-11-06")).toBe("day");
+    expect(salesChartPeriod("2026-01-01", "2026-03-31")).toBe("week");
+    expect(salesChartPeriod("2026-01-01", "2026-11-06")).toBe("month");
+    expect(salesChartPeriod("2025-01-01", "2026-11-06")).toBe("quarter");
+    expect(salesChartPeriod("2026-01-01", "2026-11-06", true)).toBe("month");
+  });
   it("compares against an equally long prior period and preserves dimension filters", () => {
     expect(previousRangeFilters({ from: "2026-11-01", to: "2026-11-07" }, { preset: "7d", category: "Điện thoại" })).toEqual({ from: "2026-10-25", to: "2026-10-31", category: "Điện thoại" });
     expect(comparison(120, 100)).toEqual({ amount: 20, percent: 20 });

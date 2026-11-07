@@ -39553,37 +39553,6 @@
     "adapter": "contract"
   },
   {
-    "id": "api.get.aa920d93cbdf3a79",
-    "title": "Tra cứu bán lẻ / đơn hàng / idempotency",
-    "description": "Tra cứu bán lẻ / đơn hàng / idempotency. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "retail",
-    "permissions": [
-      "retail:manage"
-    ],
-    "permissionGroups": [
-      [
-        "retail:manage"
-      ]
-    ],
-    "method": "GET",
-    "path": "/retail/orders/idempotency/:key",
-    "fields": [
-      {
-        "key": "path_key",
-        "label": "Mã key",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "key"
-      }
-    ],
-    "link": "/ban-le",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
     "id": "api.get.8a693893eea34b8a",
     "title": "Tra cứu đơn bán lẻ",
     "description": "Tìm đơn hàng theo mã, tên hoặc số điện thoại khách hàng, trạng thái đơn, trạng thái thanh toán hoặc khoảng ngày trong chi nhánh đã chọn.",
@@ -40812,37 +40781,6 @@
     "method": "GET",
     "path": "/retail/invoices",
     "fields": [],
-    "link": "/ban-le",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
-    "id": "api.get.50a4c95af69a5440",
-    "title": "Tra cứu bán lẻ / invoices / pdf",
-    "description": "Tra cứu bán lẻ / invoices / pdf. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "retail",
-    "permissions": [
-      "retail:manage"
-    ],
-    "permissionGroups": [
-      [
-        "retail:manage"
-      ]
-    ],
-    "method": "GET",
-    "path": "/retail/invoices/:id/pdf",
-    "fields": [
-      {
-        "key": "path_id",
-        "label": "Mã bản ghi",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "id"
-      }
-    ],
     "link": "/ban-le",
     "confirmation": false,
     "resultFields": [],

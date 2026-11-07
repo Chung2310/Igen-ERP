@@ -21,10 +21,19 @@ beforeEach(() => {
   vi.mocked(financeAssetsApi.postDepreciation).mockResolvedValue({ period: "2026-03", posted: 1, lines: [line("posted")] });
 });
 
+function choosePeriod(value: string) {
+  fireEvent.click(screen.getByRole("button", { name: "Kỳ khấu hao" }));
+  const currentYear = Number(screen.getByText(/^Năm \d{4}$/).textContent?.slice(4));
+  const targetYear = Number(value.slice(0, 4));
+  for (let year = currentYear; year < targetYear; year += 1) fireEvent.click(screen.getByRole("button", { name: "Năm sau" }));
+  for (let year = currentYear; year > targetYear; year -= 1) fireEvent.click(screen.getByRole("button", { name: "Năm trước" }));
+  fireEvent.click(screen.getByRole("button", { name: `Tháng ${Number(value.slice(5))} năm ${targetYear}` }));
+}
+
 describe("AssetDepreciationPage", () => {
   it("loads the chosen period and totals the planned amounts", async () => {
     render(<AssetDepreciationPage permissions={["asset:read"]} />);
-    fireEvent.change(screen.getByLabelText("Kỳ khấu hao"), { target: { value: "2026-03" } });
+    choosePeriod("2026-03");
     await vi.waitFor(() => expect(financeAssetsApi.listDepreciations).toHaveBeenCalledWith("2026-03"));
     expect(await screen.findByText(/Tổng khấu hao/)).toBeTruthy();
   });
@@ -38,7 +47,7 @@ describe("AssetDepreciationPage", () => {
 
   it("plans then posts a period and reports the outcome", async () => {
     render(<AssetDepreciationPage permissions={["asset:manage"]} />);
-    fireEvent.change(screen.getByLabelText("Kỳ khấu hao"), { target: { value: "2026-03" } });
+    choosePeriod("2026-03");
     fireEvent.click(await screen.findByRole("button", { name: "Lập kế hoạch" }));
     expect(await screen.findByText("Đã lập kế hoạch 1 dòng.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Ghi sổ" }));

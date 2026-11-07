@@ -80,6 +80,14 @@ Biến động số liệu trong Tổng quan dùng `▲` xanh lá khi tăng, `�
 
 Nút tạo mới dùng chung `primaryCreateButtonClass`; nút Làm mới dùng `ErpRefreshButton`. Giữ cùng chiều cao và thứ tự khi hai nút đứng cạnh nhau. Không thêm helper text lặp lại nội dung của nút, bộ lọc hoặc trạng thái rỗng.
 
+## Nhãn so sánh trên card KPI
+
+Khi card KPI trong Tổng quan có nhãn so sánh trên nền trắng, đặt nhãn rộng hết phần nội dung card và canh sát đáy để các card thẳng hàng dù nội dung ngắn hay dài. Nhãn dùng góc vuông, chữ rõ không có bóng, số dạng `tabular-nums`, màu tăng/giảm/không đổi theo token `change-up`, `change-down`, `change-flat`. Giữ nền và chữ theo token ngữ nghĩa để hỗ trợ chế độ tối. Các card không có nhãn so sánh giữ bố cục riêng.
+
+## Tooltip biểu đồ Tổng quan
+
+Chi tiết khi rê hoặc lấy nét vào cột, điểm hay phần của biểu đồ dùng cùng một tooltip: nền `surface-container-lowest`, viền `outline-variant`, góc 6 px, bóng nhẹ, nhãn đậm màu `on-surface`, giá trị màu `on-surface-variant` và chữ số `tabular-nums`. Giữ định dạng và đơn vị riêng của từng biểu đồ. Tooltip của biểu đồ Học viên cũng hiển thị khi lấy nét bằng bàn phím.
+
 ## Layout
 
 Các phân hệ dùng sidebar chung và phần nội dung có khả năng cuộn. Trên màn hình hẹp, điều hướng và vùng thao tác phải giữ khả năng truy cập bằng bàn phím và cảm ứng.

@@ -92,6 +92,7 @@ const additionalUnsupportedContracts = {
  'POST /retail/shifts/:id/cash-movements/reconcile':{assistantUnsupported:'Đối soát là bước khôi phục giao dịch phải khớp khóa chống trùng và payload của lần chuyển tiền gốc; chat chưa có danh sách yêu cầu khôi phục để người dùng chọn. Tạo/đối soát thông thường qua workflow ca thu ngân.'},
  'POST /retail/orders/checkout/reconcile':{assistantUnsupported:'Đối soát checkout cần khóa chống trùng và dấu vân tay payload của lần thanh toán gốc; chat chưa có bản ghi yêu cầu khôi phục để chọn theo mã đơn. Dùng tra cứu đơn/trạng thái thanh toán.'},
  'POST /retail/orders/checkout/revoke':{assistantUnsupported:'Thu hồi checkout phải dùng chính khóa chống trùng và payload của lần ghi gốc; gọi sai có thể xung đột giao dịch bán hợp lệ. Chưa có workflow khôi phục gắn với yêu cầu gốc trong chat.'},
+ 'GET /retail/orders/idempotency/:key':{assistantUnsupported:'Route kiểm tra khóa chống trùng nội bộ của phiên thanh toán, không phải mã đơn hàng mà người dùng có thể tra cứu. Dùng workflow tra cứu đơn bán lẻ hoặc trạng thái thanh toán theo mã đơn.'},
  'POST /retail/orders/draft-requests/reconcile':{assistantUnsupported:'Khôi phục yêu cầu tạo đơn nháp cần khóa chống trùng và payload của lần tạo gốc; chat chưa có danh sách yêu cầu treo để chọn theo tên/mã và đối chiếu.'},
  'POST /retail/orders/draft-requests/revoke':{assistantUnsupported:'Thu hồi yêu cầu tạo đơn nháp cần đúng khóa chống trùng và payload ban đầu; chưa có workflow chat gắn với phiên tạo để kiểm tra và xác nhận an toàn.'},
  'POST /retail/orders/:id/payments/reconcile':{assistantUnsupported:'Đối soát thanh toán phải khớp lần thu tiền gốc và khóa chống trùng; chat chưa có lựa chọn theo mã giao dịch cùng payload gốc. Dùng tra cứu trạng thái thanh toán và xử lý trong giao diện thu ngân.'},
@@ -155,6 +156,7 @@ const additionalUnsupportedContracts = {
  'GET /retail/finance/commission/balances':{assistantUnsupported:'API chỉ trả mã đối tác và số dư, chưa có tên/mã hiển thị để người dùng đối chiếu. Dùng workflow tra cứu đối soát hoa hồng theo tên đối tác.'},
  'GET /retail/invoices/bulk-pdf':{assistantUnsupported:'Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ.'},
  'POST /retail/invoices/bulk-pdf':{assistantUnsupported:'Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ.'},
+ 'GET /retail/invoices/:id/pdf':{assistantUnsupported:'Endpoint trả tệp PDF thay vì dữ liệu hội thoại; trợ lý đã có workflow xem chi tiết hóa đơn theo số hóa đơn. Dùng màn hình hóa đơn để tải tệp PDF.'},
  'PUT /resources/:id/shares':{assistantUnsupported:'PUT thay toàn bộ danh sách chia sẻ bằng ID user/room nội bộ; thiếu một phần sẽ thu hồi quyền hiện có và chat chưa có bộ chọn người/nhóm cùng preview tác động. Dùng giao diện chia sẻ tài liệu.'},
 };
 

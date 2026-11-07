@@ -100,8 +100,8 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
         <ModuleNavigationButton active={view === 'usage'} icon={<Layers3 />} aria-pressed={view === 'usage'} aria-controls="ai_subscription_usage" onClick={() => setView('usage')}>Hạn mức</ModuleNavigationButton>
         <ModuleNavigationButton ref={plansButton} active={view === 'plans'} icon={<ArrowUpRight />} aria-pressed={view === 'plans'} aria-controls="ai_subscription_plans" onClick={openPlans}>Gói nâng cấp</ModuleNavigationButton>
       </ModuleNavigation>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
-        <div className="mx-auto w-full max-w-7xl space-y-5">
+      <div className="min-h-0 flex-1 overflow-y-auto p-1 sm:p-1.5 lg:p-0">
+        <div className="ai-subscription-panel ai-subscription-content min-h-full w-full space-y-5 p-4">
           <header className="flex items-start justify-between gap-3">
             <h1 className="min-w-0 text-balance text-xl font-semibold sm:text-2xl">{view === 'usage' ? 'Hạn mức AI' : 'Nâng cấp gói AI'}</h1>
             <div className="flex shrink-0 items-center gap-3">{companyName && <span title={companyName} className="hidden max-w-48 items-center gap-1.5 text-xs text-on-surface-variant md:flex"><Building2 className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">{companyName}</span></span>}<ErpRefreshButton disabled={!loaded} loading={refreshing} onClick={refresh}>{refreshing ? 'Đang cập nhật…' : 'Làm mới'}</ErpRefreshButton></div>

@@ -137,7 +137,7 @@ export async function getBusinessOverview(user: DashboardUser, range: DashboardR
     read('hr', async () => {
       const timekeeping = user.role === 'superadmin' || user.permissions?.has('*') || user.permissions?.has('timekeeping:read');
       const [employees, projects, personnel, attendance] = await Promise.all([
-        UserModel.countDocuments({ ...query, role: { $ne: 'superadmin' } }), getProjectStats(query, range), getPersonnelNow(user), timekeeping ? getTimekeepingStats(user) : null,
+        UserModel.countDocuments({ ...query, role: { $ne: 'superadmin' } }), getProjectStats(query, range), getPersonnelNow(user, range), timekeeping ? getTimekeepingStats(user) : null,
       ]);
       return { employees, checkedIn: attendance?.checkedInToday ?? null, late: attendance?.lateToday ?? null, approvedLeave: attendance?.onApprovedLeaveToday ?? null, absent: attendance?.absentWithoutLeave ?? null, contracts: personnel.expiringContracts.map(contract => ({ id: contract.id, employeeName: contract.employeeName, endDate: new Date(contract.endDate).toISOString() })), tasks: projects.tasks, overdueTasks: projects.overdueTasks, pendingApprovals: personnel.pendingApprovalCount, expiringContracts: personnel.expiringContractCount };
     }),

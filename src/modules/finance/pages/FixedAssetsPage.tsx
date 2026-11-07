@@ -6,6 +6,8 @@ import {
   type FixedAsset,
 } from "../api/financeAssets.api";
 import { toast } from "../../../pages/Toast";
+import { FinanceEmptyState } from "../components/FinanceEmptyState";
+import { StyledSelect } from "../../../components/common/StyledSelect";
 
 const STATUS_LABELS: Record<string, string> = {
   in_use: "Đang dùng",
@@ -263,17 +265,17 @@ export default function FixedAssetsPage({
   const active = selected && selected.status !== "disposed";
 
   return (
-    <section className="space-y-4">
+    <section className="finance-page-content">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Tài sản cố định</h1>
-          <p className="text-sm text-slate-500">Danh mục, nguyên giá và giá trị còn lại theo chi nhánh.</p>
+          <h1 className="finance-page-title">Tài sản cố định</h1>
+          <p className="text-sm text-on-surface-variant">Danh mục, nguyên giá và giá trị còn lại theo chi nhánh.</p>
         </div>
         {canManage && (
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white"
+            className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary"
           >
             Thêm tài sản
           </button>
@@ -281,27 +283,27 @@ export default function FixedAssetsPage({
       </div>
 
       {creating && canManage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/50 p-4">
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="fixed-asset-create-title"
-            className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-md bg-surface-container-lowest shadow-2xl"
           >
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <h2 id="fixed-asset-create-title" className="text-lg font-bold text-slate-900">
+            <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
+              <h2 id="fixed-asset-create-title" className="text-lg font-bold text-on-surface">
                 Thêm tài sản cố định
               </h2>
               <button
                 type="button"
                 aria-label="Đóng popup"
                 onClick={closeCreateDialog}
-                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                className="flex size-9 items-center justify-center rounded-md text-on-surface-variant hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary"
                data-erp-modal-close>
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 ["assetCode", "Mã tài sản", "text"],
                 ["barcode", "Mã vạch", "text"],
@@ -316,7 +318,7 @@ export default function FixedAssetsPage({
                 ["department", "Bộ phận sử dụng", "text"],
                 ["location", "Vị trí", "text"],
               ].map(([field, label, type]) => (
-                <label key={field} className="text-sm font-semibold text-slate-700">
+                <label key={field} className="text-sm font-semibold text-on-surface-variant">
                   {label}
                   <input
                     type={type}
@@ -333,21 +335,21 @@ export default function FixedAssetsPage({
                         return next;
                       });
                     }}
-                    className={`mt-1 w-full rounded-xl border px-3 py-2 font-normal outline-none transition-colors focus:ring-2 ${
+                    className={`mt-1 min-h-9 w-full rounded-md border bg-surface-container-lowest px-3 py-2 text-sm font-normal text-on-surface outline-none ${
                       formErrors[field as CreateFormField]
-                        ? "border-red-500 focus:border-red-500 focus:ring-red-100"
-                        : "border-slate-300 focus:border-cyan-500 focus:ring-cyan-100"
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-outline-variant focus:border-primary"
                     }`}
                   />
                 </label>
               ))}
             </div>
-            <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
+            <div className="flex justify-end gap-3 border-t border-outline-variant px-5 py-4">
               <button
                 type="button"
                 disabled={busy}
                 onClick={closeCreateDialog}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 disabled:opacity-50"
+                className="rounded-md border border-outline-variant px-4 py-2 text-sm font-bold text-on-surface-variant disabled:opacity-50"
               >
                 Hủy
               </button>
@@ -355,7 +357,7 @@ export default function FixedAssetsPage({
                 type="button"
                 disabled={busy}
                 onClick={() => void create()}
-                className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary disabled:opacity-50"
               >
                 {busy ? "Đang lưu..." : "Lưu tài sản"}
               </button>
@@ -365,28 +367,20 @@ export default function FixedAssetsPage({
       )}
 
       <div className="flex flex-wrap gap-3">
-        <select
-          aria-label="Lọc trạng thái"
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-          className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
-        >
-          <option value="">Tất cả trạng thái</option>
-          {Object.entries(STATUS_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
+        <div className="w-full sm:w-48">
+          <StyledSelect ariaLabel="Lọc trạng thái" className="h-9 rounded-md" menuClassName="finance-select-menu" value={status} onChange={setStatus} options={[{ value: "", label: "Tất cả trạng thái" }, ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))]} />
+        </div>
         <input
           aria-label="Tìm tài sản"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           onKeyDown={(event) => event.key === "Enter" && void load()}
           placeholder="Mã, mã vạch hoặc tên"
-          className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+          className="flex-1 rounded-md border border-outline-variant px-3 py-2 text-sm"
         />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
         <div className="divide-y">
           {items.map((asset) => (
             <button
@@ -394,7 +388,7 @@ export default function FixedAssetsPage({
               type="button"
               aria-label={`Tài sản ${asset.assetCode}`}
               onClick={() => void open(asset)}
-              className="grid w-full grid-cols-2 gap-2 p-4 text-left text-sm hover:bg-slate-50 sm:grid-cols-5"
+              className="grid w-full grid-cols-2 gap-2 p-4 text-left text-sm hover:bg-surface-container-low sm:grid-cols-5"
             >
               <b>{asset.assetCode}</b>
               <span>{asset.name}</span>
@@ -403,12 +397,12 @@ export default function FixedAssetsPage({
               <span>Còn lại: {vnd(asset.netBookValue)}</span>
             </button>
           ))}
-          {!items.length && <p className="p-6 text-center text-sm text-slate-500">Chưa có tài sản nào.</p>}
+          {!items.length && <FinanceEmptyState kind="project">Chưa có tài sản nào.</FinanceEmptyState>}
         </div>
       </div>
 
       {selected && (
-        <div className="rounded-2xl border border-slate-200 bg-white">
+        <div className="rounded-md border border-outline-variant bg-surface-container-lowest">
           <div className="flex items-center justify-between border-b p-4">
             <h2 className="font-bold">
               {selected.assetCode} · {selected.name}
@@ -419,14 +413,14 @@ export default function FixedAssetsPage({
                   <button
                     type="button"
                     onClick={() => setPanel((value) => (value === "edit" ? undefined : "edit"))}
-                    className="text-sm font-bold text-cyan-700"
+                    className="text-sm font-bold text-on-primary-container"
                   >
                     Sửa
                   </button>
                   <button
                     type="button"
                     onClick={() => setPanel((value) => (value === "transfer" ? undefined : "transfer"))}
-                    className="text-sm font-bold text-cyan-700"
+                    className="text-sm font-bold text-on-primary-container"
                   >
                     Điều chuyển
                   </button>
@@ -434,13 +428,13 @@ export default function FixedAssetsPage({
                     type="button"
                     disabled={busy}
                     onClick={() => void dispose(selected)}
-                    className="text-sm font-bold text-red-700 disabled:opacity-50"
+                    className="text-sm font-bold text-on-error-container disabled:opacity-50"
                   >
                     Thanh lý
                   </button>
                 </>
               )}
-              <button type="button" onClick={() => setSelected(undefined)} className="text-sm font-bold text-slate-500">
+              <button type="button" onClick={() => setSelected(undefined)} className="text-sm font-bold text-on-surface-variant">
                 Đóng
               </button>
             </div>
@@ -457,36 +451,25 @@ export default function FixedAssetsPage({
                 ["department", "Bộ phận sử dụng"],
                 ["note", "Ghi chú thay đổi"],
               ].map(([field, label]) => (
-                <label key={field} className="text-sm font-semibold text-slate-700">
+                <label key={field} className="text-sm font-semibold text-on-surface-variant">
                   {label}
                   <input
                     aria-label={label}
                     value={(editForm as Record<string, string>)[field]}
                     onChange={(event) => setEditForm((current) => ({ ...current, [field]: event.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-normal"
+                    className="mt-1 w-full rounded-md border border-outline-variant px-3 py-2 font-normal"
                   />
                 </label>
               ))}
-              <label className="text-sm font-semibold text-slate-700">
-                Trạng thái
-                <select
-                  aria-label="Trạng thái"
-                  value={editForm.status}
-                  onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value as Exclude<FixedAsset["status"], "disposed"> }))}
-                  className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-normal"
-                >
-                  <option value="in_use">Đang dùng</option>
-                  <option value="idle">Chờ dùng</option>
-                  <option value="repairing">Đang sửa</option>
-                  <option value="lost">Mất</option>
-                  <option value="damaged">Hỏng</option>
-                </select>
-              </label>
+              <div className="text-sm font-semibold text-on-surface-variant">
+                <span>Trạng thái</span>
+                <StyledSelect ariaLabel="Trạng thái" className="mt-1 h-9 rounded-md" menuClassName="finance-select-menu" value={editForm.status} onChange={(status) => setEditForm((current) => ({ ...current, status: status as Exclude<FixedAsset["status"], "disposed"> }))} options={[["in_use", "Đang dùng"], ["idle", "Chờ dùng"], ["repairing", "Đang sửa"], ["lost", "Mất"], ["damaged", "Hỏng"]].map(([value, label]) => ({ value, label }))} />
+              </div>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void submitEdit()}
-                className="self-end rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                className="self-end rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary disabled:opacity-50"
               >
                 Lưu thay đổi
               </button>
@@ -501,13 +484,13 @@ export default function FixedAssetsPage({
                 ["custodianName", "Người giữ mới"],
                 ["reason", "Lý do điều chuyển"],
               ].map(([field, label]) => (
-                <label key={field} className="text-sm font-semibold text-slate-700">
+                <label key={field} className="text-sm font-semibold text-on-surface-variant">
                   {label}
                   <input
                     aria-label={label}
                     value={(transferForm as Record<string, string>)[field]}
                     onChange={(event) => setTransferForm((current) => ({ ...current, [field]: event.target.value }))}
-                    className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-normal"
+                    className="mt-1 w-full rounded-md border border-outline-variant px-3 py-2 font-normal"
                   />
                 </label>
               ))}
@@ -515,7 +498,7 @@ export default function FixedAssetsPage({
                 type="button"
                 disabled={busy}
                 onClick={() => void submitTransfer()}
-                className="self-end rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                className="self-end rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary disabled:opacity-50"
               >
                 Xác nhận điều chuyển
               </button>
@@ -538,7 +521,7 @@ export default function FixedAssetsPage({
               </div>
             ))}
             {!selected.lifecycleEvents?.length && (
-              <p className="px-4 py-2 text-sm text-slate-500">Chưa có biến động nào.</p>
+              <p className="px-4 py-2 text-sm text-on-surface-variant">Chưa có biến động nào.</p>
             )}
           </div>
 

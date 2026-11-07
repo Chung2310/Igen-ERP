@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Component, useState, type ReactNode } from "react";
 import { Building2, UserRound } from "lucide-react";
 import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
 import { useAuth } from "../context/AuthContext";
@@ -6,6 +6,27 @@ import CompanyIntegrationsTab from "../components/settings/CompanyIntegrationsTa
 import PersonalIntegrationsTab from "../components/settings/PersonalIntegrationsTab";
 import "../marketing-workspace.css";
 import "../marketing-integrations.css";
+
+class IntegrationErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("Marketing integrations render failed:", error);
+  }
+
+  render() {
+    if (this.state.error) return <div role="alert" className="m-4 rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-on-surface">
+      <h2 className="text-balance text-sm font-semibold">Không thể hiển thị cấu hình tích hợp</h2>
+      <p className="mt-2 text-pretty text-xs text-on-surface-variant">{this.state.error.message}</p>
+      <button type="button" onClick={() => this.setState({ error: null })} className="mt-3 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thử lại</button>
+    </div>;
+    return this.props.children;
+  }
+}
 
 export default function MarketingIntegrationsPage() {
   const { userProfile } = useAuth();
@@ -20,7 +41,9 @@ export default function MarketingIntegrationsPage() {
         ].map(item => <ModuleNavigationButton key={item.id} id={`marketing_integrations_${item.id}`} active={tab === item.id} icon={<item.icon />} aria-pressed={tab === item.id} aria-controls="marketing_integrations_content" onClick={() => setTab(item.id)}>{item.label}</ModuleNavigationButton>)}
       </ModuleNavigation>
       <section id="marketing_integrations_content" aria-labelledby={`marketing_integrations_${tab}`} className="marketing-integrations-content min-h-0 min-w-0 flex-1 overflow-y-auto bg-surface">
-        {tab === "company" ? <CompanyIntegrationsTab userProfile={userProfile} /> : <PersonalIntegrationsTab />}
+        <IntegrationErrorBoundary key={tab}>
+          {tab === "company" ? <CompanyIntegrationsTab userProfile={userProfile} /> : <PersonalIntegrationsTab />}
+        </IntegrationErrorBoundary>
       </section>
     </div>
   );

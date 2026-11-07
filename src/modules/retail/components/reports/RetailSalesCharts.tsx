@@ -2,6 +2,7 @@ import '../../../../components/dashboard/overview-dashboard.css';
 import { Banknote, CreditCard, QrCode, Smartphone, TrendingUp, Wallet } from "lucide-react";
 import type { RetailReport } from "../../types";
 import { RetailEmptyState } from "../RetailEmptyState";
+import { smoothChartPath } from "../../../../components/dashboard/smoothChartPath";
 
 type RetailSalesChartsProps = { report: RetailReport };
 
@@ -81,24 +82,15 @@ function getCoord(index: number, total: number, value: number, maxValue: number)
 }
 
 function linePath(values: number[], maxValue: number): string {
-  if (!values.length) return "";
-  return values
-    .map((val, idx) => {
-      const { x, y } = getCoord(idx, values.length, val, maxValue);
-      return `${idx === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+  return smoothChartPath(values.map((value, index) => getCoord(index, values.length, value, maxValue)));
 }
 
 function areaPath(values: number[], maxValue: number): string {
   if (!values.length) return "";
-  const points = values.map((val, idx) => {
-    const { x, y } = getCoord(idx, values.length, val, maxValue);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
+  const curve = linePath(values, maxValue);
   const firstX = getCoord(0, values.length, 0, maxValue).x.toFixed(1);
   const lastX = getCoord(values.length - 1, values.length, 0, maxValue).x.toFixed(1);
-  return `M${firstX},${baselineY} L${points.join(" L")} L${lastX},${baselineY} Z`;
+  return `${curve} L ${lastX},${baselineY} L ${firstX},${baselineY} Z`;
 }
 
 function getXAxisTicks(total: number): number[] {
