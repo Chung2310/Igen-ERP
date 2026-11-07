@@ -195,7 +195,7 @@ export default function RetailPartnersPage() {
               <h1 className="text-balance text-lg font-semibold text-on-surface">Đối tác bán lẻ</h1>
             </div>
           </div>
-          {canManage && tab === "partners" && <ErpPrimaryButton type="button" onClick={startCreate} className="min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton>}
+          {canManage && tab === "partners" && <ErpPrimaryButton type="button" onClick={startCreate} className="min-h-9 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton>}
         </header>
 
         {canManage && <dialog
@@ -245,7 +245,7 @@ export default function RetailPartnersPage() {
         </dialog>}
 
         {canRead && tab === "partners" && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => <ErpStatCard key={stat.name} name={stat.name} value={String(stat.value)} icon={stat.icon} />)}
+          {stats.map((stat) => <ErpStatCard key={stat.name} name={stat.name} value={String(stat.value)} icon={stat.icon} variant="soft" />)}
         </div>}
 
         {error && <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-xs font-medium text-rose-700 sm:flex-row sm:items-center sm:justify-between">{error}<button type="button" onClick={() => void load()} className="shrink-0 font-semibold underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Thử lại</button></div>}

@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { suiteAccess } from "./access";
 
 const state = vi.hoisted(() => ({
-  modules: ["omni-inbox"], permissions: ["omni-inbox:manage"], required: [] as string[],
+  modules: ["omni-inbox"], permissions: ["omni-inbox:manage"], required: [] as string[], role: "user",
   card: { authorUid: "author" } as { authorUid: string } | null,
   account: null as Record<string, unknown> | null,
   owner: { facebookIntegration: { isConnected: true, pageId: "author-page", pageAccessToken: "author-token" } } as Record<string, unknown> | null,
@@ -23,9 +23,10 @@ vi.mock("../campaign/model/marketing-content.model", () => ({ MarketingContentMo
 } }));
 vi.mock("../../../middleware/auth", () => ({
   requireAuth: (_req: Request, _res: Response, next: NextFunction) => next(),
-  requirePermission: (permission: string) => (_req: Request, res: Response, next: NextFunction) => {
-    state.required.push(permission);
-    return state.permissions.includes(permission) ? next() : res.status(403).json({ status: "error" });
+  requirePermission: (permission: string | string[]) => (_req: Request, res: Response, next: NextFunction) => {
+    const values = Array.isArray(permission) ? permission : [permission];
+    state.required.push(...values);
+    return values.some((value) => state.permissions.includes(value)) ? next() : res.status(403).json({ status: "error" });
   },
 }));
 vi.mock("../../../middleware/require-module", () => ({ getModuleStateForCompany: async () => ({ exists: true, modules: state.modules }) }));
@@ -33,7 +34,7 @@ vi.mock("../../../middleware/require-module", () => ({ getModuleStateForCompany:
 function authorize(path = "/marketing-settings/auto-reply", method = "PATCH", headers: Record<string, string> = {}, body: Record<string, unknown> = {}) {
   return new Promise<number>((resolve, reject) => {
     let status = 200;
-    const req = { path, method, body, query: {}, headers, user: { id: "user", companyCode: "ERP" } } as unknown as Request;
+    const req = { path, method, body, query: {}, headers, user: { id: "user", role: state.role, companyCode: "ERP" } } as unknown as Request;
     const res = { status(code: number) { status = code; return this; }, json() { resolve(status); return this; } } as unknown as Response;
     suiteAccess(req, res, ((error?: unknown) => error ? reject(error) : resolve(status)) as NextFunction);
   });
@@ -42,6 +43,7 @@ beforeEach(() => {
   state.modules = ["omni-inbox"];
   state.permissions = ["omni-inbox:manage"];
   state.required = [];
+  state.role = "user";
   state.card = { authorUid: "author" };
   state.account = null;
   state.owner = { facebookIntegration: { isConnected: true, pageId: "author-page", pageAccessToken: "author-token" } };
@@ -58,6 +60,20 @@ it("requires Inbox management rather than read access for saving AI configuratio
 it("rejects AI configuration changes when the Inbox module is disabled", async () => {
   state.modules = ["social-marketing"];
   expect(await authorize()).toBe(403);
+});
+it("lets a tenant admin view AI plans without an enabled AI feature module", async () => {
+  state.modules = ["hr", "chat"];
+  state.permissions = [];
+  state.role = "admin";
+  expect(await authorize("/marketing-subscription/plans", "GET")).toBe(200);
+  expect(state.required).toEqual([]);
+});
+it("keeps AI plans permission guarded for non-admin users", async () => {
+  state.modules = ["hr", "chat"];
+  state.permissions = [];
+  expect(await authorize("/marketing-subscription/plans", "GET")).toBe(403);
+  state.permissions = ["quotation-ai:read"];
+  expect(await authorize("/marketing-subscription/plans", "GET")).toBe(200);
 });
 it("retains the integration management permission on integration writes", async () => {
   expect(await authorize("/social-integrations", "POST")).toBe(403);

@@ -59,19 +59,20 @@ export interface ErpStatCardProps {
   change?: string;
   icon: LucideIcon;
   color?: string;
+  variant?: 'default' | 'soft';
 }
 
-export const ErpStatCard: React.FC<ErpStatCardProps> = ({ name, value, change, icon: Icon, color }) => {
+export const ErpStatCard: React.FC<ErpStatCardProps> = ({ name, value, change, icon: Icon, color, variant = 'default' }) => {
   const tone = color?.includes('emerald') ? 'green' : color?.includes('rose') ? 'rose' : color?.includes('indigo') ? 'purple' : 'cyan';
 
   return (
-    <article className={cn("student-stat-card group flex min-w-0 items-center justify-between gap-3 rounded-md p-3", `student-stat-card--${tone}`)}>
+    <article className={cn("student-stat-card group flex min-w-0 items-center justify-between gap-3 rounded-md p-3", `student-stat-card--${tone}`, variant === 'soft' && 'student-stat-card--soft')}>
       <div className="min-w-0 space-y-1">
         <p className="text-pretty text-xs font-medium normal-case">{name}</p>
         <h3 className="break-words text-lg font-semibold leading-tight tabular-nums sm:text-xl">{value}</h3>
         {change && <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold">{change}</span>}
       </div>
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15">
+      <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-md", variant === 'soft' ? 'student-stat-card__icon' : 'bg-white/15')}>
         <Icon className="size-5" aria-hidden="true" />
       </div>
     </article>

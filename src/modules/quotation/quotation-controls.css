@@ -1,0 +1,808 @@
+﻿/* Keep native choices and the import-mapping menu aligned with ERP controls. */
+.quotation-module .app-shell select:not(.sr-only) {
+  border-color: var(--color-outline-variant);
+  background-color: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  font-weight: 400;
+  box-shadow: none;
+}
+
+/* Keep the price list heading actions aligned and reuse the POS Excel color. */
+.quotation-module .app-shell .price-list-heading {
+  align-items: center;
+}
+
+.quotation-module .app-shell .price-list-header-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.quotation-module .app-shell .price-list-header-actions :is(.button, .price-list-refresh-button) {
+  box-sizing: border-box;
+  height: 36px !important;
+  min-height: 36px !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  line-height: 18px !important;
+}
+
+.quotation-module .app-shell .price-list-header-actions .price-list-refresh-button {
+  border-radius: 12px;
+}
+
+.quotation-module .app-shell .price-list-header-actions .price-list-excel-button:not(:disabled) {
+  border-color: var(--color-excel-export);
+  background: var(--color-excel-export);
+  color: var(--color-on-excel-export);
+}
+
+.quotation-module .app-shell .price-list-header-actions .price-list-excel-button:hover:not(:disabled) {
+  border-color: var(--color-excel-export-hover);
+  background: var(--color-excel-export-hover);
+  color: var(--color-on-excel-export);
+}
+
+/* Quotation forms use the same compact dialog and field treatment as ERP forms. */
+.quotation-module .app-shell .price-list-product-card .price-list-search-box {
+  height: 40px;
+  max-width: 600px;
+  border-radius: 12px;
+  border: 1px solid var(--color-outline-variant) !important;
+  background: var(--color-surface-container-lowest) !important;
+  box-shadow: none !important;
+}
+
+.quotation-module .app-shell .price-list-product-card .price-list-search-icon {
+  color: var(--color-on-surface-variant);
+}
+
+.quotation-module .app-shell .price-list-product-card .price-list-search-input {
+  min-width: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--color-on-surface) !important;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.quotation-module .app-shell .price-list-product-card .price-list-search-input::placeholder {
+  color: color-mix(in srgb, var(--color-on-surface-variant) 55%, transparent);
+  opacity: 1;
+}
+
+.quotation-module .app-shell .price-list-product-card .price-list-search-box:focus-within {
+  border-color: var(--color-primary) !important;
+  box-shadow: none !important;
+}
+
+.quotation-module :is(.price-list-edit-dialog, .catalog-bulk-dialog) {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 20px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 16px;
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  box-shadow: 0 20px 50px color-mix(in srgb, var(--color-on-surface) 18%, transparent);
+}
+
+.quotation-module .catalog-bulk-dialog .table-scroll {
+  max-width: 100%;
+}
+
+.quotation-module .catalog-bulk-dialog .data-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.quotation-module .catalog-bulk-dialog .data-table :is(th, td) {
+  box-sizing: border-box;
+  height: auto;
+  overflow-wrap: anywhere;
+  padding-block: 10px;
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.quotation-module .catalog-bulk-dialog .data-table :is(th, td):nth-child(1) { width: 32%; }
+.quotation-module .catalog-bulk-dialog .data-table :is(th, td):nth-child(2) { width: 18%; }
+.quotation-module .catalog-bulk-dialog .data-table :is(th, td):nth-child(3) { width: 23%; }
+.quotation-module .catalog-bulk-dialog .data-table :is(th, td):nth-child(4) { width: 27%; }
+
+.quotation-module .catalog-bulk-dialog .table-scroll:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 680px) {
+  .quotation-module .catalog-bulk-dialog .data-table {
+    min-width: 600px;
+  }
+}
+
+.quotation-module .price-list-edit-dialog .settings-card-heading {
+  align-items: center;
+  padding-bottom: 12px;
+}
+
+.quotation-module .price-list-edit-dialog .settings-card-heading h2 {
+  margin: 0;
+  color: var(--color-on-surface);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.quotation-module .price-list-edit-form {
+  gap: 12px;
+  padding-top: 14px;
+}
+
+.quotation-module .price-list-edit-form .price-list-edit-grid {
+  gap: 10px 12px;
+}
+
+.quotation-module .price-list-edit-form label,
+.quotation-module .price-list-edit-form .price-list-date-field > label {
+  gap: 5px;
+  color: var(--color-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.quotation-module .price-list-edit-form :is(input:not([type="checkbox"]), textarea) {
+  min-height: 40px;
+  border-color: var(--color-outline-variant);
+  border-radius: 8px;
+  color: var(--color-on-surface);
+  font-size: 14px;
+}
+
+.quotation-module .price-list-edit-form textarea {
+  min-height: 64px;
+}
+
+.quotation-module .price-list-edit-form :is(input:not([type="checkbox"]), textarea):focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: none;
+  outline: none;
+}
+
+.quotation-module .customer-quote-dialog {
+  width: min(800px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 16px;
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  box-shadow: 0 20px 50px color-mix(in srgb, var(--color-on-surface) 18%, transparent);
+}
+
+.quotation-module .customer-quote-dialog:not([open]) {
+  display: none;
+}
+
+.quotation-module .customer-quote-dialog::backdrop,
+.quotation-module :is(.price-list-edit-dialog, .catalog-bulk-dialog)::backdrop {
+  background: color-mix(in srgb, var(--color-on-surface) 48%, transparent);
+  backdrop-filter: none;
+}
+
+.quotation-module :is(.cq-dialog-header, .cq-picker-header, .cq-dialog-footer) {
+  background: var(--color-surface-container-lowest);
+  border-color: var(--color-outline-variant);
+}
+
+.quotation-module .cq-dialog-header,
+.quotation-module .cq-picker-header {
+  padding: 14px 20px;
+}
+
+.quotation-module .cq-dialog-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container-lowest));
+  color: var(--color-primary);
+}
+
+.quotation-module .cq-dialog-title h2,
+.quotation-module .cq-picker-header h3 {
+  color: var(--color-on-surface);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.quotation-module .cq-dialog-close:hover,
+.quotation-module .cq-dialog-close:focus-visible {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  outline: none;
+}
+
+.quotation-module .cq-dialog-body {
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.quotation-module .cq-form-section {
+  gap: 8px;
+}
+
+.quotation-module .cq-section-label {
+  color: var(--color-on-surface);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.quotation-module .cq-field-row {
+  gap: 12px;
+}
+
+.quotation-module .cq-input-group label {
+  color: var(--color-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.quotation-module .cq-input-wrapper :is(input, textarea),
+.quotation-module .customer-quote-dialog .theme-select-trigger {
+  border-color: var(--color-outline-variant);
+  color: var(--color-on-surface);
+  font-size: 14px;
+}
+
+.quotation-module .cq-input-wrapper :is(input, textarea):focus,
+.quotation-module .customer-quote-dialog .theme-select-trigger:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: none;
+}
+
+.quotation-module .customer-quote-dialog .theme-select {
+  width: 100%;
+}
+
+.quotation-module .customer-quote-dialog .theme-select-trigger {
+  width: 100%;
+  min-height: 40px;
+}
+
+.quotation-module .cq-mode-tabs {
+  background: var(--color-surface);
+  border: 1px solid var(--color-outline-variant);
+}
+
+.quotation-module .cq-mode-tab.active {
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container-lowest));
+  color: var(--color-primary);
+  box-shadow: none;
+}
+
+.quotation-module .cq-ai-box {
+  background: var(--color-surface);
+  border-color: var(--color-outline-variant);
+}
+
+.quotation-module .cq-dialog-footer {
+  padding: 12px 20px;
+}
+
+.quotation-module .customer-product-picker {
+  width: min(640px, 100%);
+  max-height: calc(100dvh - 48px);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 16px;
+}
+
+.quotation-module .customer-product-overlay {
+  background: color-mix(in srgb, var(--color-on-surface) 48%, transparent);
+  backdrop-filter: none;
+}
+
+.quotation-module .cq-picker-search-bar {
+  background: var(--color-surface-container-lowest);
+  border-color: var(--color-outline-variant);
+}
+
+@media (max-width: 600px) {
+  .quotation-module .price-list-edit-form .price-list-edit-grid,
+  .quotation-module .cq-field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quotation-module .customer-quote-dialog,
+  .quotation-module :is(.price-list-edit-dialog, .catalog-bulk-dialog) {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+}
+.quotation-module .app-shell select:not(.sr-only):hover:not(:disabled),
+.quotation-module .app-shell select:not(.sr-only):focus,
+.quotation-module .app-shell select:not(.sr-only):focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: none;
+}
+.quotation-module .app-shell select option {
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  font-weight: 400;
+}
+.quotation-module .app-shell .quote-template-trigger {
+  border-color: var(--color-outline-variant);
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  font-weight: 400;
+}
+.quotation-module .app-shell .quote-template-trigger:focus-visible,
+.quotation-module .app-shell .quote-template-dropdown.is-open .quote-template-trigger {
+  outline: none; border-color: var(--color-primary); box-shadow: none;
+}
+.quotation-module .app-shell .quote-template-menu {
+  border-color: var(--color-outline-variant);
+  background: var(--color-surface-container-lowest);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .1);
+}
+.quotation-module .app-shell .quote-template-menu [role="option"] {
+  color: var(--color-on-surface); font-weight: 400;
+}
+.quotation-module .app-shell .quote-template-menu [role="option"]:hover,
+.quotation-module .app-shell .quote-template-menu [role="option"]:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+.quotation-module .app-shell .quote-template-menu [role="option"][aria-selected="true"] {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+}
+.quotation-module .app-shell .price-list-review-select-trigger {
+  border-color: var(--color-outline-variant);
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
+  font-weight: 400;
+}
+.quotation-module .app-shell .price-list-review-select-trigger:focus-visible,
+.quotation-module .app-shell .price-list-review-select.is-open .price-list-review-select-trigger {
+  outline: none; border-color: var(--color-primary); box-shadow: none;
+}
+.quotation-module .app-shell .price-list-review-select-menu {
+  border-color: var(--color-outline-variant);
+  background: var(--color-surface-container-lowest);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .1);
+}
+.quotation-module .app-shell .price-list-review-select-menu [role="option"] {
+  color: var(--color-on-surface); font-weight: 400;
+}
+.quotation-module .app-shell .price-list-review-select-menu [role="option"]:hover,
+.quotation-module .app-shell .price-list-review-select-menu [role="option"]:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+.quotation-module .app-shell .price-list-review-select-menu [role="option"][aria-selected="true"] {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+}
+.quotation-module .document-dialog-date-field,
+.quotation-module .workflow-date-field {
+  display: grid; gap: 6px; min-width: 0;
+  color: var(--color-on-surface-variant); font-size: 12px; font-weight: 500;
+}
+.quotation-module .document-dialog-date-field .vi-date-trigger,
+.quotation-module .workflow-date-field .vi-date-trigger { font-weight: 400; }
+.quotation-module .workflow-footer .vi-date-picker { width: min(200px, 100%); }
+.quotation-module .document-dialog input.quotation-date-native,
+.quotation-module .workflow-form input.quotation-date-native {
+  position: absolute; width: 1px; height: 1px; padding: 0;
+  opacity: 0; pointer-events: none;
+}
+@media (max-width: 680px) {
+  .quotation-module .workflow-footer .vi-date-picker { width: 100%; }
+}
+
+/* Match the shared HR action buttons across quotation workspaces. */
+.quotation-module .app-shell :is(
+  .button,
+  .bp-create-btn,
+  .cq-create-btn,
+  .qt-create-btn,
+  .template-create-button,
+  .price-list-add-button,
+  .analyze-button,
+  .cq-ai-suggest-btn,
+  .cq-view-btn,
+  .quote-back-btn,
+  .cqd-back-btn,
+  .quote-quota-upgrade-btn
+) {
+  box-sizing: border-box;
+  display: inline-flex;
+  min-height: 36px !important;
+  height: auto !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px !important;
+  padding: 8px 16px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 12px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 18px !important;
+  text-align: center;
+  white-space: normal;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%) !important;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .16s ease;
+}
+
+.quotation-module .app-shell :is(.button.button-compact, .cq-view-btn) {
+  padding: 8px 12px !important;
+}
+
+.quotation-module .app-shell :is(
+  .button-primary,
+  .bp-create-btn,
+  .cq-create-btn,
+  .qt-create-btn,
+  .template-create-button,
+  .price-list-add-button,
+  .analyze-button,
+  .cq-ai-suggest-btn
+),
+.quotation-module .app-shell .budget-page .bp-create-btn {
+  border-color: var(--color-primary) !important;
+  background: var(--color-primary) !important;
+  background-image: none !important;
+  color: var(--color-on-primary) !important;
+}
+
+.quotation-module .app-shell :is(
+  .button-primary,
+  .bp-create-btn,
+  .cq-create-btn,
+  .qt-create-btn,
+  .template-create-button,
+  .price-list-add-button,
+  .analyze-button,
+  .cq-ai-suggest-btn
+):hover:not(:disabled),
+.quotation-module .app-shell .budget-page .bp-create-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-primary) 86%, var(--color-on-surface)) !important;
+  background: color-mix(in srgb, var(--color-primary) 86%, var(--color-on-surface)) !important;
+  color: var(--color-on-primary) !important;
+}
+
+.quotation-module .app-shell :is(
+  .button-soft,
+  .cq-view-btn,
+  .quote-back-btn,
+  .cqd-back-btn,
+  .quote-quota-upgrade-btn
+) {
+  border-color: var(--color-outline-variant) !important;
+  background: var(--color-surface-container-lowest) !important;
+  background-image: none !important;
+  color: var(--color-on-surface) !important;
+}
+
+.quotation-module .app-shell :is(
+  .button-soft,
+  .cq-view-btn,
+  .quote-back-btn,
+  .cqd-back-btn,
+  .quote-quota-upgrade-btn
+):hover:not(:disabled) {
+  border-color: var(--color-primary) !important;
+  background: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface-container-lowest)) !important;
+  color: var(--color-primary) !important;
+}
+
+.quotation-module .app-shell :is(
+  .button,
+  .bp-create-btn,
+  .cq-create-btn,
+  .qt-create-btn,
+  .template-create-button,
+  .price-list-add-button,
+  .analyze-button,
+  .cq-ai-suggest-btn,
+  .cq-view-btn,
+  .quote-back-btn,
+  .cqd-back-btn,
+  .quote-quota-upgrade-btn
+):focus-visible {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 2px;
+}
+
+.quotation-module .app-shell :is(.button, .bp-create-btn, .cq-create-btn, .qt-create-btn):active:not(:disabled) {
+  transform: scale(.95);
+}
+
+/* Status filters stay distinct from actions, but use one size and selection pattern. */
+.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn, .price-list-status-tab) {
+  box-sizing: border-box;
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 10px !important;
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 10px !important;
+  background: var(--color-surface-container-lowest) !important;
+  background-image: none !important;
+  color: var(--color-on-surface) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+  box-shadow: none !important;
+}
+
+.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn, .price-list-status-tab):hover:not(:disabled) {
+  border-color: var(--color-primary) !important;
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-surface-container-lowest)) !important;
+}
+
+.quotation-module .app-shell :is(.quote-filter-tab.is-active, .cq-filter-btn.active, .bp-filter-btn.active, .qt-filter-btn.active, .price-list-status-tab.is-active) {
+  border-color: var(--color-primary) !important;
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface-container-lowest)) !important;
+  color: var(--color-primary) !important;
+  font-weight: 600 !important;
+}
+
+.quotation-module .app-shell :is(.quote-filter-tab.is-active, .cq-filter-btn.active, .bp-filter-btn.active, .qt-filter-btn.active, .price-list-status-tab.is-active) > * {
+  color: var(--color-primary) !important;
+}
+
+.quotation-module .app-shell :is(.quote-filter-tab.is-active, .cq-filter-btn.active, .bp-filter-btn.active, .qt-filter-btn.active, .price-list-status-tab.is-active) :is(.tab-badge, .cq-filter-count, .bp-filter-count, .qt-filter-count, .tab-count) {
+  color: var(--color-primary) !important;
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container-lowest)) !important;
+}
+
+.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn, .price-list-status-tab):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn, .price-list-status-tab) :is(.tab-badge, .cq-filter-count, .bp-filter-count, .qt-filter-count, .tab-count) {
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotation-module .app-shell .quote-sort-wrapper label {
+  color: var(--color-on-surface-variant);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* Small icon actions use the same square and neutral surface. */
+.quotation-module .app-shell :is(.icon-button, .quote-mini-icon-btn, .cq-remove-btn, .quote-card-action-btn, .qt-card-btn-preview, .qt-card-btn-download, .qt-card-btn-delete) {
+  box-sizing: border-box;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 10px !important;
+  background: var(--color-surface-container-lowest) !important;
+  color: var(--color-on-surface-variant) !important;
+  box-shadow: none !important;
+}
+
+.quotation-module .app-shell :is(.quote-card-action-btn, .qt-card-btn-preview, .qt-card-btn-download, .qt-card-btn-delete) {
+  flex: 0 0 36px !important;
+}
+
+.quotation-module .app-shell :is(.icon-button, .quote-mini-icon-btn, .cq-remove-btn, .quote-card-action-btn, .qt-card-btn-preview, .qt-card-btn-download, .qt-card-btn-delete):hover:not(:disabled),
+.quotation-module .app-shell :is(.icon-button, .quote-mini-icon-btn, .cq-remove-btn, .quote-card-action-btn, .qt-card-btn-preview, .qt-card-btn-download, .qt-card-btn-delete):focus-visible {
+  border-color: var(--color-primary) !important;
+  background: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface-container-lowest)) !important;
+  color: var(--color-primary) !important;
+}
+
+.quotation-module .app-shell :is(.cq-remove-btn, .quote-card-btn-delete, .qt-card-btn-delete) {
+  color: var(--color-error) !important;
+}
+
+.quotation-module .app-shell :is(.cq-remove-btn, .quote-card-btn-delete, .qt-card-btn-delete):hover:not(:disabled),
+.quotation-module .app-shell :is(.cq-remove-btn, .quote-card-btn-delete, .qt-card-btn-delete):focus-visible {
+  border-color: var(--color-error) !important;
+  background: color-mix(in srgb, var(--color-error) 8%, var(--color-surface-container-lowest)) !important;
+  color: var(--color-error) !important;
+}
+
+/* Management tables follow the HR Branch table; document print layouts keep their own styles. */
+@media screen {
+  .quotation-module .app-shell :is(.cq-table-responsive, .quote-table-wrapper, .quote-supplement-product-wrap, .cqd-table-wrap, .workflow-table-wrap, .table-scroll):has(> table),
+  .quotation-module .app-shell .bp-table-card > div:has(> .bp-table) {
+    overflow-x: auto;
+    scrollbar-gutter: stable;
+    scrollbar-color: var(--color-outline) var(--color-surface);
+    border: 1px solid var(--color-outline-variant) !important;
+    border-radius: 6px !important;
+    background: var(--color-surface-container-lowest) !important;
+  }
+
+  .quotation-module .app-shell :is(.cq-table, .price-list-table, .quote-modern-table, .quote-supplement-product-table, .bp-table, .cqd-table, .data-table, .workflow-table-wrap table) {
+    width: 100%;
+    border-collapse: collapse !important;
+    background: var(--color-surface-container-lowest) !important;
+    color: var(--color-on-surface);
+    font-size: 14px !important;
+    line-height: 20px !important;
+    text-align: left;
+  }
+
+  .quotation-module .app-shell :is(.cq-table, .price-list-table, .quote-modern-table, .quote-supplement-product-table, .bp-table, .cqd-table, .data-table, .workflow-table-wrap table) thead {
+    background: var(--color-surface) !important;
+    color: var(--color-on-surface-variant) !important;
+  }
+
+  .quotation-module .app-shell :is(.cq-table, .price-list-table, .quote-modern-table, .quote-supplement-product-table, .bp-table, .cqd-table, .data-table, .workflow-table-wrap table) thead th {
+    padding: 12px 16px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--color-outline-variant) !important;
+    background: transparent !important;
+    color: var(--color-on-surface-variant) !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 16px !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    white-space: nowrap;
+  }
+
+  .quotation-module .app-shell :is(.cq-table, .price-list-table, .quote-modern-table, .quote-supplement-product-table, .bp-table, .cqd-table, .data-table, .workflow-table-wrap table) tbody tr {
+    border: 0 !important;
+    background: var(--color-surface-container-lowest) !important;
+  }
+
+  .quotation-module .app-shell :is(.cq-table, .price-list-table, .quote-modern-table, .quote-supplement-product-table, .bp-table, .cqd-table, .data-table, .workflow-table-wrap table) tbody tr:hover {
+    background: color-mix(in srgb, var(--color-surface) 60%, var(--color-surface-container-lowest)) !important;
+  }
+
+  .quotation-module .app-shell :is(.cq-table, .price-list-table, .quote-modern-table, .quote-supplement-product-table, .bp-table, .cqd-table, .data-table, .workflow-table-wrap table) tbody :is(td, th) {
+    padding: 12px 16px !important;
+    border: 0 !important;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-outline-variant) 80%, var(--color-on-surface)) !important;
+    background: transparent !important;
+    color: var(--color-on-surface);
+    font-size: 14px !important;
+    font-weight: 400;
+    line-height: 20px !important;
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .quotation-module .app-shell :is(.cq-table, .price-list-table, .quote-modern-table, .quote-supplement-product-table, .bp-table, .cqd-table, .data-table, .workflow-table-wrap table) tbody tr:last-child :is(td, th) {
+    border-bottom: 0 !important;
+  }
+
+  .quotation-module .app-shell :is(.cq-table, .quote-modern-table, .bp-table, .cqd-table, .workflow-table-wrap table) {
+    min-width: 800px;
+  }
+
+  .quotation-module .app-shell .workflow-acceptance-table-wrap table {
+    min-width: 1000px;
+  }
+
+  .quotation-module .app-shell .price-list-product-card > .table-scroll {
+    max-height: min(58dvh, 640px);
+    overflow: auto;
+  }
+
+  .quotation-module .app-shell .price-list-product-card > .table-scroll:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+
+  .quotation-module .app-shell .price-list-product-card > .table-scroll::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .quotation-module .app-shell .price-list-product-card > .table-scroll::-webkit-scrollbar-track {
+    background: var(--color-surface);
+  }
+
+  .quotation-module .app-shell .price-list-product-card > .table-scroll::-webkit-scrollbar-thumb {
+    border: 2px solid var(--color-surface);
+    border-radius: 10px;
+    background: var(--color-outline);
+  }
+
+  .quotation-module .app-shell .price-list-table {
+    width: 100%;
+    min-width: 1168px;
+    table-layout: fixed;
+  }
+
+  .quotation-module .app-shell .price-list-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .quotation-module .app-shell .price-list-table .price-list-col-select { width: 48px; }
+  .quotation-module .app-shell .price-list-table .price-list-col-product { width: 240px; }
+  .quotation-module .app-shell .price-list-table .price-list-col-description { width: 290px; }
+  .quotation-module .app-shell .price-list-table .price-list-col-unit { width: 80px; }
+  .quotation-module .app-shell .price-list-table .price-list-col-price { width: 135px; }
+  .quotation-module .app-shell .price-list-table .price-list-col-status { width: 145px; }
+  .quotation-module .app-shell .price-list-table .price-list-col-actions { width: 230px; }
+
+  .quotation-module .app-shell .price-list-table .price-list-unit-heading,
+  .quotation-module .app-shell .price-list-table .price-list-unit {
+    text-align: center;
+  }
+
+  .quotation-module .app-shell .price-list-table .price-list-price-heading,
+  .quotation-module .app-shell .price-list-table .amount-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .quotation-module .app-shell .price-list-table tbody td:nth-child(2),
+  .quotation-module .app-shell .price-list-table tbody td.price-list-description {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .quotation-module .app-shell .price-list-table tbody td strong,
+  .quotation-module .app-shell .price-list-table tbody td .table-subtext,
+  .quotation-module .app-shell .price-list-table .price-list-description-text,
+  .quotation-module .app-shell .price-list-table .price-list-attributes {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .quotation-module .app-shell .price-list-table .price-list-attributes span {
+    display: inline;
+    white-space: nowrap;
+  }
+
+  .quotation-module .app-shell .price-list-table .price-list-attributes strong {
+    display: inline;
+  }
+
+  .quotation-module .app-shell .price-list-table :is(th, td):has(> input[type="checkbox"]) {
+    padding-right: 8px !important;
+    padding-left: 16px !important;
+  }
+
+  .quotation-module .app-shell .price-list-table .price-list-action {
+    white-space: nowrap;
+  }
+
+  .quotation-module .app-shell .price-list-table .catalog-row-actions {
+    min-width: 0;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .quotation-module .app-shell .price-list-table .catalog-row-actions .theme-select {
+    min-width: 112px;
+    flex: 1;
+  }
+
+  .quotation-module .app-shell .price-list-table .catalog-row-actions .theme-select-trigger {
+    width: 100%;
+    min-height: 36px;
+  }
+}

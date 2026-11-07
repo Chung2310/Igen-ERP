@@ -2,6 +2,7 @@ import { hasQuotationCapability } from "./api";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { api, apiUploadWithProgress, formatDate, formatMoney } from "./api";
 import CatalogProductDialog from "./CatalogProductDialog";
+import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import { loadCatalogProducts } from "./catalog-api";
 import CatalogBulkDialog from "./CatalogBulkDialog";
 import { catalogActionLabels, type CatalogAction } from "./catalog-actions";
@@ -458,9 +459,9 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
     <section className="page-heading-row price-list-heading">
       <div><div className="price-list-title-row"><h1>Bảng giá</h1>{!loading && <span className="price-list-total-badge">{statusCounts.all} sản phẩm</span>}</div></div>
       <div className="price-list-header-actions catalog-header-actions">
-        <ErpRefreshButton loading={loading} onClick={() => { setLoading(true); setSelectedIds(new Set()); setReloadKey(key => key + 1); }} />
-        {products.length > 0 && <button type="button" className="button button-soft price-list-export-button" disabled={loading || exporting || !filteredProducts.length} title={`Xuất ${filteredProducts.length} sản phẩm theo kết quả tìm kiếm và bộ lọc`} onClick={() => void exportExcel()}>{exporting ? "Đang xuất…" : "Xuất Excel"}</button>}
-        <button type="button" className="button button-soft" disabled={!canManage || busy || loading || pendingImports.length > 0} onClick={() => input.current?.click()}>{busy ? "Đang đọc tài liệu…" : "Nhập Excel/CSV"}</button>
+        <ErpRefreshButton className="price-list-refresh-button" loading={loading} onClick={() => { setLoading(true); setSelectedIds(new Set()); setReloadKey(key => key + 1); }} />
+        {products.length > 0 && <button type="button" className="button price-list-export-button price-list-excel-button" disabled={loading || exporting || !filteredProducts.length} title={`Xuất ${filteredProducts.length} sản phẩm theo kết quả tìm kiếm và bộ lọc`} onClick={() => void exportExcel()}>{exporting ? "Đang xuất…" : "Xuất Excel"}</button>}
+        <button type="button" className="button price-list-excel-button" disabled={!canManage || busy || loading || pendingImports.length > 0} onClick={() => input.current?.click()}>{busy ? "Đang đọc tài liệu…" : "Nhập Excel/CSV"}</button>
         <button type="button" className="button button-primary price-list-add-button" disabled={!canManage || busy || loading} title={canManage ? "Nhập sản phẩm trực tiếp" : "Cần quyền quản lý bảng giá"} onClick={openCreate}>Thêm sản phẩm</button>
       </div>
       <input ref={input} type="file" hidden multiple disabled={!hasQuotationCapability("quotation-price-book:manage") || (busy || pendingImports.length > 0)} accept=".csv,.xlsx,.xls" onChange={(event) => void upload(event)} />
@@ -502,7 +503,7 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
             <input
               ref={searchInputRef}
               type="text"
-              className="price-list-search-input"
+              className="price-list-search-input border-0 bg-transparent"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
@@ -524,9 +525,7 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
               >
                 <ClearIcon size={14} />
               </button>
-            ) : (
-              <kbd className="price-list-kbd-hint" title="Nhấn phím / để tìm nhanh">/</kbd>
-            )}
+            ) : null}
           </div>
 
           <div className="price-list-sort-wrap">
@@ -613,7 +612,7 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
         <div className="loading-state" role="status">Đang tải danh sách sản phẩm…</div>
       ) : products.length === 0 ? (
         <div className="empty-state price-list-empty-state setup-empty-state">
-          <span className="empty-icon"><img src="/quotation/images/catalog-empty-3d.svg" alt="" /></span>
+          <QuotationEmptyIllustration kind="product" />
           <h2>Chưa có sản phẩm báo giá</h2>
           <p>Thêm sản phẩm trực tiếp hoặc nhập danh mục từ file Excel/CSV.</p>
           <button type="button" className="button button-primary price-list-empty-cta" disabled={!canManage || busy} onClick={openCreate}>Thêm sản phẩm đầu tiên</button>
@@ -621,9 +620,7 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="empty-state price-list-empty-search">
-          <div className="empty-search-icon" aria-hidden="true">
-            <SearchIcon size={26} />
-          </div>
+          <QuotationEmptyIllustration kind="search" />
           <h2>Không tìm thấy sản phẩm phù hợp</h2>
           <p>
             Không có kết quả nào khớp với {query.trim() ? <>từ khóa <strong>"{query.trim()}"</strong></> : "bộ lọc đã chọn"}.
@@ -635,15 +632,24 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
       ) : (
         <>
         {canManage && selectedIds.size > 0 && <div className="catalog-selection-bar" role="region" aria-label="Thao tác sản phẩm đã chọn"><strong aria-live="polite">Đã chọn {selectedIds.size}/200 sản phẩm</strong>{(statusFilter === "deleted" ? ["restore"] : ["activate", "deactivate", "price", "delete"]).map(action => <button key={action} type="button" className="button button-soft button-compact" onClick={() => setBulk({ action: action as CatalogAction, items: products.filter(item => selectedIds.has(item._id)) })}>{catalogActionLabels[action as CatalogAction]}</button>)}<button type="button" className="button button-soft button-compact" disabled={exporting} onClick={() => void exportExcel(true)}>Xuất đã chọn</button><button type="button" className="text-button" onClick={() => setSelectedIds(new Set())}>Bỏ chọn</button></div>}
-        <div className="table-scroll">
+        <div className="table-scroll" role="region" aria-label="Bảng giá sản phẩm, cuộn ngang để xem thêm cột" tabIndex={0}>
           <table className="data-table price-list-table">
+            <colgroup>
+              {canManage && <col className="price-list-col-select" />}
+              <col className="price-list-col-product" />
+              <col className="price-list-col-description" />
+              <col className="price-list-col-unit" />
+              <col className="price-list-col-price" />
+              <col className="price-list-col-status" />
+              <col className="price-list-col-actions" />
+            </colgroup>
             <thead>
               <tr>
                 {canManage && <th><input type="checkbox" aria-label="Chọn sản phẩm trang hiện tại" checked={visibleProducts.length > 0 && visibleProducts.every(item => selectedIds.has(item._id))} ref={node => { if (node) node.indeterminate = visibleProducts.some(item => selectedIds.has(item._id)) && !visibleProducts.every(item => selectedIds.has(item._id)); }} onChange={event => { const checked = event.target.checked; setSelectedIds(current => { const next = new Set(current); for (const item of visibleProducts) { if (checked && next.size < 200) next.add(item._id); else if (!checked) next.delete(item._id); } return next; }); }} /></th>}
                 <th>Sản phẩm</th>
                 <th>Quy cách / thông số</th>
-                <th>Đơn vị</th>
-                <th>Đơn giá</th>
+                <th className="price-list-unit-heading">Đơn vị</th>
+                <th className="price-list-price-heading">Đơn giá</th>
                 <th>Trạng thái</th>
                 <th>Thao tác</th>
               </tr>
@@ -655,24 +661,22 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
                   <tr key={item._id}>
                     {canManage && <td><input type="checkbox" aria-label={`Chọn ${item.sku}`} checked={selectedIds.has(item._id)} disabled={selectedIds.size >= 200 && !selectedIds.has(item._id)} onChange={event => toggleSelection(item._id, event.target.checked)} /></td>}
                     <td>
-                      <strong>
+                      <strong title={item.name}>
                         <HighlightMatch text={item.name} query={query} />
                       </strong>
-                      <span className="table-subtext">
+                      <span className="table-subtext" title={item.sku}>
                         <HighlightMatch text={item.sku} query={query} />
                       </span>
                     </td>
                     <td className="price-list-description">
-                      {item.description ? (
-                        <HighlightMatch text={item.description} query={query} />
-                      ) : (
-                        "—"
-                      )}
+                      <span className="price-list-description-text" title={item.description || undefined}>
+                        {item.description ? <HighlightMatch text={item.description} query={query} /> : "—"}
+                      </span>
                       {Boolean(Object.keys(item.attributes ?? {}).length) && (
-                        <div className="price-list-attributes">
-                          {Object.entries(item.attributes ?? {}).map(([key, value]) => (
+                        <div className="price-list-attributes" title={Object.entries(item.attributes ?? {}).map(([key, value]) => `${key}: ${value}`).join(" · ")}>
+                          {Object.entries(item.attributes ?? {}).map(([key, value], index) => (
                             <span key={key}>
-                              <strong>{key}:</strong> <HighlightMatch text={value} query={query} />
+                              {index > 0 ? " · " : null}<strong>{key}:</strong> <HighlightMatch text={value} query={query} />
                             </span>
                           ))}
                         </div>
@@ -695,9 +699,8 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
                       >
                         Sửa
                       </button>
-                      <button type="button" className="button button-soft button-compact" onClick={() => openDuplicate(item)}>Nhân bản</button>
                       </>}
-                      <ThemedSelect label={`Thao tác ${item.sku}`} value="" options={[{ value: "", label: "Thao tác…" }, ...(item.deletedAt ? [{ value: "restore", label: "Khôi phục" }] : [{ value: item.active ? "deactivate" : "activate", label: item.active ? "Ngừng áp dụng" : "Bật áp dụng" }, { value: "delete", label: "Xóa" }])]} onChange={action => { if (action) setBulk({ action: action as CatalogAction, items: [item] }); }} />
+                      <ThemedSelect label={`Thao tác ${item.sku}`} value="" options={[{ value: "", label: "Thao tác…" }, ...(item.deletedAt ? [{ value: "restore", label: "Khôi phục" }] : [{ value: "duplicate", label: "Nhân bản" }, { value: item.active ? "deactivate" : "activate", label: item.active ? "Ngừng áp dụng" : "Bật áp dụng" }, { value: "delete", label: "Xóa" }])]} onChange={action => { if (action === "duplicate") openDuplicate(item); else if (action) setBulk({ action: action as CatalogAction, items: [item] }); }} />
                       </div> : <span className="muted">Chỉ xem</span>}
                     </td>
                   </tr>

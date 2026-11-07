@@ -29,3 +29,15 @@
 .student-stat-card--orange { --student-stat-start: #d85c27; --student-stat-end: #f47835; }
 .student-stat-card--rose { --student-stat-start: #dd3d69; --student-stat-end: #f46a83; }
 .student-stat-card--green { --student-stat-start: #169b63; --student-stat-end: #2bbb81; }
+
+.student-stat-card--soft {
+  background: var(--color-surface-container-low);
+  border: 1px solid var(--color-outline-variant);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+  color: var(--color-on-surface);
+}
+
+.student-stat-card--soft .student-stat-card__icon {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}

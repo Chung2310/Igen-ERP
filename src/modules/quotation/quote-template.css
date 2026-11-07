@@ -653,7 +653,8 @@
 
 .quotation-module .qt-dialog {
   width: min(620px, calc(100vw - 32px));
-  max-height: 90vh;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
   border: 0;
   border-radius: 18px;
   background: var(--color-surface-container-lowest);
@@ -662,6 +663,10 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.quotation-module .qt-dialog:not([open]) {
+  display: none;
 }
 
 .quotation-module .qt-dialog::backdrop {
@@ -1144,7 +1149,7 @@
 .quotation-module .app-shell .qt-toolbar {
   min-height: 76px;
   box-sizing: border-box;
-  padding: 14px 18px;
+  padding: 14px 20px;
   border-bottom-color: #e7eef6;
   background: linear-gradient(105deg, #fbfdff 0%, #f7fbff 100%);
 }
@@ -1289,6 +1294,11 @@
   gap: 6px;
   padding-top: 12px;
   border-top-color: #edf2f7;
+}
+
+.quotation-module .app-shell .qt-card-category-select {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .quotation-module .app-shell .qt-card-btn-preview {

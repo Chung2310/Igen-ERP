@@ -68,13 +68,15 @@ export function GlobalSidebarSearch() {
         <Search className="size-4 shrink-0 text-on-surface-variant" aria-hidden="true" />
         <input
           ref={inputRef}
-          type="search"
+          type="text"
+          role="searchbox"
+          inputMode="search"
           aria-label="Tìm kiếm trong ERP"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           className="h-9 min-w-0 flex-1 bg-transparent text-sm text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary"
         />
-        <button type="button" aria-label="Đóng tìm kiếm" onClick={() => { setOpen(false); triggerRef.current?.focus(); }} className="flex size-9 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
+        <button type="button" aria-label="Đóng tìm kiếm" onClick={() => { setOpen(false); triggerRef.current?.focus(); }} className="flex size-9 shrink-0 items-center justify-center rounded-lg border-0 bg-surface text-on-surface-variant hover:bg-primary/10 hover:text-primary focus-visible:outline-2 focus-visible:outline-primary">
           <X className="size-4" aria-hidden="true" />
         </button>
       </div>

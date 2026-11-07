@@ -33,10 +33,11 @@ describe("StyledSelect in ERP dialogs", () => {
   });
 
   it("keeps the menu inside an open assistant popover", () => {
-    render(<section popover="auto" data-testid="assistant-panel"><StyledSelect ariaLabel="Assistant mode" value="qa" options={[{ value: "qa", label: "Hỏi đáp" }, { value: "work", label: "Thao tác" }]} onChange={vi.fn()} /></section>);
+    render(<section popover="auto" data-testid="assistant-panel"><StyledSelect ariaLabel="Assistant mode" menuLabel="Chọn chế độ" value="qa" options={[{ value: "qa", label: "Hỏi đáp" }, { value: "work", label: "Thao tác" }]} onChange={vi.fn()} /></section>);
     const panel = screen.getByTestId("assistant-panel");
     fireEvent.click(within(panel).getByRole("button", { name: "Assistant mode", hidden: true }));
     expect(within(panel).getByRole("listbox", { name: "Assistant mode", hidden: true }).parentElement).toBe(panel);
+    expect(within(panel).getByText("Chọn chế độ")).toBeTruthy();
   });
 
   it("keeps required form validation and focuses the visible dropdown", () => {

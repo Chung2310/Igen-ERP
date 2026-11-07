@@ -1,4 +1,7 @@
 import ErpCustomerPicker from "./ErpCustomerPicker";
+import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
+import QuotationSidebarIcon, { type QuotationSidebarIconName } from "./QuotationSidebarIcon";
+import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import EstimateRegeneration from "./EstimateRegeneration";
 import { catalogSelectionVersion } from "./catalog-api";
 import { createSavedDraftEstimateFile } from "./draft-export";
@@ -40,7 +43,7 @@ import "./settings.css";
 import "./quote-supplement.css";
 
 
-type Section = "home" | "quotes" | "documents" | "budgetPlanner" | "customerQuotes" | "catalog" | "templates" | "profile";
+type Section = "quotes" | "documents" | "budgetPlanner" | "customerQuotes" | "catalog" | "templates" | "profile";
 
 type DocumentView = "contracts" | "acceptances";
 const sectionPaths: Record<Section, string> = quotationSectionPaths;
@@ -70,7 +73,6 @@ const statusLabels: Record<QuoteStatus, string> = { draft: "Bản nháp", needs_
 
 const statusStyles: Record<QuoteStatus, string> = { draft: "neutral", needs_info: "amber", pending_review: "blue", approved: "green", rejected: "rose" };
 
-const roleLabels = { user: "Tài khoản ERP", admin: "Quản trị hệ thống" };
 
 
 type RegistrationField = "companyName" | "taxId" | "address" | "phone" | "businessEmail" | "representativeName" | "password";
@@ -238,7 +240,7 @@ function UserApp() {
 
   const initialRoute = useRef(userRouteForPath(window.location.pathname, window.location.search));
 
-  const [section, setSection] = useState<Section>(initialRoute.current?.section ?? "home");
+  const [section, setSection] = useState<Section>(initialRoute.current?.section ?? "quotes");
 
   const [quoteId, setQuoteId] = useState<string | null>(initialRoute.current?.quoteId ?? null);
 
@@ -269,6 +271,11 @@ function UserApp() {
   const deletingQuoteRef = useRef(false);
 
 useEffect(() => { setUser(quotationClientUser()); setCheckingSession(false); }, []);
+
+  useEffect(() => {
+    const sub = new URLSearchParams(window.location.search).get("sub");
+    if (!sub || sub === "tong-quan") window.history.replaceState(null, "", sectionPaths.quotes);
+  }, []);
 
   useEffect(() => {
     const syncRoute = () => {
@@ -424,33 +431,28 @@ if (!user) return <p role="status">Phiên ERP đã thay đổi. Vui lòng mở l
   };
 
 
+  const navigationItems: { label: string; icon: QuotationSidebarIconName; active: boolean; onClick: () => void }[] = [
+    { label: "Ngân sách", icon: "budget", active: !quoteId && section === "budgetPlanner", onClick: () => navigateSection("budgetPlanner") },
+    { label: "Báo giá khách", icon: "customerQuote", active: section === "customerQuotes", onClick: () => navigateSection("customerQuotes") },
+    { label: "Dự toán", icon: "estimate", active: section === "quotes", onClick: () => navigateSection("quotes") },
+    ...(hasQuotationCapability("quotation-contract:read") ? [{ label: "Hợp đồng", icon: "contract" as const, active: section === "documents" && documentView === "contracts", onClick: () => openWorkflow("contracts") }] : []),
+    ...(hasQuotationCapability("quotation-acceptance:read") ? [{ label: "Nghiệm thu", icon: "acceptance" as const, active: section === "documents" && documentView === "acceptances", onClick: () => openWorkflow("acceptances") }] : []),
+    ...(hasQuotationCapability("quotation-template:read") ? [{ label: "Mẫu tài liệu", icon: "template" as const, active: !quoteId && section === "templates", onClick: () => navigateSection("templates") }] : []),
+    ...(hasQuotationCapability("quotation-price-book:read") ? [{ label: "Bảng giá", icon: "priceBook" as const, active: !quoteId && section === "catalog", onClick: () => navigateSection("catalog") }] : []),
+  ];
+
   return <NotificationProvider notify={notify}><div className="app-shell">
-    <aside className="sidebar">
-      <div className="brand-lockup"><img className="brand-logo-image brand-logo-baogia" src="/quotation/images/logo-baogia.png" alt="iGen Trợ lí báo giá" /></div>
-      <nav className="side-nav">
-        <NavButton icon="home" label="Tổng quan" href={sectionPaths.home} active={!quoteId && section === "home"} onClick={() => navigateSection("home")} />
-        <NavButton icon="spark" label="Tư vấn ngân sách" href={sectionPaths.budgetPlanner} active={!quoteId && section === "budgetPlanner"} onClick={() => navigateSection("budgetPlanner")} />
-        <NavButton icon="file" label="Báo giá khách" href={sectionPaths.customerQuotes} active={section === "customerQuotes"} onClick={() => navigateSection("customerQuotes")} />
-        <NavButton icon="quote" label="Dự toán" href={sectionPaths.quotes} active={section === "quotes"} onClick={() => navigateSection("quotes")} />
-        {hasQuotationCapability("quotation-contract:read") && <NavButton icon="file" label="Hợp đồng" href={quotationUrl("documents", null, "contracts")} active={section === "documents" && documentView === "contracts"} onClick={() => openWorkflow("contracts")} />}
-        {hasQuotationCapability("quotation-acceptance:read") && <NavButton icon="file" label="Nghiệm thu" href={quotationUrl("documents", null, "acceptances")} active={section === "documents" && documentView === "acceptances"} onClick={() => openWorkflow("acceptances")} />}
-        {hasQuotationCapability("quotation-template:read") && <NavButton icon="template" label="Mẫu tài liệu" href={sectionPaths.templates} active={!quoteId && section === "templates"} onClick={() => navigateSection("templates")} />}
-        {hasQuotationCapability("quotation-price-book:read") && <NavButton icon="box" label="Bảng giá" href={sectionPaths.catalog} active={!quoteId && section === "catalog"} onClick={() => navigateSection("catalog")} />}
-      </nav>
-      <div className="sidebar-bottom">
-        <a className={`profile-button ${!quoteId && section === "profile" ? "active" : ""}`} href={sectionPaths.profile} onClick={(event) => { if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); navigateSection("profile"); }} title="Trang cá nhân"><span className="avatar"><Icon name="user" size={17} /></span><span className="profile-copy"><strong>{user.name}</strong><small>{roleLabels[user.role]}</small></span><Icon name="arrow" size={17} /></a>
-      </div>
-    </aside>
+    <ModuleNavigation label="Mục Báo giá" activeValue={`${section}-${documentView}`} id="quotation_sub_tabs_bar" className="mb-2 lg:mb-0" pinToViewport>
+      {navigationItems.map((item) => <ModuleNavigationButton key={item.label} active={item.active} icon={<QuotationSidebarIcon name={item.icon} className="size-5" />} preferProvidedIcon title={item.label} onClick={item.onClick}>{item.label}</ModuleNavigationButton>)}
+    </ModuleNavigation>
     <div className="main-column">
-      <main className="main-content">{!hasQuotationCapability(section === "documents" ? documentView === "contracts" ? "quotation-contract:read" : "quotation-acceptance:read" : section === "templates" ? "quotation-template:read" : section === "catalog" ? "quotation-price-book:read" : "quotation:read") ? <div className="empty-state" role="alert"><p>Bạn chưa có quyền xem mục này.</p><button type="button" className="button button-soft" onClick={() => navigateSection("home")}>Về tổng quan</button></div> : section === "documents" ?
+      <main className="main-content">{!hasQuotationCapability(section === "documents" ? documentView === "contracts" ? "quotation-contract:read" : "quotation-acceptance:read" : section === "templates" ? "quotation-template:read" : section === "catalog" ? "quotation-price-book:read" : "quotation:read") ? <div className="empty-state" role="alert"><p>Bạn chưa có quyền xem mục này.</p><button type="button" className="button button-soft" onClick={() => navigateSection("quotes")}>Về dự toán</button></div> : section === "documents" ?
         <ContractWorkflow key={`${documentView}-${quoteId ?? "list"}`} view={documentView} id={quoteId} navigate={openWorkflow} openQuote={(id) => openQuote(id)} notify={notify} confirm={confirm} />
         : quoteId && section === "customerQuotes" ?
         <CustomerQuoteDetail key={quoteId} id={quoteId} onBack={closeQuote} onChanged={refresh} onToast={notify} onAiUsed={() => void loadUsage()} confirm={confirm} onDeleteQuote={removeQuote} onCreateEstimate={createEstimateFromCustomerQuote} />
         : quoteId ?
           <QuoteDetail key={quoteId} id={quoteId} user={user} onBack={closeQuote} onChanged={refresh} onToast={notify} confirm={confirm} onDeleteQuote={removeQuote} onCreateContract={createContract} />
-          : section === "home" ?
-            <Dashboard key={refreshKey} canCreate={canCreateQuote} usage={usage} quoteUsageLabel={quoteUsageLabel} createBlockedMessage={quoteBlockedMessage} onRefreshUsage={() => void loadUsage()} showUsageError={Boolean(usageError)} canReview={hasQuotationCapability("quotation-approval:manage")} onOpen={openQuote} onCreate={createQuote} onNavigate={navigateSection} onDeleteQuote={(quote) => void removeQuote(quote)} />
-            : section === "quotes" ?
+          : section === "quotes" ?
               <QuoteWorkspace key={refreshKey} canCreate={canCreateQuote} usage={usage} quoteUsageLabel={quoteUsageLabel} createBlockedMessage={quoteBlockedMessage} onRefreshUsage={() => void loadUsage()} showUsageError={Boolean(usageError)} userName={user.name} onOpen={openQuote} onCreate={createQuote} onDeleteQuote={(quote) => void removeQuote(quote)} onNavigate={navigateSection} />
               : section === "budgetPlanner" ?
                 <BudgetPlanner onAiUsed={() => void loadUsage()} />
@@ -468,11 +470,6 @@ if (!user) return <p role="status">Phiên ERP đã thay đổi. Vui lòng mở l
     {notification && <NotificationToast notification={notification} onDismiss={dismiss} />}
     {confirmationDialog}
   </div></NotificationProvider>;
-}
-
-
-function NavButton({ icon, label, href, active, onClick }: { icon: string; label: string; href: string; active: boolean; onClick: () => void }) {
-  return <a className={`nav-button ${active ? "active" : ""}`} href={href} onClick={(event) => { if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); onClick(); }}><Icon name={icon} size={18} /><span>{label}</span></a>;
 }
 
 
@@ -625,45 +622,6 @@ function QuoteUsageWidget({
 }
 
 
-function Dashboard({ onOpen, onCreate, onNavigate, canCreate, usage, quoteUsageLabel, createBlockedMessage, onRefreshUsage, showUsageError, canReview, onDeleteQuote }: { onOpen: (id: string) => void; onCreate: () => void; onNavigate: (section: Section) => void; canCreate: boolean; usage?: SubscriptionUsage | null; quoteUsageLabel: string; createBlockedMessage: string; onRefreshUsage: () => void; showUsageError: boolean; canReview: boolean; onDeleteQuote: (quote: Quote) => void }) {
-  const [data, setData] = useState<{ counts: { total: number; drafts: number; pending: number; approved: number }; recent: Quote[] } | null>(null);
-  const notify = useAppNotification();
-  useEffect(() => { api<typeof data>("/api/dashboard").then((value) => setData(value)).catch((cause) => notify(cause instanceof Error ? cause.message : "Không thể tải tổng quan báo giá.", "error")); }, [notify]);
-  return <div className="page-stack dashboard-page">
-    <section className="dashboard-banners" aria-label="Tạo và theo dõi báo giá">
-      <article className="dashboard-banner dashboard-banner-primary">
-        <img src="/quotation/images/dashboard-hero-v4.png" alt="" />
-        <div className="dashboard-banner-copy">
-          <h1>Dự toán nhanh,<br /><span>rõ ràng, chính xác</span></h1>
-          <p>Tạo dự toán, báo giá chuyên nghiệp chỉ trong vài phút<br />Tiết kiệm thời gian, nâng cao hiệu quả kinh doanh</p>
-          <button className="button button-primary quote-create-button" disabled={!canCreate} onClick={onCreate}><Icon name="plus" size={17} />Tạo dự toán</button>
-          <QuoteUsageWidget usage={usage} quoteUsageLabel={quoteUsageLabel} canCreate={canCreate} createBlockedMessage={createBlockedMessage} onRefreshUsage={onRefreshUsage} showUsageError={showUsageError} onNavigate={onNavigate} variant="banner" />
-        </div>
-      </article>
-    </section>
-    <section className="metric-grid">
-      <Metric label="Tổng báo giá" value={data?.counts.total ?? "—"} icon="quote" watermarkIcon="bars" tone="mint" note="Tất cả dự toán" />
-      <Metric label="Bản nháp" value={data?.counts.drafts ?? "—"} icon="file" tone="sand" note="Đang soạn thảo" />
-      <Metric label="Chờ duyệt" value={data?.counts.pending ?? "—"} icon="clock" tone="lavender" note="Đang chờ phê duyệt" action={canReview ? () => onNavigate("quotes") : undefined} />
-      <Metric label="Đã duyệt" value={data?.counts.approved ?? "—"} icon="check" tone="blue" note="Sẵn sàng sử dụng" />
-    </section>
-    <section className="content-card recent-card">
-      <div className="card-heading">
-        <div><h2>Dự toán gần đây</h2></div>
-        <button className="text-button" onClick={() => onNavigate("quotes")}>Xem tất cả <Icon name="arrow" size={15} /></button>
-      </div>
-      {data?.recent.length ? <QuoteCards quotes={data.recent} onOpen={onOpen} onDelete={onDeleteQuote} emptyTitle="Chưa có dự toán nào" emptyText="" /> : <div className="dashboard-empty-state"><img src="/quotation/images/quote-empty-3d.svg" alt="" /><h3>Chưa có dự toán nào</h3><p>Tạo dự toán đầu tiên để bắt đầu</p><button className="button button-primary" disabled={!canCreate} onClick={onCreate}><Icon name="plus" size={17} />Tạo dự toán</button></div>}
-    </section>
-  </div>;
-}
-
-
-function Metric({ label, value, icon, watermarkIcon, tone, note, action }: { label: string; value: number | string; icon: string; watermarkIcon?: string; tone: string; note: string; action?: () => void }) {
-  const Tag = action ? "button" : "div";
-  return <Tag className={`metric-card tone-${tone} ${action ? "metric-action" : ""}`} onClick={action}><span className="metric-watermark" aria-hidden="true"><Icon name={watermarkIcon ?? icon} size={82} /></span><span className="metric-top"><span className="metric-icon"><Icon name={icon} size={25} /></span><span>{label}</span></span><strong className="metric-value">{value}</strong><span className="metric-note">{note}</span></Tag>;
-}
-
-
 type QuoteSortKey = "newest" | "oldest" | "total_desc" | "total_asc" | "customer";
 
 interface QuoteListStats { total: number; drafts: number; pending: number; approved: number; needsInfo: number; rejected: number; approvedRevenue: number }
@@ -777,7 +735,7 @@ function QuoteWorkspace({
       <section className="page-heading-row quote-workspace-header">
         <div className="quote-workspace-heading-left">
           <span className="quote-heading-icon"><Icon name="quote" size={26} /></span>
-          <div><h1>Dự toán</h1><p>Quản lý và tạo dự toán nhanh chóng, chính xác</p></div>
+          <div><h1>Dự toán</h1></div>
         </div>
         <div className="page-heading-actions">
           {loadFailed && (
@@ -919,7 +877,7 @@ function QuoteWorkspace({
           <div className="quote-empty-container">
             {search || filter !== "all" ? (
               <div className="empty-state">
-                <span className="empty-icon"><Icon name="search" size={24} /></span>
+                <QuotationEmptyIllustration kind="search" />
                 <h3>Không tìm thấy báo giá phù hợp</h3>
                 <p>Thử tìm kiếm với từ khóa khác hoặc thay đổi bộ lọc trạng thái.</p>
                 <button
@@ -1055,7 +1013,7 @@ function CreateEstimateFromQuoteDialog({ sourceQuote, onClose, onCreated, onQuot
           {sourcesLoading ? <TaskProgress label="Đang tải báo giá khách" /> : sourceQuotes.length ? sourceQuotes.map((quote) => <label key={quote._id} className={`estimate-from-quote-option ${selectedSource?._id === quote._id ? "selected" : ""}`}>
             <input type="radio" name="sourceQuote" value={quote._id} checked={selectedSource?._id === quote._id} disabled={busy} onChange={() => setSelectedSource(quote)} />
             <span><strong>{quote.quoteNumber} · {quote.customerName}</strong><small>{quote.lines.length + (quote.missingProducts?.length ?? 0)} sản phẩm · {formatDate(quote.createdAt)}</small></span>
-          </label>) : <p className="field-hint">Không tìm thấy báo giá khách phù hợp.</p>}
+          </label>) : <div className="quotation-inline-empty"><QuotationEmptyIllustration kind="search" className="quotation-empty-art--compact" /><p className="field-hint">Không tìm thấy báo giá khách phù hợp.</p></div>}
         </div>
         {!sourcesLoading && totalPages > 1 && <div className="estimate-from-quote-pages"><button type="button" className="button button-soft button-compact" disabled={page <= 1 || busy} onClick={() => setPage((value) => value - 1)}>Trước</button><span>Trang {page}/{totalPages}</span><button type="button" className="button button-soft button-compact" disabled={page >= totalPages || busy} onClick={() => setPage((value) => value + 1)}>Sau</button></div>}
         {selectedSource && <p className="field-hint">Đã chọn: {selectedSource.quoteNumber} · {selectedSource.customerName}</p>}
@@ -1392,7 +1350,7 @@ function NewQuote({ options, onCreated, canManageTemplate, onManageTemplate, onB
 
           <div className="catalog-search-wrap">
             <label className="search-field"><Icon name="search" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm thêm sản phẩm trong danh mục…" /></label>
-            {query && <div className="search-results">{results.length ? results.map((item) => <button key={item._id} onClick={() => addCatalogItem(item)}><span><strong>{item.name}</strong><small>{item.sku} · {item.unit}</small>{Object.keys(item.attributes ?? {}).length > 0 && <small className="catalog-result-attributes">{Object.entries(item.attributes ?? {}).map(([key, value]) => `${key}: ${value}`).join(" · ")}</small>}</span><span className="result-price">{formatMoney(item.price, item.currency)}<Icon name="plus" size={15} /></span></button>) : <div className="search-empty">Không tìm thấy sản phẩm đang hoạt động.</div>}</div>}
+            {query && <div className="search-results">{results.length ? results.map((item) => <button key={item._id} onClick={() => addCatalogItem(item)}><span><strong>{item.name}</strong><small>{item.sku} · {item.unit}</small>{Object.keys(item.attributes ?? {}).length > 0 && <small className="catalog-result-attributes">{Object.entries(item.attributes ?? {}).map(([key, value]) => `${key}: ${value}`).join(" · ")}</small>}</span><span className="result-price">{formatMoney(item.price, item.currency)}<Icon name="plus" size={15} /></span></button>) : <div className="search-empty"><QuotationEmptyIllustration kind="search" className="quotation-empty-art--compact" />Không tìm thấy sản phẩm đang hoạt động.</div>}</div>}
           </div>
           <div className="analysis-footer"><span>{selected.length + (analysis.suggestedProducts?.length ?? 0)} mặt hàng trong báo giá</span><button className="button button-primary" disabled={busy} onClick={() => void createQuote()}>{busy ? "Đang tạo bản nháp…" : "Thử tạo bản nháp"}{!busy && <Icon name="arrow" size={16} />}</button></div>
           {busy && taskProgress && <TaskProgress {...taskProgress} />}
@@ -1666,7 +1624,7 @@ function QuoteDetail({ id, user, onBack, onChanged, onToast, confirm, onDeleteQu
   };
 
   if (loading) return <Loading />;
-  if (!quote) return <div className="empty-state"><h2>Dự toán không khả dụng</h2><p>Vui lòng quay lại danh sách dự toán.</p><button className="button button-soft" onClick={onBack}>Quay lại</button></div>;
+  if (!quote) return <div className="empty-state"><QuotationEmptyIllustration kind="estimate" /><h2>Dự toán không khả dụng</h2><p>Vui lòng quay lại danh sách dự toán.</p><button className="button button-soft" onClick={onBack}>Quay lại</button></div>;
 
   const unresolvedInformation = quote.informationNeeded.filter((field) => {
     if (isTaxMissingInformation(field) || isShippingMissingInformation(field)) return false;
@@ -2066,7 +2024,7 @@ function QuoteDetail({ id, user, onBack, onChanged, onToast, confirm, onDeleteQu
                   </tr>;
                 })}</tbody>
               </table>
-            </div> : <p className="quote-supplement-empty">Chưa có dòng bổ sung. Bấm “Thêm dòng” để nhập hạng mục mới.</p>}
+            </div> : <div className="quote-supplement-empty"><QuotationEmptyIllustration kind="product" className="quotation-empty-art--compact" /><p>Chưa có dòng bổ sung. Bấm “Thêm dòng” để nhập hạng mục mới.</p></div>}
           </div>
           {editable && hasUnsavedChanges && <div className="quote-supplement-actions">
             <button type="button" className="button button-primary" disabled={busy} onClick={() => void save()}>
@@ -2477,6 +2435,7 @@ function QuoteCards({
                   <button
                     type="button"
                     className="quote-card-action-btn quote-card-btn-delete"
+                    aria-label="Xóa bản báo giá"
                     title="Xóa bản báo giá"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -2500,7 +2459,7 @@ function QuoteCards({
 }
 
 
-function EmptyState({ title, text }: { title: string; text: string }) { return <div className="empty-state quote-empty-state"><span className="empty-icon"><img src="/quotation/images/quote-empty-3d.svg" alt="" /></span><h3>{title}</h3>{text && <p>{text}</p>}</div>; }
+function EmptyState({ title, text }: { title: string; text: string }) { return <div className="empty-state quote-empty-state"><QuotationEmptyIllustration kind="estimate" /><h3>{title}</h3>{text && <p>{text}</p>}</div>; }
 
 function Loading() { return <TaskProgress label="Đang tải dữ liệu" detail="Vui lòng chờ trong giây lát…" />; }
 function App() { return <UserApp />; }

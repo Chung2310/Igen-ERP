@@ -1,5 +1,7 @@
 import { hasQuotationCapability } from "./api";
 import ErpCustomerPicker from "./ErpCustomerPicker";
+import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
+import ThemedSelect from "./ThemedSelect";
 import { catalogSelectionVersion, loadCatalogProducts } from "./catalog-api";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ApiError, api } from "./api";
@@ -95,7 +97,7 @@ export default function CustomerQuotes({
       {/* Header Banner */}
       <section className="cq-header-banner">
         <div className="cq-header-copy">
-          <h1>Quản lý Báo giá Khách hàng</h1>
+          <h1>Báo giá khách</h1>
         </div>
         <div className="cq-header-actions">
           <button type="button" className="cq-create-btn" onClick={() => setCreating(true)} disabled={!["quotation:manage", "quotation-ai:manage", "quotation-template:read", "quotation-price-book:read"].every(hasQuotationCapability)}>
@@ -247,9 +249,7 @@ export default function CustomerQuotes({
             </div>
           ) : filteredQuotes.length === 0 ? (
             <div className="cq-empty-state">
-              <div className="cq-empty-icon">
-                <img src="/quotation/images/quote-empty-3d.svg" alt="" />
-              </div>
+              <QuotationEmptyIllustration kind={quotes.length === 0 ? "customer" : "search"} />
               <h3>
                 {quotes.length === 0 ? "Chưa có bản báo giá khách hàng nào" : "Không tìm thấy báo giá phù hợp"}
               </h3>
@@ -504,6 +504,10 @@ function CustomerQuoteDialog({
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
+    if (!templateId) {
+      setError("Hãy chọn mẫu file báo giá.");
+      return;
+    }
     if (!selected.length && !missingProducts.length) {
       setError("Hãy chọn hoặc gợi ý ít nhất một sản phẩm.");
       return;
@@ -637,12 +641,7 @@ function CustomerQuoteDialog({
           <div className="cq-form-section">
             <div className="cq-section-label"><span>Mẫu file báo giá</span></div>
             <div className="cq-input-group">
-              <div className="cq-input-wrapper">
-                <select required value={templateId} onChange={(event) => setTemplateId(event.target.value)} aria-label="Mẫu file báo giá khách">
-                  <option value="">Chọn mẫu file</option>
-                  {templates.map((entry) => <option key={entry.id} value={entry.id}>{entry.name || entry.originalFilename} (.{entry.extension})</option>)}
-                </select>
-              </div>
+              <ThemedSelect label="Mẫu file báo giá khách" value={templateId} onChange={setTemplateId} disabled={busy} options={[{ value: "", label: "Chọn mẫu file" }, ...templates.map((entry) => ({ value: entry.id, label: `${entry.name || entry.originalFilename} (.${entry.extension})` }))]} />
               {!templates.length && <span className="field-hint">Cần tải lên mẫu báo giá Word, Excel hoặc PDF trước khi tạo.</span>}
               <span className="field-hint">AI sẽ dùng thông tin khách hàng, sản phẩm và mô tả yêu cầu để điền mẫu khi tải file.</span>
               <button type="button" className="text-button" disabled={busy} onClick={onManageTemplate}>Quản lý mẫu báo giá →</button>
@@ -721,7 +720,7 @@ function CustomerQuoteDialog({
                 disabled={!hasQuotationCapability("quotation-ai:manage") || (busy || !prompt.trim())}
                 onClick={() => void suggest()}
               >
-                {aiLoading ? <span className="spinner" /> : "⚡"}
+                {aiLoading ? <span className="spinner" /> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m13 2-9 12h7l-1 8 10-12h-7l0-8Z" /></svg>}
                 <span>{aiLoading ? "AI đang phân tích…" : "Gợi ý hạng mục"}</span>
               </button>
 
@@ -731,7 +730,7 @@ function CustomerQuoteDialog({
                 <div className="quote-setup-notice" role="status" style={{ background: "#ecfeff", borderColor: "#a5e5ed", color: "#155e75" }}>
                   {notes.map((note, idx) => (
                     <p key={idx} style={{ margin: "2px 0" }}>
-                      💡 {note}
+                      {note}
                     </p>
                   ))}
                 </div>
@@ -772,7 +771,8 @@ function CustomerQuoteDialog({
 
             <div className="cq-selected-container">
               {selectedRows.length === 0 ? (
-                <div style={{ padding: "30px 16px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 13 }}>
+                <div className="quotation-inline-empty" style={{ padding: "20px 16px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 13 }}>
+                  <QuotationEmptyIllustration kind="product" className="quotation-empty-art--compact" />
                   Chưa có hạng mục. Chọn sản phẩm hoặc dùng AI gợi ý.
                 </div>
               ) : (
@@ -876,7 +876,8 @@ function CustomerQuoteDialog({
               })}
 
               {!visible.length && (
-                <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 13 }}>
+                <div className="cq-picker-empty" style={{ padding: "24px 20px", textAlign: "center", color: "var(--color-on-surface-variant)", fontSize: 13 }}>
+                  <QuotationEmptyIllustration kind="search" className="quotation-empty-art--compact" />
                   Không tìm thấy sản phẩm.
                 </div>
               )}

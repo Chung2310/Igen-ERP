@@ -148,11 +148,9 @@ export default function FinancialManagementPage({ view }: {
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-on-surface-variant" />
               <input aria-label="Tìm chứng từ, đối tượng" className={`${inputClass} !w-auto pl-8 py-2 text-xs`} placeholder="Tìm chứng từ, đối tượng…" value={search} onChange={e => setSearch(e.target.value)}/>
             </div>
-            <select aria-label="Lọc loại thu chi" className="finance-select w-36" value={cashKind} onChange={e => setCashKind(e.target.value)}>
-              <option value="">Thu và chi</option>
-              <option value="receipt">Thu</option>
-              <option value="payment">Chi</option>
-            </select>
+            <StyledSelect ariaLabel="Lọc loại thu chi" className="h-9 w-36 rounded-md" menuClassName="finance-select-menu" value={cashKind} onChange={setCashKind} options={[
+              { value: "", label: "Thu và chi" }, { value: "receipt", label: "Thu" }, { value: "payment", label: "Chi" },
+            ]} />
             <button className="inline-flex items-center gap-1 text-xs font-bold text-on-primary-container hover:text-on-primary-container transition cursor-pointer" onClick={() => exportCsv("thu-chi", ["Mã", "Ngày", "Loại", "Danh mục", "Số tiền"], cashRows.map((r: any) => [r.code, r.date, r.kind, labelCategory(r.category), r.amount]))}>
               <Download className="h-3.5 w-3.5" />
               Xuất CSV
@@ -166,9 +164,7 @@ export default function FinancialManagementPage({ view }: {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5">
               <SlidersHorizontal className="h-3.5 w-3.5 text-on-surface-variant" />
-              <select aria-label="Nhóm dữ liệu lãi lỗ" className="finance-select w-44" value={group} onChange={e => setGroup(e.target.value)}>
-                {[["productName", "Theo sản phẩm"], ["serialNumbers", "Theo IMEI"], ["salespersonName", "Theo nhân viên"], ["branchId", "Theo chi nhánh"], ["category", "Theo nhóm hàng"], ["brand", "Theo thương hiệu"], ["loss", "Bán dưới giá vốn"]].map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-              </select>
+              <StyledSelect ariaLabel="Nhóm dữ liệu lãi lỗ" className="h-9 w-44 rounded-md" menuClassName="finance-select-menu" value={group} onChange={setGroup} options={[["productName", "Theo sản phẩm"], ["serialNumbers", "Theo IMEI"], ["salespersonName", "Theo nhân viên"], ["branchId", "Theo chi nhánh"], ["category", "Theo nhóm hàng"], ["brand", "Theo thương hiệu"], ["loss", "Bán dưới giá vốn"]].map(([value, label]) => ({ value, label }))} />
             </div>
             <div className="relative min-w-[220px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-on-surface-variant" />
