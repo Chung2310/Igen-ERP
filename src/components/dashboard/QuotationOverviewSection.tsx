@@ -9,7 +9,8 @@ import { AnimatedOverviewValue } from "./AnimatedOverviewValue";
 import { OverviewChartViewport } from "./OverviewChartViewport";
 import { OverviewKpiDelta } from "./OverviewKpiDelta";
 import { useOverviewPeriod } from "./OverviewPeriodContext";
-import { getQuotationOverview, type QuotationOverview } from "./quotationOverviewService";
+import { getQuotationOverview, getQuotationMoneyRows, type QuotationMoneyRow, type QuotationOverview } from "./quotationOverviewService";
+import { summarizeQuotationMoney } from "./quotationMoney";
 import { cn } from "../../modules/student-management/lib/utils";
 import { quotationUrl } from "../../modules/quotation/routing";
 import "../../modules/finance/finance-overview.css";
@@ -67,11 +68,15 @@ export default function QuotationOverviewSection() {
   const reduceMotion = useReducedMotion();
   const requestKey = JSON.stringify([companyCode, branchId, from, to, previousFrom, previousTo]);
   const [result, setResult] = useState<{ key: string; current: QuotationOverview | null; previous: QuotationOverview | null; error: string } | null>(null);
+  const [moneyResult, setMoneyResult] = useState<{ key: string; rows: QuotationMoneyRow[] | null; error: string } | null>(null);
   const [selectedCurrency, setSelectedCurrency] = useState("");
   const loading = result?.key !== requestKey;
   const current = loading ? null : result?.current ?? null;
   const previous = loading ? null : result?.previous ?? null;
   const error = loading ? "" : result?.error ?? "";
+  const moneyLoading = moneyResult?.key !== requestKey;
+  const moneyRows = moneyLoading ? null : moneyResult?.rows ?? null;
+  const moneyError = moneyLoading ? "" : moneyResult?.error ?? "";
 
   useEffect(() => {
     if (!branchId || !companyCode || !from || !to) return;
@@ -91,10 +96,36 @@ export default function QuotationOverviewSection() {
     return () => controller.abort();
   }, [branchId, companyCode, from, to, previousFrom, previousTo, requestKey]);
 
+  useEffect(() => {
+    if (!current || !branchId || !companyCode) return;
+    const controller = new AbortController();
+    void getQuotationMoneyRows(from, to, companyCode, branchId, current.quotes.total, controller.signal)
+      .then(rows => { if (!controller.signal.aborted) setMoneyResult({ key: requestKey, rows, error: "" }); })
+      .catch(reason => { if (!controller.signal.aborted) setMoneyResult({ key: requestKey, rows: null, error: reason instanceof Error ? reason.message : "Không thể tải chi tiết giá trị báo giá." }); });
+    return () => controller.abort();
+  }, [current, branchId, companyCode, from, to, requestKey]);
+
   const currencies = current?.quotes.values.map(row => row.currency) ?? [];
   const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || "VND";
   const value = current?.quotes.values.find(row => row.currency === currency);
   const previousValue = previous?.quotes.values.find(row => row.currency === currency);
+  const moneySummary = useMemo(() => moneyRows ? summarizeQuotationMoney(moneyRows, currency) : null, [moneyRows, currency]);
+  const moneyTrend = useMemo(() => {
+    if (!moneySummary || !current) return [];
+    const days = Math.max(1, Math.round((new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / 86_400_000) + 1);
+    const buckets = new Map<string, { date: string; customer: number; estimate: number }>();
+    for (const row of moneySummary.trend) {
+      const bucket = new Date(`${row.date}T00:00:00Z`);
+      if (days > 180) bucket.setUTCDate(1);
+      else if (days > 45) bucket.setUTCDate(bucket.getUTCDate() - (bucket.getUTCDay() + 6) % 7);
+      const key = bucket.toISOString().slice(0, 10);
+      const entry = buckets.get(key) ?? { date: key, customer: 0, estimate: 0 };
+      entry.customer += row.customer;
+      entry.estimate += row.estimate;
+      buckets.set(key, entry);
+    }
+    return [...buckets.values()].sort((a, b) => a.date.localeCompare(b.date)).map(row => ({ ...row, label: days > 180 ? `${row.date.slice(5, 7)}/${row.date.slice(0, 4)}` : `${row.date.slice(8, 10)}/${row.date.slice(5, 7)}` }));
+  }, [moneySummary, current, from, to]);
   const statuses = statusRows.map((row, index) => ({ name: row.name, count: current?.quotes.byStatus[row.key] ?? 0, color: colors[index] }));
   const kinds = [
     { name: "Báo giá khách", value: current?.quotes.byKind.customer ?? 0, color: colors[0] },
@@ -147,6 +178,37 @@ export default function QuotationOverviewSection() {
           {previousValue && <p className="border-t border-outline-variant pt-2 text-xs tabular-nums text-on-surface-variant">Kỳ trước: báo giá khách {money(previousValue.customer, currency)} · dự toán {money(previousValue.estimate, currency)}</p>}
         </ChartCard>
       </div>
+      <section className="finance-chart-card" aria-labelledby="quotation-money-heading" aria-busy={moneyLoading}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 id="quotation-money-heading" className="text-balance text-lg font-semibold text-on-surface">Phân tích giá trị từng báo giá</h3>
+          <span className="text-xs text-on-surface-variant">{currency} · Theo ngày tạo trong kỳ</span>
+        </div>
+        {moneyLoading ? <div role="status" className="grid grid-cols-2 gap-3 sm:grid-cols-4">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-24 animate-pulse rounded-md bg-surface-container-low motion-reduce:animate-none" />)}<span className="sr-only">Đang tải thống kê giá trị từng báo giá</span></div>
+          : moneyError ? <p role="alert" className="text-pretty text-sm text-error">{moneyError}</p>
+            : moneySummary ? <>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {([
+                  { label: "Trung bình · Báo giá khách", amount: moneySummary.customer.average, count: moneySummary.customer.count, quote: null },
+                  { label: "Lớn nhất · Báo giá khách", amount: moneySummary.customer.largest?.total, count: null, quote: moneySummary.customer.largest },
+                  { label: "Trung bình · Dự toán", amount: moneySummary.estimate.average, count: moneySummary.estimate.count, quote: null },
+                  { label: "Lớn nhất · Dự toán", amount: moneySummary.estimate.largest?.total, count: null, quote: moneySummary.estimate.largest },
+                ] as const).map((item, index) => <article key={item.label} className={cn("finance-kpi", `finance-kpi-${index}`, "flex min-h-28 flex-col") }>
+                  <p className="text-pretty text-xs font-medium text-white">{item.label}</p>
+                  <strong className="mt-2 break-words text-base font-semibold tabular-nums text-white sm:text-lg"><AnimatedOverviewValue value={item.amount} format={amount => money(amount, currency)} /></strong>
+                  <p className="mt-auto pt-2 text-xs text-white">{item.quote ? <a href={quotationUrl(item.quote.kind === "customer" ? "customerQuotes" : "quotes", item.quote._id)} className="font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-white">{item.quote.quoteNumber}</a> : item.count != null ? `${integer(item.count)} chứng từ có giá trị` : "Chưa có chứng từ"}</p>
+                </article>)}
+              </div>
+              <p className="mt-3 text-pretty text-xs text-on-surface-variant">Trung bình = tổng giá trị / số chứng từ có giá trị xác định. Báo giá khách và dự toán tính riêng; đây là giá trị báo giá, chưa phải doanh thu. {moneySummary.unknownCount > 0 && `${integer(moneySummary.unknownCount)} chứng từ chưa xác định tổng tiền được loại khỏi chỉ số tiền.`}</p>
+            </> : null}
+      </section>
+      {moneySummary && <div className="grid gap-3 lg:grid-cols-2">
+        <ChartCard title="Xu hướng giá trị theo thời gian" empty={!moneyTrend.length ? "Chưa có báo giá với giá trị đã xác định trong tiền tệ này." : undefined}>
+          <div role="img" aria-label={moneyTrend.map(row => `${row.label}: báo giá khách ${money(row.customer, currency)}, dự toán ${money(row.estimate, currency)}`).join("; ")} className="h-64 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><AreaChart data={moneyTrend} margin={{ top: 12, right: 12, bottom: 0, left: 0 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} minTickGap={24} /><YAxis axisLine={false} tickLine={false} tickFormatter={compactMoney} width={58} tick={{ fontSize: 10 }} /><Tooltip formatter={amount => typeof amount === "number" ? money(amount, currency) : amount} /><Legend wrapperStyle={{ fontSize: 11 }} /><Area type="monotone" dataKey="customer" name="Báo giá khách" stroke={colors[0]} fill="var(--finance-chart-teal-soft)" strokeWidth={2} isAnimationActive={!reduceMotion} animationDuration={700} /><Area type="monotone" dataKey="estimate" name="Dự toán" stroke={colors[2]} fill="transparent" strokeWidth={2} isAnimationActive={!reduceMotion} animationDuration={700} /></AreaChart></ResponsiveContainer></OverviewChartViewport></div>
+        </ChartCard>
+        <ChartCard title="5 chứng từ có giá trị lớn nhất" empty={!moneySummary.top.length ? "Chưa có báo giá với giá trị đã xác định trong tiền tệ này." : undefined}>
+          <div role="img" aria-label={moneySummary.top.map(row => `${row.quoteNumber}, ${row.customerName}: ${money(row.total, currency)}`).join("; ")} className="h-64 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><BarChart data={moneySummary.top.map(row => ({ name: row.quoteNumber, value: row.total, customer: row.customerName }))} layout="vertical" margin={{ top: 4, right: 16, bottom: 0, left: 0 }}><XAxis type="number" axisLine={false} tickLine={false} tickFormatter={compactMoney} tick={{ fontSize: 10 }} /><YAxis type="category" dataKey="name" width={106} axisLine={false} tickLine={false} tick={{ fontSize: 10 }} tickFormatter={(name: string) => name.length > 16 ? `${name.slice(0, 15)}…` : name} /><Tooltip formatter={amount => typeof amount === "number" ? money(amount, currency) : amount} labelFormatter={(label, payload) => `${String(label)} · ${String(payload?.[0]?.payload?.customer ?? "")}`} /><Bar dataKey="value" name="Giá trị" maxBarSize={22} isAnimationActive={!reduceMotion} animationDuration={700}>{moneySummary.top.map((row, index) => <Cell key={row._id} fill={colors[index]} />)}</Bar></BarChart></ResponsiveContainer></OverviewChartViewport></div>
+        </ChartCard>
+      </div>}
       <div className="grid gap-3 lg:grid-cols-2">
         {([['Khách hàng có nhiều báo giá', current?.quotes.customers, 'count', 'báo giá'], ['Hạng mục được báo giá nhiều', current?.quotes.products, 'quantity', 'số lượng']] as const).map(([title, rows, key, unit]) => {
           const chartRows = rows?.map(row => ({ name: row.name, value: row[key] })) ?? [];
