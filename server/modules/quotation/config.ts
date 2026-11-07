@@ -1,10 +1,18 @@
 /** ERP owns environment loading, secrets and database connections. No QUOS auth/billing config. */
+const GPT_6_LUNA = "openai/gpt-6-luna";
+
+export function quotationChatSampling(model: string) {
+  // OpenRouter does not advertise temperature on the GPT-6 Luna routes.
+  if (model === GPT_6_LUNA) return { reasoning: { effort: "none" } };
+  return { temperature: 0 };
+}
+
 export const config = {
   get nodeEnv() { return process.env.NODE_ENV || "development"; },
   get openRouterApiKey() { return process.env.OPENROUTER_API_KEY || ""; },
   get openRouterModel() { return process.env.QUOTATION_AI_MODEL || process.env.OPENROUTER_MODEL || "deepseek/deepseek-v4-flash-0731"; },
-  get openRouterFileModel() { return process.env.QUOTATION_FILE_MODEL || process.env.OPENROUTER_FILE_MODEL || "openai/gpt-4o-mini"; },
-  get openRouterDocumentModel() { return process.env.QUOTATION_DOCUMENT_MODEL || process.env.OPENROUTER_DOCUMENT_MODEL || "openai/gpt-6-astra"; },
+  get openRouterFileModel() { return process.env.QUOTATION_FILE_MODEL || process.env.OPENROUTER_FILE_MODEL || GPT_6_LUNA; },
+  get openRouterDocumentModel() { return process.env.QUOTATION_DOCUMENT_MODEL || process.env.OPENROUTER_DOCUMENT_MODEL || "anthropic/claude-opus-5.5"; },
   get openRouterSiteUrl() { return process.env.APP_URL || "http://localhost:3000"; },
   openRouterAppName: "iGen ERP Quotation",
   get cloudinary() { return { cloudName: process.env.CLOUDINARY_CLOUD_NAME || "", apiKey: process.env.CLOUDINARY_API_KEY || "", apiSecret: process.env.CLOUDINARY_API_SECRET || "" }; },

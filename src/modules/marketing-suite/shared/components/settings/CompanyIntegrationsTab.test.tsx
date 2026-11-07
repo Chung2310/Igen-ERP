@@ -64,12 +64,12 @@ it("requires a new token when changing the account identity", async () => {
   expect(socialIntegrationService.updateIntegration).not.toHaveBeenCalled();
 });
 
-it.each(["Facebook", "Zalo"] as const)("renders the new %s connection form without crashing", async (platform) => {
+it("renders the new Facebook connection form without crashing", async () => {
   vi.mocked(socialIntegrationService.getIntegrations).mockResolvedValue([]);
   render(<CompanyIntegrationsTab userProfile={{ email: "user@erp.test", companyCode: "ERP", role: "admin" }} />);
   await waitFor(() => expect(socialIntegrationService.getIntegrations).toHaveBeenCalled());
-  fireEvent.click(screen.getByRole("radio", { name: platform }));
-  expect(screen.getByPlaceholderText(platform === "Facebook" ? "Vi du: Fanpage Chinh thuc" : "Vi du: Zalo OA Shop")).toBeTruthy();
+  fireEvent.click(screen.getByRole("radio", { name: "Facebook" }));
+  expect(screen.getByPlaceholderText("Vi du: Fanpage Chinh thuc")).toBeTruthy();
 });
 
 it("switches Facebook and Zalo forms with existing connected accounts", async () => {
@@ -82,5 +82,40 @@ it("switches Facebook and Zalo forms with existing connected accounts", async ()
   fireEvent.click(screen.getByRole("radio", { name: "Facebook" }));
   expect(screen.getAllByText("Fanpage A").length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole("radio", { name: "Zalo" }));
+  expect(screen.getByRole("button", { name: "Kết nối Zalo OA" })).toBeTruthy();
+  expect(screen.queryByPlaceholderText("Vi du: Zalo OA Shop")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Lưu liên kết" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Nhập token thủ công" }));
   expect(screen.getByPlaceholderText("Vi du: Zalo OA Shop")).toBeTruthy();
+});
+
+it("starts Zalo authorization without asking for credentials and shows server configuration errors", async () => {
+  vi.mocked(socialIntegrationService.getIntegrations).mockResolvedValue([]);
+  vi.mocked(fetch).mockImplementation(async (url) => url === "/api/v1/zalo/oauth-session"
+    ? Response.json({ message: "Cần cấu hình APP_URL." }, { status: 503 })
+    : Response.json({ data: [] }));
+  render(<CompanyIntegrationsTab userProfile={{ email: "user@erp.test", companyCode: "ERP", role: "admin" }} />);
+  await waitFor(() => expect(socialIntegrationService.getIntegrations).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("radio", { name: "Zalo" }));
+  fireEvent.click(screen.getByRole("button", { name: "Kết nối Zalo OA" }));
+  expect((await screen.findByRole("alert")).textContent).toBe("Cần cấu hình APP_URL.");
+  expect(fetch).toHaveBeenCalledWith("/api/v1/zalo/oauth-session", {
+    method: "POST",
+    headers: { Authorization: "Bearer test-session" },
+  });
+  expect(socialIntegrationService.createIntegration).not.toHaveBeenCalled();
+});
+
+it("returns to Zalo and announces the result after authorization", async () => {
+  const originalUrl = window.location.href;
+  window.history.replaceState(null, "", "/tich-hop-marketing?zalo_oauth=connected");
+  try {
+    vi.mocked(socialIntegrationService.getIntegrations).mockResolvedValue([]);
+    render(<CompanyIntegrationsTab userProfile={{ email: "user@erp.test", companyCode: "ERP", role: "admin" }} />);
+    expect(await screen.findByText("Đã kết nối Zalo OA với doanh nghiệp.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Kết nối Zalo OA" })).toBeTruthy();
+    expect(window.location.search).toBe("");
+  } finally {
+    window.history.replaceState(null, "", originalUrl);
+  }
 });

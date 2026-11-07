@@ -1,6 +1,6 @@
 import { quotationFetch as fetch } from "./ai-transport";
 import { ObjectId } from "mongodb";
-import { config } from "./config.js";
+import { config, quotationChatSampling } from "./config.js";
 import { logAiProviderFailure, logger } from "./logger.js";
 import { extractAttachedRequest } from "./price-list.js";
 import { parseJsonResponse, requestStructuredAi, responseContent, type AiChatMessage } from "./structured-ai.js";
@@ -434,7 +434,7 @@ export async function requestTemplatePlan<T = unknown>(content: Record<string, u
             headers: { Authorization: `Bearer ${config.openRouterApiKey}`, "Content-Type": "application/json", "HTTP-Referer": config.openRouterSiteUrl, "X-Title": config.openRouterAppName },
             body: JSON.stringify({
               model: attempt.model,
-              temperature: 0,
+              ...quotationChatSampling(attempt.model),
               max_tokens: options.xlsxSemanticMap ? 6000 : options.maxTokens ?? 16000,
               messages: retryMessages,
               response_format: { type: "json_schema", json_schema: { name: "quote_template_fill", strict: true, schema } },

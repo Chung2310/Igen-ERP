@@ -16,6 +16,15 @@ interface CompanyIntegrationsTabProps {
   userProfile: any;
 }
 
+const zaloOAuthMessages = new Map([
+  ["connected", "Đã kết nối Zalo OA với doanh nghiệp."],
+  ["denied", "Phiên cấp quyền Zalo OA đã bị hủy. Bạn có thể thử lại."],
+  ["expired", "Phiên kết nối Zalo OA đã hết hạn hoặc không khớp. Vui lòng kết nối lại."],
+  ["forbidden", "Bạn cần quyền quản lý tích hợp của doanh nghiệp để kết nối Zalo OA."],
+  ["conflict", "Zalo OA này đang được liên kết với một doanh nghiệp khác."],
+  ["failed", "Chưa thể kết nối Zalo OA. Hãy kiểm tra quyền quản trị OA và thử lại."],
+]);
+
 export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrationsTabProps) {
   // Company integrations state
   const [companyIntegrations, setCompanyIntegrations] = useState<SocialIntegration[]>([]);
@@ -61,6 +70,9 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
   // Form states for company integration
   const [compPlatform, setCompPlatform] = useState<"TikTok" | "Facebook" | "Zalo">("TikTok");
+  const [zaloManual, setZaloManual] = useState(false);
+  const [connectingZalo, setConnectingZalo] = useState(false);
+  const [zaloNotice, setZaloNotice] = useState<{ message: string; success?: boolean } | null>(null);
   const [compDisplayName, setCompDisplayName] = useState("");
   const [compUsername, setCompUsername] = useState("");
   const [compBlotatoAccountId, setCompBlotatoAccountId] = useState("");
@@ -105,6 +117,18 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   } as const;
   const currentPlatformMeta = platformMeta[compPlatform];
   const canStartCompanyTikTokOAuth = compPlatform === "TikTok";
+  const isNewZalo = compPlatform === "Zalo" && !editingIntegrationId;
+  const isZaloOAuth = isNewZalo && !zaloManual;
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const status = url.searchParams.get("zalo_oauth");
+    if (!status) return;
+    url.searchParams.delete("zalo_oauth");
+    window.history.replaceState(window.history.state, "", url);
+    setCompPlatform("Zalo");
+    setZaloNotice({ message: zaloOAuthMessages.get(status) || zaloOAuthMessages.get("failed")!, success: status === "connected" });
+  }, []);
 
   // Fetch company integrations
   const fetchCompanyIntegrations = async (fallbackFacebookPages: any[] = [], showLoading = true) => {
@@ -488,8 +512,35 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
     return () => window.removeEventListener("message", handleOAuthMessage);
   }, [userProfile]);
 
+  const handleZaloOAuth = async () => {
+    setConnectingZalo(true);
+    setZaloNotice(null);
+    const errorMessage = "Không thể mở trang cấp quyền Zalo OA. Vui lòng thử lại.";
+    try {
+      const response = await fetch("/api/v1/zalo/oauth-session", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setZaloNotice({ message: typeof data.message === "string" ? data.message : errorMessage });
+        return;
+      }
+      const url = new URL(data.authorizationUrl);
+      if (url.origin !== "https://oauth.zaloapp.com" || url.pathname !== "/v4/oa/permission") {
+        throw new Error(errorMessage);
+      }
+      window.location.assign(url.href);
+    } catch {
+      setZaloNotice({ message: errorMessage });
+    } finally {
+      setConnectingZalo(false);
+    }
+  };
+
   const handleSaveCompanyIntegration = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isZaloOAuth) return;
     if (!compDisplayName.trim()) {
       toast.error("Vui lòng nhập Tên hiển thị!");
       return;
@@ -653,6 +704,8 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
   const resetCompForm = () => {
     setEditingIntegrationId(null);
     setCompPlatform("TikTok");
+    setZaloManual(false);
+    setZaloNotice(null);
     setCompDisplayName("");
     setCompUsername("");
     setCompBlotatoAccountId("");
@@ -771,7 +824,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                         disabled={!!editingIntegrationId}
                         className="sr-only peer"
                       />
-                      <div className={`py-2 text-center rounded-xl border text-xs font-semibold transition-all ${compPlatform === p.value
+                      <div className={`py-2 text-center rounded-xl border text-xs font-semibold transition-all peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary ${compPlatform === p.value
                         ? platformMeta[p.value as keyof typeof platformMeta].activeClass
                         : "border-gray-250 bg-white text-gray-500"
                         } ${editingIntegrationId ? "opacity-60 cursor-not-allowed" : "hover:border-gray-300"}`}>
@@ -782,8 +835,42 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                 </div>
               </div>
 
+              {isNewZalo && (
+                <div className="space-y-3">
+                  {zaloNotice && (
+                    <p role={zaloNotice.success ? "status" : "alert"} className={zaloNotice.success ? "text-sm text-on-surface" : "text-sm text-error"}>
+                      {zaloNotice.message}
+                    </p>
+                  )}
+                  {isZaloOAuth && (
+                    <>
+                      <p className="text-pretty text-sm text-on-surface-variant">
+                        Đăng nhập bằng tài khoản quản trị Zalo, chọn OA và cấp quyền cho ERP.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={connectingZalo}
+                        onClick={handleZaloOAuth}
+                        className="min-h-10 w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+                      >
+                        {connectingZalo ? "Đang mở trang cấp quyền…" : "Kết nối Zalo OA"}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    disabled={connectingZalo}
+                    aria-expanded={zaloManual}
+                    onClick={() => setZaloManual(!zaloManual)}
+                    className="min-h-10 text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+                  >
+                    {zaloManual ? "Quay lại kết nối bằng Zalo" : "Nhập token thủ công"}
+                  </button>
+                </div>
+              )}
+
               {/* Display Name */}
-              {!(compPlatform === "TikTok" && !editingIntegrationId) && (
+              {!isZaloOAuth && !(compPlatform === "TikTok" && !editingIntegrationId) && (
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Tên hiển thị kênh *</label>
                   <input
@@ -915,7 +1002,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
               )}
 
               {/* Standard Platform Fields (Visible when NOT in Facebook OAuth/Credentials mode) */}
-              {!(compPlatform === "Facebook" && (fbConnectMode === "oauth" || fbConnectMode === "credentials")) && (
+              {!isZaloOAuth && !(compPlatform === "Facebook" && (fbConnectMode === "oauth" || fbConnectMode === "credentials")) && (
                 <>
                   {compPlatform === "TikTok" && !editingIntegrationId && (
                     <div className="space-y-4 pt-2">
@@ -1183,6 +1270,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
               {/* Action Buttons */}
               {!(
+                isZaloOAuth ||
                 (compPlatform === "Facebook" && fbConnectMode === "oauth" && !editingIntegrationId) ||
                 (compPlatform === "TikTok" && !editingIntegrationId)
               ) && (
