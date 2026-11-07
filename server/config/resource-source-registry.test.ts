@@ -7,6 +7,10 @@ import {
 import { ResourceItemModel } from "../model/resource-item.model";
 
 describe("resource source registry", () => {
+  it("keeps commercial quotation files behind their own permissions", () => {
+    expect(getResourceSourceDefinition("quotation.contract").requiredPermissions).toEqual(["quotation-contract:read"]);
+    expect(getResourceSourceDefinition("quotation.acceptance").requiredPermissions).toEqual(["quotation-acceptance:read"]);
+  });
   it("maps HR contracts to stable folders and inherited permissions", () => {
     expect(getResourceSourceDefinition("hr.contract")).toMatchObject({
       moduleKey: "hr",

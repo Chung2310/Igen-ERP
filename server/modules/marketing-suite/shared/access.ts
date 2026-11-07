@@ -52,9 +52,9 @@ async function authorizeSuiteRequest(req: AuthenticatedRequest, res: Response, n
   const path = req.path;
   if (path === "/marketing-subscription" || path.startsWith("/marketing-subscription/")) {
     const enabled = await companyModuleEnabled(companyCode, "social-marketing")
-      || await companyModuleEnabled(companyCode, "omni-inbox") || await companyModuleEnabled(companyCode, "company-knowledge");
+      || await companyModuleEnabled(companyCode, "omni-inbox") || await companyModuleEnabled(companyCode, "company-knowledge") || await companyModuleEnabled(companyCode, "quotation");
     if (!enabled) return res.status(403).json({ status: "error", message: "Phân hệ chưa được kích hoạt cho doanh nghiệp của bạn." });
-    return requirePermission(["marketing:read", "omni-inbox:read", "company-knowledge:read", "social-integration:read"])(req, res, next);
+    return requirePermission(["marketing:read", "omni-inbox:read", "company-knowledge:read", "social-integration:read", "quotation-ai:read", "quotation-ai:manage"])(req, res, next);
   }
   const personalAiSettings = /^\/marketing-settings\/auto-reply\/?$/.test(path);
   const campaignSettings = /^\/marketing-settings\/authors\/[^/]+\/?$/.test(path);

@@ -1993,7 +1993,7 @@ export default function OrgChartTab({
               <div className="flex items-center gap-2">
                 <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#007EB8]"><UserPlus className="h-4 w-4" /></span>
-                <h4 className="text-sm text-slate-900 font-sans">Thêm nhân sự mới</h4>
+                <h4 data-typography="dialog-title" className="text-on-surface">Thêm nhân sự mới</h4>
               </div>
               <button
                 type="button"

@@ -72,6 +72,7 @@ export interface MenuItem {
 }
 
 const baseMenuItems: MenuItem[] = [
+  { label: "BÁO GIÁ", title: "Báo giá", icon: FileTextIcon, group: "operations" },
   { label: "GÓI AI & LƯỢT SỬ DỤNG", title: "Gói AI & lượt sử dụng", icon: Sparkles, group: "subscription" },
   ...MARKETING_SUITE_MENU.map((item) => ({ ...item, group: "marketing" as const })),
   {
@@ -187,6 +188,7 @@ const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
   "QUẢN LÝ KHÁCH HÀNG": HeadsetIcon,
   "BÁN LẺ": ShoppingCartIcon,
   "ĐỐI TÁC BÁN LẺ": UsersThreeIcon,
+  "BÁO GIÁ": FileTextIcon,
   "TÀI CHÍNH": FileTextIcon,
   "OMNI INBOX": ChatCircleIcon,
   "MARKETING": UsersThreeIcon,

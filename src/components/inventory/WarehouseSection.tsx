@@ -344,7 +344,7 @@ export function WarehouseSection() {
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-3.5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-bold text-slate-900 tracking-tight">
+            <h3 data-typography="page-title" className="text-on-surface">
               Kho hàng & Số dư tồn kho
             </h3>
             {currentWarehouse && (

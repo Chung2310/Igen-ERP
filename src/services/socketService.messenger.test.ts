@@ -27,6 +27,18 @@ async function connected() {
   handlers.get("connect")!();
   return socketService;
 }
+it("does not subscribe to Messenger when no inbox scopes were selected", async () => {
+  const { socketService } = await import("./socketService");
+  socketService.setMessengerScopes([]);
+  socketService.connect("token"); socket.connected = true;
+  handlers.get("connect")!();
+  expect(socket.emit).not.toHaveBeenCalled();
+});
+it("clears the previous inbox rooms when leaving the last selected account", async () => {
+  const service = await connected();
+  service.setMessengerScopes([]);
+  expect(socket.emit.mock.calls.at(-1)!.slice(0, 2)).toEqual(["set_messenger_scopes", []]);
+});
 
 it("does not mistake transport connectivity for an authorized Messenger subscription", async () => {
   const service = await connected();

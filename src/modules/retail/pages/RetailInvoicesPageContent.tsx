@@ -322,7 +322,7 @@ export default function RetailInvoicesPageContent() {
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-2">
-            <h1 className="retail-page-title text-balance text-base font-semibold text-on-surface sm:text-lg">
+            <h1 data-typography="page-title" className="retail-page-title text-on-surface">
               Hóa đơn nội bộ
             </h1>
             <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200/60">
@@ -505,7 +505,7 @@ export default function RetailInvoicesPageContent() {
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[840px] text-left text-xs">
-              <thead className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] uppercase tracking-wider text-slate-500 font-semibold select-none">
+              <thead className="border-b border-slate-200/80 bg-slate-50/90 text-on-surface-variant select-none">
                 <tr>
                   <th className="w-10 px-3 py-3 text-center">
                     <input

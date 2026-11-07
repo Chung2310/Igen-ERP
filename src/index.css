@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Space+Grotesk:wght@300..700&display=swap');
 @import "tailwindcss";
+@import "./typography.css";
 
 /* Keep select menus aligned with the HR department dropdown across modules. */
 select:not([multiple]):not(.sr-only),
@@ -201,6 +202,13 @@ button[aria-haspopup="listbox"][aria-expanded="true"]:not([aria-invalid="true"])
   color: var(--color-on-surface-variant);
   font-size: 0.75rem;
   font-weight: 400 !important;
+}
+
+:is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
+  label:not(:has(input[type="checkbox"], input[type="radio"])) > span:first-child:not([aria-hidden="true"]) {
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
 }
 
 :is(dialog, [role="dialog"], [role="alertdialog"], .fixed.inset-0)
@@ -689,6 +697,7 @@ body {
   --color-on-background: #f1f5f9;
   --color-surface: #0d0f14;
   --color-on-surface: #f1f5f9;
+  --color-on-surface-variant: #94a3b8;
   --color-surface-bright: #16181f;
   --color-surface-dim: #0d0f14;
   --color-surface-container-lowest: #101217;

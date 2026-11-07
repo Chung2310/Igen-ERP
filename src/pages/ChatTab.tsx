@@ -1771,7 +1771,7 @@ export default function ChatTab() {
             <div className="flex items-center gap-2">
               <ChatBrandMark className="size-10 shrink-0" />
               <div>
-                <h2 className="text-balance text-lg font-semibold leading-tight text-on-surface">Trò chuyện</h2>
+                <h2 data-typography="page-title" className="text-on-surface">Trò chuyện</h2>
                 <p className="text-xs font-normal text-on-surface-variant">Trò chuyện nội bộ</p>
               </div>
             </div>

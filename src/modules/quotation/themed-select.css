@@ -1,0 +1,42 @@
+.quotation-module .theme-select { min-width: 0; }
+.quotation-module button.theme-select-trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; height: 44px; padding: 0 14px;
+  border: 1px solid #d7e3ee; border-radius: 10px;
+  background: var(--color-surface-container-lowest); color: var(--color-on-surface);
+  font: inherit; font-size: 14px; font-weight: 400; text-align: left;
+  cursor: pointer; transition: border-color .18s, box-shadow .18s, background-color .18s;
+}
+.quotation-module button.theme-select-trigger * { color: inherit; }
+.quotation-module .theme-select-trigger span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quotation-module .theme-select-trigger svg { flex: none; transition: transform .18s; }
+.quotation-module .theme-select.is-open .theme-select-trigger svg { transform: rotate(180deg); }
+.quotation-module .theme-select-trigger:hover:not(:disabled) { border-color: #8dcfff; background: #fbfdff; }
+.quotation-module .theme-select-trigger:focus-visible, .quotation-module .theme-select.is-open .theme-select-trigger {
+  outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0, 173, 252, .14);
+}
+.quotation-module .theme-select-trigger:disabled { opacity: .55; cursor: not-allowed; }
+.quotation-module .theme-select-menu {
+  position: fixed; z-index: 10050; overflow-y: auto; padding: 6px;
+  border: 1px solid #d9e8f3; border-radius: 12px;
+  background: var(--color-surface-container-lowest); box-shadow: 0 14px 36px rgba(16, 59, 91, .16), 0 2px 8px rgba(16, 59, 91, .06);
+}
+.quotation-module .theme-select-menu button {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; min-height: 42px; padding: 8px 12px;
+  border: 0; border-radius: 8px; background: transparent;
+  color: var(--color-on-surface); font: inherit; font-size: 14px; font-weight: 400; text-align: left;
+  cursor: pointer;
+}
+.quotation-module .theme-select-menu button:hover, .quotation-module .theme-select-menu button:focus-visible { outline: none; background: #eaf7ff; color: #007bd0; }
+.quotation-module .theme-select-menu button[aria-selected="true"] { background: #e6f5ff; color: #008fe8; font-weight: 600; }
+.quotation-module .theme-select-menu button svg { flex: none; }
+.quotation-module .quote-sort-wrapper .theme-select { min-width: 187px; }
+.quotation-module .quote-sort-wrapper .theme-select-trigger { height: 48px; font-size: 15px; }
+.quotation-module .price-list-sort-wrap .theme-select { min-width: 220px; }
+.quotation-module .quote-fee-row .theme-select { width: 46%; }
+.quotation-module .quote-fee-row .theme-select-trigger { height: 42px; }
+@media (max-width: 680px) {
+  .quotation-module .quote-sort-wrapper .theme-select { flex: 1; }
+  .quotation-module .price-list-sort-wrap .theme-select { flex: 1; width: 100%; }
+}

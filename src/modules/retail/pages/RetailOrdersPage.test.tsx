@@ -44,8 +44,8 @@ describe("RetailOrdersPage", () => {
     await openOutstandingOrder(order);
 
     await userEvent.click(screen.getByRole("button", { name: "Thu công nợ" }));
-    await screen.findByRole("option", { name: "Thu ngân · 2026-08-13" });
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Phiên thu hoặc hoàn tiền" }), "507f1f77bcf86cd799439011");
+    await userEvent.click(screen.getByRole("button", { name: "Phiên thu hoặc hoàn tiền" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Thu ngân · 2026-08-13" }));
     await userEvent.click(await screen.findByRole("button", { name: "Xác nhận thanh toán" }));
 
     await waitFor(() => expect(retailOrdersApi.collect).toHaveBeenCalledWith(

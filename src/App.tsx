@@ -16,7 +16,7 @@ import { browserNotificationService } from "./services/browserNotificationServic
 import { pushService } from "./services/pushService";
 import { setFaviconBadge } from "./utils/faviconBadge";
 import { isSuperAdminPath } from "./router/superAdminRoute";
-import { resolveEnabledTab } from "./config/modules";
+import { isModuleEnabled, resolveEnabledTab } from "./config/modules";
 
 const UNREAD_TITLE_PREFIX_RE = /^\(\d+\+?\d*\)\s/;
 
@@ -343,7 +343,7 @@ function AppContent() {
           currentTab={resolvedActiveTab}
           onSearchSelect={handleSearchNavigation}
           onAssistantOpen={() => {
-            if (resolvedActiveTab === "TRỢ LÝ AI") return;
+            if (resolvedActiveTab === "TRỢ LÝ AI" || !isModuleEnabled(userProfile.enabledModules, "chat") || !hasPermission("chat:read")) return;
             requestAssistantPanel(value => value + 1);
           }}
         />
@@ -373,9 +373,9 @@ function AppContent() {
         </main>
       </div>
 
-      {assistantPanelRequest > 0 && resolvedActiveTab !== "TRỢ LÝ AI" && hasPermission("chat:read") && userProfile?.companyCode && userProfile.uid && (
+      {assistantPanelRequest > 0 && resolvedActiveTab !== "TRỢ LÝ AI" && isModuleEnabled(userProfile.enabledModules, "chat") && hasPermission("chat:read") && userProfile?.companyCode && userProfile.uid && (
         <Suspense fallback={null}>
-          <ChatbotWidget mode="popup" headerPanel openRequest={assistantPanelRequest} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />
+          <ChatbotWidget key={`${userProfile.companyCode}:${userProfile.uid}`} mode="popup" headerPanel openRequest={assistantPanelRequest} storageScope={`${userProfile.companyCode}:${userProfile.uid}`} />
         </Suspense>
       )}
 

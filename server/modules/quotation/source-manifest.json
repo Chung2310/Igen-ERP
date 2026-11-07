@@ -1,0 +1,202 @@
+{
+  "repository": "Chung2310/Quote-assistance",
+  "commit": "9fa13e566d3d935b1c432f63badcbcc27fd97745",
+  "files": [
+    {
+      "source": "apps/api/src/ai.test.ts",
+      "sha256": "28697fbfa5738ae1b08e2774242f54fac65065a8c894d364144a06c45952b44a"
+    },
+    {
+      "source": "apps/api/src/ai.ts",
+      "sha256": "afcdcc5c0e5a7a1df0fc15314483a293d40b180be301c2611621b242c61cb079"
+    },
+    {
+      "source": "apps/api/src/budget-planner.test.ts",
+      "sha256": "99425a8d66f0240cc3bd3003d0423a0811ae3fae33a048120bce6c2ee7b41dd8"
+    },
+    {
+      "source": "apps/api/src/budget-planner.ts",
+      "sha256": "ef7f488de520dc88ee772f116102e1fcaa09db4ad5686a76073a21b917ecfb4e"
+    },
+    {
+      "source": "apps/api/src/cloudinary.ts",
+      "sha256": "60c67d4c8271c30d8d22bb43af275745ef6fcff14c83e5042086543207e33820"
+    },
+    {
+      "source": "apps/api/src/contract-pdf-reference-word.ts",
+      "sha256": "182ba4e6469b2512395492858f1138f6ac3c37fb0615804e72520a6318ef24a0"
+    },
+    {
+      "source": "apps/api/src/contract-template.test.ts",
+      "sha256": "51ec6004dd76e57bc0bc6509a7330ffa01f2a0b4ca0fa55cd2825ab1989324b6"
+    },
+    {
+      "source": "apps/api/src/contract-template.ts",
+      "sha256": "24339212f229ee036e8831dcaa6eaf15e8d49a880c53fc0b3bc865323efeb11e"
+    },
+    {
+      "source": "apps/api/src/contract-word.ts",
+      "sha256": "cff188458f78d935af9d8a941251868d45e259bd3d743e52053fdfb433ba11dc"
+    },
+    {
+      "source": "apps/api/src/customer-quote-ai.test.ts",
+      "sha256": "de7285d86868ae4e96a9dc7620071cdf8939f9e34679867e30a696954960bc56"
+    },
+    {
+      "source": "apps/api/src/customer-quote-ai.ts",
+      "sha256": "13a99533257bf001246cd6ea7f01e67b9a41a6e4dde3bc64a89525f8224530f5"
+    },
+    {
+      "source": "apps/api/src/document-edit-ai.ts",
+      "sha256": "909db32dd8d558e3bc8ecd4040abbd33698e2a10187c37ee5afef531a736a1cf"
+    },
+    {
+      "source": "apps/api/src/document-word.test.ts",
+      "sha256": "87d76db08b9135ca3af2e23a3628f2809f2199c62e59e1e6e7a489d7c48cc444"
+    },
+    {
+      "source": "apps/api/src/document-word.ts",
+      "sha256": "570f2fe5b9b41db3f928cdcacb1afa68546b5ecbffb97c2bb0bff8f02fa878a2"
+    },
+    {
+      "source": "apps/api/src/logger.ts",
+      "sha256": "f9a57bb69010eb0f2799ed9879064caff8c6e5e19366701e32d48a0d1b246eca"
+    },
+    {
+      "source": "apps/api/src/pdf-to-word.ts",
+      "sha256": "7393fe5714f47c98154aeab38982e33c019a03559cc5857c16924cf188b10e3c"
+    },
+    {
+      "source": "apps/api/src/price-list-import.ts",
+      "sha256": "f33cf86866509099f9b786df38d35f884efc22bb4afa1f7622ec3de5ed830c49"
+    },
+    {
+      "source": "apps/api/src/price-list.test.ts",
+      "sha256": "192ab9675d4bab7e9793d4b9faa6f264ff52f4f2c0ceb57c510f7b101f8479f7"
+    },
+    {
+      "source": "apps/api/src/price-list.ts",
+      "sha256": "2f90393dbb4deaf1459ab3802cc902b5671b4c6a6ab71af611176f636d53f8bd"
+    },
+    {
+      "source": "apps/api/src/pricing.ts",
+      "sha256": "82d3d6376a1d26f626c9731c29fa6b118102541a95b988fe61fb627933db7005"
+    },
+    {
+      "source": "apps/api/src/quote-estimate-adjustment.test.ts",
+      "sha256": "a2a3388556a19c7f65f47869ce1dae301fe1a6751957307b60363075315876a0"
+    },
+    {
+      "source": "apps/api/src/quote-estimate-adjustment.ts",
+      "sha256": "16acbe30c50e9cdb87afb8e85b0053948036591fd2e5ec46d273b9b3630051e9"
+    },
+    {
+      "source": "apps/api/src/quote-excel.test.ts",
+      "sha256": "67010ea8ac36f592aa5fa958c35cebbbfd33d6483fbf0b27acdbf8558a01d743"
+    },
+    {
+      "source": "apps/api/src/quote-excel.ts",
+      "sha256": "f5ebfe3c92e27a0743afa8d7b11c7c7236d0cc2bcb208f5d46305b298c4903f9"
+    },
+    {
+      "source": "apps/api/src/quote-from-customer.test.ts",
+      "sha256": "6627c380abe77a31af21293197bb032bc12cac095ce8cd4777be40cf60896908"
+    },
+    {
+      "source": "apps/api/src/quote-from-customer.ts",
+      "sha256": "2216882ec31d0ac016b24bc9eeb5c663bab2dfd6ff59f77b1765d12a5194152a"
+    },
+    {
+      "source": "apps/api/src/quote-template.test.ts",
+      "sha256": "dc1cf774be3a1a0cfb7a216677fbcd16d6a029a2a797e4918eb020acbae5ec2a"
+    },
+    {
+      "source": "apps/api/src/quote-template.ts",
+      "sha256": "dffca6f45e0fe81c9ba924d1b5d3754ae1a1d2d3c9384fdf02bfa95f6d1dce0d"
+    },
+    {
+      "source": "apps/api/src/quote-terms.ts",
+      "sha256": "2e6c5d70d2aa56359e4ac9a813aa78c8f9a7ecc092052348a86fac267145a0da"
+    },
+    {
+      "source": "apps/api/src/request-file.test.ts",
+      "sha256": "b24d3cd87f625abc035a2f1373893cddce50e7af54bb0b3022718c49981feb78"
+    },
+    {
+      "source": "apps/api/src/request-file.ts",
+      "sha256": "77a083df2dd3265ff2880b80e61ae9740cac3d240b456ee48c4f0177a3c653b9"
+    },
+    {
+      "source": "apps/api/src/structured-ai.ts",
+      "sha256": "eb1ed8aa98491593f8685cccd766fa9e08e8cdf3302fcfc722cdda5774f2ca4e"
+    },
+    {
+      "source": "apps/api/src/types.ts",
+      "sha256": "c8b10038a3a8f4957a895e02472f1faa4db4cae514d33b7a0f42aa4dd795ef57"
+    },
+    {
+      "source": "apps/web/src/App.tsx",
+      "sha256": "9f82255e3dc680460ba9091b0f81f435693b2e7dff8201a9d7be809b33d87b71"
+    },
+    {
+      "source": "apps/web/src/BudgetPlanner.tsx",
+      "sha256": "e2d47ea47a700583e4bab2a926c15f9b64a9061c052c17b3c58bd8819ab7d7d1"
+    },
+    {
+      "source": "apps/web/src/ContractWorkflow.tsx",
+      "sha256": "71530fac43442b9abb749788adc4fd75076343252959767d53d44db806ec3e80"
+    },
+    {
+      "source": "apps/web/src/customer-quote-templates.ts",
+      "sha256": "b0dc5195d8c7ebe13004097951f066948601b051b0fd0a6d23f3185f40a9d060"
+    },
+    {
+      "source": "apps/web/src/CustomerProductListDetail.tsx",
+      "sha256": "a75f0e34d9e88b42776ad76edcee74564b1268f12d2851725143453073918557"
+    },
+    {
+      "source": "apps/web/src/CustomerQuotes.tsx",
+      "sha256": "d9af64fa541604578ac090ea86f3c890d4cb217faa9ec72654245a2a41f91905"
+    },
+    {
+      "source": "apps/web/src/DocumentDialogs.tsx",
+      "sha256": "e17867eff9f33e90d67b7e44cf1cb32cdc51062738853c0177778451f69026ea"
+    },
+    {
+      "source": "apps/web/src/Feedback.tsx",
+      "sha256": "5d0031f26b705250a26fcea2357af182b0cedc46681c79392440f863ec9f8b3d"
+    },
+    {
+      "source": "apps/web/src/FilePreview.tsx",
+      "sha256": "3885e549aab493321c58607ec9efc84746b4856d107bc6529c872122cb2684e6"
+    },
+    {
+      "source": "apps/web/src/money-input.ts",
+      "sha256": "36a0708ec3f825a6d6294d2e4fc1769783f5a6d5a76f92efe73c91057a3b4aba"
+    },
+    {
+      "source": "apps/web/src/MoneyInput.tsx",
+      "sha256": "b944c79db210572c6dc88024667fab885480732ad3dd4d34739723ade96f99d9"
+    },
+    {
+      "source": "apps/web/src/PriceListPanel.tsx",
+      "sha256": "78687f2db7bcef2fc1958315d7478cc24b078e647aa53b6dfb866243e1422dfa"
+    },
+    {
+      "source": "apps/web/src/QuoteTemplate.tsx",
+      "sha256": "1f8160f6d0f37baaf74d8fe24da4a619854562aac6a146285900a52892d04fce"
+    },
+    {
+      "source": "apps/web/src/ThemedSelect.tsx",
+      "sha256": "fbee5bd254b9f714f6cd38f9635a066291aa19e7215072f1d17aff2340c7fe6f"
+    },
+    {
+      "source": "apps/web/src/types.ts",
+      "sha256": "4fb5d779ca49709ce764db3773bd738d6c6a658610556037f6c18c1e826ffb52"
+    },
+    {
+      "source": "apps/web/src/VietnameseDatePicker.tsx",
+      "sha256": "4487f2b3313c6c43c5c2b1d9601dfba4091920529e0fd51fbdec839038037e28"
+    }
+  ]
+}

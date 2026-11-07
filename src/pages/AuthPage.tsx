@@ -95,8 +95,8 @@ export default function AuthPage() {
 
           <div className="relative mt-7 lg:mt-9">
             <h1 className="text-center font-semibold uppercase leading-[1.2] tracking-[0.01em]" style={{ textShadow: "0 2px 0 rgba(0,48,135,0.75), 0 5px 12px rgba(0,31,97,0.45)" }}>
-              <span className="block text-[20px] sm:text-[21px] lg:whitespace-nowrap">Điều hành doanh nghiệp</span>
-              <span className="block text-[20px] sm:text-[21px] lg:whitespace-nowrap">trong một hệ thống</span>
+              <span className="block lg:whitespace-nowrap">Điều hành doanh nghiệp</span>
+              <span className="block lg:whitespace-nowrap">trong một hệ thống</span>
             </h1>
 
           </div>
@@ -120,7 +120,7 @@ export default function AuthPage() {
               className="mx-auto h-[76px] w-[215px] object-contain"
             />
             <div className="mt-3 text-center">
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-800">Đăng nhập</h2>
+              <h2 data-typography="page-title" className="text-on-surface">Đăng nhập</h2>
               <p className="mt-1.5 text-[13px] text-slate-500">Chào mừng bạn quay lại {BRAND_NAME}</p>
             </div>
 

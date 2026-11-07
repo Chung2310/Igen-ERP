@@ -19,6 +19,9 @@ function defineSource(definition: ResourceSourceDefinition): ResourceSourceDefin
 }
 
 const definitions = [
+  defineSource({ sourceType: "quotation.document", moduleKey: "quotation", moduleLabel: "Báo giá", groupKey: "documents", groupLabel: "Tài liệu báo giá", requiredPermissions: ["quotation:read"], sourceTab: "BÁO GIÁ" }),
+  defineSource({ sourceType: "quotation.contract", moduleKey: "quotation", moduleLabel: "Báo giá", groupKey: "contracts", groupLabel: "Hợp đồng thương mại", requiredPermissions: ["quotation-contract:read"], sourceTab: "BÁO GIÁ" }),
+  defineSource({ sourceType: "quotation.acceptance", moduleKey: "quotation", moduleLabel: "Báo giá", groupKey: "acceptances", groupLabel: "Nghiệm thu và quyết toán", requiredPermissions: ["quotation-acceptance:read"], sourceTab: "BÁO GIÁ" }),
   defineSource({ sourceType: "hr.contract", moduleKey: "hr", moduleLabel: "Nhân sự", groupKey: "contracts", groupLabel: "Hợp đồng", requiredPermissions: ["hr:read"], sourceTab: "NHÂN SỰ", sourceSubTab: "hop-dong" }),
   defineSource({ sourceType: "hr.leave", moduleKey: "hr", moduleLabel: "Nhân sự", groupKey: "leave", groupLabel: "Nghỉ phép", requiredPermissions: ["hr:read"], sourceTab: "NHÂN SỰ" }),
   defineSource({ sourceType: "hr.kanban", moduleKey: "hr", moduleLabel: "Nhân sự", groupKey: "kanban", groupLabel: "Công việc", requiredPermissions: ["work:read"], sourceTab: "NHÂN SỰ", sourceSubTab: "kanban" }),

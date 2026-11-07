@@ -30,6 +30,10 @@ test("resolveEnabledTab redirects a disabled module to overview", () => {
   assert.equal(resolveEnabledTab("KHO & SẢN PHẨM", ["hr"]), "TỔNG QUAN");
   assert.equal(resolveEnabledTab("NHÂN SỰ", ["hr"]), "NHÂN SỰ");
 });
+test("assistant navigation follows the chat module flag", () => {
+  assert.equal(resolveEnabledTab("TRỢ LÝ AI", ["quotation"]), "TỔNG QUAN");
+  assert.equal(resolveEnabledTab("TRỢ LÝ AI", ["chat"]), "TRỢ LÝ AI");
+});
 
 test("shows both enabled modules regardless of legacy business type", () => {
   assert.deepEqual(

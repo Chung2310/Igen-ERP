@@ -295,8 +295,8 @@ export default function WorkerContractsPage({
       </div>
 
       <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
-        <table className="w-full min-w-[980px] text-left text-[13px]">
-          <thead className="bg-surface-container-low text-[13px] text-on-surface-variant">
+        <table className="w-full min-w-[980px] text-left text-xs">
+          <thead className="bg-surface-container-low text-on-surface-variant">
             <tr>
               <th className="px-3 py-2.5 font-medium">Mã hợp đồng</th>
               <th className="px-3 py-2.5 font-medium">Người lao động</th>

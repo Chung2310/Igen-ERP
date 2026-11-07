@@ -1,5 +1,6 @@
 
 export type TabType =
+  | "BÁO GIÁ"
   | "QUẢN LÝ LAO ĐỘNG"
   | "QUẢN LÝ KHÁCH HÀNG"
   | "BÁN LẺ"

@@ -278,7 +278,7 @@ export function ProductCatalogV2Section() {
       <div className="flex flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-lg font-bold text-slate-900">Danh mục sản phẩm</h2>
+            <h2 data-typography="page-title" className="text-on-surface">Danh mục sản phẩm</h2>
           </div>
         </div>
 
