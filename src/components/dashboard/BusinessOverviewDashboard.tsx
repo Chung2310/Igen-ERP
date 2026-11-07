@@ -1,16 +1,19 @@
+import './overview-dashboard.css';
 import { useId, useState, type ReactNode } from 'react';
 import { ArrowDownRight, ArrowUpRight, Bell, BookOpen, BriefcaseBusiness, CheckCheck, ChevronRight, CircleHelp, Handshake, Package, Receipt, UsersRound, Wallet, Wrench, type LucideIcon } from 'lucide-react';
 import type { BusinessOverview, OverviewPoint, OverviewProject, OverviewSection, OverviewStatus } from '../../../shared/business-overview';
 import { cn } from '../../modules/student-management/lib/utils';
 import { DASHBOARD_CHART_PALETTE, DASHBOARD_CHART_TRACK } from './dashboardPalette';
 import { buildOverviewSeries } from './businessOverviewCharts';
+import { smoothChartPath } from './smoothChartPath';
 import { businessOverviewPresentation, overviewDestinations as destination, type DashboardAlert, type DashboardMetric } from './businessOverviewPresentation';
 import { BUSINESS_TIME_ZONE, businessDateKey, parseBusinessDate } from '../../../shared/business-calendar';
 
 const count = (value: number) => value.toLocaleString('vi-VN');
 const money = (value: number) => `${count(value)} ₫`;
 const compactMoney = (value: number) => Math.abs(value) >= 1e9 ? `${(value / 1e9).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} tỷ ₫` : Math.abs(value) >= 1e6 ? `${(value / 1e6).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} triệu ₫` : money(value);
-const card = 'min-w-0 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-5';
+const card = 'overview-panel min-w-0 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-5';
+const kpiCard = 'overview-panel min-w-0 rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-sm';
 const focus = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
 const button = `inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-outline-variant px-3 text-sm font-medium text-on-surface hover:bg-surface-container ${focus}`;
 const sectionLabels: Record<OverviewSection, string> = { education: 'Học viên & học phí', labor: 'Lao động & dự án', retail: 'Bán hàng/POS', partners: 'Đối tác lao động', hr: 'Nhân sự', inventory: 'Kho hàng', repair: 'Sửa chữa & bảo hành', finance: 'Công nợ tài chính', customer: 'Khách hàng' };
@@ -18,7 +21,7 @@ function navigate(href: string) { window.history.pushState(null, '', href); wind
 
 function Panel({ title, description, children, action, headerAction, className }: { title: string; description?: string; children: ReactNode; action?: { label: string; href: string }; headerAction?: ReactNode; className?: string }) {
   return <section className={cn(card, 'flex h-full flex-col', className)}>
-    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0"><h2 className="text-balance text-base font-semibold">{title}</h2>{description && <p className="mt-1 text-pretty text-xs leading-5 text-on-surface-variant">{description}</p>}</div>
       {headerAction || (action && <button type="button" onClick={() => navigate(action.href)} className={cn(focus, 'inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-1 text-xs font-medium text-primary')}>{action.label}<ArrowUpRight aria-hidden="true" className="size-3.5" /></button>)}
     </div><div className="min-w-0 flex-1">{children}</div>
@@ -26,9 +29,8 @@ function Panel({ title, description, children, action, headerAction, className }
 }
 
 function Kpi({ icon: Icon, label, value, display, detail, href, change, unavailable }: { icon: LucideIcon; label: string; value: string; display?: string; detail: string; href: string; change?: number | null; unavailable?: boolean }) {
-  return <button type="button" onClick={() => navigate(href)} disabled={unavailable} className={cn(card, focus, 'group flex w-full items-start gap-3 text-left transition-colors enabled:hover:border-primary disabled:cursor-default')}>
-    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Icon aria-hidden="true" className="size-5" /></span>
-    <span className="min-w-0 flex-1"><strong className={cn('block truncate font-semibold tabular-nums', display ? 'text-xl' : 'text-2xl')} title={value}>{display || value}</strong><span className="mt-1 block text-xs font-medium text-on-surface-variant">{label}</span><span className="mt-2 flex items-center gap-1 text-xs text-on-surface-variant">
+  return <button type="button" onClick={() => navigate(href)} disabled={unavailable} className={cn(kpiCard, focus, 'overview-kpi group flex min-h-28 w-full items-start gap-3 text-left transition-colors enabled:hover:border-primary disabled:cursor-default')}>
+    <span className="min-w-0 flex-1"><span className="flex items-start justify-between gap-2"><strong className="block min-w-0 truncate text-lg font-semibold tabular-nums sm:text-xl" title={value}>{display || value}</strong><Icon aria-hidden="true" className="size-4 shrink-0 text-on-primary opacity-70" /></span><span className="mt-1 block text-xs font-medium text-on-surface-variant">{label}</span><span className="mt-2 flex items-center gap-1 text-xs text-on-surface-variant">
       {change != null && <>{change >= 0 ? <ArrowUpRight aria-hidden="true" className="size-3 shrink-0" /> : <ArrowDownRight aria-hidden="true" className="size-3 shrink-0" />}<span className="tabular-nums">{change > 0 ? '+' : ''}{change}%</span></>}
       <span className="truncate">{detail}</span>
     </span></span>
@@ -44,6 +46,7 @@ function Trend({ points, from, to, currency, label: chartLabel }: { points: Over
   const show = currency ? money : count;
   const x = (index: number) => 42 + index / Math.max(1, rows.length - 1) * 530;
   const y = (value: number) => 180 - (value - min) / (max - min) * 145;
+  const curve = smoothChartPath(rows.map((row, index) => ({ x: x(index), y: y(row.value) })));
   const label = (date: string) => date.length === 4 ? date : date.length === 7 ? `${date.slice(5)}/${date.slice(0, 4)}` : `${date.slice(8)}/${date.slice(5, 7)}`;
   const ticks = [...new Set([0, Math.floor((rows.length - 1) / 2), rows.length - 1])].filter(index => rows[index]);
   return <>
@@ -52,8 +55,8 @@ function Trend({ points, from, to, currency, label: chartLabel }: { points: Over
       <svg viewBox="0 0 600 225" role="img" aria-labelledby={id} className="h-64 w-full overflow-visible">
         <title id={id}>{chartLabel || (currency ? 'Học phí thực thu' : 'Hồ sơ lao động tạo mới')}: {show(total)}. Bảng số liệu chi tiết nằm bên dưới.</title>
         {[0, 1, 2, 3].map(step => <line key={step} x1="42" x2="572" y1={35 + step * 145 / 3} y2={35 + step * 145 / 3} stroke="currentColor" className="text-outline-variant" strokeDasharray="4 5" />)}
-        <polygon points={`42,${y(0)} ${rows.map((row, index) => `${x(index)},${y(row.value)}`).join(' ')} ${x(rows.length - 1)},${y(0)}`} fill="currentColor" className="text-primary" opacity="0.09" />
-        <polyline points={rows.map((row, index) => `${x(index)},${y(row.value)}`).join(' ')} fill="none" stroke="currentColor" className="text-primary" strokeWidth="3" strokeLinejoin="round" />
+        <path d={`${curve} L ${x(rows.length - 1)} ${y(0)} L ${x(0)} ${y(0)} Z`} fill="currentColor" className="text-primary" opacity="0.09" />
+        <path d={curve} fill="none" stroke="currentColor" className="text-primary" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         {ticks.map(index => <g key={index}><circle cx={x(index)} cy={y(rows[index].value)} r="4" fill="currentColor" className="text-primary"><title>{label(rows[index].date)}: {show(rows[index].value)}</title></circle><text x={x(index)} y="210" textAnchor="middle" fill="currentColor" className="text-on-surface-variant" fontSize="12">{label(rows[index].date)}</text></g>)}
       </svg>
       <details className="mt-2 text-xs text-on-surface-variant"><summary className={cn(focus, 'min-h-11 cursor-pointer py-3')}>Xem số liệu chi tiết</summary><div className="max-h-48 overflow-y-auto"><table className="w-full text-left"><caption className="sr-only">Số liệu theo thời gian</caption><thead><tr><th scope="col" className="py-2">Thời gian</th><th scope="col" className="py-2 text-right">{currency ? 'Giá trị (VNĐ)' : 'Hồ sơ mới'}</th></tr></thead><tbody>{rows.map(row => <tr key={row.date} className="border-t border-outline-variant"><th scope="row" className="py-2 font-normal">{label(row.date)}</th><td className="py-2 text-right tabular-nums">{show(row.value)}</td></tr>)}</tbody></table></div></details>

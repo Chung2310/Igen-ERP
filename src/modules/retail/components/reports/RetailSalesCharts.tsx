@@ -1,5 +1,8 @@
+import '../../../../components/dashboard/overview-dashboard.css';
 import { Banknote, CreditCard, QrCode, Smartphone, TrendingUp, Wallet } from "lucide-react";
 import type { RetailReport } from "../../types";
+import { RetailEmptyState } from "../RetailEmptyState";
+import { smoothChartPath } from "../../../../components/dashboard/smoothChartPath";
 
 type RetailSalesChartsProps = { report: RetailReport };
 
@@ -79,24 +82,15 @@ function getCoord(index: number, total: number, value: number, maxValue: number)
 }
 
 function linePath(values: number[], maxValue: number): string {
-  if (!values.length) return "";
-  return values
-    .map((val, idx) => {
-      const { x, y } = getCoord(idx, values.length, val, maxValue);
-      return `${idx === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+  return smoothChartPath(values.map((value, index) => getCoord(index, values.length, value, maxValue)));
 }
 
 function areaPath(values: number[], maxValue: number): string {
   if (!values.length) return "";
-  const points = values.map((val, idx) => {
-    const { x, y } = getCoord(idx, values.length, val, maxValue);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
+  const curve = linePath(values, maxValue);
   const firstX = getCoord(0, values.length, 0, maxValue).x.toFixed(1);
   const lastX = getCoord(values.length - 1, values.length, 0, maxValue).x.toFixed(1);
-  return `M${firstX},${baselineY} L${points.join(" L")} L${lastX},${baselineY} Z`;
+  return `${curve} L ${lastX},${baselineY} L ${firstX},${baselineY} Z`;
 }
 
 function getXAxisTicks(total: number): number[] {
@@ -138,14 +132,14 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
       {/* Revenue Trend Chart */}
-      <article className="min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
+      <article className="overview-panel min-w-0 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
                 <TrendingUp className="h-4 w-4" />
               </div>
-              <h2 className="text-base font-bold text-slate-900">Xu hướng doanh thu</h2>
+              <h2 className="text-base font-semibold text-slate-900">Xu hướng doanh thu</h2>
             </div>
             <p className="mt-1 text-xs text-slate-500">
               {formatDate(report.range.from)} – {formatDate(report.range.to)}
@@ -316,28 +310,26 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
               <span className="font-medium text-slate-500">
                 Khoảng: <span className="font-semibold text-slate-700">{formatDate(firstDay)} – {formatDate(lastDay)}</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 font-bold text-slate-700">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
                 Cao nhất: {compactMoneyFormatter.format(actualTrendMaximum)} ₫
               </span>
             </div>
           </div>
         ) : (
-          <div className="flex h-64 flex-col items-center justify-center rounded-2xl bg-slate-50 text-center text-xs text-slate-400">
-            Chưa có dữ liệu xu hướng trong khoảng này.
-          </div>
+          <RetailEmptyState kind="fee" className="min-h-64 rounded-md bg-surface">Chưa có dữ liệu xu hướng trong khoảng này.</RetailEmptyState>
         )}
       </article>
 
       {/* Payment Mix Breakdown */}
-      <article className="flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
+      <article className="overview-panel flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
         <div>
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Cơ cấu thanh toán</h2>
+              <h2 className="text-base font-semibold text-slate-900">Cơ cấu thanh toán</h2>
               <p className="mt-0.5 text-xs text-slate-500">Giá trị thực nhận theo phương thức</p>
             </div>
             {totalPaymentAmount > 0 && (
-              <span className="text-xs font-mono font-bold text-slate-900">
+              <span className="text-xs font-mono font-semibold text-slate-900">
                 {compactMoneyFormatter.format(totalPaymentAmount)} ₫
               </span>
             )}
@@ -369,7 +361,7 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
                         <span className="font-semibold text-slate-800">{conf.label}</span>
                       </div>
                       <div className="text-right">
-                        <span className="font-bold text-slate-900 block">{moneyFormatter.format(row.amount)}</span>
+                        <span className="block font-semibold text-cyan-700">{moneyFormatter.format(row.amount)}</span>
                         <span className="text-[10px] text-slate-400 font-semibold">{percentage}%</span>
                       </div>
                     </div>
@@ -386,9 +378,7 @@ export default function RetailSalesCharts({ report }: RetailSalesChartsProps) {
               })}
             </div>
           ) : (
-            <div className="mt-5 flex h-52 flex-col items-center justify-center rounded-2xl bg-slate-50 text-center text-xs text-slate-400">
-              Chưa có thanh toán trong khoảng này.
-            </div>
+            <RetailEmptyState kind="fee" className="mt-5 min-h-52 rounded-md bg-surface">Chưa có thanh toán trong khoảng này.</RetailEmptyState>
           )}
         </div>
 

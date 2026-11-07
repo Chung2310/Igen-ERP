@@ -558,7 +558,7 @@ export default function LandingPage() {
 
             {/* Headline: Original iGen text */}
             <div className="max-w-5xl mx-auto space-y-2">
-              <h1 className="text-[1.8rem] sm:text-[2.25rem] md:text-[2.7rem] lg:text-[3.15rem] font-bold text-slate-900 tracking-tight leading-tight">
+              <h1 data-typography="display-title" className="text-on-surface">
                 <span className="landing-hero-line landing-hero-line--intro block">Tối ưu hóa vận hành doanh nghiệp của bạn</span>
                 <span className="landing-hero-line landing-hero-line--brand block text-[#00ADFC]">
                   với nền tảng {BRAND_NAME}

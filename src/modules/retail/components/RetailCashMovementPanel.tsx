@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from "react";
 import CurrencyInput from "./pos/CurrencyInput";
 import { retailShiftsApi } from "../api/retailShifts.api";
 import type { RetailScope, RetailShift } from "../types";
+import { Dropdown } from "../../../components/common/Dropdown";
 
 export function RetailCashMovementPanel({ scope, shift, onSaved }: { scope: RetailScope; shift: RetailShift; onSaved: (shift: RetailShift) => void }) {
   const [type, setType] = useState<"in" | "out">("in");
@@ -33,7 +34,7 @@ export function RetailCashMovementPanel({ scope, shift, onSaved }: { scope: Reta
   return <section className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
     <h3 className="text-balance text-base font-semibold text-on-surface">Thu và rút quỹ trong ca</h3>
     <form onSubmit={(event) => void submit(event)} className="mt-3 space-y-3" aria-busy={saving}>
-      <label className="block text-sm font-medium text-on-surface">Loại giao dịch<select value={type} onChange={(event) => setType(event.target.value as "in" | "out")} className="mt-1 min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 focus-visible:outline-2 focus-visible:outline-primary"><option value="in">Thu thêm vào quỹ</option><option value="out">Rút khỏi quỹ</option></select></label>
+      <Dropdown label="Loại giao dịch" value={type} onChange={setType} options={[{ value: "in", label: "Thu thêm vào quỹ" }, { value: "out", label: "Rút khỏi quỹ" }]} variant="form" size="md" className="w-full" />
       <CurrencyInput label="Số tiền" value={amount} onChange={setAmount} />
       <label className="block text-sm font-medium text-on-surface">Lý do<input required maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} aria-describedby={error ? "retail-cash-movement-error" : undefined} className="mt-1 min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 focus-visible:outline-2 focus-visible:outline-primary" /></label>
       {error && <p id="retail-cash-movement-error" role="alert" className="text-sm text-error">{error}</p>}

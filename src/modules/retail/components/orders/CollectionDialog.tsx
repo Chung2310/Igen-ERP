@@ -118,7 +118,7 @@ export default function CollectionDialog({ order, close, done }: { order: Retail
 
   if (pending || blocked || !canCollect) return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4">
     <div role="dialog" aria-label="Khoản thu đang chờ" className="w-full max-w-lg rounded-2xl bg-white p-5">
-      <h2 className="text-lg font-bold">Kiểm tra kết quả thu công nợ</h2>
+      <h2 className="text-lg font-semibold">Kiểm tra kết quả thu công nợ</h2>
       <p className="mt-3">Yêu cầu đã lưu được giữ nguyên để tránh ghi nhận tiền thu hai lần. Đóng cửa sổ không hủy khoản thu đã gửi.</p>
       {!pending && !blocked && <p className="mt-3">Không có khoản thu đang chờ trên trình duyệt này. Đơn hiện không đủ điều kiện thu thêm.</p>}
       {candidates.length > 1 && <div className="mt-3"><p>Hai bản lưu khác nhau. Chọn từng yêu cầu để đối chiếu hoặc hủy; chưa thể thu thêm.</p>{candidates.map((candidate, index) => <button className="mr-3 underline" key={index} disabled={busy || blocked} onClick={() => { pendingRef.current = candidate; setPending(candidate); setError(""); }}>Yêu cầu {index + 1}{pending && sameCollection(candidate, pending) ? " (đang chọn)" : ""}</button>)}</div>}

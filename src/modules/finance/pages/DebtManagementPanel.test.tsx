@@ -14,6 +14,21 @@ it.each(["aging","reminders","debt"] as const)("settled supplier debt stays only
  expect(Boolean(screen.queryByText("Supplier paid"))).toBe(mode==="debt");
 });
 
+it.each(["debt", "aging", "reminders"] as const)("filters overdue entries through the shared dropdown (%s)", async mode => {
+ vi.mocked(financeManagement).mockResolvedValue({
+  receivables: [
+   { _id: "late", customerId: "late", customerName: "Khách quá hạn", balance: 100, originalAmount: 100, paidAmount: 0, daysUntil: -2, aging: "1-7", dueDate: "2026-09-01" },
+   { _id: "upcoming", customerId: "upcoming", customerName: "Khách chưa đến hạn", balance: 200, originalAmount: 200, paidAmount: 0, daysUntil: 5, aging: "not_due", dueDate: "2026-09-08" },
+  ], payables: [], unregisteredReceipts: [],
+ });
+ render(<DebtManagementPanel mode={mode} permissions={["finance-receivable:read"]} onOpen={() => {}} />);
+ expect(await screen.findByText("Khách chưa đến hạn")).toBeTruthy();
+ fireEvent.click(screen.getByRole("button", { name: "Lọc hạn công nợ" }));
+ fireEvent.click(screen.getByRole("option", { name: "Quá hạn" }));
+ expect(screen.getByText("Khách quá hạn")).toBeTruthy();
+ expect(screen.queryByText("Khách chưa đến hạn")).toBeNull();
+});
+
 it("warns on overpayment without sending a voucher and allows correcting to the exact balance", async () => {
  vi.mocked(financeManagement).mockResolvedValue({receivables:[],unregisteredReceipts:[],payables:[{_id:"debt",supplierId:"S",supplierName:"Supplier",balance:40000000,originalAmount:50000000,paidAmount:10000000,daysUntil:-4,aging:"1-7",dueDate:"2026-09-24"}]});
  render(<DebtManagementPanel mode="debt" permissions={["*"]} onOpen={()=>{}}/>);

@@ -7,7 +7,7 @@ import { cn } from "../../modules/student-management/lib/utils";
 const control = "w-full rounded-xl border border-outline-variant bg-surface px-3 py-2 text-base text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 
-export function AssistantMemoryManager({ enabled }: { enabled: boolean }) {
+export function AssistantMemoryManager({ enabled, conversationId, branchId }: { enabled: boolean; conversationId?: string; branchId?: string }) {
   const [items, setItems] = useState<AssistantMemory[]>([]);
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
@@ -17,6 +17,14 @@ export function AssistantMemoryManager({ enabled }: { enabled: boolean }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pendingDelete, setPendingDelete] = useState<AssistantMemory | null>(null);
+  const [sessionMemory, setSessionMemory] = useState("");
+  const [sessionMemoryDraft, setSessionMemoryDraft] = useState("");
+  const [sessionMemoryVersion, setSessionMemoryVersion] = useState(0);
+  const [sessionMemoryLoading, setSessionMemoryLoading] = useState(false);
+  const [sessionMemoryBusy, setSessionMemoryBusy] = useState(false);
+  const [sessionMemoryError, setSessionMemoryError] = useState("");
+  const [sessionMemoryNotice, setSessionMemoryNotice] = useState("");
+  const [confirmClearSessionOpen, setConfirmClearSessionOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -31,6 +39,66 @@ export function AssistantMemoryManager({ enabled }: { enabled: boolean }) {
     });
     return () => controller.abort();
   }, [reload]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    const controller = new AbortController();
+    setSessionMemoryLoading(true);
+    setSessionMemoryError("");
+    void assistantService.sessionMemory(conversationId, controller.signal, branchId).then(value => {
+      if (controller.signal.aborted) return;
+      setSessionMemory(value.summary);
+      setSessionMemoryDraft(value.summary);
+      setSessionMemoryVersion(value.version);
+    }).catch(cause => {
+      if (!controller.signal.aborted) setSessionMemoryError((cause as Error).message);
+    }).finally(() => {
+      if (!controller.signal.aborted) setSessionMemoryLoading(false);
+    });
+    return () => controller.abort();
+  }, [conversationId, branchId]);
+
+  const refreshSessionMemory = async () => {
+    if (!conversationId) return;
+    setSessionMemoryLoading(true); setSessionMemoryError(""); setSessionMemoryNotice("");
+    try {
+      const value = await assistantService.sessionMemory(conversationId, undefined, branchId);
+      setSessionMemory(value.summary); setSessionMemoryDraft(value.summary); setSessionMemoryVersion(value.version);
+    } catch (cause) {
+      setSessionMemoryError((cause as Error).message);
+    } finally {
+      setSessionMemoryLoading(false);
+    }
+  };
+
+  const saveSessionMemory = async () => {
+    if (!conversationId || sessionMemoryBusy || sessionMemoryLoading) return;
+    setSessionMemoryBusy(true); setSessionMemoryError(""); setSessionMemoryNotice("");
+    try {
+      const value = await assistantService.saveSessionMemory(conversationId, sessionMemoryDraft, sessionMemoryVersion, branchId);
+      setSessionMemory(value.summary); setSessionMemoryDraft(value.summary); setSessionMemoryVersion(value.version);
+      setSessionMemoryNotice("Đã lưu ngữ cảnh cho phiên chat này.");
+    } catch (cause) {
+      setSessionMemoryError((cause as Error).message);
+    } finally {
+      setSessionMemoryBusy(false);
+    }
+  };
+
+  const clearSessionMemory = async () => {
+    if (!conversationId || sessionMemoryBusy) return;
+    setSessionMemoryBusy(true); setSessionMemoryError(""); setSessionMemoryNotice("");
+    try {
+      const value = await assistantService.clearSessionMemory(conversationId, branchId);
+      setSessionMemory(value.summary); setSessionMemoryDraft(value.summary); setSessionMemoryVersion(value.version);
+      setSessionMemoryNotice("Đã xóa ngữ cảnh tóm tắt. Lịch sử tin nhắn của phiên vẫn được giữ.");
+      setConfirmClearSessionOpen(false);
+    } catch (cause) {
+      setSessionMemoryError((cause as Error).message);
+    } finally {
+      setSessionMemoryBusy(false);
+    }
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -87,6 +155,28 @@ export function AssistantMemoryManager({ enabled }: { enabled: boolean }) {
       {enabled ? "Trợ lý đang dùng các ghi nhớ này khi trả lời." : "Ghi nhớ đang tắt. Các mục vẫn được lưu và sẽ dùng lại khi bạn bật trong Cài đặt trợ lý."}
     </p>
 
+    {conversationId && <section aria-labelledby="assistant-session-memory-title" className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h4 id="assistant-session-memory-title" className="text-base font-semibold">Ngữ cảnh phiên chat</h4>
+          <p className="mt-1 text-pretty text-sm leading-6 text-on-surface-variant">Chỉ áp dụng cho phiên này. Bản tóm tắt giúp trợ lý theo dõi mục tiêu, quyết định và việc còn chờ khi cuộc trò chuyện dài.</p>
+        </div>
+        <button type="button" aria-label="Tải lại ngữ cảnh phiên" title="Tải lại" onClick={() => void refreshSessionMemory()} disabled={sessionMemoryLoading || sessionMemoryBusy} className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl border border-outline-variant hover:bg-surface-container-low disabled:opacity-40", focusClass)}>
+          <RefreshCw className="size-4" aria-hidden="true" />
+        </button>
+      </header>
+      <label htmlFor="assistant-session-memory-content" className="block text-sm font-medium">Tóm tắt riêng của phiên này</label>
+      <textarea id="assistant-session-memory-content" rows={5} maxLength={2000} value={sessionMemoryDraft} onChange={event => setSessionMemoryDraft(event.target.value)} aria-describedby={sessionMemoryError ? "assistant-session-memory-help assistant-session-memory-error" : "assistant-session-memory-help"} disabled={sessionMemoryLoading || sessionMemoryBusy} className={cn(control, "resize-y leading-relaxed disabled:opacity-50")} placeholder="Tóm tắt sẽ xuất hiện sau khi cuộc trò chuyện đủ dài." />
+      <p id="assistant-session-memory-help" className="text-pretty text-sm leading-6 text-on-surface-variant">Bạn có thể xem và sửa nội dung này. Không đưa mật khẩu, dữ liệu nhạy cảm hoặc mã nội bộ vào tóm tắt. {sessionMemoryDraft.length}/2000 ký tự.</p>
+      {sessionMemoryLoading && <p role="status" className="text-sm text-on-surface-variant">Đang tải ngữ cảnh phiên…</p>}
+      {sessionMemoryError && <p id="assistant-session-memory-error" role="alert" className="text-pretty text-sm text-error">{sessionMemoryError}</p>}
+      {sessionMemoryNotice && <p role="status" className="text-pretty text-sm text-on-surface">{sessionMemoryNotice}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => void saveSessionMemory()} disabled={sessionMemoryLoading || sessionMemoryBusy || sessionMemoryDraft === sessionMemory} className={cn("min-h-10 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>{sessionMemoryBusy ? "Đang lưu…" : "Lưu ngữ cảnh phiên"}</button>
+        <button type="button" onClick={() => setConfirmClearSessionOpen(true)} disabled={sessionMemoryLoading || sessionMemoryBusy || !sessionMemory} className={cn("min-h-10 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-40", focusClass)}>Xóa ngữ cảnh phiên</button>
+      </div>
+    </section>}
+
     <form aria-label={editingId ? "Sửa ghi nhớ" : "Thêm ghi nhớ"} className="space-y-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4" onSubmit={event => void submit(event)}>
       <div className="space-y-2">
         <label htmlFor="assistant-memory-content" className="text-sm font-medium">Thông tin muốn ghi nhớ</label>
@@ -106,7 +196,10 @@ export function AssistantMemoryManager({ enabled }: { enabled: boolean }) {
     {!loading && items.length > 0 && <ul aria-label="Danh sách ghi nhớ của tôi" className="space-y-2">
       {items.map(item => <li key={item.id} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
         <div className="flex flex-wrap items-start gap-2"><p className="text-pretty text-sm text-on-surface">{item.content}</p>{item.source === "automatic" && <span className="rounded-full border border-outline-variant bg-surface-container-low px-2 py-0.5 text-xs text-on-surface-variant">Tự lưu</span>}</div>
-        <p className="mt-2 text-xs tabular-nums text-on-surface/70"><time dateTime={item.updatedAt}>Cập nhật {new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(new Date(item.updatedAt))}</time></p>
+        <p className="mt-2 text-xs tabular-nums text-on-surface/70">
+          <time dateTime={item.updatedAt}>Cập nhật {new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(new Date(item.updatedAt))}</time>
+          {item.lastUsedAt && <> · <time dateTime={item.lastUsedAt}>Dùng gần nhất {new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium" }).format(new Date(item.lastUsedAt))}</time></>}
+        </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" aria-label={`Sửa ghi nhớ: ${item.content}`} disabled={busy} onClick={() => { setEditingId(item.id); setDraft(item.content); setError(""); setNotice(""); document.getElementById("assistant-memory-content")?.focus(); }} className={cn("rounded-lg border border-outline-variant px-3 py-1.5 text-sm disabled:opacity-40", focusClass)}>Sửa</button>
           <button type="button" aria-label={`Xóa ghi nhớ: ${item.content}`} disabled={busy} onClick={() => setPendingDelete(item)} className={cn("rounded-lg border border-outline-variant px-3 py-1.5 text-sm text-error disabled:opacity-40", focusClass)}>Xóa</button>
@@ -116,5 +209,6 @@ export function AssistantMemoryManager({ enabled }: { enabled: boolean }) {
     {!loading && items.length >= 50 && !editingId && <p className="text-sm text-on-surface/70">Bạn đã đạt giới hạn 50 ghi nhớ. Xóa một mục để thêm mục mới.</p>}
 
     <ConfirmDialog isOpen={Boolean(pendingDelete)} isSubmitting={busy} title="Xóa ghi nhớ này?" description={pendingDelete?.content || "Ghi nhớ này sẽ bị xóa khỏi tài khoản của bạn."} confirmLabel="Xóa ghi nhớ" onClose={() => setPendingDelete(null)} onConfirm={remove} />
+    <ConfirmDialog isOpen={confirmClearSessionOpen} isSubmitting={sessionMemoryBusy} title="Xóa ngữ cảnh tóm tắt của phiên?" description="Chỉ xóa bản tóm tắt dùng để tiếp tục phiên này. Lịch sử tin nhắn và ghi nhớ cá nhân vẫn được giữ." confirmLabel="Xóa ngữ cảnh phiên" onClose={() => setConfirmClearSessionOpen(false)} onConfirm={clearSessionMemory} />
   </section>;
 }

@@ -39,31 +39,32 @@ export default function SecurityTab() {
   };
 
   return (
-    <div className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
-      <h3 className="mb-4 flex items-center gap-2 border-b border-slate-100 pb-3 text-base font-medium text-slate-800">
-        <Lock className="h-4 w-4 text-brand-primary" />
+    <section className="rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-5">
+      <h2 className="mb-4 flex items-center gap-2 border-b border-outline-variant pb-3 text-balance text-sm font-semibold text-on-surface">
+        <Lock className="size-4 text-primary" aria-hidden="true" />
         Thay đổi mật khẩu tài khoản
-      </h3>
+      </h2>
 
       <form onSubmit={handleUpdatePassword} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-1.5 text-left">
-            <label className="block text-xs font-medium text-slate-600">Mật khẩu mới <span className="text-rose-500">*</span></label>
+            <label htmlFor="settings-new-password" className="block text-xs font-medium text-on-surface-variant">Mật khẩu mới <span aria-hidden="true" className="text-error">*</span></label>
             <div className="relative">
-              <Key className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Key className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
               <input
+                id="settings-new-password"
                 type={showPassword ? "text" : "password"}
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Nhập tối thiểu 6 ký tự"
-                className="h-10 w-full rounded-xl border border-sky-100 bg-white py-0 pl-11 pr-10 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
+                className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest py-0 pl-11 pr-10 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+                className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -71,16 +72,17 @@ export default function SecurityTab() {
           </div>
 
           <div className="space-y-1.5 text-left">
-            <label className="block text-xs font-medium text-slate-600">Xác nhận mật khẩu mới <span className="text-rose-500">*</span></label>
+            <label htmlFor="settings-confirm-password" className="block text-xs font-medium text-on-surface-variant">Xác nhận mật khẩu mới <span aria-hidden="true" className="text-error">*</span></label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Lock className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
               <input
+                id="settings-confirm-password"
                 type={showPassword ? "text" : "password"}
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Nhập lại mật khẩu mới"
-                className="h-10 w-full rounded-xl border border-sky-100 bg-white py-0 pl-11 pr-4 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
+                className="h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest py-0 pl-11 pr-4 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary"
               />
             </div>
           </div>
@@ -90,13 +92,13 @@ export default function SecurityTab() {
           <button
             type="submit"
             disabled={updatingPassword}
-            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-medium text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-xs font-semibold text-on-primary hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Lock className="h-4 w-4" />
             <span>{updatingPassword ? "Đang cập nhật..." : "Đổi mật khẩu"}</span>
           </button>
         </div>
       </form>
-    </div>
+    </section>
   );
 }

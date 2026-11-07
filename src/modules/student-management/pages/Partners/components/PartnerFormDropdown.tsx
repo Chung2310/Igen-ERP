@@ -100,7 +100,7 @@ export function PartnerFormDropdown({ label, value, options, onChange, triggerCl
             openMenu();
           }
         }}
-        className={`${triggerClassName ?? "flex min-h-11 w-full items-center justify-between gap-2 rounded-xl bg-slate-50 px-3.5 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-[#eef9ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00adfc]"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+        className={`${triggerClassName ?? "flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2.5 text-left text-sm font-normal text-on-surface transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
       >
         <span className={`min-w-0 truncate ${value ? '' : 'text-slate-500'}`}>{selectedLabel}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-[#008ecf] transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
@@ -111,7 +111,7 @@ export function PartnerFormDropdown({ label, value, options, onChange, triggerCl
           role="listbox"
           aria-label={label}
           onKeyDown={handleKeyDown}
-          className="fixed z-[100] overflow-y-auto rounded-2xl border border-sky-100 bg-white p-1.5 shadow-[0_16px_40px_rgba(11,65,99,0.2)]"
+          className="fixed z-[100] overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-1 shadow-lg"
           style={position}
         >
           {options.map((option, index) => {
@@ -127,7 +127,7 @@ export function PartnerFormDropdown({ label, value, options, onChange, triggerCl
                   onChange(option.value);
                   closeAndFocus();
                 }}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-[#00adfc] ${selected ? 'bg-[#e8f7ff] text-[#007cb9]' : 'text-slate-700 hover:bg-[#f1f9fd]'}`}
+                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm font-normal transition-colors focus-visible:outline-2 focus-visible:outline-primary ${selected ? 'bg-primary/10 text-primary' : 'text-on-surface hover:bg-primary/5'}`}
               >
                 <span className="min-w-0 truncate">{option.label}</span>
                 {selected && <Check className="h-4 w-4 shrink-0 text-[#00adfc]" aria-hidden="true" />}

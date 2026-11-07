@@ -1,7 +1,10 @@
 import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { InventoryEmptyIllustration } from "./InventoryEmptyIllustration";
 import { StyledSelect } from "../common/StyledSelect";
 import { DatePeriodFilter } from "../common/DatePeriodFilter";
 import { TableFilterToolbar } from "../common/TableFilterToolbar";
+import { ErpRefreshButton } from "../common/ErpRefreshButton";
+import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import { Pagination } from "../common/Pagination";
 import {
   Check,
@@ -176,12 +179,10 @@ export function ReceivingSection() {
       {/* ── Page Header ── */}
       <div className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between border-b border-outline-variant">
         <div>
-          <h2 className="text-xl font-bold text-on-surface text-balance">Nhập hàng</h2>
-          <p className="mt-0.5 text-xs text-on-surface-variant text-pretty">
-            Quản lý phiếu nhập kho, theo dõi tiến độ và đối soát công nợ nhà cung cấp.
-          </p>
+          <h2 data-typography="page-title" className="text-on-surface">Nhập hàng</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ErpRefreshButton onClick={() => void load()} loading={loading} title="Làm mới danh sách" />
           {viewingReceipt?.status === "draft" && (
             <button
               type="button"
@@ -202,20 +203,10 @@ export function ReceivingSection() {
               setEditingReceipt(null);
               setCreatorOpen(true);
             }}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs sm:text-sm font-semibold text-on-primary hover:bg-primary/90 transition-colors shadow-xs"
+            className={`${primaryCreateButtonClass} min-h-9`}
           >
             <PackagePlus className="size-4 shrink-0" aria-hidden="true" />
             Tạo phiếu nhập mới
-          </button>
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
-            className="inline-flex size-9.5 items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"
-            title="Làm mới danh sách"
-            aria-label="Làm mới danh sách"
-          >
-            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -252,7 +243,7 @@ export function ReceivingSection() {
 
       {/* ── Table Card ── */}
       <div className="overflow-x-auto rounded-2xl border border-outline-variant shadow-2xs bg-surface-container-lowest">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table id="inventory_receiving_table" className="w-full min-w-[760px] text-left text-sm">
           <thead className="bg-surface-container-low text-xs uppercase text-on-surface-variant border-b border-outline-variant">
             <tr>
               <th scope="col" className="px-4 py-3.5 font-semibold">Mã phiếu</th>
@@ -277,15 +268,11 @@ export function ReceivingSection() {
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center">
                   <div className="mx-auto flex max-w-sm flex-col items-center justify-center text-center">
+                    <InventoryEmptyIllustration kind={searchQuery || statusFilter !== "all" || dateFilter.mode !== "all" ? "search" : "receipt"} />
                     <p className="text-sm font-semibold text-on-surface">
                       {searchQuery || statusFilter !== "all" || dateFilter.mode !== "all"
                         ? "Không có phiếu nhập nào phù hợp với bộ lọc."
                         : "Chưa có phiếu nhập hàng nào."}
-                    </p>
-                    <p className="mt-1 text-xs text-on-surface-variant">
-                      {searchQuery || statusFilter !== "all" || dateFilter.mode !== "all"
-                        ? "Hãy thử thay đổi từ khóa tìm kiếm hoặc đặt lại bộ lọc thời gian."
-                        : "Bắt đầu bằng cách tạo phiếu nhập kho mới từ nhà cung cấp."}
                     </p>
                     {searchQuery || statusFilter !== "all" || dateFilter.mode !== "all" ? (
                       <button
@@ -303,7 +290,7 @@ export function ReceivingSection() {
                           setEditingReceipt(null);
                           setCreatorOpen(true);
                         }}
-                        className="mt-3.5 inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-1.5 text-xs font-semibold text-on-primary hover:bg-primary/90 transition-colors shadow-2xs"
+                        className={`${primaryCreateButtonClass} mt-3 min-h-9`}
                       >
                         <PackagePlus className="size-3.5" aria-hidden="true" />
                         Tạo phiếu nhập mới
@@ -722,7 +709,7 @@ function ReceiptCreatorModal({ initialReceipt, onClose, onSaved }: { initialRece
               className="w-full"
               triggerClassName="w-full text-sm"
             />
-            <p className="mt-1.5 text-xs text-slate-500">Thêm hoặc sửa nhà cung cấp tại Quản lý đối tác.</p>
+            <p className="mt-1.5 text-xs text-slate-500">Khai báo nhà cung cấp tại Đối tác bán lẻ, chọn vai trò Nhà cung cấp.</p>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">

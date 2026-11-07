@@ -1,12 +1,13 @@
 import React from "react";
 import { Save, X } from "lucide-react";
 import { VietnameseDatePicker } from "../../student-management/components/Batches/VietnameseDatePicker";
-import { RoadmapPicker } from "../../student-management/components/ui/RoadmapPicker";
+import { StyledSelect } from "../../../components/common/StyledSelect";
+import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
 import type { BillingProfileInput, Customer, CustomerInput } from "../types";
 
 const empty: CustomerInput = { name: "", phone: "", customerKind: "individual", contactName: "", type: "regular", email: "", dateOfBirth: "", address: "", notes: "" };
 const emptyBilling: BillingProfileInput = { legalName: "", taxId: "", address: "", invoiceEmail: "", contactName: "" };
-const inputClass = "mt-1.5 h-10 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal text-on-surface outline-none transition placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20";
+const inputClass = "mt-1.5 h-10 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal text-on-surface outline-none transition placeholder:text-on-surface-variant focus-visible:border-primary";
 
 export default function CustomerFormDialog({ customer, onClose, onSave }: { customer?: Customer; onClose: () => void; onSave: (input: CustomerInput, billingProfile?: BillingProfileInput) => Promise<void> }) {
   const dialogRef = React.useRef<HTMLDialogElement>(null);
@@ -76,13 +77,13 @@ export default function CustomerFormDialog({ customer, onClose, onSave }: { cust
           <div>
             <h3 className="mb-3 text-sm font-semibold text-on-surface text-balance">Thông tin cơ bản</h3>
             <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
-              <label className="block text-xs font-medium text-on-surface-variant">Đối tượng khách hàng<select value={form.customerKind || ''} onChange={(event) => setForm((current) => ({ ...current, customerKind: event.target.value as CustomerInput['customerKind'] }))} className={inputClass}><option value="" disabled>Chưa phân loại</option><option value="individual">Cá nhân</option><option value="business">Doanh nghiệp / tổ chức</option></select></label>
+              <div className="text-xs font-medium text-on-surface-variant"><span>Đối tượng khách hàng</span><StyledSelect ariaLabel="Đối tượng khách hàng" value={form.customerKind || ''} placeholder="Chưa phân loại" onChange={(value) => setForm((current) => ({ ...current, customerKind: value as CustomerInput['customerKind'] }))} options={[{ value: 'individual', label: 'Cá nhân' }, { value: 'business', label: 'Doanh nghiệp / tổ chức' }]} className="mt-1.5 rounded-md" menuClassName="rounded-md shadow-sm" /></div>
               {field("name", form.customerKind === 'business' ? "Tên doanh nghiệp / tổ chức" : "Họ và tên")}
               {form.customerKind === 'business' && field("contactName", "Người liên hệ")}
               {field("phone", "Số điện thoại", "tel")}
               {field("email", "Email", "email")}
               {form.customerKind !== 'business' && <label className="block text-xs font-medium text-on-surface-variant"><span>Ngày sinh</span><div className="mt-1.5"><VietnameseDatePicker ariaLabel="Ngày sinh" value={form.dateOfBirth} onChange={(dateOfBirth) => setForm((current) => ({ ...current, dateOfBirth }))} selectionOnly portalTarget={() => dialogRef.current} /></div></label>}
-              <label className="block text-xs font-medium text-on-surface-variant"><span>Chế độ hóa đơn</span><div className="mt-1.5"><RoadmapPicker value={form.type} onChange={(type) => setForm((current) => ({ ...current, type: type as CustomerInput["type"] }))} placeholder="Chọn chế độ hóa đơn" allowClear={false} options={[{ value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} /></div></label>
+              <div className="text-xs font-medium text-on-surface-variant"><span>Chế độ hóa đơn</span><StyledSelect ariaLabel="Chế độ hóa đơn" value={form.type} onChange={(type) => setForm((current) => ({ ...current, type: type as CustomerInput["type"] }))} options={[{ value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} className="mt-1.5 rounded-md" menuClassName="rounded-md shadow-sm" /></div>
               {field("address", "Địa chỉ")}
             </div>
           </div>
@@ -98,8 +99,8 @@ export default function CustomerFormDialog({ customer, onClose, onSave }: { cust
           {error && <p role="alert" className="rounded-lg border border-error bg-error-container px-3 py-2 text-sm text-on-error-container">{error}</p>}
         </div>
         <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-outline-variant px-5 py-3 sm:px-6">
-          <button type="button" disabled={saving} onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">Hủy</button>
-          <button type="submit" disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-on-primary transition hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"><Save className="h-4 w-4" aria-hidden="true" />{saving ? "Đang lưu..." : "Lưu khách hàng"}</button>
+          <button type="button" disabled={saving} onClick={onClose} className="inline-flex items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface transition hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">Hủy</button>
+          <button type="submit" disabled={saving} className={primaryCreateButtonClass}><Save className="size-4" aria-hidden="true" />{saving ? "Đang lưu..." : "Lưu khách hàng"}</button>
         </div>
       </form>
     </dialog>

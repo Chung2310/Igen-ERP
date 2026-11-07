@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { Pagination } from "../../../components/common/Pagination";
+import { FinanceEmptyState } from "../components/FinanceEmptyState";
+import { StyledSelect } from "../../../components/common/StyledSelect";
 import { useDebouncedValue } from "../../../hooks/useDebouncedValue";
 import {
   financeReceivablesApi,
@@ -71,57 +73,50 @@ export default function ReceivablesPage({
       )
     : result.items;
   return (
-    <section className="space-y-4">
+    <section className="finance-page-content">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Công nợ phải thu</h1>
-        <p className="text-sm text-slate-500">
+        <h2 className="text-balance text-sm font-semibold text-on-surface">Công nợ phải thu</h2>
+        <p className="text-sm text-on-surface-variant">
           Theo dõi số dư, hạn trả và lịch sử từng khoản.
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
         <label className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-on-surface-variant" />
           <input
             aria-label="Tìm công nợ"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3 text-sm"
+            className="w-full rounded-md border border-outline-variant py-2 pl-10 pr-3 text-sm"
             placeholder="Tìm mã hoặc khách hàng"
           />
         </label>
-        <select
-          aria-label="Lọc trạng thái"
+        <StyledSelect
+          ariaLabel="Lọc trạng thái"
+          className="h-9 rounded-md"
+          menuClassName="finance-select-menu"
           value={status}
-          onChange={(event) => {
-            setStatus(event.target.value as ReceivableStatus | "");
-            setPage(1);
-          }}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
-        >
-          <option value="">Tất cả trạng thái</option>
-          <option value="open">Đang mở</option>
-          <option value="partially_paid">Đã thu một phần</option>
-          <option value="settled">Đã tất toán</option>
-          <option value="written_off">Đã xóa nợ</option>
-        </select>
+          onChange={(value) => { setStatus(value as ReceivableStatus | ""); setPage(1); }}
+          options={[{ value: "", label: "Tất cả trạng thái" }, { value: "open", label: "Đang mở" }, { value: "partially_paid", label: "Đã thu một phần" }, { value: "settled", label: "Đã tất toán" }, { value: "written_off", label: "Đã xóa nợ" }]}
+        />
       </div>
       {agingBucket && (
-        <p className="rounded-xl bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
+        <p className="rounded-md bg-primary-container px-4 py-2 text-sm font-semibold text-on-primary-container">
           Đang lọc nhóm tuổi nợ: {agingBucket}
         </p>
       )}
       {error && (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
+        <p className="rounded-md bg-error-container p-4 text-sm text-on-error-container">{error}</p>
       )}
       {loading ? (
-        <p className="p-6 text-center text-sm text-slate-500">
+        <p className="p-4 text-center text-sm text-on-surface-variant">
           Đang tải công nợ...
         </p>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-600">
+              <thead className="bg-surface-container-low text-on-surface-variant">
                 <tr>
                   <th className="p-3">Mã</th>
                   <th className="p-3">Khách hàng</th>
@@ -132,13 +127,11 @@ export default function ReceivablesPage({
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr
-                    key={item._id}
-                    className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
-                    onClick={() => onOpen?.(item._id)}
-                  >
-                    <td className="p-3 font-semibold text-cyan-700">
-                      {item.receivableCode}
+                  <tr key={item._id} className="border-t border-outline-variant hover:bg-surface-container-low">
+                    <td className="p-3 font-semibold text-on-primary-container">
+                      <button type="button" onClick={() => onOpen?.(item._id)} className="text-left hover:underline focus-visible:outline-2 focus-visible:outline-primary" aria-label={`Xem công nợ ${item.receivableCode}`}>
+                        {item.receivableCode}
+                      </button>
                     </td>
                     <td className="p-3">{item.customerName}</td>
                     <td className="p-3">
@@ -146,7 +139,7 @@ export default function ReceivablesPage({
                     </td>
                     <td className="p-3">
                       {item.daysOverdue > 0 ? (
-                        <span className="rounded-full bg-red-50 px-2 py-1 text-xs font-bold text-red-700">
+                        <span className="rounded-full bg-error-container px-2 py-1 text-xs font-bold text-on-error-container">
                           Quá hạn {item.daysOverdue} ngày
                         </span>
                       ) : (
@@ -161,9 +154,7 @@ export default function ReceivablesPage({
               </tbody>
             </table>
             {!items.length && (
-              <p className="p-6 text-center text-sm text-slate-500">
-                Chưa có khoản công nợ phù hợp.
-              </p>
+              <FinanceEmptyState kind="search">Chưa có khoản công nợ phù hợp.</FinanceEmptyState>
             )}
           </div>
         </div>

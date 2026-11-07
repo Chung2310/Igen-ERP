@@ -1,11 +1,12 @@
 import type { TabType, UserProfile } from "../types";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge", "quotation"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
-export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "retail-partner" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge") as Exclude<ModuleKey, "retail" | "retail-partner" | "finance" | "marketing" | "social-marketing" | "omni-inbox" | "company-knowledge">[];
+export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "retail-partner" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge" && key !== "quotation") as Exclude<ModuleKey, "retail" | "retail-partner" | "finance" | "marketing" | "social-marketing" | "omni-inbox" | "company-knowledge" | "quotation">[];
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
+  quotation: "Báo giá",
   hr: "Nhân sự",
   inventory: "Kho & Sản phẩm",
   resource: "Quản lý tài nguyên",
@@ -25,6 +26,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
 };
 
 export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
+  quotation: "BÁO GIÁ",
   hr: "NHÂN SỰ",
   inventory: "KHO & SẢN PHẨM",
   resource: "QUẢN LÝ TÀI NGUYÊN",
@@ -44,11 +46,13 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
 };
 
 export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
+  "BÁO GIÁ": "quotation",
   "NHÂN SỰ": "hr",
   "KHO & SẢN PHẨM": "inventory",
   "SỬA CHỮA & BẢO HÀNH": "repair",
   "QUẢN LÝ TÀI NGUYÊN": "resource",
   "TRÒ CHUYỆN": "chat",
+  "TRỢ LÝ AI": "chat",
   "QUẢN LÝ HỌC VIÊN": "student",
   "QUẢN LÝ LAO ĐỘNG": "worker",
   "QUẢN LÝ KHÁCH HÀNG": "customer",
@@ -64,6 +68,7 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
 };
 
 export const MODULE_OPTIONS = [
+  { key: "quotation", label: MODULE_LABELS.quotation, moduleKeys: ["quotation"] },
   { key: "hr", label: MODULE_LABELS.hr, moduleKeys: ["hr"] },
   { key: "inventory", label: MODULE_LABELS.inventory, moduleKeys: ["inventory"] },
   { key: "resource", label: MODULE_LABELS.resource, moduleKeys: ["resource"] },
@@ -88,6 +93,7 @@ export const MODULE_OPTIONS = [
  * công ty nhưng user cá nhân không được cấp quyền nào liên quan.
  */
 export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
+  "BÁO GIÁ": ["quotation:read", "quotation:manage"],
   "TỔNG QUAN": ["dashboard:read"],
   "NHÂN SỰ": ["hr:read", "access:read", "work:read", "timekeeping:read"],
   "ĐỐI TÁC": ["relationship:read", "relationship:manage"],
@@ -108,11 +114,11 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "OMNI INBOX": ["omni-inbox:read", "omni-inbox:manage"],
   "KHO TRI THỨC": ["company-knowledge:read", "company-knowledge:manage"],
   "TÍCH HỢP MARKETING": ["social-integration:read", "social-integration:manage"],
-  "GÓI AI & LƯỢT SỬ DỤNG": ["marketing:read", "omni-inbox:read", "company-knowledge:read", "social-integration:read"],
+  "GÓI AI & LƯỢT SỬ DỤNG": ["marketing:read", "omni-inbox:read", "company-knowledge:read", "social-integration:read", "quotation-ai:read", "quotation-ai:manage"],
 };
 
 export function isAiSubscriptionEnabled(enabledModules: string[] | undefined): boolean {
-  return Boolean(enabledModules?.some((key) => ["social-marketing", "omni-inbox", "company-knowledge"].includes(key)));
+  return Boolean(enabledModules?.some((key) => ["social-marketing", "omni-inbox", "company-knowledge", "quotation"].includes(key)));
 }
 
 export function canViewAiSubscription(user: UserProfile | null | undefined): boolean {
@@ -155,7 +161,7 @@ export const HIDE_AI_AUTO_REPLY = true;
  */
 export function isModuleEnabled(enabledModules: string[] | undefined, key: ModuleKey): boolean {
   if (key === "retail-partner") return Boolean(enabledModules?.includes("retail") && enabledModules.includes(key));
-  if (key === "retail" || key === "finance" || key === "social-marketing" || key === "omni-inbox" || key === "company-knowledge") return Boolean(enabledModules?.includes(key));
+  if (key === "retail" || key === "finance" || key === "social-marketing" || key === "omni-inbox" || key === "company-knowledge" || key === "quotation") return Boolean(enabledModules?.includes(key));
   if (!enabledModules) return true;
   if (enabledModules.length === 0) return false;
   return enabledModules.includes(key);

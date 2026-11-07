@@ -1,35 +1,33 @@
-import TrendChart from "../components/FinanceTrendChart";
 import {
-  FinanceEarningsBarChart,
-  FinancePerformanceDonut,
-  DebtOverviewCard,
   CashFlowOverviewChart,
   ProfitTopGroupsChart,
   VatStructureChart,
   BreakevenGaugeChart,
 } from "../components/FinanceOverviewCharts";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   LockKeyhole,
   RefreshCw,
   Calendar,
   Building2,
-  TrendingUp,
-  AlertTriangle,
   Receipt,
   ShieldAlert,
   Target,
   Plus,
   Download,
   Search,
-  ArrowRight,
   SlidersHorizontal,
   FileSpreadsheet,
 } from "lucide-react";
 import { useBranchOptional } from "../../../context/BranchContext";
+import { StyledSelect } from "../../../components/common/StyledSelect";
+import { useOverviewPeriod } from "../../../components/dashboard/OverviewPeriodContext";
+import { AdminDatePicker } from "../../../components/user-admin/AdminDatePicker";
 import { financeManagement } from "../api/financeManagement.api";
 import { DataTable, Stats, EntryForm, money, inputClass, buttonClass, exportCsv, type Field } from "../components/ManagementUI";
+import type { OverviewPeriod } from "../components/financeOverviewPeriods";
 const today = () => new Date().toLocaleDateString("en-CA");
+const FinanceOverviewDashboard = lazy(() => import("../components/FinanceOverviewDashboard"));
 const categories: [
     string,
     string
@@ -39,8 +37,13 @@ export default function FinancialManagementPage({ view }: {
     view: "overview" | "cash" | "profit" | "vat" | "breakeven";
 }) {
     const branch = useBranchOptional();
+    const overviewPeriod = useOverviewPeriod();
     const [from, setFrom] = useState(() => `${today().slice(0, 7)}-01`);
     const [to, setTo] = useState(() => view === "breakeven" ? new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toLocaleDateString("en-CA") : today());
+    const [period, setPeriod] = useState<OverviewPeriod>("month");
+    const reportFrom = view === "overview" && overviewPeriod ? overviewPeriod.from : from;
+    const reportTo = view === "overview" && overviewPeriod ? overviewPeriod.to : to;
+    const reportPeriod: OverviewPeriod = view === "overview" && overviewPeriod ? overviewPeriod.selection === "day" ? "7" : overviewPeriod.selection : period;
     const [data, setData] = useState<any>();
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -51,18 +54,18 @@ export default function FinancialManagementPage({ view }: {
     const [search, setSearch] = useState("");
     const [cashKind, setCashKind] = useState("");
     const [reversing, setReversing] = useState<any>();
-    useEffect(() => { const controller = new AbortController(); setLoading(true); setData(undefined); setError(""); financeManagement(`/report?${new URLSearchParams({ from, to })}`, undefined, undefined, controller.signal).then(setData).catch(e => { if (!controller.signal.aborted)
+    useEffect(() => { const controller = new AbortController(); setLoading(true); setData(undefined); setError(""); financeManagement(`/report?${new URLSearchParams({ from: reportFrom, to: reportTo })}`, undefined, undefined, controller.signal).then(setData).catch(e => { if (!controller.signal.aborted)
         setError(e.message); }).finally(() => { if (!controller.signal.aborted)
-        setLoading(false); }); return () => controller.abort(); }, [from, to, revision, branch?.activeBranchId]);
+        setLoading(false); }); return () => controller.abort(); }, [reportFrom, reportTo, revision, branch?.activeBranchId]);
     const preset = (value: string) => { const now = new Date(); const start = new Date(now); if (value === "7" || value === "30")
         start.setDate(start.getDate() - Number(value) + 1); if (value === "month")
         start.setDate(1); if (value === "quarter") {
         start.setDate(1);
         start.setMonth(Math.floor(now.getMonth() / 3) * 3);
-    } if (value === "year") {
+    } if (value === "week") start.setDate(start.getDate() - (start.getDay() + 6) % 7); if (value === "year") {
         start.setDate(1);
         start.setMonth(0);
-    } setFrom(start.toLocaleDateString("en-CA")); setTo(today()); };
+    } setPeriod(value as OverviewPeriod); setFrom(start.toLocaleDateString("en-CA")); setTo(today()); };
     const s = data?.summary;
     const filtered = (data?.lines || []).filter((l: any) => `${l.productName} ${l.sku} ${l.brand || ""} ${l.category || ""} ${l.salespersonName} ${(l.serialNumbers || []).join(" ")}`.toLowerCase().includes(search.toLowerCase()));
     const groups = new Map<string, any>();
@@ -82,83 +85,57 @@ export default function FinancialManagementPage({ view }: {
     const fields: Field[] = form === "voucher" ? [
         { key: "kind", label: "Loại phiếu", options: [["payment", "Phiếu chi"], ["receipt", "Phiếu thu"]] }, { key: "date", label: "Ngày ghi nhận", type: "date", initial: today() }, { key: "category", label: "Danh mục", options: categories }, { key: "expenseClass", label: "Tính vào lãi lỗ", options: [["fixed", "Chi phí cố định"], ["variable", "Chi phí biến đổi"], ["none", "Không (vốn / dòng tiền)"]] }, { key: "amount", label: "Số tiền (VND)", type: "number" }, { key: "method", label: "Phương thức", options: [["cash", "Tiền mặt"], ["transfer", "Chuyển khoản"], ["card", "Thẻ"], ["other", "Khác"]] }, { key: "counterparty", label: "Đối tượng", required: false }, { key: "attachment", label: "Đường dẫn chứng từ HTTPS", type: "url", required: false }, { key: "note", label: "Ghi chú", required: false },
     ] : form === "invoice" ? [{ key: "id", label: "Hóa đơn đã phát hành", options: (data?.invoiceCandidates || []).map((r: any) => [r.id, `${r.invoiceNo} · ${r.counterparty} · VAT ${money(r.vat)}`]) }] : form === "tax" ? [{ key: "direction", label: "Loại VAT", options: [["input", "Đầu vào"], ["output", "Đầu ra"]] }, { key: "date", label: "Ngày hóa đơn", type: "date", initial: today() }, { key: "invoiceNumber", label: "Số hóa đơn" }, { key: "taxId", label: "Mã số thuế" }, { key: "counterparty", label: "Đối tác", required: false }, { key: "base", label: "Tiền trước thuế (VND)", type: "number" }, { key: "rate", label: "Thuế suất (%)", type: "number" }, { key: "vat", label: "Tiền VAT (VND)", type: "number" }, { key: "deductible", label: "Đủ điều kiện khấu trừ", options: [["false", "Chưa xác nhận"], ["true", "Đã xác nhận"]] }, { key: "note", label: "Ghi chú", required: false }] : [{ key: "period", label: "Kỳ cấu hình", type: "month", initial: from.slice(0, 7) }, { key: "fixedCostBudget", label: "Ngân sách chi phí cố định (VND)", type: "number", initial: data?.settings?.fixedCostBudget ?? data?.breakeven?.fixedCosts ?? 0 }, { key: "vatCarryforward", label: "VAT chuyển kỳ trước (VND)", type: "number", initial: data?.settings?.vatCarryforward ?? 0 }, { key: "note", label: "Ghi chú", required: false }];
-    return <section className="space-y-5">
+    const title = { overview: "Tổng quan tài chính", cash: "Thu - Chi", profit: "Lãi lỗ", vat: "Thuế VAT", breakeven: "Hòa vốn" }[view];
+    const embeddedOverview = view === "overview" && Boolean(overviewPeriod);
+    return <section className="finance-page-content">
+      <h1 className={embeddedOverview ? "sr-only" : "finance-page-title"}>{title}</h1>
       {/* Top Filter and Scope Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-outline-variant bg-surface-container-lowest p-3.5 shadow-xs">
+      {!embeddedOverview && <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3.5 shadow-xs">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="h-4 w-4 text-primary shrink-0" />
-            <select aria-label="Kỳ nhanh" className={`${inputClass} !w-auto text-xs font-semibold cursor-pointer`} defaultValue="month" onChange={e => preset(e.target.value)}>
-              {[["7", "7 ngày qua"], ["30", "30 ngày qua"], ["month", "Tháng này"], ["quarter", "Quý này"], ["year", "Năm nay"]].map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-            </select>
+          <div className="flex items-center gap-2">
+            <Calendar aria-hidden="true" className="size-4 shrink-0 text-primary" />
+            <StyledSelect
+              ariaLabel="Kỳ nhanh"
+              className="h-9 min-h-9 w-40 rounded-md"
+              menuClassName="finance-select-menu"
+              value={period}
+              onChange={preset}
+              options={[
+                { value: "week", label: "Tuần này" },
+                { value: "7", label: "7 ngày qua" },
+                { value: "30", label: "30 ngày qua" },
+                { value: "month", label: "Tháng này" },
+                { value: "quarter", label: "Quý này" },
+                { value: "year", label: "Năm nay" },
+                ...(period === "custom" ? [{ value: "custom", label: "Tùy chỉnh", disabled: true }] : []),
+              ]}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant">
-              <span>Từ ngày</span>
-              <input aria-label="Từ ngày" type="date" className={`${inputClass} !w-auto py-1 text-xs`} value={from} onChange={e => setFrom(e.target.value)}/>
-            </label>
-            <label className="flex items-center gap-1 text-xs font-semibold text-on-surface-variant">
-              <span>Đến ngày</span>
-              <input aria-label="Đến ngày" type="date" className={`${inputClass} !w-auto py-1 text-xs`} value={to} onChange={e => setTo(e.target.value)}/>
-            </label>
+            <AdminDatePicker inline label="Từ ngày" value={from} max={to} onChange={value => { setPeriod("custom"); setFrom(value); }} />
+            <AdminDatePicker inline label="Đến ngày" value={to} min={from} onChange={value => { setPeriod("custom"); setTo(value); }} />
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-semibold text-on-surface">
+          <div className="flex items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-semibold text-on-surface">
             <Building2 className="h-3.5 w-3.5 text-on-surface-variant shrink-0" />
             <span>{branch?.activeBranch?.name || "Chi nhánh đang chọn"}</span>
           </div>
-          <button type="button" aria-label="Tải lại" onClick={() => setRevision(v => v + 1)} className="flex h-8 w-8 items-center justify-center rounded-xl border border-outline-variant text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors cursor-pointer">
+          <button type="button" aria-label="Tải lại" onClick={() => setRevision(v => v + 1)} className="flex size-9 items-center justify-center rounded-md border border-outline-variant text-on-surface-variant hover:bg-surface-container-low hover:text-primary focus-visible:outline-2 focus-visible:outline-primary cursor-pointer">
             <RefreshCw size={15}/>
           </button>
         </div>
-      </div>
+      </div>}
       {loading && <p className="text-sm font-medium text-on-surface-variant">Đang tải dữ liệu tài chính…</p>}
-      {error && <div role="alert" className="flex items-center gap-2 rounded-xl border border-error bg-error-container p-4 text-sm font-medium text-on-error-container"><LockKeyhole size={18}/>{error}</div>}
+      {error && <div role="alert" className="flex items-center gap-2 rounded-md border border-error bg-error-container p-4 text-sm font-medium text-on-error-container"><LockKeyhole size={18}/>{error}</div>}
       {data && <>
-        {s.missingCostCount > 0 && <p role="alert" className="rounded-xl border border-tertiary bg-tertiary-container p-3.5 text-sm text-on-tertiary-container font-medium">Có {s.missingCostCount} dòng chưa xác định được giá vốn. Chưa đủ dữ liệu để tính tổng giá vốn, lợi nhuận và hòa vốn; cần đối chiếu chứng từ nhập/xuất liên kết.</p>}
-        {(view === "overview" || view === "profit") && (
+        {s.missingCostCount > 0 && <p role="alert" className="rounded-md border border-tertiary bg-tertiary-container p-3.5 text-sm text-on-tertiary-container font-medium">Có {s.missingCostCount} dòng chưa xác định được giá vốn. Chưa đủ dữ liệu để tính tổng giá vốn, lợi nhuận và hòa vốn; cần đối chiếu chứng từ nhập/xuất liên kết.</p>}
+        {view === "overview" && <Suspense fallback={<p role="status" className="text-sm text-on-surface-variant">Đang tải biểu đồ tài chính…</p>}><FinanceOverviewDashboard report={data} period={reportPeriod} from={reportFrom} to={reportTo} comparisonShownInToolbar={embeddedOverview} /></Suspense>}
+        {view === "profit" && (
           <div className="space-y-2.5">
             <Stats values={[["Doanh thu hàng hóa", money(s.revenue)], ["Giá vốn", money(s.cost)], ["Lãi gộp", money(s.grossProfit)], ["Lãi ròng quản trị", money(s.netProfit)]]}/>
-            {view === "overview" && (
-              <Stats values={[["Giá trị tồn kho hiện tại", money(s.inventoryValue)], ["Phải thu hiện tại / quá hạn", <>{money(s.receivable)}<div className="text-[11px] font-bold text-error mt-0.5">Quá hạn: {money(s.overdue)}</div></>], ["Phải trả NCC hiện tại", money(s.payable)], ["NCC đến hạn trong 5 ngày", money(s.payableSoon)]]}/>
-            )}
           </div>
         )}
-        {view === "overview" && <>
-          <p className="text-xs text-on-surface-variant">Công nợ và tồn kho là số dư hiện tại, không phải số dư cuối kỳ đang chọn. Bộ lọc ngày áp dụng cho doanh thu, chi phí và dòng tiền.</p>
-
-          {/* Khối biểu đồ trực quan tổng quan tài chính */}
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 pt-1">
-            <FinanceEarningsBarChart trends={data.trends || []} />
-            <FinancePerformanceDonut summary={s} />
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <TrendChart data={data.trends || []} />
-            <DebtOverviewCard debts={data.debts} />
-          </div>
-
-          <div className="flex items-center gap-2 pt-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary-container text-secondary">
-              <TrendingUp className="h-4 w-4" />
-            </div>
-            <h2 className="text-base font-bold text-on-surface">Diễn biến doanh thu và lợi nhuận</h2>
-          </div>
-          <DataTable headers={["Ngày", "Doanh thu", "Giá vốn", "Lãi gộp", "Lãi ròng"]} rows={data.trends.map((r: any) => [r.date, money(r.revenue), money(r.cost), money(r.cost == null ? null : r.revenue - r.cost), money(r.cost == null ? null : r.revenue - r.cost - r.expense)])}/>
-          <div className="flex items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-tertiary-container text-tertiary">
-                <AlertTriangle className="h-4 w-4" />
-              </div>
-              <h2 className="text-base font-bold text-on-surface">Khoản nợ cần xử lý</h2>
-            </div>
-            <a className="inline-flex items-center gap-1 text-xs font-bold text-on-primary-container hover:text-on-primary-container hover:underline" href="?sub=cong-no">
-              Mở công nợ để xử lý <ArrowRight className="h-3.5 w-3.5" />
-            </a>
-          </div>
-          <DataTable headers={["Đối tượng", "Loại", "Hạn", "Còn nợ"]} rows={[...data.debts.receivables.map((r: any) => ({ ...r, party: r.customerName, type: "Phải thu" })), ...data.debts.payables.map((r: any) => ({ ...r, party: r.supplierName, type: "Phải trả" }))].filter((r: any) => r.balance > 0 && r.daysUntil <= 7).sort((a: any, b: any) => a.daysUntil - b.daysUntil).map((r: any) => [r.party, r.type, <span className={r.daysUntil < 0 ? "font-bold text-error" : "font-semibold text-on-tertiary-container"}>{r.dueDate}</span>, money(r.balance)])}/>
-        </>}
         {view === "cash" && <>
           <Stats values={[["Tổng thu thực tế", money(s.cashIn)], ["Tổng chi thực tế", money(s.cashOut)], ["Dòng tiền ròng", money(s.cashIn - s.cashOut)], ["Chi phí đã ghi nhận", money(s.expense)]]}/>
           <CashFlowOverviewChart cashIn={s.cashIn} cashOut={s.cashOut} cashRows={cashRows} />
@@ -169,9 +146,9 @@ export default function FinancialManagementPage({ view }: {
             </button>
             <div className="relative min-w-[220px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-on-surface-variant" />
-              <input className={`${inputClass} !w-auto pl-8 py-2 text-xs`} placeholder="Tìm chứng từ, đối tượng…" value={search} onChange={e => setSearch(e.target.value)}/>
+              <input aria-label="Tìm chứng từ, đối tượng" className={`${inputClass} !w-auto pl-8 py-2 text-xs`} placeholder="Tìm chứng từ, đối tượng…" value={search} onChange={e => setSearch(e.target.value)}/>
             </div>
-            <select className={`${inputClass} !w-auto py-2 text-xs cursor-pointer`} value={cashKind} onChange={e => setCashKind(e.target.value)}>
+            <select aria-label="Lọc loại thu chi" className="finance-select w-36" value={cashKind} onChange={e => setCashKind(e.target.value)}>
               <option value="">Thu và chi</option>
               <option value="receipt">Thu</option>
               <option value="payment">Chi</option>
@@ -189,13 +166,13 @@ export default function FinancialManagementPage({ view }: {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5">
               <SlidersHorizontal className="h-3.5 w-3.5 text-on-surface-variant" />
-              <select className={`${inputClass} !w-auto py-2 text-xs cursor-pointer`} value={group} onChange={e => setGroup(e.target.value)}>
+              <select aria-label="Nhóm dữ liệu lãi lỗ" className="finance-select w-44" value={group} onChange={e => setGroup(e.target.value)}>
                 {[["productName", "Theo sản phẩm"], ["serialNumbers", "Theo IMEI"], ["salespersonName", "Theo nhân viên"], ["branchId", "Theo chi nhánh"], ["category", "Theo nhóm hàng"], ["brand", "Theo thương hiệu"], ["loss", "Bán dưới giá vốn"]].map(([v, t]) => <option key={v} value={v}>{t}</option>)}
               </select>
             </div>
             <div className="relative min-w-[220px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-on-surface-variant" />
-              <input className={`${inputClass} !w-auto pl-8 py-2 text-xs`} placeholder="Lọc sản phẩm, IMEI, nhân viên…" value={search} onChange={e => setSearch(e.target.value)}/>
+              <input aria-label="Lọc sản phẩm, IMEI, nhân viên" className={`${inputClass} !w-auto pl-8 py-2 text-xs`} placeholder="Lọc sản phẩm, IMEI, nhân viên…" value={search} onChange={e => setSearch(e.target.value)}/>
             </div>
             <button className="inline-flex items-center gap-1 text-xs font-bold text-on-primary-container hover:text-on-primary-container transition cursor-pointer" onClick={() => exportCsv("lai-lo", ["Nhóm", "Số lượng", "Doanh thu", "Giá vốn", "Lãi gộp"], profitRows.map(r => [r.key, r.quantity, r.revenue, r.cost ?? "Chưa đủ dữ liệu", r.grossProfit ?? "Chưa đủ dữ liệu"]))}>
               <Download className="h-3.5 w-3.5" />
@@ -204,14 +181,14 @@ export default function FinancialManagementPage({ view }: {
           </div>
           <DataTable headers={["Nhóm / sản phẩm", "SL", "Doanh thu", "Giá vốn", "Lãi gộp", "Nguồn giá vốn"]} rows={profitRows.map(r => [r.key, r.quantity, money(r.revenue), money(r.cost), <span className={r.grossProfit == null ? "text-on-tertiary-container font-semibold" : r.grossProfit < 0 ? "text-error font-bold" : "text-on-secondary-container font-bold"}>{money(r.grossProfit)}</span>, <span className="text-xs text-on-surface-variant">{[...r.costSources].join("; ")}</span>])}/>
           <div className="flex items-center gap-2 pt-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-container text-primary">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-container text-primary">
               <Receipt className="h-4 w-4" />
             </div>
             <h2 className="text-base font-bold text-on-surface">Chi phí hoạt động</h2>
           </div>
           <DataTable headers={["Ngày", "Danh mục", "Nội dung", "Chi phí"]} rows={data.expenses.map((r: any) => [r.date, labelCategory(r.category), r.note || "—", money(r.amount)])}/>
           <div className="flex items-center gap-2 pt-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-error-container text-error">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-error-container text-error">
               <ShieldAlert className="h-4 w-4" />
             </div>
             <div>

@@ -1,9 +1,12 @@
 import { lockCollection } from "../components/orders/collectionRequest";
+import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
 import React from "react";
-import { CalendarDays, ClipboardCheck, ClipboardList, Clock3, Minus, Plus, RefreshCw, Wallet, X } from "lucide-react";
+import { CalendarDays, ClipboardCheck, ClipboardList, Clock3, Minus, Plus, Wallet, X } from "lucide-react";
+import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 import { retailShiftsApi } from "../api/retailShifts.api";
 import { CurrencyInput as SharedCurrencyInput } from "../../../components/common/CurrencyInput";
 import { Dropdown } from "../../../components/common/Dropdown";
+import { VietnameseDatePicker } from "../../student-management/components/Batches/VietnameseDatePicker";
 import { TablePagination } from "../../../components/common/TablePagination";
 import { useRetailScope } from "../hooks/useRetailScope";
 import type { RetailShift } from "../types";
@@ -137,15 +140,14 @@ export default function RetailShiftWorkspace() {
     : Boolean(movementRequest.current) || (Number.isSafeInteger(amount) && amount > 0 && Boolean(reason.trim()));
   if (!scope) return <p>Vui lòng chọn chi nhánh.</p>;
   return <section className="mx-auto max-w-7xl space-y-5">
-    <header className="flex items-start gap-3">
-      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-50 text-cyan-700"><ClipboardList className="h-5 w-5" /></span>
-      <div><h1 className="text-xl font-bold text-slate-900">Phiên POS</h1><p className="mt-1 text-sm text-slate-500">Quản lý phiên bán hàng của nhân viên.</p></div>
+    <header className="border-b border-outline-variant pb-3">
+      <h1 className="retail-page-title text-balance text-lg font-semibold text-on-surface">Phiên POS</h1>
     </header>
     <form onSubmit={(event) => void open(event)} className="relative z-10 overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="rounded-t-2xl border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-4 sm:px-5">
+      <div className="border-b border-outline-variant bg-surface-container-lowest px-4 py-4 sm:px-5">
         <div className="flex items-center gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-cyan-50 text-cyan-700"><Wallet className="h-4 w-4" /></span>
-          <div><h2 className="font-bold text-slate-900">Mở phiên cho nhân viên</h2><p className="mt-0.5 text-xs text-slate-500">Chọn nhân viên và nhập tiền nhận đầu ca.</p></div>
+          <div><h2 className="font-semibold text-slate-900">Mở phiên cho nhân viên</h2><p className="mt-0.5 text-xs text-slate-500">Chọn nhân viên và nhập tiền nhận đầu ca.</p></div>
         </div>
       </div>
       <div className="p-4 sm:p-5">
@@ -156,30 +158,27 @@ export default function RetailShiftWorkspace() {
         {!optionsLoading && !error && cashiers.length === 0 && <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-800">Chưa có nhân viên POS ở chi nhánh này. Trong Nhân sự, chọn vai trò “Nhân viên bán hàng POS” và gán đúng chi nhánh cho tài khoản.</p>}
         {openScheduleError && <div className="mt-4"><ShiftScheduleNotice error={openScheduleError} subject="employee" /></div>}
         <div className="mt-5 flex justify-end border-t border-slate-100 pt-4">
-          <button disabled={busy || !cashierId || !Number.isSafeInteger(openingFloat) || openingFloat < 0} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-500/25 disabled:cursor-not-allowed disabled:opacity-50"><ClipboardCheck className="h-4 w-4" />Mở phiên</button>
+          <button disabled={busy || !cashierId || !Number.isSafeInteger(openingFloat) || openingFloat < 0} className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><ClipboardCheck className="size-4" />Mở phiên</button>
         </div>
       </div>
     </form>
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white p-4 sm:p-5">
+      <div className="border-b border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-50 text-cyan-700"><ClipboardList className="h-4 w-4" /></span>
               <div>
-                <h2 className="font-bold text-slate-900">Phiên bán hàng</h2>
+                <h2 className="font-semibold text-slate-900">Phiên bán hàng</h2>
                 <p className="mt-0.5 text-xs text-slate-500">{total.toLocaleString("vi-VN")} phiên phù hợp</p>
               </div>
             </div>
           </div>
-          <button type="button" onClick={() => void refresh()} className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20">
-            <RefreshCw className="h-4 w-4" />
-            Làm mới
-          </button>
+          <ErpRefreshButton onClick={() => void refresh()} />
         </div>
         <div className="mt-5 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <Field label="Từ ngày" type="date" value={filters.from} onChange={(value) => setFilter("from", value)} />
-          <Field label="Đến ngày" type="date" value={filters.to} onChange={(value) => setFilter("to", value)} />
+          <Field label="Từ ngày" type="date" value={filters.from} max={filters.to || undefined} onChange={(value) => setFilter("from", value)} />
+          <Field label="Đến ngày" type="date" value={filters.to} min={filters.from || undefined} onChange={(value) => setFilter("to", value)} />
           <Select label="Lọc nhân viên" value={filters.cashierId} onChange={(value) => setFilter("cashierId", value)} options={cashiers.map((user) => ({ value: user.id, label: user.name }))} />
         </div>
       </div>
@@ -190,7 +189,7 @@ export default function RetailShiftWorkspace() {
             <article key={shift._id} className="px-4 py-3 transition-colors hover:bg-slate-50/60 sm:px-5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-sm font-bold uppercase text-slate-600">{shift.cashierName?.trim()?.charAt(0) || "?"}</span>
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-sm font-semibold uppercase text-slate-600">{shift.cashierName?.trim()?.charAt(0) || "?"}</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-slate-900">{shift.cashierName}</h3>
@@ -205,7 +204,7 @@ export default function RetailShiftWorkspace() {
                   {shift.workShiftName && <span className="text-slate-500">{shift.workShiftName}</span>}
                 </div>
 
-                <div className="flex flex-wrap gap-2 pl-12 lg:shrink-0 lg:justify-end lg:pl-0">
+                <div className="flex flex-wrap items-center gap-2 pl-12 lg:shrink-0 lg:justify-end lg:pl-0">
                   <Action variant="primary" onClick={() => setDetail(shift)}>Chi tiết</Action>
                   {hasPendingMovement(shift._id) && <Action variant="warning" onClick={() => begin(shift, "cash")}>Kiểm tra thu / chi</Action>}
                   {shift.status === "open" && <><Action onClick={() => begin(shift, "cash")}>Thu / chi quỹ</Action><Action variant="warning" onClick={() => begin(shift, "close")}>Đóng phiên</Action></>}
@@ -215,7 +214,7 @@ export default function RetailShiftWorkspace() {
           ))}
         </div>      ) : (
         <div className="px-4 py-12 text-center sm:px-6">
-          <span className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-slate-100 text-slate-400"><ClipboardList className="h-5 w-5" /></span>
+          <StudentEmptyIllustration kind="batch" />
           <p className="mt-3 font-semibold text-slate-700">Chưa có phiên phù hợp</p>
           <p className="mt-1 text-sm text-slate-500">Thử thay đổi ngày, nhân viên hoặc trạng thái phiên.</p>
         </div>
@@ -243,7 +242,7 @@ export default function RetailShiftWorkspace() {
               </span>
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">Phiên bán hàng</p>
-                <h2 className="mt-0.5 text-lg font-bold text-slate-900">{operation.type === "close" ? "Đóng phiên" : "Thu / chi quỹ"}</h2>
+                <h2 className="mt-0.5 text-lg font-semibold text-slate-900">{operation.type === "close" ? "Đóng phiên" : "Thu / chi quỹ"}</h2>
                 <p className="mt-0.5 truncate text-sm text-slate-500">{operation.shift.cashierName} <span className="text-slate-300">·</span> {operation.shift.businessDate}</p>
               </div>
             </div>
@@ -255,7 +254,7 @@ export default function RetailShiftWorkspace() {
           <div className="space-y-5 p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3">
               <span className="text-sm font-medium text-slate-600">Tiền trong két theo hệ thống</span>
-              <strong className="shrink-0 text-base tabular-nums text-slate-900">{operation.shift.expectedCash == null ? "—" : money(operation.shift.expectedCash)}</strong>
+              <strong className="shrink-0 text-base tabular-nums text-cyan-700">{operation.shift.expectedCash == null ? "—" : money(operation.shift.expectedCash)}</strong>
             </div>
 
             {operation.type === "close" ? (
@@ -329,7 +328,7 @@ export default function RetailShiftWorkspace() {
 
           <footer className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4 sm:px-6">
             <button type="button" disabled={busy} onClick={() => setOperation(null)} className="min-h-10 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">Đóng</button>
-            <button type="submit" disabled={busy || !canSubmitOperation} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-cyan-700 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-500/25 disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="submit" disabled={busy || !canSubmitOperation} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-cyan-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-800 focus:outline-none focus:ring-2 focus:ring-cyan-500/25 disabled:cursor-not-allowed disabled:opacity-50">
               {busy ? "Đang lưu…" : operation.type === "close" ? "Xác nhận đóng phiên" : movementType === "in" ? "Xác nhận bổ sung" : "Xác nhận rút tiền"}
             </button>
           </footer>
@@ -357,14 +356,15 @@ function Action({ children, onClick, variant = "default" }: { children: React.Re
     <button
       type="button"
       onClick={onClick}
-      className={"inline-flex min-h-8 items-center justify-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-cyan-500/20 " + styles[variant]}
+      className={"inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary " + styles[variant]}
     >
       {children}
     </button>
   );
 }
-function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
+function Field({ label, value, onChange, type = "text", min, max }: { label: string; value: string; onChange: (value: string) => void; type?: string; min?: string; max?: string }) {
+  if (type === "date") return <div className="block text-xs font-medium text-on-surface-variant"><span className="mb-1.5 block">{label}</span><VietnameseDatePicker ariaLabel={label} value={value} onChange={onChange} min={min} max={max} variant="filter" /></div>;
   return <label className="block text-xs font-semibold text-slate-600">{label}<input aria-label={label} type={type} value={value} onChange={(event) => onChange(event.target.value)} className="mt-1.5 block min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-normal text-slate-900 shadow-sm transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20" /></label>;
 }
 function Select({ label, placeholder, value, options, onChange }: { label: string; placeholder?: string; value: string; options: Array<{ value: string; label: string }>; onChange: (value: string) => void }) { return <Dropdown label={label} value={value} onChange={onChange} options={options} placeholder={placeholder || "Chọn…"} variant="form" size="md" className="w-full" searchable />; }
-function MoneyField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) { return <label className="block min-w-0"><span className="block text-xs font-bold text-slate-700">{label}</span><SharedCurrencyInput aria-label={label} value={value} onChange={(next) => onChange(next)} className="mt-1.5 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-sm font-bold text-slate-900 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20" /></label>; }
+function MoneyField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) { return <label className="block min-w-0"><span className="block text-xs font-semibold text-slate-700">{label}</span><SharedCurrencyInput aria-label={label} value={value} onChange={(next) => onChange(next)} className="mt-1.5 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-sm font-semibold text-slate-900 shadow-sm focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20" /></label>; }

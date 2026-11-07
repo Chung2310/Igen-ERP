@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Pencil, Plus, X } from "lucide-react";
 import { apiFetch } from "../../shared/lib/apiFetch";
 import { ErpCard, ErpEmptyState, ErpLoadingState, ErpPrimaryButton, erpInputClass } from "../../student-management/components/Erp/ErpUI";
+import { Dropdown } from "../../../components/common/Dropdown";
+import { DateTimeInput24 } from "../../../components/common/TimeInput24";
 
 type Partner = { _id: string; code: string; name: string; roles: string[] };
 type Policy = { _id: string; partnerId: string; effectiveAt: string; config: { phoneAmount: number; accessoryBps: number; repairBps: number } };
@@ -108,14 +110,14 @@ export default function RetailCommissionPoliciesPanel({ companyCode, partners }:
       {message && <p role="status" className="mt-4 text-sm text-on-surface-variant">{message}</p>}
       {error ? <p role="alert" className="mt-4 text-sm text-error">{error} <button type="button" onClick={() => void load()} className="font-semibold underline focus-visible:outline-2 focus-visible:outline-primary">Thử lại</button></p>
         : loading ? <div role="status" aria-live="polite"><ErpLoadingState message="Đang tải chính sách hoa hồng..." /></div>
-          : policies.length === 0 ? <ErpEmptyState title="Chưa có phiên bản chính sách mới" subtitle="Tạo chính sách chung hoặc chính sách riêng cho cộng tác viên bán lẻ." icon={Plus} />
+          : policies.length === 0 ? <ErpEmptyState title="Chưa có phiên bản chính sách mới" subtitle="Tạo chính sách chung hoặc chính sách riêng cho cộng tác viên bán lẻ." illustration="fee" />
             : <div className="mt-4 overflow-x-auto rounded-xl border border-outline-variant">
               <table className="w-full min-w-[44rem] text-left text-sm">
                 <thead><tr className="border-b border-outline-variant bg-surface text-on-surface-variant"><th scope="col" className="px-3 py-2.5 font-semibold">Áp dụng cho</th><th scope="col" className="px-3 py-2.5 font-semibold">Hiệu lực từ</th><th scope="col" className="px-3 py-2.5 font-semibold">Điện thoại / máy</th><th scope="col" className="px-3 py-2.5 font-semibold">Phụ kiện</th><th scope="col" className="px-3 py-2.5 font-semibold">Công sửa chữa</th><th scope="col" className="px-3 py-2.5 font-semibold">Thao tác</th></tr></thead>
                 <tbody className="divide-y divide-outline-variant text-on-surface">{policies.map((policy) => <tr key={policy._id}>
                   <td className="px-3 py-2.5 font-medium">{policy.partnerId ? collaborators.find((partner) => partner._id === policy.partnerId)?.name || "CTV bán lẻ đã ngừng" : "Toàn công ty"}</td>
                   <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">{new Date(policy.effectiveAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}</td>
-                  <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">{money(policy.config.phoneAmount)}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5 tabular-nums font-medium text-cyan-700">{money(policy.config.phoneAmount)}</td>
                   <td className="px-3 py-2.5 tabular-nums">{policy.config.accessoryBps / 100}%</td>
                   <td className="px-3 py-2.5 tabular-nums">{policy.config.repairBps / 100}%</td>
                   <td className="px-3 py-2.5"><button type="button" onClick={() => open(policy)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-primary hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Pencil aria-hidden="true" className="size-4" />Sửa</button></td>
@@ -134,8 +136,8 @@ export default function RetailCommissionPoliciesPanel({ companyCode, partners }:
         <div className="flex items-start justify-between gap-3 border-b border-outline-variant pb-3"><div><h3 id="retail-policy-dialog-heading" className="text-balance text-lg font-semibold">{draft === "new" ? "Tạo chính sách hoa hồng" : "Sửa chính sách hoa hồng"}</h3><p className="mt-1 text-pretty text-sm text-on-surface-variant">Mức theo sản phẩm được thiết lập tại tab Hoa hồng sản phẩm.</p></div><button type="button" aria-label="Đóng chính sách" onClick={close} disabled={saving} className="rounded-lg p-2 text-on-surface-variant hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50" data-erp-modal-close><X aria-hidden="true" className="size-4" /></button></div>
         {formError && <p role="alert" className="text-sm text-error">{formError}</p>}
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-1 text-sm font-medium">Áp dụng cho<select className={fieldClass} value={form.partnerId} onChange={(event) => setForm((current) => ({ ...current, partnerId: event.target.value }))} disabled={saving}><option value="">Mặc định toàn công ty</option>{collaborators.map((partner) => <option key={partner._id} value={partner._id}>{partner.name} ({partner.code})</option>)}</select></label>
-          <label className="grid gap-1 text-sm font-medium">Hiệu lực (để trống = ngay)<input className={fieldClass} type="datetime-local" value={form.effectiveAt} onChange={(event) => setForm((current) => ({ ...current, effectiveAt: event.target.value }))} disabled={saving} /></label>
+          <Dropdown label="Áp dụng cho" value={form.partnerId} onChange={(value) => setForm((current) => ({ ...current, partnerId: value }))} disabled={saving} options={[{ value: "", label: "Mặc định toàn công ty" }, ...collaborators.map((partner) => ({ value: partner._id, label: `${partner.name} (${partner.code})` }))]} variant="form" size="md" className="w-full [&>label]:text-sm [&>label]:font-normal [&>label]:text-on-surface-variant" triggerClassName="!rounded-md" menuClassName="!rounded-md !shadow-sm" searchable />
+          <div className="grid gap-1 text-sm font-medium"><span>Hiệu lực (để trống = ngay)</span><DateTimeInput24 ariaLabel="Hiệu lực" value={form.effectiveAt} onChange={(effectiveAt) => setForm((current) => ({ ...current, effectiveAt }))} disabled={saving} /></div>
           <label className="grid gap-1 text-sm font-medium">Điện thoại / máy (VND)<input className={fieldClass} type="number" min="150000" max="300000" step="1000" required value={form.phoneAmount} onChange={(event) => setForm((current) => ({ ...current, phoneAmount: event.target.value }))} disabled={saving} /></label>
           <label className="grid gap-1 text-sm font-medium">Phụ kiện (%)<input className={fieldClass} type="number" min="10" max="15" step="0.01" required value={form.accessoryPercent} onChange={(event) => setForm((current) => ({ ...current, accessoryPercent: event.target.value }))} disabled={saving} /></label>
           <label className="grid gap-1 text-sm font-medium">Công sửa chữa (%)<input className={fieldClass} type="number" min="10" max="15" step="0.01" required value={form.repairPercent} onChange={(event) => setForm((current) => ({ ...current, repairPercent: event.target.value }))} disabled={saving} /></label>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { InventoryEmptyIllustration } from "./InventoryEmptyIllustration";
 import {
   AlertTriangle,
   BrainCircuit,
@@ -654,6 +655,7 @@ export function AiForecastPanel({
               </div>
             ) : filteredItems.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-500">
+                <InventoryEmptyIllustration kind="search" className="mx-auto" />
                 Không tìm thấy sản phẩm nào phù hợp với bộ lọc hiện tại.
               </div>
             ) : (
@@ -937,6 +939,7 @@ export function AiForecastPanel({
 
         {effectiveForecast.recommendations.length === 0 ? (
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500">
+            <InventoryEmptyIllustration kind="forecast" className="mx-auto" />
             Chưa có khuyến nghị khẩn cấp. Hệ thống sẽ tự động đề xuất khi phát hiện rủi ro thiếu hoặc dư tồn vượt ngưỡng.
           </div>
         ) : (

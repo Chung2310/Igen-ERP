@@ -9,6 +9,7 @@ import CustomerRetailPoliciesPanel from "./components/CustomerRetailPoliciesPane
 import CustomerFormDialog from "./components/CustomerFormDialog";
 import CustomerList from "./components/CustomerList";
 import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
+import { primaryCreateButtonClass } from "../../components/common/primaryCreateButton";
 import type { BillingProfileInput, Customer, CustomerInput, CustomerStatus, CustomerType, PaginatedCustomers } from "./types";
 
 const emptyResult: PaginatedCustomers = { items: [], total: 0, page: 1, limit: 20 };
@@ -199,30 +200,50 @@ function CustomerWorkspaceContent() {
   </>;
 
   return (
-    <section className="mx-auto w-full max-w-screen-2xl space-y-5 px-4 py-5 text-on-surface sm:px-6 sm:py-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <section className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
+      <ModuleNavigation label="Mục Khách hàng" activeValue={activeTab}>
+        <ModuleNavigationButton active={activeTab === "list"} icon={<Users />} onClick={() => setActiveTab("list")}>Danh sách khách hàng</ModuleNavigationButton>
+        <ModuleNavigationButton active={activeTab === "settings"} icon={<Settings />} onClick={() => setActiveTab("settings")}>Cài đặt khách hàng</ModuleNavigationButton>
+      </ModuleNavigation>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-xs sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <span className="mt-1 h-8 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+          <span className="mt-0.5 h-6 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
           <div>
-            <h1 className="text-2xl font-semibold text-on-surface text-balance">Quản lý khách hàng</h1>
-            <p className="mt-1 text-sm text-on-surface-variant text-pretty">Hồ sơ khách hàng dùng chung trong toàn công ty.</p>
+            <h1 className="text-lg font-semibold text-on-surface text-balance">Quản lý khách hàng</h1>
           </div>
         </div>
         {canManage && activeTab === "list" && (
           <button
             type="button"
             onClick={() => setEditing("new")}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className={primaryCreateButtonClass}
           >
             <Plus className="h-4 w-4" />Thêm khách hàng
           </button>
         )}
+        {canManage && activeTab === "settings" && settings && !loadingSettings && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAddTier}
+              className="inline-flex min-h-9 items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-sm font-medium text-on-surface transition hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Thêm bậc
+            </button>
+            <button
+              type="button"
+              onClick={() => void saveSettings()}
+              disabled={savingSettings}
+              className={primaryCreateButtonClass}
+            >
+              <Save className="h-4 w-4" aria-hidden="true" />
+              {savingSettings ? "Đang lưu..." : "Lưu cài đặt phân hạng"}
+            </button>
+          </div>
+        )}
       </div>
-
-      <ModuleNavigation label="Mục Khách hàng" activeValue={activeTab}>
-        <ModuleNavigationButton active={activeTab === "list"} icon={<Users />} onClick={() => setActiveTab("list")}>Danh sách khách hàng</ModuleNavigationButton>
-        <ModuleNavigationButton active={activeTab === "settings"} icon={<Settings />} onClick={() => setActiveTab("settings")}>Cài đặt khách hàng</ModuleNavigationButton>
-      </ModuleNavigation>
 
       {error && (
         <div role="alert" className="flex items-center gap-2 rounded-xl border border-error bg-error-container p-4 text-sm text-on-error-container">
@@ -254,95 +275,65 @@ function CustomerWorkspaceContent() {
           )}
         </>
       ) : (
-        <div className="space-y-5">
-          <div className="flex flex-col gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm xl:flex-row xl:items-start xl:justify-between">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold text-on-surface text-balance">Cấu hình phân cấp và mốc chi tiêu khách hàng</h2>
-              <p className="mt-1 text-sm leading-relaxed text-on-surface-variant text-pretty">
-                Các bậc xếp hạng sẽ được tự động áp dụng dựa trên tổng doanh số mua hàng tích lũy của khách hàng.
-                Mốc đầu tiên bắt đầu từ 0 chi tiêu. Các mốc tiếp theo phải có mức chi tiêu lớn hơn bậc trước đó.
-              </p>
-            </div>
-            {canManage && settings && !loadingSettings && (
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleAddTier}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-outline-variant px-3.5 py-2 text-sm font-semibold text-on-surface-variant transition hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary"
-                >
-                  <Plus className="h-4 w-4" />
-                  Thêm bậc
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void saveSettings()}
-                  disabled={savingSettings}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary shadow-sm transition hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60"
-                >
-                  <Save className="h-4 w-4" />
-                  {savingSettings ? "Đang lưu..." : "Lưu cài đặt phân hạng"}
-                </button>
-              </div>
-            )}
-          </div>
-
+        <div className="space-y-3">
           {loadingSettings ? (
             <div role="status" className="py-12 text-center text-on-surface-variant">Đang tải cấu hình phân hạng...</div>
           ) : settings ? (
-            <div className="max-w-5xl space-y-4">
-              <div className="overflow-x-auto rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-sm">
+            <div className="space-y-3">
+              <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
                     <tr className="border-b border-outline-variant bg-surface-container-low text-xs font-semibold text-on-surface-variant">
-                      <th className="px-5 py-3">Mã hạng</th>
-                      <th className="px-5 py-3">Tên hạng</th>
-                      <th className="px-5 py-3">Lợi nhuận gộp tối thiểu (VNĐ)</th>
-                      {canManage && <th className="px-5 py-3 text-right">Thao tác</th>}
+                      <th className="px-3 py-2">Mã hạng</th>
+                      <th className="px-3 py-2">Tên hạng</th>
+                      <th className="px-3 py-2">Lợi nhuận gộp tối thiểu (VNĐ)</th>
+                      {canManage && <th className="px-3 py-2 text-right">Thao tác</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {settings.customerTiers.map((tier, index) => (
                       <tr key={index} className="border-b border-outline-variant last:border-0 transition hover:bg-surface-container-low">
-                        <td className="px-5 py-3">
+                        <td className="px-3 py-2">
                           <input
                             aria-label={`Mã hạng ${index + 1}`}
                             disabled={!canManage}
-                            className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 font-mono text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:bg-surface-container-low"
+                            className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:bg-surface-container-low"
                             value={tier.code}
                             onChange={(e) => handleUpdateTier(index, "code", e.target.value)}
                             placeholder="vd: standard, gold, vip"
                           />
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="px-3 py-2">
                           <input
                             aria-label={`Tên hạng ${index + 1}`}
                             disabled={!canManage}
-                            className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:bg-surface-container-low"
+                            className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:bg-surface-container-low"
                             value={tier.name}
                             onChange={(e) => handleUpdateTier(index, "name", e.target.value)}
                             placeholder="Tên hiển thị"
                           />
                         </td>
-                        <td className="px-5 py-3">
+                        <td className="px-3 py-2">
                           <input
                             aria-label={`Ngưỡng hạng ${tier.name}`}
                             type="number"
                             min="0"
                             step="1"
                             disabled={!canManage || index === 0}
-                            className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 font-semibold tabular-nums text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:bg-surface-container-low"
+                            className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 font-semibold tabular-nums text-on-surface outline-none focus-visible:outline-2 focus-visible:outline-primary disabled:bg-surface-container-low"
                             value={tier.minGrossProfit}
                             onChange={(e) => handleUpdateTier(index, "minGrossProfit", Number(e.target.value))}
                           />
                         </td>
                         {canManage && (
-                          <td className="px-5 py-3 text-right">
+                          <td className="px-3 py-2 text-right">
                             {index > 0 ? (
                               <button
                                 type="button"
                                 onClick={() => handleRemoveTier(index)}
-                                className="rounded-lg p-2 text-error hover:bg-error-container focus-visible:outline-2 focus-visible:outline-primary"
+                                className="rounded-md p-2 text-error hover:bg-error-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                 title="Xóa phân hạng này"
+                                aria-label={`Xóa phân hạng ${tier.name}`}
                               >
                                 <Trash2 className="size-4" aria-hidden="true" />
                               </button>
@@ -359,11 +350,12 @@ function CustomerWorkspaceContent() {
 
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-outline-variant py-12 text-center text-on-surface-variant">Không tìm thấy dữ liệu cấu hình.</div>
+            <div className="rounded-md border border-dashed border-outline-variant py-12 text-center text-on-surface-variant">Không tìm thấy dữ liệu cấu hình.</div>
           )}
           <CustomerRetailPoliciesPanel companyCode={companyCode} branchId={activeBranchId} canRead={canRetailRead} canManagePoints={canManagePoints} />
         </div>
       )}
+      </div>
     </section>
   );
 }

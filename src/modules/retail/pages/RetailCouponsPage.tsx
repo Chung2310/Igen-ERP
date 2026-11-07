@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
+import { Dropdown } from "../../../components/common/Dropdown";
 import {
   AlertCircle,
   Calendar,
@@ -32,7 +34,9 @@ import {
 import { useRetailScope } from "../hooks/useRetailScope";
 import CustomerPicker from "../components/pos/CustomerPicker";
 import CouponAutomationEditor from "../components/coupons/CouponAutomationEditor";
+import RetailPointsPanel from "../components/coupons/RetailPointsPanel";
 import { toast } from "../../../pages/Toast";
+import { cn } from "../../student-management/lib/utils";
 
 const money = (value: number) => `${value.toLocaleString("vi-VN")} ₫`;
 const localDate = (value: string) => {
@@ -114,9 +118,9 @@ function StatusBadge({ status }: { status: CouponStatus }) {
   }
 }
 
-export default function RetailCouponsPage() {
+export default function RetailCouponsPage({ canManagePoints = false }: { canManagePoints?: boolean }) {
   const { scope } = useRetailScope();
-  const [activeSubTab, setActiveSubTab] = useState<"coupons" | "automations">("coupons");
+  const [activeSubTab, setActiveSubTab] = useState<"coupons" | "automations" | "points">("coupons");
   const [tiers, setTiers] = useState<Array<{ code: string; name: string }>>([]);
   const [tierError, setTierError] = useState("");
   const [isTierDropdownOpen, setIsTierDropdownOpen] = useState(false);
@@ -296,21 +300,14 @@ export default function RetailCouponsPage() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 disabled:bg-slate-100 disabled:text-slate-500";
+    "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none disabled:opacity-50";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Top Banner / Header */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col justify-between gap-4 border-b border-outline-variant pb-3 sm:flex-row sm:items-center">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/20">
-              <Ticket className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">Mã ưu đãi & Tự động tặng mã</h1>
-            </div>
-          </div>
+          <h1 className="retail-page-title text-balance text-lg font-semibold text-on-surface">Mã ưu đãi & Tự động tặng mã</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -320,14 +317,15 @@ export default function RetailCouponsPage() {
                 type="button"
                 onClick={() => setRevision((v) => v + 1)}
                 disabled={loading}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+                className="flex size-9 items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest text-on-surface transition hover:bg-primary/5 focus-visible:border-primary focus-visible:outline-none disabled:opacity-50"
+                aria-label="Tải lại danh sách mã ưu đãi"
                 title="Tải lại danh sách"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin text-cyan-600" : ""}`} />
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-cyan-600/25 transition hover:from-cyan-500 hover:to-blue-500 active:scale-[0.98]"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
                 onClick={() => {
                   setEditing(null);
                   setForm(empty());
@@ -339,45 +337,43 @@ export default function RetailCouponsPage() {
                 Tạo mã ưu đãi
               </button>
             </>
-          ) : (
+          ) : activeSubTab === "automations" ? (
             <>
               <button
                 type="button"
                 onClick={() => setAutomationsRevision((v) => v + 1)}
                 disabled={loadingAutomations}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+                className="flex size-9 items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest text-on-surface transition hover:bg-primary/5 focus-visible:border-primary focus-visible:outline-none disabled:opacity-50"
+                aria-label="Tải lại danh sách chương trình tự động"
                 title="Tải lại danh sách tự động"
               >
                 <RefreshCw className={`h-4 w-4 ${loadingAutomations ? "animate-spin text-cyan-600" : ""}`} />
               </button>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-cyan-600/25 transition hover:from-cyan-500 hover:to-blue-500 active:scale-[0.98]"
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
                 onClick={() => setEditingAutomation(newAutomationProgram())}
               >
                 <Plus className="h-4 w-4" />
                 Thêm chương trình
               </button>
             </>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* 2-Tab Navigation Bar */}
-      <div className="flex border-b border-slate-200/90 gap-2">
+      {/* Offer sections */}
+      <div className="flex gap-2 overflow-x-auto border-b border-outline-variant">
         <button
           type="button"
+          aria-pressed={activeSubTab === "coupons"}
           onClick={() => setActiveSubTab("coupons")}
-          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition-all cursor-pointer ${activeSubTab === "coupons"
-              ? "border-cyan-600 text-cyan-600"
-              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
-            }`}
+          className={cn("flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeSubTab === "coupons" ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")}
         >
           <Ticket className="h-4 w-4" />
           <span>Mã ưu đãi</span>
           <span
-            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${activeSubTab === "coupons" ? "bg-cyan-100 text-cyan-700" : "bg-slate-100 text-slate-600"
-              }`}
+            className={cn("rounded-full px-2 py-0.5 text-xs font-medium", activeSubTab === "coupons" ? "bg-primary/10 text-primary" : "bg-surface text-on-surface-variant")}
           >
             {total || items.length}
           </span>
@@ -385,66 +381,74 @@ export default function RetailCouponsPage() {
 
         <button
           type="button"
+          aria-pressed={activeSubTab === "automations"}
           onClick={() => setActiveSubTab("automations")}
-          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-bold transition-all cursor-pointer ${activeSubTab === "automations"
-              ? "border-cyan-600 text-cyan-600"
-              : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
-            }`}
+          className={cn("flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeSubTab === "automations" ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")}
         >
           <Sparkles className="h-4 w-4 text-amber-500" />
           <span>Tự động tặng mã</span>
           {automations.length > 0 && (
             <span
-              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${activeSubTab === "automations" ? "bg-cyan-100 text-cyan-700" : "bg-slate-100 text-slate-600"
-                }`}
+              className={cn("rounded-full px-2 py-0.5 text-xs font-medium", activeSubTab === "automations" ? "bg-primary/10 text-primary" : "bg-surface text-on-surface-variant")}
             >
               {automations.length}
             </span>
           )}
         </button>
+        {canManagePoints && <button
+          type="button"
+          aria-pressed={activeSubTab === "points"}
+          onClick={() => setActiveSubTab("points")}
+          className={cn("flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", activeSubTab === "points" ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")}
+        >
+          <Gift className="h-4 w-4" aria-hidden="true" />
+          Điểm thưởng
+        </button>}
       </div>
 
+      {activeSubTab === "points" && canManagePoints && <RetailPointsPanel />}
+
       {activeSubTab === "coupons" && (
-        <div className="space-y-6">
+        <div className="space-y-3">
           {/* Metrics Summary Row */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+            <div className="retail-stat-card retail-stat-card--blue flex min-w-0 items-center gap-3 rounded-md p-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15">
                 <Ticket className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">{stats.total}</div>
-                <div className="text-xs font-medium text-slate-500">Tổng số mã</div>
+                <div className="text-xl font-medium tabular-nums text-white">{stats.total}</div>
+                <div className="text-xs text-white/90">Tổng số mã</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <div className="retail-stat-card retail-stat-card--green flex min-w-0 items-center gap-3 rounded-md p-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">{stats.active}</div>
-                <div className="text-xs font-medium text-slate-500">Đang áp dụng</div>
+                <div className="text-xl font-medium tabular-nums text-white">{stats.active}</div>
+                <div className="text-xs text-white/90">Đang áp dụng</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+            <div className="retail-stat-card retail-stat-card--purple flex min-w-0 items-center gap-3 rounded-md p-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15">
                 <Users className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">{stats.used}</div>
-                <div className="text-xs font-medium text-slate-500">Lượt đã dùng</div>
+                <div className="text-xl font-medium tabular-nums text-white">{stats.used}</div>
+                <div className="text-xs text-white/90">Lượt đã dùng</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+            <div className="retail-stat-card retail-stat-card--rose flex min-w-0 items-center gap-3 rounded-md p-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15">
                 <Clock className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">{stats.inactive}</div>
-                <div className="text-xs font-medium text-slate-500">Hết hạn / Tạm dừng</div>
+                <div className="text-xl font-medium tabular-nums text-white">{stats.inactive}</div>
+                <div className="text-xs text-white/90">Hết hạn / Tạm dừng</div>
               </div>
             </div>
           </div>
@@ -505,7 +509,7 @@ export default function RetailCouponsPage() {
           <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-200/80 bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <thead className="border-b border-slate-200/80 bg-slate-50/75 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="py-3.5 pl-6 pr-3">Mã / Chương trình</th>
                     <th className="px-3 py-3.5">Mức ưu đãi</th>
@@ -527,7 +531,7 @@ export default function RetailCouponsPage() {
                       <tr key={item._id} className="group transition hover:bg-cyan-50/25">
                         <td className="py-4 pl-6 pr-3">
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50/80 px-2.5 py-1 font-mono text-xs font-bold text-cyan-800 shadow-xs">
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50/80 px-2.5 py-1 font-mono text-xs font-medium text-cyan-800 shadow-xs">
                               {item.code}
                               <button
                                 type="button"
@@ -543,13 +547,13 @@ export default function RetailCouponsPage() {
                               </button>
                             </span>
                           </div>
-                          <div className="mt-1.5 text-xs font-semibold text-slate-800">{item.name}</div>
+                          <div className="mt-1.5 text-xs font-medium text-slate-800">{item.name}</div>
                           {item.emailDelivery?.status && <div className="mt-1 text-xs text-slate-500" title={item.emailDelivery.reason}>Email: {{ pending: "Chờ gửi", sending: "Đang gửi / chờ xác nhận", sent: "Đã gửi", failed: "Gửi thất bại", skipped: "Không gửi" }[item.emailDelivery.status]}{item.emailDelivery.reason ? " · " + item.emailDelivery.reason : ""}</div>}
                           <div className="mt-1 text-xs text-slate-500">{item.customerId ? `Riêng: ${item.customerName || item.customerId} · ${item.customerCode || ""}${item.source === "birthday" ? " · Sinh nhật" : item.source === "purchase" ? " · Quà mua hàng" : ""}` : item.customerTierCodes?.length ? "Hạng: " + item.customerTierCodes.map((code) => tiers.find((tier) => tier.code === code)?.name || code).join(", ") : "Tất cả khách hàng"}</div>
                         </td>
 
                         <td className="px-3 py-4">
-                          <div className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                          <div className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
                             {item.discountType === "percent" ? (
                               <>
                                 <Percent className="h-3 w-3" />
@@ -560,10 +564,10 @@ export default function RetailCouponsPage() {
                             )}
                           </div>
                           <div className="mt-1 text-[11px] text-slate-500">
-                            Đơn từ <strong className="text-slate-700">{money(item.minSubtotal)}</strong>
+                            Đơn từ <strong className="text-cyan-700">{money(item.minSubtotal)}</strong>
                             {item.maxDiscount != null && (
                               <span>
-                                {" "}· Tối đa <strong className="text-slate-700">{money(item.maxDiscount)}</strong>
+                                {" "}· Tối đa <strong className="text-emerald-700">{money(item.maxDiscount)}</strong>
                               </span>
                             )}
                           </div>
@@ -627,9 +631,7 @@ export default function RetailCouponsPage() {
                   {!filteredItems.length && (
                     <tr>
                       <td colSpan={6} className="py-12 text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-                          <Ticket className="h-6 w-6" />
-                        </div>
+                        {!loading && <StudentEmptyIllustration kind="fee" className="mx-auto block" />}
                         <div className="mt-3 text-sm font-semibold text-slate-700">
                           {loading ? "Đang tải dữ liệu..." : searchQuery ? "Không tìm thấy mã ưu đãi phù hợp" : "Chưa có mã ưu đãi nào"}
                         </div>
@@ -646,7 +648,7 @@ export default function RetailCouponsPage() {
                               setForm(empty());
                               setError("");
                             }}
-                            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-cyan-500"
+                            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-cyan-500"
                           >
                             <Plus className="h-3.5 w-3.5" />
                             Tạo mã ưu đãi ngay
@@ -691,52 +693,52 @@ export default function RetailCouponsPage() {
       )}
 
       {activeSubTab === "automations" && (
-        <div className="space-y-6">
+        <div className="space-y-3">
           {/* Automations Metrics Summary Row */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+            <div className="retail-stat-card retail-stat-card--blue flex min-w-0 items-center gap-3 rounded-md p-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15">
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">{automations.length}</div>
-                <div className="text-xs font-medium text-slate-500">Tổng chương trình</div>
+                <div className="text-xl font-medium tabular-nums text-white">{automations.length}</div>
+                <div className="text-xs text-white/90">Tổng chương trình</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+            <div className="retail-stat-card retail-stat-card--green flex min-w-0 items-center gap-3 rounded-md p-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">
+                <div className="text-xl font-medium tabular-nums text-white">
                   {automations.filter((a) => a.enabled).length}
                 </div>
-                <div className="text-xs font-medium text-slate-500">Đang kích hoạt</div>
+                <div className="text-xs text-white/90">Đang kích hoạt</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-fuchsia-50 text-fuchsia-600">
+            <div className="retail-stat-card retail-stat-card--purple flex min-w-0 items-center gap-3 rounded-md p-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15">
                 <Gift className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">
+                <div className="text-xl font-medium tabular-nums text-white">
                   {automations.filter((a) => a.trigger === "birthday").length}
                 </div>
-                <div className="text-xs font-medium text-slate-500">Quà sinh nhật</div>
+                <div className="text-xs text-white/90">Quà sinh nhật</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <div className="retail-stat-card retail-stat-card--orange flex min-w-0 items-center gap-3 rounded-md p-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15">
                 <Ticket className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">
+                <div className="text-xl font-medium tabular-nums text-white">
                   {automations.filter((a) => a.trigger === "order_total").length}
                 </div>
-                <div className="text-xs font-medium text-slate-500">Theo giá trị đơn</div>
+                <div className="text-xs text-white/90">Theo giá trị đơn</div>
               </div>
             </div>
           </div>
@@ -763,23 +765,21 @@ export default function RetailCouponsPage() {
 
           {/* Programs List / Grid */}
           {loadingAutomations ? (
-            <div className="flex h-48 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-400 shadow-sm">
+            <div className="flex min-h-40 flex-col items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-center text-on-surface-variant">
               <RefreshCw className="h-6 w-6 animate-spin text-cyan-600 mb-2" />
               <p className="text-sm font-medium">Đang tải danh sách chương trình tự động...</p>
             </div>
           ) : automations.length === 0 && !automationsError ? (
-            <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white py-12 px-6 text-center shadow-sm">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 mb-3">
-                <Gift className="h-7 w-7" />
-              </div>
-              <h3 className="text-base font-bold text-slate-800">Chưa có chương trình tự động tặng mã</h3>
-              <p className="mt-1 max-w-md text-xs text-slate-500">
+            <div className="flex flex-col items-center justify-center rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-7 text-center">
+              <StudentEmptyIllustration kind="fee" />
+              <h3 className="text-balance text-sm font-medium text-on-surface">Chưa có chương trình tự động tặng mã</h3>
+              <p className="mt-1 max-w-md text-pretty text-xs text-on-surface-variant">
                 Tự động gửi mã ưu đãi đến khách hàng khi đến ngày sinh nhật hoặc khi đơn hàng thanh toán đạt mức tiền chỉ định.
               </p>
               <button
                 type="button"
                 onClick={() => setEditingAutomation(newAutomationProgram())}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:from-cyan-500 hover:to-blue-500 cursor-pointer"
+                className="mt-3 inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-on-primary transition hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
               >
                 <Plus className="h-4 w-4" />
                 Thêm chương trình đầu tiên
@@ -806,7 +806,7 @@ export default function RetailCouponsPage() {
                             {isBirthday ? <Gift className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
                           </div>
                           <div>
-                            <h3 className="text-base font-bold text-slate-900">{program.name}</h3>
+                            <h3 className="text-base font-semibold text-slate-900">{program.name}</h3>
                             <p className="mt-0.5 text-xs text-slate-500">
                               {isBirthday
                                 ? "Sinh nhật · Một mã/khách/năm"
@@ -833,7 +833,7 @@ export default function RetailCouponsPage() {
                       <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-3.5 space-y-1.5 text-xs">
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Ưu đãi tặng:</span>
-                          <span className="font-bold text-cyan-700">
+                          <span className="font-semibold text-cyan-700">
                             {program.discountType === "percent"
                               ? `Giảm ${program.value}%`
                               : `Giảm ${money(program.value)}`}
@@ -841,14 +841,14 @@ export default function RetailCouponsPage() {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Đơn tối thiểu áp dụng mã:</span>
-                          <span className="font-semibold text-slate-700">
+                          <span className={program.minSubtotal ? "font-semibold text-cyan-700" : "font-semibold text-slate-700"}>
                             {program.minSubtotal ? money(program.minSubtotal) : "Không giới hạn"}
                           </span>
                         </div>
                         {program.discountType === "percent" && program.maxDiscount != null && (
                           <div className="flex items-center justify-between">
                             <span className="text-slate-500">Mức giảm tối đa:</span>
-                            <span className="font-semibold text-slate-700">{money(program.maxDiscount)}</span>
+                            <span className="font-semibold text-emerald-700">{money(program.maxDiscount)}</span>
                           </div>
                         )}
                         <div className="flex items-center justify-between">
@@ -875,7 +875,7 @@ export default function RetailCouponsPage() {
                         type="button"
                         disabled={isBusy}
                         onClick={() => handleToggleAutomation(program)}
-                        className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-xs font-bold transition disabled:opacity-50 cursor-pointer ${program.enabled
+                        className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-xs font-semibold transition disabled:opacity-50 cursor-pointer ${program.enabled
                             ? "border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
                             : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                           }`}
@@ -907,7 +907,7 @@ export default function RetailCouponsPage() {
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">{editing ? "Sửa mã ưu đãi" : "Tạo mã ưu đãi"}</h2>
+                  <h2 className="text-base font-semibold text-slate-900">{editing ? "Sửa mã ưu đãi" : "Tạo mã ưu đãi"}</h2>
                   <p className="text-xs text-slate-500">Cấu hình điều kiện và giá trị áp dụng cho khách hàng</p>
                 </div>
               </div>
@@ -970,21 +970,21 @@ export default function RetailCouponsPage() {
               <div className="relative overflow-hidden rounded-2xl border border-dashed border-cyan-300 bg-gradient-to-r from-cyan-50/70 via-sky-50/60 to-blue-50/50 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="font-mono text-xs font-black tracking-widest text-cyan-800">
+                    <span className="font-mono text-xs font-semibold tracking-widest text-cyan-800">
                       {form.code || "MÃ-ƯU-ĐÃI"}
                     </span>
-                    <div className="mt-0.5 text-sm font-bold text-slate-800">{form.name || "Tên chương trình khuyến mãi"}</div>
+                    <div className="mt-0.5 text-sm font-semibold text-slate-800">{form.name || "Tên chương trình khuyến mãi"}</div>
                   </div>
                   <div className="text-right">
-                    <span className="inline-block rounded-lg bg-cyan-600 px-3 py-1 text-sm font-black text-white shadow-xs">
+                    <span className="inline-block rounded-lg bg-cyan-600 px-3 py-1 text-sm font-semibold text-white shadow-xs">
                       {form.discountType === "percent" ? `-${form.value || 0}%` : `-${money(form.value || 0)}`}
                     </span>
                   </div>
                 </div>
                 <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-500">
-                  <span>Áp dụng đơn từ: <strong className="text-slate-700">{money(form.minSubtotal || 0)}</strong></span>
+                  <span>Áp dụng đơn từ: <strong className="text-cyan-700">{money(form.minSubtotal || 0)}</strong></span>
                   {form.maxDiscount != null && (
-                    <span>· Giảm tối đa: <strong className="text-slate-700">{money(form.maxDiscount)}</strong></span>
+                    <span>· Giảm tối đa: <strong className="text-emerald-700">{money(form.maxDiscount)}</strong></span>
                   )}
                 </div>
               </div>
@@ -1007,7 +1007,7 @@ export default function RetailCouponsPage() {
                   <label className="mb-1 block text-xs font-semibold text-slate-700">
                     Mã ưu đãi
                     <input
-                      className={`${inputClass} font-mono uppercase font-bold tracking-wider`}
+                      className={`${inputClass} font-mono uppercase font-semibold tracking-wider`}
                       required
                       minLength={3}
                       maxLength={32}
@@ -1038,21 +1038,7 @@ export default function RetailCouponsPage() {
                 </div>
 
                 {/* Loại giảm */}
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-700">
-                    Loại giảm
-                    <select
-                      className={inputClass}
-                      value={form.discountType}
-                      onChange={(event) =>
-                        setForm({ ...form, discountType: event.target.value as "amount" | "percent" })
-                      }
-                    >
-                      <option value="percent">Phần trăm (%)</option>
-                      <option value="amount">Số tiền cố định (₫)</option>
-                    </select>
-                  </label>
-                </div>
+                <div><Dropdown label="Loại giảm" value={form.discountType} onChange={(value) => setForm({ ...form, discountType: value })} options={[{ value: "percent" as const, label: "Phần trăm (%)" }, { value: "amount" as const, label: "Số tiền cố định (₫)" }]} variant="form" size="md" className="w-full" /></div>
 
                 {/* Giá trị giảm */}
                 <div>
@@ -1130,7 +1116,7 @@ export default function RetailCouponsPage() {
                 {/* Hạng khách hàng áp dụng */}
                 <div className="space-y-2 sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700">
+                    <label className="block text-xs font-semibold text-slate-700">
                       Hạng khách hàng áp dụng
                     </label>
                     {(form.customerTierCodes || []).length > 0 && (
@@ -1168,7 +1154,7 @@ export default function RetailCouponsPage() {
                             return (
                               <span
                                 key={code}
-                                className="inline-flex items-center gap-1 rounded-md bg-cyan-50 border border-cyan-200/80 px-2 py-0.5 text-[11px] font-bold text-cyan-800"
+                                className="inline-flex items-center gap-1 rounded-md bg-cyan-50 border border-cyan-200/80 px-2 py-0.5 text-[11px] font-semibold text-cyan-800"
                               >
                                 {displayName}
                                 <span
@@ -1227,7 +1213,7 @@ export default function RetailCouponsPage() {
                             setForm({ ...form, customerTierCodes: [] });
                           }}
                           className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer transition select-none ${(form.customerTierCodes || []).length === 0
-                            ? "bg-cyan-50 text-cyan-900 font-bold"
+                            ? "bg-cyan-50 text-cyan-900 font-semibold"
                             : "hover:bg-slate-50 text-slate-700"
                             }`}
                         >
@@ -1427,7 +1413,7 @@ export default function RetailCouponsPage() {
                   <div className="sm:col-span-2 rounded-xl border border-rose-200 bg-rose-50/80 p-3 text-xs text-rose-700 flex items-center gap-2.5 animate-in fade-in">
                     <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
                     <div>
-                      <span className="font-bold">Ngày kết thúc phải sau ngày bắt đầu.</span> Vui lòng điều chỉnh lại thời gian để mã ưu đãi hợp lệ.
+                      <span className="font-semibold">Ngày kết thúc phải sau ngày bắt đầu.</span> Vui lòng điều chỉnh lại thời gian để mã ưu đãi hợp lệ.
                     </div>
                   </div>
                 )}
@@ -1445,7 +1431,7 @@ export default function RetailCouponsPage() {
                   <button
                     type="button"
                     disabled={busy}
-                    className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                     onClick={() => setForm(null)}
                   >
                     Đóng
@@ -1453,7 +1439,7 @@ export default function RetailCouponsPage() {
                   <button
                     type="submit"
                     disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-md shadow-cyan-600/20 transition hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50"
                   >
                     {busy ? "Đang lưu…" : "Lưu mã"}
                   </button>

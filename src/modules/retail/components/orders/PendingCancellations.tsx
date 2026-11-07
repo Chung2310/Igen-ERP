@@ -1,4 +1,6 @@
 import React from "react";
+import { RefreshCw } from "lucide-react";
+import { RetailEmptyState } from "../RetailEmptyState";
 import { useRetailScope } from "../../hooks/useRetailScope";
 import { retailOrdersApi } from "../../api/retailOrders.api";
 import { getApiErrorMessage } from "../../../../utils/errorMessage";
@@ -47,15 +49,25 @@ export default function PendingCancellations({ onResolved }: { onResolved: () =>
     } catch (cause) { if (active()) setError(getApiErrorMessage(cause, "Không đối chiếu được yêu cầu hủy.")); }
     finally { inFlight.current = false; if (active()) setBusy(false); }
   }
-  return <aside className="rounded-xl border bg-white p-4">
-    <div className="flex justify-between"><h2>Yêu cầu hủy đang chờ trên trình duyệt</h2><button disabled={busy} onClick={reload}>Tải lại yêu cầu hủy</button></div>
-    {!rows.length && !error && <p className="text-sm text-slate-500">Không có yêu cầu đang chờ.</p>}
-    {rows.map((row, index) => <div key={row.key + index} className="mt-3 border-t pt-2">
-      <p>Yêu cầu {index + 1} · Đơn {row.orderId} · {row.request.reason}</p>
-      <p>Tiền hoàn: {new Intl.NumberFormat("vi-VN").format(row.request.refunds.reduce((sum, p) => sum + p.amount, 0))} ₫</p>
-      <button disabled={busy} onClick={() => void reconcile(row)}>Đối chiếu yêu cầu hủy</button>
-      <button className="ml-4" disabled={busy} onClick={() => void reconcile(row, true)}>Thu hồi yêu cầu chưa ghi nhận</button>
+  return <aside aria-busy={busy} className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
+    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4">
+      <h2 className="text-balance border-l-4 border-primary pl-2.5 text-sm font-medium text-on-surface">Yêu cầu hủy cần đối chiếu</h2>
+      <button type="button" disabled={busy} onClick={reload} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface transition-colors hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">
+        <RefreshCw className={`size-3.5 text-primary ${busy ? "animate-spin" : ""}`} aria-hidden="true" />
+        Tải lại yêu cầu hủy
+      </button>
+    </div>
+    {!rows.length && !error && <RetailEmptyState kind="fee" compact className="border-t border-outline-variant">Không có yêu cầu cần đối chiếu.</RetailEmptyState>}
+    {rows.map((row, index) => <div key={row.key + index} className="flex flex-col gap-3 border-t border-outline-variant px-3 py-3 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="min-w-0 space-y-1 text-sm">
+        <p className="text-on-surface">Yêu cầu {index + 1} · Đơn <span className="font-medium text-primary">{row.orderId}</span> · {row.request.reason}</p>
+        <p className="text-on-surface-variant">Tiền hoàn: <span className="font-medium tabular-nums text-primary">{new Intl.NumberFormat("vi-VN").format(row.request.refunds.reduce((sum, p) => sum + p.amount, 0))} ₫</span></p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" disabled={busy} onClick={() => void reconcile(row)} className="inline-flex min-h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-on-primary transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Đối chiếu yêu cầu hủy</button>
+        <button type="button" disabled={busy} onClick={() => void reconcile(row, true)} className="inline-flex min-h-9 items-center rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-on-surface transition-colors hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Thu hồi yêu cầu chưa ghi nhận</button>
+      </div>
     </div>)}
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert" className="border-t border-outline-variant bg-error-container px-3 py-2.5 text-sm text-on-error-container sm:px-4">{error}</p>}
   </aside>;
 }

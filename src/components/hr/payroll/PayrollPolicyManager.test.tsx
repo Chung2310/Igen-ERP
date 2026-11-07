@@ -17,7 +17,7 @@ describe("PayrollPolicyManager", () => {
 
   it("opens the guided form instead of a JSON editor", async () => {
     render(<PayrollPolicyManager canManage />);
-    fireEvent.click(screen.getByRole("button", { name: "Tạo công thức" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tạo cách tính" }));
     expect(screen.getByText("1. Thông tin chung")).toBeTruthy();
     expect(document.querySelector("textarea.font-mono")).toBeNull();
   });
@@ -37,7 +37,7 @@ describe("PayrollPolicyManager", () => {
     render(<PayrollPolicyManager canManage />);
     const badge = await screen.findByText("Đang áp dụng");
     expect(badge).toBeTruthy();
-    expect(badge.closest("[data-policy-status='active']")?.className).toContain("border-indigo-400");
+    expect(badge.closest("[data-policy-status='active']")?.className).toContain("border-primary");
   });
 
   it("asks whether to recalculate after editing an active policy", async () => {
@@ -51,7 +51,7 @@ describe("PayrollPolicyManager", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
     fireEvent.click(screen.getByRole("button", { name: "Lưu công thức" }));
     expect(await screen.findByText("Lưu thay đổi công thức đang áp dụng?")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Lưu và cập nhật bảng lương" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lưu và cập nhật lương" }));
     await waitFor(() => expect(api.updatePolicy).toHaveBeenCalledWith("p1", expect.objectContaining({ expectedVersion: 2 })));
     await waitFor(() => expect(recalculate).toHaveBeenCalledOnce());
   });
@@ -64,8 +64,8 @@ describe("PayrollPolicyManager", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
     fireEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
     fireEvent.click(screen.getByRole("button", { name: "Lưu công thức" }));
-    expect(await screen.findByRole("button", { name: "Chỉ lưu cấu hình" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Lưu và cập nhật bảng lương" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Chỉ lưu" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Lưu và cập nhật lương" })).toBeNull();
   });
 
   it("offers replacement after an overlap response", async () => {

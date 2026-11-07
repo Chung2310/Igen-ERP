@@ -4,6 +4,7 @@ import { UserProfile } from "../../types";
 import { RolePermission, Permission } from "../../services/rolePermissionService";
 import { getPermissionLabel, getPermissionDescription } from "../../utils/permissionUtils";
 import { groupPermissionsForRoleEditor } from "./rolePresentation";
+import { StyledSelect } from "../common/StyledSelect";
 
 export interface RoleModalProps {
   open: boolean;
@@ -42,6 +43,12 @@ export function RoleModal({
   onSubmit,
 }: RoleModalProps) {
   if (!open) return null;
+
+  const minLevel = userProfile?.role === "superadmin" ? 1 : 3;
+  const levelOptions = Array.from({ length: 11 - minLevel }, (_, index) => {
+    const level = minLevel + index;
+    return { value: String(level), label: `Cấp độ ${userProfile?.role === "superadmin" ? level : level - 1}` };
+  });
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -104,36 +111,21 @@ export function RoleModal({
 
             {/* Level vai trò */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block flex items-center gap-1">
-                Cấp bậc vai trò (Level) *
-                <span className="text-[9px] font-normal normal-case text-gray-400">
-                  {userProfile?.role === "superadmin"
-                    ? "(2 = cao nhất, 10 = thấp nhất. Superadmin mặc định level 1)"
-                    : "(1 = cao nhất, 9 = thấp nhất)"}
-                </span>
-              </label>
-              <select
-                value={roleLevel}
-                onChange={(e) => setRoleLevel(parseInt(e.target.value, 10))}
+              <span className="block text-sm font-medium text-on-surface">Cấp bậc vai trò (Level) *</span>
+              <StyledSelect
+                ariaLabel="Cấp bậc vai trò (Level)"
+                describedBy="role-level-description"
+                value={String(roleLevel)}
+                onChange={(value) => setRoleLevel(Number(value))}
+                options={levelOptions}
                 disabled={editingRole?.role === "admin" || editingRole?.role === "superadmin"}
-                className="w-full p-2 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 bg-white cursor-pointer outline-none disabled:bg-gray-150 disabled:cursor-not-allowed"
-              >
-                {(() => {
-                  const minLevel = userProfile?.role === "superadmin" ? 1 : 3;
-                  const levels = [];
-                  for (let i = minLevel; i <= 10; i++) {
-                    levels.push(i);
-                  }
-                  return levels.map((l) => {
-                    const displayL = userProfile?.role === "superadmin" ? l : l - 1;
-                    return (
-                      <option key={l} value={l}>
-                        Cấp độ {displayL}
-                      </option>
-                    );
-                  });
-                })()}
-              </select>
+                required
+              />
+              <p id="role-level-description" className="text-pretty text-xs text-on-surface-variant">
+                {userProfile?.role === "superadmin"
+                  ? "2 = cao nhất, 10 = thấp nhất. Superadmin mặc định level 1."
+                  : "1 = cao nhất, 9 = thấp nhất."}
+              </p>
             </div>
 
             {/* Danh sách mã quyền gán */}

@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, RefreshCw, RotateCcw, Search, ShoppingBag, type LucideIcon } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, FileText, RotateCcw, Search, ShoppingBag, type LucideIcon } from "lucide-react";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { retailAfterSalesApi } from "../api/retailAfterSales.api";
 import { useRetailScope } from "../hooks/useRetailScope";
 import type { RetailAfterSale, RetailAfterSaleType } from "../types";
+import { cn } from "../../student-management/lib/utils";
+import { Dropdown } from "../../../components/common/Dropdown";
+import { RetailEmptyState } from "../components/RetailEmptyState";
+import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 
 const PAGE_SIZE = 20;
 const money = (value: number) => `${new Intl.NumberFormat("vi-VN").format(value)} ₫`;
@@ -79,24 +83,15 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
     <main className="space-y-5 text-on-surface">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-balance text-xl font-semibold">Đổi trả &amp; thu mua</h1>
-          <p className="mt-1 text-pretty text-sm text-on-surface-variant">Tra cứu phiếu hoàn tiền và phiếu thu mua gắn với đơn bán gốc.</p>
+          <h1 className="retail-page-title text-balance text-lg font-semibold">Đổi trả &amp; thu mua</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-outline px-3 text-sm font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <RefreshCw aria-hidden="true" className="size-4" />
-          Làm mới
-        </button>
+        <ErpRefreshButton onClick={() => void load()} loading={loading} />
       </header>
 
       <section aria-label="Tổng quan chứng từ hiện trên trang" className="grid gap-3 sm:grid-cols-3">
-        <SummaryCard icon={FileText} label="Tổng số phiếu" value={total.toLocaleString("vi-VN")} detail="Theo bộ lọc đang chọn" />
-        <SummaryCard icon={RotateCcw} label="Khách trả hàng" value={String(returnItems.length)} detail={`${money(returnTotal)} trên trang này`} />
-        <SummaryCard icon={ShoppingBag} label="Thu mua hàng cũ" value={String(buybackItems.length)} detail={`${money(buybackTotal)} trên trang này`} />
+        <SummaryCard icon={FileText} tone="blue" label="Tổng số phiếu" value={total.toLocaleString("vi-VN")} detail="Theo bộ lọc đang chọn" />
+        <SummaryCard icon={RotateCcw} tone="orange" label="Khách trả hàng" value={String(returnItems.length)} detail={`${money(returnTotal)} trên trang này`} />
+        <SummaryCard icon={ShoppingBag} tone="green" label="Thu mua hàng cũ" value={String(buybackItems.length)} detail={`${money(buybackTotal)} trên trang này`} />
       </section>
 
       <section aria-label="Bộ lọc chứng từ" className="grid gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 sm:grid-cols-[minmax(16rem,1fr)_14rem]">
@@ -111,18 +106,7 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
             className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant focus-visible:outline-2 focus-visible:outline-primary"
           />
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="shrink-0 text-on-surface-variant">Loại phiếu</span>
-          <select
-            value={type}
-            onChange={(event) => { setType(event.target.value as RetailAfterSaleType | ""); setPage(1); }}
-            className="min-h-11 min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
-          >
-            <option value="">Tất cả</option>
-            <option value="return">Khách trả hàng</option>
-            <option value="buyback">Thu mua hàng cũ</option>
-          </select>
-        </label>
+        <div className="flex min-w-0 items-center gap-2 text-sm"><span className="shrink-0 text-on-surface-variant">Loại phiếu</span><Dropdown aria-label="Loại phiếu" value={type} onChange={(value) => { setType(value as RetailAfterSaleType | ""); setPage(1); }} options={[{ value: "", label: "Tất cả" }, { value: "return", label: "Khách trả hàng" }, { value: "buyback", label: "Thu mua hàng cũ" }]} variant="filter" size="md" className="w-full" /></div>
       </section>
 
       {error && (
@@ -132,7 +116,7 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
         </div>
       )}
 
-      <section aria-label="Danh sách phiếu đổi trả" aria-busy={loading} className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+      <section aria-label="Danh sách phiếu đổi trả" aria-busy={loading} className="min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
         {loading ? (
           <div role="status" aria-live="polite" className="p-4 sm:p-5">
             <span className="sr-only">Đang tải chứng từ đổi trả...</span>
@@ -145,14 +129,31 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
             </ul>
           </div>
         ) : items.length ? (
-          <ul className="divide-y divide-outline-variant">
-            {items.map((item) => <AfterSaleCard key={item._id} item={item} />)}
-          </ul>
+          <div className="visible-scrollbar overflow-x-auto focus-visible:outline-2 focus-visible:outline-primary" role="region" aria-label="Bảng phiếu đổi trả, cuộn ngang để xem các cột" tabIndex={0}>
+            <table className="w-full min-w-[100rem] text-left text-sm">
+              <caption className="sr-only">Danh sách phiếu đổi trả và thu mua</caption>
+              <thead className="bg-surface text-on-surface-variant">
+                <tr className="border-b border-outline-variant">
+                  <th scope="col" className="px-4 py-3 font-semibold">Mã phiếu</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Loại phiếu</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Đơn gốc</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Ngày tạo</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Khách hàng</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Phương thức chi</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Tổng tiền</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Chi tiết</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {items.map((item) => <AfterSaleRow key={item._id} item={item} />)}
+              </tbody>
+            </table>
+          </div>
         ) : error ? (
           <p role="status" className="text-pretty p-8 text-center text-sm text-on-surface-variant">Không tải được danh sách. Hãy thử tải lại.</p>
         ) : (
           <div className="space-y-3 p-8 text-center">
-            <h2 className="text-balance font-semibold">{hasFilters ? "Không tìm thấy chứng từ phù hợp" : "Chưa có chứng từ đổi trả"}</h2>
+            <RetailEmptyState kind={hasFilters ? "generic" : "fee"} compact>{hasFilters ? "Không tìm thấy chứng từ phù hợp" : "Chưa có chứng từ đổi trả"}</RetailEmptyState>
             <p className="text-pretty text-sm text-on-surface-variant">
               {hasFilters ? "Thử đổi từ khóa hoặc loại phiếu để xem kết quả khác." : "Tạo phiếu từ đơn hàng đã hoàn tất để ghi nhận hoàn tiền hoặc thu mua lại."}
             </p>
@@ -180,41 +181,42 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
   );
 }
 
-function SummaryCard({ icon: Icon, label, value, detail }: { icon: LucideIcon; label: string; value: string; detail: string }) {
+function SummaryCard({ icon: Icon, tone, label, value, detail }: { icon: LucideIcon; tone: "blue" | "orange" | "green"; label: string; value: string; detail: string }) {
   return (
-    <article className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+    <article className={cn("retail-stat-card flex min-w-0 items-center justify-between gap-2.5 rounded-md px-3.5 py-2.5", `retail-stat-card--${tone}`)}>
       <div className="min-w-0">
-        <p className="text-pretty text-sm text-on-surface-variant">{label}</p>
-        <p className="mt-1 tabular-nums text-xl font-semibold">{value}</p>
-        <p className="mt-1 text-pretty text-xs text-on-surface-variant">{detail}</p>
+        <p className="text-pretty text-xs font-medium">{label}</p>
+        <p className="mt-1 tabular-nums text-lg font-semibold sm:text-xl">{value}</p>
+        <p className="mt-0.5 text-pretty text-xs text-white/90">{detail}</p>
       </div>
-      <Icon aria-hidden="true" className="size-5 shrink-0 text-primary" />
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-white/15"><Icon aria-hidden="true" className="size-4" /></span>
     </article>
   );
 }
 
-function AfterSaleCard({ item }: { item: RetailAfterSale }) {
+function AfterSaleRow({ item }: { item: RetailAfterSale }) {
+  const detailsId = useId();
+  const [expanded, setExpanded] = useState(false);
   const isReturn = item.type === "return";
   return (
-    <li className="p-4 sm:p-5">
-      <article className="space-y-3">
-        <header className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="break-all font-semibold">{item.code}</h2>
-            <p className="mt-1 text-pretty text-sm text-on-surface-variant">Đơn gốc {item.orderCode} · {new Date(item.createdAt).toLocaleString("vi-VN")}</p>
-          </div>
-          <span className="rounded-full border border-outline-variant px-3 py-1 text-xs font-semibold">
-            {isReturn ? "Khách trả hàng" : "Thu mua hàng cũ"}
-          </span>
-        </header>
-        <div className="grid gap-2 text-sm sm:grid-cols-3">
-          <p className="text-pretty"><span className="text-on-surface-variant">Khách hàng: </span>{item.customerName || "Khách lẻ"}</p>
-          <p className="text-pretty"><span className="text-on-surface-variant">Phương thức chi: </span>{paymentLabels[item.paymentMethod] || item.paymentMethod}</p>
-          <p className="tabular-nums font-semibold"><span className="font-normal text-on-surface-variant">Tổng tiền: </span>{money(item.totalAmount)}</p>
-        </div>
-        <details className="group rounded-lg border border-outline-variant bg-surface p-3">
-          <summary className="cursor-pointer text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary">Chi tiết {item.items.length} mặt hàng và lý do</summary>
-          <div className="mt-3 space-y-3">
+    <>
+      <tr className="hover:bg-surface-container-low">
+        <th scope="row" className="px-4 py-3 font-semibold">{item.code}</th>
+        <td className="px-4 py-3"><span className="rounded-full border border-outline-variant px-3 py-1 text-xs font-semibold">{isReturn ? "Khách trả hàng" : "Thu mua hàng cũ"}</span></td>
+        <td className="px-4 py-3"><span className="sr-only">Đơn gốc </span>{item.orderCode}</td>
+        <td className="whitespace-nowrap px-4 py-3 tabular-nums">{new Date(item.createdAt).toLocaleString("vi-VN")}</td>
+        <td className="px-4 py-3">{item.customerName || "Khách lẻ"}</td>
+        <td className="px-4 py-3">{paymentLabels[item.paymentMethod] || item.paymentMethod}</td>
+        <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums">{money(item.totalAmount)}</td>
+        <td className="px-4 py-3">
+          <button type="button" aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpanded((current) => !current)} className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-2 py-1 font-medium text-primary hover:bg-surface-container-high focus-visible:outline-2 focus-visible:outline-primary">
+            Chi tiết {item.items.length} mặt hàng và lý do <ChevronDown aria-hidden="true" className={cn("size-4", expanded && "rotate-180")} />
+          </button>
+        </td>
+      </tr>
+      <tr id={detailsId} hidden={!expanded} className="bg-surface">
+        <td colSpan={8} className="px-4 py-4">
+          <div className="space-y-3">
             <ul className="divide-y divide-outline-variant rounded-lg border border-outline-variant bg-surface-container-lowest">
               {item.items.map((line, index) => (
                 <li key={`${line.sku}-${index}`} className="flex flex-wrap items-start justify-between gap-3 p-3 text-sm">
@@ -229,8 +231,8 @@ function AfterSaleCard({ item }: { item: RetailAfterSale }) {
             </ul>
             <p className="text-pretty text-sm"><span className="font-medium">Lý do: </span>{item.reason}</p>
           </div>
-        </details>
-      </article>
-    </li>
+        </td>
+      </tr>
+    </>
   );
 }

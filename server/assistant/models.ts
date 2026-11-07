@@ -3,7 +3,7 @@ const scope = { userId: { type: String, required: true }, companyCode: { type: S
 const workflowSchema = new Schema({ ...scope, actionId: { type: String, required: true }, config: { type: Schema.Types.Mixed, required: true }, version: { type: Number, default: 0 } }, { timestamps: true });
 workflowSchema.index({ companyCode: 1, userId: 1, actionId: 1 }, { unique: true });
 export const AssistantWorkflowModel = model("AssistantWorkflow", workflowSchema);
-const sessionSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, conversationId: { type: String, required: true }, busy: { type: Boolean, default: false }, pending: { type: Schema.Types.Mixed, default: null }, messages: { type: [Schema.Types.Mixed], default: [] }, messageCount: { type: Number, default: 0, min: 0 }, sessionMemory: { type: String, default: "", maxlength: 2400 }, sessionMemoryMessageCount: { type: Number, default: 0, min: 0 }, lastReply: { type: Schema.Types.Mixed, default: null } }, { timestamps: true });
+const sessionSchema = new Schema({ ...scope, branchId: { type: String, default: "" }, conversationId: { type: String, required: true }, mode: { type: String, enum: ["work", "qa"], default: "work" }, busy: { type: Boolean, default: false }, pending: { type: Schema.Types.Mixed, default: null }, messages: { type: [Schema.Types.Mixed], default: [] }, messageCount: { type: Number, default: 0, min: 0 }, sessionMemory: { type: String, default: "", maxlength: 2400 }, sessionMemoryMessageCount: { type: Number, default: 0, min: 0 }, sessionMemoryVersion: { type: Number, default: 0, min: 0 }, lastReply: { type: Schema.Types.Mixed, default: null } }, { timestamps: true });
 sessionSchema.index({ companyCode: 1, userId: 1, branchId: 1, conversationId: 1 }, { unique: true });
 sessionSchema.index({ companyCode: 1, userId: 1, branchId: 1, updatedAt: -1, _id: -1 });
 export const AssistantSessionModel = model("AssistantSession", sessionSchema);
@@ -21,6 +21,7 @@ const memorySchema = new Schema({
   content: { type: String, required: true, maxlength: 300 },
   normalizedContent: { type: String, required: true },
   source: { type: String, enum: ["explicit", "manual", "automatic"], default: "explicit" },
+  lastUsedAt: { type: Date, default: null },
 }, { timestamps: true });
 memorySchema.index({ companyCode: 1, userId: 1, normalizedContent: 1 }, { unique: true });
 memorySchema.index({ companyCode: 1, userId: 1, updatedAt: -1 });

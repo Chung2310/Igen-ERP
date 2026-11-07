@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ReactDOM from "react-dom";
+import { ErpRefreshButton } from "../components/common/ErpRefreshButton";
 import {
   FolderOpen, Folder, CloudUpload, Trash2, Eye, Download, HardDrive, ArrowLeft,
   FileText, Image as ImageIcon, Video as VideoIcon, File as FileIcon,
@@ -2353,14 +2354,7 @@ export default function ResourceTab() {
                     <UploadProgressPanel queue={uploadQueue} onClose={() => setUploadQueue([])} />
 
                     {/* Reload/sync button */}
-                    <button
-                      onClick={subTab === "TÀI LIỆU KHÁC" ? () => setRefreshTrigger(prev => prev + 1) : fetchResources}
-                      disabled={loading}
-                      className="p-2 hover:bg-slate-50 rounded-xl text-slate-500 hover:text-slate-800 transition active:scale-95 border border-slate-200 bg-white flex items-center justify-center h-9 w-9 cursor-pointer"
-                      title="Làm mới"
-                    >
-                      <RefreshCw className={`h-4.5 w-4.5 ${loading ? "animate-spin" : ""}`} />
-                    </button>
+                    <ErpRefreshButton onClick={subTab === "TÀI LIỆU KHÁC" ? () => setRefreshTrigger(prev => prev + 1) : fetchResources} loading={loading} />
                   </div>
                 </div>
 

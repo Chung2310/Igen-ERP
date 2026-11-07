@@ -24,8 +24,14 @@ export const branchController = {
   },
   async list(req: AuthenticatedRequest, res: Response) {
     const code = req.user?.role === "superadmin" && req.query.companyCode ? String(req.query.companyCode).toUpperCase() : company(req);
-    let data = await BranchModel.find({ companyCode: code }).sort({ isActive: -1, name: 1 }).lean();
-    if (data.length === 0 && req.user?.role === "admin" && code) {
+    const search = String(req.query.search || "").trim().slice(0, 100);
+    const filter: Record<string, unknown> = { companyCode: code };
+    if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.$or = ["name", "code", "address"].map(field => ({ [field]: { $regex: escaped, $options: "i" } }));
+    }
+    let data = await BranchModel.find(filter).sort({ isActive: -1, name: 1 }).lean();
+    if (data.length === 0 && !search && req.user?.role === "admin" && code) {
       const created = await ensureDefaultBranch(code);
       data = created ? [created] : [];
     }

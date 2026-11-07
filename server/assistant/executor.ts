@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantField, AssistantValue } from "../../src/shared/assistant-workflow";
 import { PAYROLL_LINE_OVERRIDE_FIELDS } from "../interface/payroll-line-override.interface";
@@ -195,7 +196,7 @@ function safeRetailAfterSale(doc: any) {
   };
 }
 function isCommissionLevelOperation(op: AssistantOperation) { return op.path.startsWith("/partners/commission-levels"); }
-function isRetailPosOperation(op: AssistantOperation) { return op.path.startsWith("/retail/orders") || op.path.startsWith("/retail/shifts"); }
+function isRetailPosOperation(op: AssistantOperation) { return op.path.startsWith("/retail/orders") || op.path.startsWith("/retail/shifts") || op.path.startsWith("/retail/invoices") || op.path === "/retail/reports/summary"; }
 function isRetailCashbookOperation(op: AssistantOperation) { return op.path.startsWith("/retail/finance/cashbook"); }
 function isRetailFinanceCommissionOperation(op: AssistantOperation) { return op.path.startsWith("/retail/finance/commission/"); }
 function isRetailReceivableOperation(op: AssistantOperation) { return op.path.startsWith("/retail/receivables/"); }
@@ -215,10 +216,10 @@ function missingRecruitmentJobReadiness(job: Record<string, any>, now = new Date
   return missing;
 }
 function isBranchScopedAssistantOperation(op: AssistantOperation) {
-  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || isCommissionLevelOperation(op) || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
+  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || isCommissionLevelOperation(op) || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 function requiresBranchChoice(op: AssistantOperation) {
-  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || (isCommissionLevelOperation(op) && op.method !== "GET") || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
+  return op.id.startsWith("inventory.serial.") || op.id === "inventory.warehouse.locations.list" || op.path === "/inventory/transfers" || op.path.startsWith("/inventory/transfers/") || op.id === "inventory.stock-log.list" || op.id === "inventory.stock-log.reverse" || op.id === "finance.tax.from-invoice" || op.id === "retail.invoice.list" || op.id === "retail.warranty.serial.update" || op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list" || isInventoryCountOperation(op) || op.path.startsWith("/inventory/reconciliation/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") || op.path.startsWith("/finance/reminders/") || op.path === "/finance/management/debts" || op.path === "/finance/management/payables" || op.path === "/finance/management/followups" || op.path.startsWith("/payroll/periods/") || op.path.startsWith("/payroll/runs") || op.id.startsWith("payroll.payment.") || op.path === "/retail/settings" || op.path.startsWith("/retail/debt-reminders/") || isRetailPosOperation(op) || isRetailCashbookOperation(op) || isRetailFinanceCommissionOperation(op) || isRetailReceivableOperation(op) || isRetailAfterSaleOperation(op) || (isCommissionLevelOperation(op) && op.method !== "GET") || isRecruitmentOperation(op) || op.id === "repair.device.lookup" || op.id === "repair.notification.resend" || op.id === "repair.feedback.link.create";
 }
 
 function assertScheduledCampaignInput(input: Record<string, AssistantValue>) {
@@ -531,6 +532,8 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
             ? "Cần chọn chi nhánh bán lẻ theo tên trước khi xem hoặc chạy nhắc công nợ."
           : isRetailCashbookOperation(op)
             ? "Cần chọn chi nhánh bán lẻ theo tên trước khi tra cứu hoặc tạo phiếu thu chi."
+          : (op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list")
+            ? op.id === "retail.coupon.create" ? "C\u1EA7n ch\u1ECDn chi nh\u00E1nh b\u00E1n l\u1EBB theo t\u00EAn tr\u01B0\u1EDBc khi t\u1EA1o m\u00E3 \u01B0u \u0111\u00E3i." : "C\u1EA7n ch\u1ECDn chi nh\u00E1nh b\u00E1n l\u1EBB theo t\u00EAn tr\u01B0\u1EDBc khi tra c\u1EE9u h\u1EA1ng kh\u00E1ch h\u00E0ng."
           : isRetailFinanceCommissionOperation(op)
             ? "Cần chọn chi nhánh bán lẻ theo tên trước khi xem hoặc cấu hình hoa hồng POS."
           : isRetailReceivableOperation(op)
@@ -553,7 +556,9 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   if (op.adapter === "contract") {
     route = route.replace(/:([A-Za-z0-9_]+)/g, (_match, key: string) => {
       const field = op.fields.find(f => f.source === "path" && f.apiKey === key);
-      const value = field ? String(input[field.key] || "") : op.optionalPathFields?.includes(key) ? String(input[`path_${key}`] || "") : "";
+      const value = field
+        ? String(input[field.key] || "")
+        : op.fixedPathValues?.[key] || (op.optionalPathFields?.includes(key) ? String(input[`path_${key}`] || "") : "");
       const providerVoiceId = key === "voiceId" && op.id.startsWith("marketing.elevenlabs.voice");
       const personalDriveResourceId = op.id === "resource.google-drive.rename" && key === "id";
       if (!/^[A-Za-z0-9_-]{1,100}$/.test(value) || (/^(?:id|.*Id)$/.test(key) && !providerVoiceId && !personalDriveResourceId && !/^(?:[a-f\d]{24}|[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}|[0-9]{6,32}(?:_[0-9]{6,32})?)$/i.test(value)) || (personalDriveResourceId && !/^[A-Za-z0-9_-]{10,100}$/.test(value))) throw new AssistantError("Mã bản ghi hoặc tham số đường dẫn không hợp lệ.");
@@ -580,10 +585,11 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     url.searchParams.set(field.apiKey!, String(input[field.key]));
   }
   if (op.contextQuery?.includes("terminalId") && typeof req.headers["x-device-id"] === "string") url.searchParams.set("terminalId", req.headers["x-device-id"]);
+  const companyWideWorkflowOperation = op.path === "/crud/workflows" || op.path.startsWith("/crud/workflows/");
   if (op.adapter === "contract") {
     if (!strictPayrollRunList && !rejectsImplicitScopeQuery) {
       if (branchScopedOperation && effectiveBranchId) url.searchParams.set("branchId", effectiveBranchId);
-      else if (req.user?.branchId) url.searchParams.set("branchId", req.user.branchId);
+      else if (req.user?.branchId && !companyWideWorkflowOperation) url.searchParams.set("branchId", req.user.branchId);
     }
   }
   if (!strictPayrollRunList && !rejectsImplicitScopeQuery) url.searchParams.set("companyCode", companyCode);
@@ -595,8 +601,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     if (!url.searchParams.has("limit")) url.searchParams.set("limit", "100");
     if (!url.searchParams.has("page")) url.searchParams.set("page", "1");
   }
-  if (input.search && ["customer.list", "product.list", "repair.list"].includes(op.id)) url.searchParams.set("q", String(input.search));
-  if (input.search && ["category.list", "training.list"].includes(op.id)) url.searchParams.set("search", String(input.search));
+  if (input.search && op.id === "customer.list") url.searchParams.set("q", String(input.search));
   const headers: Record<string, string> = { "Content-Type": "application/json", Authorization: req.headers.authorization || "" };
   const branchId = branchScopedOperation ? effectiveBranchId : req.user?.branchId || (typeof input.branchId === "string" ? input.branchId : "");
   if (branchId) headers["x-branch-id"] = branchId;
@@ -607,7 +612,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     headers[key] = requestId;
   }
   const body: Record<string, unknown> = {};
-  for (const field of op.fields) if (input[field.key] !== undefined) {
+  for (const field of op.fields) if (input[field.key] !== undefined && !op.assistantOnlyFields?.includes(field.key)) {
     if (op.adapter === "contract") {
       if (field.source === "body") {
         const rawValue = input[field.key];
@@ -646,7 +651,11 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
           "api.post.4e68581113f1ef79", "api.patch.08411917f1ed9b75", "api.post.5511b45cf3a736d1", "api.patch.6bc968347283a069",
         ].includes(op.id) ? normalizeWeekdays(bodyValue, field.label) : bodyValue;
       }
-    } else if (field.key !== "id" && field.source !== "path" && field.source !== "query") body[field.key] = input[field.key];
+    } else if (field.key !== "id" && field.source !== "path" && field.source !== "query") {
+      body[field.key] = field.type === "json"
+        ? JSON.parse(validateStructuredField(field, input[field.key]))
+        : input[field.key];
+    }
   }
   if (op.id === "department.update" && typeof body.name !== "string") {
     let departments: AssistantRecord[];
@@ -808,7 +817,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       if (!snapshot || typeof snapshot !== "object") throw new Error("missing settings snapshot");
       existing = snapshot as Record<string, unknown>;
     } catch { throw new AssistantError("Không đọc được cài đặt trợ lý hiện tại; chưa thể cập nhật an toàn."); }
-    const booleanKeys = ["enterToSend", "showSuggestions", "alwaysConfirm", "speakReplies"];
+    const booleanKeys = ["enterToSend", "showSuggestions", "alwaysConfirm", "speakReplies", "wakeWordEnabled"];
     if (!Number.isSafeInteger(existing.version) || Number(existing.version) < 0
       || !["window", "fullscreen"].includes(String(existing.windowMode))
       || booleanKeys.some(key => typeof existing[key] !== "boolean")
@@ -823,6 +832,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
       instructions: body.instructions ?? existing.instructions,
       alwaysConfirm: body.alwaysConfirm ?? existing.alwaysConfirm,
       speakReplies: body.speakReplies ?? existing.speakReplies,
+      wakeWordEnabled: body.wakeWordEnabled ?? existing.wakeWordEnabled,
     });
   }
   if (op.id === "api.patch.cbf8c2b9d544f837") {
@@ -900,7 +910,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     const missing = missingRecruitmentJobReadiness(body);
     if (missing.length) throw new AssistantError(`Chưa thể mở tuyển. Cần điền: ${missing.join(", ")}.`);
   }
-  if (op.id === "retail.partner.create") {
+  if (op.id.startsWith("retail.partner.create.")) {
     if (!["collaborator", "dealer", "supplier"].includes(String(body.role || ""))) throw new AssistantError("Chọn vai trò cộng tác viên, đại lý hoặc nhà cung cấp.");
     body.roles = [body.role];
     delete body.role;
@@ -951,9 +961,96 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     if (!requestId) throw new AssistantError("Thiếu mã yêu cầu để bảo vệ thao tác trùng.");
     body[key] = requestId;
   }
+  if (op.id === "hr.workflow.create") {
+    if (!req.user?.id) throw new AssistantError("Kh\u00F4ng x\u00E1c \u0111\u1ECBnh \u0111\u01B0\u1EE3c ng\u01B0\u1EDDi t\u1EA1o quy tr\u00ECnh.", 403);
+    if (!Array.isArray(body.steps) || body.steps.length < 1 || body.steps.length > 30) {
+      throw new AssistantError("Quy tr\u00ECnh l\u00E0m vi\u1EC7c c\u1EA7n t\u1EEB 1 \u0111\u1EBFn 30 b\u01B0\u1EDBc.");
+    }
+    body.creatorUid = req.user.id;
+    body.steps = body.steps.map((step: any, index: number) => {
+      if (!step || typeof step !== "object" || Array.isArray(step) || typeof step.title !== "string" || !step.title.trim()) {
+        throw new AssistantError(`B\u01B0\u1EDBc ${index + 1}: c\u1EA7n c\u00F3 t\u00EAn b\u01B0\u1EDBc.`);
+      }
+      return {
+        ...step,
+        id: randomUUID(),
+        assigneeUid: "",
+        assignee: "",
+        estDays: typeof step.estDays === "number" ? step.estDays : 1,
+        position: { x: index * 220, y: 0 },
+      };
+    });
+  }
+  if (op.id === "hr.workflow.update" && body.steps !== undefined) {
+    let existing: Record<string, any>;
+    try {
+      const parsed = JSON.parse(String(input.__assistantExistingRecord || ""));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !Array.isArray(parsed.steps)) throw new Error("missing workflow snapshot");
+      existing = parsed;
+    } catch {
+      throw new AssistantError("Kh\u00F4ng \u0111\u1ECDc \u0111\u01B0\u1EE3c c\u00E1c b\u01B0\u1EDBc hi\u1EC7n t\u1EA1i; ch\u01B0a c\u1EADp nh\u1EADt \u0111\u1EC3 tr\u00E1nh m\u1EA5t d\u1EEF li\u1EC7u.");
+    }
+    const existingSteps: any[] = existing.steps;
+    if (!Array.isArray(body.steps) || body.steps.length < 1 || body.steps.length > 30) {
+      throw new AssistantError("Danh s\u00E1ch b\u01B0\u1EDBc c\u1EADp nh\u1EADt c\u1EA7n t\u1EEB 1 \u0111\u1EBFn 30 m\u1EE5c.");
+    }
+    const requestedSteps: any[] = body.steps as any[];
+    if (Number(existing.stepCount ?? existingSteps.length) > 30 || existingSteps.length !== Number(existing.stepCount ?? existingSteps.length)) {
+      throw new AssistantError("Quy tr\u00ECnh c\u00F3 qu\u00E1 30 b\u01B0\u1EDBc ho\u1EB7c danh s\u00E1ch b\u01B0\u1EDBc ch\u01B0a \u0111\u1EA7y \u0111\u1EE7; h\u00E3y c\u1EADp nh\u1EADt trong m\u00E0n h\u00ECnh quy tr\u00ECnh.");
+    }
+    const usedStepIndexes = new Set<number>();
+    const nextSteps = requestedSteps.map((step, index) => {
+      if (!step || typeof step !== "object" || Array.isArray(step) || typeof step.title !== "string" || !step.title.trim()) {
+        throw new AssistantError(`B\u01B0\u1EDBc ${index + 1}: c\u1EA7n c\u00F3 t\u00EAn b\u01B0\u1EDBc.`);
+      }
+      const existingTitle = typeof step.existingTitle === "string" ? step.existingTitle.trim() : "";
+      let matchedIndex = -1;
+      if (step.existingStepNumber !== undefined) {
+        const requestedIndex = Number(step.existingStepNumber) - 1;
+        if (!Number.isInteger(requestedIndex) || requestedIndex < 0 || requestedIndex >= existingSteps.length) {
+          throw new AssistantError(`V\u1ECB tr\u00ED b\u01B0\u1EDBc hi\u1EC7n t\u1EA1i c\u1EE7a "${existingTitle || step.title}" kh\u00F4ng h\u1EE3p l\u1EC7.`);
+        }
+        const selectedTitle = String(existingSteps[requestedIndex]?.title || "");
+        if (existingTitle && normalize(existingTitle) !== normalize(selectedTitle)) {
+          throw new AssistantError(`B\u01B0\u1EDBc s\u1ED1 ${requestedIndex + 1} kh\u00F4ng ph\u1EA3i "${existingTitle}"; ch\u01B0a c\u1EADp nh\u1EADt.`);
+        }
+        matchedIndex = requestedIndex;
+      } else {
+        const selector = existingTitle || step.title;
+        const matches = existingSteps.flatMap((candidate, candidateIndex) => normalize(String(candidate?.title || "")) === normalize(selector) ? [candidateIndex] : []);
+        if (matches.length > 1) throw new AssistantError(`T\u00EAn b\u01B0\u1EDBc "${selector}" b\u1ECB tr\u00F9ng; vui l\u00F2ng n\u00EAu th\u00EAm v\u1ECB tr\u00ED b\u01B0\u1EDBc hi\u1EC7n t\u1EA1i.`);
+        if (matches.length === 1) matchedIndex = matches[0];
+        else if (existingTitle) throw new AssistantError(`Kh\u00F4ng t\u00ECm th\u1EA5y b\u01B0\u1EDBc hi\u1EC7n t\u1EA1i "${existingTitle}"; ch\u01B0a c\u1EADp nh\u1EADt.`);
+      }
+      if (matchedIndex >= 0 && usedStepIndexes.has(matchedIndex)) {
+        throw new AssistantError(`B\u01B0\u1EDBc "${String(existingSteps[matchedIndex]?.title || step.title)}" \u0111ang b\u1ECB d\u00F9ng nhi\u1EC1u l\u1EA7n trong danh s\u00E1ch c\u1EADp nh\u1EADt.`);
+      }
+      if (matchedIndex >= 0) usedStepIndexes.add(matchedIndex);
+      const prior = matchedIndex >= 0 ? existingSteps[matchedIndex] : {};
+      const { existingTitle: _existingTitle, existingStepNumber: _existingStepNumber, ...requestedValues } = step;
+      return {
+        ...prior,
+        ...requestedValues,
+        id: typeof prior.id === "string" && prior.id ? prior.id : randomUUID(),
+        assigneeUid: typeof prior.assigneeUid === "string" ? prior.assigneeUid : "",
+        assignee: typeof prior.assignee === "string" ? prior.assignee : "",
+        estDays: typeof requestedValues.estDays === "number" ? requestedValues.estDays : typeof prior.estDays === "number" ? prior.estDays : 1,
+        type: typeof prior.type === "string" ? prior.type : "task",
+        position: { x: index * 220, y: typeof prior.position?.y === "number" ? prior.position.y : 0 },
+      };
+    });
+    const stepIds = new Set(nextSteps.map(step => String(step.id)));
+    body.steps = nextSteps;
+    body.edges = (Array.isArray(existing.edges) ? existing.edges : []).filter((edge: any) =>
+      stepIds.has(String(edge?.source || "")) && stepIds.has(String(edge?.target || "")));
+  }
   if (op.method !== "GET" && op.method !== "DELETE") {
     if (op.id.startsWith("employee.")) { body.companyCode = companyCode; if (op.id === "employee.create") { body.role = "user"; body.password = password; body.branchId = req.user?.branchId || ""; } }
-    if (op.id === "training.create") { body.creatorUid = req.user!.id; body.icon = "GraduationCap"; }
+    if (op.id === "training.create") {
+      body.creatorUid = req.user!.id;
+      body.icon = "GraduationCap";
+      body.instructor = String(body.instructor || req.user?.displayName || req.user?.email || "iGen Academy");
+    }
     if (op.id === "inventory.serial.transition") body.eventType = "assistant_status_change";
     if (op.id === "finance.asset.inventory.open") {
       const branchId = String(req.user?.branchId || "");
@@ -1457,7 +1554,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
     const safe: Record<string, unknown> = {};
     if (Number.isSafeInteger(settings.version) && settings.version >= 0) safe.version = settings.version;
     if (["window", "fullscreen"].includes(String(settings.windowMode))) safe.windowMode = settings.windowMode;
-    for (const key of ["enterToSend", "showSuggestions", "alwaysConfirm", "speakReplies"]) {
+    for (const key of ["enterToSend", "showSuggestions", "alwaysConfirm", "speakReplies", "wakeWordEnabled"]) {
       if (typeof settings[key] === "boolean") safe[key] = settings[key];
     }
     if (op.id === "account.assistant-settings.read") {
@@ -2848,6 +2945,37 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
 }
 export function projectRecords(op: AssistantOperation, response: any, req: AuthenticatedRequest): AssistantRecord[] {
   const responseData = response?.data ?? response?.user ?? response;
+  if (op.id === "hr.workflow.list") {
+    const stepKeys = ["id", "title", "description", "assigneeUid", "assignee", "assigneeUids", "relatedUids", "domain", "priority", "deadlineType", "deadlineDays", "deadlineTime", "subTasks", "type", "estDays", "deliverable", "note", "docLinks", "attachments", "position"];
+    return rawRecords(responseData).flatMap((item: any) => {
+      const id = String(item?._id || item?.id || "");
+      const name = typeof item?.name === "string" ? item.name.trim().slice(0, 120) : "";
+      if (!/^[a-f\d]{24}$/i.test(id) || !name || (item.companyCode && item.companyCode !== req.user?.companyCode)) return [];
+      const category = typeof item.category === "string" ? item.category.slice(0, 50) : "";
+      const description = typeof item.description === "string" ? item.description.slice(0, 2000) : "";
+      const rawSteps = Array.isArray(item.steps) ? item.steps : [];
+      const steps = rawSteps.slice(0, 100).flatMap((step: any) => {
+        if (!step || typeof step !== "object" || Array.isArray(step)) return [];
+        const safeStep: Record<string, unknown> = {};
+        for (const key of stepKeys) if (step[key] !== undefined) safeStep[key] = step[key];
+        return [safeStep];
+      });
+      const edges = Array.isArray(item.edges) ? item.edges.slice(0, 300).flatMap((edge: any) => {
+        if (!edge || typeof edge !== "object" || Array.isArray(edge)) return [];
+        const safeEdge: Record<string, unknown> = {};
+        for (const key of ["id", "source", "target", "label"]) if (typeof edge[key] === "string") safeEdge[key] = edge[key];
+        return [safeEdge];
+      }) : [];
+      const safe: AssistantRecord = { id, name, stepsCount: rawSteps.length, ...(category ? { category } : {}), ...(description ? { description } : {}) };
+      if (category) safe.displayName = `${name} — ${category}`;
+      else safe.displayName = name;
+      Object.defineProperty(safe, "__assistantExistingRecord", {
+        value: { name, category, description, steps, stepCount: rawSteps.length, edges, autoAdvance: item.autoAdvance === true },
+        enumerable: false,
+      });
+      return [safe];
+    });
+  }
   if (op.id === "finance.management.debts.list") {
     const receivables = Array.isArray(responseData?.receivables) ? responseData.receivables.map((item: any) => ({ item, targetType: "receivable", code: item.receivableCode, name: item.customerName, amount: item.originalAmount, balance: item.balance, dueDate: item.dueDate, status: item.status })) : [];
     const payables = Array.isArray(responseData?.payables) ? responseData.payables.map((item: any) => ({ item, targetType: "payable", code: item.payableCode || item.receiptCode, name: item.supplierName, amount: item.originalAmount, balance: item.balance, dueDate: item.dueDate, status: item.status })) : [];
@@ -2912,8 +3040,9 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
   const items = treasuryCollection && Array.isArray(responseData?.[treasuryCollection])
     ? responseData[treasuryCollection].filter((item: any) => item && typeof item === "object")
     : rawRecords(sourceData);
+  const companyWideCategoryOperation = op.id.startsWith("category.") || op.id === "hr.workflow.list";
   return items.filter((item: any) => (!item.companyCode || item.companyCode === req.user?.companyCode)
-    && (!req.user?.branchId || !item.branchId || String(item.branchId) === req.user.branchId
+    && (companyWideCategoryOperation || !req.user?.branchId || !item.branchId || String(item.branchId) === req.user.branchId
       || (op.id === "inventory.serial.list" && item.status === "in_transit" && String(item.transferToBranchId || "") === req.user.branchId))).map((item: any) => {
     const safe: AssistantRecord = {};
     const id = String(item._id || item.id || item.uid || item.__assistantRef?.id || ((op.id === "payroll.employee.me.reconciliation" || op.id === "payroll.employee.me.payslips") ? item.__assistantRef?.runId || item.runId : "") || "");
@@ -2927,7 +3056,15 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     }
     if (op.id === "retail.invoice.list") {
       if (typeof item.invoiceNo === "string") safe.code = item.invoiceNo;
+      if (typeof item.invoiceNo === "string") safe.invoiceNo = item.invoiceNo;
+      if (typeof item.orderCode === "string") safe.orderCode = item.orderCode;
       if (typeof item.snapshot?.customerName === "string") safe.customerName = item.snapshot.customerName;
+      if (typeof item.status === "string") safe.status = item.status;
+      if (typeof item.issuedAt === "string") safe.issuedAt = item.issuedAt;
+      else if (item.issuedAt instanceof Date && !Number.isNaN(item.issuedAt.valueOf())) safe.issuedAt = item.issuedAt.toISOString();
+      for (const key of ["grandTotal", "paymentStatus", "paidAmount", "dueAmount"]) {
+        if (item.snapshot?.[key] !== undefined && ["string", "boolean", "number"].includes(typeof item.snapshot[key])) safe[key] = item.snapshot[key];
+      }
     }
     if (["batch.attendance.learners", "student.list"].includes(op.id) && typeof item.phone === "string" && item.phone.trim()) {
       Object.defineProperty(safe, "__assistantReferencePhone", { value: item.phone.trim(), enumerable: false });
@@ -2964,6 +3101,10 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
         stepId: { value: typeof item.stepId === "string" ? item.stepId : undefined, enumerable: false },
         courseId: { value: typeof item.courseId === "string" ? item.courseId : undefined, enumerable: false },
       });
+    }
+    // Batch instructor eligibility depends on account status; keep it private for reference filtering.
+    if (op.id === "employee.list" && typeof item.isActive === "boolean") {
+      Object.defineProperty(safe, "__assistantActive", { value: item.isActive, enumerable: false });
     }
     if (["student.list", "student.exam.grade-roster.list", "student.exam.assigned-students.list"].includes(op.id) && typeof item.phone === "string" && item.phone.trim()) {
       Object.defineProperty(safe, "__assistantReferencePhone", { value: item.phone.trim(), enumerable: false });
@@ -3029,7 +3170,7 @@ export function projectRecords(op: AssistantOperation, response: any, req: Authe
     if (op.id === "retail.partner.list" && Array.isArray(item.roles) && typeof item.roles[0] === "string") safe.role = item.roles[0];
     // Keep branch scope internally so name resolution can disambiguate records;
     // response redaction and list rendering remove this internal field.
-    if (typeof item.branchId === "string") safe.branchId = item.branchId;
+    if (!companyWideCategoryOperation && typeof item.branchId === "string") safe.branchId = item.branchId;
     if (op.id === "inventory.serial.list" && typeof item.transferToBranchId === "string") safe.transferToBranchId = item.transferToBranchId;
     return safe;
   });
@@ -3039,6 +3180,10 @@ function referenceValues(record: Record<string, any>) {
   return [record.id, record._id, record.uid, record.tentativeDate, record.officialDate, record.rank, ...referenceLabelKeys.map(key => record[key]), record.kind, record.amount, record.reason].filter((value): value is string | number => typeof value === "string" || typeof value === "number").map(String);
 }
 function referenceLabel(record: Record<string, any>) {
+  if (typeof record.sku === "string" && record.sku.trim() && record.productId) {
+    const variantName = [record.displayName, record.variantName, record.productName].find(value => typeof value === "string" && value.trim());
+    return [variantName || "SKU", `mã ${record.sku.trim()}`].join(" — ");
+  }
   if (typeof record.name === "string" && typeof record.customerCode === "string") {
     return [record.name, record.customerCode, record.phone, record.branchName ? `Chi nhánh ${record.branchName}` : ""]
       .filter((value): value is string => typeof value === "string" && Boolean(value.trim())).join(" — ");
@@ -3288,6 +3433,14 @@ function referenceOptionLabel(record: Record<string, any>, records: Record<strin
 }
 export function matchesReference(record: Record<string, any>, search: string) {
   const query = normalize(search);
+  const partialNameMatch = query.length >= 3 && [
+    record.name, record.fullName, record.displayName, record.courseTitle, record.productName, record.customerName,
+    record.supplierName, record.warehouseName, record.employeeName, record.workerName,
+    record.title, record.legalName,
+  ].some(value => typeof value === "string" && normalize(value).includes(query));
+  const backendQueryMatch = typeof record.__assistantQueryMatch === "string"
+    && Boolean(query)
+    && normalize(record.__assistantQueryMatch) === query;
   const displayedParts = search.split(/\s+[—–]\s+/u);
   const branchSuffix = displayedParts[1]?.replace(/^chi nhánh\s+/i, "").trim();
   const matchesDisplayedBranch = displayedParts.length === 2
@@ -3298,6 +3451,12 @@ export function matchesReference(record: Record<string, any>, search: string) {
     && typeof (record.__assistantReferencePhone || record.phone) === "string"
     && normalize(referenceLabel(record).split(/\s+[—–]\s+/u)[0] || "") === normalize(displayedParts[0])
     && normalize(String(record.__assistantReferencePhone || record.phone)) === normalize(displayedParts[1]);
+  const matchesDisplayedCustomer = typeof record.name === "string" && typeof record.customerCode === "string"
+    && displayedParts.length >= 2
+    && normalize(displayedParts[0]) === normalize(record.name)
+    && normalize(displayedParts[1]) === normalize(record.customerCode)
+    && (displayedParts.length < 3 || normalize(displayedParts[2]) === normalize(String(record.phone || "")))
+    && displayedParts.slice(3).every(part => normalize(part).startsWith("chi nhanh "));
   const disambiguated = search.match(/^(.*) \[([^\]]+)\]$/u);
   const matchesDisambiguators = Boolean(disambiguated)
     && normalize(referenceLabel(record)) === normalize(disambiguated?.[1] || "")
@@ -3315,6 +3474,9 @@ export function matchesReference(record: Record<string, any>, search: string) {
     || matchesDisambiguators
     || matchesDisplayedBranch
     || matchesDisplayedPhone
+    || matchesDisplayedCustomer
+    || partialNameMatch
+    || backendQueryMatch
     || (typeof record.employeeName === "string" && typeof record.amount === "number" && normalize(referenceLabel(record)).includes(query));
 }
 function rawRecords(response: any): Record<string, any>[] {
@@ -3335,6 +3497,10 @@ function collectionPathFor(op: AssistantOperation, field: AssistantField) {
 }
 function isRecordIdentifier(value: string) {
   return /^(?:[a-f\d]{24}|[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}|[0-9]{6,32}(?:_[0-9]{6,32})?)$/i.test(value);
+}
+function isReferenceSearchField(field: AssistantField) {
+  return /(?:search|keyword|term)/i.test(field.key)
+    || /^(?:q|search|keyword|term)$/i.test(String(field.apiKey || ""));
 }
 async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOperation, field: AssistantField, values: Record<string, AssistantValue>) {
   const path = collectionPathFor(op, field);
@@ -3363,7 +3529,7 @@ async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOpe
   const input: Record<string, AssistantValue> = {};
   const searchField = list.id === "inventory.serial.list"
     ? list.fields.find(candidate => candidate.source === "query" && candidate.apiKey === "serial")
-    : list.fields.find(candidate => /(?:search|keyword|term|^q$)/i.test(`${candidate.key} ${candidate.apiKey || ""}`))
+    : list.fields.find(candidate => isReferenceSearchField(candidate))
     || list.fields.find(candidate => /(?:^|_)(?:name|code|sku)$/i.test(`${candidate.key} ${candidate.apiKey || ""}`));
   for (const listField of list.fields) {
     if (listField.source === "path") {
@@ -3409,6 +3575,7 @@ async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOpe
   try {
     let result = await callOperation(req, list, input);
     const requiresRecordProjection = list.id.startsWith("finance.treasury.")
+      || list.id === "hr.workflow.list"
       || list.id === "worker.partner.settlements.list"
       || list.id === "worker.partner.settlement.detail"
       || list.id === "finance.receivable.detail"
@@ -3452,7 +3619,7 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
     ? op.fields.find(field => field.source === "query" && field.apiKey === "serial")
     : ["category.list", "training.list"].includes(op.id)
       ? op.fields.find(field => field.key === "search")
-    : op.fields.find(field => field.source === "query" && /(?:search|keyword|term|^q$)/i.test(`${field.key} ${field.apiKey || ""}`));
+    : op.fields.find(field => field.source === "query" && isReferenceSearchField(field));
   if (searchField && input[searchField.key] === undefined) input[searchField.key] = searchByInternalId ? "" : search;
   for (const field of op.fields) if (field.source === "query" && input[field.key] === undefined) {
     const apiKey = String(field.apiKey || field.key).toLowerCase();
@@ -3474,9 +3641,14 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
   const selectedLabel = String(search || "");
   const namePrefix = selectedLabel.split(" — ", 1)[0]?.trim();
   if (!records.length && searchField && namePrefix && namePrefix !== selectedLabel) {
-    const retryInput = { ...input, [searchField.key]: namePrefix };
+    const retryInput = { ...input, search: namePrefix, [searchField.key]: namePrefix };
     result = await callOperation(req, op, retryInput);
     records = projectRecords(op, result, req);
+  }
+  if (operationId === "product.list" && search && !searchByInternalId) {
+    for (const record of records) {
+      Object.defineProperty(record, "__assistantQueryMatch", { value: search, enumerable: false, configurable: true });
+    }
   }
   if (operationId === "worker.labor.contract.list" && records.length) {
     const sourceById = new Map(rawRecords(result).map(row => [String(row._id || row.id || ""), row]));
@@ -3661,6 +3833,69 @@ async function resolveOperationReference(
   return { candidates, exact, record, value };
 }
 
+function normalizeBatchClassSearch(search: string) {
+  const trimmed = search.trim();
+  return trimmed.replace(/^(?:(?:xem|tra c\u1EE9u|tra cuu|th\u00F4ng tin|thong tin|cho t\u00F4i bi\u1EBFt|cho toi biet)\s+)+(?:th\u00F4ng tin\s+)?/iu, "").trim() || trimmed;
+}
+
+async function lookupReferenceCandidates(
+  req: AuthenticatedRequest,
+  ownerOperation: AssistantOperation,
+  field: AssistantField,
+  search: string,
+  context: Record<string, AssistantValue>,
+) {
+  const normalizedSearch = field.reference === "batch.list" ? normalizeBatchClassSearch(search) : search.trim();
+  let candidates = await lookupRecords(req, field.reference!, normalizedSearch, context);
+  if (field.reference === "batch.list" && !candidates.length && normalizedSearch.split(/\s+/).length >= 2) {
+    const broaderClassSearch = normalizedSearch.split(/\s+/).slice(0, -1).join(" ");
+    candidates = await lookupRecords(req, field.reference, broaderClassSearch, context);
+  }
+  if (["student.batch.create", "student.batch.update"].includes(ownerOperation.id)
+    && field.apiKey === "instructorId" && field.reference === "employee.list") {
+    const branchId = String(req.user?.branchId || "");
+    candidates = branchId
+      ? candidates.filter(candidate => candidate.__assistantActive === true && String(candidate.branchId || "") === branchId)
+      : [];
+  }
+  // Product search endpoints can omit a valid exact name from `q` results.
+  // Retry against the scoped first page and match the displayed name locally.
+  if (field.reference === "product.list" && search.trim() && !candidates.some(row => matchesReference(row, search))) {
+    const unfiltered = await lookupRecords(req, field.reference, "", context);
+    if (unfiltered.some(row => matchesReference(row, search))) candidates = unfiltered;
+  }
+  return candidates;
+}
+
+async function lookupReceiptProductCandidates(
+  req: AuthenticatedRequest,
+  search: string,
+  context: Record<string, AssistantValue>,
+) {
+  const combinations = ["physical", "bundle"].flatMap(productType => ["active", "draft"].map(status => ({
+    ...context,
+    query_productType: productType,
+    query_status: status,
+    query_page: 1,
+    query_limit: 100,
+  })));
+  const groups = await Promise.all(combinations.map(filters => lookupRecords(req, "product.list", search, filters)));
+  const unique = new Map<string, Record<string, any>>();
+  for (const row of groups.flat()) {
+    const id = String(row.id || row._id || "");
+    if (id) unique.set(id, row);
+  }
+  return [...unique.values()];
+}
+
+async function lookupReceiptSkuCandidates(req: AuthenticatedRequest, productId: string) {
+  const detail = operationById("inventory.product.detail");
+  const pathField = detail?.fields.find(field => field.source === "path");
+  if (!detail || !pathField || !isRecordIdentifier(productId)) return [];
+  const response = await callOperation(req, detail, { [pathField.key]: productId });
+  return projectRecords(detail, response, req).filter(variant => variant.status === "active");
+}
+
 export async function suggestReferenceOptions(
   req: AuthenticatedRequest,
   op: AssistantOperation,
@@ -3672,8 +3907,8 @@ export async function suggestReferenceOptions(
   const context: Record<string, AssistantValue> = {};
   for (const candidate of referenceOperation?.fields || []) {
     if (!(candidate.key === "id" || candidate.source === "path" || candidate.source === "query")) continue;
-    const parent = op.fields.find(item => item.key === candidate.key || (item.source === candidate.source && item.apiKey === candidate.apiKey))
-      || op.fields.find(item => Boolean(candidate.apiKey) && item.apiKey === candidate.apiKey);
+    const parent = op.fields.find(item => item.source === candidate.source
+      && (item.key === candidate.key || Boolean(candidate.apiKey) && item.apiKey === candidate.apiKey));
     if (parent && values[parent.key] !== undefined) context[candidate.key] = values[parent.key];
   }
   Object.assign(context, field.referenceContext || {});
@@ -3743,9 +3978,26 @@ export async function suggestReferenceOptions(
   if (parentPathField) context[parentPathField.key] = String(parentValue);
   else if (parentQueryField) context[parentQueryField.key] = String(parentValue);
 
-  let candidates = await lookupRecords(req, field.reference, "", context);
+  const referenceSearch = String(values[`__assistantReferenceSearch_${field.key}`] || "").trim();
+  const isReceiptProductSelector = ["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
+    && field.reference === "product.list" && /^items\[\d+\]\.productId$/.test(field.key);
+  const isReceiptSkuSelector = ["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
+    && field.reference === "inventory.product.detail" && /^items\[\d+\]\.variantId$/.test(field.key);
+  let candidates = isReceiptSkuSelector && parentValue !== undefined
+    ? await lookupReceiptSkuCandidates(req, String(parentValue))
+    : isReceiptProductSelector
+      ? await lookupReceiptProductCandidates(req, referenceSearch, context)
+      : await lookupReferenceCandidates(req, op, field, referenceSearch, context);
   if (isBatchWorkflow && field.apiKey === "roadmapId") candidates = candidates.filter(candidate => candidate.status === "active");
   candidates = filterRelationshipCandidates(op, field, candidates, values);
+  if (["inventory.receipt.create", "inventory.receipt.update"].includes(op.id)
+    && field.reference === "product.list" && /^items\[\d+\]\.productId$/.test(field.key)) {
+    candidates = candidates.filter(candidate => ["physical", "bundle"].includes(String(candidate.productType || ""))
+      && ["active", "draft"].includes(String(candidate.status || "")));
+  }
+  if (op.id === "finance.treasury.bank-lines.create" && field.key === "accountId") {
+    candidates = candidates.filter(candidate => candidate.kind === "bank");
+  }
   if (parentValue !== undefined && !parentPathField && (!parentQueryField || parentQueryField.apiKey === "branchId")) {
     candidates = candidates.filter(candidate => String(candidate.branchId || "") === String(parentValue));
   }
@@ -3760,18 +4012,26 @@ export async function suggestReferenceOptions(
     candidates = candidates.filter(candidate => eligibleStatuses.includes(String(candidate.status))
       && (op.id !== "marketing.bulk-create.jobs.retry" || Number(candidate.failedItems) > 0));
   }
-  const maximum = field.reference === "access.permission-catalog.list" ? 100 : 8;
+  const maximum = ["access.permission-catalog.list", "course.category.list"].includes(field.reference) ? 100 : 8;
   return [...new Set(candidates.map(candidate => referenceOptionLabel(candidate, candidates)).filter(label => label && label !== "Bản ghi"))].slice(0, maximum);
 }
 
 function nestedReferenceLabel(shape: NonNullable<AssistantField["structure"]>, key: string) {
-  return shape.label || ({ productId: "Sản phẩm", variantId: "SKU", unitCode: "Đơn vị tính", categoryCode: "Danh mục", templateCode: "Mẫu sản phẩm", brandCode: "Thương hiệu" } as Record<string, string>)[key] || key;
+  return shape.label || ({ productId: "Sản phẩm", variantId: "SKU", unitCode: "Đơn vị tính", categoryCode: "Thể loại / thư mục", templateCode: "Mẫu sản phẩm", brandCode: "Thương hiệu" } as Record<string, string>)[key] || key;
 }
 
 export async function resolveReferences(req: AuthenticatedRequest, op: AssistantOperation, values: Record<string, AssistantValue>) {
   const resolved = { ...values };
   const labels: Record<string, string> = {};
   const errors: string[] = [];
+  const unresolvedReferenceKeys = new Set<string>();
+  const unresolvedReferenceErrors = new Map<string, string>();
+  const selectionPath = (path: string) => path.replace(/\[(\d+)\]/g, (_match, index: string) => `[${Number(index) + 1}]`);
+  const addUnresolvedReferenceError = (key: string, error: string) => {
+    errors.push(error);
+    unresolvedReferenceKeys.add(key);
+    unresolvedReferenceErrors.set(key, error);
+  };
   const resolvedReferences: Record<string, Record<string, any>> = {};
   const confirmationDetails: Record<string, Array<{ label: string; value: string }>> = {};
   const isReferenceParent = (field: AssistantField) => op.fields.some(candidate => candidate.referenceParentKey === field.key);
@@ -3784,14 +4044,18 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     if (op.id === "student.custom-field.restore" && field.source === "path") continue;
     const collectionPath = field.source === "path" ? collectionPathFor(op, field) : "";
     if (isRecruitmentOperation(op) && collectionPath && ASSISTANT_OPERATIONS.some(candidate => candidate.method === "GET" && candidate.path === collectionPath)) continue;
-    if (field.source === "query" && field.apiKey === "branchId" && req.user?.branchId && String(values[field.key]) === req.user.branchId) continue;
-    const search = String(values[field.key]);
+    if (field.source === "query" && field.apiKey === "branchId" && req.user?.branchId && String(values[field.key]) === req.user.branchId) {
+      labels[field.key] = "Chi nhánh của bạn";
+      continue;
+    }
+    const rawSearch = String(values[field.key]);
+    const search = field.reference === "batch.list" ? normalizeBatchClassSearch(rawSearch) : rawSearch;
     const referenceOperation = operationById(field.reference);
     const context: Record<string, AssistantValue> = {};
     for (const candidate of referenceOperation?.fields || []) {
       if (!(candidate.key === "id" || candidate.source === "path" || candidate.source === "query")) continue;
-      const parent = op.fields.find(field => field.key === candidate.key || (field.source === candidate.source && field.apiKey === candidate.apiKey))
-        || op.fields.find(field => Boolean(candidate.apiKey) && field.apiKey === candidate.apiKey);
+      const parent = op.fields.find(field => field.source === candidate.source
+        && (field.key === candidate.key || Boolean(candidate.apiKey) && field.apiKey === candidate.apiKey));
       if (parent && resolved[parent.key] !== undefined) context[candidate.key] = resolved[parent.key];
     }
     Object.assign(context, field.referenceContext || {});
@@ -3811,7 +4075,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
         || (referenceQueryFields.length === 1 ? referenceQueryFields[0] : undefined);
     if (parentPathField) context[parentPathField.key] = String(parentValue);
     else if (parentQueryField) context[parentQueryField.key] = String(parentValue);
-    const allCandidates = await lookupRecords(req, field.reference, search, context);
+    const allCandidates = await lookupReferenceCandidates(req, op, field, search, context);
     let candidates = parentValue === undefined || parentPathField || (parentQueryField && parentQueryField.apiKey !== "branchId")
       ? allCandidates
       : parentValue === undefined ? allCandidates : allCandidates.filter(candidate => String(candidate.branchId || "") === String(parentValue));
@@ -3873,11 +4137,11 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
         : importingInvoiceTax && !candidates.length ? "chỉ có thể ghi nhận VAT từ hóa đơn đã phát hành trong chi nhánh đã chọn"
         : reversingStockLog && !candidates.length ? "chỉ có thể đảo phiếu xuất thủ công nội bộ hoặc hủy hàng chưa bị đảo"
         : exact.length > 1 ? "có nhiều bản ghi trùng tên" : "chưa tìm thấy bản ghi theo tên hoặc mã";
-      errors.push(`${field.label}: ${explanation}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
+      addUnresolvedReferenceError(field.key, `${field.label}: ${explanation}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
       continue;
     }
     if (op.id === "finance.treasury.bank-lines.create" && field.key === "accountId" && record.kind !== "bank") {
-      errors.push(`${field.label}: hãy chọn một tài khoản ngân hàng, không phải quỹ tiền mặt.`);
+      addUnresolvedReferenceError(field.key, `${field.label}: hãy chọn một tài khoản ngân hàng, không phải quỹ tiền mặt.`);
       continue;
     }
     if (op.id === "timekeeping.work-calendar.update" && field.key === "path_id") {
@@ -3969,6 +4233,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     if (!selectedBranch && req.user?.branchId && branchField) resolved[branchField.key] = req.user.branchId;
     else if (!selectedBranch && req.user?.role === "admin" && requiresBranchChoice(op) && isRetailAfterSaleOperation(op)) errors.push(op.method === "POST" ? "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần lập phiếu đổi trả hoặc thu mua." : "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần tra cứu chứng từ đổi trả hoặc thu mua.");
     else if (!selectedBranch && req.user?.role === "admin" && requiresBranchChoice(op) && isRetailReceivableOperation(op)) errors.push("Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần xem hoặc đối soát công nợ.");
+    else if (!selectedBranch && req.user?.role === "admin" && requiresBranchChoice(op) && (op.id === "retail.coupon.create" || op.id === "retail.coupon.tier.list")) errors.push(op.id === "retail.coupon.create" ? "Chi nh\u00E1nh b\u00E1n l\u1EBB: h\u00E3y n\u00EAu t\u00EAn chi nh\u00E1nh c\u1EA7n t\u1EA1o m\u00E3 \u01B0u \u0111\u00E3i." : "Chi nh\u00E1nh b\u00E1n l\u1EBB: h\u00E3y n\u00EAu t\u00EAn chi nh\u00E1nh c\u1EA7n tra c\u1EE9u h\u1EA1ng kh\u00E1ch h\u00E0ng.");
     else if (!selectedBranch && req.user?.role === "admin" && requiresBranchChoice(op)) errors.push(isRecruitmentOperation(op) ? "Chi nhánh tuyển dụng: hãy nêu tên chi nhánh cần tra cứu hoặc cập nhật." : op.id.startsWith("inventory.serial.") ? "Chi nhánh: hãy nêu tên chi nhánh cần tra cứu hoặc đăng ký IMEI/serial." : op.id === "inventory.warehouse.locations.list" ? "Chi nhánh kho: hãy nêu tên chi nhánh cần tra cứu kho." : op.path.startsWith("/inventory/transfers") ? "Chi nhánh điều chuyển: hãy nêu tên chi nhánh gửi hoặc nhận." : isInventoryCountOperation(op) ? "Chi nhánh kiểm kê: hãy nêu tên chi nhánh cần tra cứu hoặc cập nhật phiếu." : op.path.startsWith("/inventory/reconciliation/") ? "Chi nhánh kiểm kho: hãy nêu tên chi nhánh cần đối soát." : op.path.startsWith("/finance/reminders/") ? "Chi nhánh tài chính: hãy nêu tên chi nhánh cần rà soát công nợ quá hạn." : op.path.startsWith("/finance/management/") || op.path.startsWith("/finance/receivables") || op.path.startsWith("/finance/reporting/") ? "Chi nhánh tài chính: hãy nêu tên chi nhánh cần tra cứu hoặc thao tác." : op.path.startsWith("/payroll/periods/") ? "Chi nhánh bảng lương: hãy nêu tên chi nhánh cần xem hoặc thao tác kỳ lương." : op.path.startsWith("/retail/debt-reminders/") ? "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần xem hoặc chạy nhắc công nợ." : isRetailFinanceCommissionOperation(op) ? "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần xem hoặc cấu hình hoa hồng POS." : op.path === "/retail/settings" || isRetailPosOperation(op) ? "Chi nhánh bán lẻ: hãy nêu tên chi nhánh cần thao tác." : "Chi nhánh áp dụng: hãy nêu tên chi nhánh cần cấu hình cấp bậc hoa hồng.");
     else if (!selectedBranch && requiresBranchChoice(op)) errors.push("Tài khoản cần được gán vào một chi nhánh trước khi thực hiện thao tác này.");
     else if (req.user?.branchId && selectedBranch !== req.user.branchId) errors.push("Chi nhánh được chọn không khớp với chi nhánh của tài khoản.");
@@ -4095,7 +4360,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
         const label = nestedReferenceLabel(shape, path);
         if (exact.length !== 1 || !record || value === undefined || value === null || value === "") {
           const choices = candidates.slice(0, 8).map(referenceLabel).join("; ");
-          errors.push(`${label}: ${exact.length > 1 ? "có nhiều bản ghi trùng tên" : "chưa tìm thấy bản ghi theo tên hoặc mã"}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
+          addUnresolvedReferenceError(selectionPath(path), `${label}: ${exact.length > 1 ? "có nhiều bản ghi trùng tên" : "chưa tìm thấy bản ghi theo tên hoặc mã"}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
           return node;
         }
         return String(value);
@@ -4144,7 +4409,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
           const label = nestedReferenceLabel(childShape, key);
           if (exact.length !== 1 || !record || value === undefined || value === null || value === "") {
             const choices = candidates.slice(0, 8).map(referenceLabel).join("; ");
-            errors.push(`${label}: ${exact.length > 1 ? "có nhiều bản ghi trùng tên" : "chưa tìm thấy bản ghi theo tên hoặc mã"}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
+            addUnresolvedReferenceError(selectionPath(`${path}.${key}`), `${label}: ${exact.length > 1 ? "có nhiều bản ghi trùng tên" : "chưa tìm thấy bản ghi theo tên hoặc mã"}. Vui lòng nêu tên chính xác${choices ? `; có thể chọn ${choices}` : ""}.`);
           } else {
             node[key] = String(value);
             if (displayNode && typeof displayNode === "object") displayNode[key] = referenceLabel(record);
@@ -4157,7 +4422,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     };
     parsed = await resolveNode(parsed, display, field.structure, {}, field.key);
     resolved[field.key] = JSON.stringify(parsed);
-    labels[field.key] = JSON.stringify(display, null, 2);
+    if (!(op.id === "hr.workflow.update" && field.key === "steps")) labels[field.key] = JSON.stringify(display, null, 2);
     if (["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(op.id) && field.apiKey === "rows" && Array.isArray(parsed) && Array.isArray(display)) {
       const employeeNames: Record<string, string> = {};
       for (let index = 0; index < parsed.length; index++) {
@@ -4319,7 +4584,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       && field.reference === "marketing.campaign.asset-orders.list";
     const needsVersion = Boolean(op.systemBodyFields?.includes("version") && !isRecruitmentOperation(op));
     const needsRevision = Boolean(op.systemBodyFields?.includes("revision"));
-    const needsReferenceRecord = needsExpectedVersion || needsExpectedRevision || needsVersion || needsRevision || Boolean(op.mergeBodyWithReference);
+    const needsReferenceRecord = needsExpectedVersion || needsExpectedRevision || needsVersion || needsRevision || Boolean(op.mergeBodyWithReference) || op.id === "hr.workflow.update";
     if (isRecordIdentifier(search) && !needsReferenceRecord) continue;
     const reference = await loadPathReferenceRows(req, op, field, resolved);
     if (!reference) continue;
@@ -4346,7 +4611,7 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
       eligible = eligible.filter(row => Array.isArray(row.changes) && row.changes.length > 0 && !String(row.operation || "").startsWith("revert:"));
     }
     const exact = eligible.filter(row => isRecordIdentifier(search)
-      ? String(row._id || row.id || row.uid || "") === search
+      ? String(row._id || row.id || row.uid || row.__assistantRef?.id || "") === search
       : matchesReference(row, search));
     if (exact.length !== 1) {
       const choices = eligible.slice(0, 8).map(referenceLabel).join("; ");
@@ -4363,6 +4628,12 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     labels[field.key] = referenceLabel(record);
     if (op.id === "payroll.period.input.update" && field.apiKey === "employeeId") resolved.__assistantEmployeeName = referenceLabel(record);
     if (op.mergeBodyWithReference) resolved.__assistantExistingRecord = JSON.stringify(record.__assistantExistingRecord || record);
+    if (op.id === "hr.workflow.update") {
+      const existing = record.__assistantExistingRecord;
+      if (!existing || typeof existing !== "object" || !Array.isArray(existing.steps)) {
+        errors.push("Không đọc được các bước hiện tại của quy trình đã chọn; chưa cập nhật để tránh làm mất nội dung.");
+      } else resolved.__assistantExistingRecord = JSON.stringify(existing);
+    }
     if (needsExpectedVersion && resolved.expectedVersion === undefined) {
       const version = Number(record.version ?? record.__assistantRef?.version ?? record.__v);
       if (Number.isSafeInteger(version) && version >= 0) {
@@ -4819,5 +5090,5 @@ export async function resolveReferences(req: AuthenticatedRequest, op: Assistant
     && !op.fields.some(field => field.source === "body" && resolved[field.key] !== undefined)) {
     errors.push("Hãy nêu ít nhất một cài đặt AI cần thay đổi cho tài khoản đã chọn.");
   }
-  return { values: resolved, labels, errors, confirmationDetails };
+  return { values: resolved, labels, errors: [...new Set(errors)], confirmationDetails, unresolvedReferenceKeys: [...unresolvedReferenceKeys], unresolvedReferenceErrors: Object.fromEntries(unresolvedReferenceErrors) };
 }

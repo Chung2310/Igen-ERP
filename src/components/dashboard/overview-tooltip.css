@@ -1,0 +1,35 @@
+#dashboard_tab_content .recharts-default-tooltip,
+:is(#dashboard_tab_content, .student-dashboard) .overview-chart-tooltip {
+  max-width: min(18rem, calc(100vw - 2rem));
+  padding: 6px 8px !important;
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 6px !important;
+  background: var(--color-surface-container-lowest) !important;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 8%) !important;
+  color: var(--color-on-surface) !important;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: normal !important;
+}
+
+#dashboard_tab_content .recharts-default-tooltip .recharts-tooltip-label,
+:is(#dashboard_tab_content, .student-dashboard) .overview-chart-tooltip-label {
+  margin-bottom: 2px !important;
+  color: var(--color-on-surface) !important;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+#dashboard_tab_content .recharts-default-tooltip .recharts-tooltip-item,
+:is(#dashboard_tab_content, .student-dashboard) .overview-chart-tooltip-value {
+  padding: 0 !important;
+  color: var(--color-on-surface-variant) !important;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+#dashboard_tab_content .recharts-tooltip-wrapper {
+  z-index: 2;
+}

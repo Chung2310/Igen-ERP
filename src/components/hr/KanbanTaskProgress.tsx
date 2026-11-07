@@ -14,7 +14,6 @@ import {
   Sparkles,
   ChevronRight,
 } from "lucide-react";
-import "./kanban-task-progress.css";
 
 function progressOf(task: HRTask) {
   return ["Done", "done"].includes(task.status)
@@ -26,25 +25,25 @@ export function TaskProgressSummary({ task }: { task: HRTask }) {
   const currentProgress = progressOf(task);
   return (
     <div className="my-2 space-y-1 text-xs">
-      <div className="flex items-center justify-between text-on-surface-variant dark:text-slate-300 font-medium">
+      <div className="flex items-center justify-between text-slate-600 font-medium">
         <span>Tiến độ: {currentProgress}%</span>
-        <span className="text-[11px] text-on-surface-variant dark:text-slate-400">
+        <span className="text-[11px] text-slate-600">
           {currentProgress === 100 ? "Hoàn thành" : currentProgress > 0 ? "Đang làm" : "Chưa bắt đầu"}
         </span>
       </div>
       <progress
         aria-label="Tiến độ công việc"
-        className="block h-2 w-full overflow-hidden rounded-full accent-primary dark:accent-indigo-500"
+        className="block h-2 w-full overflow-hidden rounded-full accent-primary"
         value={currentProgress}
         max={100}
       />
       {task.progressNote && (
-        <p className="line-clamp-2 text-on-surface-variant dark:text-slate-400 text-[11px] bg-surface dark:bg-slate-800/60 p-2 rounded-lg border border-outline-variant dark:border-slate-800">
+        <p className="line-clamp-2 rounded-lg bg-white p-2 text-[11px] text-slate-600">
           💬 {task.progressNote}
         </p>
       )}
       {task.helpRequested && (
-        <p className="font-bold text-red-600 dark:text-red-400 text-xs flex items-center gap-1 mt-1" role="status">
+        <p className="mt-1 flex items-center gap-1 text-xs font-bold text-red-600" role="status">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           ● Cần trợ giúp: {task.helpReason}
         </p>
@@ -196,38 +195,32 @@ export function KanbanTaskProgress({
   );
 
   return (
-    <section
-      className={`mb-5 rounded-2xl border p-4.5 transition-colors text-left ${
-        task.helpRequested
-          ? "task-needs-help bg-rose-50/70 dark:bg-rose-950/20 border-rose-300 dark:border-rose-900"
-          : "border-primary/20 bg-primary/10 dark:border-slate-800 dark:bg-slate-800/40"
-      }`}
-    >
-      <div className="flex items-center justify-between border-b border-primary/20 pb-3 dark:border-slate-800">
+    <section className="mb-5 rounded-xl bg-white p-4 text-left text-slate-900">
+      <div className="flex items-center justify-between pb-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-on-primary shadow-xs">
-            <TrendingUp className="h-4 w-4" />
+          <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-on-primary shadow-xs">
+            <TrendingUp aria-hidden="true" className="size-4" />
           </div>
-          <h3 className="text-sm font-bold text-on-surface dark:text-slate-100">
+          <h3 className="text-sm font-semibold text-slate-900">
             Tiến độ & trợ giúp
           </h3>
         </div>
-        <span className="rounded-md bg-primary/15 px-2 py-0.5 text-xs font-bold text-primary dark:bg-surface dark:text-primary">
+        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
           {progressOf(task)}%
         </span>
       </div>
 
       <TaskProgressSummary task={task} />
 
-      <div className="mt-3 space-y-1.5 text-xs text-on-surface-variant dark:text-slate-400">
+      <div className="mt-3 space-y-1.5 text-xs text-slate-600">
         <p>
           Phụ trách chính / KPI:{" "}
-          <strong className="text-on-surface dark:text-slate-200">
+          <strong className="text-slate-900">
             {task.assignee || "Chưa phân công"}
           </strong>
         </p>
         {!!task.helpers?.length && (
-          <p className="flex items-center gap-1 text-primary dark:text-primary font-medium">
+          <p className="flex items-center gap-1 text-primary font-medium">
             <UserCheck className="h-3.5 w-3.5" />
             Người hỗ trợ: {task.helpers.map((helper) => helper.name).join(", ")}
           </p>
@@ -259,7 +252,7 @@ export function KanbanTaskProgress({
                   setHelpReason("");
                   setShowHelpModal(true);
                 }}
-                className="flex items-center gap-1.5 rounded-xl border border-rose-300 bg-surface-container-lowest px-3.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-950/40 disabled:opacity-50 transition cursor-pointer"
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-rose-300 bg-white px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
               >
                 <LifeBuoy className="h-3.5 w-3.5" />
                 Yêu cầu trợ giúp
@@ -270,7 +263,7 @@ export function KanbanTaskProgress({
               <button
                 type="button"
                 disabled={busy}
-                className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-surface-container-lowest px-3.5 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-400 dark:hover:bg-emerald-950/40 disabled:opacity-50 transition cursor-pointer"
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-emerald-300 bg-white px-3.5 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
                 onClick={() => saveAction("resolve")}
               >
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -297,12 +290,12 @@ export function KanbanTaskProgress({
       </div>
 
       {error && (
-        <p role="alert" className="mt-3 text-xs font-semibold text-rose-600 dark:text-rose-400">
+        <p role="alert" className="mt-3 text-xs font-semibold text-rose-700">
           {error}
         </p>
       )}
       {message && (
-        <p role="status" className="mt-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+        <p role="status" className="mt-3 text-xs font-semibold text-emerald-700">
           {message}
         </p>
       )}
@@ -310,18 +303,18 @@ export function KanbanTaskProgress({
       {/* POPUP 1: BÁO CÁO TIẾN ĐỘ (Drag Slider & Note) */}
       {showProgressModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs ">
-          <div role="dialog" aria-modal="true" aria-label="Báo cáo tiến độ công việc" className="relative w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+          <div role="dialog" aria-modal="true" aria-label="Báo cáo tiến độ công việc" className="relative w-full max-w-md rounded-2xl bg-white p-6 text-slate-900 shadow-2xl">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-outline-variant pb-4 dark:border-slate-800">
+            <div className="flex items-center justify-between pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary dark:bg-surface dark:text-primary">
-                  <Sliders className="h-5 w-5" />
+                <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Sliders aria-hidden="true" className="size-5" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-on-surface dark:text-slate-100">
+                  <h4 className="text-base font-semibold text-slate-900">
                     Báo cáo tiến độ công việc
                   </h4>
-                  <p className="text-xs text-on-surface-variant dark:text-slate-400 line-clamp-1">
+                  <p className="line-clamp-1 text-xs text-slate-600">
                     {task.title || `Công việc #${task.id}`}
                   </p>
                 </div>
@@ -330,25 +323,25 @@ export function KanbanTaskProgress({
                 type="button"
                 aria-label="Đóng báo cáo tiến độ"
                 onClick={() => setShowProgressModal(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-on-surface-variant dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                className="cursor-pointer rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-primary"
                data-erp-modal-close>
-                <X className="h-5 w-5" />
+                <X aria-hidden="true" className="size-5" />
               </button>
             </div>
 
             {/* Modal Body */}
             <div className="mt-5 space-y-5">
               {/* Progress Slider Section */}
-              <div className="rounded-xl border border-outline-variant bg-surface/60 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+              <div className="rounded-xl bg-white p-4">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs font-semibold text-on-surface-variant dark:text-slate-400">
+                  <span className="text-xs font-semibold text-slate-600">
                     Tiến độ hoàn thành:
                   </span>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl font-extrabold text-primary dark:text-primary">
+                    <span className="text-3xl font-bold tabular-nums text-primary">
                       {progress}%
                     </span>
-                    <span className="rounded-md bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary dark:bg-surface dark:text-primary">
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
                       {progress === 100
                         ? "Hoàn thành"
                         : progress > 0
@@ -366,7 +359,7 @@ export function KanbanTaskProgress({
                     id={`progress-${task.id}`}
                     autoFocus
                     aria-label="Cập nhật tiến độ"
-                    className="w-full accent-primary h-2 bg-slate-200 rounded-lg cursor-pointer dark:bg-slate-700"
+                    className="h-2 w-full cursor-pointer rounded-lg bg-slate-200 accent-primary focus-visible:outline-2 focus-visible:outline-primary"
                     type="range"
                     min={0}
                     max={100}
@@ -378,7 +371,7 @@ export function KanbanTaskProgress({
                 </div>
 
                 {/* Quick Presets */}
-                <div className="mt-3 flex items-center justify-between gap-1 text-[11px] font-semibold text-on-surface-variant">
+                <div className="mt-3 flex items-center justify-between gap-1 text-[11px] font-semibold text-slate-600">
                   {[0, 25, 50, 75, 100].map((val) => (
                     <button
                       key={val}
@@ -387,7 +380,7 @@ export function KanbanTaskProgress({
                       className={`rounded-lg px-2 py-1 transition cursor-pointer ${
                         progress === val
                           ? "bg-primary text-on-primary"
-                          : "hover:bg-slate-200 dark:hover:bg-slate-700"
+                          : "hover:bg-slate-100"
                       }`}
                     >
                       {val}%
@@ -398,12 +391,12 @@ export function KanbanTaskProgress({
 
               {/* Progress Note */}
               <div>
-                <label className="block text-xs font-bold text-on-surface-variant dark:text-slate-300 mb-1.5">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
                   Nội dung báo cáo tiến độ <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   aria-label="Ghi chú báo cáo hoặc lý do trợ giúp"
-                  className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  className="w-full rounded-md border border-outline-variant bg-white p-3 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-primary"
                   rows={3}
                   maxLength={2000}
                   value={note}
@@ -411,18 +404,18 @@ export function KanbanTaskProgress({
                   onChange={(event) => setNote(event.target.value)}
                   placeholder="Mô tả kết quả công việc đã hoàn thành, vướng mắc nếu có..."
                 />
-                <p className="mt-1 text-right text-[11px] text-slate-400">
+                <p className="mt-1 text-right text-[11px] text-slate-600">
                   {note.length}/2000 ký tự
                 </p>
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="mt-5 flex items-center justify-end gap-2 border-t border-outline-variant pt-4 dark:border-slate-800">
+            <div className="mt-5 flex items-center justify-end gap-2 pt-4">
               <button
                 type="button"
                 onClick={() => setShowProgressModal(false)}
-                className="rounded-xl border border-outline-variant px-4 py-2 text-xs font-semibold text-on-surface-variant hover:bg-surface dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition cursor-pointer"
+                className="cursor-pointer rounded-md border border-outline-variant bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-primary"
               >
                 Hủy
               </button>
@@ -442,18 +435,18 @@ export function KanbanTaskProgress({
       {/* POPUP 2: GỬI YÊU CẦU TRỢ GIÚP (Select Helper & Reason) */}
       {showHelpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs ">
-          <div role="dialog" aria-modal="true" aria-label="Yêu cầu trợ giúp công việc" className="relative w-full max-w-md rounded-2xl border border-outline-variant bg-surface-container-lowest p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+          <div role="dialog" aria-modal="true" aria-label="Yêu cầu trợ giúp công việc" className="relative w-full max-w-md rounded-2xl bg-white p-6 text-slate-900 shadow-2xl">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-outline-variant pb-4 dark:border-slate-800">
+            <div className="flex items-center justify-between pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
-                  <LifeBuoy className="h-5 w-5" />
+                <div className="flex size-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                  <LifeBuoy aria-hidden="true" className="size-5" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-on-surface dark:text-slate-100">
+                  <h4 className="text-base font-semibold text-slate-900">
                     Yêu cầu trợ giúp công việc
                   </h4>
-                  <p className="text-xs text-on-surface-variant dark:text-slate-400">
+                  <p className="text-xs text-slate-600">
                     Chọn người hỗ trợ và mô tả nguyên nhân cần trợ giúp
                   </p>
                 </div>
@@ -462,9 +455,9 @@ export function KanbanTaskProgress({
                 type="button"
                 aria-label="Đóng yêu cầu trợ giúp"
                 onClick={() => setShowHelpModal(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-on-surface-variant dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                className="cursor-pointer rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-primary"
                data-erp-modal-close>
-                <X className="h-5 w-5" />
+                <X aria-hidden="true" className="size-5" />
               </button>
             </div>
 
@@ -472,12 +465,12 @@ export function KanbanTaskProgress({
             <div className="mt-5 space-y-4">
               {/* Select Helper */}
               <div>
-                <label className="block text-xs font-bold text-on-surface-variant dark:text-slate-300 mb-1.5">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
                   Chọn người trợ giúp
                 </label>
                 <select
                   aria-label="Chọn người trợ giúp"
-                  className="w-full rounded-xl border border-outline-variant bg-surface px-3.5 py-2.5 text-xs font-medium text-on-surface outline-none transition focus:border-rose-500 focus:bg-surface-container-lowest focus:ring-2 focus:ring-rose-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 cursor-pointer"
+                  className="w-full cursor-pointer rounded-md border border-outline-variant bg-white px-3.5 py-2.5 text-sm font-normal text-slate-900 outline-none focus:border-primary"
                   value={helpHelperUid}
                   onChange={(e) => setHelpHelperUid(e.target.value)}
                 >
@@ -488,20 +481,20 @@ export function KanbanTaskProgress({
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-1 text-[11px] text-slate-600">
                   Bạn có thể chỉ định cụ thể một người hoặc để cả đội ngũ cùng nhận được thông báo.
                 </p>
               </div>
 
               {/* Help Reason */}
               <div>
-                <label className="block text-xs font-bold text-on-surface-variant dark:text-slate-300 mb-1.5">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
                   Nguyên nhân cần trợ giúp <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   aria-label="Nguyên nhân cần trợ giúp"
                   autoFocus
-                  className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  className="w-full rounded-md border border-outline-variant bg-white p-3 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-primary"
                   rows={3}
                   maxLength={2000}
                   value={helpReason}
@@ -509,18 +502,18 @@ export function KanbanTaskProgress({
                   onChange={(e) => setHelpReason(e.target.value)}
                   placeholder="Mô tả cụ thể nguyên nhân, vướng mắc kỹ thuật hoặc khó khăn đang gặp..."
                 />
-                <p className="mt-1 text-right text-[11px] text-slate-400">
+                <p className="mt-1 text-right text-[11px] text-slate-600">
                   {helpReason.length}/2000 ký tự
                 </p>
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="mt-5 flex items-center justify-end gap-2 border-t border-outline-variant pt-4 dark:border-slate-800">
+            <div className="mt-5 flex items-center justify-end gap-2 pt-4">
               <button
                 type="button"
                 onClick={() => setShowHelpModal(false)}
-                className="rounded-xl border border-outline-variant px-4 py-2 text-xs font-semibold text-on-surface-variant hover:bg-surface dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition cursor-pointer"
+                className="cursor-pointer rounded-md border border-outline-variant bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-primary"
               >
                 Hủy
               </button>

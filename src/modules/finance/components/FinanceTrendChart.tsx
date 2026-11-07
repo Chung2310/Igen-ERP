@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { money } from "./ManagementUI";
+import { smoothChartPath } from "../../../components/dashboard/smoothChartPath";
 import "../finance-charts.css";
 
 type TrendRow = { date: string; revenue: number; cost: number | null; expense: number };
@@ -57,7 +58,7 @@ export default function FinanceTrendChart({ data }: { data: TrendRow[] }) {
         <line x1="70" x2="820" y1={y(0)} y2={y(0)} stroke="var(--color-outline)" strokeWidth="1"/>
         {ticks.map(i => <text key={i} x={x(i)} y="242" textAnchor={i === 0 && rows.length > 1 ? "start" : i === rows.length - 1 && rows.length > 1 ? "end" : "middle"} fontSize="10" fill="var(--color-on-surface-variant)" fontWeight="500">{dateLabel(rows[i].date)}</text>)}
         {series.map(s => <g key={s.label}>
-          <path fill="none" stroke={s.color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" d={rows.map((r, i) => s.get(r) == null ? "" : `${i === 0 || s.get(rows[i - 1]) == null ? "M" : "L"}${x(i)},${y(s.get(r)!)}`).join(" ")}/>
+          <path fill="none" stroke={s.color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" d={smoothChartPath(rows.map((row, index) => { const value = s.get(row); return value == null ? null : { x: x(index), y: y(value) }; }))}/>
           {rows.map((r, i) => s.get(r) != null && (i === active || (i === 0 || s.get(rows[i - 1]) == null) && (i === rows.length - 1 || s.get(rows[i + 1]) == null)) ? <circle key={r.date} cx={x(i)} cy={y(s.get(r)!)} r="3" fill={s.color} stroke="var(--color-surface-container-lowest)" strokeWidth="1.5"/> : null)}
         </g>)}
         {active >= 0 && <line x1={x(active)} x2={x(active)} y1="22" y2="214" stroke="var(--color-on-surface-variant)" strokeDasharray="3 3"/>}

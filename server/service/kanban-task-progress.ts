@@ -3,6 +3,22 @@ export function taskProgress(task: { status?: string; progress?: number }) {
   return task.progress ?? (["In Progress", "doing", "Review/Testing"].includes(task.status || "") ? 1 : 0);
 }
 
+export function taskHelpRecipients(
+  task: { creatorUid?: string; assigneeUid?: string; helpers?: { uid: string }[] },
+  requesterUid: string,
+  requestedHelperUid: string,
+  teamUids: string[] = []
+) {
+  return [...new Set([
+    requesterUid,
+    task.creatorUid,
+    task.assigneeUid,
+    ...(task.helpers || []).map((helper) => helper.uid),
+    requestedHelperUid,
+    ...(!requestedHelperUid ? teamUids : []),
+  ].filter((uid): uid is string => Boolean(uid)))];
+}
+
 export function taskActivityUpdate(task: any, input: any, actor: { uid: string; name: string; manager: boolean }, now = new Date().toISOString()) {
   const fail = (code: number, message: string): never => { throw Object.assign(new Error(message), { statusCode: code }); };
   if (task.status === "Archived") fail(400, "Công việc đã lưu trữ.");

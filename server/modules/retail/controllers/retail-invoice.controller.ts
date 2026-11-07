@@ -109,6 +109,7 @@ const pdfController = createRetailInvoiceController({
 });
 export const retailInvoiceController = {
   list: async (req: Request, res: Response) => res.json({ success: true, data: await RetailInvoiceService.list(scope(req), req.query) }),
+  summary: async (req: Request, res: Response) => res.json({ success: true, data: await RetailInvoiceService.summary(scope(req), req.query) }),
   detail: async (req: Request, res: Response) => res.json({ success: true, data: await RetailInvoiceService.detail(scope(req), req.params.id) }),
   pdf: pdfController.pdf,
   bulkPdf: pdfController.bulkPdf,

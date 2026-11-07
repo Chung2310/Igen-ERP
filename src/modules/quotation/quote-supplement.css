@@ -1,0 +1,324 @@
+.quotation-module .quote-supplement-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+}
+
+.quotation-module .quote-supplement-card .section-title {
+  margin-bottom: 0;
+}
+
+.quotation-module .quote-supplement-card .section-title p {
+  max-width: 720px;
+  line-height: 1.55;
+}
+
+.quotation-module .quote-supplement-fields {
+  display: grid;
+  gap: 11px;
+}
+
+.quotation-module .quote-supplement-field {
+  display: grid;
+  gap: 6px;
+  color: #56645b;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.quotation-module .quote-supplement-fields .quote-supplement-field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #56645b;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: default;
+}
+
+.quotation-module .quote-supplement-field-heading small {
+  color: #52725c;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.quotation-module .quote-supplement-fields textarea {
+  width: 100%;
+  min-height: 66px;
+  resize: vertical;
+  border: 1px solid #e2e8e2;
+  border-radius: 7px;
+  background: #fcfdfb;
+  padding: 9px 11px;
+  color: #34443a;
+  font: inherit;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.quotation-module .quote-supplement-fields input[type="number"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  border: 1px solid #e2e8e2;
+  border-radius: 7px;
+  background: #fcfdfb;
+  padding: 0 11px;
+  color: #34443a;
+  font: inherit;
+  font-weight: 400;
+}
+
+.quotation-module .quote-supplement-structured-control {
+  display: grid;
+  grid-template-columns: minmax(120px, 220px) minmax(190px, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.quotation-module .quote-supplement-fields .quote-supplement-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.quotation-module .quote-supplement-confirm input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+}
+
+.quotation-module .quote-supplement-fields input:focus,
+.quotation-module .quote-supplement-fields textarea:focus {
+  outline: 0;
+  border-color: #8fb49a;
+  box-shadow: 0 0 0 3px #eaf3ed;
+}
+
+.quotation-module .quote-supplement-fields input:disabled {
+  background: #f7f8f6;
+  color: #68766d;
+}
+
+.quotation-module .quote-supplement-fields textarea:focus {
+  outline: 0;
+  border-color: #8fb49a;
+  box-shadow: 0 0 0 3px #eaf3ed;
+}
+
+.quotation-module .quote-supplement-fields textarea:disabled {
+  background: #f7f8f6;
+  color: #68766d;
+}
+
+.quotation-module .quote-supplement-field > small {
+  justify-self: end;
+  color: #98a39c;
+  font-size: 8px;
+  font-weight: 400;
+}
+
+.quotation-module .quote-supplement-products {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--color-outline-variant);
+  padding-top: 12px;
+}
+
+.quotation-module .quote-supplement-products-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quotation-module .quote-supplement-products-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.quotation-module .quote-supplement-products-heading strong {
+  color: #34443a;
+  font-size: 11px;
+}
+
+.quotation-module .quote-supplement-products-heading small,
+.quotation-module .quote-supplement-product-table td small {
+  color: #87938a;
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.quotation-module .quote-supplement-products-heading .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  font-size: 9px;
+}
+
+.quotation-module .quote-missing-product-list {
+  display: grid;
+  flex-basis: 100%;
+  gap: 7px;
+}
+
+.quotation-module .quote-missing-product {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid #f0e5ca;
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.quotation-module .quote-missing-product > div {
+  display: grid;
+  gap: 3px;
+}
+
+.quotation-module .quote-missing-product strong {
+  color: #705323;
+  font-size: 10px;
+}
+
+.quotation-module .quote-missing-product span {
+  color: #8b754e;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.quotation-module .quote-missing-product .button {
+  flex: none;
+  min-height: 30px;
+  font-size: 9px;
+}
+
+.quotation-module .quote-supplement-product-wrap {
+  overflow-x: auto;
+  border: 1px solid #e8ede8;
+  border-radius: 8px;
+}
+
+.quotation-module .quote-supplement-product-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  background: var(--color-surface-container-lowest);
+}
+
+.quotation-module .quote-supplement-product-table th,
+.quotation-module .quote-supplement-product-table td {
+  border-bottom: 1px solid var(--color-outline-variant);
+  padding: 9px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.quotation-module .quote-supplement-product-table th {
+  background: #f8faf8;
+  color: #6d7a71;
+  font-size: 9px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.quotation-module .quote-supplement-product-table td {
+  color: #34443a;
+  font-size: 10px;
+}
+
+.quotation-module .quote-supplement-product-table td .quote-supplement-row-missing {
+  display: block;
+  margin-top: 4px;
+  color: #9a6e22;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.quotation-module .quote-supplement-product-table td:first-child {
+  min-width: 245px;
+}
+
+.quotation-module .quote-supplement-product-table td:first-child input + input {
+  margin-top: 6px;
+}
+
+.quotation-module .quote-supplement-product-table td input,
+.quotation-module .quote-supplement-product-table td select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 72px;
+  height: 34px;
+  border: 1px solid #e2e8e2;
+  border-radius: 6px;
+  background: #fcfdfb;
+  padding: 0 8px;
+  color: #34443a;
+  font: inherit;
+  font-size: 10px;
+}
+
+.quotation-module .quote-supplement-card input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.quotation-module .quote-supplement-card input[type="number"]::-webkit-inner-spin-button,
+.quotation-module .quote-supplement-card input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.quotation-module .quote-supplement-product-table td input:focus,
+.quotation-module .quote-supplement-product-table td select:focus {
+  outline: 0;
+  border-color: #8fb49a;
+  box-shadow: 0 0 0 3px #eaf3ed;
+}
+
+.quotation-module .quote-supplement-product-table td input:disabled,
+.quotation-module .quote-supplement-product-table td select:disabled {
+  background: #f7f8f6;
+  color: #68766d;
+}
+
+.quotation-module .quote-supplement-product-table td strong {
+  display: block;
+  min-width: 90px;
+  padding: 9px 2px;
+  color: #34443a;
+  white-space: nowrap;
+}
+
+.quotation-module .quote-supplement-empty {
+  margin: 0;
+  color: #87938a;
+  font-size: 10px;
+}
+
+.quotation-module .quote-supplement-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.quotation-module .quote-supplement-actions .button {
+  min-height: 35px;
+  font-size: 9px;
+}
+
+@media (max-width: 600px) {
+  .quotation-module .quote-supplement-card {
+    padding: 14px 12px;
+  }
+
+  .quotation-module .quote-supplement-structured-control {
+    grid-template-columns: 1fr;
+  }
+}

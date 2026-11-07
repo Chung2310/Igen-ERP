@@ -5,7 +5,7 @@ import {
   CreditCard, Clock, Users as UsersIcon,
   Banknote, History, CalendarDays
 } from 'lucide-react';
-import { cn, toDisplayDate } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 import { useStudents } from '../../hooks/useStudents';
 import { toast } from '../../../../pages/Toast';
 import { Student } from '../../types';
@@ -193,13 +193,12 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
-          <h1 className="text-balance text-xl font-medium text-on-surface">Học phí</h1>
-          <p className="mt-1 text-xs font-normal text-slate-500">Số liệu theo kỳ: {toDisplayDate(appliedStartDate) || 'Tất cả lịch sử'} đến {toDisplayDate(appliedEndDate) || 'hiện tại'}</p>
+          <h1 className="text-balance text-lg font-semibold text-on-surface">Học phí</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleExport}
-            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-lg border border-sky-100 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-sky-50 hover:text-brand-primary transition-colors"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary md:flex-none"
           >
             <Download className="w-3.5 h-3.5" /> Xuất báo cáo
           </button>
@@ -233,14 +232,14 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
           label="HV còn nợ"
           value={stats.studentsWithDebt}
           icon={UsersIcon}
-          color="text-brand-primary"
+          color="text-sky-600"
           bgColor="bg-brand-primary/10"
           isText={false}
         />
       </div>
 
       {/* Filters */}
-      <div className="space-y-3 rounded-xl border border-sky-100 bg-brand-primary/5 p-3">
+      <div className="space-y-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
             <CalendarDays className="h-4 w-4" />
@@ -279,21 +278,22 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-2 rounded-xl border border-sky-100 bg-white p-3 shadow-sm sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-sm sm:grid-cols-3">
         <div className="space-y-0.5">
           <label className="text-xs font-normal text-slate-600">Trạng thái nợ</label>
           <RoadmapPicker value={debtFilter} placeholder="Tất cả" allowClear={false} options={[{ value: 'Tất cả', label: 'Tất cả' }, { value: 'Còn nợ', label: 'Còn nợ' }, { value: 'Đã hoàn thành', label: 'Đã hoàn thành' }]} onChange={setDebtFilter} />
         </div>
 
         <div className="space-y-0.5 sm:col-span-2">
-          <label className="text-xs font-normal text-slate-600">Tìm học viên</label>
+          <label htmlFor="fee-student-search" className="text-xs font-normal text-on-surface-variant">Tìm học viên</label>
           <div className="relative">
             <input
+              id="fee-student-search"
               type="text"
               placeholder="Tên / SĐT..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 w-full rounded-xl border border-sky-100 bg-white pl-9 pr-3 text-sm font-normal outline-none placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
+              className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/10"
             />
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           </div>
@@ -301,11 +301,11 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       </div>
 
       {/* Table Section */}
-      <div className="overflow-hidden rounded-xl border border-sky-100 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-sm">
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
-              <tr className="bg-brand-primary/10">
+              <tr className="bg-surface-container-low">
                 <th className="border-b border-sky-100 px-3 py-2.5 text-xs font-medium text-slate-700">Học viên</th>
                 {hasRankData && <th className="border-b border-sky-100 px-3 py-2.5 text-center text-xs font-medium text-slate-700">Hạng</th>}
                 <th className="whitespace-nowrap border-b border-sky-100 px-3 py-2.5 text-right text-xs font-medium text-slate-700">Tổng học phí</th>
@@ -460,18 +460,15 @@ interface FeeStatCardProps {
   isText?: boolean;
 }
 
-function FeeStatCard({ label, value, icon: Icon, color, bgColor }: FeeStatCardProps) {
+function FeeStatCard({ label, value, icon: Icon, color }: FeeStatCardProps) {
+  const tone = color.includes('emerald') ? 'green' : color.includes('orange') ? 'orange' : color.includes('sky') ? 'blue' : 'cyan';
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-sky-100 bg-white p-3 shadow-sm">
-      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", bgColor)}>
-        <Icon className={cn("w-4.5 h-4.5", color)} />
+    <div className={cn("student-stat-card flex min-w-0 items-center justify-between gap-3 rounded-md p-3", `student-stat-card--${tone}`)}>
+      <div className="min-w-0">
+        <p className="text-pretty text-xs font-medium">{label}</p>
+        <p className="mt-0.5 break-words text-lg font-semibold leading-tight tabular-nums sm:text-xl">{value}</p>
       </div>
-      <div>
-        <p className="whitespace-nowrap text-base font-medium leading-none text-slate-900">
-          {value}
-        </p>
-        <p className="mt-1 text-xs font-normal text-slate-500">{label}</p>
-      </div>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15"><Icon className="size-5" aria-hidden="true" /></span>
     </div>
   );
 }

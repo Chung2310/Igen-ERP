@@ -10,7 +10,8 @@ afterEach(cleanup);
 it('lưu doanh nghiệp và người liên hệ độc lập với lựa chọn VAT', async () => {
   const onSave = vi.fn(async () => undefined);
   render(<CustomerFormDialog onClose={vi.fn()} onSave={onSave} />);
-  fireEvent.change(screen.getByLabelText('Đối tượng khách hàng'), { target: { value: 'business' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Đối tượng khách hàng' }));
+  fireEvent.click(screen.getByRole('option', { name: 'Doanh nghiệp / tổ chức' }));
   fireEvent.change(screen.getByLabelText(/Tên doanh nghiệp/), { target: { value: 'Công ty A' } });
   fireEvent.change(screen.getByLabelText(/Số điện thoại/), { target: { value: '0901000001' } });
   fireEvent.change(screen.getByLabelText('Người liên hệ'), { target: { value: 'Nguyễn Văn A' } });

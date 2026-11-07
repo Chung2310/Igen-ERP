@@ -1,0 +1,31 @@
+/* Keep the student module's existing surfaces on the HR panel system. */
+.student-management-workspace :is(.rounded-xl, .rounded-2xl):not(.rounded-full) {
+  border-radius: 0.375rem;
+}
+
+.student-management-workspace [class~="bg-white"] {
+  background-color: var(--color-surface-container-lowest);
+}
+
+.student-management-workspace :is([class~="border-sky-100"], [class~="border-slate-100"], [class~="border-slate-200"]):is([class~="bg-white"], [class~="bg-slate-50"]) {
+  border-color: var(--color-outline-variant);
+}
+
+.student-management-workspace table > thead > tr {
+  border-bottom: 1px solid var(--color-outline-variant);
+  background-color: var(--color-surface-container-low);
+}
+
+.student-stat-card {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%),
+    linear-gradient(105deg, var(--student-stat-start), var(--student-stat-end));
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+  color: #fff;
+}
+
+.student-stat-card--purple { --student-stat-start: #7950e9; --student-stat-end: #6247e1; }
+.student-stat-card--blue { --student-stat-start: #4269f0; --student-stat-end: #2a60eb; }
+.student-stat-card--cyan { --student-stat-start: #0b92be; --student-stat-end: #06b2e6; }
+.student-stat-card--orange { --student-stat-start: #d85c27; --student-stat-end: #f47835; }
+.student-stat-card--rose { --student-stat-start: #dd3d69; --student-stat-end: #f46a83; }
+.student-stat-card--green { --student-stat-start: #169b63; --student-stat-end: #2bbb81; }

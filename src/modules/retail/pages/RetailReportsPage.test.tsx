@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { retailReportsApi } from "../api/retailReports.api";
+import { OverviewPeriodProvider, OverviewPeriodToolbar } from "../../../components/dashboard/OverviewPeriodContext";
 import type { RetailReport } from "../types";
 import RetailReportsPage from "./RetailReportsPage";
 
@@ -129,6 +130,21 @@ afterEach(() => {
 });
 
 describe("RetailReportsPage", () => {
+  it("keeps export beside the overview period and hides detailed filters", async () => {
+    window.history.replaceState(null, "", "/tong-quan?sub=ban-le&reportSku=OLD-SKU");
+    render(<OverviewPeriodProvider inlineNavigation><OverviewPeriodToolbar /><RetailReportsPage overview /></OverviewPeriodProvider>);
+    const periodBar = screen.getByRole("region", { name: "Kỳ thống kê Tổng quan" });
+    expect(screen.queryByRole("button", { name: /Lọc chi tiết/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Nhân viên bán hàng" })).toBeNull();
+    const exportButton = within(periodBar).getByRole("button", { name: "Xuất Excel" });
+    const periodButton = within(periodBar).getByRole("button", { name: "Kỳ thống kê" });
+    expect(exportButton.className).toContain("bg-excel-export");
+    expect(exportButton.compareDocumentPosition(periodButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await waitFor(() => expect(retailReportsApi.summary).toHaveBeenCalled());
+    const filters = vi.mocked(retailReportsApi.summary).mock.calls[0]?.[1];
+    expect(filters).not.toHaveProperty("sku");
+  });
+
   it("does not expose debt reminder operations in Retail", async () => {
     render(<RetailReportsPage />);
     await screen.findAllByText("Nguyễn An");
@@ -219,8 +235,10 @@ describe("RetailReportsPage", () => {
     ));
 
     await userEvent.click(screen.getByRole("button", { name: "Tùy chọn" }));
-    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2026-07-01" } });
-    fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "2026-08-10" } });
+    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "01/07/2026" } });
+    fireEvent.blur(screen.getByLabelText("Từ ngày"));
+    fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "10/08/2026" } });
+    fireEvent.blur(screen.getByLabelText("Đến ngày"));
     await userEvent.click(screen.getByRole("button", { name: "Áp dụng khoảng ngày" }));
     await waitFor(() => expect(retailReportsApi.summary).toHaveBeenLastCalledWith(
       { companyCode: "ACME", branchId: "B1" },
@@ -241,8 +259,8 @@ describe("RetailReportsPage", () => {
       { from: "2026-07-01", to: "2026-08-10" },
     ));
     expect(screen.getByRole("button", { name: "Tùy chọn" }).getAttribute("aria-pressed")).toBe("true");
-    expect((screen.getByLabelText("Từ ngày") as HTMLInputElement).value).toBe("2026-07-01");
-    expect((screen.getByLabelText("Đến ngày") as HTMLInputElement).value).toBe("2026-08-10");
+    expect((screen.getByLabelText("Từ ngày") as HTMLInputElement).value).toBe("01/07/2026");
+    expect((screen.getByLabelText("Đến ngày") as HTMLInputElement).value).toBe("10/08/2026");
   });
 
   it("validates reversed and over-366-day custom ranges before fetching", async () => {
@@ -252,8 +270,10 @@ describe("RetailReportsPage", () => {
 
     expect(screen.getByRole("group", { name: "Chọn khoảng báo cáo" })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Tùy chọn" }));
-    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2026-08-11" } });
-    fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "2026-08-10" } });
+    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "11/08/2026" } });
+    fireEvent.blur(screen.getByLabelText("Từ ngày"));
+    fireEvent.change(screen.getByLabelText("Đến ngày"), { target: { value: "10/08/2026" } });
+    fireEvent.blur(screen.getByLabelText("Đến ngày"));
     await userEvent.click(screen.getByRole("button", { name: "Áp dụng khoảng ngày" }));
     const rangeError = await screen.findByText("Ngày bắt đầu không được sau ngày kết thúc.");
     const fromInput = screen.getByLabelText("Từ ngày");
@@ -264,19 +284,21 @@ describe("RetailReportsPage", () => {
     expect(toInput.getAttribute("aria-describedby")).toBe(rangeError.id);
     expect(retailReportsApi.summary).toHaveBeenCalledTimes(callsBeforeCustom);
 
-    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2025-08-09" } });
+    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "09/08/2025" } });
+    fireEvent.blur(screen.getByLabelText("Từ ngày"));
     await userEvent.click(screen.getByRole("button", { name: "Áp dụng khoảng ngày" }));
     expect(await screen.findByText("Khoảng báo cáo tối đa 366 ngày.")).toBeTruthy();
     expect(retailReportsApi.summary).toHaveBeenCalledTimes(callsBeforeCustom);
 
-    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "2025-08-10" } });
+    fireEvent.change(screen.getByLabelText("Từ ngày"), { target: { value: "10/08/2025" } });
+    fireEvent.blur(screen.getByLabelText("Từ ngày"));
     await userEvent.click(screen.getByRole("button", { name: "Áp dụng khoảng ngày" }));
     await waitFor(() => expect(retailReportsApi.summary).toHaveBeenLastCalledWith(
       { companyCode: "ACME", branchId: "B1" },
       { from: "2025-08-10", to: "2026-08-10" },
     ));
-    expect(fromInput.getAttribute("aria-invalid")).toBe("false");
-    expect(toInput.getAttribute("aria-invalid")).toBe("false");
+    expect(fromInput.hasAttribute("aria-invalid")).toBe(false);
+    expect(toInput.hasAttribute("aria-invalid")).toBe(false);
   });
 
   it("renders backend metrics, charts and tables without exposing absent profit fields", async () => {
@@ -532,5 +554,23 @@ describe("RetailReportsPage", () => {
     setDocumentVisibility("hidden");
     setDocumentVisibility("visible");
     expect(retailReportsApi.summary).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the dense retail overview with six white-text KPIs and a real prior-period comparison", async () => {
+    vi.mocked(retailReportsApi.summary).mockResolvedValueOnce(report()).mockResolvedValueOnce(report({ summary: { ...report().summary, netSales: 1_000_000, orderCount: 2 } }));
+    const view = render(<RetailReportsPage overview />);
+    await screen.findByText("Tình hình bán lẻ & POS");
+    await waitFor(() => expect(retailReportsApi.summary).toHaveBeenCalledWith(
+      { companyCode: "ACME", branchId: "B1" },
+      { from: "2026-07-28", to: "2026-08-03" },
+    ));
+    expect(view.container.querySelectorAll(".finance-kpi")).toHaveLength(6);
+    expect(view.container.querySelectorAll(".finance-kpi .text-white")).toHaveLength(12);
+    expect(screen.getByText("Doanh thu theo kỳ")).toBeTruthy();
+    expect(screen.getByText("Cơ cấu thanh toán")).toBeTruthy();
+    expect(screen.getByText(/Kỳ so sánh: 28-07-2026 – 03-08-2026/)).toBeTruthy();
+    expect(screen.getByText("Biến động sản phẩm bán chạy")).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Kỳ biểu đồ doanh thu" })).toBeNull();
+    await screen.findByText(/200\.000 đ \(20%\)/);
   });
 });

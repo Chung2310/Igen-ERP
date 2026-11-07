@@ -10,14 +10,25 @@ type CategoryInput = {
 type CategoryApiRecord = Record<string, unknown>;
 
 export const inventoryCategoryService = {
-  subscribe(branchId: string, callback: (categories: ProductCategory[]) => void, onError?: (error: unknown) => void) {
+  // Giữ chữ ký cũ cho các caller chưa cập nhật; branchId không còn được gửi hoặc dùng để lọc.
+  subscribe(
+    callbackOrLegacyBranchId: string | ((categories: ProductCategory[]) => void),
+    callbackOrError?: ((categories: ProductCategory[]) => void) | ((error: unknown) => void),
+    legacyOnError?: (error: unknown) => void,
+  ) {
+    const callback: (categories: ProductCategory[]) => void = typeof callbackOrLegacyBranchId === "string"
+      ? callbackOrError as (categories: ProductCategory[]) => void
+      : callbackOrLegacyBranchId;
+    const onError: ((error: unknown) => void) | undefined = typeof callbackOrLegacyBranchId === "string"
+      ? legacyOnError
+      : callbackOrError as ((error: unknown) => void) | undefined;
+
     const controller = new AbortController();
     const fetchCategories = async () => {
       try {
         const res = await fetch("/api/v1/crud/categories?sort=-_id", {
           headers: {
             "Authorization": `Bearer ${getAccessToken()}`,
-            "x-branch-id": branchId,
           },
           signal: controller.signal,
         });
@@ -53,15 +64,12 @@ export const inventoryCategoryService = {
     };
   },
 
-  async createCategory(input: CategoryInput, branchId?: string) {
+  async createCategory(input: CategoryInput) {
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${getAccessToken()}`,
       };
-      if (branchId) {
-        headers["x-branch-id"] = branchId;
-      }
       const res = await fetch("/api/v1/crud/categories", {
         method: "POST",
         headers,
@@ -84,15 +92,12 @@ export const inventoryCategoryService = {
     }
   },
 
-  async updateCategory(id: string, input: CategoryInput, branchId?: string) {
+  async updateCategory(id: string, input: CategoryInput) {
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${getAccessToken()}`,
       };
-      if (branchId) {
-        headers["x-branch-id"] = branchId;
-      }
       const res = await fetch(`/api/v1/crud/categories/${id}`, {
         method: "PATCH",
         headers,
@@ -113,14 +118,11 @@ export const inventoryCategoryService = {
     }
   },
 
-  async deleteCategory(id: string, branchId?: string) {
+  async deleteCategory(id: string) {
     try {
       const headers: Record<string, string> = {
         "Authorization": `Bearer ${getAccessToken()}`,
       };
-      if (branchId) {
-        headers["x-branch-id"] = branchId;
-      }
       const res = await fetch(`/api/v1/crud/categories/${id}`, {
         method: "DELETE",
         headers,

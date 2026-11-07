@@ -4,7 +4,6 @@ import {
   ChevronDown,
   Loader2,
   Plus,
-  RefreshCw,
   RotateCcw,
   Settings2,
   X,
@@ -17,6 +16,7 @@ import {
   marketingCampaignService,
 } from '../../services/marketingCampaignService';
 import { toast } from '../../../../../pages/Toast';
+import { ErpRefreshButton } from '../../../../../components/common/ErpRefreshButton';
 import CampaignAssetOrders from './CampaignAssetOrders';
 import AssetOrderAIPreviewModal from './AssetOrderAIPreviewModal';
 
@@ -308,14 +308,7 @@ export default function CampaignAssetOrderSheet({ campaignId }: CampaignAssetOrd
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void loadOrders()}
-              disabled={loading}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Làm mới
-            </button>
+            <ErpRefreshButton onClick={() => void loadOrders()} loading={loading} />
             <button
               type="button"
               onClick={() => void fillAllRows()}

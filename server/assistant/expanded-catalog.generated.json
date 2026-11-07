@@ -18675,8 +18675,8 @@
   },
   {
     "id": "recruitment.pipeline.update",
-    "title": "Cập nhật quy trình tuyển dụng",
-    "description": "Thay thế toàn bộ danh sách bước theo thứ tự. Hãy tra cứu các bước hiện tại, giữ lại ID bằng tên bước khi sửa hoặc sắp xếp, và nêu đủ các bước muốn giữ; màu mặc định là #64748b. Hệ thống không cho tắt/xóa bước đang có ứng viên. Phiên bản được lấy tự động; cần xác nhận.",
+    "title": "Cập nhật các bước tuyển dụng",
+    "description": "Thay thế toàn bộ danh sách bước tuyển dụng theo thứ tự. Hãy tra cứu các bước hiện tại, giữ lại ID bằng tên bước khi sửa hoặc sắp xếp, và nêu đủ các bước muốn giữ; màu mặc định là #64748b. Hệ thống không cho tắt/xóa bước đang có ứng viên. Phiên bản được lấy tự động; cần xác nhận.",
     "module": "hr",
     "permissions": [
       "recruitment:manage"
@@ -18993,7 +18993,7 @@
       },
       {
         "key": "experience",
-        "label": "experience",
+        "label": "Kinh nghiệm",
         "type": "text",
         "systemRequired": false,
         "required": false,
@@ -19002,7 +19002,7 @@
       },
       {
         "key": "education",
-        "label": "education",
+        "label": "Trình độ học vấn",
         "type": "text",
         "systemRequired": false,
         "required": false,
@@ -19011,7 +19011,7 @@
       },
       {
         "key": "skills",
-        "label": "skills",
+        "label": "Kỹ năng",
         "type": "json",
         "systemRequired": false,
         "required": false,
@@ -19021,14 +19021,15 @@
             "type": "string",
             "required": false
           },
-          "required": false
+          "required": false,
+          "label": "Kỹ năng"
         },
         "source": "body",
         "apiKey": "skills"
       },
       {
         "key": "expectedSalary",
-        "label": "expectedSalary",
+        "label": "Lương mong muốn",
         "type": "number",
         "systemRequired": false,
         "required": false,
@@ -19047,7 +19048,7 @@
       },
       {
         "key": "source",
-        "label": "source",
+        "label": "Nguồn ứng viên",
         "type": "text",
         "systemRequired": false,
         "required": false,
@@ -19076,7 +19077,7 @@
       },
       {
         "key": "confirmDuplicate",
-        "label": "confirmDuplicate",
+        "label": "Xác nhận hồ sơ trùng",
         "type": "boolean",
         "systemRequired": false,
         "required": false,
@@ -19254,7 +19255,7 @@
       },
       {
         "key": "experience",
-        "label": "experience",
+        "label": "Kinh nghiệm",
         "type": "text",
         "systemRequired": false,
         "required": false,
@@ -19263,7 +19264,7 @@
       },
       {
         "key": "education",
-        "label": "education",
+        "label": "Trình độ học vấn",
         "type": "text",
         "systemRequired": false,
         "required": false,
@@ -19272,7 +19273,7 @@
       },
       {
         "key": "skills",
-        "label": "skills",
+        "label": "Kỹ năng",
         "type": "json",
         "systemRequired": false,
         "required": false,
@@ -19282,14 +19283,15 @@
             "type": "string",
             "required": false
           },
-          "required": false
+          "required": false,
+          "label": "Kỹ năng"
         },
         "source": "body",
         "apiKey": "skills"
       },
       {
         "key": "expectedSalary",
-        "label": "expectedSalary",
+        "label": "Lương mong muốn",
         "type": "number",
         "systemRequired": false,
         "required": false,
@@ -19308,7 +19310,7 @@
       },
       {
         "key": "source",
-        "label": "source",
+        "label": "Nguồn ứng viên",
         "type": "text",
         "systemRequired": false,
         "required": false,
@@ -19337,7 +19339,7 @@
       },
       {
         "key": "confirmDuplicate",
-        "label": "confirmDuplicate",
+        "label": "Xác nhận hồ sơ trùng",
         "type": "boolean",
         "systemRequired": false,
         "required": false,
@@ -19760,7 +19762,7 @@
       {
         "key": "scheduledStart",
         "label": "Thời gian bắt đầu",
-        "type": "date",
+        "type": "datetime",
         "systemRequired": true,
         "required": true,
         "source": "body",
@@ -19769,7 +19771,7 @@
       {
         "key": "scheduledEnd",
         "label": "Thời gian kết thúc",
-        "type": "date",
+        "type": "datetime",
         "systemRequired": true,
         "required": true,
         "source": "body",
@@ -19991,7 +19993,7 @@
       {
         "key": "scheduledStart",
         "label": "Thời gian bắt đầu",
-        "type": "date",
+        "type": "datetime",
         "systemRequired": false,
         "required": false,
         "source": "body",
@@ -20000,7 +20002,7 @@
       {
         "key": "scheduledEnd",
         "label": "Thời gian kết thúc",
-        "type": "date",
+        "type": "datetime",
         "systemRequired": false,
         "required": false,
         "source": "body",
@@ -22561,7 +22563,7 @@
   {
     "id": "account.assistant-settings.read",
     "title": "Xem cài đặt trợ lý của tôi",
-    "description": "Xem chế độ cửa sổ, phím gửi, gợi ý, yêu cầu xác nhận và phát âm thanh của tài khoản đang đăng nhập. Nội dung hướng dẫn tùy chỉnh không được hiển thị.",
+    "description": "Xem chế độ cửa sổ, phím gửi, gợi ý, yêu cầu xác nhận, phát âm thanh và nghe từ khóa của tài khoản đang đăng nhập. Nội dung hướng dẫn tùy chỉnh không được hiển thị.",
     "module": "chat",
     "permissions": [
       "chat:read"
@@ -22582,14 +22584,15 @@
       "enterToSend",
       "showSuggestions",
       "alwaysConfirm",
-      "speakReplies"
+      "speakReplies",
+      "wakeWordEnabled"
     ],
     "adapter": "contract"
   },
   {
     "id": "account.assistant-settings.update",
     "title": "Cập nhật cài đặt trợ lý của tôi",
-    "description": "Cập nhật một hoặc nhiều cài đặt cá nhân: cửa sổ nhỏ/toàn màn hình, cách gửi bằng Enter, gợi ý, yêu cầu xác nhận, phát âm thanh hoặc hướng dẫn tùy chỉnh tối đa 2.000 ký tự. Cài đặt không nêu sẽ được giữ nguyên; luôn xác nhận trước khi lưu.",
+    "description": "Cập nhật một hoặc nhiều cài đặt cá nhân: cửa sổ nhỏ/toàn màn hình, cách gửi bằng Enter, gợi ý, yêu cầu xác nhận, phát âm thanh, nghe từ khóa Hey Igen hoặc hướng dẫn tùy chỉnh tối đa 2.000 ký tự. Cài đặt không nêu sẽ được giữ nguyên; luôn xác nhận trước khi lưu.",
     "module": "chat",
     "permissions": [
       "chat:read"
@@ -22672,6 +22675,15 @@
         "apiKey": "speakReplies"
       },
       {
+        "key": "wakeWordEnabled",
+        "label": "Nghe lệnh bằng từ khóa Hey Igen",
+        "type": "boolean",
+        "systemRequired": false,
+        "required": false,
+        "source": "body",
+        "apiKey": "wakeWordEnabled"
+      },
+      {
         "key": "autoMemoryEnabled",
         "label": "Tự động lưu thông tin hữu ích",
         "type": "boolean",
@@ -22689,7 +22701,8 @@
       "enterToSend",
       "showSuggestions",
       "alwaysConfirm",
-      "speakReplies"
+      "speakReplies",
+      "wakeWordEnabled"
     ],
     "adapter": "contract"
   },
@@ -30314,8 +30327,8 @@
   },
   {
     "id": "api.put.f369bafc104121fe",
-    "title": "Cập nhật giá bán SKU",
-    "description": "Cập nhật giá bán và giá vốn của một SKU tại chi nhánh hiện tại. Cần xác định SKU bằng mã đang có trong danh sách giá.",
+    "title": "Cập nhật giá nhập và giá bán SKU",
+    "description": "Cập nhật giá nhập (được lưu là giá vốn) và giá bán của một SKU tại chi nhánh hiện tại. Chọn tên sản phẩm trước, trợ lý sẽ liệt kê SKU thuộc sản phẩm đó; không cần biết mã SKU hoặc đã có bản ghi giá trước đó. Cần xác nhận trước khi lưu.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -30330,14 +30343,26 @@
     "fields": [
       {
         "key": "path_variantId",
-        "label": "SKU hoặc tên biến thể cần cập nhật giá",
+        "label": "SKU hoặc tên biến thể thuộc sản phẩm đã chọn",
         "type": "text",
         "systemRequired": true,
         "required": true,
         "source": "path",
         "apiKey": "variantId",
-        "reference": "inventory.prices.list",
-        "referenceValueKey": "variantId"
+        "reference": "inventory.product.detail",
+        "referenceParentKey": "query_productId",
+        "referenceValueKey": "id"
+      },
+      {
+        "key": "query_productId",
+        "label": "Sản phẩm cần chọn SKU",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "product.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "productId"
       },
       {
         "key": "sellingPrice",
@@ -30351,7 +30376,7 @@
       },
       {
         "key": "costPrice",
-        "label": "Giá vốn",
+        "label": "Giá nhập (giá vốn)",
         "type": "number",
         "systemRequired": false,
         "required": false,
@@ -30464,8 +30489,8 @@
   },
   {
     "id": "api.post.c29d50d7a2ebd989",
-    "title": "Tạo dữ liệu danh mục sản phẩm",
-    "description": "Tạo danh mục, thương hiệu, đơn vị tính hoặc thuộc tính sản phẩm. Tên là bắt buộc; mã có thể tự sinh. Đơn vị tính cần nhóm đo lường; nếu khai báo đơn vị gốc thì cần hệ số quy đổi lớn hơn 0. Thuộc tính dạng lựa chọn cần ít nhất một lựa chọn.",
+    "title": "Tạo thể loại / thư mục hoặc dữ liệu dùng chung cho sản phẩm",
+    "description": "Tạo thể loại / thư mục, thương hiệu, đơn vị tính hoặc thuộc tính sản phẩm. Với thể loại / thư mục, bỏ trống mục cha để tạo mục gốc hoặc chọn một mục đang hoạt động để tạo nhánh con; cây hỗ trợ tối đa 3 cấp. Khi người dùng nêu thư mục cha, phải đề xuất mục có sẵn để họ chọn, không tự tạo hoặc đoán mã. Tên là bắt buộc; mã có thể tự sinh. Đơn vị tính cần nhóm đo lường; nếu khai báo đơn vị gốc thì cần hệ số quy đổi lớn hơn 0. Thuộc tính dạng lựa chọn cần ít nhất một lựa chọn.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -30521,7 +30546,7 @@
       },
       {
         "key": "parentCode",
-        "label": "Tên hoặc mã danh mục cha",
+        "label": "Thể loại / thư mục cha",
         "type": "text",
         "systemRequired": false,
         "required": false,
@@ -31228,8 +31253,8 @@
   },
   {
     "id": "api.get.73c2a66d537e0fad",
-    "title": "Tra cứu kho hàng / danh mục / sản phẩm",
-    "description": "Tra cứu kho hàng / danh mục / sản phẩm. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "title": "Tra cứu sản phẩm",
+    "description": "Tìm sản phẩm theo tên, mã hoặc SKU trong công ty. Hỗ trợ lọc trạng thái, loại sản phẩm và phân trang để chọn sản phẩm khi nhập kho.",
     "module": "inventory",
     "permissions": [
       "inventory:read"
@@ -31241,16 +31266,86 @@
     ],
     "method": "GET",
     "path": "/inventory/catalog/products",
-    "fields": [],
+    "fields": [
+      {
+        "key": "query_q",
+        "label": "Từ khóa",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "q"
+      },
+      {
+        "key": "query_status",
+        "label": "Trạng thái",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "draft",
+          "active",
+          "inactive",
+          "archived"
+        ],
+        "source": "query",
+        "apiKey": "status"
+      },
+      {
+        "key": "query_productType",
+        "label": "Loại sản phẩm",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "physical",
+          "service",
+          "bundle"
+        ],
+        "source": "query",
+        "apiKey": "productType"
+      },
+      {
+        "key": "query_page",
+        "label": "Trang",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 1,
+        "integer": true,
+        "defaultValue": 1,
+        "source": "query",
+        "apiKey": "page"
+      },
+      {
+        "key": "query_limit",
+        "label": "Số kết quả",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 1,
+        "max": 100,
+        "integer": true,
+        "defaultValue": 100,
+        "source": "query",
+        "apiKey": "limit"
+      }
+    ],
     "link": "/kho-san-pham",
     "confirmation": false,
-    "resultFields": [],
+    "resultFields": [
+      "name",
+      "productCode",
+      "categoryCode",
+      "productType",
+      "status"
+    ],
     "adapter": "contract"
   },
   {
-    "id": "api.post.1c04c35c772be5d2",
-    "title": "Tạo sản phẩm và SKU",
-    "description": "Tạo sản phẩm cùng một SKU đầu tiên. Cần có danh mục, loại sản phẩm, tên SKU và đơn vị tính; có thể chọn danh mục/đơn vị theo tên.",
+    "id": "inventory.product.create.sellable",
+    "title": "Tạo sản phẩm và SKU kèm giá bán",
+    "description": "Tạo sản phẩm mới và SKU đầu tiên để có thể bán ngay. Bắt buộc có tên sản phẩm (được dùng làm tên SKU) và giá bán; chọn chi nhánh áp dụng giá. Mã SKU được tự sinh, đơn vị lấy theo sản phẩm hoặc đơn vị mặc định; giá vốn mặc định là 0 nếu chưa nêu. Sản phẩm được tạo ở trạng thái đang kinh doanh. Cần chọn thể loại / thư mục và xác nhận trước khi lưu.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -31261,8 +31356,19 @@
       ]
     ],
     "method": "POST",
-    "path": "/inventory/catalog/products",
+    "path": "/inventory/catalog/products/with-price",
     "fields": [
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh áp dụng giá bán",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
+      },
       {
         "key": "name",
         "label": "Tên",
@@ -31274,7 +31380,7 @@
       },
       {
         "key": "categoryCode",
-        "label": "Tên hoặc mã danh mục",
+        "label": "Tên hoặc mã thể loại / thư mục",
         "type": "text",
         "systemRequired": true,
         "required": true,
@@ -31297,6 +31403,7 @@
           "service",
           "bundle"
         ],
+        "defaultValue": "physical",
         "source": "body",
         "apiKey": "productType"
       },
@@ -31410,11 +31517,9 @@
         "systemRequired": false,
         "required": false,
         "options": [
-          "draft",
-          "active",
-          "inactive",
-          "archived"
+          "active"
         ],
+        "defaultValue": "active",
         "source": "body",
         "apiKey": "status"
       },
@@ -31514,143 +31619,27 @@
         "apiKey": "attributes"
       },
       {
-        "key": "variant",
-        "label": "SKU đầu tiên",
-        "type": "json",
+        "key": "sellingPrice",
+        "label": "Giá bán",
+        "type": "number",
+        "systemRequired": true,
+        "required": true,
+        "min": 0,
+        "integer": true,
+        "source": "body",
+        "apiKey": "sellingPrice"
+      },
+      {
+        "key": "costPrice",
+        "label": "Giá nhập (giá vốn)",
+        "type": "number",
         "systemRequired": false,
         "required": false,
-        "structure": {
-          "type": "object",
-          "keys": {
-            "sku": {
-              "type": "string",
-              "required": true
-            },
-            "barcode": {
-              "type": "string",
-              "required": false
-            },
-            "optionValues": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "keys": {
-                  "code": {
-                    "type": "string",
-                    "required": true
-                  },
-                  "value": {
-                    "type": "string",
-                    "required": true
-                  }
-                }
-              },
-              "required": false
-            },
-            "displayName": {
-              "type": "string",
-              "required": false
-            },
-            "unitCode": {
-              "type": "string",
-              "required": true,
-              "reference": "inventory.catalog.resource.list",
-              "referenceContext": {
-                "path_kind": "units"
-              },
-              "referenceValueKey": "code",
-              "label": "Mã hoặc tên đơn vị tính"
-            },
-            "trackingMode": {
-              "type": "string",
-              "required": false,
-              "options": [
-                "none",
-                "quantity",
-                "unit_barcode",
-                "serial",
-                "lot"
-              ]
-            },
-            "weightGrams": {
-              "type": "number",
-              "required": false,
-              "min": 0
-            },
-            "lengthMm": {
-              "type": "number",
-              "required": false,
-              "min": 0
-            },
-            "widthMm": {
-              "type": "number",
-              "required": false,
-              "min": 0
-            },
-            "heightMm": {
-              "type": "number",
-              "required": false,
-              "min": 0
-            },
-            "warrantyMonths": {
-              "type": "number",
-              "required": false,
-              "min": 0
-            },
-            "supplierWarrantyMonths": {
-              "type": "number",
-              "required": false,
-              "min": 0
-            },
-            "attributes": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "keys": {
-                  "code": {
-                    "type": "string",
-                    "required": true
-                  },
-                  "value": {
-                    "type": "string",
-                    "required": true
-                  },
-                  "unitCode": {
-                    "type": "string",
-                    "required": false
-                  }
-                }
-              },
-              "required": false
-            },
-            "mediaIds": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "required": false,
-                "reference": "resource.list",
-                "referenceValueKey": "id",
-                "referenceContext": {
-                  "query_section": "local",
-                  "resourceKind": "media"
-                },
-                "label": "Tệp ảnh/video"
-              },
-              "required": false
-            },
-            "status": {
-              "type": "string",
-              "required": false,
-              "options": [
-                "active",
-                "inactive",
-                "discontinued"
-              ]
-            }
-          }
-        },
+        "min": 0,
+        "integer": true,
+        "defaultValue": 0,
         "source": "body",
-        "apiKey": "variant"
+        "apiKey": "costPrice"
       }
     ],
     "link": "/kho-san-pham",
@@ -31660,7 +31649,9 @@
       "productCode",
       "productType",
       "categoryCode",
-      "status"
+      "status",
+      "sellingPrice",
+      "costPrice"
     ],
     "adapter": "contract"
   },
@@ -31691,7 +31682,7 @@
       },
       {
         "key": "categoryCode",
-        "label": "Tên hoặc mã danh mục",
+        "label": "Tên hoặc mã thể loại / thư mục",
         "type": "text",
         "systemRequired": true,
         "required": true,
@@ -31714,6 +31705,7 @@
           "service",
           "bundle"
         ],
+        "defaultValue": "physical",
         "source": "body",
         "apiKey": "productType"
       },
@@ -32153,7 +32145,7 @@
       },
       {
         "key": "categoryCode",
-        "label": "Tên hoặc mã danh mục",
+        "label": "Tên hoặc mã thể loại / thư mục",
         "type": "text",
         "systemRequired": false,
         "required": false,
@@ -32581,9 +32573,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.post.7ee0d5b45139f05d",
-    "title": "Thêm SKU cho sản phẩm",
-    "description": "Thêm SKU cho sản phẩm. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "id": "inventory.variant.create.sellable",
+    "title": "Thêm SKU kèm giá bán",
+    "description": "Thêm SKU cho sản phẩm đang kinh doanh để có thể bán ngay. Bắt buộc có tên hiển thị và giá bán; chọn chi nhánh áp dụng giá. Mã SKU được tự sinh, đơn vị tính lấy từ sản phẩm, giá vốn mặc định là 0 nếu chưa nêu. Các thông tin khác như mã vạch và cách theo dõi kho là tùy chọn. Cần xác nhận trước khi lưu.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -32594,25 +32586,61 @@
       ]
     ],
     "method": "POST",
-    "path": "/inventory/catalog/products/:id/variants",
+    "path": "/inventory/catalog/products/:id/variants/with-price",
     "fields": [
       {
         "key": "path_id",
-        "label": "Mã bản ghi",
+        "label": "Tên hoặc mã sản phẩm",
         "type": "text",
         "systemRequired": true,
         "required": true,
         "source": "path",
-        "apiKey": "id"
+        "apiKey": "id",
+        "reference": "product.list",
+        "referenceValueKey": "id"
       },
       {
-        "key": "sku",
-        "label": "Mã SKU",
+        "key": "targetBranch",
+        "label": "Chi nhánh áp dụng giá bán",
         "type": "text",
         "systemRequired": true,
         "required": true,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
+      },
+      {
+        "key": "displayName",
+        "label": "Tên SKU / tên biến thể",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "max": 200,
         "source": "body",
-        "apiKey": "sku"
+        "apiKey": "displayName"
+      },
+      {
+        "key": "sellingPrice",
+        "label": "Giá bán",
+        "type": "number",
+        "systemRequired": true,
+        "required": true,
+        "min": 0,
+        "integer": true,
+        "source": "body",
+        "apiKey": "sellingPrice"
+      },
+      {
+        "key": "costPrice",
+        "label": "Giá nhập (giá vốn)",
+        "type": "number",
+        "systemRequired": false,
+        "required": false,
+        "min": 0,
+        "integer": true,
+        "source": "body",
+        "apiKey": "costPrice"
       },
       {
         "key": "barcode",
@@ -32620,57 +32648,9 @@
         "type": "text",
         "systemRequired": false,
         "required": false,
+        "max": 100,
         "source": "body",
         "apiKey": "barcode"
-      },
-      {
-        "key": "optionValues",
-        "label": "optionValues",
-        "type": "json",
-        "systemRequired": false,
-        "required": false,
-        "structure": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "keys": {
-              "code": {
-                "type": "string",
-                "required": true
-              },
-              "value": {
-                "type": "string",
-                "required": true
-              }
-            }
-          },
-          "required": false
-        },
-        "source": "body",
-        "apiKey": "optionValues"
-      },
-      {
-        "key": "displayName",
-        "label": "displayName",
-        "type": "text",
-        "systemRequired": false,
-        "required": false,
-        "source": "body",
-        "apiKey": "displayName"
-      },
-      {
-        "key": "unitCode",
-        "label": "Mã hoặc tên đơn vị tính",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "reference": "inventory.catalog.resource.list",
-        "referenceValueKey": "code",
-        "referenceContext": {
-          "path_kind": "units"
-        },
-        "source": "body",
-        "apiKey": "unitCode"
       },
       {
         "key": "trackingMode",
@@ -32687,134 +32667,6 @@
         ],
         "source": "body",
         "apiKey": "trackingMode"
-      },
-      {
-        "key": "weightGrams",
-        "label": "weightGrams",
-        "type": "number",
-        "systemRequired": false,
-        "required": false,
-        "min": 0,
-        "source": "body",
-        "apiKey": "weightGrams"
-      },
-      {
-        "key": "lengthMm",
-        "label": "lengthMm",
-        "type": "number",
-        "systemRequired": false,
-        "required": false,
-        "min": 0,
-        "source": "body",
-        "apiKey": "lengthMm"
-      },
-      {
-        "key": "widthMm",
-        "label": "widthMm",
-        "type": "number",
-        "systemRequired": false,
-        "required": false,
-        "min": 0,
-        "source": "body",
-        "apiKey": "widthMm"
-      },
-      {
-        "key": "heightMm",
-        "label": "heightMm",
-        "type": "number",
-        "systemRequired": false,
-        "required": false,
-        "min": 0,
-        "source": "body",
-        "apiKey": "heightMm"
-      },
-      {
-        "key": "warrantyMonths",
-        "label": "Thời hạn bảo hành (tháng)",
-        "type": "number",
-        "systemRequired": false,
-        "required": false,
-        "min": 0,
-        "source": "body",
-        "apiKey": "warrantyMonths"
-      },
-      {
-        "key": "supplierWarrantyMonths",
-        "label": "supplierWarrantyMonths",
-        "type": "number",
-        "systemRequired": false,
-        "required": false,
-        "min": 0,
-        "source": "body",
-        "apiKey": "supplierWarrantyMonths"
-      },
-      {
-        "key": "attributes",
-        "label": "Thuộc tính",
-        "type": "json",
-        "systemRequired": false,
-        "required": false,
-        "structure": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "keys": {
-              "code": {
-                "type": "string",
-                "required": true
-              },
-              "value": {
-                "type": "string",
-                "required": true
-              },
-              "unitCode": {
-                "type": "string",
-                "required": false
-              }
-            }
-          },
-          "required": false
-        },
-        "source": "body",
-        "apiKey": "attributes"
-      },
-      {
-        "key": "mediaIds",
-        "label": "Hình ảnh/video",
-        "type": "json",
-        "systemRequired": false,
-        "required": false,
-        "structure": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "required": false,
-            "reference": "resource.list",
-            "referenceValueKey": "id",
-            "referenceContext": {
-              "query_section": "local",
-              "resourceKind": "media"
-            },
-            "label": "Tệp ảnh/video"
-          },
-          "required": false
-        },
-        "source": "body",
-        "apiKey": "mediaIds"
-      },
-      {
-        "key": "status",
-        "label": "Trạng thái",
-        "type": "text",
-        "systemRequired": false,
-        "required": false,
-        "options": [
-          "active",
-          "inactive",
-          "discontinued"
-        ],
-        "source": "body",
-        "apiKey": "status"
       }
     ],
     "link": "/kho-san-pham",
@@ -32824,7 +32676,9 @@
       "displayName",
       "unitCode",
       "trackingMode",
-      "status"
+      "status",
+      "sellingPrice",
+      "costPrice"
     ],
     "adapter": "contract"
   },
@@ -32990,7 +32844,7 @@
   {
     "id": "api.patch.78eb0c3b82d1f735",
     "title": "Cập nhật thông tin SKU",
-    "description": "Cập nhật thông tin SKU. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "description": "Cập nhật SKU theo tên sản phẩm và biến thể người dùng chọn. Hãy nhận diện sản phẩm trước, sau đó chỉ đưa ra các SKU thuộc sản phẩm đó để chọn; không yêu cầu người dùng biết mã nội bộ. Chỉ cập nhật các trường người dùng nêu và cần xác nhận trước khi lưu.",
     "module": "inventory",
     "permissions": [
       "inventory:manage"
@@ -33005,12 +32859,26 @@
     "fields": [
       {
         "key": "path_id",
-        "label": "Mã bản ghi",
+        "label": "Tên biến thể hoặc SKU thuộc sản phẩm đã chọn",
         "type": "text",
         "systemRequired": true,
         "required": true,
         "source": "path",
-        "apiKey": "id"
+        "apiKey": "id",
+        "reference": "inventory.product.detail",
+        "referenceParentKey": "query_productId",
+        "referenceValueKey": "id"
+      },
+      {
+        "key": "query_productId",
+        "label": "Sản phẩm cần chọn SKU",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "reference": "product.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "productId"
       },
       {
         "key": "barcode",
@@ -33706,7 +33574,8 @@
                 "required": true,
                 "reference": "inventory.product.detail",
                 "referenceParentKey": "productId",
-                "label": "SKU hoặc tên biến thể"
+                "referenceValueKey": "id",
+                "label": "SKU cần nhập của sản phẩm đã chọn"
               },
               "quantity": {
                 "type": "number",
@@ -33854,7 +33723,8 @@
                 "required": true,
                 "reference": "inventory.product.detail",
                 "referenceParentKey": "productId",
-                "label": "SKU hoặc tên biến thể"
+                "referenceValueKey": "id",
+                "label": "SKU cần nhập của sản phẩm đã chọn"
               },
               "quantity": {
                 "type": "number",
@@ -36016,18 +35886,20 @@
         "key": "device",
         "label": "Thông tin thiết bị",
         "type": "json",
-        "systemRequired": false,
-        "required": false,
+        "systemRequired": true,
+        "required": true,
         "structure": {
           "type": "object",
           "keys": {
             "name": {
               "type": "string",
-              "required": true
+              "required": true,
+              "label": "Tên thiết bị"
             },
             "condition": {
               "type": "string",
-              "required": true
+              "required": true,
+              "label": "Tình trạng thiết bị"
             },
             "serialNumber": {
               "type": "string",
@@ -36045,7 +35917,9 @@
               },
               "required": false
             }
-          }
+          },
+          "required": true,
+          "label": "Thông tin thiết bị"
         },
         "source": "body",
         "apiKey": "device"
@@ -38034,9 +37908,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.get.bf54b32b824b72a8",
-    "title": "Tra cứu bán lẻ / coupons / tiers",
-    "description": "Tra cứu bán lẻ / coupons / tiers. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "id": "retail.coupon.tier.list",
+    "title": "Tra cứu hạng khách hàng để áp dụng mã ưu đãi",
+    "description": "Tra cứu các hạng khách hàng đã cấu hình trong công ty để chọn đối tượng áp dụng mã ưu đãi.",
     "module": "retail",
     "permissions": [
       "pos:manage",
@@ -38050,10 +37924,25 @@
     ],
     "method": "GET",
     "path": "/retail/coupons/tiers",
-    "fields": [],
+    "fields": [
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh bán lẻ",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "reference": "branch.list",
+        "referenceValueKey": "id",
+        "source": "query",
+        "apiKey": "branchId"
+      }
+    ],
     "link": "/ban-le",
     "confirmation": false,
-    "resultFields": [],
+    "resultFields": [
+      "code",
+      "name"
+    ],
     "adapter": "contract"
   },
   {
@@ -38661,7 +38550,7 @@
   {
     "id": "api.post.b0d4095fce422005",
     "title": "Mở ca thu ngân POS",
-    "description": "Mở ca cho nhân viên có quyền POS tại chi nhánh hiện tại, có thể gắn quầy/két và tiền đầu ca. Chỉ quản lý được mở ca; mỗi nhân viên chỉ có một ca đang mở.",
+    "description": "Chọn nhân viên có quyền POS tại chi nhánh hiện tại để mở ca; có thể gắn quầy/két và tiền đầu ca. Chỉ quản lý được mở ca; mỗi nhân viên chỉ có một ca đang mở.",
     "module": "retail",
     "permissions": [
       "retail:manage"
@@ -38678,8 +38567,8 @@
         "key": "cashierId",
         "label": "Tên nhân viên thu ngân",
         "type": "text",
-        "systemRequired": false,
-        "required": false,
+        "systemRequired": true,
+        "required": true,
         "reference": "retail.shift.cashier.list",
         "source": "body",
         "apiKey": "cashierId"
@@ -39664,40 +39553,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.get.aa920d93cbdf3a79",
-    "title": "Tra cứu bán lẻ / đơn hàng / idempotency",
-    "description": "Tra cứu bán lẻ / đơn hàng / idempotency. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "retail",
-    "permissions": [
-      "retail:manage"
-    ],
-    "permissionGroups": [
-      [
-        "retail:manage"
-      ]
-    ],
-    "method": "GET",
-    "path": "/retail/orders/idempotency/:key",
-    "fields": [
-      {
-        "key": "path_key",
-        "label": "Mã key",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "key"
-      }
-    ],
-    "link": "/ban-le",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
     "id": "api.get.8a693893eea34b8a",
     "title": "Tra cứu đơn bán lẻ",
-    "description": "Tìm đơn hàng theo mã, khách hàng, trạng thái hoặc khoảng ngày trong chi nhánh đã chọn.",
+    "description": "Tìm đơn hàng theo mã, tên hoặc số điện thoại khách hàng, trạng thái đơn, trạng thái thanh toán hoặc khoảng ngày trong chi nhánh đã chọn.",
     "module": "retail",
     "permissions": [
       "pos:manage",
@@ -39808,14 +39666,12 @@
     "resultFields": [
       "orderCode",
       "customerName",
-      "customerPhone",
       "status",
       "paymentStatus",
       "grandTotal",
       "paidAmount",
       "refundedAmount",
       "dueAmount",
-      "version",
       "businessDate",
       "createdAt"
     ],
@@ -40931,37 +40787,6 @@
     "adapter": "contract"
   },
   {
-    "id": "api.get.50a4c95af69a5440",
-    "title": "Tra cứu bán lẻ / invoices / pdf",
-    "description": "Tra cứu bán lẻ / invoices / pdf. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
-    "module": "retail",
-    "permissions": [
-      "retail:manage"
-    ],
-    "permissionGroups": [
-      [
-        "retail:manage"
-      ]
-    ],
-    "method": "GET",
-    "path": "/retail/invoices/:id/pdf",
-    "fields": [
-      {
-        "key": "path_id",
-        "label": "Mã bản ghi",
-        "type": "text",
-        "systemRequired": true,
-        "required": true,
-        "source": "path",
-        "apiKey": "id"
-      }
-    ],
-    "link": "/ban-le",
-    "confirmation": false,
-    "resultFields": [],
-    "adapter": "contract"
-  },
-  {
     "id": "api.get.25096366f15d730b",
     "title": "Tra cứu bán lẻ / invoices",
     "description": "Tra cứu bán lẻ / invoices. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
@@ -40995,9 +40820,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.get.c05d54c535dd6f01",
-    "title": "Tra cứu bán lẻ / báo cáo / tổng hợp",
-    "description": "Tra cứu bán lẻ / báo cáo / tổng hợp. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "id": "retail.report.summary",
+    "title": "Tổng hợp doanh số bán lẻ",
+    "description": "Tổng hợp đơn hàng, doanh số, hoàn tiền, tiền đã thu, công nợ và sản phẩm bán chạy theo ngày trong chi nhánh đã chọn. Mặc định xem hôm nay; có thể chọn 7 hoặc 30 ngày gần đây, hoặc nêu ngày bắt đầu và kết thúc. Chỉ người có quyền quản lý xem được giá vốn và lợi nhuận; kết quả hội thoại không hiển thị thông tin định danh nội bộ hoặc danh sách công nợ theo khách.",
     "module": "retail",
     "permissions": [
       "retail:read",
@@ -41011,10 +40836,58 @@
     ],
     "method": "GET",
     "path": "/retail/reports/summary",
-    "fields": [],
+    "fields": [
+      {
+        "key": "targetBranch",
+        "label": "Chi nhánh bán lẻ",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "reference": "branch.list",
+        "source": "query",
+        "apiKey": "branchId"
+      },
+      {
+        "key": "query_from",
+        "label": "Từ ngày",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "from"
+      },
+      {
+        "key": "query_to",
+        "label": "Đến ngày",
+        "type": "date",
+        "systemRequired": false,
+        "required": false,
+        "source": "query",
+        "apiKey": "to"
+      },
+      {
+        "key": "query_preset",
+        "label": "preset",
+        "type": "text",
+        "systemRequired": false,
+        "required": false,
+        "options": [
+          "7d",
+          "30d"
+        ],
+        "source": "query",
+        "apiKey": "preset"
+      }
+    ],
     "link": "/ban-le",
     "confirmation": false,
-    "resultFields": [],
+    "resultFields": [
+      "range",
+      "summary",
+      "paymentMix",
+      "timeSeries",
+      "products"
+    ],
     "adapter": "contract"
   },
   {
@@ -48337,7 +48210,7 @@
   {
     "id": "api.post.e57ae0da3cdf14f8",
     "title": "Tạo chính sách hoa hồng đối tác lao động",
-    "description": "Tạo chính sách theo mốc tháng chính thức, hoa hồng thời vụ theo bậc giờ hoặc kết hợp cả hai. Cần tên, ngày hiệu lực, chu kỳ đối soát, trạng thái bật/tắt từng cơ chế và cấu hình tương ứng. Nếu bật official, số tháng phải có đủ mốc; nếu bật seasonal, cần phạm vi tổng hợp, kiểu bậc và ít nhất một bậc giờ cuối không giới hạn. Chính sách tạo mới được kích hoạt ngay sau khi lưu. Hãy hỏi các thông tin còn thiếu; thao tác cần xác nhận.",
+    "description": "Tạo chính sách hoa hồng cho một loại lao động: chính thức hoặc thời vụ. Cần cho người dùng chọn loại lao động trước, sau đó chỉ hỏi cấu hình riêng của loại đã chọn. Các thông tin chung gồm tên, ngày áp dụng và chu kỳ đối soát. Với lao động chính thức, số tháng phải khớp số mốc đã khai báo; với lao động thời vụ, cần phạm vi tổng hợp, cách tính bậc và ít nhất một bậc giờ cuối không giới hạn. Chính sách mới được kích hoạt sau khi lưu. Hãy hỏi thông tin còn thiếu; thao tác cần xác nhận.",
     "module": "partner",
     "permissions": [
       "labor-partner-policy:manage"
@@ -48380,7 +48253,7 @@
       },
       {
         "key": "settlementCycle",
-        "label": "settlementCycle",
+        "label": "Chu kỳ đối soát",
         "type": "json",
         "systemRequired": true,
         "required": true,
@@ -48393,24 +48266,31 @@
               "options": [
                 "calendar_month",
                 "cutoff_day"
-              ]
+              ],
+              "label": "Loại chu kỳ đối soát"
             },
             "cutoffDay": {
               "type": "number",
               "required": false,
               "min": 1,
               "integer": true,
-              "max": 28
+              "max": 28,
+              "requiredWhen": {
+                "field": "type",
+                "equals": "cutoff_day"
+              },
+              "label": "Ngày chốt đối soát"
             }
           },
-          "required": true
+          "required": true,
+          "label": "Chu kỳ đối soát"
         },
         "source": "body",
         "apiKey": "settlementCycle"
       },
       {
         "key": "official",
-        "label": "official",
+        "label": "Hoa hồng lao động chính thức",
         "type": "json",
         "systemRequired": true,
         "required": true,
@@ -48419,14 +48299,24 @@
           "keys": {
             "enabled": {
               "type": "boolean",
-              "required": true
+              "required": true,
+              "options": [
+                true,
+                false
+              ],
+              "label": "Áp dụng hoa hồng chính thức"
             },
             "maxMonths": {
               "type": "number",
               "required": false,
               "min": 1,
               "integer": true,
-              "max": 3
+              "max": 3,
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Số tháng tối đa"
             },
             "milestones": {
               "type": "array",
@@ -48438,12 +48328,15 @@
                     "required": true,
                     "min": 1,
                     "integer": true,
-                    "max": 3
+                    "max": 3,
+                    "label": "Tháng làm việc"
                   },
                   "amount": {
                     "type": "number",
                     "required": true,
-                    "min": 0
+                    "min": 0,
+                    "integer": true,
+                    "label": "Số tiền hoa hồng"
                   },
                   "eligibilityRule": {
                     "type": "string",
@@ -48452,31 +48345,41 @@
                       "contract_active",
                       "manual_confirmation",
                       "attendance_threshold"
-                    ]
+                    ],
+                    "label": "Điều kiện nhận"
                   },
                   "minWorkedDays": {
                     "type": "number",
                     "required": false,
-                    "min": 0
+                    "min": 0,
+                    "integer": true,
+                    "label": "Số ngày làm tối thiểu"
                   },
                   "minWorkedHours": {
                     "type": "number",
                     "required": false,
-                    "min": 0
+                    "min": 0,
+                    "label": "Số giờ làm tối thiểu"
                   }
                 }
               },
-              "required": false
+              "required": false,
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Các mốc hoa hồng"
             }
           },
-          "required": true
+          "required": true,
+          "label": "Hoa hồng lao động chính thức"
         },
         "source": "body",
         "apiKey": "official"
       },
       {
         "key": "seasonal",
-        "label": "seasonal",
+        "label": "Hoa hồng lao động thời vụ",
         "type": "json",
         "systemRequired": true,
         "required": true,
@@ -48485,7 +48388,12 @@
           "keys": {
             "enabled": {
               "type": "boolean",
-              "required": true
+              "required": true,
+              "options": [
+                true,
+                false
+              ],
+              "label": "Áp dụng hoa hồng thời vụ"
             },
             "aggregationScope": {
               "type": "string",
@@ -48493,7 +48401,12 @@
               "options": [
                 "partner_period",
                 "partner_project_period"
-              ]
+              ],
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Phạm vi tổng hợp"
             },
             "tierMode": {
               "type": "string",
@@ -48501,31 +48414,41 @@
               "options": [
                 "flat",
                 "progressive"
-              ]
+              ],
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Cách tính bậc hoa hồng"
             },
             "minHoursPerWorker": {
               "type": "number",
               "required": false,
-              "min": 0
+              "min": 0,
+              "label": "Số giờ tối thiểu mỗi người"
             },
             "maxEligibleHoursPerWorker": {
               "type": "number",
               "required": false,
-              "min": 0
+              "min": 0,
+              "label": "Số giờ tối đa được tính mỗi người"
             },
             "hourRounding": {
               "type": "object",
               "keys": {
                 "unitMinutes": {
-                  "type": "string",
+                  "type": "number",
                   "required": true,
+                  "min": 1,
+                  "integer": true,
                   "options": [
-                    "1",
-                    "5",
-                    "15",
-                    "30",
-                    "60"
-                  ]
+                    1,
+                    5,
+                    15,
+                    30,
+                    60
+                  ],
+                  "label": "Làm tròn theo số phút"
                 },
                 "mode": {
                   "type": "string",
@@ -48534,10 +48457,15 @@
                     "floor",
                     "nearest",
                     "ceil"
-                  ]
+                  ],
+                  "label": "Cách làm tròn số giờ"
                 }
               },
-              "required": true
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Quy tắc làm tròn giờ"
             },
             "moneyRounding": {
               "type": "object",
@@ -48546,7 +48474,8 @@
                   "type": "number",
                   "required": true,
                   "min": 1,
-                  "integer": true
+                  "integer": true,
+                  "label": "Làm tròn theo đơn vị đồng"
                 },
                 "mode": {
                   "type": "string",
@@ -48555,10 +48484,15 @@
                     "floor",
                     "nearest",
                     "ceil"
-                  ]
+                  ],
+                  "label": "Cách làm tròn tiền"
                 }
               },
-              "required": true
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Quy tắc làm tròn tiền"
             },
             "tiers": {
               "type": "array",
@@ -48568,24 +48502,35 @@
                   "minHours": {
                     "type": "number",
                     "required": true,
-                    "min": 0
+                    "min": 0,
+                    "label": "Từ số giờ"
                   },
                   "maxHours": {
                     "type": "number",
                     "required": false,
-                    "min": 0
+                    "min": 0,
+                    "nullable": true,
+                    "label": "Đến số giờ"
                   },
                   "hourlyRate": {
                     "type": "number",
                     "required": true,
-                    "min": 0
+                    "min": 0,
+                    "integer": true,
+                    "label": "Mức hoa hồng mỗi giờ"
                   }
                 }
               },
-              "required": false
+              "required": false,
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Các bậc giờ hoa hồng"
             }
           },
-          "required": true
+          "required": true,
+          "label": "Hoa hồng lao động thời vụ"
         },
         "source": "body",
         "apiKey": "seasonal"
@@ -48650,7 +48595,7 @@
   {
     "id": "api.patch.2971d5a8a97f8be8",
     "title": "Cập nhật chính sách hoa hồng đối tác lao động",
-    "description": "Thay thế toàn bộ cấu hình của chính sách đã chọn theo tên hoặc mã. Cần gửi đủ chu kỳ, cấu hình official và seasonal; các cờ enabled quyết định phần cấu hình áp dụng. Nếu chính sách đang ngừng, API tự kích hoạt lại sau khi cập nhật. Hãy hỏi thông tin còn thiếu; cần xác nhận trước khi ghi.",
+    "description": "Thay thế toàn bộ cấu hình của chính sách đã chọn theo tên hoặc mã. Cần gửi đủ chu kỳ đối soát và cấu hình hoa hồng chính thức, thời vụ; trạng thái áp dụng quyết định cấu hình tương ứng. Nếu chính sách đang ngừng, hệ thống sẽ kích hoạt lại sau khi cập nhật. Hãy hỏi thông tin còn thiếu; cần xác nhận trước khi ghi.",
     "module": "partner",
     "permissions": [
       "labor-partner-policy:manage"
@@ -48702,7 +48647,7 @@
       },
       {
         "key": "settlementCycle",
-        "label": "settlementCycle",
+        "label": "Chu kỳ đối soát",
         "type": "json",
         "systemRequired": true,
         "required": true,
@@ -48715,24 +48660,31 @@
               "options": [
                 "calendar_month",
                 "cutoff_day"
-              ]
+              ],
+              "label": "Loại chu kỳ đối soát"
             },
             "cutoffDay": {
               "type": "number",
               "required": false,
               "min": 1,
               "integer": true,
-              "max": 28
+              "max": 28,
+              "requiredWhen": {
+                "field": "type",
+                "equals": "cutoff_day"
+              },
+              "label": "Ngày chốt đối soát"
             }
           },
-          "required": true
+          "required": true,
+          "label": "Chu kỳ đối soát"
         },
         "source": "body",
         "apiKey": "settlementCycle"
       },
       {
         "key": "official",
-        "label": "official",
+        "label": "Hoa hồng lao động chính thức",
         "type": "json",
         "systemRequired": true,
         "required": true,
@@ -48741,14 +48693,24 @@
           "keys": {
             "enabled": {
               "type": "boolean",
-              "required": true
+              "required": true,
+              "options": [
+                true,
+                false
+              ],
+              "label": "Áp dụng hoa hồng chính thức"
             },
             "maxMonths": {
               "type": "number",
               "required": false,
               "min": 1,
               "integer": true,
-              "max": 3
+              "max": 3,
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Số tháng tối đa"
             },
             "milestones": {
               "type": "array",
@@ -48760,12 +48722,15 @@
                     "required": true,
                     "min": 1,
                     "integer": true,
-                    "max": 3
+                    "max": 3,
+                    "label": "Tháng làm việc"
                   },
                   "amount": {
                     "type": "number",
                     "required": true,
-                    "min": 0
+                    "min": 0,
+                    "integer": true,
+                    "label": "Số tiền hoa hồng"
                   },
                   "eligibilityRule": {
                     "type": "string",
@@ -48774,31 +48739,41 @@
                       "contract_active",
                       "manual_confirmation",
                       "attendance_threshold"
-                    ]
+                    ],
+                    "label": "Điều kiện nhận"
                   },
                   "minWorkedDays": {
                     "type": "number",
                     "required": false,
-                    "min": 0
+                    "min": 0,
+                    "integer": true,
+                    "label": "Số ngày làm tối thiểu"
                   },
                   "minWorkedHours": {
                     "type": "number",
                     "required": false,
-                    "min": 0
+                    "min": 0,
+                    "label": "Số giờ làm tối thiểu"
                   }
                 }
               },
-              "required": false
+              "required": false,
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Các mốc hoa hồng"
             }
           },
-          "required": true
+          "required": true,
+          "label": "Hoa hồng lao động chính thức"
         },
         "source": "body",
         "apiKey": "official"
       },
       {
         "key": "seasonal",
-        "label": "seasonal",
+        "label": "Hoa hồng lao động thời vụ",
         "type": "json",
         "systemRequired": true,
         "required": true,
@@ -48807,7 +48782,12 @@
           "keys": {
             "enabled": {
               "type": "boolean",
-              "required": true
+              "required": true,
+              "options": [
+                true,
+                false
+              ],
+              "label": "Áp dụng hoa hồng thời vụ"
             },
             "aggregationScope": {
               "type": "string",
@@ -48815,7 +48795,12 @@
               "options": [
                 "partner_period",
                 "partner_project_period"
-              ]
+              ],
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Phạm vi tổng hợp"
             },
             "tierMode": {
               "type": "string",
@@ -48823,31 +48808,41 @@
               "options": [
                 "flat",
                 "progressive"
-              ]
+              ],
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Cách tính bậc hoa hồng"
             },
             "minHoursPerWorker": {
               "type": "number",
               "required": false,
-              "min": 0
+              "min": 0,
+              "label": "Số giờ tối thiểu mỗi người"
             },
             "maxEligibleHoursPerWorker": {
               "type": "number",
               "required": false,
-              "min": 0
+              "min": 0,
+              "label": "Số giờ tối đa được tính mỗi người"
             },
             "hourRounding": {
               "type": "object",
               "keys": {
                 "unitMinutes": {
-                  "type": "string",
+                  "type": "number",
                   "required": true,
+                  "min": 1,
+                  "integer": true,
                   "options": [
-                    "1",
-                    "5",
-                    "15",
-                    "30",
-                    "60"
-                  ]
+                    1,
+                    5,
+                    15,
+                    30,
+                    60
+                  ],
+                  "label": "Làm tròn theo số phút"
                 },
                 "mode": {
                   "type": "string",
@@ -48856,10 +48851,15 @@
                     "floor",
                     "nearest",
                     "ceil"
-                  ]
+                  ],
+                  "label": "Cách làm tròn số giờ"
                 }
               },
-              "required": true
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Quy tắc làm tròn giờ"
             },
             "moneyRounding": {
               "type": "object",
@@ -48868,7 +48868,8 @@
                   "type": "number",
                   "required": true,
                   "min": 1,
-                  "integer": true
+                  "integer": true,
+                  "label": "Làm tròn theo đơn vị đồng"
                 },
                 "mode": {
                   "type": "string",
@@ -48877,10 +48878,15 @@
                     "floor",
                     "nearest",
                     "ceil"
-                  ]
+                  ],
+                  "label": "Cách làm tròn tiền"
                 }
               },
-              "required": true
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Quy tắc làm tròn tiền"
             },
             "tiers": {
               "type": "array",
@@ -48890,24 +48896,35 @@
                   "minHours": {
                     "type": "number",
                     "required": true,
-                    "min": 0
+                    "min": 0,
+                    "label": "Từ số giờ"
                   },
                   "maxHours": {
                     "type": "number",
                     "required": false,
-                    "min": 0
+                    "min": 0,
+                    "nullable": true,
+                    "label": "Đến số giờ"
                   },
                   "hourlyRate": {
                     "type": "number",
                     "required": true,
-                    "min": 0
+                    "min": 0,
+                    "integer": true,
+                    "label": "Mức hoa hồng mỗi giờ"
                   }
                 }
               },
-              "required": false
+              "required": false,
+              "requiredWhen": {
+                "field": "enabled",
+                "equals": true
+              },
+              "label": "Các bậc giờ hoa hồng"
             }
           },
-          "required": true
+          "required": true,
+          "label": "Hoa hồng lao động thời vụ"
         },
         "source": "body",
         "apiKey": "seasonal"
@@ -49123,9 +49140,9 @@
     "adapter": "contract"
   },
   {
-    "id": "api.put.bac93de813d6d275",
-    "title": "Lưu worker quản lý / đối tác / chỉ số hiệu suất",
-    "description": "Lưu worker quản lý / đối tác / chỉ số hiệu suất. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "id": "worker.partner.kpi.set",
+    "title": "Đặt KPI giới thiệu cho đối tác lao động",
+    "description": "Đặt hoặc cập nhật chỉ tiêu số lao động cần giới thiệu cho đối tác theo từng tháng. Chọn đối tác theo tên hoặc mã; nếu không nêu tháng áp dụng, dùng tháng hiện tại. Cần xác nhận trước khi lưu.",
     "module": "partner",
     "permissions": [
       "labor-partner:manage"
@@ -49140,17 +49157,18 @@
     "fields": [
       {
         "key": "path_partnerId",
-        "label": "Mã đối tác",
+        "label": "Tên hoặc mã đối tác lao động",
         "type": "text",
         "systemRequired": true,
         "required": true,
         "source": "path",
-        "apiKey": "partnerId"
+        "apiKey": "partnerId",
+        "reference": "worker.partner.list"
       },
       {
         "key": "periodAnchor",
-        "label": "Mốc kỳ",
-        "type": "text",
+        "label": "Tháng áp dụng",
+        "type": "date",
         "systemRequired": true,
         "required": true,
         "source": "body",
@@ -49158,12 +49176,13 @@
       },
       {
         "key": "targetReferrals",
-        "label": "targetReferrals",
+        "label": "Chỉ tiêu số lao động cần giới thiệu",
         "type": "number",
         "systemRequired": true,
         "required": true,
         "min": 0,
         "max": 100000,
+        "integer": true,
         "source": "body",
         "apiKey": "targetReferrals"
       },
@@ -49173,13 +49192,19 @@
         "type": "text",
         "systemRequired": false,
         "required": false,
+        "max": 500,
         "source": "body",
         "apiKey": "note"
       }
     ],
     "link": "/doi-tac-lao-dong",
     "confirmation": true,
-    "resultFields": [],
+    "resultFields": [
+      "periodStart",
+      "periodEnd",
+      "targetReferrals",
+      "note"
+    ],
     "adapter": "contract"
   },
   {

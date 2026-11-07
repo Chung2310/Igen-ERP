@@ -1,6 +1,6 @@
 ﻿import { Router, Response } from "express";
 import { randomUUID } from "node:crypto";
-import { taskActivityUpdate, taskProgress } from "../service/kanban-task-progress";
+import { taskActivityUpdate, taskHelpRecipients, taskProgress } from "../service/kanban-task-progress";
 import mongoose from "mongoose";
 import { requireAuth, requirePermission, type AuthenticatedRequest } from "../middleware/auth";
 import { KanbanTaskModel } from "../model/kanban-task.model";
@@ -10,6 +10,7 @@ import { notificationService } from "../service/notification.service";
 import { kanbanAuditService } from "../service/kanban-audit.service";
 import { sourceUploadFinalizer } from "../service/source-upload-finalizer.service";
 import { calculateProjectProgress, deriveProjectLifecycle, newUploadAttachments, validateProjectPayload } from "../service/kanban-project.service";
+import { buildKanbanProjectListFilter, buildKanbanTaskListFilter } from "../service/kanban-list-filter";
 import { currentPeriodKey, getMonthlyKpiReport } from "../service/kanban-monthly-kpi.service";
 import { emitToCompany, emitToUser } from "../socket";
 
@@ -235,9 +236,7 @@ kanbanRouter.get("/tasks", requirePermission("work:read") as any, async (req: Au
     } else if (req.query.branchId) {
       filter.branchId = req.query.branchId;
     }
-    if (!isManager(req.user?.role)) {
-      filter.$or = [{ assigneeUid: req.user?.id }, { creatorUid: req.user?.id }];
-    }
+    Object.assign(filter, buildKanbanTaskListFilter(req.query as Record<string, unknown>, { id: req.user?.id, role: req.user?.role }));
     const tasks = await KanbanTaskModel.find(filter).sort("-createdAt").lean();
     const now = Date.now();
     const nextDay = now + 24 * 60 * 60 * 1000;
@@ -337,14 +336,16 @@ kanbanRouter.patch("/tasks/:id/activity", requirePermission("work:read") as any,
       throw httpError(400, "Chưa đến thời gian bắt đầu đã chọn nên không thể hoàn thành công việc.");
     }
     let requestedHelperUid = "";
+    let requestedHelperName = "";
     if (req.body.action === "help") {
       if (req.body.helpers !== undefined) throw httpError(400, "Chỉ được chọn một nhân viên hỗ trợ.");
       if (req.body.helper !== undefined) {
         const helperUid = req.body.helper?.uid;
         if (typeof helperUid !== "string" || !mongoose.isValidObjectId(helperUid)) throw httpError(400, "Nhân viên hỗ trợ không hợp lệ.");
-        const helper = await UserModel.findOne({ _id: helperUid, companyCode: task.companyCode }).select("_id branchId").lean();
+        const helper = await UserModel.findOne({ _id: helperUid, companyCode: task.companyCode }).select("_id branchId displayName").lean();
         if (!helper || (task.branchId && String(helper.branchId || "") !== String(task.branchId))) throw httpError(400, "Nhân viên hỗ trợ không thuộc phạm vi công việc.");
         requestedHelperUid = helperUid;
+        requestedHelperName = helper.displayName;
       }
     }
     const result = taskActivityUpdate(task, req.body, { uid, name: await actorName(req), manager });
@@ -356,10 +357,26 @@ kanbanRouter.patch("/tasks/:id/activity", requirePermission("work:read") as any,
     emitToCompany(task.companyCode, "kanban:task-updated", { id: String(task._id) });
     if (req.body.action === "help") {
       try {
-        const recipients = new Set([task.creatorUid, task.assigneeUid, ...(task.helpers || []).map(helper => helper.uid), requestedHelperUid]);
-        recipients.delete(uid);
-        recipients.delete("");
-        await Promise.all([...recipients].map(recipientUid => notificationService.createNotification({ recipientUid, companyCode: task.companyCode, type: "task", read: false, title: "Công việc cần trợ giúp", body: `${task.title}: ${result.history.action}`, action: { tab: "NHÂN SỰ", subTab: "Giao Việc" } })));
+        const team = !requestedHelperUid
+          ? await UserModel.find({
+              companyCode: task.companyCode,
+              ...(task.branchId ? { branchId: task.branchId } : {}),
+              disabledAt: null,
+              lockedAt: null,
+            }).select("_id").lean()
+          : [];
+        const recipients = taskHelpRecipients(task, uid, requestedHelperUid, team.map((member) => String(member._id)));
+        await Promise.all(recipients.map((recipientUid) => notificationService.createNotification({
+          recipientUid,
+          companyCode: task.companyCode,
+          type: "task",
+          read: false,
+          title: recipientUid === uid ? "Đã gửi yêu cầu trợ giúp" : "Công việc cần trợ giúp",
+          body: recipientUid === uid
+            ? `Bạn đã gửi yêu cầu trợ giúp đến ${requestedHelperName || "các thành viên cùng chi nhánh"} cho công việc "${task.title}".`
+            : `${task.title}: ${result.history.action}`,
+          action: { tab: "NHÂN SỰ", subTab: "Giao Việc" },
+        })));
       } catch (error) { console.error("Task help notification failed", error); }
     }
     return res.json({ status: "success", data: toClient(updated) });
@@ -494,6 +511,7 @@ kanbanRouter.get("/projects", requirePermission("work:read") as any, async (req:
     } else if (req.query.branchId) {
       filter.branchId = req.query.branchId;
     }
+    Object.assign(filter, buildKanbanProjectListFilter(req.query as Record<string, unknown>));
     const projects: any[] = await ProjectModel.find(filter).sort("-createdAt").lean();
     const ids = projects.map((project) => String(project._id));
     const companyCodes = [...new Set(projects.map((project) => project.companyCode))];

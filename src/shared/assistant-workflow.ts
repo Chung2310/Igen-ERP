@@ -1,6 +1,10 @@
+import type { AssistantSpeechVoice } from "./assistant-speech-voices";
+
 export interface AssistantDataShape {
   type: string;
   required?: boolean;
+  requiredWhen?: AssistantRequiredCondition;
+  nullable?: boolean;
   keys?: Record<string, AssistantDataShape>;
   items?: AssistantDataShape;
   options?: (string | number | boolean)[];
@@ -70,10 +74,37 @@ export interface AssistantWorkflowUpdate {
   requireConfirmation: boolean;
   fields: { key: string; required: boolean; defaultValue?: AssistantValue }[];
 }
+export interface AssistantReferenceSelection {
+  key: string;
+  label: string;
+  required: boolean;
+  multiple: boolean;
+  options: { label: string; value: string }[];
+}
+export type AssistantTrainingLessonType = "youtube" | "document" | "other" | "text" | "video";
+export interface AssistantTrainingLessonAnswer {
+  title: string;
+  type: AssistantTrainingLessonType;
+  url?: string;
+  content?: string;
+  fileName?: string;
+  uploadToken?: string;
+}
+export interface AssistantTrainingQuizAnswer {
+  question: string;
+  options: string[];
+  correctOptionIndex: number;
+}
+export interface AssistantTrainingContentForm {
+  lessons: AssistantTrainingLessonAnswer[];
+  quizzes: AssistantTrainingQuizAnswer[];
+}
 export interface AssistantReply {
   reply: string;
   status: "collecting" | "confirmation" | "completed" | "cancelled" | "unsupported" | "failed" | "processing" | "uncertain";
   action?: { requiresPassword?: boolean; id: string; title: string; values: { label: string; value: AssistantValue; defaulted?: boolean }[] };
+  referenceSelections?: AssistantReferenceSelection[];
+  trainingContentForm?: AssistantTrainingContentForm;
   link?: string;
 }
 
@@ -83,8 +114,8 @@ export interface AssistantTableAttachment {
   rows: Array<Record<string, string>>;
 }
 
-export interface AssistantSettings { version: number; windowMode: "window" | "fullscreen"; enterToSend: boolean; showSuggestions: boolean; instructions: string; responseRules: string; alwaysConfirm: boolean; speakReplies: boolean; memoryEnabled: boolean; autoMemoryEnabled: boolean; }
-export const defaultAssistantSettings: AssistantSettings = { version: 0, windowMode: "window", enterToSend: true, showSuggestions: true, instructions: "", responseRules: "Trả lời bằng tiếng Việt tự nhiên, thân thiện và ngắn gọn; xưng mình–bạn. Giữ mạch hội thoại, tránh câu mẫu máy móc và không hiển thị JSON thô. Nếu thiếu thông tin, hỏi rõ từng ý cần bổ sung. Chỉ báo thao tác thành công khi hệ thống xác nhận đã hoàn tất; nếu không tìm thấy hoặc chưa hỗ trợ, giải thích nhẹ nhàng và gợi ý bước tiếp theo.", alwaysConfirm: false, speakReplies: false, memoryEnabled: true, autoMemoryEnabled: true };
+export interface AssistantSettings { version: number; windowMode: "window" | "fullscreen"; enterToSend: boolean; showSuggestions: boolean; instructions: string; responseRules: string; alwaysConfirm: boolean; speakReplies: boolean; speechVoice: AssistantSpeechVoice; wakeWordEnabled: boolean; memoryEnabled: boolean; autoMemoryEnabled: boolean; }
+export const defaultAssistantSettings: AssistantSettings = { version: 0, windowMode: "window", enterToSend: true, showSuggestions: true, instructions: "", responseRules: "Trả lời bằng tiếng Việt tự nhiên, thân thiện và ngắn gọn; xưng mình–bạn. Giữ mạch hội thoại, tránh câu mẫu máy móc và không hiển thị JSON thô. Nếu thiếu thông tin, hỏi rõ từng ý cần bổ sung. Chỉ báo thao tác thành công khi hệ thống xác nhận đã hoàn tất; nếu không tìm thấy hoặc chưa hỗ trợ, giải thích nhẹ nhàng và gợi ý bước tiếp theo.", alwaysConfirm: false, speakReplies: false, speechVoice: "sarah", wakeWordEnabled: false, memoryEnabled: true, autoMemoryEnabled: true };
 
 /** Human-readable source for existing personal workflows and seeded templates. */
 export function workflowToText(workflow: AssistantWorkflow): string {

@@ -1,11 +1,13 @@
 import React from "react";
-import { Check, ChevronLeft, ChevronRight, ClipboardCheck, Eye, ListChecks, Pencil, Plus, RefreshCw, Route, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ClipboardCheck, Eye, ListChecks, Pencil, Plus, Route, X } from "lucide-react";
+import { ErpRefreshButton } from "../../../../components/common/ErpRefreshButton";
 import { toast } from "../../../../pages/Toast";
 import { useBatches } from "../../hooks/useBatches";
 import { useCourses } from "../../hooks/useCourses";
 import { createRoadmap, getBatchProgression, getRoadmaps, getWaitlist, placeWaitlist, saveProgression, updateRoadmap, type BatchProgression, type LearningRoadmap, type ProgressionRow, type RoadmapStep, type WaitlistRow } from "../../api/learningRoadmap.api";
 import { RoadmapPicker } from "../../components/ui/RoadmapPicker";
 import { PartnerFormDropdown } from "../Partners/components/PartnerFormDropdown";
+import { ErpPrimaryButton } from "../../components/Erp/ErpUI";
 import { StudentEmptyIllustration, type StudentEmptyIllustrationKind } from "../../components/Erp/StudentEmptyIllustration";
 
 type Props = { selectedCenter?: string; canManage: boolean; };
@@ -21,7 +23,7 @@ export function LearningRoadmapPage({ selectedCenter, canManage }: Props) {
   const load = React.useCallback(async () => { setLoading(true); try { setRoadmaps(await getRoadmaps()); } catch (error) { toast.error(error instanceof Error ? error.message : "Không thể tải lộ trình."); } finally { setLoading(false); } }, []);
   React.useEffect(() => { void load(); }, [load]);
   return <div className="mx-auto max-w-[1600px] space-y-4 p-3 sm:p-4">
-    <header className="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-end lg:justify-between"><div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary"><h1 className="text-balance text-xl font-medium text-on-surface">Lộ trình & danh sách chờ</h1><p className="mt-1 text-sm text-slate-500">Điều phối lên lớp theo từng mốc mà vẫn giữ nguyên lịch sử lớp nguồn.</p></div><div className="flex gap-2"><button type="button" title="Làm mới" onClick={() => void load()} className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50"><RefreshCw className="h-4 w-4" /></button>{canManage ? <button type="button" onClick={() => setCreating(true)} className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#00ADFC] px-3 text-sm font-medium text-white transition-colors hover:bg-[#0099e5]"><Plus className="h-4 w-4" />Tạo lộ trình</button> : null}</div></header>
+    <header className="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-end lg:justify-between"><div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary"><h1 className="text-balance text-xl font-medium text-on-surface">Lộ trình & danh sách chờ</h1></div><div className="flex gap-2"><ErpRefreshButton onClick={() => void load()} />{canManage ? <ErpPrimaryButton onClick={() => setCreating(true)}>Tạo lộ trình</ErpPrimaryButton> : null}</div></header>
     <div className="flex gap-1 overflow-x-auto border-b border-slate-200"><Nav active={view === "roadmaps"} icon={Route} onClick={() => setView("roadmaps")}>Lộ trình</Nav><Nav active={view === "progression"} icon={ClipboardCheck} onClick={() => setView("progression")}>Đánh giá lên lớp</Nav><Nav active={view === "waitlist"} icon={ListChecks} onClick={() => setView("waitlist")}>Danh sách chờ</Nav></div>
     {view === "roadmaps" ? <Roadmaps roadmaps={roadmaps} courses={courses} loading={loading} canManage={canManage} onChanged={load} /> : null}
     {view === "progression" ? <ProgressionActive batches={batches} courses={courses} roadmaps={roadmaps} canManage={canManage} /> : null}

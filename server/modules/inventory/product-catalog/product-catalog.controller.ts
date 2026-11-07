@@ -115,6 +115,15 @@ export const productCatalogController = {
     }
   },
 
+  createSellableProduct: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const scope = await customerScopeFromRequest(req);
+      res.status(201).json({ success: true, data: await ProductCatalogService.createWithPrice(companyCode(req), req.body, scope.branchId, actor(req)) });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   bulkCreateWithVariants: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       res.status(201).json({ success: true, data: await ProductCatalogService.bulkCreateWithVariants(companyCode(req), req.body, actor(req)) });
@@ -143,6 +152,15 @@ export const productCatalogController = {
   createVariant: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       res.status(201).json({ success: true, data: await ProductCatalogService.createVariant(companyCode(req), req.params.id, req.body, actor(req)) });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  createSellableVariant: async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const scope = await customerScopeFromRequest(req);
+      res.status(201).json({ success: true, data: await ProductCatalogService.createVariantWithPrice(companyCode(req), req.params.id, req.body, scope.branchId, actor(req)) });
     } catch (error) {
       next(error);
     }

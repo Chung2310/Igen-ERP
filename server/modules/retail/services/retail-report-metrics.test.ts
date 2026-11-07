@@ -85,6 +85,27 @@ test("calculates gross, refunds, net, active order average, collected, due, and 
   });
 });
 
+test("treats missing legacy refund amounts as zero in totals, daily series, and cashier rows", () => {
+  const model = buildRetailReportModel({
+    orders: [
+      order({ orderCode: "LEGACY", refundedAmount: undefined }),
+      order({ orderCode: "REFUNDED", refundedAmount: 20 }),
+    ],
+    shifts: [shift()],
+    days: ["2026-08-10"],
+    today: "2026-08-10",
+    includeProfit: true,
+  });
+
+  assert.equal(model.summary.refunds, 20);
+  assert.equal(model.summary.netSales, 180);
+  assert.equal(model.summary.grossProfit, 60);
+  assert.equal(model.timeSeries[0].refunds, 20);
+  assert.equal(model.timeSeries[0].netSales, 180);
+  assert.equal(model.cashiers[0].refunds, 20);
+  assert.equal(model.cashiers[0].netSales, 180);
+});
+
 test("keeps a confirmed-then-cancelled order at net zero and excludes an expired draft", () => {
   const model = buildRetailReportModel({
     orders: [

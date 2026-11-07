@@ -7,5 +7,6 @@ export type WorkerDashboard = {
   projectsByStatus: { planned: number; active: number; completed: number };
   monthlyRegistrations: number[];
   topProjects: Array<{ name: string; allocated: number; quota: number }>;
+  contractAlerts?: { alertDays: number; expiringCount: number; expiredCount: number };
 };
 export const workerDashboardApi = { async get(companyCode: string, branchId?: string) { return (await workerApiFetch<{ data: WorkerDashboard }>("/worker-management/dashboard", { params: { companyCode, branchId } })).data; } };

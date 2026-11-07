@@ -1,29 +1,138 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../middleware/auth";
-import type { AssistantDataShape, AssistantField, AssistantReply, AssistantTableAttachment, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
+import type { AssistantDataShape, AssistantField, AssistantReferenceSelection, AssistantReply, AssistantTableAttachment, AssistantTrainingContentForm, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
+import { TRAINING_CATEGORY_OPTIONS } from "../../src/shared/training-categories";
 import { AssistantSessionModel, AssistantTurnModel, ensureAssistantIndexes } from "./models";
 import { actorScope, assertOperation, currentWorkflow, listWorkflows } from "./workflows";
-import { AssistantError, collectValues } from "./policy";
+import { AssistantError, collectValues, isAssistantFieldApplicable, isBlank } from "./policy";
 import { callOperation, lookupRecords, projectRecords, resolveNamedReferenceSelectors, resolveReferences, suggestReferenceOptions, UncertainExecutionError } from "./executor";
 import { getSettings } from "./settings";
 import { interpretRequest, isEmployeeDetailsIntent } from "./interpreter";
 import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
-import { formatFriendlyAssistantResult } from "./result-format";
+import { formatFriendlyAssistantResult, localizedAssistantFieldLabel } from "./result-format";
 import { applyAssistantResponseRules } from "./reply-rules";
 import { autoSaveAssistantMemories } from "./auto-memory";
-import { assistantMemoryContext, containsSensitiveMemoryContent, parseExplicitMemoryCommand, saveAssistantMemory } from "./memory";
-import { summarizeAssistantSession } from "./session-memory";
+import { assistantMemoryContext, containsSensitiveMemoryContent, forgetAssistantMemoryByContent, parseExplicitMemoryCommand, parseExplicitMemoryForgetCommand, saveAssistantMemory } from "./memory";
+import { SESSION_MEMORY_LIMIT, summarizeAssistantSession } from "./session-memory";
 import { mapAssistantTableAttachment } from "./table-import";
-import { answerAssistantGeneralQuestion } from "./general-answer";
-export interface TurnInput { conversationId: string; requestId: string; text?: string; attachment?: AssistantTableAttachment; decision?: { id: string; confirmed: boolean; password?: string }; }
-interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; skippedReferenceKeys?: string[]; }
+import { answerAssistantGeneralQuestion, normalizeAssistantReply } from "./general-answer";
+export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
+interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
+function restorePendingActionId(pending: PendingAction | null): PendingAction | null {
+  if (!pending || operationById(pending.actionId)) return pending;
+  const previousTitle = String(pending.preview?.title || "").trim();
+  if (!previousTitle) return pending;
+  const matches = ASSISTANT_OPERATIONS.filter(operation => operation.title.trim() === previousTitle);
+  return matches.length === 1 ? { ...pending, actionId: matches[0].id } : pending;
+}
+const internalAssistantIdPattern = /\b(?:[a-f\d]{24}|[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12})\b/gi;
+function hideInternalAssistantIds(value: string): string;
+function hideInternalAssistantIds(value: AssistantValue): AssistantValue;
+function hideInternalAssistantIds(value: AssistantValue): AssistantValue {
+  return typeof value === "string" ? value.replace(internalAssistantIdPattern, "Bản ghi đã chọn") : value;
+}
+function safeAssistantPreviewFieldValue(field: AssistantField, rawValue: AssistantValue, displayValue: AssistantValue): AssistantValue {
+  if (field.reference && (typeof displayValue === "number" || (typeof displayValue === "string" && /^\d{6,32}$/.test(displayValue.trim())))) {
+    return "Bản ghi đã chọn";
+  }
+  if (field.reference && typeof rawValue === "string" && /^\d{6,32}$/.test(rawValue.trim()) && displayValue === rawValue) {
+    return "Bản ghi đã chọn";
+  }
+  return hideInternalAssistantIds(displayValue);
+}
+function sanitizeActionPreview(preview: NonNullable<AssistantReply["action"]>) {
+  return { ...preview, values: preview.values.map(item => ({ ...item, value: hideInternalAssistantIds(item.value) })) };
+}
+function sanitizeReplyPreview(reply: AssistantReply | null | undefined): AssistantReply | null {
+  if (!reply) return null;
+  if (!reply.action) return reply;
+  return { ...reply, action: sanitizeActionPreview(reply.action) };
+}
+const isAssistantRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
+function parseStructuredAssistantValue(value: unknown) {
+  if (typeof value !== "string") return value && typeof value === "object" ? value : undefined;
+  try { return JSON.parse(value); } catch { return undefined; }
+}
+function requireExplicitReceiptItemSelections(op: AssistantOperation, values: Record<string, unknown>, selectedKeys: ReadonlySet<string>) {
+  if (op.id !== "inventory.receipt.create" || typeof values.items !== "string") return;
+  const items = parseStructuredAssistantValue(values.items);
+  if (!Array.isArray(items)) return;
+  items.forEach((item, index) => {
+    if (!isAssistantRecord(item)) return;
+    for (const key of ["productId", "variantId"]) {
+      if (!selectedKeys.has(`items[${index + 1}].${key}`)) delete item[key];
+    }
+  });
+  values.items = JSON.stringify(items);
+}
+function mergeStructuredAssistantValue(previous: unknown, incoming: unknown, shape: AssistantDataShape | undefined): unknown {
+  if (isBlank(incoming) && !isBlank(previous)) return previous;
+  if (shape?.type === "object" && isAssistantRecord(previous) && isAssistantRecord(incoming)) {
+    const merged = { ...previous };
+    for (const [key, value] of Object.entries(incoming)) {
+      merged[key] = Object.prototype.hasOwnProperty.call(previous, key)
+        ? mergeStructuredAssistantValue(previous[key], value, shape.keys?.[key])
+        : value;
+    }
+    return merged;
+  }
+  if (shape?.type === "array" && Array.isArray(previous) && Array.isArray(incoming)) {
+    if (!incoming.length && previous.length) return previous;
+    return incoming.map((value, index) => index < previous.length
+      ? mergeStructuredAssistantValue(previous[index], value, shape.items)
+      : value);
+  }
+  return incoming;
+}
+function normalizeStructuredAssistantValues(op: AssistantOperation, values: Record<string, unknown>, previous: Record<string, unknown> = {}) {
+  const normalized = { ...values };
+  for (const field of op.fields) {
+    if (field.type !== "json" || normalized[field.key] === undefined) continue;
+    const incoming = parseStructuredAssistantValue(normalized[field.key]);
+    const prior = parseStructuredAssistantValue(previous[field.key]);
+    if (incoming === undefined) {
+      // A plain-language reply can be mistakenly assigned to a JSON field by
+      // the interpreter. Preserve the valid partial object already collected
+      // (for example, the selected SKU unit) instead of replacing it with that
+      // raw sentence and losing the user's choice.
+      if (prior !== undefined) normalized[field.key] = JSON.stringify(prior);
+      continue;
+    }
+    normalized[field.key] = JSON.stringify(prior === undefined
+      ? incoming
+      : mergeStructuredAssistantValue(prior, incoming, field.structure));
+  }
+  return normalized;
+}
 const scopeOf = (req: AuthenticatedRequest) => ({ ...actorScope(req), branchId: req.user?.branchId || "" });
 const conversationReadScope = (req: AuthenticatedRequest) => {
   const scope = scopeOf(req);
   if (req.user?.role !== "admin") return scope;
   return { ...scope, branchId: { $in: [...new Set(["", scope.branchId])] } };
 };
-const friendlyResult = (op: AssistantOperation, value: unknown) => formatFriendlyAssistantResult(op, value);
+const sessionMemoryVersionFilter = (version: number) => version === 0
+  ? { $or: [{ sessionMemoryVersion: 0 }, { sessionMemoryVersion: { $exists: false } }] }
+  : { sessionMemoryVersion: version };
+const friendlyResult = (op: AssistantOperation, value: unknown) => hideInternalAssistantIds(formatFriendlyAssistantResult(op, value));
+export function missingOptionalCreateFields(create: AssistantOperation, workflow: AssistantWorkflow, submitted: Record<string, AssistantValue>, result: unknown, update: AssistantOperation): string[] {
+  if (create.method !== "POST" || !result || typeof result !== "object" || Array.isArray(result)) return [];
+  const record = result as Record<string, unknown>;
+  const editable = new Set(update.fields.filter(field => field.source !== "path" && field.source !== "query").map(field => field.apiKey || field.key));
+  const missing = (value: unknown) => value === undefined || value === null || (typeof value === "string" && !value.trim()) || (Array.isArray(value) && value.length === 0);
+  return workflow.fields.filter(field => {
+    const key = field.apiKey || field.key;
+    if (field.source === "path" || field.source === "query" || field.required || field.systemRequired || field.defaultValue !== undefined || !editable.has(key)) return false;
+    if (/^(?:id|_id|version|password|confirmPassword|companyCode|branchId|createdAt|updatedAt)$/i.test(key)) return false;
+    if (field.requiredWhen) {
+      const condition = field.requiredWhen;
+      const current = record[condition.field] ?? submitted[condition.field];
+      if (condition.equals !== undefined && (Array.isArray(condition.equals) ? condition.equals.includes(current as AssistantValue) : condition.equals === current)) return false;
+      if (condition.present && !missing(current)) return false;
+    }
+    return missing(record[key]) && missing(submitted[field.key]);
+  }).map(field => localizedAssistantFieldLabel(field.apiKey || field.key, field.label, create.id))
+    .filter((label, index, labels) => Boolean(label) && labels.indexOf(label) === index);
+}
 function friendlyFailure(error: unknown) {
   if (!(error instanceof AssistantError)) return "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công; bạn thử lại sau giúp mình nhé.";
   const message = error.message || "";
@@ -38,12 +147,63 @@ function friendlyFailure(error: unknown) {
   }
   return `Mình chưa làm được việc này: ${message}`;
 }
+export function inventoryReceiptFollowUpQuestion(
+  op: AssistantOperation,
+  missingLabels: string[],
+  referenceSelections: AssistantReferenceSelection[],
+  textPrompts: string[],
+) {
+  if (op.id !== "inventory.receipt.create") return "";
+  const productPending = referenceSelections.some(selection => /^items\[\d+\]\.productId$/.test(selection.key))
+    || textPrompts.some(prompt => prompt.includes("Tên hoặc mã sản phẩm"));
+  const variantPending = referenceSelections.some(selection => /^items\[\d+\]\.variantId$/.test(selection.key))
+    || textPrompts.some(prompt => prompt.includes("SKU cần nhập"));
+  if (productPending && variantPending) return "Bạn chọn giúp mình sản phẩm và SKU cần nhập trong danh sách bên dưới nhé.";
+  if (productPending) return "Bạn chọn giúp mình sản phẩm cần nhập trong danh sách bên dưới nhé.";
+  if (variantPending) return "Bạn chọn giúp mình SKU cần nhập trong danh sách bên dưới nhé.";
+
+  const itemFields = missingLabels.flatMap(label => {
+    const match = label.match(/^items · Mục (\d+) · (quantity|unitCost)$/u);
+    return match ? [{ row: match[1], field: match[2] }] : [];
+  });
+  const needsQuantity = itemFields.some(item => item.field === "quantity");
+  const needsUnitCost = itemFields.some(item => item.field === "unitCost");
+  if (!needsQuantity && !needsUnitCost) return "";
+
+  const multipleItems = new Set(itemFields.map(item => item.row)).size > 1;
+  if (needsQuantity && needsUnitCost) {
+    return multipleItems
+      ? "Bạn gửi giúp mình số lượng và giá nhập của từng SKU nhé. Ví dụ: SKU màu trắng: số lượng 10, giá nhập 25.000đ."
+      : "Bạn muốn nhập số lượng bao nhiêu và giá nhập của SKU này là bao nhiêu? Ví dụ: số lượng 10, giá nhập 25.000đ.";
+  }
+  if (needsQuantity) return "Bạn muốn nhập số lượng bao nhiêu cho SKU này?";
+  return "Bạn cho mình biết giá nhập của SKU này nhé. Ví dụ: 25.000đ.";
+}
 const processingReply = (): AssistantReply => ({ status: "processing", reply: "Mình đang xử lý yêu cầu trước. Bạn chờ mình một chút nhé; chưa cần gửi lại yêu cầu." });
 const uncertainReply = (): AssistantReply => ({ status: "uncertain", reply: "Mình chưa xác nhận được yêu cầu trước đã hoàn tất hay chưa. Bạn kiểm tra dữ liệu trong phân hệ giúp mình trước khi thử lại nhé; mình không tự chạy lại để tránh tạo trùng." });
 const hasUpdatePayload = (op: AssistantOperation, values: Record<string, unknown>) => op.adapter === "contract"
   ? op.fields.some(field => field.source === "body" && !/^(?:expectedVersion|idempotencyKey)$/i.test(field.apiKey || field.key) && values[field.key] !== undefined)
   : Object.keys(values).some(key => key !== "id" && !key.startsWith("path_") && !/^(?:expectedVersion|idempotencyKey)$/i.test(key));
 function updateDetailsQuestion(op: AssistantOperation, intent: string, values: Record<string, unknown>) {
+  if (op.id === "student.batch.update" && isBatchTitleRenameRequest(intent)) {
+    return "Bạn muốn sửa thông tin nào của lớp đã chọn? Tên và mã lớp không thể đổi sau khi tạo. Tiêu đề hiển thị lấy từ khóa học; nếu muốn đổi khóa học gắn với riêng lớp này, hãy cho biết khóa học muốn chọn. Bạn cũng có thể sửa lịch học, giờ, ngày, giảng viên, địa điểm hoặc lộ trình.";
+  }
+  if (op.id === "student.batch.update") {
+    return "Bạn muốn sửa thông tin nào của lớp đã chọn? Có thể cập nhật lịch học, giờ, ngày, giảng viên, địa điểm, khóa học hoặc lộ trình.";
+  }
+  if (op.id === "hr.workflow.update") {
+    let processName = "quy trình đã chọn";
+    let stepTitles: string[] = [];
+    try {
+      const existing = JSON.parse(String(values.__assistantExistingRecord || ""));
+      if (typeof existing.name === "string" && existing.name.trim()) processName = existing.name.trim();
+      if (Array.isArray(existing.steps)) stepTitles = existing.steps.slice(0, 30).map((step: any) => String(step?.title || "").trim()).filter(Boolean);
+    } catch { /* keep the follow-up question useful without an optional summary */ }
+    const currentSteps = stepTitles.length
+      ? ` Hiện có các bước: ${stepTitles.map((title, index) => `${index + 1}. ${title}`).join("; ")}. Nếu sửa danh sách bước, gửi giúp mình đầy đủ thứ tự các bước muốn giữ; mình sẽ giữ thông tin của bước trùng tên.`
+      : " Nếu sửa danh sách bước, gửi giúp mình đầy đủ thứ tự các bước muốn có nhé.";
+    return `Bạn muốn mình cập nhật thông tin nào của quy trình “${processName}” — tên, nhóm, mô tả hay các bước?${currentSteps}`;
+  }
   if (op.id === "company-knowledge.documents.scopes.update") return "Bạn muốn mình đổi kênh áp dụng, mục đích sử dụng, loại tài liệu hay áp dụng cho tất cả trang?";
   if (op.path === "/partners/:id" && /(?:thông tin (?:chuyển khoản|tài khoản)|chuyển khoản)/i.test(intent)) {
     const required = [
@@ -65,13 +225,163 @@ function updateDetailsQuestion(op: AssistantOperation, intent: string, values: R
   return "Bạn muốn mình cập nhật những thông tin nào?";
 }
 const normalizePartnerIntent = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
+const isBatchTitleRenameRequest = (value: string) => {
+  const intent = normalizePartnerIntent(value);
+  return /\b(?:sua|doi|cap nhat|dat lai)\b.{0,50}\b(?:ten|title|tieu de)\b.{0,30}\b(?:lop|lop hoc)\b/.test(intent)
+    || /\b(?:sua|doi|cap nhat|dat lai)\b.{0,50}\b(?:lop|lop hoc)\b.{0,50}\b(?:ten|title|tieu de)\b/.test(intent);
+};
 const normalizeAssistantText = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/\s+/g, " ").trim();
+function taskTimestamp(value: unknown): number | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const input = value.trim();
+  const floating = input.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
+  if (floating) {
+    const [, year, month, day, hour, minute, second = "0", fraction = "0"] = floating;
+    const milliseconds = Number(fraction.padEnd(3, "0"));
+    const timestamp = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second), milliseconds);
+    const parsed = new Date(timestamp);
+    if (parsed.getUTCFullYear() !== Number(year) || parsed.getUTCMonth() !== Number(month) - 1 || parsed.getUTCDate() !== Number(day)
+      || parsed.getUTCHours() !== Number(hour) || parsed.getUTCMinutes() !== Number(minute) || parsed.getUTCSeconds() !== Number(second)) return null;
+    return timestamp;
+  }
+  const timestamp = Date.parse(input);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+export function inferTaskDeadline(op: AssistantOperation, values: Record<string, unknown>, intent: string) {
+  if (op.id !== "task.create") return values;
+  const startValue = values.startTime;
+  const start = taskTimestamp(startValue);
+  const hours = Number(values.estTime);
+  if (start === null || !Number.isFinite(hours) || hours <= 0) return values;
+  const existingDue = taskTimestamp(values.dueDate);
+  if (existingDue !== null && existingDue >= start) return values;
+  const normalizedIntent = normalizeAssistantText(intent);
+  if (/\b(?:han(?: chot| hoan thanh)?|deadline|due date|ngay ket thuc|ket thuc ngay|hoan thanh truoc|phai xong truoc)\b/.test(normalizedIntent)) return values;
+  const deadline = start + hours * 60 * 60 * 1000;
+  const dueDate = typeof startValue === "string" && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(startValue.trim())
+    ? new Date(deadline).toISOString().slice(0, 23)
+    : new Date(deadline).toISOString();
+  return { ...values, dueDate };
+}
+function parseWorkHoursFromText(value: string) {
+  const normalized = normalizeAssistantText(value);
+  const breakIndex = normalized.search(/\b(?:nghi|break|lunch)\b/);
+  const workText = breakIndex < 0 ? normalized : normalized.slice(0, breakIndex);
+  const breakText = breakIndex < 0 ? "" : normalized.slice(breakIndex);
+  const times = (text: string) => {
+    const found: string[] = [];
+    const expression = /\b(\d{1,2})\s*(?:h|:)\s*(\d{1,2})?\s*p?\s*(sang|chieu|toi|trua)?\b/g;
+    for (const match of text.matchAll(expression)) {
+      let hour = Number(match[1]);
+      const minute = Number(match[2] || 0);
+      const period = match[3] || "";
+      if (hour > 23 || minute > 59) continue;
+      if (["chieu", "toi"].includes(period) && hour < 12) hour += 12;
+      else if (period === "sang" && hour === 12) hour = 0;
+      else if (period === "trua" && hour > 0 && hour < 11) hour += 12;
+      found.push(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+    }
+    return found;
+  };
+  const workTimes = times(workText);
+  const breakTimes = times(breakText);
+  return {
+    ...(workTimes.length >= 2 ? { checkInLimit: workTimes[0], checkOutLimit: workTimes[1] } : {}),
+    ...(breakTimes.length >= 2 ? { lunchBreakStart: breakTimes[0], lunchBreakEnd: breakTimes[1] } : {}),
+  };
+}
+export function inferCustomWorkHoursMode(op: AssistantOperation, values: Record<string, unknown>, intent: string, detailText = intent): Record<string, unknown> {
+  if (op.id !== "api.patch.6bc968347283a069") return values;
+  const schedule = parseWorkHoursFromText(detailText);
+  const merged = { ...values, ...schedule };
+  const normalizedIntent = normalizeAssistantText(`${intent} ${detailText}`);
+  const explicitlyDisablesPrivateHours = /\b(?:tat|bo|ngung|khong dung|khong ap dung)\b.{0,40}\b(?:gio rieng|gio lam rieng|gio lam viec rieng|gio tuy chinh|gio cong ty|gio mac dinh|gio chung)\b|\b(?:dung gio cong ty|theo gio cong ty|dung gio mac dinh)\b/.test(normalizedIntent);
+  if (explicitlyDisablesPrivateHours) return { ...merged, useCustom: false };
+  const requestsPrivateHours = /\b(?:gio lam (?:viec )?rieng|gio rieng|gio lam tuy chinh|tuy chinh gio lam|gio lam viec ca nhan)\b/.test(normalizedIntent);
+  const suppliesCustomHours = ["checkInLimit", "checkOutLimit", "lunchBreakStart", "lunchBreakEnd"]
+    .some(key => typeof merged[key] === "string" && String(merged[key]).trim());
+  return requestsPrivateHours || suppliesCustomHours ? { ...merged, useCustom: true } : merged;
+}
+const customWorkHoursFieldKeys = ["checkInLimit", "checkOutLimit", "lunchBreakStart", "lunchBreakEnd"] as const;
+export function missingCustomWorkHoursLabels(op: AssistantOperation, values: Record<string, unknown>) {
+  if (op.id !== "api.patch.6bc968347283a069" || values.useCustom !== true) return [];
+  return customWorkHoursFieldKeys
+    .filter(key => isBlank(values[key]))
+    .map(key => op.fields.find(field => field.key === key)?.label || key);
+}
+export function customWorkHoursFollowUpQuestion(op: AssistantOperation, missingLabels: string[]) {
+  if (op.id !== "api.patch.6bc968347283a069" || !missingLabels.length) return "";
+  const keys = new Set(customWorkHoursFieldKeys.filter(key => missingLabels.includes(op.fields.find(field => field.key === key)?.label || key)));
+  const scheduleExample = "Ví dụ: 9h30 sáng đến 7h tối, nghỉ trưa từ 2h chiều đến 3h30 chiều.";
+  if (keys.size === customWorkHoursFieldKeys.length) {
+    return `Để cài giờ làm riêng, bạn cho mình giờ vào, giờ ra và thời gian nghỉ trưa nhé. ${scheduleExample}`;
+  }
+  const names: Record<(typeof customWorkHoursFieldKeys)[number], string> = {
+    checkInLimit: "giờ vào",
+    checkOutLimit: "giờ ra",
+    lunchBreakStart: "giờ bắt đầu nghỉ trưa",
+    lunchBreakEnd: "giờ kết thúc nghỉ trưa",
+  };
+  const missing = customWorkHoursFieldKeys.filter(key => keys.has(key)).map(key => names[key]);
+  return `Mình còn thiếu ${missing.join(", ")} để cài giờ làm riêng. Bạn gửi giúp mình nhé. ${scheduleExample}`;
+}
+export function trainingContentFollowUpQuestion(op: AssistantOperation, missingLabels: string[]) {
+  if (op.id !== "training.create") return "";
+  const missingLessons = op.fields.find(field => field.key === "lessons")?.label;
+  const missingQuizzes = op.fields.find(field => field.key === "quizzes")?.label;
+  const asksLessons = Boolean(missingLessons && missingLabels.includes(missingLessons));
+  const asksQuizzes = Boolean(missingQuizzes && missingLabels.includes(missingQuizzes));
+  return [
+    ...(asksLessons ? ["Bạn muốn gắn bài giảng nào? Gửi tên bài kèm đường dẫn hoặc nội dung; nếu chưa có, nói ‘bỏ qua bài giảng’ nhé."] : []),
+    ...(asksQuizzes ? ["Bạn muốn thêm câu hỏi trắc nghiệm nào? Gửi câu hỏi, các phương án và đáp án đúng; nếu chưa có, nói ‘bỏ qua câu hỏi’ nhé."] : []),
+  ].join("\n");
+}
+function trainingContentSkipFields(text: string): Array<"lessons" | "quizzes"> {
+  const normalized = normalizeAssistantText(text);
+  const skipVerb = "(?:bo qua|khong can|chua co|chua muon|khong muon them|khong them)";
+  if (new RegExp(`^${skipVerb}(?: ca hai| het)?[.!? ]*$`).test(normalized)) return ["lessons", "quizzes"];
+  const skips: Array<"lessons" | "quizzes"> = [];
+  if (new RegExp(`(?:${skipVerb}).{0,36}\\b(?:bai giang|bai hoc)\\b|\\b(?:bai giang|bai hoc)\\b.{0,36}(?:${skipVerb})`).test(normalized)) skips.push("lessons");
+  if (new RegExp(`(?:${skipVerb}).{0,36}\\b(?:cau hoi|trac nghiem|quiz)\\b|\\b(?:cau hoi|trac nghiem|quiz)\\b.{0,36}(?:${skipVerb})`).test(normalized)) skips.push("quizzes");
+  return skips;
+}
 const isWorkerMissingInfoIntent = (value: string) => {
   const intent = normalizeAssistantText(value);
   return /\b(?:lao dong|nguoi lao dong|ho so)\b/.test(intent)
     && /\b(?:thieu|bo trong|chua co)\b/.test(intent)
     && /\b(?:thong tin|muc|gi)\b/.test(intent);
 };
+const isMissingProfileInfoIntent = (value: string) => {
+  const intent = normalizeAssistantText(value);
+  return /\b(?:thieu|trong|chua co|bo sung)\b/.test(intent)
+    && /\b(?:thong tin|muc|truong|gi)\b/.test(intent);
+};
+const isLaborPartnerMissingInfoIntent = (value: string) => {
+  const intent = normalizeAssistantText(value);
+  return isMissingProfileInfoIntent(value)
+    && /\b(?:doi tac|cong tac vien)\b/.test(intent)
+    && /\b(?:lao dong|cung ung)\b/.test(intent);
+};
+const isLaborPartnerProfileUpdateIntent = (value: string) => {
+  const intent = normalizeAssistantText(value);
+  return /\b(?:them|cap nhat|sua|bo sung|doi|thay doi)\b/.test(intent)
+    && /\b(?:email|tax code|ma so thue|nguoi dai dien|dia chi|address|ngan hang|so tai khoan|stk|chu tai khoan|ghi chu)\b/.test(intent);
+};
+const explicitlyMentionsLaborPartner = (value: string) =>
+  /\b(?:doi tac lao dong|doi tac cung ung|cong tac vien lao dong)\b/.test(normalizeAssistantText(value));
+const workerCreateActionIds = new Set([
+  ...ASSISTANT_OPERATIONS.filter(operation => operation.method === "POST" && operation.path === "/worker-management/workers").map(operation => operation.id),
+  "api.post.479b054fb833c67d",
+]);
+const laborPartnerContextActionIds = new Set(ASSISTANT_OPERATIONS
+  .filter(operation => /^\/worker-management\/partners(?:\/:[^/]+)?$/.test(operation.path))
+  .map(operation => operation.id));
+async function latestCompletedAction(req: AuthenticatedRequest, conversationId: string) {
+  return await AssistantTurnModel.findOne({
+    ...scopeOf(req), conversationId, status: "completed", "result.status": "completed",
+    actionId: { $exists: true, $ne: "" },
+  }).sort({ createdAt: -1 }).select("actionId payload").lean() as any;
+}
 const workerProfileFields = [
   ["phone", "Số điện thoại"],
   ["email", "Email"],
@@ -151,20 +461,297 @@ async function workerMissingInfoReply(req: AuthenticatedRequest, conversationId:
     link: listOperation.link,
   };
 }
+function laborPartnerTargetFromText(value: string) {
+  const text = value.trim();
+  const match = text.match(/(?:của|cho)\s+(.+)$/iu)
+    || text.match(/(?:đối tác|cộng tác viên)(?: cung ứng)?(?: lao động)?\s+(.+)$/iu);
+  return String(match?.[1] || "")
+    .replace(/^(?:(?:đối tác|cộng tác viên)(?: cung ứng)?(?: lao động)?|lao động)\s+/iu, "")
+    .replace(/[?!.…]+$/u, "")
+    .trim();
+}
+function laborPartnerReferenceFromAction(previousAction?: any) {
+  const payload = previousAction?.payload && typeof previousAction.payload === "object" ? previousAction.payload : {};
+  const previousOperation = previousAction?.actionId ? operationById(previousAction.actionId) : undefined;
+  const pathField = previousOperation?.fields.find(field => field.source === "path" && field.apiKey === "partnerId");
+  const reference = [pathField ? payload[pathField.key] : undefined, payload.path_partnerId, payload.partnerId, payload.id]
+    .find(value => typeof value === "string" && value.trim());
+  if (typeof reference === "string") return reference.trim();
+  return [payload.name, payload.code, payload.search, payload.query_search]
+    .find(value => typeof value === "string" && value.trim() && !/^[a-f\d]{24}$/i.test(value.trim()))?.trim() || "";
+}
+async function laborPartnerMissingInfoReply(req: AuthenticatedRequest, text: string, previousAction?: any): Promise<AssistantReply> {
+  const listOperation = operationById("worker.partner.list");
+  if (!listOperation) throw new AssistantError("Chưa bật thao tác tra cứu đối tác lao động.", 403);
+  const payload = previousAction?.payload && typeof previousAction.payload === "object" ? previousAction.payload : {};
+  const targetFromText = laborPartnerTargetFromText(text);
+  const previousTarget = [payload.name, payload.code, payload.search, payload.query_search]
+    .find(value => typeof value === "string" && value.trim() && !/^[a-f\d]{24}$/i.test(value.trim()));
+  const target = String(targetFromText || previousTarget || "").trim();
+  const previousOperation = previousAction?.actionId ? operationById(previousAction.actionId) : undefined;
+  let previouslyViewedPartner: Record<string, any> | undefined;
+  if (!targetFromText && previousOperation?.method === "GET" && /^\/worker-management\/partners\/:[^/]+$/.test(previousOperation.path)) {
+    await assertOperation(req, previousOperation.id);
+    const detailResponse = await callOperation(req, previousOperation, payload);
+    const detailData = detailResponse?.data?.data ?? detailResponse?.data ?? detailResponse;
+    const candidate = detailData?.partner ?? detailData?.item ?? detailData;
+    if (candidate && typeof candidate === "object" && !Array.isArray(candidate) && (candidate.name || candidate.code)) previouslyViewedPartner = candidate;
+  }
+  if (!target && !previouslyViewedPartner) {
+    return { status: "completed", reply: "Bạn muốn kiểm tra hồ sơ đối tác lao động nào? Gửi mình tên hoặc mã đối tác nhé.", link: listOperation.link };
+  }
+
+  let partners: Record<string, any>[] = previouslyViewedPartner ? [previouslyViewedPartner] : [];
+  if (!previouslyViewedPartner) {
+    const listInput: Record<string, AssistantValue> = {};
+    const searchField = listOperation.fields.find(field => field.source === "query" && field.apiKey === "search");
+    if (searchField) listInput[searchField.key] = target;
+    else listInput.search = target;
+    for (const field of listOperation.fields) {
+      if (field.source !== "query") continue;
+      const apiKey = String(field.apiKey || field.key).toLowerCase();
+      if (/page$/.test(apiKey)) listInput[field.key] = 1;
+      else if (/pagesize$|limit$/.test(apiKey)) listInput[field.key] = 100;
+    }
+
+    const response = await callOperation(req, listOperation, listInput);
+    const data = response?.data?.data ?? response?.data ?? response;
+    partners = Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(data?.partners)
+        ? data.partners
+        : Array.isArray(data)
+          ? data
+          : [];
+  }
+  const normalizedTarget = normalizeAssistantText(target);
+  const matching = previouslyViewedPartner ? partners : partners.filter(partner => [partner?.name, partner?.code]
+    .some(value => typeof value === "string" && normalizeAssistantText(value).includes(normalizedTarget)));
+  const exact = previouslyViewedPartner ? matching : matching.filter(partner => [partner?.name, partner?.code]
+    .some(value => typeof value === "string" && normalizeAssistantText(value) === normalizedTarget));
+  const candidates = previouslyViewedPartner ? matching : exact.length ? exact : matching;
+  if (!candidates.length) {
+    return { status: "completed", reply: `Mình chưa tìm thấy hồ sơ đối tác lao động “${target}” trong phạm vi bạn được xem. Bạn kiểm tra lại tên hoặc mã giúp mình nhé.`, link: listOperation.link };
+  }
+  if (candidates.length > 1) {
+    const choices = candidates.slice(0, 5).map((partner, index) => `${index + 1}. ${partner.name || "Chưa có tên"}${partner.code ? ` · Mã: ${partner.code}` : ""}`).join("\n");
+    return { status: "completed", reply: `Mình tìm thấy nhiều đối tác phù hợp với “${target}”. Bạn chọn đúng hồ sơ nhé:\n${choices}`, link: listOperation.link };
+  }
+
+  const partner = candidates[0];
+  const optionalFields = [
+    ["email", "Email"],
+    ["taxCode", "Mã số thuế"],
+    ["representative", "Người đại diện"],
+    ["address", "Địa chỉ"],
+    ["bankName", "Ngân hàng"],
+    ["bankAccountNo", "Số tài khoản ngân hàng"],
+    ["bankAccountName", "Tên chủ tài khoản"],
+    ["defaultPolicyId", "Chính sách hoa hồng mặc định"],
+    ["defaultOfficialPolicyId", "Chính sách hoa hồng chính thức"],
+    ["defaultSeasonalPolicyId", "Chính sách hoa hồng thời vụ"],
+    ["note", "Ghi chú"],
+  ] as const;
+  const missing = optionalFields.filter(([key]) => partner[key] === undefined || partner[key] === null || String(partner[key]).trim() === "").map(([, label]) => label);
+  return {
+    status: "completed",
+    reply: missing.length
+      ? `Mình đã xem hồ sơ đối tác lao động ${partner.name}. Các mục tùy chọn còn để trống là: ${missing.join(", ")}. Bạn muốn bổ sung mục nào trước?`
+      : `Mình đã xem hồ sơ đối tác lao động ${partner.name}; các mục thông tin tùy chọn hiện đã có dữ liệu. Bạn muốn kiểm tra thêm nội dung nào không?`,
+    link: listOperation.link,
+  };
+}
 const relationMentioned = (intent: string, field: AssistantField) => {
   const text = normalizeAssistantText(intent);
-  const stopWords = new Set(["ten", "ma", "hoac", "va", "cua", "cho", "ho", "mot", "cac", "ban", "ghi", "lien", "quan"]);
+  const stopWords = new Set(["ten", "ma", "hoac", "va", "cua", "cho", "ho", "mot", "cac", "ban", "ghi", "lien", "quan", "tai"]);
+  const intentTokens = new Set(text.split(/\s+/).filter(Boolean));
   const tokens = [field.key, field.apiKey || "", field.label]
     .flatMap(value => normalizeAssistantText(value).split(/[^a-z0-9]+/))
     .filter(token => token.length >= 3 && !stopWords.has(token));
-  return tokens.some(token => text.includes(token));
+  return tokens.some(token => intentTokens.has(token));
 };
 const relationChangeRequested = (intent: string, field: AssistantField) => {
   const text = normalizeAssistantText(intent);
   return relationMentioned(intent, field)
     && /(?:^|\s)(?:doi|chuyen|gan|lien ket|thuoc|cap nhat|thay doi|them vao|bo sung vao|dat vao|assign|set)(?:\s|$)/.test(text);
 };
+function containsReference(shape?: AssistantDataShape): boolean {
+  if (!shape) return false;
+  return Boolean(shape.reference || Object.values(shape.keys || {}).some(containsReference) || containsReference(shape.items));
+}
+function workflowForRequest(op: AssistantOperation, workflow: AssistantWorkflow, intent: string): AssistantWorkflow {
+  if (!["PATCH", "PUT"].includes(op.method)) return workflow;
+  return {
+    ...workflow,
+    fields: workflow.fields.map(field => {
+      const isReferenceField = Boolean(field.reference || containsReference(field.structure));
+      if (!isReferenceField || field.systemRequired || relationMentioned(intent, field)) return field;
+      // Partial updates should only require linked records when the user asks
+      // to change that relationship. Changing product status, for example,
+      // does not require unrelated media or document selections.
+      return { ...field, required: false };
+    }),
+  };
+}
+const referenceSearchKey = (key: string) => `__assistantReferenceSearch_${key}`;
+const isReferenceCorrectionReply = (text: string) => {
+  const normalized = normalizeAssistantText(text);
+  if (!normalized) return false;
+  return !/^(?:hay\s+)?(?:tao|them|cap nhat|sua|xoa|huy|chuyen|doi|liet ke|tra cuu|tim|xem|nhap|xuat|ghi nhan|xac nhan|bo qua)(?:\s|$)/.test(normalized);
+};
 const isSkippingReference = (text: string) => /^(?:thoi\s+)?(?:bo qua|khong can|de trong|khong gan|khong lien ket|khong chon)(?:\s|$)/.test(normalizeAssistantText(text));
+function unavailableReferencePrompt(op: AssistantOperation, field: AssistantField, label: string, skipHint = "", lookupFailed = false) {
+  if (field.reference === "batch.list" && field.key === "path_id") {
+    return lookupFailed
+      ? "M\u00ECnh ch\u01B0a t\u1EA3i \u0111\u01B0\u1EE3c danh s\u00E1ch l\u1EDBp trong chi nh\u00E1nh hi\u1EC7n t\u1EA1i. B\u1EA1n th\u1EED l\u1EA1i sau ho\u1EB7c g\u1EEDi m\u00E3 l\u1EDBp n\u1EBFu \u0111\u00E3 bi\u1EBFt nh\u00E9."
+      : "M\u00ECnh ch\u01B0a t\u00ECm th\u1EA5y l\u1EDBp theo th\u00F4ng tin b\u1EA1n v\u1EEBa g\u1EEDi. B\u1EA1n c\u00F3 th\u1EC3 nh\u1EADp m\u1ED9t ph\u1EA7n t\u00EAn/m\u00E3 l\u1EDBp ho\u1EB7c t\u00EAn kh\u00F3a h\u1ECDc; n\u1EBFu l\u1EDBp ch\u01B0a \u0111\u01B0\u1EE3c t\u1EA1o, h\u00E3y t\u1EA1o l\u1EDBp tr\u01B0\u1EDBc r\u1ED3i th\u1EED l\u1EA1i."
+  }
+  if (op.method === "POST" && op.path === "/courses" && field.apiKey === "category") {
+    return lookupFailed
+      ? "Mình chưa tải được danh sách danh mục khóa học để bạn chọn. Khóa học chưa được tạo; bạn thử lại giúp mình nhé."
+      : "Hiện chưa có danh mục khóa học trong phạm vi đang chọn để đưa ra lựa chọn. Khóa học chưa được tạo; bạn kiểm tra chi nhánh đang chọn hoặc nhờ quản trị viên kiểm tra danh mục giúp mình nhé.";
+  }
+  if (op.method === "POST" && op.path === "/inventory/catalog/resources/:kind" && field.apiKey === "parentCode") {
+    return "Mình chưa tìm thấy thể loại / thư mục cha nào đang hoạt động. Bạn hãy tạo một mục gốc trước, rồi mình có thể tạo các mục con bên dưới nhé.";
+  }
+  if (op.path === "/inventory/catalog/products" && field.reference === "inventory.catalog.resource.list") {
+    if (field.referenceContext?.path_kind === "categories") {
+      return "Chưa có thể loại / thư mục sản phẩm để chọn. Bạn có thể tạo một mục trong Cây thể loại / Thư mục rồi gửi lại yêu cầu nhé.";
+    }
+    if (field.referenceContext?.path_kind === "units") {
+      return "Chưa có đơn vị tính để chọn. Tạo đơn vị tính rồi gửi lại yêu cầu này nhé.";
+    }
+  }
+  if (op.id === "inventory.receipt.create" && field.reference === "inventory.product.detail") {
+    return lookupFailed
+      ? "Mình chưa đọc được danh sách SKU của sản phẩm đã chọn. Phiếu nhập chưa được tạo; nhà cung cấp và kho bạn chọn vẫn được giữ. Bạn thử lại sau hoặc gửi mã SKU nếu đã biết nhé."
+      : "Mình chưa tìm thấy SKU nào cho sản phẩm đã chọn. Phiếu nhập kho cần một SKU cụ thể; nếu sản phẩm chưa có SKU, hãy thêm SKU cho sản phẩm rồi gửi lại yêu cầu nhập kho nhé. Nhà cung cấp và kho bạn chọn vẫn được giữ. Bản ghi chưa được tạo."
+  }
+  return `Chưa có lựa chọn khả dụng cho ${label}.${skipHint}`;
+}
+function assistantOptionLabel(op: AssistantOperation, field: AssistantField, value: string) {
+  if (op.id === "retail.coupon.create" && field.key === "targetType") {
+    const labels: Record<string, string> = {
+      all_customers: "Tất cả khách hàng",
+      specific_customer: "Một khách hàng cụ thể",
+    };
+    return labels[value] || value;
+  }
+  if (op.id === "retail.coupon.create" && field.apiKey === "discountType") {
+    return value === "amount" ? "Giảm theo số tiền" : value === "percent" ? "Giảm theo phần trăm" : value;
+  }
+  if (op.path.startsWith("/worker-management/partners/policies")) {
+    const labels: Record<string, string> = {
+      "settlementCycle.type.calendar_month": "Theo tháng dương lịch",
+      "settlementCycle.type.cutoff_day": "Theo ngày chốt (chọn ngày từ 1 đến 28)",
+      "official.enabled.true": "Có áp dụng",
+      "official.enabled.false": "Không áp dụng",
+      "seasonal.enabled.true": "Có áp dụng",
+      "seasonal.enabled.false": "Không áp dụng",
+      "official.milestones.eligibilityRule.contract_active": "Hợp đồng còn hiệu lực",
+      "official.milestones.eligibilityRule.manual_confirmation": "Xác nhận thủ công",
+      "official.milestones.eligibilityRule.attendance_threshold": "Đạt ngưỡng chấm công",
+      "seasonal.aggregationScope.partner_period": "Cộng giờ theo đối tác trong kỳ",
+      "seasonal.aggregationScope.partner_project_period": "Cộng giờ theo đối tác, dự án và kỳ",
+      "seasonal.tierMode.flat": "Áp dụng một mức cho toàn bộ số giờ",
+      "seasonal.tierMode.progressive": "Áp dụng mức theo từng bậc giờ",
+      "seasonal.hourRounding.unitMinutes.1": "Mỗi 1 phút",
+      "seasonal.hourRounding.unitMinutes.5": "Mỗi 5 phút",
+      "seasonal.hourRounding.unitMinutes.15": "Mỗi 15 phút",
+      "seasonal.hourRounding.unitMinutes.30": "Mỗi 30 phút",
+      "seasonal.hourRounding.unitMinutes.60": "Mỗi 60 phút",
+      "seasonal.hourRounding.mode.floor": "Làm tròn xuống",
+      "seasonal.hourRounding.mode.nearest": "Làm tròn đến giá trị gần nhất",
+      "seasonal.hourRounding.mode.ceil": "Làm tròn lên",
+      "seasonal.moneyRounding.mode.floor": "Làm tròn xuống",
+      "seasonal.moneyRounding.mode.nearest": "Làm tròn đến giá trị gần nhất",
+      "seasonal.moneyRounding.mode.ceil": "Làm tròn lên",
+    };
+    const normalizedFieldKey = field.key.replace(/\[\d+\]/g, "");
+    return labels[`${normalizedFieldKey}.${value}`] || value;
+  }
+  if (op.id.startsWith("training.") && field.key === "category") {
+    return TRAINING_CATEGORY_OPTIONS.find(option => option.value === value)?.label || value;
+  }
+  if (op.id === "inventory.catalog.unit.create" && field.apiKey === "category") {
+    const labels: Record<string, string> = { count: "Đếm", weight: "Khối lượng", volume: "Thể tích", length: "Chiều dài", time: "Thời gian", other: "Khác" };
+    return labels[value] || value;
+  }
+  if (op.path === "/inventory/catalog/resources/:kind" && field.key === "path_kind") {
+    if (value === "categories") return "Cây thể loại / thư mục sản phẩm";
+    if (value === "brands") return "Thương hiệu";
+    if (value === "units") return "Đơn vị tính";
+    if (value === "attributes") return "Thuộc tính sản phẩm";
+  }
+  if (op.path === "/inventory/catalog/products" && field.key === "productType") {
+    if (value === "physical") return "Hàng hóa vật lý (quản lý kho, IMEI/số lượng)";
+    if (value === "service") return "Dịch vụ (sửa chữa, thay pin, không theo dõi kho)";
+    if (value === "bundle") return "Gói sản phẩm";
+  }
+  if (op.path === "/inventory/catalog/products/:id" && field.apiKey === "status") {
+    const labels: Record<string, string> = { draft: "Bản nháp", active: "Đang kinh doanh", inactive: "Ngừng kinh doanh", archived: "Đã lưu trữ" };
+    return labels[value] || value;
+  }
+  return value;
+}
+function assistantPreviewValue(op: AssistantOperation, fieldKey: string, value: AssistantValue): AssistantValue {
+  if (op.id === "hr.workflow.update" && fieldKey === "steps") {
+    const parsed = parseStructuredAssistantValue(value);
+    if (!Array.isArray(parsed)) return value;
+    return parsed.map((step: any, index: number) => [
+      `${index + 1}. ${String(step?.title || "Bước chưa có tên")}`,
+      typeof step?.description === "string" && step.description.trim() ? step.description.trim() : "",
+      typeof step?.estDays === "number" ? `${step.estDays} ngày dự kiến` : "",
+      typeof step?.deliverable === "string" && step.deliverable.trim() ? `Bàn giao: ${step.deliverable.trim()}` : "",
+      typeof step?.note === "string" && step.note.trim() ? `Ghi chú: ${step.note.trim()}` : "",
+    ].filter(Boolean).join(" · ")).join("\n");
+  }
+  if (!op.id.startsWith("training.") || !["lessons", "quizzes"].includes(fieldKey)) return value;
+  const parsed = parseStructuredAssistantValue(value);
+  if (!Array.isArray(parsed)) return value;
+  if (fieldKey === "lessons") return parsed.length ? `${parsed.length} bài giảng` : "Chưa thêm bài giảng";
+  return parsed.length ? `${parsed.length} câu trắc nghiệm` : "Chưa thêm câu hỏi trắc nghiệm";
+}
+function trainingContentFormFromValues(values: Record<string, unknown>): AssistantTrainingContentForm {
+  const parseArray = (key: string) => {
+    const parsed = parseStructuredAssistantValue(values[key]);
+    return Array.isArray(parsed) ? parsed : [];
+  };
+  const lessonTypes = new Set(["youtube", "document", "other", "text", "video"]);
+  const lessons = parseArray("lessons").flatMap(value => {
+    if (!isAssistantRecord(value)) return [];
+    const type = String(value.type || "text");
+    return [{
+      title: String(value.title || ""),
+      type: (lessonTypes.has(type) ? type : "text") as AssistantTrainingContentForm["lessons"][number]["type"],
+      ...(typeof value.url === "string" ? { url: value.url } : {}),
+      ...(typeof value.content === "string" ? { content: value.content } : {}),
+      ...(typeof value.fileName === "string" ? { fileName: value.fileName } : {}),
+      ...(typeof value.uploadToken === "string" ? { uploadToken: value.uploadToken } : {}),
+    }];
+  });
+  const quizzes = parseArray("quizzes").flatMap(value => {
+    if (!isAssistantRecord(value)) return [];
+    return [{
+      question: String(value.question || ""),
+      options: Array.isArray(value.options) ? value.options.map(option => String(option || "")) : [],
+      correctOptionIndex: Number.isSafeInteger(value.correctOptionIndex) ? Number(value.correctOptionIndex) : -1,
+    }];
+  });
+  return { lessons, quizzes };
+}
+function assistantChoiceOptions(op: AssistantOperation, field: AssistantField, values: string[]) {
+  return values.map(value => ({ value, label: assistantOptionLabel(op, field, value) }));
+}
+function receiptProductSearchFromIntent(intent: string) {
+  const match = intent.trim().match(/^(?:(?:tạo\s+(?:(?:yêu cầu|phiếu)\s+)?nhập\s+kho)|(?:lập\s+phiếu\s+nhập\s+kho)|(?:nhập\s+(?:hàng|kho)))(?:\s+cho)?(?:\s+(?:sản phẩm|mặt hàng))?(?:\s+(.+))?$/iu);
+  return match?.[1]?.replace(/\s+(?:số lượng|sl|giá nhập|đơn giá|kho nhập|nhà cung cấp)\b.*$/iu, "").trim() || "";
+}
+const INVENTORY_RESOURCE_FIELD_KINDS: Readonly<Record<string, string>> = {
+  parentCode: "categories",
+  baseUnitCode: "units",
+  unitCode: "attributes",
+};
 export async function missingReferencePrompts(
   req: AuthenticatedRequest,
   op: AssistantOperation,
@@ -173,19 +760,36 @@ export async function missingReferencePrompts(
   intent: string,
   skipped: Set<string>,
   suggestOptions: typeof suggestReferenceOptions = suggestReferenceOptions,
+  unresolvedReferenceKeys: ReadonlySet<string> = new Set(),
 ) {
   const prompts: string[] = [];
+  const textPrompts: string[] = [];
+  const referenceSelections: AssistantReferenceSelection[] = [];
+  const optionSelectionKeys = new Set<string>();
   const awaitingOptional: string[] = [];
   const awaitingLabels: Record<string, string> = {};
   const missingRequiredDetailReference = op.method === "GET" && op.fields.some(field => {
-    if (field.source !== "path" || !field.reference || values[field.key] !== undefined) return false;
+    if (field.source !== "path" || !field.reference || values[field.key] !== undefined || unresolvedReferenceKeys.has(field.key)) return false;
     const configured = workflow.fields.find(candidate => candidate.key === field.key);
     return Boolean(field.required || field.systemRequired || configured?.required);
   });
-  if (missingRequiredDetailReference) {
-    return { prompts, awaitingOptional, awaitingLabels };
+  if (missingRequiredDetailReference && op.id !== "student.batch.detail") {
+    const missingPathFields = op.fields.filter(field => {
+      if (field.source !== "path" || !field.reference || values[field.key] !== undefined || unresolvedReferenceKeys.has(field.key)) return false;
+      const configured = workflow.fields.find(candidate => candidate.key === field.key);
+      return Boolean(field.required || field.systemRequired || configured?.required);
+    });
+    const identityPrompts = missingPathFields.map(field => `Mình cần ${field.label} để tra cứu. Bạn gửi giúp mình nhé.`);
+    return {
+      prompts: identityPrompts,
+      textPrompts: identityPrompts,
+      referenceSelections,
+      awaitingOptional,
+      awaitingLabels,
+    };
   }
   const isCreate = op.method === "POST";
+  const isCatalogProductCreate = isCreate && op.path === "/inventory/catalog/products";
   const branchlessCommissionMutation = String(op.path || "").startsWith("/partners/commission-levels")
     && ["POST", "PATCH", "DELETE"].includes(op.method)
     && ["admin", "manager"].includes(String(req.user?.role || ""))
@@ -200,6 +804,8 @@ export async function missingReferencePrompts(
       prompts: [options.length
         ? `Bạn chọn giúp mình ${commissionBranchField.label}: ${options.join("; ")}.`
         : `Mình chưa tìm thấy lựa chọn khả dụng cho ${commissionBranchField.label}. Bạn kiểm tra lại giúp mình nhé.`],
+      textPrompts: options.length ? [] : [`Mình chưa tìm thấy lựa chọn khả dụng cho ${commissionBranchField.label}. Bạn kiểm tra lại giúp mình nhé.`],
+      referenceSelections: options.length ? [{ key: commissionBranchField.key, label: commissionBranchField.label, required: true, multiple: false, options: assistantChoiceOptions(op, commissionBranchField, options) }] : [],
       awaitingOptional: [],
       awaitingLabels: {},
     };
@@ -213,7 +819,15 @@ export async function missingReferencePrompts(
     return (Array.isArray(condition.equals) ? condition.equals : [condition.equals]).some(value => value === candidate);
   };
   for (const field of op.fields) {
-    if (!field.reference || values[field.key] !== undefined || skipped.has(field.key)) continue;
+    if (!isAssistantFieldApplicable(workflow, field)) continue;
+    if (op.id === "retail.coupon.create" && field.apiKey === "customerId" && values.targetType !== "specific_customer") continue;
+    if (op.path === "/inventory/catalog/resources/:kind") {
+      const applicableKind = INVENTORY_RESOURCE_FIELD_KINDS[field.apiKey || field.key];
+      const resourceKind = op.fixedPathValues?.kind ?? values.path_kind;
+      if (applicableKind && resourceKind !== applicableKind) continue;
+    }
+    if (isCatalogProductCreate && field.apiKey === "baseUnitCode" && values[field.key] === undefined) continue;
+    if (!field.reference || (values[field.key] !== undefined && !unresolvedReferenceKeys.has(field.key)) || skipped.has(field.key)) continue;
     const configured = workflow.fields.find(item => item.key === field.key);
     const required = Boolean(field.systemRequired || configured?.required || conditionApplies(field));
     const relationRequested = relationMentioned(intent, field);
@@ -221,13 +835,59 @@ export async function missingReferencePrompts(
     const shouldPrompt = required || isCreate || (["PATCH", "PUT"].includes(op.method) && relationRequested);
     if (!shouldPrompt) continue;
     let options: string[] = [];
-    try { options = await suggestOptions(req, op, field, values); } catch { /* permission or endpoint failures do not expose another scope */ }
+    let lookupFailed = false;
+    const referenceValues = unresolvedReferenceKeys.has(field.key) && values[field.key] !== undefined
+      ? { ...values, [referenceSearchKey(field.key)]: String(values[field.key]) }
+      : values;
+    try { options = await suggestOptions(req, op, field, referenceValues); } catch { lookupFailed = true; /* permission or endpoint failures do not expose another scope */ }
     if (!mustResolve && options.length === 0) continue;
     if (!mustResolve) { awaitingOptional.push(field.key); awaitingLabels[field.key] = field.label; }
-    const skipHint = mustResolve ? "" : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${field.label.toLocaleLowerCase("vi")}”.`;
-    prompts.push(options.length
+    const skipHint = mustResolve ? ""
+      : op.path === "/inventory/catalog/resources/:kind" && field.apiKey === "parentCode"
+        ? " Nếu muốn tạo mục gốc, bạn có thể nói “bỏ qua thư mục cha”."
+        : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${field.label.toLocaleLowerCase("vi")}”.`;
+    const prompt = options.length
       ? `Bạn chọn giúp mình ${field.label}: ${options.join("; ")}.${skipHint}`
-      : `Mình chưa tìm thấy lựa chọn khả dụng cho ${field.label} trong phạm vi tài khoản.${skipHint}`);
+      : unavailableReferencePrompt(op, field, field.label, skipHint, lookupFailed);
+    prompts.push(prompt);
+    if (options.length) referenceSelections.push({ key: field.key, label: field.label, required: mustResolve, multiple: false, options: assistantChoiceOptions(op, field, options) });
+    else textPrompts.push(prompt);
+  }
+
+  for (const field of op.fields) {
+    if (!isAssistantFieldApplicable(workflow, field)) continue;
+    const currentValue = values[field.key];
+    const currentOptionIsValid = currentValue !== undefined && field.options?.some(option => String(option) === String(currentValue));
+    const hasInvalidProvidedOption = currentValue !== undefined && !isBlank(currentValue);
+    if (!field.options?.length || field.reference || currentOptionIsValid || skipped.has(field.key)) continue;
+    const configured = workflow.fields.find(item => item.key === field.key);
+    const required = Boolean(field.systemRequired || configured?.required || conditionApplies(field));
+    if (!required && !hasInvalidProvidedOption) continue;
+    referenceSelections.push({ key: field.key, label: field.label, required: true, multiple: false, options: assistantChoiceOptions(op, field, field.options) });
+    optionSelectionKeys.add(field.key);
+    prompts.push(`${field.label}: cần chọn một giá trị trong danh sách.`);
+  }
+
+  const isLaborPartnerPolicyCreate = op.method === "POST" && op.path === "/worker-management/partners/policies";
+  const readPolicyEnabled = (key: "official" | "seasonal") => {
+    const value = parseStructuredAssistantValue(values[key]);
+    return isAssistantRecord(value) && typeof value.enabled === "boolean" ? value.enabled : undefined;
+  };
+  const shouldSelectLaborPolicyType = isLaborPartnerPolicyCreate
+    && readPolicyEnabled("official") === undefined
+    && readPolicyEnabled("seasonal") === undefined;
+  if (shouldSelectLaborPolicyType) {
+    referenceSelections.push({
+      key: "laborPolicyTypes",
+      label: "Loại lao động áp dụng",
+      required: true,
+      multiple: false,
+      options: [
+        { value: "official", label: "Lao động chính thức" },
+        { value: "seasonal", label: "Lao động thời vụ" },
+      ],
+    });
+    prompts.push("Chọn một loại lao động áp dụng cho chính sách.");
   }
 
   const nestedReferenceKey = (rootKey: string, path: string) => `${rootKey}${path}`;
@@ -239,6 +899,7 @@ export async function missingReferencePrompts(
       if (typeof values[field.key] !== "string") continue;
       try { data = JSON.parse(String(values[field.key])); } catch { continue; }
     }
+    if (op.id === "inventory.receipt.create" && field.key === "items" && (!Array.isArray(data) || data.length === 0)) data = [{}];
     const visit = async (
       shape: AssistantDataShape,
       node: unknown,
@@ -246,14 +907,23 @@ export async function missingReferencePrompts(
       displayPath: string[],
       currentObject?: Record<string, unknown>,
     ): Promise<void> => {
+      const condition = shape.requiredWhen;
+      const conditionValue = condition ? currentObject?.[condition.field] : undefined;
+      const shapeConditionApplies = condition?.present
+        ? conditionValue !== undefined && conditionValue !== null && !(typeof conditionValue === "string" && !conditionValue.trim())
+        : condition?.equals !== undefined && (Array.isArray(condition.equals) ? condition.equals : [condition.equals]).some(value => value === conditionValue);
+      const nodeIsBlank = node === undefined || node === null || (typeof node === "string" && !node.trim());
+      if (condition && !shape.required && !shapeConditionApplies && nodeIsBlank) return;
       if (shape.reference) {
-        if (node !== undefined && node !== null && String(node).trim()) return;
         const key = nestedReferenceKey(field.key, path);
+        const unresolved = unresolvedReferenceKeys.has(key);
+        if (node !== undefined && node !== null && String(node).trim() && !unresolved) return;
+        if (isCatalogProductCreate && field.key === "variant" && path === ".unitCode") return;
         if (skipped.has(key)) return;
         const parentValue = shape.referenceParentKey
           ? currentObject?.[shape.referenceParentKey] ?? values[shape.referenceParentKey]
           : undefined;
-        const required = Boolean(shape.required);
+        const required = Boolean(shape.required || shapeConditionApplies);
         const referenceField: AssistantField = {
           key,
           label: shape.label || path.split(".").at(-1) || "Thông tin liên quan",
@@ -271,18 +941,47 @@ export async function missingReferencePrompts(
         const label = [field.label, ...displayPath, shape.label || path.split(".").at(-1) || "Thông tin liên quan"].filter(Boolean).join(" · ");
         referenceField.label = label;
         let options: string[] = [];
+        let lookupFailed = false;
+        const receiptProductSearch = op.id === "inventory.receipt.create" && field.key === "items" && path.endsWith(".productId")
+          ? receiptProductSearchFromIntent(intent)
+          : "";
         try { options = await suggestOptions(req, op, referenceField, {
           ...values,
           ...(currentObject || {}),
+          ...(unresolved && node !== undefined && node !== null && String(node).trim() ? { [referenceSearchKey(key)]: String(node) } : {}),
+          ...(receiptProductSearch ? { [`__assistantReferenceSearch_${key}`]: receiptProductSearch } : {}),
           ...(shape.referenceParentKey && parentValue !== undefined ? { [shape.referenceParentKey]: parentValue as AssistantValue } : {}),
         } as Record<string, AssistantValue>); }
-        catch { /* permission or endpoint failures do not expose another scope */ }
+        catch { lookupFailed = true; /* permission or endpoint failures do not expose another scope */ }
         if (!mustResolve && options.length === 0) return;
         if (!mustResolve) { awaitingOptional.push(key); awaitingLabels[key] = label; }
         const skipHint = mustResolve ? "" : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${shape.label || "trường liên kết"}”.`;
-        prompts.push(options.length
+        const prompt = options.length
           ? `Bạn chọn giúp mình ${label}: ${options.join("; ")}.${skipHint}`
-          : `Mình chưa tìm thấy lựa chọn khả dụng cho ${label} trong phạm vi tài khoản.${skipHint}`);
+          : unavailableReferencePrompt(op, referenceField, label, skipHint, lookupFailed);
+        prompts.push(prompt);
+        if (options.length) referenceSelections.push({ key, label, required: mustResolve, multiple: false, options: assistantChoiceOptions(op, referenceField, options) });
+        else textPrompts.push(prompt);
+        return;
+      }
+      if (shape.options?.length) {
+        const currentOptionIsValid = node !== undefined && node !== null && shape.options.some(option => String(option) === String(node));
+        const hasInvalidProvidedOption = node !== undefined && node !== null && String(node).trim() !== "";
+        if (currentOptionIsValid) return;
+        if (!shape.required && !shapeConditionApplies && !hasInvalidProvidedOption) return;
+        const key = nestedReferenceKey(field.key, path);
+        if (skipped.has(key)) return;
+        const label = [field.label, ...displayPath].filter(Boolean).join(" · ");
+        const optionField: AssistantField = { key, label, type: "text", options: shape.options.map(String) };
+        referenceSelections.push({
+          key,
+          label,
+          required: true,
+          multiple: false,
+          options: assistantChoiceOptions(op, optionField, optionField.options || []),
+        });
+        optionSelectionKeys.add(key);
+        prompts.push(`${label}: cần chọn một giá trị trong danh sách.`);
         return;
       }
       if (shape.type === "array") {
@@ -315,18 +1014,22 @@ export async function missingReferencePrompts(
           const label = `${itemShape.label}${context}`;
           referenceField.label = label;
           let options: string[] = [];
+          let lookupFailed = false;
           try { options = await suggestOptions(req, op, referenceField, {
             ...values,
             ...(currentObject || {}),
             ...(itemShape.referenceParentKey && parentValue !== undefined ? { [itemShape.referenceParentKey]: parentValue as AssistantValue } : {}),
           } as Record<string, AssistantValue>); }
-          catch { /* do not expose records outside the granted scope */ }
+          catch { lookupFailed = true; /* do not expose records outside the granted scope */ }
           if (!mustResolve && options.length === 0) return;
           if (!mustResolve) { awaitingOptional.push(key); awaitingLabels[key] = label; }
           const skipHint = mustResolve ? "" : ` Nếu chưa muốn chọn, bạn có thể nói “bỏ qua ${itemShape.label || field.label}”.`;
-          prompts.push(options.length
+          const prompt = options.length
             ? `Bạn chọn giúp mình ${itemShape.label}: ${options.join("; ")}${context}. Có thể chọn một hoặc nhiều tên.${skipHint}`
-            : `Mình chưa tìm thấy lựa chọn khả dụng cho ${label} trong phạm vi tài khoản.${skipHint}`);
+            : unavailableReferencePrompt(op, referenceField, label, skipHint, lookupFailed);
+          prompts.push(prompt);
+          if (options.length) referenceSelections.push({ key, label, required: mustResolve, multiple: true, options: assistantChoiceOptions(op, referenceField, options) });
+          else textPrompts.push(prompt);
           return;
         }
         if (!Array.isArray(node)) return;
@@ -340,14 +1043,15 @@ export async function missingReferencePrompts(
       const record = (node || {}) as Record<string, unknown>;
       for (const [key, childShape] of Object.entries(shape.keys || {})) {
         const childPath = `${path}.${key}`;
+        if (shouldSelectLaborPolicyType && ["official.enabled", "seasonal.enabled"].includes(`${field.key}${childPath}`)) continue;
         const childDisplay = [...displayPath, childShape.label || key];
         if (childShape.reference) await visit(childShape, record[key], childPath, displayPath, record);
-        else if (childShape.type === "object" || childShape.type === "array") await visit(childShape, record[key], childPath, childDisplay, record);
+        else if (childShape.type === "object" || childShape.type === "array" || childShape.options?.length) await visit(childShape, record[key], childPath, childDisplay, record);
       }
     };
     await visit(field.structure, data, "", [], undefined);
   }
-  return { prompts, awaitingOptional, awaitingLabels };
+  return { prompts, textPrompts, referenceSelections, awaitingOptional, awaitingLabels, optionSelectionKeys };
 }
 export function skippedReferenceTargets(text: string, operation: AssistantOperation, awaitingKeys: string[], awaitingLabels: Record<string, string> = {}) {
   if (!awaitingKeys.length || !isSkippingReference(text)) return [];
@@ -383,6 +1087,102 @@ function populatedNestedReferenceKeys(operation: AssistantOperation, values: Rec
   }
   return populated;
 }
+function applyReferenceSelection(provided: Record<string, unknown>, operation: AssistantOperation, selection: AssistantReferenceSelection, values: string[]) {
+  if (operation.method === "POST" && operation.path === "/worker-management/partners/policies" && selection.key === "laborPolicyTypes") {
+    const allowedTypes = new Set(["official", "seasonal"]);
+    if (values.length !== 1 || values.some(value => !allowedTypes.has(value))) throw new AssistantError("Bạn cần chọn đúng một loại lao động: chính thức hoặc thời vụ.");
+    const selectedType = values[0];
+    for (const type of ["official", "seasonal"] as const) {
+      const parsed = parseStructuredAssistantValue(provided[type]);
+      const current = isAssistantRecord(parsed) ? parsed : {};
+      provided[type] = JSON.stringify({ ...current, enabled: selectedType === type });
+    }
+    return;
+  }
+  const field = operation.fields.find(candidate => selection.key === candidate.key
+    || selection.key.startsWith(`${candidate.key}.`) || selection.key.startsWith(`${candidate.key}[`));
+  if (!field) throw new AssistantError("Một lựa chọn không còn thuộc thao tác đang chờ. Bạn tải lại lựa chọn giúp mình nhé.");
+  if (selection.key === field.key) {
+    if (field.structure?.type === "array" && field.structure.items?.reference) provided[field.key] = JSON.stringify(values);
+    else if (field.structure?.reference) provided[field.key] = values[0];
+    else if (!field.structure) provided[field.key] = values[0];
+    else throw new AssistantError(`Mình chưa thể áp dụng lựa chọn cho ${selection.label}.`);
+    return;
+  }
+  let root: any = field.structure?.type === "array" ? [] : {};
+  if (typeof provided[field.key] === "string" && String(provided[field.key]).trim()) {
+    try { root = JSON.parse(String(provided[field.key])); }
+    catch { throw new AssistantError(`Thông tin ${field.label} không còn đúng định dạng. Bạn gửi lại yêu cầu giúp mình nhé.`); }
+  }
+  const suffix = selection.key.slice(field.key.length);
+  const tokens = [...suffix.matchAll(/(?:^|\.)([^.[\]]+)|\[(\d+)\]/g)].map(match => match[1] ?? { index: Number(match[2]) });
+  if (!tokens.length) throw new AssistantError(`Mình chưa thể áp dụng lựa chọn cho ${selection.label}.`);
+  let valueShape: AssistantDataShape | undefined = field.structure;
+  for (const token of tokens) valueShape = typeof token === "object" ? valueShape?.items : valueShape?.keys?.[token];
+  const selectedValue = (value: string): AssistantValue => valueShape?.type === "number" && Number.isFinite(Number(value))
+    ? Number(value)
+    : valueShape?.type === "boolean" && (value === "true" || value === "false")
+      ? value === "true"
+      : value;
+  const mappedValues = values.map(selectedValue);
+  let node = root;
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index];
+    const isLast = index === tokens.length - 1;
+    if (typeof token === "object") {
+      if (!Array.isArray(node)) throw new AssistantError(`Thông tin ${selection.label} không còn đúng cấu trúc.`);
+      const arrayIndex = Math.max(0, token.index - 1);
+      if (isLast) node[arrayIndex] = selection.multiple ? mappedValues : mappedValues[0];
+      else {
+        if (node[arrayIndex] === undefined) node[arrayIndex] = typeof tokens[index + 1] === "object" ? [] : {};
+        node = node[arrayIndex];
+      }
+    } else {
+      if (!node || typeof node !== "object" || Array.isArray(node)) throw new AssistantError(`Thông tin ${selection.label} không còn đúng cấu trúc.`);
+      if (isLast) node[token] = selection.multiple ? mappedValues : mappedValues[0];
+      else {
+        if (node[token] === undefined) node[token] = typeof tokens[index + 1] === "object" ? [] : {};
+        node = node[token];
+      }
+    }
+  }
+  provided[field.key] = JSON.stringify(root);
+}
+function applyReferenceSelections(
+  pending: PendingAction,
+  operation: AssistantOperation,
+  selections: Record<string, string[]>,
+  skipKeys: string[],
+) {
+  const groups = new Map((pending.referenceSelections || []).map(group => [group.key, group]));
+  const selectedKeys = Object.keys(selections);
+  if (selectedKeys.some(key => !groups.has(key)) || skipKeys.some(key => !groups.has(key))) {
+    throw new AssistantError("Một lựa chọn đã hết hạn. Bạn chọn lại trong danh sách hiện tại giúp mình nhé.");
+  }
+  const skipSet = new Set(skipKeys);
+  const provided = { ...pending.provided };
+  for (const group of groups.values()) {
+    const values = selections[group.key] || [];
+    const skipped = skipSet.has(group.key);
+    if (values.length && skipped) throw new AssistantError(`Bạn chỉ cần chọn hoặc bỏ qua ${group.label}, không chọn cả hai.`);
+    if (group.required && !values.length) throw new AssistantError(`Bạn chọn giúp mình ${group.label} để tiếp tục.`);
+    if (!group.required && !values.length && !skipped) throw new AssistantError(`Bạn chọn một mục hoặc bỏ qua ${group.label} giúp mình nhé.`);
+    if (!group.multiple && values.length > 1) throw new AssistantError(`Bạn chỉ chọn một mục cho ${group.label} nhé.`);
+    if (values.some(value => !group.options.some(option => option.value === value))) throw new AssistantError(`Một lựa chọn cho ${group.label} không còn trong danh sách. Bạn chọn lại giúp mình nhé.`);
+    if (values.length) applyReferenceSelection(provided, operation, group, values);
+  }
+  return { provided, skipped: skipKeys };
+}
+function referenceSelectionSummary(pending: PendingAction | null, selections?: Record<string, string[]>, skipKeys: string[] = []) {
+  if (!selections) return "";
+  const groups = new Map((pending?.referenceSelections || []).map(group => [group.key, group]));
+  const chosen = Object.entries(selections).flatMap(([key, values]) => {
+    const group = groups.get(key);
+    return group && values.length ? [`${group.label}: ${values.map(value => group.options.find(option => option.value === value)?.label || value).join(", ")}`] : [];
+  });
+  const skipped = skipKeys.map(key => groups.get(key)?.label).filter((label): label is string => Boolean(label));
+  return [chosen.length ? `Mình chọn ${chosen.join("; ")}.` : "Mình tiếp tục mà không chọn thêm mục nào.", skipped.length ? `Đã bỏ qua: ${skipped.join(", ")}.` : ""].filter(Boolean).join("\n");
+}
 const pendingPartnerReference = (pending?: PendingAction | null) => {
   if (!pending || operationById(pending.actionId)?.path !== "/partners/:id") return "";
   const reference = pending.provided.path_id ?? pending.provided.id;
@@ -408,6 +1208,7 @@ const isCommissionLevelCreationIntent = (value: string, hasPartnerContext = fals
 const isPartnerCommissionUpdateIntent = (value: string, hasPartnerContext = false) => {
   const intent = normalizePartnerIntent(value);
   return /\bhoa hong\b/.test(intent)
+    && !/\b(?:lao dong|cong nhan|worker|labor)\b/.test(intent)
     && (/\bcho doi tac\b/.test(intent) || hasPartnerContext)
     && !/\bcap bac\b/.test(intent);
 };
@@ -422,7 +1223,84 @@ export async function conversationState(req: AuthenticatedRequest, conversationI
   const scope = { ...conversationReadScope(req), conversationId };
   const session = await AssistantSessionModel.findOne(scope).lean();
   const turn = await AssistantTurnModel.findOne(scope).sort({ createdAt: -1 }).lean();
-  return { messages: session?.messages || [], lastReply: session?.lastReply || null, busy: Boolean(session?.busy), requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
+  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null) || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
+}
+
+export async function conversationMemory(req: AuthenticatedRequest, conversationId: string) {
+  const session = await AssistantSessionModel.findOne({ ...conversationReadScope(req), conversationId })
+    .select("sessionMemory sessionMemoryMessageCount sessionMemoryVersion messageCount busy updatedAt").lean();
+  if (!session) return { summary: "", summaryMessageCount: 0, version: 0, messageCount: 0, busy: false, updatedAt: null };
+  return {
+    summary: typeof session.sessionMemory === "string" ? session.sessionMemory : "",
+    summaryMessageCount: Number(session.sessionMemoryMessageCount) || 0,
+    version: Number(session.sessionMemoryVersion) || 0,
+    messageCount: Number(session.messageCount) || 0,
+    busy: Boolean(session.busy),
+    updatedAt: session.updatedAt,
+  };
+}
+
+export async function saveConversationMemory(req: AuthenticatedRequest, conversationId: string, rawSummary: unknown, expectedVersion?: number) {
+  if (typeof rawSummary !== "string") throw new AssistantError("Nội dung ngữ cảnh phiên không hợp lệ.", 400);
+  const summary = rawSummary.replace(/\s+/g, " ").trim();
+  if (summary.length > SESSION_MEMORY_LIMIT) throw new AssistantError(`Ngữ cảnh phiên tối đa ${SESSION_MEMORY_LIMIT} ký tự.`, 400);
+  if (containsSensitiveMemoryContent(summary)) throw new AssistantError("Không lưu mật khẩu, dữ liệu nhạy cảm hoặc thông tin xác thực trong ngữ cảnh phiên.", 400);
+  const scope = { ...conversationReadScope(req), conversationId };
+  const session = await AssistantSessionModel.findOne(scope).select("_id messageCount sessionMemoryVersion").lean();
+  const currentVersion = Number(session?.sessionMemoryVersion) || 0;
+  if (expectedVersion !== undefined && expectedVersion !== currentVersion) throw new AssistantError("Ngữ cảnh phiên đã được cập nhật ở nơi khác. Tải lại rồi thử lưu lại.", 409);
+  let updated: any;
+  try {
+    const updateFilter: any = { ...(session ? { _id: session._id } : scope), busy: false, ...sessionMemoryVersionFilter(currentVersion) };
+    const updateValues: any = {
+      $set: { sessionMemory: summary, sessionMemoryMessageCount: Number(session?.messageCount) || 0 },
+      $inc: { sessionMemoryVersion: 1 },
+      ...(!session ? { $setOnInsert: { ...scopeOf(req), conversationId, messages: [], messageCount: 0, busy: false } } : {}),
+    };
+    const updateOptions: any = { returnDocument: "after", upsert: !session, setDefaultsOnInsert: true };
+    updated = await AssistantSessionModel.findOneAndUpdate(updateFilter, updateValues, updateOptions)
+      .select("sessionMemory sessionMemoryMessageCount sessionMemoryVersion messageCount updatedAt").lean();
+  } catch (error) {
+    if ((error as { code?: number }).code === 11000) throw new AssistantError("Phiên vừa được tạo hoặc cập nhật. Tải lại rồi thử lưu lại.", 409);
+    throw error;
+  }
+  if (!updated) throw new AssistantError("Phiên đang xử lý. Hãy thử lưu lại sau khi trợ lý trả lời.", 409);
+  return {
+    summary: updated.sessionMemory || "",
+    summaryMessageCount: Number(updated.sessionMemoryMessageCount) || 0,
+    version: Number(updated.sessionMemoryVersion) || 0,
+    messageCount: Number(updated.messageCount) || 0,
+    updatedAt: updated.updatedAt,
+  };
+}
+
+export async function clearConversationMemory(req: AuthenticatedRequest, conversationId: string) {
+  return saveConversationMemory(req, conversationId, "");
+}
+
+export async function deleteConversation(req: AuthenticatedRequest, conversationId: string): Promise<{ deleted: boolean }> {
+  const scope = { ...conversationReadScope(req), conversationId };
+  const session = await AssistantSessionModel.findOneAndUpdate(
+    { ...scope, busy: false }, { $set: { busy: true } }, { returnDocument: "after" },
+  ).lean();
+  if (!session) {
+    const existing = await AssistantSessionModel.findOne(scope).select("_id").lean();
+    if (!existing) return { deleted: false };
+    throw new AssistantError("Phiên đang xử lý. Hãy thử xóa lại sau khi trợ lý trả lời.", 409);
+  }
+  try {
+    await AssistantTurnModel.deleteMany({
+      userId: session.userId,
+      companyCode: session.companyCode,
+      branchId: session.branchId || "",
+      conversationId: session.conversationId,
+    });
+    await AssistantSessionModel.deleteOne({ _id: session._id, busy: true });
+    return { deleted: true };
+  } catch (error) {
+    await AssistantSessionModel.updateOne({ _id: session._id, busy: true }, { $set: { busy: false } }).catch(() => undefined);
+    throw error;
+  }
 }
 
 const conversationText = (value: unknown, maxLength: number) => {
@@ -440,7 +1318,7 @@ export async function listConversations(req: AuthenticatedRequest, options: { li
     ];
   }
   const rows = await AssistantSessionModel.find(filter)
-    .select("_id conversationId messages messageCount updatedAt")
+    .select("_id conversationId mode messages messageCount updatedAt")
     .sort({ updatedAt: -1, _id: -1 })
     .limit(options.limit + 1)
     .lean();
@@ -454,6 +1332,7 @@ export async function listConversations(req: AuthenticatedRequest, options: { li
       const lastMessage = messages[messages.length - 1];
       return {
         conversationId: session.conversationId,
+        mode: session.mode === "qa" ? "qa" : "work",
         title: conversationText(firstUser?.content, 100) || "Cuộc trò chuyện mới",
         preview: conversationText(lastMessage?.content, 180),
         messageCount: session.messageCount || messages.length,
@@ -466,8 +1345,9 @@ export async function listConversations(req: AuthenticatedRequest, options: { li
 
 export async function processTurn(req: AuthenticatedRequest, input: TurnInput): Promise<AssistantReply> {
   const scope = scopeOf(req);
+  const assistantMode = input.mode || "work";
   await ensureAssistantIndexes();
-  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, text: input.text || "", attachment: input.attachment || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
+  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, mode: assistantMode, text: input.text || "", attachment: input.attachment || null, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
   const requestFilter = { ...scope, requestId: input.requestId };
   let turn: any;
   try { turn = await AssistantTurnModel.create({ ...requestFilter, conversationId: input.conversationId, digest }); }
@@ -479,7 +1359,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     return Date.now() - new Date(existing.updatedAt).getTime() > 120_000 ? uncertainReply() : processingReply();
   }
   const sessionFilter = { ...scope, conversationId: input.conversationId };
-  try { await AssistantSessionModel.updateOne(sessionFilter, { $setOnInsert: sessionFilter }, { upsert: true }); }
+  try { await AssistantSessionModel.updateOne(sessionFilter, { $setOnInsert: { ...sessionFilter, mode: assistantMode } }, { upsert: true }); }
   catch (error) { if ((error as { code?: number }).code !== 11000) throw error; }
   const session = await AssistantSessionModel.findOneAndUpdate({ ...sessionFilter, busy: false }, { $set: { busy: true } }, { returnDocument: "after" });
   if (!session) {
@@ -487,18 +1367,48 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: "completed", result: reply } });
     return reply;
   }
-  let pending = session.pending as PendingAction | null;
+  let pending = restorePendingActionId(session.pending as PendingAction | null);
+  if (pending) pending.preview = sanitizeActionPreview(pending.preview);
   let hasDispatched = false;
   let reply: AssistantReply;
   let responseRules = "";
   let autoMemoryEnabled = false;
   const sessionMemory = typeof session.sessionMemory === "string" ? session.sessionMemory : "";
-  const userContent = [input.text || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : ""].filter(Boolean).join("\n");
+  const trainingContentSummary = input.trainingContent
+    ? `Đã gửi biểu mẫu với ${input.trainingContent.lessons.length} bài giảng và ${input.trainingContent.quizzes.length} câu hỏi trắc nghiệm.`
+    : "";
+  const userContent = [input.text || referenceSelectionSummary(pending, input.referenceSelections, input.skipReferenceKeys) || trainingContentSummary || (input.decision?.confirmed ? "Xác nhận thực hiện thao tác đã xem trước." : "Hủy thao tác đã xem trước."), input.attachment ? `Đã đính kèm ${input.attachment.fileName} (${input.attachment.rows.length} dòng).` : ""].filter(Boolean).join("\n");
   const memoryCommand = input.text ? parseExplicitMemoryCommand(input.text) : null;
-  const historyContent = memoryCommand && containsSensitiveMemoryContent(memoryCommand) ? "Yêu cầu ghi nhớ bị từ chối vì chứa thông tin nhạy cảm." : userContent;
-  const history = [...session.messages, { role: "user", content: historyContent }];
+  const forgetMemoryCommand = input.text ? parseExplicitMemoryForgetCommand(input.text) : null;
+  const historyContent = forgetMemoryCommand
+    ? "Người dùng đã yêu cầu quên một ghi nhớ cá nhân."
+    : memoryCommand && containsSensitiveMemoryContent(memoryCommand)
+      ? "Yêu cầu ghi nhớ bị từ chối vì chứa thông tin nhạy cảm."
+      : userContent;
+  const history = [...session.messages, { role: "user", content: historyContent, createdAt: new Date().toISOString() }];
 
   const execute = async (op: AssistantOperation, workflow: AssistantWorkflow, values: Record<string, AssistantValue>, password?: string): Promise<AssistantReply> => {
+    const optionalCreateQuestion = async (record: unknown) => {
+      if (op.method !== "POST" || !record || typeof record !== "object" || Array.isArray(record)) return "";
+      const created = record as Record<string, unknown>;
+      if (!["_id", "id", "code", "name", "title", "displayName", "fullName"].some(key => created[key] != null && String(created[key]).trim())) return "";
+      const pairedUpdate = op.id.endsWith(".create") ? operationById(op.id.replace(/\.create$/, ".update")) : undefined;
+      const update = (pairedUpdate && ["PATCH", "PUT"].includes(pairedUpdate.method) ? pairedUpdate : undefined)
+        || ASSISTANT_OPERATIONS.find(candidate => ["PATCH", "PUT"].includes(candidate.method)
+          && candidate.module === op.module
+          && candidate.path.startsWith(`${op.path}/:`)
+          && !candidate.path.slice(op.path.length + 2).includes("/"));
+      if (!update || !["PATCH", "PUT"].includes(update.method)) return "";
+      try {
+        await assertOperation(req, update.id);
+        if (!(await currentWorkflow(req, update.id)).enabled) return "";
+        const missing = missingOptionalCreateFields(op, workflow, values, created, update);
+        if (!missing.length) return "";
+        const shown = missing.slice(0, 6);
+        const more = missing.length > shown.length ? ` và ${missing.length - shown.length} mục khác` : "";
+        return `\nMình thấy các thông tin tùy chọn còn trống: ${shown.join(", ")}${more}. Bạn có muốn bổ sung không? Nếu có, gửi giúp mình mục và nội dung cần thêm nhé.`;
+      } catch { return ""; }
+    };
     if (Date.now() - new Date(turn.createdAt).getTime() > 120_000) throw new AssistantError("Yêu cầu đã hết thời gian xử lý trước khi thực thi. Chưa thay đổi dữ liệu; vui lòng gửi lại yêu cầu.", 408);
     await assertOperation(req, op.id);
     if (op.id === "employee.create" && (!password || password.length < 6 || password.length > 128)) throw new AssistantError("Vui lòng nhập mật khẩu khởi tạo (6–128 ký tự) trong ô bảo mật của bản xem trước.");
@@ -520,13 +1430,26 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         }));
       } catch { /* collectValues reports malformed JSON through the workflow's own validation */ }
     }
-    const finalValidation = collectValues(latest, validationValues);
+    const finalValidation = collectValues(workflowForRequest(op, latest, pending?.intent || input.text || ""), validationValues);
+    const missingWorkHours = missingCustomWorkHoursLabels(op, validationValues);
+    finalValidation.missing.push(...missingWorkHours.filter(label => !finalValidation.missing.includes(label)));
     if (finalValidation.missing.length || finalValidation.errors.length) throw new AssistantError([...(finalValidation.missing.length ? [`Cần bổ sung: ${finalValidation.missing.join(", ")}.`] : []), ...finalValidation.errors].join("\n"));
     // Resolve again immediately before writing, including after a confirmation wait.
     const pinnedOperations = op.id.startsWith("recruitment.")
       || ["payroll.period.inputs.bulk", "payroll.period.line-overrides.bulk"].includes(op.id);
     const checked = await resolveReferences(req, op, input.decision?.confirmed && pinnedOperations ? { ...values, __assistantPinnedVersion: true } : values);
     if (checked.errors.length) throw new AssistantError(checked.errors.join("\n"));
+    if (input.decision?.confirmed && op.id === "hr.workflow.update") {
+      let previewSnapshot: string;
+      let currentSnapshot: string;
+      try {
+        previewSnapshot = JSON.stringify(JSON.parse(String(values.__assistantExistingRecord || "")));
+        currentSnapshot = JSON.stringify(JSON.parse(String(checked.values.__assistantExistingRecord || "")));
+      } catch { throw new AssistantError("Không đọc được phiên bản quy trình trong bản xem trước; chưa lưu thay đổi.", 409); }
+      if (!previewSnapshot || previewSnapshot !== currentSnapshot) {
+        throw new AssistantError("Quy trình đã thay đổi sau khi bạn xem bản xem trước. Mình chưa lưu; hãy gửi lại yêu cầu để kiểm tra thông tin mới.", 409);
+      }
+    }
     if (input.decision?.confirmed && op.confirmationDetails) {
       for (const key of Object.keys(op.confirmationDetails)) {
         const expectedDetails = pending?.confirmationDetails?.[key] || [];
@@ -572,18 +1495,25 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
     const result = await callOperation(req, op, checked.values, password, input.requestId);
     if (op.adapter === "contract" || op.rawResponse) {
+      if (op.id === "worker.partner.kpi.set" && result?.data && typeof result.data === "object" && !Array.isArray(result.data)) {
+        const partnerLabel = pending?.preview.values.find(item => /đối tác lao động/i.test(item.label))?.value;
+        const partnerName = typeof partnerLabel === "string" ? partnerLabel.split(" — ")[0].trim() : undefined;
+        pending = null;
+        return { status: "completed", reply: friendlyResult(op, { ...result.data, ...(partnerName ? { partnerName } : {}) }), link: op.link };
+      }
       pending = null;
-      return { status: "completed", reply: friendlyResult(op, result?.data ?? result), link: op.link };
+      const created = result?.data ?? result;
+      return { status: "completed", reply: friendlyResult(op, created) + await optionalCreateQuestion(created), link: op.link };
     }
     const records = projectRecords(op, result, req);
     pending = null;
     const createdRecord = records[0];
     const createdKey = createdRecord && ["displayName", "name", "title", "fullName", "customerCode", "code", "ticketCode"].find(key => createdRecord[key] !== undefined);
     const createdLabel = createdKey && createdRecord ? String(createdRecord[createdKey]) : "";
-    return { status: "completed", reply: `Mình đã ${op.title.toLocaleLowerCase("vi")} xong${createdLabel ? ` cho ${createdLabel}` : ""}.${op.id === "employee.create" ? " Hồ sơ cũng đã có tài khoản đăng nhập với vai trò nhân viên." : ""}`, link: op.link };
+    return { status: "completed", reply: `Mình đã ${op.title.toLocaleLowerCase("vi")} xong${createdLabel ? ` cho ${createdLabel}` : ""}.${op.id === "employee.create" ? " Hồ sơ cũng đã có tài khoản đăng nhập với vai trò nhân viên." : ""}${await optionalCreateQuestion(createdRecord)}`, link: op.link };
   };
 
-  const prepare = async (actionId: string, provided: Record<string, unknown>, forceConfirmation = false, intent = input.text || ""): Promise<AssistantReply> => {
+  const prepare = async (actionId: string, provided: Record<string, unknown>, forceConfirmation = false, intent = input.text || "", selectedReferenceKeys: string[] = []): Promise<AssistantReply> => {
     const requestedOperation = operationById(actionId);
     if (requestedOperation?.method === "PATCH" && requestedOperation.path === "/partners/:id") {
       const normalizedIntent = normalizePartnerIntent(intent);
@@ -592,8 +1522,35 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
     const op = await assertOperation(req, actionId);
     const workflow = await currentWorkflow(req, actionId);
-    const contextualValues = { ...provided };
-    const previousPending = pending?.actionId === actionId ? pending : undefined;
+    const requestWorkflow = workflowForRequest(op, workflow, intent);
+    const previousPending = pending?.actionId === actionId && pending.intent === intent ? pending : undefined;
+    const explicitReferenceKeys = new Set(pending?.actionId === actionId ? pending.explicitReferenceKeys || [] : []);
+    for (const key of selectedReferenceKeys) explicitReferenceKeys.add(key);
+    const contextualValues = normalizeStructuredAssistantValues(op, provided, previousPending?.provided);
+    if (op.id === "student.batch.update") {
+      const searchKey = referenceSearchKey("path_id");
+      const classSearch = String(contextualValues.path_id ?? contextualValues[searchKey] ?? "").trim();
+      if (!explicitReferenceKeys.has("path_id")) {
+        for (const field of op.fields) delete contextualValues[field.key];
+        if (classSearch) contextualValues[searchKey] = classSearch;
+      } else {
+        delete contextualValues[searchKey];
+      }
+    }
+    if (op.id === "training.create") {
+      const skippedContent = trainingContentSkipFields(input.text || "");
+      const bareSkip = /^(?:bo qua|khong can(?: nua)?|chua co|chua can|khong them)(?: ca hai| het)?[.!? ]*$/.test(normalizeAssistantText(input.text || ""));
+      for (const key of skippedContent) {
+        if (!bareSkip || isBlank(contextualValues[key])) contextualValues[key] = "[]";
+      }
+    }
+    const creatorName = String(req.user?.displayName || req.user?.email || "iGen Academy");
+    const trainingInstructorIsDefault = op.id === "training.create"
+      && (isBlank(contextualValues.instructor) || String(contextualValues.instructor) === creatorName);
+    if (trainingInstructorIsDefault) contextualValues.instructor = creatorName;
+    if (previousPending?.awaitingPathReferenceKeys?.length === 1 && input.text?.trim()) {
+      contextualValues[previousPending.awaitingPathReferenceKeys[0]] = input.text.trim();
+    }
     let attachmentSummary = previousPending?.attachmentSummary;
     if (input.attachment) {
       try {
@@ -606,6 +1563,15 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       }
     }
     const skippedReferenceKeys = new Set(previousPending?.skippedReferenceKeys || []);
+    if (input.skipReferenceKeys?.length) {
+      const groups = new Map((previousPending?.referenceSelections || []).map(group => [group.key, group]));
+      for (const key of input.skipReferenceKeys) {
+        const group = groups.get(key);
+        if (!group || group.required || input.referenceSelections?.[key]?.length) throw new AssistantError("Lựa chọn bỏ qua không còn hợp lệ cho thao tác này. Bạn chọn lại giúp mình nhé.");
+        skippedReferenceKeys.add(key);
+        if (op.fields.some(field => field.key === key)) delete contextualValues[key];
+      }
+    }
     for (const key of skippedReferenceTargets(input.text || "", op, previousPending?.awaitingReferenceKeys || [], previousPending?.awaitingReferenceLabels)) {
       skippedReferenceKeys.add(key);
       delete contextualValues[key];
@@ -613,13 +1579,42 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     for (const field of op.fields) if (contextualValues[field.key] !== undefined && String(contextualValues[field.key]).trim()) skippedReferenceKeys.delete(field.key);
     const selectedBranchField = op.fields.find(field => field.source === "query" && field.apiKey === "branchId");
     if (req.user?.branchId && selectedBranchField && contextualValues[selectedBranchField.key] === undefined) contextualValues[selectedBranchField.key] = req.user.branchId;
-    const selectedValues = await resolveNamedReferenceSelectors(req, op, contextualValues);
+    const resolvedNamedValues = await resolveNamedReferenceSelectors(req, op, contextualValues);
+    const selectedValues = inferCustomWorkHoursMode(op, inferTaskDeadline(op, resolvedNamedValues, intent), intent, input.text || intent);
+    if (op.id === "retail.coupon.create" && selectedValues.targetType === "all_customers") delete selectedValues.customerId;
+    const kpiPeriodWasDefaulted = op.id === "worker.partner.kpi.set"
+      && previousPending?.defaultedKeys?.includes("periodAnchor") === true
+      && String(previousPending.provided.periodAnchor || "") === String(selectedValues.periodAnchor || "");
+    const kpiPeriodDefaulted = op.id === "worker.partner.kpi.set"
+      && (isBlank(selectedValues.periodAnchor) || kpiPeriodWasDefaulted);
+    if (op.id === "worker.partner.kpi.set" && isBlank(selectedValues.periodAnchor)) {
+      selectedValues.periodAnchor = `${new Date().toISOString().slice(0, 7)}-01`;
+    }
+    requireExplicitReceiptItemSelections(op, selectedValues, explicitReferenceKeys);
     for (const key of populatedNestedReferenceKeys(op, selectedValues)) skippedReferenceKeys.delete(key);
-    const collected = collectValues(workflow, selectedValues);
+    const collected = collectValues(requestWorkflow, selectedValues);
+    if (kpiPeriodDefaulted && !collected.defaulted.includes("periodAnchor")) collected.defaulted.push("periodAnchor");
+    const missingWorkHours = missingCustomWorkHoursLabels(op, collected.values);
+    collected.missing.push(...missingWorkHours.filter(label => !collected.missing.includes(label)));
+    if (trainingInstructorIsDefault && !collected.defaulted.includes("instructor")) collected.defaulted.push("instructor");
     const id = randomUUID();
-    const summarizedValue = (fieldKey: string, value: AssistantValue) => attachmentSummary?.fieldKey === fieldKey ? `${attachmentSummary.rowCount} dòng từ ${attachmentSummary.fileName}` : value;
-    const preview = { id, requiresPassword: op.id === "employee.create", title: workflow.title, values: workflow.fields.filter(f => collected.values[f.key] !== undefined).map(f => ({ label: f.label, value: summarizedValue(f.key, collected.values[f.key]), defaulted: collected.defaulted.includes(f.key) })) };
     const references = await resolveReferences(req, op, collected.values);
+    const summarizedValue = (field: AssistantField, value: AssistantValue) => {
+      if (attachmentSummary?.fieldKey === field.key) return `${attachmentSummary.rowCount} dòng từ ${attachmentSummary.fileName}`;
+      const resolvedLabel = references.labels[field.key];
+      const optionLabel = field.options?.some(option => String(option) === String(value)) ? assistantOptionLabel(op, field, String(value)) : "";
+      return safeAssistantPreviewFieldValue(field, value, resolvedLabel || optionLabel || assistantPreviewValue(op, field.key, value));
+    };
+    const previewValues = workflow.fields.filter(f => collected.values[f.key] !== undefined).map(f => ({ label: f.label, value: summarizedValue(f, collected.values[f.key]), defaulted: collected.defaulted.includes(f.key) }));
+    if (op.path === "/inventory/catalog/products") {
+      const suppliedVariant = collected.values.variant;
+      let hasSku = false;
+      if (typeof suppliedVariant === "string") {
+        try { hasSku = Boolean(JSON.parse(suppliedVariant)?.sku); } catch { /* structured validation reports malformed input below */ }
+      }
+      if (!hasSku) previewValues.push({ label: "SKU đầu tiên", value: "Mã tự sinh; tên và đơn vị theo sản phẩm; chế độ kho theo thể loại; thông số tùy chọn để trống", defaulted: true });
+    }
+    const preview = { id, requiresPassword: op.id === "employee.create", title: workflow.title, values: previewValues };
     if (op.id === "access.role-permissions.save" && typeof references.labels.permissions === "string") {
       try {
         const selectedNames = JSON.parse(references.labels.permissions);
@@ -627,30 +1622,116 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       } catch { /* structured validation will keep malformed values from reaching the route */ }
     }
     const confirmationDetails = references.confirmationDetails || {};
-    const relationshipPrompts = await missingReferencePrompts(req, op, workflow, references.values, intent, skippedReferenceKeys);
+    // Keep partial structured input available to reference prompting if a
+    // nested reference lookup fails. Missing required scalar siblings are
+    // tracked separately by collectValues, so valid selected references can
+    // still be resolved and retained across turns.
+    const promptValues = { ...references.values };
+    const unresolvedReferenceKeys = new Set(references.unresolvedReferenceKeys || []);
+    const failedPathReferenceKeys = op.fields
+      .filter(field => field.source === "path" && field.reference && unresolvedReferenceKeys.has(field.key))
+      .map(field => field.key);
+    for (const key of failedPathReferenceKeys) {
+      const failedValue = selectedValues[key];
+      if (typeof failedValue === "string" && failedValue.trim()) promptValues[referenceSearchKey(key)] = failedValue;
+      delete promptValues[key];
+    }
+    for (const field of op.fields) {
+      if (field.type !== "json" || promptValues[field.key] !== undefined || typeof selectedValues[field.key] !== "string") continue;
+      if (collected.errors.some(error => error.startsWith(`${field.label}:`))) {
+        promptValues[field.key] = String(selectedValues[field.key]);
+      }
+    }
+    const askBatchEditDetails = op.id === "student.batch.update"
+      && explicitReferenceKeys.has("path_id")
+      && !hasUpdatePayload(op, references.values);
+    const relationshipPrompts = await missingReferencePrompts(
+      req,
+      op,
+      requestWorkflow,
+      promptValues,
+      askBatchEditDetails ? "" : intent,
+      skippedReferenceKeys,
+      undefined,
+      unresolvedReferenceKeys,
+    );
+    const selectionLabels = new Set(relationshipPrompts.referenceSelections.map(selection => selection.label));
+    if (relationshipPrompts.referenceSelections.some(selection => selection.key === "laborPolicyTypes")) {
+      for (const key of ["official", "seasonal"]) {
+        const field = op.fields.find(candidate => candidate.key === key);
+        const enabled = field?.structure?.keys?.enabled;
+        if (field && enabled) selectionLabels.add(`${field.label} · ${enabled.label || "enabled"}`);
+      }
+    }
+    const recoveredReferenceKeys = new Set(relationshipPrompts.referenceSelections
+      .filter(selection => unresolvedReferenceKeys.has(selection.key))
+      .map(selection => selection.key));
+    const recoveredReferenceErrors = new Set([...recoveredReferenceKeys]
+      .map(key => references.unresolvedReferenceErrors?.[key])
+      .filter((error): error is string => Boolean(error)));
+    const visibleReferenceErrors = references.errors.filter(error => !recoveredReferenceErrors.has(error));
+    const visibleCollectedErrors = collected.errors.filter(error => !relationshipPrompts.referenceSelections.some(selection => {
+      if (!relationshipPrompts.optionSelectionKeys.has(selection.key)) return false;
+      return error.startsWith(`${selection.label}:`) || error.startsWith(`${selection.label} ·`);
+    }));
+    const receiptQuestion = inventoryReceiptFollowUpQuestion(op, collected.missing, relationshipPrompts.referenceSelections, relationshipPrompts.textPrompts);
+    const trainingContentQuestion = trainingContentFollowUpQuestion(op, collected.missing);
+    const customWorkHoursQuestion = customWorkHoursFollowUpQuestion(op, missingWorkHours);
+    const trainingContentLabels = new Set(op.id === "training.create"
+      ? ["lessons", "quizzes"].map(key => op.fields.find(field => field.key === key)?.label).filter((label): label is string => Boolean(label))
+      : []);
+    const trainingContentNeedsForm = op.id === "training.create" && (
+      [...trainingContentLabels].some(label => collected.missing.includes(label))
+      || collected.errors.some(error => [...trainingContentLabels].some(label => error.startsWith(`${label}:`))
+        || /^(?:Bài giảng|Câu hỏi trắc nghiệm) · Mục \d+:/u.test(error))
+    );
+    const receiptScalarLabels = op.id === "inventory.receipt.create"
+      ? new Set(collected.missing.filter(label => /^items · Mục \d+ · (?:quantity|unitCost)$/u.test(label)))
+      : new Set<string>();
+    const customWorkHoursLabels = new Set(missingWorkHours);
+    const missingWithoutReferenceLabels = collected.missing.filter(label => !trainingContentLabels.has(label) && !receiptScalarLabels.has(label) && !customWorkHoursLabels.has(label) && !selectionLabels.has(label) && !op.fields.some(field => field.reference && field.label === label && selectedValues[field.key] === undefined));
     pending = {
       id,
       actionId,
-      provided: Object.fromEntries(Object.entries(selectedValues).filter(([key]) => op.fields.some(field => field.key === key))),
+      provided: Object.fromEntries(Object.entries(selectedValues).filter(([key]) => op.fields.some(field => field.key === key) && !unresolvedReferenceKeys.has(key))),
       intent,
+      explicitReferenceKeys: [...explicitReferenceKeys],
       workflowVersion: workflow.version,
       preview,
       ...(attachmentSummary ? { attachmentSummary } : {}),
       confirmationDetails,
       awaitingReferenceKeys: relationshipPrompts.awaitingOptional,
       awaitingReferenceLabels: relationshipPrompts.awaitingLabels,
+      awaitingPathReferenceKeys: failedPathReferenceKeys,
       skippedReferenceKeys: [...skippedReferenceKeys],
+      referenceSelections: relationshipPrompts.referenceSelections,
+      ...(kpiPeriodDefaulted ? { defaultedKeys: ["periodAnchor"] } : {}),
     };
     if (collected.missing.length || collected.errors.length || references.errors.length || relationshipPrompts.prompts.length) {
       const lines = [
-        ...(collected.missing.length ? [`Mình đã hiểu yêu cầu ${workflow.title.toLocaleLowerCase("vi")}; mình còn thiếu ${collected.missing.join(", ")}. Bạn gửi giúp mình nhé.`] : []),
-        ...(collected.errors.length || references.errors.length ? [`Mình cần bạn kiểm tra lại một chút:\n${[...collected.errors, ...references.errors].join("\n")}`] : []),
-        ...(relationshipPrompts.prompts.length ? [`Để chọn đúng thông tin liên quan, bạn chọn giúp mình:\n${relationshipPrompts.prompts.join("\n")}`] : []),
-        ...(collected.defaulted.length ? [`Với thông tin chưa được nêu, mình sẽ dùng giá trị mặc định của workflow: ${workflow.fields.filter(f => collected.defaulted.includes(f.key)).map(f => `${f.label} = ${String(f.defaultValue)}`).join("; ")}.`] : []),
+        ...(missingWithoutReferenceLabels.length ? [`Mình đã hiểu yêu cầu ${workflow.title.toLocaleLowerCase("vi")}; mình còn thiếu ${missingWithoutReferenceLabels.join(", ")}. Bạn gửi giúp mình nhé.`] : []),
+        ...(receiptQuestion ? [receiptQuestion] : []),
+        ...(customWorkHoursQuestion ? [customWorkHoursQuestion] : []),
+        ...(trainingContentQuestion ? [trainingContentQuestion] : []),
+        ...(visibleCollectedErrors.length || visibleReferenceErrors.length ? [`Mình cần bạn kiểm tra lại một chút:\n${[...visibleCollectedErrors, ...visibleReferenceErrors].join("\n")}`] : []),
+        ...(relationshipPrompts.textPrompts.length ? [relationshipPrompts.textPrompts.join("\n")] : []),
+        ...(relationshipPrompts.referenceSelections.length ? ["Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé."] : []),
+        ...(collected.defaulted.length ? [`Với thông tin chưa được nêu, mình sẽ dùng giá trị mặc định của workflow: ${workflow.fields.filter(f => collected.defaulted.includes(f.key)).map(f => `${f.label} = ${String(collected.values[f.key] ?? f.defaultValue)}`).join("; ")}.`] : []),
       ];
-      return { status: "collecting", reply: lines.join("\n"), action: preview };
+      return { status: "collecting", reply: lines.join("\n"), action: preview,
+        ...(relationshipPrompts.referenceSelections.length ? { referenceSelections: relationshipPrompts.referenceSelections } : {}),
+        ...(trainingContentNeedsForm ? { trainingContentForm: trainingContentFormFromValues(selectedValues) } : {}),
+      };
     }
     if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, references.values)) {
+      if (op.path === "/inventory/catalog/variants/:id"
+        && typeof references.values.path_id === "string"
+        && typeof references.values.query_productId === "string") {
+        pending.selectedProductVariant = {
+          productId: references.values.query_productId,
+          variantId: references.values.path_id,
+        };
+      }
       return { status: "collecting", reply: updateDetailsQuestion(op, intent, references.values), action: preview };
     }
     if (op.path === "/partners/:id" && /(?:thông tin (?:chuyển khoản|tài khoản)|chuyển khoản|cấu hình hoa hồng|hoa hồng|hoa hong|commission)/i.test(intent)) {
@@ -658,8 +1739,20 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       if (question !== "Bạn muốn mình cập nhật những thông tin nào?") return { status: "collecting", reply: question, action: preview };
     }
     pending.resolved = references.values;
-    preview.values = workflow.fields.filter(f => references.values[f.key] !== undefined).map(f => ({ label: f.label, value: attachmentSummary?.fieldKey === f.key ? `${attachmentSummary.rowCount} dòng từ ${attachmentSummary.fileName}` : references.labels[f.key] || references.values[f.key], defaulted: collected.defaulted.includes(f.key) }));
-    preview.values.push(...Object.values(confirmationDetails).flat().map(detail => ({ label: detail.label, value: detail.value, defaulted: false })));
+    preview.values = workflow.fields.filter(f => references.values[f.key] !== undefined).map(f => {
+      const rawValue = references.values[f.key];
+      const displayValue = attachmentSummary?.fieldKey === f.key ? `${attachmentSummary.rowCount} dòng từ ${attachmentSummary.fileName}` : references.labels[f.key] || (f.options?.includes(String(rawValue)) ? assistantOptionLabel(op, f, String(rawValue)) : assistantPreviewValue(op, f.key, rawValue));
+      return { label: f.label, value: safeAssistantPreviewFieldValue(f, rawValue, displayValue), defaulted: collected.defaulted.includes(f.key) };
+    });
+    preview.values.push(...Object.values(confirmationDetails).flat().map(detail => ({ label: detail.label, value: hideInternalAssistantIds(detail.value), defaulted: false })));
+    if (op.path === "/inventory/catalog/products") {
+      const suppliedVariant = references.values.variant;
+      let hasSku = false;
+      if (typeof suppliedVariant === "string") {
+        try { hasSku = Boolean(JSON.parse(suppliedVariant)?.sku); } catch { /* structured validation reports malformed input below */ }
+      }
+      if (!hasSku) preview.values.push({ label: "SKU đầu tiên", value: "Mã tự sinh; tên và đơn vị theo sản phẩm; chế độ kho theo thể loại; thông số tùy chọn để trống", defaulted: true });
+    }
     if (op.optionalPathFields?.includes("id") && references.labels.path_id) preview.values.push({ label: "Ca POS", value: references.labels.path_id, defaulted: false });
     if (((await getSettings(req)).alwaysConfirm && op.method !== "GET") || workflow.requireConfirmation || forceConfirmation || op.id === "employee.create") return { status: "confirmation", reply: op.id === "employee.create"
       ? "Thông tin nhân sự đã đủ rồi. Bạn nhập mật khẩu khởi tạo vào ô bảo mật trong bản xem trước nhé; đừng gửi mật khẩu trong tin nhắn."
@@ -673,18 +1766,66 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     const settings = await getSettings(req);
     responseRules = settings.responseRules || "";
     autoMemoryEnabled = settings.autoMemoryEnabled ?? false;
-    const memories = input.text && settings.memoryEnabled ? await assistantMemoryContext(req) : [];
-    if (input.decision) {
+    const memories = input.text && settings.memoryEnabled ? await assistantMemoryContext(req, input.text) : [];
+    if (assistantMode === "qa") {
+      if (!input.text || input.attachment || input.decision || input.referenceSelections || input.trainingContent) {
+        throw new AssistantError("Tab Hỏi đáp chỉ nhận câu hỏi dạng tin nhắn. Hãy chuyển sang tab Thao tác để dùng workflow.");
+      }
+      reply = {
+        status: "completed",
+        reply: await answerAssistantGeneralQuestion({
+          question: input.text,
+          messages: session.messages as { role: "user" | "assistant"; content: string }[],
+          instructions: settings?.instructions || "",
+          memories,
+          sessionMemory,
+        }),
+      };
+    } else if (input.decision) {
       if (!pending || pending.id !== input.decision.id || !pending.resolved) throw new AssistantError("Bản xem trước đã hết hiệu lực. Hãy gửi lại yêu cầu để kiểm tra.", 409);
       if (!input.decision.confirmed) { pending = null; reply = { status: "cancelled", reply: "Mình đã hủy thao tác theo yêu cầu. Dữ liệu chưa được thay đổi." }; }
       else {
         const workflow = await currentWorkflow(req, pending.actionId);
+        const operation = await assertOperation(req, pending.actionId);
         reply = workflow.version !== pending.workflowVersion
           ? await prepare(pending.actionId, pending.provided, true, pending.intent)
+          : missingCustomWorkHoursLabels(operation, pending.resolved).length
+            ? await prepare(pending.actionId, pending.provided, true, pending.intent)
           : pending.preview.requiresPassword && !input.decision.password
             ? { status: "confirmation", reply: "Bạn nhập lại mật khẩu khởi tạo trong ô bảo mật giúp mình nhé. Mật khẩu sẽ không được giữ lại nếu tải lại trang.", action: pending.preview }
-          : await execute(await assertOperation(req, pending.actionId), workflow, pending.resolved, input.decision.password);
+          : await execute(operation, workflow, pending.resolved, input.decision.password);
       }
+    } else if (input.referenceSelections) {
+      if (!pending || !pending.referenceSelections?.length) throw new AssistantError("Danh sách lựa chọn đã hết hiệu lực. Bạn gửi lại yêu cầu để mình tìm lựa chọn mới nhé.");
+      const operation = await assertOperation(req, pending.actionId);
+      const workflow = await currentWorkflow(req, pending.actionId);
+      if (workflow.version !== pending.workflowVersion) {
+        reply = await prepare(pending.actionId, pending.provided, false, pending.intent);
+      } else {
+        const applied = applyReferenceSelections(pending, operation, input.referenceSelections, input.skipReferenceKeys || []);
+        for (const key of applied.skipped) if (operation.fields.some(field => field.key === key)) delete applied.provided[key];
+        reply = await prepare(pending.actionId, applied.provided, false, pending.intent, Object.keys(input.referenceSelections));
+      }
+    } else if (input.trainingContent) {
+      if (!pending || pending.actionId !== "training.create") throw new AssistantError("Biểu mẫu bài giảng và câu hỏi đã hết hiệu lực. Bạn gửi lại yêu cầu tạo khóa đào tạo giúp mình nhé.", 409);
+      const operation = await assertOperation(req, pending.actionId);
+      const workflow = await currentWorkflow(req, pending.actionId);
+      const provided = {
+        ...pending.provided,
+        lessons: JSON.stringify(input.trainingContent.lessons),
+        quizzes: JSON.stringify(input.trainingContent.quizzes),
+      };
+      if (workflow.version !== pending.workflowVersion) {
+        reply = await prepare(pending.actionId, provided, false, pending.intent);
+      } else {
+        reply = await prepare(operation.id, provided, false, pending.intent);
+      }
+    } else if (forgetMemoryCommand !== null) {
+      const deleted = await forgetAssistantMemoryByContent(req, forgetMemoryCommand);
+      reply = {
+        status: "completed",
+        reply: deleted ? "Mình đã quên ghi nhớ đó khỏi tài khoản của bạn." : "Mình chưa tìm thấy ghi nhớ trùng khớp. Bạn có thể xem và xóa mục trong Cài đặt trợ lý > Ghi nhớ.",
+      };
     } else if (memoryCommand !== null) {
       if (!settings?.memoryEnabled) {
         reply = { status: "completed", reply: "Ghi nhớ đang tắt. Bạn có thể bật lại trong Cài đặt trợ lý để AI dùng các ghi nhớ của tài khoản." };
@@ -692,11 +1833,59 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const saved = await saveAssistantMemory(req, memoryCommand, "explicit");
         reply = { status: "completed", reply: `${saved.created ? "Mình đã ghi nhớ" : "Mình đã cập nhật ghi nhớ"} cho tài khoản của bạn: ${saved.item.content}. Bạn có thể xem, sửa hoặc xóa trong Cài đặt trợ lý > Ghi nhớ.` };
       }
+    } else if (input.text && typeof session.lastReply?.reply === "string"
+      && session.lastReply.reply.includes("Bạn có muốn bổ sung không?")
+      && /^(?:co|vang|dong y|duoc|ok|oke|khong|khong can|thoi|bo qua)(?: nhe| nha)?[.!?]?$/.test(normalizeAssistantText(input.text).trim())) {
+      const declined = /^(?:khong|thoi|bo qua)/.test(normalizeAssistantText(input.text).trim());
+      reply = declined
+        ? { status: "completed", reply: "Được nhé, mình giữ nguyên thông tin vừa tạo." }
+        : { status: "collecting", reply: "Được nhé. Bạn gửi giúp mình mục muốn bổ sung và nội dung cụ thể; mình sẽ chuẩn bị bản cập nhật để bạn kiểm tra trước khi lưu." };
     } else {
       const workflows = (await listWorkflows(req)).filter(w => w.enabled);
+      const missingInfoQuestion = isMissingProfileInfoIntent(input.text || "");
+      const laborPartnerUpdateRequest = isLaborPartnerProfileUpdateIntent(input.text || "");
+      const previousAction = missingInfoQuestion || laborPartnerUpdateRequest ? await latestCompletedAction(req, input.conversationId) : null;
+      const hasLaborPartnerContext = Boolean(previousAction?.actionId && laborPartnerContextActionIds.has(previousAction.actionId));
+      const mentionsAnotherPartnerType = /\b(?:doi tac|cong tac vien)\b/.test(normalizeAssistantText(input.text || ""));
+      const laborPartnerProfileUpdate = laborPartnerUpdateRequest
+        && (explicitlyMentionsLaborPartner(input.text || "") || (hasLaborPartnerContext && !mentionsAnotherPartnerType));
+      const laborPartnerMissingInfo = isLaborPartnerMissingInfoIntent(input.text || "")
+        || Boolean(missingInfoQuestion && hasLaborPartnerContext
+          && !/\b(?:nguoi lao dong|ho so lao dong|nhan su|nhan vien)\b/.test(normalizeAssistantText(input.text || "")));
+      const workerMissingInfo = isWorkerMissingInfoIntent(input.text || "")
+        || Boolean(missingInfoQuestion && previousAction?.actionId && workerCreateActionIds.has(previousAction.actionId) && !isLaborPartnerMissingInfoIntent(input.text || ""));
       const interpreted = await interpretRequest(input.text!, workflows, pending ? { actionId: pending.actionId, values: pending.provided } : null, session.messages as any, settings?.instructions || "", memories, sessionMemory);
       if (interpreted.cancel === true) { pending = null; reply = { status: "cancelled", reply: "Mình đã hủy yêu cầu rồi nhé. Dữ liệu chưa được thay đổi." }; }
-      else if (isWorkerMissingInfoIntent(input.text || "")) {
+      else if (laborPartnerMissingInfo) {
+        if (!workflows.some(workflow => workflow.actionId === "worker.partner.list")) {
+          reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ đối tác lao động vì workflow tra cứu chưa được bật hoặc tài khoản chưa có quyền." };
+        } else {
+          reply = await laborPartnerMissingInfoReply(req, input.text || "", previousAction);
+        }
+      }
+      else if (laborPartnerProfileUpdate) {
+        const operation = ASSISTANT_OPERATIONS.find(item => item.method === "PATCH" && item.path === "/worker-management/partners/:partnerId");
+        const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
+        if (!operation || !workflow) {
+          reply = { status: "unsupported", reply: "Mình chưa thể cập nhật hồ sơ đối tác lao động vì workflow này chưa được bật hoặc tài khoản chưa có quyền." };
+        } else {
+          const pathField = operation.fields.find(field => field.source === "path" && field.apiKey === "partnerId");
+          const contextualReference = hasLaborPartnerContext ? laborPartnerReferenceFromAction(previousAction) : "";
+          const targetValues = interpreted.actionId === workflow.actionId
+            ? interpreted.values
+            : (await interpretRequest(input.text!, [workflow], contextualReference && pathField
+              ? { actionId: workflow.actionId, values: { [pathField.key]: contextualReference } }
+              : null, session.messages as any, settings?.instructions || "", memories, sessionMemory)).values;
+          const continuing = pending?.actionId === workflow.actionId && !interpreted.newRequest;
+          const provided = {
+            ...(continuing ? pending!.provided : {}),
+            ...(contextualReference && pathField ? { [pathField.key]: contextualReference } : {}),
+            ...targetValues,
+          };
+          reply = await prepare(workflow.actionId, provided, false, continuing ? pending!.intent : input.text || "");
+        }
+      }
+      else if (workerMissingInfo) {
         if (!workflows.some(workflow => workflow.actionId === "worker.list")) {
           reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ lao động này vì workflow tra cứu chưa được bật hoặc tài khoản chưa có quyền." };
         } else {
@@ -778,17 +1967,8 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         }
       }
       else if (!interpreted.actionId) {
-        if (!pending && !input.attachment && (interpreted.intentType === "general_question" || !(interpreted.suggestedActionIds || []).length)) {
-          reply = {
-            status: "completed",
-            reply: await answerAssistantGeneralQuestion({
-              question: input.text || "",
-              messages: session.messages as { role: "user" | "assistant"; content: string }[],
-              instructions: settings?.instructions || "",
-              memories,
-              sessionMemory,
-            }),
-          };
+        if (!pending && !input.attachment && interpreted.intentType === "general_question") {
+          reply = { status: "unsupported", reply: "Câu hỏi này phù hợp với tab Hỏi đáp. Bạn chuyển sang Hỏi đáp để tiếp tục nhé; tab Thao tác dành cho tra cứu và cập nhật dữ liệu qua workflow." };
         } else {
           const suggestions = (interpreted.suggestedActionIds || []).map(id => workflows.find(workflow => workflow.actionId === id)).filter((workflow): workflow is AssistantWorkflow => Boolean(workflow)).slice(0, 3);
           const suggestionText = suggestions.length
@@ -798,27 +1978,58 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         }
       }
       else {
-        const continuing = pending?.actionId === interpreted.actionId && !interpreted.newRequest;
-        const provided = { ...(continuing ? pending!.provided : {}), ...interpreted.values };
+        const referenceCorrection = pending?.actionId === interpreted.actionId
+          && Boolean(pending.awaitingPathReferenceKeys?.length)
+          && isReferenceCorrectionReply(input.text || "");
+        const continuing = pending?.actionId === interpreted.actionId && (!interpreted.newRequest || referenceCorrection);
+        const previousOperation = pending ? operationById(pending.actionId) : undefined;
+        const requestedOperation = operationById(interpreted.actionId);
+        let selectedProductVariant = pending?.selectedProductVariant;
+        if (!selectedProductVariant && pending && previousOperation?.path === "/inventory/catalog/variants/:id"
+          && requestedOperation?.path === "/inventory/catalog/prices/:variantId") {
+          // Recover selections from an in-flight chat created before this handoff
+          // context was persisted on PendingAction.
+          const previousSelection = await resolveReferences(req, previousOperation, pending.provided as Record<string, AssistantValue>);
+          const productId = previousSelection.values.query_productId;
+          const variantId = previousSelection.values.path_id;
+          if (typeof productId === "string" && typeof variantId === "string") selectedProductVariant = { productId, variantId };
+        }
+        const continuingSelectedSkuPriceUpdate = previousOperation?.path === "/inventory/catalog/variants/:id"
+          && requestedOperation?.path === "/inventory/catalog/prices/:variantId"
+          && selectedProductVariant;
+        const provided = {
+          ...(continuing ? pending!.provided : {}),
+          ...interpreted.values,
+          ...(continuingSelectedSkuPriceUpdate ? {
+            path_variantId: continuingSelectedSkuPriceUpdate.variantId,
+            query_productId: continuingSelectedSkuPriceUpdate.productId,
+          } : {}),
+        };
         reply = await prepare(interpreted.actionId, provided, false, continuing ? pending!.intent : input.text || "");
       }
     }
   } catch (error) {
     const uncertain = error instanceof UncertainExecutionError || (hasDispatched && !(error instanceof AssistantError));
     reply = uncertain ? { ...uncertainReply(), link: pending ? operationById(pending.actionId)?.link : undefined } : { status: "failed", reply: friendlyFailure(error) };
-    // Keep a valid preview when the user submits a mismatched confirmation ID;
-    // clear pending work after failed requests or dispatched mutations.
-    if (uncertain || (reply.status === "failed" && (!input.decision || hasDispatched))) pending = null;
+    // Keep pending work when a turn fails before dispatch so a transient
+    // interpretation or validation error does not discard the user's draft.
+    if (uncertain || (reply.status === "failed" && hasDispatched)) pending = null;
   }
-  if (autoMemoryEnabled && input.text && !memoryCommand && reply.status !== "failed" && reply.status !== "uncertain") {
+  if (autoMemoryEnabled && input.text && !memoryCommand && !forgetMemoryCommand && reply.status !== "failed" && reply.status !== "uncertain") {
     await autoSaveAssistantMemories(req, input.text);
   }
   reply = await applyAssistantResponseRules(reply, responseRules);
+  reply = {
+    ...reply,
+    reply: hideInternalAssistantIds(normalizeAssistantReply(reply.reply, input.text || "")),
+    ...(reply.action ? { action: sanitizeActionPreview(reply.action) } : {}),
+  };
   try {
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: reply.status === "uncertain" ? "uncertain" : "completed", result: reply } });
-    const nextMessages = [...history, { role: "assistant", content: reply.reply }];
+    const nextMessages = [...history, { role: "assistant", content: reply.reply, createdAt: new Date().toISOString() }];
     const nextMessageCount = Math.max(Number(session.messageCount) || 0, session.messages.length) + 2;
     const sessionUpdate: Record<string, unknown> = {
+      mode: assistantMode,
       pending,
       lastReply: reply,
       messages: nextMessages.slice(-40),
@@ -826,12 +2037,23 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       busy: false,
     };
     const lastSessionMemoryCount = Number(session.sessionMemoryMessageCount) || 0;
-    if (nextMessageCount >= 40 && nextMessageCount - lastSessionMemoryCount >= 20) {
+    const shouldSummarizeSession = nextMessageCount >= 40 && nextMessageCount - lastSessionMemoryCount >= 20;
+    const sessionMemoryVersion = Number(session.sessionMemoryVersion) || 0;
+    if (shouldSummarizeSession) {
       sessionUpdate.sessionMemoryMessageCount = nextMessageCount;
-      const nextSessionMemory = await summarizeAssistantSession(sessionMemory, nextMessages);
-      if (nextSessionMemory !== null) sessionUpdate.sessionMemory = nextSessionMemory;
     }
     await AssistantSessionModel.updateOne(sessionFilter, { $set: sessionUpdate });
+    if (shouldSummarizeSession) {
+      void summarizeAssistantSession(sessionMemory, nextMessages).then(async nextSessionMemory => {
+        if (nextSessionMemory === null) return;
+        await AssistantSessionModel.updateOne({
+          ...sessionFilter,
+          messageCount: nextMessageCount,
+          sessionMemoryMessageCount: nextMessageCount,
+          ...sessionMemoryVersionFilter(sessionMemoryVersion),
+        }, { $set: { sessionMemory: nextSessionMemory }, $inc: { sessionMemoryVersion: 1 } });
+      }).catch(error => console.warn("[assistant session memory] Background summary failed", error));
+    }
   } catch (error) {
     // A crash after the business API may leave an executing record. Never replay that mutation.
     if (hasDispatched) return { ...uncertainReply(), link: reply.link };

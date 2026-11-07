@@ -66,11 +66,11 @@ describe("LeaveRequestsTab", () => {
       <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" usersList={[profile]} />
     );
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /biểu mẫu mẫu/i })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: /^biểu mẫu$/i })).toBeTruthy());
     expect(screen.getByRole("button", { name: /nộp đơn/i })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /đăng biểu mẫu mới/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /thêm biểu mẫu/i })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /biểu mẫu mẫu/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^biểu mẫu$/i }));
     await waitFor(() => expect(screen.getByText("Đơn xin nghỉ phép")).toBeTruthy());
     // Nhân viên tải được mẫu nhưng không xóa được.
     expect(screen.getByRole("link", { name: /tải mẫu/i })).toBeTruthy();
@@ -85,7 +85,7 @@ describe("LeaveRequestsTab", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /nộp đơn/i })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: /nộp đơn/i }));
 
-    expect(screen.getByText("Nộp đơn từ")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Nộp đơn" })).toBeTruthy();
     // Nhân viên thường không chọn được người khác.
     expect(screen.queryByText("Nhân sự")).toBeNull();
   });
@@ -110,10 +110,10 @@ describe("LeaveRequestsTab", () => {
       <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" usersList={[profile]} />
     );
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /biểu mẫu mẫu/i })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: /biểu mẫu mẫu/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^biểu mẫu$/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /^biểu mẫu$/i }));
 
-    const heading = await screen.findByText("Danh sách Biểu mẫu mẫu");
+    const heading = await screen.findByRole("heading", { name: "Biểu mẫu" });
     const backdrop = heading.closest("div.fixed") as HTMLDivElement;
     expect(backdrop.parentElement).toBe(document.body);
     expect(backdrop.className).toContain("inset-0");
@@ -125,10 +125,10 @@ describe("LeaveRequestsTab", () => {
       <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" canApprove usersList={[profile]} />
     );
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /đăng biểu mẫu mới/i })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: /đăng biểu mẫu mới/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /thêm biểu mẫu/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /thêm biểu mẫu/i }));
 
-    const heading = screen.getByText("Đăng tải biểu mẫu mẫu mới");
+    const heading = screen.getByRole("heading", { name: "Thêm biểu mẫu" });
     const backdrop = heading.closest("div.fixed") as HTMLDivElement;
     expect(backdrop.parentElement).toBe(document.body);
     expect(backdrop.className).toContain("fixed");
@@ -141,8 +141,8 @@ describe("LeaveRequestsTab", () => {
       <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" canApprove usersList={[profile]} />
     );
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /biểu mẫu mẫu/i })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: /biểu mẫu mẫu/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^biểu mẫu$/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /^biểu mẫu$/i }));
     fireEvent.click(await screen.findByRole("button", { name: /^xóa$/i }));
 
     const dialog = screen.getByRole("dialog", { name: "Xóa biểu mẫu" });
@@ -175,18 +175,18 @@ describe("LeaveRequestsTab", () => {
       <LeaveRequestsTab userProfile={profile} selectedCompanyCode="IGEN" canApprove usersList={[profile]} />
     );
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /đăng biểu mẫu mới/i })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: /thêm biểu mẫu/i })).toBeTruthy());
 
-    fireEvent.click(screen.getByRole("button", { name: /biểu mẫu mẫu/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^biểu mẫu$/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /^xóa$/i })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: /đóng/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /đóng/i })[0]);
 
     fireEvent.click(screen.getByRole("button", { name: /^nộp đơn$/i }));
-    const dialog = screen.getByText("Nộp đơn từ").closest("div")!.parentElement!;
+    const dialog = screen.getByRole("heading", { name: "Nộp đơn" }).closest("div")!.parentElement!;
     expect(within(dialog).getByText("Nhân sự")).toBeTruthy();
   });
 
-  it("renders complete request cards below 1700px", async () => {
+  it("keeps the compact request table below 1700px", async () => {
     mockViewport(true);
     vi.stubGlobal("fetch", mockFetch([responsiveApplication]));
 
@@ -195,10 +195,11 @@ describe("LeaveRequestsTab", () => {
     );
 
     await waitFor(() => expect(screen.getByText("Responsive Employee")).toBeTruthy());
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByRole("table")).toBeTruthy();
     expect(screen.getByText("Responsive reason")).toBeTruthy();
     expect(screen.getByText("Responsive admin feedback")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /minh chứng/i })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /tệp đơn/i })).toBeTruthy();
+    expect(screen.getByText("Chờ duyệt").parentElement?.className).toContain("uppercase");
     expect(document.querySelector('[title="Duyệt đơn"]')).toBeTruthy();
     expect(document.querySelector('[title="Từ chối"]')).toBeTruthy();
     expect(document.querySelector('[title="Xóa đơn"]')).toBeTruthy();

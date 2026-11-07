@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { cn } from "../../modules/student-management/lib/utils";
 
 /**
  * Dropdown chọn giờ định dạng 24h (HH:mm) với giao diện cuộn Giờ & Phút riêng biệt
@@ -66,6 +67,8 @@ export function TimeInput24({
     if (!isOpen) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
         setIsOpen(false);
         triggerRef.current?.focus();
       }
@@ -127,7 +130,7 @@ export function TimeInput24({
   const isCompact = variant === "compact";
 
   return (
-    <div ref={containerRef} className={`relative inline-block text-xs text-slate-800 ${className}`}>
+    <div ref={containerRef} className={cn("relative inline-block text-xs text-on-surface", className)}>
       <button
         ref={triggerRef}
         type="button"
@@ -146,16 +149,16 @@ export function TimeInput24({
         }
       >
         <span>{current || "--:--"}</span>
-        <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1.5" />
+        <Clock className="ml-1.5 size-3.5 shrink-0 text-on-surface-variant" aria-hidden="true" />
       </button>
 
       {isOpen && createPortal(
-        <div ref={menuRef} role="dialog" aria-label={ariaLabel ? `Chọn ${ariaLabel.toLowerCase()}` : "Chọn giờ"} className="fixed z-[200] bg-white border border-[#DCE7F4] rounded-2xl shadow-xl p-3.5 flex flex-col w-[170px] select-none animate-fade-in animate-scale-in" style={menuPosition}>
-          <div className="grid grid-cols-2 text-center text-xs font-normal text-slate-500 mb-2 font-sans">
+        <div ref={menuRef} role="dialog" aria-label={ariaLabel ? `Chọn ${ariaLabel.toLowerCase()}` : "Chọn giờ"} className="fixed z-[200] flex w-[170px] select-none flex-col rounded-md border border-outline-variant bg-surface-container-lowest p-3.5 text-on-surface shadow-sm" style={menuPosition}>
+          <div className="mb-2 grid grid-cols-2 text-center font-sans text-xs font-normal text-on-surface-variant">
             <div>Giờ</div>
             <div>Phút</div>
           </div>
-          <div className="h-px bg-gray-100 -mx-3.5 mb-2.5" />
+          <div className="-mx-3.5 mb-2.5 h-px bg-outline-variant" />
           <div className="flex h-[180px] items-stretch">
             {/* Danh sách giờ */}
             <div
@@ -172,10 +175,10 @@ export function TimeInput24({
                     aria-label={`Giờ ${h}`}
                     data-active={isSelected}
                     onClick={() => handleHourSelect(h)}
-                    className={`w-full py-1.5 text-center text-xs font-normal rounded-lg transition-colors cursor-pointer ${
+                    className={`w-full cursor-pointer rounded-lg py-1.5 text-center text-xs font-normal transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
                       isSelected
-                        ? "bg-brand-primary text-white"
-                        : "text-slate-700 hover:bg-sky-50"
+                        ? "bg-primary/10 text-primary"
+                        : "text-on-surface hover:bg-primary/5"
                     }`}
                   >
                     {h}
@@ -185,7 +188,7 @@ export function TimeInput24({
             </div>
 
             {/* Vạch ngăn giữa */}
-            <div className="w-px bg-gray-100 mx-1.5 self-stretch" />
+            <div className="mx-1.5 w-px self-stretch bg-outline-variant" />
 
             {/* Danh sách phút */}
             <div
@@ -202,10 +205,10 @@ export function TimeInput24({
                     aria-label={`Phút ${m}`}
                     data-active={isSelected}
                     onClick={() => handleMinuteSelect(m)}
-                    className={`w-full py-1.5 text-center text-xs font-normal rounded-lg transition-colors cursor-pointer ${
+                    className={`w-full cursor-pointer rounded-lg py-1.5 text-center text-xs font-normal transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
                       isSelected
-                        ? "bg-brand-primary text-white"
-                        : "text-slate-700 hover:bg-sky-50"
+                        ? "bg-primary/10 text-primary"
+                        : "text-on-surface hover:bg-primary/5"
                     }`}
                   >
                     {m}
@@ -214,7 +217,7 @@ export function TimeInput24({
               })}
             </div>
           </div>
-        </div>, document.body,
+        </div>, triggerRef.current?.closest("dialog") || document.body,
       )}
     </div>
   );
@@ -233,13 +236,14 @@ interface DateTimeInput24Props {
 interface DateInput24Props extends Omit<DateTimeInput24Props, "className"> {
   className?: string;
   ariaLabel?: string;
+  showYearSelect?: boolean;
 }
 
 /** Branded date-only field with the same calendar popover used by DateTimeInput24. */
-export function DateInput24({ value, onChange, className = "", required, disabled, ariaLabel = "Chọn ngày" }: DateInput24Props) {
+export function DateInput24({ value, onChange, className = "", required, disabled, ariaLabel = "Chọn ngày", showYearSelect = false }: DateInput24Props) {
   return (
     <div className={`flex min-h-10 w-full items-center rounded-xl border border-[#DCE7F4] bg-white px-2.5 transition-colors hover:border-[#B8DFF3] focus-within:border-[#70D5FF] focus-within:ring-2 focus-within:ring-[#00ADFC]/15 ${className}`}>
-      <BrandedDateInput value={value} onChange={onChange} required={required} disabled={disabled} ariaLabel={ariaLabel} />
+      <BrandedDateInput value={value} onChange={onChange} required={required} disabled={disabled} ariaLabel={ariaLabel} showYearSelect={showYearSelect} />
     </div>
   );
 }
@@ -256,17 +260,17 @@ export function DateTimeInput24({ value, onChange, className = "", required, dis
 
   return (
     <div
-      className={`flex min-h-10 items-center gap-1.5 rounded-xl border border-[#DCE7F4] bg-white px-2.5 transition-colors hover:border-[#B8DFF3] focus-within:border-[#70D5FF] focus-within:ring-2 focus-within:ring-[#00ADFC]/15 ${className}`}
+      className={cn("flex min-h-10 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 text-sm text-on-surface transition-colors focus-within:border-primary", className)}
     >
         <BrandedDateInput value={datePart} onChange={(date) => emit(date, timePart)} required={required} disabled={disabled} ariaLabel={`${ariaLabel} - ngày`} />
-      <div className="w-px bg-gray-200 self-stretch my-0.5 shrink-0" />
+      <div className="my-0.5 w-px shrink-0 self-stretch bg-outline-variant" />
       <TimeInput24
         value={timePart}
-        onChange={(t) => emit(datePart || new Date().toISOString().slice(0, 10), t)}
+        onChange={(t) => emit(datePart || toDateValue(new Date()), t)}
         disabled={disabled}
         variant="flat"
         ariaLabel={`${ariaLabel} - giờ`}
-        className="shrink-0 w-24"
+        className="w-24 shrink-0 text-sm"
       />
     </div>
   );
@@ -278,7 +282,7 @@ const parseDateValue = (value: string) => {
   return year && month && day ? new Date(year, month - 1, day) : null;
 };
 
-function BrandedDateInput({ value, onChange, required, disabled, ariaLabel }: Pick<DateTimeInput24Props, "value" | "onChange" | "required" | "disabled"> & { ariaLabel: string }) {
+function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, showYearSelect = false }: Pick<DateTimeInput24Props, "value" | "onChange" | "required" | "disabled"> & { ariaLabel: string; showYearSelect?: boolean }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -318,7 +322,12 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel }: Pi
       if (!triggerRef.current?.contains(target) && !popoverRef.current?.contains(target)) setOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     };
     document.addEventListener("pointerdown", closeOutside);
     document.addEventListener("keydown", closeOnEscape);
@@ -329,6 +338,9 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel }: Pi
   }, [open]);
 
   const selected = parseDateValue(value);
+  const currentYear = new Date().getFullYear();
+  const firstYear = Math.min(1900, month.getFullYear());
+  const lastYear = Math.max(currentYear, month.getFullYear());
   const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
   const days = Array.from({ length: 42 }, (_, index) => new Date(month.getFullYear(), month.getMonth(), index - firstWeekday + 1));
   const chooseDate = (date: Date) => {
@@ -352,33 +364,43 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel }: Pi
           setMonth(new Date(date.getFullYear(), date.getMonth(), 1));
           setOpen((current) => !current);
         }}
-        className="flex w-full min-w-0 items-center justify-between gap-1 rounded-lg px-1 py-1 text-left text-xs font-normal text-slate-800 outline-none hover:bg-[#F5FAFE] focus-visible:ring-2 focus-visible:ring-[#00ADFC]/30 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full min-w-0 items-center justify-between gap-1 rounded-md px-1 py-1 text-left text-sm font-normal text-on-surface outline-none hover:bg-primary/5 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <span className={selected ? "truncate" : "truncate text-slate-400"}>{selected ? new Intl.DateTimeFormat("vi-VN").format(selected) : "Chọn ngày"}</span>
-        <CalendarDays className="h-3.5 w-3.5 shrink-0 text-[#007EB8]" aria-hidden="true" />
+        <span className={selected ? "truncate" : "truncate text-on-surface-variant"}>{selected ? new Intl.DateTimeFormat("vi-VN").format(selected) : "Chọn ngày"}</span>
+        <CalendarDays className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
       </button>
       {open && createPortal(
-        <div ref={popoverRef} role="dialog" aria-label="Lịch chọn ngày" className="fixed z-[200] max-h-[calc(100vh-24px)] overflow-y-auto rounded-2xl border border-[#DCE7F4] bg-white p-3 text-slate-800 shadow-[0_18px_50px_rgba(13,48,78,0.18)]" style={position}>
+        <div ref={popoverRef} role="dialog" aria-label="Lịch chọn ngày" className="fixed z-[200] max-h-[calc(100vh-24px)] overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-on-surface shadow-sm" style={position}>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-medium capitalize">{new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(month)}</span>
+            <span className="text-sm font-medium capitalize">{new Intl.DateTimeFormat("vi-VN", showYearSelect ? { month: "long" } : { month: "long", year: "numeric" }).format(month)}</span>
             <div className="flex items-center gap-0.5">
-              <button type="button" aria-label="Tháng trước" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-lg p-1.5 text-slate-500 hover:bg-[#E8F7FF]"><ChevronLeft className="h-4 w-4" /></button>
-              <button type="button" aria-label="Tháng sau" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-lg p-1.5 text-slate-500 hover:bg-[#E8F7FF]"><ChevronRight className="h-4 w-4" /></button>
+              {showYearSelect && (
+                <select
+                  aria-label="Chọn năm sinh"
+                  value={month.getFullYear()}
+                  onChange={(event) => setMonth(new Date(Number(event.target.value), month.getMonth(), 1))}
+                  className="rounded-lg border border-outline-variant bg-surface-container-lowest px-1 py-1 text-sm text-on-surface focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  {Array.from({ length: lastYear - firstYear + 1 }, (_, index) => lastYear - index).map((year) => <option key={year} value={year}>{year}</option>)}
+                </select>
+              )}
+              <button type="button" aria-label="Tháng trước" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded-lg p-1.5 text-on-surface-variant hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"><ChevronLeft className="size-4" /></button>
+              <button type="button" aria-label="Tháng sau" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded-lg p-1.5 text-on-surface-variant hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"><ChevronRight className="size-4" /></button>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-1 text-center text-xs text-slate-500">{["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => <span key={day} className="py-1">{day}</span>)}</div>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs text-on-surface-variant">{["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((day) => <span key={day} className="py-1">{day}</span>)}</div>
           <div className="grid grid-cols-7 gap-1">
             {days.map((date) => {
               const dateValue = toDateValue(date);
               const isSelected = dateValue === value;
-              return <button key={dateValue} type="button" aria-label={`Chọn ngày ${new Intl.DateTimeFormat("vi-VN").format(date)}`} aria-pressed={isSelected} onClick={() => chooseDate(date)} className={`h-8 rounded-lg text-xs transition-colors ${isSelected ? "bg-[#00ADFC] text-white" : date.getMonth() === month.getMonth() ? "text-slate-700 hover:bg-[#E8F7FF]" : "text-slate-400 hover:bg-[#F5FAFE]"} ${dateValue === toDateValue(new Date()) && !isSelected ? "ring-1 ring-[#00ADFC]/50" : ""}`}>{date.getDate()}</button>;
+              return <button key={dateValue} type="button" aria-label={`Chọn ngày ${new Intl.DateTimeFormat("vi-VN").format(date)}`} aria-pressed={isSelected} onClick={() => chooseDate(date)} className={cn("h-8 rounded-lg text-xs tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-primary", isSelected ? "bg-primary/10 text-primary" : date.getMonth() === month.getMonth() ? "text-on-surface hover:bg-primary/5" : "text-on-surface-variant hover:bg-primary/5", dateValue === toDateValue(new Date()) && !isSelected && "ring-1 ring-primary")}>{date.getDate()}</button>;
             })}
           </div>
-          <div className={`mt-2 flex items-center border-t border-[#E8F0F8] pt-2 text-xs ${required ? "justify-end" : "justify-between"}`}>
-            {!required && <button type="button" onClick={() => { onChange(""); setOpen(false); }} className="rounded-lg px-2 py-1 text-slate-500 hover:bg-[#F5FAFE]">Xóa ngày</button>}
-            <button type="button" onClick={() => chooseDate(new Date())} className="rounded-lg bg-[#E8F7FF] px-2 py-1 text-[#007EB8] hover:bg-[#D7F1FF]">Hôm nay</button>
+          <div className={cn("mt-2 flex items-center border-t border-outline-variant pt-2 text-xs", required ? "justify-end" : "justify-between")}>
+            {!required && <button type="button" onClick={() => { onChange(""); setOpen(false); }} className="rounded-md px-2 py-1 text-on-surface-variant hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary">Xóa ngày</button>}
+            <button type="button" onClick={() => chooseDate(new Date())} className="rounded-md bg-primary/10 px-2 py-1 text-primary hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary">Hôm nay</button>
           </div>
-        </div>, document.body,
+        </div>, triggerRef.current?.closest("dialog") || document.body,
       )}
     </div>
   );

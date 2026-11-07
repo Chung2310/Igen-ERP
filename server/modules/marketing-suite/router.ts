@@ -3,6 +3,7 @@ import { suiteAccess } from "./shared/access";
 import { suiteDataRouter } from "./shared/data.router";
 import { marketingSettingsRouter } from "./shared/settings.router";
 import { facebookOAuthRouter } from "./shared/facebook-oauth.router";
+import { zaloOAuthRouter } from "./shared/zalo-oauth.router";
 import { subscriptionRouter } from "./shared/subscription.router";
 import { withAiUsage } from "./shared/service/ai-subscription.service";
 import type { AuthenticatedRequest } from "../../middleware/auth";
@@ -39,6 +40,7 @@ marketingSuiteRouter.use((request, _response, next) => {
 });
 marketingSuiteRouter.use(suiteDataRouter);
 marketingSuiteRouter.use(facebookOAuthRouter);
+marketingSuiteRouter.use(zaloOAuthRouter);
 marketingSuiteRouter.use("/marketing-settings", marketingSettingsRouter);
 marketingSuiteRouter.use("/marketing-subscription", subscriptionRouter);
 marketingSuiteRouter.use("/marketing-wallet", (_req, res) => res.status(410).json({ status: "error", message: "Marketing đã chuyển sang gói AI theo doanh nghiệp." }));

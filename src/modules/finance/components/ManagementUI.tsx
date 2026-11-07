@@ -1,3 +1,5 @@
+import '../../../components/dashboard/overview-dashboard.css';
+import '../finance-workspace.css';
 import { useEffect, useRef, useState, type FormEvent, type ReactNode, type ElementType } from "react";
 import {
   X,
@@ -26,15 +28,16 @@ import {
   Users,
   Building2,
   DollarSign,
-  Inbox,
 } from "lucide-react";
+import { HrEmptyIllustration } from "../../../components/hr/HrEmptyIllustration";
+import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
 
 export const money = (n: number | null | undefined) =>
   n == null ? "Chưa có dữ liệu" : `${Math.round(n).toLocaleString("vi-VN")} đ`;
 export const inputClass =
-  "w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-sm font-medium text-on-surface outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary";
+  "w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none focus:border-primary";
 export const buttonClass =
-  "min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50";
+  `${primaryCreateButtonClass} min-h-9 disabled:opacity-50`;
 
 export interface StatTheme {
   icon: ElementType;
@@ -229,15 +232,24 @@ export function getStatConfig(title: string): StatTheme {
   };
 }
 
-export function Stats({ values }: { values: [string, ReactNode][] }) {
+export function getFinanceStatTone(title: string) {
+    const label = title.toLocaleLowerCase("vi");
+    if (/quá hạn|còn thiếu|phải trả|tổng chi|chi phí|giá vốn|phải nộp|chênh lệch thiếu/.test(label)) return "expense";
+    if (/doanh thu|tổng thu|phải thu|lãi|lợi nhuận|đã tất toán/.test(label)) return "income";
+    if (/dòng tiền|số dư|còn chuyển|tồn kho|tài sản|nguyên giá/.test(label)) return "balance";
+    return "neutral";
+}
+export function Stats({ values, overview = false }: { values: [string, ReactNode][]; overview?: boolean }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {values.map(([title, value]) => (
-        <div key={title} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
-          <p className="text-pretty text-sm text-on-surface-variant">{title}</p>
-          <div className="mt-1 break-words text-lg font-semibold tabular-nums text-on-surface">{value}</div>
+      {values.map(([title, value]) => {
+        const Icon = getStatConfig(title).icon;
+        return <div key={title} className={overview ? "overview-kpi" : `finance-stat-card finance-stat-card--${getFinanceStatTone(title)} flex min-w-0 items-center justify-between gap-3 rounded-md p-3 text-on-primary`}>
+          <div className="min-w-0"><p className="truncate text-pretty text-xs font-medium" title={title}>{title}</p>
+          <div className="mt-1 break-words text-xl font-semibold leading-tight tabular-nums">{value}</div></div>
+          {!overview && <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-on-primary/15"><Icon className="size-5" aria-hidden="true" /></span>}
         </div>
-      ))}
+      })}
     </div>
   );
 }
@@ -250,24 +262,25 @@ export function DataTable({
 }) {
   const [page, setPage] = useState(0);
   const safePage = Math.min(page, Math.max(0, Math.ceil(rows.length / 25) - 1));
+  const amountColumn = (header: string) => /số tiền|doanh thu|giá vốn|lãi|chi phí|còn nợ|đã trả|giá trị|dư|tổng|vat|rủi ro/i.test(header);
   return (
-    <div className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-xs">
+    <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-xs">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-outline-variant bg-surface-container-low text-xs font-bold text-on-surface-variant">
+          <thead className="border-b border-outline-variant bg-surface-container-low text-xs font-medium text-on-surface-variant">
             <tr>
               {headers.map((h) => (
-                <th key={h} className="whitespace-nowrap px-4 py-3.5">
+                <th key={h} scope="col" className={`whitespace-nowrap px-4 py-3 ${amountColumn(h) ? "text-right" : ""}`}>
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-outline-variant">
             {rows.slice(safePage * 25, safePage * 25 + 25).map((row, i) => (
               <tr key={i} className="hover:bg-surface-container-low transition-colors">
                 {row.map((cell, j) => (
-                  <td key={j} className="px-4 py-3 text-on-surface">
+                  <td key={j} className={`px-4 py-3 text-on-surface ${amountColumn(headers[j]) ? "text-right font-semibold tabular-nums text-on-primary-container" : ""}`}>
                     {cell}
                   </td>
                 ))}
@@ -277,10 +290,10 @@ export function DataTable({
               <tr>
                 <td
                   colSpan={headers.length}
-                  className="p-10 text-center text-on-surface-variant"
+                  className="px-4 py-8 text-center text-on-surface-variant"
                 >
-                  <Inbox className="mx-auto mb-2 h-8 w-8 stroke-1 text-on-surface-variant" />
-                  <p className="text-sm font-medium">Không có dữ liệu trong phạm vi đã chọn.</p>
+                  <HrEmptyIllustration kind="payroll" className="mx-auto" />
+                  <p className="mt-1 text-pretty text-sm">Không có dữ liệu trong phạm vi đã chọn.</p>
                 </td>
               </tr>
             )}
@@ -292,7 +305,7 @@ export function DataTable({
           <button
             disabled={!safePage}
             onClick={() => setPage(safePage - 1)}
-            className="rounded-lg border border-outline-variant px-3 py-1 font-medium hover:bg-surface-container-low disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+            className="rounded-md border border-outline-variant px-3 py-1 font-medium hover:bg-surface-container-low disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
           >
             Trước
           </button>
@@ -302,7 +315,7 @@ export function DataTable({
           <button
             disabled={(safePage + 1) * 25 >= rows.length}
             onClick={() => setPage(safePage + 1)}
-            className="rounded-lg border border-outline-variant px-3 py-1 font-medium hover:bg-surface-container-low disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+            className="rounded-md border border-outline-variant px-3 py-1 font-medium hover:bg-surface-container-low disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
           >
             Sau
           </button>
@@ -365,12 +378,12 @@ export function EntryForm({ title, fields, onSave, onClose }: {
       onClose={onClose}
       onCancel={(event) => { if (busy) event.preventDefault(); }}
       aria-label={title}
-      className="m-auto max-h-[90dvh] w-[min(100%-2rem,36rem)] rounded-2xl border border-outline-variant bg-surface-container-lowest p-0 text-on-surface shadow-xl backdrop:bg-inverse-surface/50"
+      className="m-auto max-h-[90dvh] w-[min(100%-2rem,36rem)] rounded-md border border-outline-variant bg-surface-container-lowest p-0 text-on-surface shadow-xl backdrop:bg-inverse-surface/50"
     >
-      <form onSubmit={save} className="max-h-[90dvh] space-y-4 overflow-y-auto p-5">
+      <form onSubmit={save} className="max-h-[90dvh] space-y-3 overflow-y-auto p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-balance text-lg font-semibold">{title}</h2>
-          <button type="button" disabled={busy} onClick={onClose} aria-label="Đóng" className="rounded-lg p-2 focus-visible:outline-2 focus-visible:outline-primary" data-erp-modal-close>
+          <button type="button" disabled={busy} onClick={onClose} aria-label="Đóng" className="rounded-md p-2 focus-visible:outline-2 focus-visible:outline-primary" data-erp-modal-close>
             <X size={20} aria-hidden="true" />
           </button>
         </div>
@@ -379,7 +392,7 @@ export function EntryForm({ title, fields, onSave, onClose }: {
             <label key={field.key} className="space-y-1 text-sm">
               <span>{field.label}</span>
               {field.options ? (
-                <select className={inputClass} name={field.key} required={field.required !== false} defaultValue={field.initial}>
+                <select className={`${inputClass} finance-select`} name={field.key} required={field.required !== false} defaultValue={field.initial}>
                   {field.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               ) : (

@@ -248,7 +248,7 @@ export default function WorkerWorkspace() {
     );
 
   return (
-    <div className="worker-workspace flex h-full min-h-0 flex-col bg-white">
+    <div className="worker-workspace flex h-full min-h-0 flex-col bg-surface text-on-surface">
       <ModuleNavigation label="Mục Lao động" activeValue={activeTab} id="worker_sub_tabs_bar" actions={userProfile?.role === "superadmin" && <div className="flex min-w-0 items-center gap-2">
         <span className="text-xs text-on-surface-variant">Cơ sở</span>
         <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
@@ -257,8 +257,10 @@ export default function WorkerWorkspace() {
       </div>}>
         {tabs.map(tab => <ModuleNavigationButton key={tab.value} active={activeTab === tab.value} icon={<tab.icon />} onClick={() => setActiveTab(tab.value)}>{tab.label}</ModuleNavigationButton>)}
       </ModuleNavigation>
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FBFF] p-3 sm:p-6">
-        <Suspense fallback={<Loader />}>{page}</Suspense>
+      <div className="min-h-0 flex-1 overflow-y-auto bg-surface px-3 py-0 lg:pl-0">
+        <div className="min-h-full rounded-md border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
+          <Suspense fallback={<Loader />}>{page}</Suspense>
+        </div>
       </div>
     </div>
   );

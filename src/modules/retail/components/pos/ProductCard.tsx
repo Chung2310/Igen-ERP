@@ -131,11 +131,11 @@ export function ProductCard({
           )}
 
           {isSoldOut ? (
-            <span className="absolute top-2 right-2 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">
+            <span className="absolute top-2 right-2 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">
               Hết hàng
             </span>
           ) : selected.stock <= 2 ? (
-            <span className="absolute top-2 right-2 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+            <span className="absolute top-2 right-2 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
               Tồn: {selected.stock}
             </span>
           ) : null}
@@ -145,12 +145,12 @@ export function ProductCard({
         <div className="mt-2.5 min-w-0 flex-1">
           <span
             title={group.name}
-            className="block truncate text-sm font-bold text-slate-900 group-hover:text-[#0758d5] transition"
+            className="block truncate text-sm font-semibold text-slate-900 group-hover:text-[#0758d5] transition"
           >
             {group.name}
           </span>
 
-          <p className="mt-1 text-xs sm:text-sm font-extrabold text-[#0866f5] tabular-nums">
+          <p className="mt-1 text-xs sm:text-sm font-semibold text-[#0866f5] tabular-nums">
             {group.variants.length > 1 && minPrice !== maxPrice
               ? `Từ ${money(minPrice)}`
               : money(selected.price)}

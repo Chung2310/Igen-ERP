@@ -88,8 +88,8 @@ describe("worker profile ownership", () => {
       .map((button) => button.textContent?.trim())
       .filter((label) => ["Xuất", "In", "QR đăng ký", "Thêm"].includes(label || ""));
     expect(actions).toEqual(["Xuất", "In", "QR đăng ký", "Thêm"]);
-    expect(screen.getByRole("button", { name: "Xuất" }).className).toContain("border-slate-200");
-    expect(screen.getByRole("button", { name: "Thêm" }).className).toContain("bg-brand-primary");
+    expect(screen.getByRole("button", { name: "Xuất" }).className).toContain("border-outline-variant");
+    expect(screen.getByRole("button", { name: "Thêm" }).className).toContain("bg-[#00ADFC]");
     expect(container.querySelector(".status-tabs")).toBeTruthy();
     expect(container.querySelector(".filters-bar")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Đang tuyển/ })).toBeTruthy();

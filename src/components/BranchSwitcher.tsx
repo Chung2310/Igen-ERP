@@ -68,7 +68,7 @@ export default function BranchSwitcher({ branches, activeBranchId, onChange }: B
             setOpen(true);
           }
         }}
-        className="flex max-w-[220px] min-w-0 items-center gap-1.5 rounded-xl bg-[#eaf8ff] px-2.5 py-2 text-[#075a82] transition-colors hover:bg-[#d9f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00adfc] sm:max-w-[260px]"
+        className="flex max-w-28 min-w-0 items-center gap-1.5 rounded-xl bg-[#eaf8ff] px-2.5 py-2 text-[#075a82] transition-colors hover:bg-[#d9f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00adfc] sm:max-w-[260px]"
       >
         <GitBranch className="h-4 w-4 shrink-0 text-[#0099df]" aria-hidden="true" />
         <span className="hidden shrink-0 text-xs sm:inline">Chi nhánh</span>

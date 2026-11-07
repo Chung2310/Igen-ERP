@@ -169,13 +169,13 @@ export function AttendanceModal({
     >
       {selectedSessionDate === null ? (
         // Session List View
-        <div className="space-y-6 text-left">
-          <div className="flex justify-between items-center">
+        <div className="space-y-5 text-left">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h4 className="text-xs font-bold text-slate-700">
+              <h4 className="text-sm font-semibold text-on-surface">
                 {batch.courseTitle}
               </h4>
-              <p className="text-[10px] text-slate-400">
+              <p className="mt-0.5 text-xs text-on-surface-variant">
                 {copy.capacityLabel}: {batch.learnerIds.length} {entityLabel.singular} • Lịch hoạt động: {formatDays(batch.daysOfWeek)} ({batch.startTime} - {batch.endTime})
               </p>
             </div>
@@ -186,23 +186,23 @@ export function AttendanceModal({
                   setShowAddSession(true);
                   setNewSessionDate(new Date().toISOString().split('T')[0]);
                 }}
-                className="px-4 py-2 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-xl text-xs font-bold transition-all hover:bg-cyan-100 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs font-medium text-primary hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
               >
-                <CalendarRange className="w-4 h-4 text-cyan-600" /> Bổ sung ngày học khác
+                <CalendarRange className="h-4 w-4" /> Bổ sung ngày học khác
               </button>
             )}
           </div>
 
           {batch.learnerIds.length === 0 && (
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-700 font-medium">
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800">
               ⚠️ {copy.entityName} này hiện chưa có {entityLabel.singular} nào. Hãy bấm <strong>Quản lý {entityLabel.singular} (👥)</strong> để thêm {entityLabel.singular} vào {copy.entityNameLower} trước khi điểm danh.
             </div>
           )}
 
           {showAddSession && (
-            <div className="p-4 border border-cyan-100 rounded-2xl bg-cyan-50/40 space-y-4">
-              <h5 className="text-xs font-bold text-cyan-900">Thêm ngày học bổ sung (ngoài lịch cố định)</h5>
-              <div className="grid grid-cols-2 gap-4 text-left">
+            <div className="space-y-4 rounded-md border border-outline-variant bg-primary/5 p-4">
+              <h5 className="text-sm font-semibold text-on-surface">Thêm ngày học bổ sung (ngoài lịch cố định)</h5>
+              <div className="grid gap-4 text-left sm:grid-cols-2">
                 <ErpField label="Ngày học bổ sung">
                   <ErpInput
                     type="date"
@@ -215,14 +215,14 @@ export function AttendanceModal({
                 <button
                   type="button"
                   onClick={() => setShowAddSession(false)}
-                  className="px-3 py-1.5 bg-slate-200 text-slate-650 rounded-lg text-xs font-semibold hover:bg-slate-300 cursor-pointer"
+                  className="cursor-pointer rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
                 >
                   Hủy
                 </button>
                 <button
                   type="button"
                   onClick={handleAddCustomDate}
-                  className="px-3 py-1.5 bg-cyan-500 text-white rounded-lg text-xs font-bold hover:bg-cyan-600 shadow-sm shadow-cyan-500/20 cursor-pointer border border-cyan-400"
+                  className="cursor-pointer rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
                 >
                   Xác nhận và Điểm danh
                 </button>
@@ -231,7 +231,7 @@ export function AttendanceModal({
           )}
 
           <div className="space-y-2">
-            <h5 className="text-xs font-black uppercase tracking-wider text-slate-500">
+            <h5 className="text-sm font-semibold text-on-surface">
               Danh sách buổi học theo lịch trình
             </h5>
             {(() => {
@@ -241,14 +241,14 @@ export function AttendanceModal({
 
               if (allDates.length === 0) {
                 return (
-                  <div className="text-center py-6 border border-dashed border-slate-200 rounded-2xl">
-                    <p className="text-xs text-slate-400">Không có ngày học nào trong lịch trình đã chọn.</p>
+                  <div className="rounded-md border border-dashed border-outline-variant py-6 text-center">
+                    <p className="text-xs text-on-surface-variant">Không có ngày học nào trong lịch trình đã chọn.</p>
                   </div>
                 );
               }
 
               return (
-                <div className="border border-cyan-100 rounded-2xl p-2 divide-y divide-cyan-50/60 max-h-72 overflow-y-auto bg-white">
+                <div className="max-h-72 divide-y divide-outline-variant overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-2">
                   {allDates.map((date) => {
                     const session = batch.attendanceSessions?.find(s => s.date === date);
                     const isTaken = !!session;
@@ -257,10 +257,10 @@ export function AttendanceModal({
                     const totalRecords = session && session.records.length > 0 ? session.records.length : learnerCount;
 
                     return (
-                      <div key={date} className="flex items-center justify-between py-3 px-3 hover:bg-cyan-50/40 transition-all">
-                        <div className="cursor-pointer flex-1" onClick={() => openSessionDetail(date)}>
-                          <p className="text-xs font-bold text-slate-700 flex items-center gap-2">
-                            <Calendar className="w-3.5 h-3.5 text-cyan-500" />
+                      <div key={date} className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 hover:bg-primary/5">
+                        <button type="button" className="min-w-0 flex-1 cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-primary" onClick={() => openSessionDetail(date)}>
+                          <p className="flex items-center gap-2 text-xs font-semibold text-on-surface">
+                            <Calendar className="h-3.5 w-3.5 text-primary" />
                             {formatDate(date)}
                             {!sDates.includes(date) && (
                               <span className="text-[9px] bg-amber-500/10 text-amber-600 border border-amber-500/15 px-1.5 py-0.2 rounded-full font-bold">
@@ -271,7 +271,7 @@ export function AttendanceModal({
                           {session?.note && (
                             <p className="text-[10px] text-slate-400 mt-0.5">{session.note}</p>
                           )}
-                        </div>
+                        </button>
                         <div className="flex items-center gap-4">
                           {isTaken ? (
                             totalRecords === 0 ? (
@@ -293,10 +293,10 @@ export function AttendanceModal({
                               type="button"
                               onClick={() => openSessionDetail(date)}
                               className={cn(
-                                "px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all",
+                                "cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary",
                                 isTaken 
-                                  ? "bg-slate-100 text-slate-650 hover:bg-slate-200" 
-                                  : "bg-cyan-500 text-white hover:bg-cyan-600 shadow-sm shadow-cyan-500/20 border border-cyan-400"
+                                  ? "border border-outline-variant bg-surface-container-lowest text-primary hover:bg-primary/5"
+                                  : "bg-primary text-on-primary hover:bg-primary/90"
                               )}
                             >
                               {isTaken ? 'Chỉnh sửa' : 'Điểm danh'}
@@ -329,11 +329,11 @@ export function AttendanceModal({
               <button
                 type="button"
                 onClick={() => setSelectedSessionDate(null)}
-                className="text-xs text-cyan-600 hover:text-cyan-700 font-bold hover:underline mb-1 flex items-center gap-1 cursor-pointer"
+                className="mb-1 flex cursor-pointer items-center gap-1 text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"
               >
                 ← Quay lại danh sách buổi
               </button>
-              <h4 className="text-sm font-black text-slate-800">
+              <h4 className="text-sm font-semibold text-on-surface">
                 Điểm danh buổi ngày {formatDate(selectedSessionDate)}
               </h4>
             </div>
@@ -341,21 +341,21 @@ export function AttendanceModal({
               <button
                 type="button"
                 onClick={() => setSelectedSessionDate(null)}
-                className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-200 cursor-pointer"
+                className="cursor-pointer rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs font-medium text-on-surface hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
               >
                 Hủy
               </button>
               <button
                 type="button"
                 onClick={() => setShowQrModal(true)}
-                className="px-4 py-2 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-xl text-xs font-bold transition-all hover:bg-cyan-100 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs font-medium text-primary hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
               >
-                <Sparkles className="w-4 h-4 text-cyan-600" /> Điểm danh QR
+                <Sparkles className="h-4 w-4" /> Điểm danh QR
               </button>
               <button
                 type="button"
                 onClick={handleUpdateAttendance}
-                className="px-4 py-2 bg-cyan-500 text-white rounded-xl text-xs font-bold hover:bg-cyan-600 shadow-md shadow-cyan-500/20 cursor-pointer border border-cyan-400"
+                className="cursor-pointer rounded-md bg-primary px-3 py-2 text-xs font-semibold text-on-primary hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary"
               >
                 Lưu điểm danh
               </button>
@@ -373,7 +373,7 @@ export function AttendanceModal({
           </ErpField>
 
           {/* Bulk actions */}
-          <div className="flex items-center justify-between p-3 bg-cyan-50/50 border border-cyan-100 rounded-2xl">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-outline-variant bg-primary/5 p-3">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -426,7 +426,7 @@ export function AttendanceModal({
           </div>
 
           {/* Student list */}
-          <div className="border border-cyan-100 rounded-2xl divide-y divide-cyan-50/60 max-h-72 overflow-y-auto bg-white">
+          <div className="max-h-72 divide-y divide-outline-variant overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest">
             {batch.learnerIds.length === 0 ? (
               <p className="text-center py-6 text-xs text-slate-400">{copy.entityName} hiện chưa có {entityLabel.singular} nào.</p>
             ) : (
@@ -440,7 +440,7 @@ export function AttendanceModal({
                   !!enrollment && enrollment.allowedSessions > 0 && enrollment.remainingSessions <= 0;
 
                 return (
-                  <div key={studentId} className="flex items-center justify-between py-2.5 px-4 hover:bg-cyan-50/30 transition-all">
+                  <div key={studentId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 hover:bg-primary/5">
                     <div className="flex items-center gap-3">
                       <input
                         type="checkbox"

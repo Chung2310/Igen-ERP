@@ -27,6 +27,13 @@ const feature = (feature: string, label: string, group: string): PermissionFeatu
 });
 
 export const PERMISSION_FEATURES: PermissionFeatureDefinition[] = [
+  feature("quotation", "Báo giá và dự toán", "Báo giá"),
+  feature("quotation-approval", "Duyệt báo giá", "Báo giá"),
+  feature("quotation-price-book", "Bảng giá báo giá", "Báo giá"),
+  feature("quotation-template", "Mẫu tài liệu báo giá", "Báo giá"),
+  feature("quotation-ai", "AI báo giá", "Báo giá"),
+  feature("quotation-contract", "Hợp đồng thương mại", "Báo giá"),
+  feature("quotation-acceptance", "Nghiệm thu và quyết toán", "Báo giá"),
   feature("dashboard", "Tổng quan", "Tổng quan"),
   feature("people", "Con người", "Con người"),
   feature("relationship", "Quan hệ", "Quan hệ"),

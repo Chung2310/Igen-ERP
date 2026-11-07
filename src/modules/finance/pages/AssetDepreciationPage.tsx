@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { financeAssetsApi, type AssetDepreciation } from "../api/financeAssets.api";
 import { canManageAssets } from "./FixedAssetsPage";
 import { exportCsv } from "../components/ManagementUI";
+import { FinanceEmptyState } from "../components/FinanceEmptyState";
+import { StyledSelect } from "../../../components/common/StyledSelect";
+import { MonthPicker } from "../../../components/common/MonthPicker";
 
 const vnd = (value: number) => value.toLocaleString("vi-VN");
 const message = (reason: unknown, fallback: string) =>
@@ -63,30 +66,24 @@ export default function AssetDepreciationPage({
   };
 
   return (
-    <section className="space-y-4">
+    <section className="finance-page-content">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Khấu hao tài sản</h1>
-          <p className="text-sm text-slate-500">Lập kế hoạch theo kỳ, soát lại rồi ghi sổ.</p>
+          <h1 className="finance-page-title">Khấu hao tài sản</h1>
+          <p className="text-sm text-on-surface-variant">Lập kế hoạch theo kỳ, soát lại rồi ghi sổ.</p>
         </div>
         <div className="flex items-end gap-3">
-          <label className="text-sm font-semibold text-slate-700">
-            Kỳ
-            <input
-              type="month"
-              aria-label="Kỳ khấu hao"
-              value={period}
-              onChange={(event) => setPeriod(event.target.value)}
-              className="mt-1 block rounded-xl border border-slate-300 px-3 py-2 font-normal"
-            />
-          </label>
+          <div className="flex items-center gap-2 text-sm font-semibold text-on-surface-variant">
+            <span>Kỳ</span>
+            <MonthPicker value={period} onChange={setPeriod} ariaLabel="Kỳ khấu hao" appearance="erp" />
+          </div>
           {canManage && (
             <>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void act("run")}
-                className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                className="min-h-9 rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-2 text-xs font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
               >
                 Lập kế hoạch
               </button>
@@ -94,7 +91,7 @@ export default function AssetDepreciationPage({
                 type="button"
                 disabled={busy || posted || !lines.length}
                 onClick={() => void act("post")}
-                className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-on-primary disabled:opacity-50"
               >
                 Ghi sổ
               </button>
@@ -103,14 +100,14 @@ export default function AssetDepreciationPage({
         </div>
       </div>
 
-      {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-      {notice && <p className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>}
+      {error && <p className="rounded-md bg-error-container p-4 text-sm text-on-error-container">{error}</p>}
+      {notice && <p className="rounded-md bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</p>}
 
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-sm text-on-surface">Trạng thái <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-on-surface focus-visible:outline-2 focus-visible:outline-primary"><option value="all">Tất cả</option><option value="planned">Kế hoạch</option><option value="posted">Đã ghi sổ</option></select></label>
-        <button type="button" disabled={!visibleLines.length} onClick={() => exportCsv(`khau-hao-${period}`, ["Tài sản", "Mã tài sản", "Nguyên giá", "Khấu hao", "Lũy kế", "Giá trị còn lại", "Trạng thái"], visibleLines.map((line) => [line.assetName || line.assetId, line.assetCode || "", line.originalCost ?? "", line.amount, line.accumulatedAfter, line.netBookValueAfter, line.status]))} className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-sm font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Xuất CSV</button>
+        <div className="flex items-center gap-2 text-sm text-on-surface"><span>Trạng thái</span><div className="w-40"><StyledSelect ariaLabel="Lọc trạng thái khấu hao" className="h-9 rounded-md" menuClassName="finance-select-menu" value={statusFilter} onChange={setStatusFilter} options={[{ value: "all", label: "Tất cả" }, { value: "planned", label: "Kế hoạch" }, { value: "posted", label: "Đã ghi sổ" }]} /></div></div>
+        <button type="button" disabled={!visibleLines.length} onClick={() => exportCsv(`khau-hao-${period}`, ["Tài sản", "Mã tài sản", "Nguyên giá", "Khấu hao", "Lũy kế", "Giá trị còn lại", "Trạng thái"], visibleLines.map((line) => [line.assetName || line.assetId, line.assetCode || "", line.originalCost ?? "", line.amount, line.accumulatedAfter, line.netBookValueAfter, line.status]))} className="min-h-9 rounded-md border border-outline-variant bg-surface-container-lowest px-4 text-sm font-semibold text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Xuất CSV</button>
       </div>
-      <div className="rounded-2xl border border-slate-200 bg-white">
+      <div className="rounded-md border border-outline-variant bg-surface-container-lowest">
         <div className="flex items-center justify-between border-b p-4 text-sm">
           <b>
             Kỳ {period} · {lines.length} dòng {posted ? "(đã ghi sổ)" : ""}
@@ -127,7 +124,7 @@ export default function AssetDepreciationPage({
             </div>
           ))}
           {!visibleLines.length && (
-            <p className="p-6 text-center text-sm text-on-surface-variant">{!lines.length ? <><span>Kỳ này chưa có dòng khấu hao nào.</span> <span>Lập kế hoạch để bắt đầu.</span></> : "Không có dòng khấu hao phù hợp. Chọn trạng thái khác."}</p>
+            <FinanceEmptyState kind={!lines.length ? "payroll" : "search"}>{!lines.length ? <><span>Kỳ này chưa có dòng khấu hao nào.</span> <span>Lập kế hoạch để bắt đầu.</span></> : "Không có dòng khấu hao phù hợp. Chọn trạng thái khác."}</FinanceEmptyState>
           )}
         </div>
       </div>

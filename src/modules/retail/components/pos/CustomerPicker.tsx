@@ -59,9 +59,9 @@ export default function CustomerPicker({
     <div className={`flex items-center justify-between gap-2.5 rounded-xl border border-[#c2d7ff] bg-[#edf3ff]/70 px-3.5 py-2.5 text-slate-800 shadow-2xs transition hover:border-[#9ec1ff] ${className}`}>
       <div className="flex items-center gap-2 min-w-0">
         <User className="h-4 w-4 text-[#0866f5] shrink-0" />
-        <span className="font-bold text-sm text-slate-800 truncate">{value.name}</span>
+        <span className="font-semibold text-sm text-slate-800 truncate">{value.name}</span>
         {value.tier && (
-          <span className="rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 text-[10px] font-bold shrink-0">
+          <span className="rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 text-[10px] font-semibold shrink-0">
             {value.tier.name}
           </span>
         )}
@@ -140,7 +140,7 @@ export default function CustomerPicker({
         <button
           type="button"
           aria-label="Tạo khách hàng mới"
-          className="mt-2 flex items-center gap-2 text-xs font-bold text-[#0758d5] hover:text-[#0844a8] cursor-pointer"
+          className="mt-2 flex items-center gap-2 text-xs font-semibold text-[#0758d5] hover:text-[#0844a8] cursor-pointer"
           onClick={() => setCreating(true)}
         >
           <UserPlus className="h-4 w-4" />
@@ -163,7 +163,7 @@ export default function CustomerPicker({
             <div className="flex items-center gap-2 min-w-0">
               <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
               <p className="font-semibold text-xs text-slate-800 truncate">{customer.name}</p>
-              {customer.tier && <span className="rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.5 text-[10px] font-bold shrink-0">{customer.tier.name}</span>}
+              {customer.tier && <span className="rounded-full bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.5 text-[10px] font-semibold shrink-0">{customer.tier.name}</span>}
             </div>
             <p className="font-mono text-xs text-slate-500 shrink-0">{formatPhoneMask(customer.phone) || customer.customerCode}</p>
           </button>

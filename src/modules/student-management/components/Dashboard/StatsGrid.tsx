@@ -1,33 +1,43 @@
-import { Users, Stethoscope, CheckCircle2, FolderIcon, BookOpen, GraduationCap, Trophy, RotateCcw, Wallet, UserX, UserCheck } from 'lucide-react';
-import { LuxuryCard } from '../ui/LuxuryCard';
+import { Users, Stethoscope, CheckCircle2, FolderIcon, BookOpen, GraduationCap, Trophy, RotateCcw, Wallet, UserX, UserCheck, CalendarDays } from 'lucide-react';
+import '../../../../components/dashboard/overview-dashboard.css';
 import { useStudents } from '../../hooks/useStudents';
 import { useAuth } from '../../../../context/AuthContext';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
+import { useOverviewPeriod } from '../../../../components/dashboard/OverviewPeriodContext';
+import { OverviewKpiDelta } from '../../../../components/dashboard/OverviewKpiDelta';
+import { overviewDateKey } from '../../../../components/dashboard/overviewComparison';
 
 export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
   const { students, loading } = useStudents(selectedCenter === 'all' ? undefined : selectedCenter);
   const { userProfile: user } = useAuth();
   const entityLabel = useEntityLabel();
+  const overviewPeriod = useOverviewPeriod();
+  const registeredIn = (from: string, to: string) => students.filter(student => {
+    const date = overviewDateKey(student.registrationDate);
+    return date != null && date >= from && date <= to;
+  }).length;
+  const currentRegistrations = overviewPeriod ? registeredIn(overviewPeriod.from, overviewPeriod.to) : null;
+  const previousRegistrations = overviewPeriod ? registeredIn(overviewPeriod.previousFrom, overviewPeriod.previousTo) : null;
   const totalLabel = `Tổng ${entityLabel.singular}`;
 
-  const mockStats = [
-    { label: totalLabel, value: 15, icon: Users, color: 'text-brand-primary', bg: 'bg-brand-primary/10' },
-    { label: 'Chờ KSK', value: 2, icon: Stethoscope, color: 'text-amber-500', bg: 'bg-amber-50' },
-    { label: 'Đã KSK', value: 2, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-    { label: 'Đã nộp HS', value: 2, icon: FolderIcon, color: 'text-cyan-500', bg: 'bg-cyan-50' },
-    { label: 'Đang học', value: 4, icon: BookOpen, color: 'text-sky-500', bg: 'bg-sky-50' },
-    { label: 'Đang thi', value: 2, icon: GraduationCap, color: 'text-teal-500', bg: 'bg-teal-50' },
-    { label: 'Đã đậu', value: 1, icon: Trophy, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Thi lại', value: 1, icon: RotateCcw, color: 'text-rose-500', bg: 'bg-rose-50' },
+  const statDefinitions = [
+    { label: totalLabel, value: 0, icon: Users, color: 'text-brand-primary', bg: 'bg-brand-primary/10' },
+    { label: 'Chờ KSK', value: 0, icon: Stethoscope, color: 'text-amber-500', bg: 'bg-amber-50' },
+    { label: 'Đã KSK', value: 0, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    { label: 'Đã nộp HS', value: 0, icon: FolderIcon, color: 'text-cyan-500', bg: 'bg-cyan-50' },
+    { label: 'Đang học', value: 0, icon: BookOpen, color: 'text-sky-500', bg: 'bg-sky-50' },
+    { label: 'Đang thi', value: 0, icon: GraduationCap, color: 'text-teal-500', bg: 'bg-teal-50' },
+    { label: 'Đã đậu', value: 0, icon: Trophy, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Thi lại', value: 0, icon: RotateCcw, color: 'text-rose-500', bg: 'bg-rose-50' },
     { label: 'Nghỉ học', value: 0, icon: UserX, color: 'text-slate-500', bg: 'bg-slate-100' },
-    { label: 'Còn nợ học phí', value: 15, icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Còn nợ học phí', value: 0, icon: Wallet, color: 'text-amber-600', bg: 'bg-amber-50' },
   ];
 
   // Trạng thái riêng quy trình lái xe
   const DRIVING_STATS = ['Chờ KSK', 'Đã KSK', 'Đã nộp HS'];
 
   const getRealStats = () => {
-    if (!user) return mockStats;
+    if (!user) return statDefinitions;
 
     const hasStatus = (s: (typeof students)[number], st: string) =>
       Array.isArray(s.status) ? s.status.includes(st as (typeof s.status)[number]) : s.status === st;
@@ -68,7 +78,7 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
 
     const isDriving = false;
 
-    return mockStats
+    return statDefinitions
       .map(stat => ({
         ...stat,
         value: statsMap[stat.label as keyof typeof statsMap] ?? 0
@@ -87,33 +97,35 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
   };
 
   const displayStats = getRealStats();
-  const count = displayStats.length;
+  const count = displayStats.length + (overviewPeriod ? 1 : 0);
 
   const getLayoutConfig = () => {
     switch (count) {
+      case 3:
+        return { gridClass: "grid grid-cols-1 sm:grid-cols-3 gap-3", getItemClass: () => "" };
       case 7:
         return {
-          gridClass: "grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4",
+          gridClass: "grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3",
           getItemClass: (idx: number) => idx === 6 ? "col-span-2 md:col-span-1" : ""
         };
       case 8:
         return {
-          gridClass: "grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4",
+          gridClass: "grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3",
           getItemClass: () => ""
         };
       case 9:
         return {
-          gridClass: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4",
+          gridClass: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3",
           getItemClass: (idx: number) => idx === 8 ? "col-span-2 md:col-span-1 lg:col-span-1" : ""
         };
       case 10:
         return {
-          gridClass: "grid grid-cols-2 md:grid-cols-5 gap-4",
+          gridClass: "grid grid-cols-2 md:grid-cols-5 gap-3",
           getItemClass: () => ""
         };
       default:
         return {
-          gridClass: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4",
+          gridClass: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3",
           getItemClass: () => ""
         };
     }
@@ -123,24 +135,26 @@ export function StatsGrid({ selectedCenter }: { selectedCenter?: string }) {
 
   return (
     <div className={gridClass}>
+      {overviewPeriod && <article className="overview-kpi flex min-h-28 flex-col gap-2">
+        <div className="flex items-start justify-between gap-2"><p className="min-w-0 flex-1 text-xs font-medium">Học viên mới trong kỳ</p><CalendarDays className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden="true" /></div>
+        <p className="text-lg font-semibold tabular-nums sm:text-xl">{loading || !user ? '—' : currentRegistrations}</p>
+        <OverviewKpiDelta value={loading || !user ? null : currentRegistrations} previous={loading || !user ? null : previousRegistrations} unit="học viên" />
+      </article>}
       {displayStats.map((stat, idx) => (
-        <LuxuryCard
+        <article
           key={idx}
-          padding="none"
-          className={`group flex cursor-pointer items-center gap-2.5 rounded-2xl border border-[#DFECF5] bg-white px-3.5 py-3 shadow-[0_8px_24px_-20px_rgba(0,105,165,0.28)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#8DDCFF] hover:shadow-md ${getItemClass(idx)}`}
+          className={`overview-kpi flex min-h-28 items-start gap-2.5 ${getItemClass(idx)}`}
         >
-          <div className={`shrink-0 rounded-xl p-2 ${stat.bg} ${stat.color} transition-transform duration-300 group-hover:scale-110`}>
-            <stat.icon className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-lg font-medium leading-tight tracking-tight text-slate-900">
-              {loading && user ? '...' : stat.value}
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-semibold leading-tight tabular-nums sm:text-xl">
+              {loading || !user ? '—' : stat.value}
             </p>
-            <p className="mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-normal text-slate-500 transition-colors group-hover:text-[#007EB8]">
+            <p className="mt-1 text-xs font-normal leading-snug">
               {stat.label}
             </p>
           </div>
-        </LuxuryCard>
+          <stat.icon className="size-4 shrink-0 text-on-primary opacity-70" aria-hidden="true" />
+        </article>
       ))}
     </div>
   );

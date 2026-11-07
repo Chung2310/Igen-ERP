@@ -12,7 +12,11 @@ export function actorScope(req: AuthenticatedRequest) {
 export async function allowedOperations(req: AuthenticatedRequest): Promise<AssistantOperation[]> {
   const scope = actorScope(req);
   const [permissions, state] = await Promise.all([getEffectivePermissions(scope.userId, req.user!.role, scope.companyCode), getModuleStateForCompany(scope.companyCode)]);
-  return ASSISTANT_OPERATIONS.filter(op => (!op.roles || op.roles.includes(req.user!.role)) && (op.id !== "employee.create" || ["admin", "superadmin"].includes(req.user!.role)) && (permissions.has("*") || (op.permissionGroups || [op.permissions]).every(group => group.some(p => permissions.has(p)))) && (op.modules || [op.module]).some(module => resolveModuleAccess(req.user, module, state.modules, state.exists, state.businessType)));
+  return ASSISTANT_OPERATIONS.filter(op => op.id !== "recruitment.pipeline.update"
+    && (!op.roles || op.roles.includes(req.user!.role))
+    && (op.id !== "employee.create" || ["admin", "superadmin"].includes(req.user!.role))
+    && (permissions.has("*") || (op.permissionGroups || [op.permissions]).every(group => group.some(p => permissions.has(p))))
+    && (op.modules || [op.module]).some(module => resolveModuleAccess(req.user, module, state.modules, state.exists, state.businessType)));
 }
 export async function assertOperation(req: AuthenticatedRequest, actionId: string) {
   const operation = (await allowedOperations(req)).find(op => op.id === actionId);
@@ -36,6 +40,7 @@ export async function listWorkflows(req: AuthenticatedRequest): Promise<Assistan
     const config = stored?.config as AssistantWorkflow | undefined;
     // Metadata and hard constraints always come from code, never from personal settings.
     if (!config) return defaultWorkflow(op);
+    const baseWorkflow = defaultWorkflow(op);
     const savedFields = config.fields.filter(field => op.fields.some(base => base.key === field.key));
     const fields = [...savedFields, ...op.fields.filter(base => !savedFields.some(field => field.key === base.key))].map(field => {
       const base = op.fields.find(candidate => candidate.key === field.key)!;
@@ -45,7 +50,11 @@ export async function listWorkflows(req: AuthenticatedRequest): Promise<Assistan
           : field.defaultValue;
       return { ...base, required: Boolean(base.systemRequired || field.required), defaultValue };
     });
-    return { ...defaultWorkflow(op), sourceText: config.sourceText, enabled: config.enabled, instructions: config.instructions, requireConfirmation: Boolean(op.confirmation || config.requireConfirmation), fields, version: stored!.version };
+    const savedInstructions = String(config.instructions || "").trim();
+    const instructions = baseWorkflow.instructions && !savedInstructions.startsWith(baseWorkflow.instructions)
+      ? [baseWorkflow.instructions, savedInstructions].filter(Boolean).join("\n")
+      : savedInstructions;
+    return { ...baseWorkflow, sourceText: config.sourceText, enabled: config.enabled, instructions, requireConfirmation: Boolean(op.confirmation || config.requireConfirmation), fields, version: stored!.version };
   });
 }
 export async function saveWorkflow(req: AuthenticatedRequest, actionId: string, update: AssistantWorkflowUpdate, reset = false) {

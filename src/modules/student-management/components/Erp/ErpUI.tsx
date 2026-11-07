@@ -3,6 +3,8 @@ import React from 'react';
 import { Plus, Search, LucideIcon, Trash2, ChevronDown, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StudentEmptyIllustration, type StudentEmptyIllustrationKind } from './StudentEmptyIllustration';
+import { primaryCreateButtonClass } from '../../../../components/common/primaryCreateButton';
+import '../../student-workspace.css';
 /**
  * Bộ UI primitives dùng chung cho các trang Khóa học / Lớp / Giảng viên / Tài nguyên.
  * Giao diện hợp nhất dùng nền sáng cố định (theme dark của bản demo ERP đã bỏ).
@@ -10,13 +12,9 @@ import { StudentEmptyIllustration, type StudentEmptyIllustrationKind } from './S
 const useErpTheme = () => ({ darkMode: false });
 
 export function ErpCard({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
-  const { darkMode } = useErpTheme();
   return (
     <div style={style} className={cn(
-      "rounded-2xl border transition-all duration-300",
-      darkMode
-        ? "bg-slate-900/60 border-slate-800/80 backdrop-blur-md"
-        : "bg-white border-slate-200 shadow-sm shadow-slate-100/50",
+      "rounded-md border border-outline-variant bg-surface-container-lowest shadow-sm",
       className
     )}>
       {children}
@@ -31,8 +29,8 @@ export function ErpPageHeader({ title, subtitle, action }: { title: string; subt
       <div className="flex items-center gap-2.5">
         <div className="h-5 w-1 shrink-0 rounded-full bg-primary" />
         <div>
-          <h1 className={cn("text-balance text-xl font-medium normal-case", darkMode ? "text-white" : "text-on-surface")}>{title}</h1>
-          {subtitle && <p className={cn("text-xs font-medium mt-0.5", darkMode ? "text-slate-400" : "text-slate-500")}>{subtitle}</p>}
+          <h1 className={cn("text-balance text-lg font-semibold normal-case", darkMode ? "text-white" : "text-on-surface")}>{title}</h1>
+          {subtitle && <p className={cn("mt-0.5 text-xs font-normal", darkMode ? "text-slate-400" : "text-on-surface-variant")}>{subtitle}</p>}
         </div>
       </div>
       {action}
@@ -45,7 +43,7 @@ export function ErpPrimaryButton({ children, icon: Icon = Plus, ...props }: Reac
     <button
       {...props}
       className={cn(
-        "flex items-center gap-1.5 px-3.5 py-2 bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] text-white rounded-xl text-xs font-semibold shadow-xs active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer normal-case",
+        primaryCreateButtonClass,
         props.className
       )}
     >
@@ -63,36 +61,24 @@ export interface ErpStatCardProps {
   color?: string;
 }
 
-export const ErpStatCard: React.FC<ErpStatCardProps> = ({ name, value, change, icon: Icon }) => {
-  const { darkMode } = useErpTheme();
-  const isPendingWarning = name.toLowerCase().includes("cần trả") || name.toLowerCase().includes("nợ");
+export const ErpStatCard: React.FC<ErpStatCardProps> = ({ name, value, change, icon: Icon, color }) => {
+  const tone = color?.includes('emerald') ? 'green' : color?.includes('rose') ? 'rose' : color?.includes('indigo') ? 'purple' : 'cyan';
 
   return (
-    <article className={cn(
-      "p-4 rounded-2xl border flex items-center justify-between group transition-all duration-300 shadow-xs",
-      darkMode
-        ? "bg-slate-900/60 border-slate-800/80 backdrop-blur-md hover:border-[#B5E8FF]"
-        : "bg-white border-slate-200/80 hover:border-[#B5E8FF]"
-    )}>
-      <div className="space-y-1">
-        <p className="text-xs font-medium text-slate-600 normal-case">{name}</p>
-        <h3 className={cn("text-xl font-bold tabular-nums tracking-tight", darkMode ? "text-white" : "text-slate-900")}>{value}</h3>
-        {change && <span className="text-[10px] font-semibold text-[#00ADFC] bg-sky-50 px-2 py-0.5 rounded-full">{change}</span>}
+    <article className={cn("student-stat-card group flex min-w-0 items-center justify-between gap-3 rounded-md p-3", `student-stat-card--${tone}`)}>
+      <div className="min-w-0 space-y-1">
+        <p className="text-pretty text-xs font-medium normal-case">{name}</p>
+        <h3 className="break-words text-lg font-semibold leading-tight tabular-nums sm:text-xl">{value}</h3>
+        {change && <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold">{change}</span>}
       </div>
-      <div className={cn(
-        "w-9 h-9 rounded-xl flex items-center justify-center shadow-xs transition-all duration-300",
-        isPendingWarning
-          ? "bg-rose-50 text-rose-600"
-          : "bg-[#E8F7FF] text-[#00ADFC]"
-      )}>
-        <Icon className="w-4.5 h-4.5" />
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-white/15">
+        <Icon className="size-5" aria-hidden="true" />
       </div>
     </article>
   );
 };
 
 export function ErpSearchBar({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const { darkMode } = useErpTheme();
   return (
     <div className="relative flex-1 max-w-md">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -101,10 +87,7 @@ export function ErpSearchBar({ value, onChange, placeholder }: { value: string; 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={cn(
-          "w-full h-9 border border-outline-variant rounded-xl pl-9 pr-3 text-xs font-normal outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/10 transition-all shadow-xs",
-          darkMode ? "bg-slate-900/60 text-white" : "bg-white text-slate-800 placeholder:text-slate-400"
-        )}
+        className="h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest pl-9 pr-3 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/10"
       />
     </div>
   );
@@ -119,12 +102,14 @@ export interface ErpFilterTabProps {
 export const ErpFilterTab: React.FC<ErpFilterTabProps> = ({ active, onClick, children }) => {
   return (
     <button
+      type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "px-3.5 py-1.5 rounded-lg text-xs transition-all duration-200 whitespace-nowrap cursor-pointer normal-case",
+        "relative min-h-9 cursor-pointer whitespace-nowrap px-3.5 py-1.5 text-sm font-medium text-on-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary",
         active
-          ? "bg-[#00ADFC] text-white font-semibold shadow-xs"
-          : "text-slate-600 hover:text-slate-900 hover:bg-white/80 font-medium"
+          ? "text-primary after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:bg-primary"
+          : ""
       )}
     >
       {children}
@@ -134,7 +119,7 @@ export const ErpFilterTab: React.FC<ErpFilterTabProps> = ({ active, onClick, chi
 
 export function ErpFilterRail({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("flex gap-1 overflow-x-auto select-none rounded-xl bg-slate-100/70 p-1 shrink-0 no-scrollbar", className)}>
+    <div className={cn("no-scrollbar flex shrink-0 select-none gap-1 overflow-x-auto border-b border-outline-variant", className)}>
       {children}
     </div>
   );
@@ -159,27 +144,25 @@ export function ErpModal({
   zIndex?: string;
   className?: string;
 }) {
-  const { darkMode } = useErpTheme();
   if (!isOpen) return null;
 
   return (
     <div className={cn("fixed inset-0 flex items-center justify-center p-3 sm:p-4", zIndex)}>
       <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
       <div className={cn(
-        "relative w-full p-4 sm:p-5 rounded-2xl border shadow-2xl space-y-3.5 transition-all duration-300 max-h-[90vh] overflow-y-auto",
+        "relative max-h-[90vh] w-full space-y-3.5 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-on-surface shadow-lg sm:p-5",
         maxWidth,
-        darkMode ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200/80 text-slate-900",
         className
       )}>
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
-            <h3 className={cn("text-sm sm:text-base font-bold tracking-tight normal-case", darkMode ? "text-white" : "text-slate-900", titleClassName)}>{title}</h3>
+            <h3 className={cn("text-sm font-semibold text-on-surface normal-case sm:text-base", titleClassName)}>{title}</h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs shrink-0"
+            className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white shadow-xs hover:bg-rose-600 focus-visible:outline-2 focus-visible:outline-primary"
             title="Đóng"
            data-erp-modal-close>
             <X className="w-4 h-4 stroke-[2.5]" />
@@ -203,10 +186,8 @@ export function ErpField({ label, children, actions, className }: { label: strin
   );
 }
 
-export const erpInputClass = (darkMode: boolean) => cn(
-  "w-full h-9 border rounded-xl px-3 text-xs font-normal outline-none focus:border-[#00ADFC] focus:ring-2 focus:ring-[#00ADFC]/15 transition-all",
-  darkMode ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500" : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400"
-);
+export const erpInputClass = (_darkMode: boolean) =>
+  "h-9 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-sm font-normal text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/15";
 
 export function ErpInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const { darkMode } = useErpTheme();
@@ -221,7 +202,7 @@ export function ErpSelect({ className, children, ...props }: React.SelectHTMLAtt
         {...props}
         className={cn(
           erpInputClass(darkMode),
-          "appearance-none pr-10 cursor-pointer",
+          "appearance-none pr-10 cursor-pointer text-sm font-normal",
           className
         )}
       >
@@ -240,7 +221,7 @@ export function ErpSubmitButton({ children, ...props }: React.ButtonHTMLAttribut
       type="submit"
       {...props}
       className={cn(
-        "w-full py-2.5 bg-[#00ADFC] hover:bg-[#0095d9] active:bg-[#0085c2] text-white rounded-xl text-xs font-semibold shadow-xs active:scale-95 transition-all mt-3 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer normal-case",
+        "mt-3 w-full rounded-md bg-primary py-2.5 text-xs font-semibold text-on-primary shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50",
         props.className
       )}
     >
@@ -258,7 +239,7 @@ export function ErpEmptyState({ icon: Icon, illustration, title, subtitle }: { i
           <Icon className="size-7" aria-hidden="true" />
         </div>
       ) : null}
-      <p className={cn(illustration ? 'mt-1 text-balance text-sm font-semibold' : 'text-sm font-bold tracking-tight', darkMode ? 'text-white' : 'text-on-surface')}>{title}</p>
+      <p className={cn(illustration ? 'mt-1 text-balance text-sm font-semibold' : 'text-sm font-bold', darkMode ? 'text-white' : 'text-on-surface')}>{title}</p>
       {subtitle && <p className={cn('mx-auto max-w-md text-xs font-normal text-on-surface-variant', illustration ? 'mt-1 text-pretty' : '')}>{subtitle}</p>}
     </div>
   );
@@ -274,15 +255,11 @@ export function ErpLoadingState({ message = "Đang tải dữ liệu..." }: { me
 }
 
 export function ErpTableHead({ columns }: { columns: string[] }) {
-  const { darkMode } = useErpTheme();
   return (
     <thead>
-      <tr className={cn(
-        "border-b text-xs font-semibold",
-        darkMode ? "border-slate-800/50 text-slate-400 bg-slate-950/20" : "border-slate-200/80 text-slate-600 bg-slate-50/70"
-      )}>
+      <tr className="border-b border-outline-variant bg-surface-container-low text-xs font-medium text-on-surface-variant">
         {columns.map((col) => (
-          <th key={col} className="py-2.5 px-4 text-left font-semibold text-slate-700">{col}</th>
+          <th key={col} className="px-4 py-2.5 text-left font-medium text-on-surface-variant">{col}</th>
         ))}
       </tr>
     </thead>
@@ -308,16 +285,12 @@ export function ErpConfirmModal({
   cancelText?: string;
   isDanger?: boolean;
 }) {
-  const { darkMode } = useErpTheme();
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onCancel} />
-      <div className={cn(
-        "relative w-full max-w-sm p-5 rounded-2xl border shadow-2xl space-y-4 transition-all duration-300",
-        darkMode ? "bg-slate-900 border-slate-800 text-white" : "bg-white border-slate-200/80 text-slate-900"
-      )}>
+      <div className="relative w-full max-w-sm space-y-4 rounded-md border border-outline-variant bg-surface-container-lowest p-5 text-on-surface shadow-lg">
         <div className="flex flex-col items-center text-center space-y-3">
           <div className={cn(
             "w-12 h-12 rounded-2xl flex items-center justify-center",
@@ -327,7 +300,7 @@ export function ErpConfirmModal({
           )}>
             <Trash2 className="w-6 h-6" />
           </div>
-          <h4 className={cn("text-sm font-bold tracking-tight", darkMode ? "text-white" : "text-slate-900")}>{title}</h4>
+          <h4 className="text-sm font-semibold text-on-surface">{title}</h4>
           <p className="text-xs text-slate-600 font-normal leading-relaxed px-2">{message}</p>
         </div>
 
@@ -335,7 +308,7 @@ export function ErpConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer text-center"
+            className="flex-1 cursor-pointer rounded-md border border-outline-variant bg-surface-container-lowest py-2.5 text-center text-xs font-semibold text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary"
           >
             {cancelText}
           </button>
@@ -343,10 +316,10 @@ export function ErpConfirmModal({
             type="button"
             onClick={onConfirm}
             className={cn(
-              "flex-1 py-2.5 rounded-xl text-xs font-semibold text-white shadow-xs active:scale-95 transition-all cursor-pointer text-center",
+              "flex-1 cursor-pointer rounded-md py-2.5 text-center text-xs font-semibold text-white shadow-xs focus-visible:outline-2 focus-visible:outline-primary",
               isDanger
                 ? "bg-rose-600 hover:bg-rose-700 shadow-rose-600/10"
-                : "bg-[#00ADFC] hover:bg-[#0095d9] shadow-sky-500/10"
+                : "bg-primary hover:bg-primary/90"
             )}
           >
             {confirmText}

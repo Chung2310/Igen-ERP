@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ModuleNavigation, ModuleNavigationButton } from "../../../components/common/ModuleNavigation";
-import { Building2, CheckCircle2, Layers3, Loader2, Pencil, Plus, RefreshCw, Search, Sparkles, TriangleAlert } from "lucide-react";
+import { Building2, CheckCircle2, Layers3, Loader2, Pencil, Plus, Search, Sparkles, TriangleAlert } from "lucide-react";
+import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 import { aiSubscriptionAdminService as api, formatAiPlanPrice, type AiSubscriptionPlan } from "../../../services/aiSubscriptionService";
 import SubscriptionPlanDialog from "./SubscriptionPlanDialog";
 import SubscriptionAssignmentPanel from "./SubscriptionAssignmentPanel";
@@ -78,9 +79,7 @@ export default function AiSubscriptionsPage() {
               <h3 id="sa-ai-catalog-title">Danh sách gói AI</h3>
               <p className="sa-ai-muted">{loading ? "Đang tải danh mục…" : activeCount + " gói đang cung cấp · " + (plans.length - activeCount) + " gói ngừng cấp mới"}</p>
             </div>
-            <button type="button" className="sa-ai-button sa-ai-button-secondary" disabled={loading} onClick={refresh}>
-              {loading ? <Loader2 size={16} className="sa-ai-spin" aria-hidden="true" /> : <RefreshCw size={16} aria-hidden="true" />}Làm mới
-            </button>
+            <ErpRefreshButton loading={loading} onClick={refresh} />
           </div>
           <div className="sa-ai-toolbar">
             <label className="sa-ai-search">

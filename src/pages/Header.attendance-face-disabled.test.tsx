@@ -5,9 +5,10 @@ import userEvent from "@testing-library/user-event";
 import type { TabType } from "../types";
 
 const mockLogout = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockModules = vi.hoisted(() => ({ enabled: ["hr", "chat", "social-marketing"] }));
 
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ userProfile: { uid: "u1", role: "employee", displayName: "Nhân viên", email: "staff@example.com" }, hasPermission: () => true, logout: mockLogout }),
+  useAuth: () => ({ userProfile: { uid: "u1", role: "employee", displayName: "Nhân viên", email: "staff@example.com", companyCode: "MAIN", enabledModules: mockModules.enabled, permissions: ["marketing:read", "chat:read"] }, hasPermission: () => true, logout: mockLogout }),
 }));
 vi.mock("../context/BranchContext", () => ({
   useBranch: () => ({ branches: [], activeBranchId: "", setActiveBranchId: vi.fn(), activeBranch: null }),
@@ -26,6 +27,7 @@ import Header from "./Header";
 
 describe("Header attendance with face checking disabled", () => {
   beforeEach(() => {
+    mockModules.enabled = ["hr", "chat", "social-marketing"];
     HTMLDialogElement.prototype.showModal = function () { this.open = true; };
     HTMLDialogElement.prototype.close = function () { this.open = false; };
     localStorage.setItem("accessToken", "token");
@@ -65,20 +67,66 @@ describe("Header attendance with face checking disabled", () => {
     expect(body.has("file")).toBe(false);
   });
 
-  it("opens a searchable module menu from the grid icon", async () => {
-    const user = userEvent.setup();
+  it("keeps the back link to the feature list without the grid icon", () => {
     render(<Header currentTab="TỔNG QUAN" onSearchSelect={vi.fn()} />);
-    const trigger = screen.getByRole("button", { name: "Mở danh sách phân hệ" });
-    expect(trigger.querySelectorAll("svg circle")).toHaveLength(9);
+    expect(screen.queryByRole("textbox", { name: "Tìm kiếm trong ERP" })).toBeNull();
+    expect(screen.queryByPlaceholderText("Tìm kiếm trong ERP...")).toBeNull();
+    const backLink = screen.getByRole("link", { name: "Về danh sách tính năng" });
+    expect(backLink.getAttribute("href")).toBe("/modules");
+    expect(backLink.querySelector("circle")).toBeNull();
+  });
+  it("does not poll attendance or offer the assistant when only quotation is enabled", async () => {
+    mockModules.enabled = ["quotation"];
+    render(<Header currentTab="BÁO GIÁ" onSearchSelect={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Check-In|Check-Out/i })).toBeNull();
+    expect((screen.getByRole("button", { name: "Mở Trợ lý AI" }) as HTMLButtonElement).disabled).toBe(true);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes("/timekeeping/"))).toBe(false);
+  });
+
+  it("does not offer a dark mode control for a saved dark preference", () => {
+    localStorage.setItem("theme", "dark");
+    render(<Header currentTab="TỔNG QUAN" onSearchSelect={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Giao diện (sáng|tối)/ })).toBeNull();
+  });
+
+  it("opens AI quota, upgrade plans, and the assistant from their header icons", async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    render(<Header currentTab="NHÂN SỰ" onSearchSelect={navigate} />);
+
+    await user.click(screen.getByRole("button", { name: "Xem hạn mức AI" }));
+    await user.click(screen.getByRole("button", { name: "Mở gói nâng cấp AI" }));
+    await user.click(screen.getByRole("button", { name: "Mở Trợ lý AI" }));
+    expect(navigate.mock.calls).toEqual([["GÓI AI & LƯỢT SỬ DỤNG", "usage"], ["GÓI AI & LƯỢT SỬ DỤNG", "plans"], ["TRỢ LÝ AI"]]);
+  });
+
+  it("opens the compact assistant from the header without navigating to the full page", async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    const openAssistant = vi.fn();
+    render(<Header currentTab="TRỢ LÝ AI" onSearchSelect={navigate} onAssistantOpen={openAssistant} />);
+
+    await user.click(screen.getByRole("button", { name: "Mở Trợ lý AI" }));
+
+    expect(openAssistant).toHaveBeenCalledOnce();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("restores the three legal links and closes the menu with Escape", async () => {
+    const user = userEvent.setup();
+    render(<Header currentTab="NHÂN SỰ" onSearchSelect={vi.fn()} />);
+    const trigger = screen.getByRole("button", { name: "Chính sách và quyền" });
     await user.click(trigger);
-    expect(screen.getByRole("dialog", { name: "Danh sách phân hệ và tính năng" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Nhân sự" }).getAttribute("href")).toBeTruthy();
-    await user.type(screen.getByRole("searchbox", { name: "Tìm phân hệ hoặc tính năng" }), "nhân sự");
-    expect(screen.getByRole("link", { name: "Nhân sự" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Kho & Sản phẩm" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Đóng danh sách phân hệ" }));
-    expect(screen.queryByRole("dialog", { name: "Danh sách phân hệ và tính năng" })).toBeNull();
-    expect(screen.queryByTitle("Mở menu")).toBeNull();
+
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("link", { name: "Bảo mật" }).getAttribute("href")).toContain("/privacy-policy");
+    expect(screen.getByRole("link", { name: "Điều khoản" }).getAttribute("href")).toContain("/terms-of-service");
+    expect(screen.getByRole("link", { name: "Xóa dữ liệu" }).getAttribute("href")).toContain("/user-data-deletion");
+
+    await user.keyboard("{Escape}");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(trigger);
   });
 
   it.each([

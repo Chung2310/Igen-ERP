@@ -1,4 +1,6 @@
 import CashSessionPicker from "../components/orders/CashSessionPicker";
+import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
+import { Dropdown } from "../../../components/common/Dropdown";
 import React from "react";
 import {
   AlertCircle,
@@ -10,10 +12,8 @@ import {
   DollarSign,
   Eye,
   FileText,
-  ListOrdered,
   Loader2,
   Package,
-  RefreshCw,
   RotateCcw,
   Search,
   ShoppingBag,
@@ -35,6 +35,7 @@ import { toast } from "../../../pages/Toast";
 import { ApiClientError } from "../../../services/apiClientError";
 import { TableFilterToolbar } from "../../../components/common/TableFilterToolbar";
 import { cn } from "../../student-management/lib/utils";
+import { ErpRefreshButton } from "../../../components/common/ErpRefreshButton";
 
 const money = (value: number) => new Intl.NumberFormat("vi-VN").format(value) + " ₫";
 
@@ -135,13 +136,10 @@ export default function RetailOrdersPageV2() {
   return (
     <section className="space-y-3.5">
       {/* Header Card */}
-      <header className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-2xs">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 text-white shadow-xs">
-            <ListOrdered className="h-4 w-4" />
-          </div>
           <div className="flex items-center gap-2">
-            <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
+            <h1 data-typography="page-title" className="retail-page-title text-on-surface">
               Đơn hàng
             </h1>
             <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200/60">
@@ -151,50 +149,42 @@ export default function RetailOrdersPageV2() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 active:scale-95 disabled:opacity-60 cursor-pointer"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 text-cyan-600 ${loading ? "animate-spin" : ""}`} />
-            <span>Làm mới</span>
-          </button>
+          <ErpRefreshButton onClick={() => void refresh()} loading={loading} />
         </div>
       </header>
 
       {/* Overview KPI Cards */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tổng đơn hàng</span>
-            <ShoppingBag className="h-3.5 w-3.5 text-cyan-600" />
+        <div className="retail-stat-card retail-stat-card--blue rounded-md px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-white/90">
+            <span className="text-xs font-medium">Tổng đơn hàng</span>
+            <ShoppingBag className="size-4" aria-hidden="true" />
           </div>
-          <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-slate-900">{orders.length}</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-white sm:text-xl">{orders.length}</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Tổng doanh số</span>
-            <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+        <div className="retail-stat-card retail-stat-card--green rounded-md px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-white/90">
+            <span className="text-xs font-medium">Tổng doanh số</span>
+            <DollarSign className="size-4" aria-hidden="true" />
           </div>
-          <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-emerald-700">{money(totalGrand)}</p>
+          <p className="mt-1 break-words text-lg font-semibold tabular-nums text-white sm:text-xl">{money(totalGrand)}</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Đã hoàn tất</span>
-            <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
+        <div className="retail-stat-card retail-stat-card--cyan rounded-md px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-white/90">
+            <span className="text-xs font-medium">Đã hoàn tất</span>
+            <CheckCircle2 className="size-4" aria-hidden="true" />
           </div>
-          <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-blue-700">{completedCount}</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-white sm:text-xl">{completedCount}</p>
         </div>
 
-        <div className="rounded-xl border border-slate-200/80 bg-white px-3.5 py-2.5 shadow-2xs">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Chờ xử lý / Nợ</span>
-            <Clock className="h-3.5 w-3.5 text-amber-500" />
+        <div className="retail-stat-card retail-stat-card--orange rounded-md px-3.5 py-2.5">
+          <div className="flex items-center justify-between text-white/90">
+            <span className="text-xs font-medium">Chờ xử lý / Nợ</span>
+            <Clock className="size-4" aria-hidden="true" />
           </div>
-          <p className="mt-1 text-lg sm:text-xl font-bold tracking-tight text-amber-600">{pendingCount}</p>
+          <p className="mt-1 text-lg font-semibold tabular-nums text-white sm:text-xl">{pendingCount}</p>
         </div>
       </div>
 
@@ -215,17 +205,7 @@ export default function RetailOrdersPageV2() {
         }}
       >
         <div className="w-full sm:w-52">
-          <select
-            aria-label="Trạng thái đơn"
-            className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-xs font-medium text-on-surface transition focus-visible:outline-2 focus-visible:outline-primary cursor-pointer"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="confirmed">Còn xử lý</option>
-            <option value="completed">Hoàn tất</option>
-            <option value="cancelled">Đã hủy</option>
-          </select>
+          <Dropdown aria-label="Trạng thái đơn" value={status} onChange={setStatus} options={[{ value: "", label: "Tất cả trạng thái" }, { value: "confirmed", label: "Còn xử lý" }, { value: "completed", label: "Hoàn tất" }, { value: "cancelled", label: "Đã hủy" }]} variant="filter" size="md" className="w-full" />
         </div>
       </TableFilterToolbar>
 
@@ -242,10 +222,8 @@ export default function RetailOrdersPageV2() {
       {/* Orders Data Table */}
       {orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-            <ShoppingBag className="h-6 w-6" />
-          </div>
-          <h3 className="mt-3 text-sm font-bold text-slate-800">Không tìm thấy đơn hàng</h3>
+          <StudentEmptyIllustration kind="resource" />
+          <h3 className="mt-3 text-sm font-semibold text-slate-800">Không tìm thấy đơn hàng</h3>
           <p className="mt-1 text-xs text-slate-500">
             Không có đơn hàng nào khớp với điều kiện tìm kiếm hoặc bộ lọc hiện tại.
           </p>
@@ -266,7 +244,7 @@ export default function RetailOrdersPageV2() {
         <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[840px] text-left text-xs">
-              <thead className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] uppercase tracking-wider text-slate-500 font-bold select-none">
+              <thead className="border-b border-slate-200/80 bg-slate-50/90 text-on-surface-variant select-none">
                 <tr>
                   <th className="px-4 py-3">Mã đơn hàng</th>
                   <th className="px-4 py-3">Khách hàng</th>
@@ -291,12 +269,12 @@ export default function RetailOrdersPageV2() {
                       className="hover:bg-cyan-50/40 transition-colors group cursor-pointer"
                     >
                       <td className="px-4 py-3">
-                        <span className="font-mono font-bold text-slate-900 group-hover:text-cyan-700 transition">
+                        <span className="font-mono font-medium text-slate-900 group-hover:text-cyan-700 transition">
                           {order.orderCode || "Đơn hàng"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="font-semibold text-slate-800">
+                        <div className="font-medium text-slate-800">
                           {order.customerName || "Khách lẻ"}
                         </div>
                         {order.customerPhone && (
@@ -321,7 +299,7 @@ export default function RetailOrdersPageV2() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <span className="font-mono text-sm font-bold text-cyan-700">
+                        <span className="font-mono text-sm font-semibold text-cyan-700">
                           {money(order.grandTotal)}
                         </span>
                       </td>
@@ -466,14 +444,14 @@ function OrderDialog({
           <p className="mt-2 text-sm text-slate-500 [overflow-wrap:anywhere]"><span className="font-semibold text-slate-700">{order.customerName || "Khách lẻ"}</span>{order.customerPhone && <span> · SĐT: {order.customerPhone}</span>}{order.createdByName && <span> · Thu ngân: {order.createdByName}</span>}</p>
           {/* Product Items */}
           <div className="mt-5">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
               Danh mục sản phẩm
             </h3>
             <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200/80 bg-white px-4">
               {order.items.map((i, idx) => (
                 <div key={i.sku + "-" + idx} className="grid min-w-0 gap-2 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-4">
                   <div className="min-w-0"><p className="font-medium text-slate-800">{i.productName} × {i.quantity}</p><p className="mt-1 text-xs text-slate-500">SKU: {i.sku}</p></div>
-                  <b className="min-w-0 text-right tabular-nums text-slate-900 sm:max-w-64">{money(i.lineTotal)}</b>
+                  <b className="min-w-0 text-right tabular-nums text-cyan-700 sm:max-w-64">{money(i.lineTotal)}</b>
                   {!!i.serialNumbers?.length && <details className="min-w-0 text-xs text-slate-500 sm:col-span-2"><summary className="min-h-9 cursor-pointer rounded-lg py-2 focus-visible:outline-2 focus-visible:outline-primary">S/N: {i.serialNumbers.length} mã</summary><p className="leading-5">{i.serialNumbers.join(", ")}</p></details>}
                 </div>
               ))}
@@ -498,7 +476,7 @@ function OrderDialog({
           {((order.status === "confirmed" && order.dueAmount > Number(order.pendingTransferAmount || 0)) || order.status === "completed" || order.status === "cancelled") && (
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-cyan-700 active:scale-95"
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-700 active:scale-95"
               onClick={onCollect}
             >
               <Banknote className="h-4 w-4" />
@@ -510,7 +488,7 @@ function OrderDialog({
             <>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-orange-300 bg-orange-50 px-4 py-2.5 text-sm font-bold text-orange-700 shadow-sm transition hover:bg-orange-100 active:scale-95"
+                className="inline-flex items-center gap-2 rounded-xl border border-orange-300 bg-orange-50 px-4 py-2.5 text-sm font-semibold text-orange-700 shadow-sm transition hover:bg-orange-100 active:scale-95"
                 onClick={() => setMode("return")}
               >
                 <RotateCcw className="h-4 w-4" />
@@ -519,7 +497,7 @@ function OrderDialog({
 
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-cyan-300 bg-cyan-50 px-4 py-2.5 text-sm font-bold text-cyan-700 shadow-sm transition hover:bg-cyan-100 active:scale-95"
+                className="inline-flex items-center gap-2 rounded-xl border border-cyan-300 bg-cyan-50 px-4 py-2.5 text-sm font-semibold text-cyan-700 shadow-sm transition hover:bg-cyan-100 active:scale-95"
                 onClick={() => setMode("buyback")}
               >
                 <ShoppingBasket className="h-4 w-4" />
@@ -531,7 +509,7 @@ function OrderDialog({
           {(canCancel || order.status === "cancelled") && (
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-700 shadow-sm transition hover:bg-red-100 active:scale-95 ml-auto"
+              className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm transition hover:bg-red-100 active:scale-95 ml-auto"
               onClick={onCancel}
             >
               <Ban className="h-4 w-4" />
@@ -561,7 +539,7 @@ function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50/70 p-3.5 [overflow-wrap:anywhere]">
       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
-      <p className="mt-1 font-mono text-lg font-bold text-slate-900">{money(value)}</p>
+      <p className="mt-1 font-mono text-lg font-semibold text-cyan-700">{money(value)}</p>
     </div>
   );
 }
@@ -677,7 +655,7 @@ export function AfterSalesForm({
               {type === "return" ? <RotateCcw className="h-5 w-5" /> : <ShoppingBasket className="h-5 w-5" />}
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900">
                 {type === "return" ? "Trả hàng / Hoàn tiền" : "Thu mua máy cũ từ khách"}
               </h3>
 
@@ -782,7 +760,7 @@ export function AfterSalesForm({
                                   <label
                                     key={code}
                                     className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-mono cursor-pointer transition ${checked
-                                      ? "border-cyan-500 bg-cyan-50 text-cyan-700 font-bold"
+                                      ? "border-cyan-500 bg-cyan-50 text-cyan-700 font-semibold"
                                       : "border-slate-200 bg-white text-slate-600"
                                       }`}
                                   >
@@ -813,19 +791,7 @@ export function AfterSalesForm({
 
             {/* Payment Method and Reason */}
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <label className="text-xs font-semibold text-slate-600">
-                Phương thức chi tiền
-                <select
-                  className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-sm bg-white"
-                  value={method}
-                  onChange={(e) => setMethod(e.target.value as any)}
-                >
-                  <option value="cash">Tiền mặt</option>
-                  <option value="transfer">Chuyển khoản</option>
-                  <option value="card">Thẻ</option>
-                  <option value="ewallet">Ví điện tử</option>
-                </select>
-              </label>
+              <Dropdown label="Phương thức chi tiền" value={method} onChange={(value) => setMethod(value as typeof method)} options={[{ value: "cash", label: "Tiền mặt" }, { value: "transfer", label: "Chuyển khoản" }, { value: "card", label: "Thẻ" }, { value: "ewallet", label: "Ví điện tử" }]} variant="form" size="md" className="w-full" />
 
               <label className="text-xs font-semibold text-slate-600">
                 Lý do thực hiện (bắt buộc)
@@ -844,7 +810,7 @@ export function AfterSalesForm({
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-100 p-4 sm:px-6">
           <div>
             <span className="text-xs text-slate-400 uppercase font-semibold">Tổng số tiền chi hoàn:</span>
-            <p className="font-mono text-xl font-bold text-slate-900">{money(total)}</p>
+            <p className="font-mono text-xl font-semibold text-rose-700">{money(total)}</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -858,7 +824,7 @@ export function AfterSalesForm({
             <button
               type="button"
               disabled={busy || blocked || request.candidates.length > 1 || (!pending && (exhausted || !items.length || !reason.trim()))}
-              className="rounded-xl bg-cyan-600 px-6 py-2.5 font-bold text-white shadow-sm transition hover:bg-cyan-700 disabled:opacity-40"
+              className="rounded-xl bg-cyan-600 px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-cyan-700 disabled:opacity-40"
               onClick={() => void submit()}
             >
               {busy ? "Đang xử lý..." : pending ? "Thử lại yêu cầu cũ" : "Xác nhận"}
@@ -978,7 +944,7 @@ export function CancelDialog({
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2 text-rose-600">
             <Ban className="h-5 w-5" />
-            <h2 className="text-lg font-bold text-slate-900">
+            <h2 className="text-lg font-semibold text-slate-900">
               Hủy đơn{refundRequired ? " và hoàn tiền" : ""}
             </h2>
           </div>
@@ -1007,26 +973,14 @@ export function CancelDialog({
         {refundRequired && <CashSessionPicker scope={scope} value={pending?.cashSessionId || cashSessionId} onChange={setCashSessionId} disabled={submitting || Boolean(pending) || blocked} />}
         {refundRequired && (
           <div>
-            <label className="text-xs font-semibold text-slate-600">Phương thức hoàn tiền:</label>
-            <select
-              aria-label="Phương thức hoàn tiền"
-              disabled={Boolean(pending) || blocked || submitting || !canCreate}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm bg-white"
-              value={method}
-              onChange={(e) => setMethod(e.target.value as any)}
-            >
-              <option value="cash">Tiền mặt</option>
-              <option value="card">Thẻ</option>
-              <option value="transfer">Chuyển khoản</option>
-              <option value="ewallet">Ví điện tử</option>
-            </select>
+            <Dropdown label="Phương thức hoàn tiền" disabled={Boolean(pending) || blocked || submitting || !canCreate} value={method} onChange={(value) => setMethod(value as typeof method)} options={[{ value: "cash", label: "Tiền mặt" }, { value: "card", label: "Thẻ" }, { value: "transfer", label: "Chuyển khoản" }, { value: "ewallet", label: "Ví điện tử" }]} variant="form" size="md" className="w-full" />
           </div>
         )}
 
         <button
           type="button"
           disabled={!reason.trim() || submitting || blocked || completed.current || (!pending && !canCreate)}
-          className="w-full rounded-xl bg-red-600 py-3 font-bold text-white shadow-md shadow-red-500/20 transition hover:bg-red-700 active:scale-95 disabled:opacity-40"
+          className="w-full rounded-xl bg-red-600 py-3 font-semibold text-white shadow-md shadow-red-500/20 transition hover:bg-red-700 active:scale-95 disabled:opacity-40"
           onClick={() => void handleCancel()}
         >
           {submitting ? "Đang xử lý..." : pending ? "Thử lại yêu cầu hủy cũ" : "Xác nhận hủy đơn"}

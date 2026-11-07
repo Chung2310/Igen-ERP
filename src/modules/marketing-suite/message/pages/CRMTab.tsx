@@ -1,4 +1,5 @@
 import "../../shared/marketing-workspace.css";
+import "../crm-workspace.css";
 import React, { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from "react";
 import { Zap, FileText, DollarSign, MessageSquare, Check } from "lucide-react";
 import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, ChatPagination } from "../../shared/types/index";
@@ -1507,7 +1508,7 @@ export default function CRMTab() {
   }, [hasSelectableChannels]);
 
   return (
-    <div className="marketing-workspace flex flex-col h-full bg-white overflow-hidden rounded-3xl border border-slate-100 shadow-xl shadow-slate-100/50" id="crm_tab_wrapper">
+    <div className="marketing-workspace crm-workspace flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest" id="crm_tab_wrapper">
       <h1 className="sr-only">Hệ thống Sales CRM - {subTab}</h1>
 
       {/* Sub tabs selector bar */}
@@ -1699,7 +1700,7 @@ export default function CRMTab() {
           )}
 
           {subTab === "AI COMMENT AUTO-REPLY" && (
-            <div className="p-6 h-full overflow-y-auto">
+            <div className="h-full overflow-y-auto p-3 md:p-4">
               <AiCommentReplyManager
                 facebookPages={facebookPages}
                 selectedFacebookPageId={selectedFacebookPageId}

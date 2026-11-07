@@ -68,12 +68,12 @@ function RoomScheduleCard({ room, batches, canManage, onEdit, onDelete, onViewSc
 
   return (
     <div className={cn(
-      "p-4 rounded-xl border flex flex-col justify-between transition-colors group bg-white",
+      "p-3 rounded-xl border transition-colors bg-white",
       hasConflict
         ? "border-rose-200"
         : "border-slate-200 hover:border-sky-200"
     )}>
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-slate-500">
             {room.identifier}
@@ -90,7 +90,7 @@ function RoomScheduleCard({ room, batches, canManage, onEdit, onDelete, onViewSc
           {room.name}
         </h4>
 
-        <div className="flex flex-col gap-1 text-xs text-left text-slate-600">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-left text-slate-600">
           <p>
             Sức chứa: <span className="font-medium text-slate-700">{room.capacity || '—'}</span>
           </p>
@@ -100,7 +100,7 @@ function RoomScheduleCard({ room, batches, canManage, onEdit, onDelete, onViewSc
         </div>
 
         {/* Separator / Footer action area */}
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
           {/* Action buttons (Edit/Delete) */}
           <div className="flex items-center gap-1.5">
             {canManage && (
@@ -541,27 +541,73 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
   }, [searchTerm, viewMode]);
 
   return (
-    <div className="space-y-6 p-3 text-left sm:p-4">
+    <div className="space-y-4 p-3 text-left sm:p-4">
       <ErpPageHeader
         title="Quản lý Phòng học"
         subtitle={
           conflictCount > 0
             ? `⚠ Có ${conflictCount} phòng học đang bị trùng lịch — kiểm tra ngay!`
-            : "Danh sách phòng học và lịch sử dụng của từng phòng."
+            : undefined
         }
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex shrink-0 items-center gap-1 rounded-lg border border-sky-100 bg-white p-1">
+              <button
+                type="button"
+                onClick={() => { setViewMode('schedule'); localStorage.setItem('erp_view_mode_classrooms', 'schedule'); }}
+                aria-pressed={viewMode === 'schedule'}
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-md transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                  viewMode === 'schedule' ? "bg-sky-50 text-sky-700" : "text-slate-500 hover:bg-slate-50"
+                )}
+                title="Xem lưới"
+                aria-label="Xem dạng lịch"
+              >
+                <CalendarDays className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => { setViewMode('list'); localStorage.setItem('erp_view_mode_classrooms', 'list'); }}
+                aria-pressed={viewMode === 'list'}
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-md transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                  viewMode === 'list' ? "bg-sky-50 text-sky-700" : "text-slate-500 hover:bg-slate-50"
+                )}
+                title="Xem danh sách"
+                aria-label="Xem dạng danh sách"
+              >
+                <List className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            </div>
+            {(selectedBatchId || filterDate || filterDayOfWeek || filterStartTime || filterEndTime || searchTerm) && (
+              <button
+                onClick={() => {
+                  setSelectedBatchId('');
+                  setFilterDate('');
+                  setFilterDayOfWeek('');
+                  setFilterStartTime('');
+                  setFilterEndTime('');
+                  setSearchTerm('');
+                }}
+                className="flex size-8 items-center justify-center rounded-lg border border-rose-100 text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-700 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                title="Xóa bộ lọc"
+                aria-label="Xóa bộ lọc"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
             <button
               onClick={() => setShowFilters(!showFilters)}
               aria-expanded={showFilters}
+              aria-controls={showFilters ? "classroom-filter-panel" : undefined}
               className={cn(
-                "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap",
+                "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                 showFilters
                   ? "bg-sky-50 border-sky-200 text-sky-700"
                   : "bg-white border-slate-200 text-slate-600 hover:bg-sky-50 hover:border-sky-200"
               )}
             >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{showFilters ? "Đóng bộ lọc" : "Bộ lọc"}</span>
               {activeFiltersCount > 0 && (
                 <span className={cn(
@@ -583,7 +629,7 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
 
       {/* Search & Advanced Filters Panel (Collapsible) */}
       {showFilters && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 text-left animate-fadeIn">
+        <div id="classroom-filter-panel" className="rounded-xl border border-slate-200 bg-white p-4 text-left animate-fadeIn">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-12">
             {/* Search Input */}
             <div className="xl:col-span-3">
@@ -658,71 +704,6 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
         </div>
       )}
 
-      {/* Info & View Switcher Bar (Always visible) */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-left">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="px-2.5 py-1 rounded-full bg-slate-50 text-slate-600 text-xs">
-            {classrooms.length} phòng tổng số
-          </span>
-          <span className="px-2.5 py-1 rounded-full bg-sky-50 text-brand-primary text-xs">
-            Lọc được {filtered.length} phòng
-          </span>
-          {conflictCount > 0 && (
-            <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-100 text-xs">
-              ⚠ {conflictCount} phòng trùng lịch
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          {(selectedBatchId || filterDate || filterDayOfWeek || filterStartTime || filterEndTime || searchTerm) && (
-            <button
-              onClick={() => {
-                setSelectedBatchId('');
-                setFilterDate('');
-                setFilterDayOfWeek('');
-                setFilterStartTime('');
-                setFilterEndTime('');
-                setSearchTerm('');
-              }}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-700 cursor-pointer"
-              title="Xóa bộ lọc"
-              aria-label="Xóa bộ lọc"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-
-          {/* View Mode Switcher */}
-          <div className="flex items-center border border-sky-100 bg-white p-1 rounded-lg gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => { setViewMode('schedule'); localStorage.setItem('erp_view_mode_classrooms', 'schedule'); }}
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-md transition-colors cursor-pointer",
-                viewMode === 'schedule' ? "bg-sky-50 text-sky-700" : "text-slate-500 hover:bg-slate-50"
-              )}
-              title="Xem lưới"
-              aria-label="Xem dạng lịch"
-            >
-              <CalendarDays className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => { setViewMode('list'); localStorage.setItem('erp_view_mode_classrooms', 'list'); }}
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-md transition-colors cursor-pointer",
-                viewMode === 'list' ? "bg-sky-50 text-sky-700" : "text-slate-500 hover:bg-slate-50"
-              )}
-              title="Xem danh sách"
-              aria-label="Xem dạng danh sách"
-            >
-              <List className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Content */}
       {loading && classrooms.length === 0 ? (
         <ErpCard><ErpLoadingState message="Đang tải danh sách phòng học..." /></ErpCard>
@@ -737,7 +718,7 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
         </ErpCard>
       ) : viewMode === 'schedule' ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {paginated.map(room => (
               <RoomScheduleCard
                 key={room.id}
@@ -766,11 +747,11 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
           <table className="min-w-full divide-y divide-slate-200 text-left">
             <thead className="bg-sky-50/70 text-xs font-medium text-slate-600">
               <tr>
-                <th className="px-4 py-3 font-medium">Mã phòng</th>
-                <th className="px-4 py-3 font-medium">Tên phòng học</th>
-                <th className="px-4 py-3 font-medium">Sức chứa</th>
-                <th className="px-4 py-3 font-medium">Số lớp đang sử dụng</th>
-                <th className="px-4 py-3 text-right font-medium">Thao tác</th>
+                <th className="px-4 py-2 font-medium">Mã phòng</th>
+                <th className="px-4 py-2 font-medium">Tên phòng học</th>
+                <th className="px-4 py-2 font-medium">Sức chứa</th>
+                <th className="px-4 py-2 font-medium">Số lớp đang sử dụng</th>
+                <th className="px-4 py-2 text-right font-medium">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-xs text-slate-700 bg-white">
@@ -778,11 +759,11 @@ export function ClassroomsPage({ canManage = true }: { canManage?: boolean }) {
                 const activeCount = batches.filter(b => b.location === room.name && b.status !== 'Đã kết thúc').length;
                 return (
                   <tr key={room.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-normal text-slate-600">{room.identifier}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800">{room.name}</td>
-                    <td className="px-4 py-3 text-slate-700">{room.capacity || '—'}</td>
-                    <td className="px-4 py-3 text-brand-primary">{activeCount} lớp học</td>
-                    <td className="px-4 py-3.5 text-right flex items-center justify-end gap-2">
+                    <td className="px-4 py-2 font-normal text-slate-600">{room.identifier}</td>
+                    <td className="px-4 py-2 font-medium text-slate-800">{room.name}</td>
+                    <td className="px-4 py-2 text-slate-700">{room.capacity || '—'}</td>
+                    <td className="px-4 py-2 text-brand-primary">{activeCount} lớp học</td>
+                    <td className="px-4 py-2 text-right flex items-center justify-end gap-2">
                       <button
                         onClick={() => setActiveScheduleRoom(room)}
                         className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 text-brand-primary transition-colors hover:bg-sky-50 cursor-pointer"

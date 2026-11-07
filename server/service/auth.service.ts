@@ -323,7 +323,7 @@ export const authService = {
   /**
    * Lấy danh sách người dùng theo bộ lọc, tự động seed cấu trúc sơ đồ mẫu nếu doanh nghiệp mới trống
    */
-  async getUsers(filter: { companyCode?: string } = {}): Promise<IUser[]> {
+  async getUsers(filter: { companyCode?: string; [key: string]: any } = {}): Promise<IUser[]> {
     let users = await UserModel.find(filter).select("-password").sort({ createdAt: -1 });
 
     // Tự động seed sơ đồ tổ chức mẫu nếu cấu hình SEED_MOCK_USERS=true và có <= 1 thành viên

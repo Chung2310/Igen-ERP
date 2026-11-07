@@ -1,4 +1,5 @@
 import { ModuleNavigation, ModuleNavigationButton } from "../../../components/common/ModuleNavigation";
+import { Dropdown } from "../../../components/common/Dropdown";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CheckCircle2, Handshake, Package, Pencil, Percent, Search, Store, UsersRound, X } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
@@ -182,22 +183,20 @@ export default function RetailPartnersPage() {
     : "";
 
   return (
-    <main className="h-full overflow-y-auto bg-white p-6">
-      <div className="space-y-6 text-left">
+    <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-surface text-on-surface">
+      {canRead && <ModuleNavigation label="Quản lý đối tác bán lẻ" activeValue={tab}>
+        {([["partners", "Đối tác & hoa hồng", UsersRound], ["policies", "Chính sách", Percent], ["products", "Hoa hồng sản phẩm", Package]] as const).map(([key, label, Icon]) => <ModuleNavigationButton key={key} active={tab === key} icon={<Icon />} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</ModuleNavigationButton>)}
+      </ModuleNavigation>}
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-xs sm:p-4">
         <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-2.5">
-            <span aria-hidden="true" className="h-5 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
+            <span aria-hidden="true" className="h-5 w-1 shrink-0 rounded-full bg-primary" />
             <div>
-              <h1 className="text-balance text-xl font-medium tracking-tight text-slate-900">Đối tác bán lẻ</h1>
-              <p className="mt-0.5 text-pretty text-xs font-medium text-slate-500">Hồ sơ cộng tác viên bán lẻ, đại lý và nhà cung cấp của công ty.</p>
+              <h1 className="text-balance text-lg font-semibold text-on-surface">Đối tác bán lẻ</h1>
             </div>
           </div>
           {canManage && tab === "partners" && <ErpPrimaryButton type="button" onClick={startCreate} className="min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton>}
         </header>
-
-        {canRead && <ModuleNavigation label="Quản lý đối tác bán lẻ" activeValue={tab}>
-          {([["partners", "Đối tác & hoa hồng", UsersRound], ["policies", "Chính sách", Percent], ["products", "Hoa hồng sản phẩm", Package]] as const).map(([key, label, Icon]) => <ModuleNavigationButton key={key} active={tab === key} icon={<Icon />} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</ModuleNavigationButton>)}
-        </ModuleNavigation>}
 
         {canManage && <dialog
           ref={formDialogRef}
@@ -211,30 +210,30 @@ export default function RetailPartnersPage() {
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
-                <h2 id="retail-partner-form-title" className="text-balance text-sm font-bold tracking-tight text-slate-900">{editingId ? "Cập nhật đối tác" : "Thêm đối tác mới"}</h2>
+                <h2 id="retail-partner-form-title" className="text-balance text-sm font-semibold tracking-tight text-slate-900">{editingId ? "Cập nhật đối tác" : "Thêm đối tác mới"}</h2>
               </div>
               <button type="button" aria-label="Đóng biểu mẫu đối tác" onClick={() => setShowForm(false)} disabled={saving} className="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50" data-erp-modal-close><X aria-hidden="true" className="size-4" /></button>
             </div>
             <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
               <section className="space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-1"><h3 className="text-balance text-xs font-bold text-slate-800">Thông tin đối tác</h3></div>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1"><h3 className="text-balance text-xs font-semibold text-slate-800">Thông tin đối tác</h3></div>
                 <label className="block space-y-1 text-xs font-semibold text-slate-900">Mã đối tác <span aria-hidden="true">*</span><input className={fieldClass} required maxLength={60} value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder="Nhập mã đối tác..." /></label>
                 <label className="block space-y-1 text-xs font-semibold text-slate-900">Tên đối tác <span aria-hidden="true">*</span><input className={fieldClass} required maxLength={200} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Nhập tên đối tác..." /></label>
                 <label className="block space-y-1 text-xs font-semibold text-slate-900">Số điện thoại<input className={fieldClass} type="tel" maxLength={30} value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Nhập số điện thoại..." /></label>
                 <label className="block space-y-1 text-xs font-semibold text-slate-900">Địa chỉ Email<input className={fieldClass} type="email" maxLength={200} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="Nhập địa chỉ email..." /></label>
                 <label className="block space-y-1 text-xs font-semibold text-slate-900">Địa chỉ<input className={fieldClass} maxLength={500} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} placeholder="Nhập địa chỉ..." /></label>
-                <label className="block space-y-1 text-xs font-semibold text-slate-900">Trạng thái hoạt động<select className={fieldClass} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as Form["status"] })}><option value="active">Đang hoạt động</option><option value="inactive">Ngưng hoạt động</option></select></label>
+                <Dropdown label="Trạng thái hoạt động" value={form.status} onChange={(value) => setForm({ ...form, status: value })} options={[{ value: "active" as const, label: "Đang hoạt động" }, { value: "inactive" as const, label: "Ngưng hoạt động" }]} variant="form" size="md" className="w-full" />
               </section>
               <section className="space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-1"><h3 className="text-balance text-xs font-bold text-slate-800">Vai trò & liên kết</h3></div>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1"><h3 className="text-balance text-xs font-semibold text-slate-800">Vai trò & liên kết</h3></div>
                 <fieldset className="space-y-2">
                   <legend className="text-xs font-semibold text-slate-900">Vai trò <span aria-hidden="true">*</span></legend>
                   <div className="grid gap-2">{(Object.keys(roleLabels) as RetailPartnerRole[]).map((role) => <label key={role} className={cn("flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border px-3 text-xs font-medium", form.role === role ? "border-[#00ADFC] bg-sky-50/50 text-slate-900" : "border-slate-200 bg-white text-slate-700")}><input type="radio" name="retail-partner-role" value={role} checked={form.role === role} onChange={() => setForm((current) => ({ ...current, role }))} className="size-4 accent-[#00ADFC]" />{roleLabels[role]}</label>)}</div>
                 </fieldset>
                 {roleLinkHint && <p className="text-xs text-amber-700" role="status">{roleLinkHint}</p>}
-                {form.role === "supplier" && <label className="block space-y-1 text-xs font-semibold text-slate-900">Nhà cung cấp trong kho<select className={fieldClass} value={form.supplierId || ""} onChange={(event) => setForm({ ...form, supplierId: event.target.value })} disabled={!!editingPartner?.supplierId}><option value="">Chưa liên kết</option>{suppliers.map((supplier) => <option key={supplier._id} value={supplier._id}>{supplier.name} ({supplier.code})</option>)}</select>{editingPartner?.supplierId && <span className="block text-[11px] font-normal text-slate-500">Nhà cung cấp đã liên kết không thể đổi.</span>}</label>}
-                {form.role === "dealer" && <label className="block space-y-1 text-xs font-semibold text-on-surface">Khách hàng liên kết công nợ<select className={fieldClass} value={form.customerId || ""} onChange={(event) => setForm({ ...form, customerId: event.target.value })} disabled={!!editingPartner?.customerId}><option value="">Chưa liên kết</option>{customers.map((customer) => <option key={customer._id} value={customer._id}>{customer.name} ({customer.customerCode})</option>)}</select>{editingPartner?.customerId && <span className="block text-xs font-normal text-on-surface-variant">Khách hàng đã liên kết với đại lý này và không thể đổi.</span>}</label>}
-                {form.role === "collaborator" && <label className="block space-y-1 text-xs font-semibold text-slate-900">Tài khoản xem sao kê<select className={fieldClass} value={form.userId || ""} onChange={(event) => setForm({ ...form, userId: event.target.value })} disabled={!!editingPartner?.userId}><option value="">Chưa liên kết</option>{users.map((user) => <option key={user._id} value={user._id}>{user.displayName || user.email} ({user.email})</option>)}</select>{editingPartner?.userId && <span className="block text-[11px] font-normal text-slate-500">Tài khoản đã liên kết với đối tác này và không thể đổi.</span>}</label>}
+                {form.role === "supplier" && <div className="space-y-1"><Dropdown label="Nhà cung cấp trong kho" value={form.supplierId || ""} onChange={(value) => setForm({ ...form, supplierId: value })} disabled={!!editingPartner?.supplierId} options={[{ value: "", label: "Chưa liên kết" }, ...suppliers.map((supplier) => ({ value: supplier._id, label: `${supplier.name} (${supplier.code})` }))]} variant="form" size="md" className="w-full" searchable />{editingPartner?.supplierId && <span className="block text-[11px] text-on-surface-variant">Nhà cung cấp đã liên kết không thể đổi.</span>}</div>}
+                {form.role === "dealer" && <div className="space-y-1"><Dropdown label="Khách hàng liên kết công nợ" value={form.customerId || ""} onChange={(value) => setForm({ ...form, customerId: value })} disabled={!!editingPartner?.customerId} options={[{ value: "", label: "Chưa liên kết" }, ...customers.map((customer) => ({ value: customer._id, label: `${customer.name} (${customer.customerCode})` }))]} variant="form" size="md" className="w-full" searchable />{editingPartner?.customerId && <span className="block text-xs text-on-surface-variant">Khách hàng đã liên kết với đại lý này và không thể đổi.</span>}</div>}
+                {form.role === "collaborator" && <div className="space-y-1"><Dropdown label="Tài khoản xem sao kê" value={form.userId || ""} onChange={(value) => setForm({ ...form, userId: value })} disabled={!!editingPartner?.userId} options={[{ value: "", label: "Chưa liên kết" }, ...users.map((user) => ({ value: user._id, label: `${user.displayName || user.email} (${user.email})` }))]} variant="form" size="md" className="w-full" searchable />{editingPartner?.userId && <span className="block text-[11px] text-on-surface-variant">Tài khoản đã liên kết với đối tác này và không thể đổi.</span>}</div>}
               </section>
             </div>
             {formError && <p id="retail-partner-form-error" role="alert" className="text-xs font-medium text-rose-600">{formError}</p>}
@@ -271,7 +270,7 @@ export default function RetailPartnersPage() {
 
           <ErpCard className="overflow-hidden border border-slate-200/80">
             {loading ? <div role="status" aria-live="polite"><ErpLoadingState message="Đang tải danh sách đối tác..." /></div> : visible.length === 0 ? <>
-              <ErpEmptyState icon={Handshake} title={filter || statusFilter !== "all" ? "Không tìm thấy đối tác nào" : "Chưa có đối tác bán lẻ"} subtitle={filter || statusFilter !== "all" ? "Không có đối tác khớp với nội dung tìm kiếm hoặc trạng thái đã chọn." : "Khai báo đối tác để quản lý cộng tác viên, đại lý và nhà cung cấp bán lẻ."} />
+              <ErpEmptyState illustration={filter || statusFilter !== "all" ? "generic" : "partner"} title={filter || statusFilter !== "all" ? "Không tìm thấy đối tác nào" : "Chưa có đối tác bán lẻ"} subtitle={filter || statusFilter !== "all" ? "Không có đối tác khớp với nội dung tìm kiếm hoặc trạng thái đã chọn." : "Khai báo đối tác để quản lý cộng tác viên, đại lý và nhà cung cấp bán lẻ."} />
               {canManage && !(filter || statusFilter !== "all") && <div className="flex justify-center pb-8"><ErpPrimaryButton type="button" onClick={startCreate} className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Khai báo đối tác mới</ErpPrimaryButton></div>}
               {(filter || statusFilter !== "all") && <div className="flex justify-center pb-8"><button type="button" onClick={() => { setFilter(""); setStatusFilter("all"); }} className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Xóa bộ lọc</button></div>}
             </> : <>
@@ -294,7 +293,7 @@ export default function RetailPartnersPage() {
                     <div className="flex min-w-0 flex-col gap-0.5 rounded-xl border border-slate-200/50 bg-white p-2"><span className="text-[11px] font-medium text-slate-500">Email</span><span className="truncate font-semibold text-slate-900">{partner.email || "Chưa cập nhật"}</span></div>
                     <div className="col-span-2 flex min-w-0 flex-col gap-0.5 rounded-xl border border-slate-200/50 bg-white p-2"><span className="text-[11px] font-medium text-slate-500">Địa chỉ</span><span className="line-clamp-2 font-semibold text-slate-900">{partner.address || "Chưa cập nhật"}</span></div>
                     {role === "collaborator" && <div className="col-span-2 flex min-w-0 flex-col gap-0.5 rounded-xl border border-slate-200/50 bg-white p-2"><span className="text-[11px] font-medium text-slate-500">Tài khoản xem sao kê</span><span className="truncate font-semibold text-slate-900">{linkedUser?.displayName || linkedUser?.email || (partner.userId ? "Đã liên kết tài khoản" : "Chưa liên kết")}</span>{linkedUser?.displayName && linkedUser.email && <span className="truncate text-[11px] text-slate-500">{linkedUser.email}</span>}</div>}
-                    {canManagePolicies && role === "collaborator" && <div className="col-span-2 flex min-w-0 flex-col gap-0.5 rounded-xl border border-emerald-200/70 bg-emerald-50/60 p-2"><span className="text-[11px] font-medium text-emerald-800">Số dư hoa hồng</span><span className="truncate text-sm font-bold tabular-nums text-emerald-900">{commissionBalancesLoading ? "Đang tải..." : commissionBalanceError ? "Không tải được" : new Intl.NumberFormat("vi-VN").format(commissionBalances[partner._id] || 0) + " ₫"}</span><span className="text-[10px] text-emerald-800/80">Hoa hồng đã ghi sổ trừ các khoản đảo và chi trả</span></div>}
+                    {canManagePolicies && role === "collaborator" && <div className="col-span-2 flex min-w-0 flex-col gap-0.5 rounded-xl border border-emerald-200/70 bg-emerald-50/60 p-2"><span className="text-[11px] font-medium text-emerald-800">Số dư hoa hồng</span><span className="truncate text-sm font-semibold tabular-nums text-emerald-900">{commissionBalancesLoading ? "Đang tải..." : commissionBalanceError ? "Không tải được" : new Intl.NumberFormat("vi-VN").format(commissionBalances[partner._id] || 0) + " ₫"}</span><span className="text-[10px] text-emerald-800/80">Hoa hồng đã ghi sổ trừ các khoản đảo và chi trả</span></div>}
                   </div>
                   {canManage && <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3">
                     {canManage && <button type="button" onClick={() => startEdit(partner)} aria-label={`Chỉnh sửa ${partner.name}`} className="flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Pencil aria-hidden="true" className="size-3.5 text-slate-500" />Chỉnh sửa</button>}
@@ -320,7 +319,7 @@ export default function RetailPartnersPage() {
                       const linkedUser = getLinkedUser(partner);
                       const role = getRetailPartnerRole(partner);
                       return <tr key={partner._id} className="text-slate-700 transition-colors hover:bg-slate-50/60">
-                      <td className="px-3.5 py-3"><div className="text-xs font-semibold text-slate-900">{partner.name}</div><div className="mt-0.5 text-[11px] font-normal text-slate-500">{partner.code}</div></td>
+                      <td className="px-3.5 py-3"><div className="text-xs font-medium text-slate-900">{partner.name}</div><div className="mt-0.5 text-[11px] font-normal text-slate-500">{partner.code}</div></td>
                       <td className="px-3.5 py-3"><span className="inline-block rounded-full border border-slate-200/60 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">{roleLabels[role]}</span></td>
                       <td className="px-3.5 py-3"><div className="text-xs font-medium text-slate-800">{partner.phone || "Chưa có số điện thoại"}</div><div className="mt-0.5 text-[11px] font-normal text-slate-500">{partner.email || "Chưa có email"}</div></td>
                       <td className="max-w-64 px-3.5 py-3 text-xs text-slate-600">{partner.address || "Chưa cập nhật"}</td>

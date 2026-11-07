@@ -24,7 +24,8 @@ describe("ReceivablesPage", () => {
     vi.mocked(financeReceivablesApi.list).mockResolvedValue({ items: [{ _id: "r1", receivableCode: "CN-1", customerId: "c1", customerName: "Lan", dueDate: "2026-07-01", originalAmount: 100, paidAmount: 0, adjustedAmount: 0, balance: 100, status: "open", daysOverdue: 42, reminderCount: 1 }], total: 21 });
     render(<ReceivablesPage permissions={["finance-receivable:read"]} />);
     expect(await screen.findByText("Quá hạn 42 ngày")).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Lọc trạng thái"), { target: { value: "open" } });
+    fireEvent.click(screen.getByRole("button", { name: "Lọc trạng thái" }));
+    fireEvent.click(screen.getByRole("option", { name: "Đang mở" }));
     await waitFor(() => expect(financeReceivablesApi.list).toHaveBeenLastCalledWith(expect.objectContaining({ status: "open", page: 1 })));
     fireEvent.click(screen.getByLabelText("Trang sau"));
     await waitFor(() => expect(financeReceivablesApi.list).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 })));

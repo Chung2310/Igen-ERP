@@ -1,28 +1,11 @@
-import React from "react";
-import { WorkerDashboardPage } from "../../modules/worker-management/pages/WorkerDashboardPage";
-
-function formatDateLabel() {
-  return new Intl.DateTimeFormat("vi-VN", {
-    weekday: "long",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date());
-}
+import { useAuth } from "../../context/AuthContext";
+import { useBranchOptional } from "../../context/BranchContext";
+import WorkerOverviewDashboard from "./WorkerOverviewDashboard";
 
 export default function WorkerOverviewSection() {
-  const handleNavigate = (view?: string) => {
-    window.history.pushState(null, "", `/quan-ly-lao-dong${view ? `?sub=${view}` : ""}`);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
-
-  return (
-    <div className="space-y-4 text-left">
-      <WorkerDashboardPage
-        formattedDate={formatDateLabel()}
-        onNavigate={handleNavigate}
-      />
-    </div>
-  );
+  const { userProfile, hasPermission } = useAuth();
+  const branch = useBranchOptional();
+  if (!userProfile?.companyCode) return null;
+  return <WorkerOverviewDashboard companyCode={userProfile.companyCode} branchId={branch?.activeBranchId || userProfile.branchId || undefined} canSeePartners={hasPermission("labor-partner:read") || hasPermission("labor-partner:manage") || userProfile.role === "admin" || userProfile.role === "superadmin"} />;
 }
 

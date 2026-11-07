@@ -35,17 +35,25 @@ describe("RetailReturnsPage", () => {
   it("shows after-sale documents and their source order", async () => {
     render(<RetailReturnsPage />);
 
-    expect(await screen.findByText("TH-001")).toBeTruthy();
-    expect(screen.getByText(/Đơn gốc DH-001/)).toBeTruthy();
-    fireEvent.click(screen.getByText("Chi tiết 1 mặt hàng và lý do"));
-    expect(screen.getByText("Điện thoại mẫu")).toBeTruthy();
+    expect(await screen.findByRole("table", { name: "Danh sách phiếu đổi trả và thu mua" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: /Bảng phiếu đổi trả, cuộn ngang/ }).className).toContain("visible-scrollbar");
+    expect(screen.getByRole("columnheader", { name: "Mã phiếu" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Tổng tiền" })).toBeTruthy();
+    expect(screen.getByRole("rowheader", { name: "TH-001" })).toBeTruthy();
+    expect(screen.getByRole("cell", { name: /DH-001/ })).toBeTruthy();
+    const detailsButton = screen.getByRole("button", { name: "Chi tiết 1 mặt hàng và lý do" });
+    expect(detailsButton.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(detailsButton);
+    expect(detailsButton.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("row", { name: /Điện thoại mẫu/ })).toBeTruthy();
   });
 
   it("sends search and type filters to the paged list API", async () => {
     render(<RetailReturnsPage />);
     await screen.findByText("TH-001");
     fireEvent.change(screen.getByRole("searchbox", { name: "Tìm chứng từ" }), { target: { value: "PHONE-1" } });
-    fireEvent.change(screen.getByRole("combobox", { name: "Loại phiếu" }), { target: { value: "return" } });
+    fireEvent.click(screen.getByRole("button", { name: "Loại phiếu" }));
+    fireEvent.click(screen.getByRole("option", { name: "Khách trả hàng" }));
 
     await waitFor(() => expect(list).toHaveBeenLastCalledWith(scope, expect.objectContaining({ q: "PHONE-1", type: "return", page: "1", limit: "20" })));
   });

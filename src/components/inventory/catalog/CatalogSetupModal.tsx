@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { ErpRefreshButton } from "../../common/ErpRefreshButton";
 import {
   Folder,
   FolderOpen,
@@ -806,13 +807,7 @@ export function CatalogSetupModal({
               </div>
 
               <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-white transition-colors"
-                >
-                  Làm mới
-                </button>
+                <ErpRefreshButton onClick={resetForm} />
                 <button
                   type="submit"
                   disabled={submitting}

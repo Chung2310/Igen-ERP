@@ -14,6 +14,7 @@ export interface AssistantMemoryItem {
   source: "explicit" | "manual" | "automatic";
   createdAt: string;
   updatedAt: string;
+  lastUsedAt: string | null;
 }
 
 function normalizedText(value: string) {
@@ -60,8 +61,26 @@ export function parseExplicitMemoryCommand(value: string): string | null {
   return null;
 }
 
+export function parseExplicitMemoryForgetCommand(value: string): string | null {
+  const text = value.trim();
+  const patterns = [
+    /^(?:(?:hãy|hay)\s+)?(?:quên|quen)\s+(?:(?:ghi nhớ|ghi nho)\s*)?(?:rằng|rang|:)?\s+(.+)$/iu,
+    /^(?:(?:hãy|hay)\s+)?(?:xóa|xoa|bỏ|bo)\s+(?:ghi nhớ|ghi nho)\s*:\s*(.+)$/iu,
+    /^(?:don't remember|forget)\s*:\s*(.+)$/i,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].trim().replace(/[.!?]+$/, "");
+  }
+  return null;
+}
+
 function toPublicItem(row: any): AssistantMemoryItem {
-  return { id: String(row._id), content: row.content, source: row.source || "explicit", createdAt: new Date(row.createdAt).toISOString(), updatedAt: new Date(row.updatedAt).toISOString() };
+  return {
+    id: String(row._id), content: row.content, source: row.source || "explicit",
+    createdAt: new Date(row.createdAt).toISOString(), updatedAt: new Date(row.updatedAt).toISOString(),
+    lastUsedAt: row.lastUsedAt ? new Date(row.lastUsedAt).toISOString() : null,
+  };
 }
 
 export async function listAssistantMemories(req: AuthenticatedRequest): Promise<AssistantMemoryItem[]> {
@@ -123,17 +142,47 @@ export async function deleteAssistantMemory(req: AuthenticatedRequest, id: strin
   return { deleted: result.deletedCount === 1 };
 }
 
-export async function assistantMemoryContext(req: AuthenticatedRequest): Promise<string[]> {
+export async function forgetAssistantMemoryByContent(req: AuthenticatedRequest, rawContent: string): Promise<boolean> {
+  const key = normalizedKey(rawContent);
+  if (!key) return false;
+  const result = await AssistantMemoryModel.deleteOne({ ...actorScope(req), normalizedContent: key });
+  return result.deletedCount === 1;
+}
+
+const MEMORY_STOP_WORDS = new Set("va la cua cho toi ban minh mot nhung voi ve tu khi trong nay kia rat rat duoc hay nhe nha a an the cac mot nhieu de den thi cung se da dang neu nhu khong".split(" "));
+function memoryTokens(value: string) {
+  return new Set(normalizedText(value).split(/[^a-z0-9]+/).filter(token => token.length > 2 && !MEMORY_STOP_WORDS.has(token)));
+}
+
+export function rankAssistantMemories<T extends { content: string; source?: string; updatedAt?: Date | string }>(memories: T[], query: string): T[] {
+  const queryTokens = memoryTokens(query);
+  const now = Date.now();
+  return memories.map((memory, index) => {
+    const tokens = memoryTokens(memory.content);
+    const overlap = [...queryTokens].filter(token => tokens.has(token)).length;
+    const relevance = overlap ? overlap / Math.sqrt(Math.max(1, queryTokens.size * tokens.size)) : 0;
+    const sourcePriority = memory.source === "manual" || memory.source === "explicit" ? 0.12 : 0;
+    const ageDays = memory.updatedAt ? Math.max(0, (now - new Date(memory.updatedAt).getTime()) / 86_400_000) : 365;
+    const recency = 0.04 * Math.exp(-ageDays / 180);
+    return { memory, index, score: relevance * 0.84 + sourcePriority + recency };
+  }).sort((left, right) => right.score - left.score || left.index - right.index).map(({ memory }) => memory);
+}
+
+export async function assistantMemoryContext(req: AuthenticatedRequest, query = ""): Promise<string[]> {
   const scope = actorScope(req);
   await ensureAssistantIndexes();
-  const rows = await AssistantMemoryModel.find(scope).sort({ updatedAt: -1, _id: -1 }).limit(MAX_PROMPT_MEMORY_ITEMS).select("content").lean();
+  const rows = await AssistantMemoryModel.find(scope).sort({ updatedAt: -1, _id: -1 }).limit(MAX_ASSISTANT_MEMORIES).select("_id content source updatedAt").lean();
+  const ranked = rankAssistantMemories(rows, query).slice(0, MAX_PROMPT_MEMORY_ITEMS);
   let remaining = MAX_PROMPT_MEMORY_CHARS;
   const items: string[] = [];
-  for (const row of rows) {
+  const usedIds: unknown[] = [];
+  for (const row of ranked) {
     if (row.content.length > remaining) continue;
     items.push(row.content);
+    usedIds.push(row._id);
     remaining -= row.content.length;
     if (remaining <= 0) break;
   }
+  if (usedIds.length) await AssistantMemoryModel.updateMany({ ...scope, _id: { $in: usedIds } }, { $set: { lastUsedAt: new Date() } });
   return items;
 }

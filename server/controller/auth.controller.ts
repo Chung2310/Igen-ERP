@@ -65,11 +65,18 @@ export function buildUserRosterFilter(
   companyCode?: string,
   branchId?: string,
   includeUnassignedBranchUsers = false,
+  search?: string,
 ): Record<string, unknown> {
-  return {
+  const filter: Record<string, unknown> = {
     ...(companyCode ? { companyCode } : {}),
     ...(companyCode ? buildBranchRosterFilter(branchId, includeUnassignedBranchUsers) : {}),
   };
+  const term = String(search || "").trim().slice(0, 100);
+  if (term) {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter.$and = [{ $or: ["displayName", "email", "phone"].map(field => ({ [field]: { $regex: escaped, $options: "i" } })) }];
+  }
+  return filter;
 }
 export const authController = {
   /**
@@ -508,7 +515,7 @@ export const authController = {
         if (!branch) return res.status(403).json({ status: "error", message: "Chi nhánh không thuộc công ty." });
         includeUnassignedBranchUsers = String(branch.code || "").toUpperCase() === "MAIN";
       }
-      const filter = buildUserRosterFilter(companyCode, requestedBranchId, includeUnassignedBranchUsers);
+      const filter = buildUserRosterFilter(companyCode, requestedBranchId, includeUnassignedBranchUsers, String(req.query.search || ""));
       const users = await authService.getUsers(filter);
       const permissions = await getEffectivePermissions(req.user?.id || "", req.user?.role || "user", companyCode);
       const canViewFullRoster = hasAnyPermission(permissions, ["access:read", "hr:read"]);

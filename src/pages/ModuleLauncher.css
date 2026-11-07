@@ -21,6 +21,10 @@
   transition: transform 180ms ease-out;
 }
 
+.module-launcher-new-badge {
+  background: linear-gradient(110deg, #ad20e3 0%, color-mix(in srgb, var(--color-primary) 72%, #1742a8) 100%);
+}
+
 .module-launcher-card:is(:hover, :focus-visible) .module-launcher-icon-tile {
   transform: translateY(-2px) scale(1.06);
 }

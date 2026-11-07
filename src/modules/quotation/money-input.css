@@ -1,0 +1,4 @@
+.quotation-module .money-input { position: relative; display: inline-flex; align-items: center; width: 100%; min-width: 0; }
+.quotation-module .money-input input { width: 100%; min-width: 0; padding-right: 34px; font-variant-numeric: tabular-nums; }
+.quotation-module .money-input-currency { position: absolute; right: 11px; color: var(--color-on-surface-variant); font-size: 12px; font-weight: 600; pointer-events: none; }
+.quotation-module .quote-fee-row .money-input { flex: 1; }

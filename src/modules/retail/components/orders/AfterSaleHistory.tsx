@@ -15,7 +15,7 @@ export function AfterSaleBadge({ order }: { order: RetailOrder }) {
 export function AfterSaleHistory({ order }: { order: RetailOrder }) {
   if (!order.afterSales?.length && !order.restockReceiptCode) return null;
   return <section className="mt-5 space-y-3 rounded-2xl border border-slate-200 p-4">
-    <h3 className="text-sm font-bold text-slate-800">Lịch sử trả hàng / thu mua / nhập lại kho</h3>
+    <h3 className="text-sm font-semibold text-slate-800">Lịch sử trả hàng / thu mua / nhập lại kho</h3>
     <AfterSaleBadge order={order} />
     {order.restockReceiptCode && <p className="text-sm text-cyan-800">Hủy đơn · Đã nhập kho · {order.restockReceiptCode}</p>}
     {order.afterSales?.map((doc) => <article key={doc._id} className="space-y-1 rounded-xl bg-slate-50 p-3 text-sm">
