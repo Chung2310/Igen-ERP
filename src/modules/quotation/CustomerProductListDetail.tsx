@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, downloadGeneratedFile, getLatestGeneratedFile, formatDate, formatMoney, type GeneratedExportStatus, type GeneratedFileRef } from "./api";
 import { TaskProgress, type ConfirmOptions, type Notify } from "./Feedback";
 import type { Quote } from "./types";
+import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import "./customer-quote-detail.css";
 
 export default function CustomerProductListDetail({
@@ -170,8 +171,9 @@ export default function CustomerProductListDetail({
         <button type="button" className="cqd-back-btn" onClick={onBack}>
           ← Danh sách báo giá khách
         </button>
-        <div className="quote-setup-notice" role="alert" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#b91c1c", marginTop: 14 }}>
-          {error || "Không tìm thấy thông tin báo giá khách hàng."}
+        <div className="empty-state">
+          <QuotationEmptyIllustration kind="search" />
+          <p role="alert">{error || "Không tìm thấy thông tin báo giá khách hàng."}</p>
         </div>
       </div>
     );
@@ -465,7 +467,6 @@ export default function CustomerProductListDetail({
           <div className="cqd-missing-chips">
             {quote.missingProducts.map((name, i) => (
               <span key={i} className="cqd-missing-chip">
-                <span>📦</span>
                 <span>{name}</span>
               </span>
             ))}

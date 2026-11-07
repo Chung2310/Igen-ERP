@@ -66,11 +66,13 @@ export default function CatalogProductDialog({ item, mode, onClose, onSaved, onT
   };
 
   return <dialog ref={dialog} className="template-dialog price-list-edit-dialog" aria-labelledby="edit-product-title" onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}>
-    <div className="settings-card-heading"><div><h2 id="edit-product-title">{mode === "create" ? "Thêm sản phẩm" : mode === "duplicate" ? "Nhân bản sản phẩm" : "Sửa sản phẩm"}</h2><p className="settings-hint">Thay đổi sẽ được dùng cho các báo giá mới.</p></div><button type="button" className="icon-button" aria-label="Đóng cửa sổ sửa sản phẩm" disabled={busy} onClick={onClose}>×</button></div>
+    <div className="settings-card-heading"><h2 id="edit-product-title">{mode === "create" ? "Thêm sản phẩm" : mode === "duplicate" ? "Nhân bản sản phẩm" : "Sửa sản phẩm"}</h2><button type="button" className="icon-button" aria-label="Đóng cửa sổ sửa sản phẩm" disabled={busy} onClick={onClose}>×</button></div>
     {error && <p className="form-error" id="catalog-product-error" role="alert">{error}</p>}
     <form aria-describedby={error ? "catalog-product-error" : undefined} className="email-settings-form price-list-edit-form" onSubmit={(event) => void save(event)} aria-busy={busy}>
-      <label>Mã hàng<input autoFocus required maxLength={100} value={sku} disabled={busy} onChange={(event) => setSku(event.target.value)} /></label>
-      <label>Tên sản phẩm<input required maxLength={250} value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /></label>
+      <div className="price-list-edit-grid">
+        <label>Mã hàng<input autoFocus required maxLength={100} value={sku} disabled={busy} onChange={(event) => setSku(event.target.value)} /></label>
+        <label>Tên sản phẩm<input required maxLength={250} value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /></label>
+      </div>
       <label>Quy cách / thông số<textarea maxLength={2000} rows={3} value={description} disabled={busy} onChange={(event) => setDescription(event.target.value)} /></label>
       <div className="price-list-edit-grid">
         <label>Đơn vị<input required maxLength={50} value={unit} disabled={busy} onChange={(event) => setUnit(event.target.value)} /></label>

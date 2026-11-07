@@ -324,7 +324,7 @@ export default function DashboardTab() {
 
       {/* Content Area with independent scroll */}
       <main
-        className="min-h-0 flex-1 overflow-y-auto px-2 py-2 sm:px-2 sm:py-3"
+        className="min-h-0 flex-1 overflow-y-auto px-2 pt-1 pb-2 sm:pt-2 sm:pb-3"
         id="dashboard_tab_content"
       >
         <OverviewPeriodCustomRange />

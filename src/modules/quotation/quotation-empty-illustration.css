@@ -1,0 +1,38 @@
+.quotation-module .quotation-empty-art {
+  display: block;
+  flex: none;
+  width: 160px;
+  height: 96px;
+  max-width: 100%;
+  margin: 0 auto 8px;
+  color: var(--color-on-surface-variant) !important;
+}
+
+.quotation-module .quotation-empty-art--compact {
+  width: 104px;
+  height: 62px;
+  margin-bottom: 4px;
+}
+
+.quotation-module .search-empty:has(.quotation-empty-art),
+.quotation-module .cq-picker-empty:has(.quotation-empty-art),
+.quotation-module .quotation-inline-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.quotation-module .quotation-inline-empty .field-hint,
+.quotation-module .quote-supplement-empty p {
+  margin: 0;
+}
+
+.quotation-module .workflow-empty .button {
+  margin-top: 12px;
+}
+
+.quotation-module .app-shell .qt-empty-state:has(.quotation-empty-art) {
+  background: var(--color-surface-container-lowest);
+}

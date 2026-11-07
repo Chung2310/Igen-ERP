@@ -53,7 +53,13 @@ export function UpgradeGiftIcon(props: IconProps) {
 }
 
 export function AiAssistantIcon({ className }: { className?: string }) {
-  return <img src="/assistant-igen-head.webp" className={className} alt="" aria-hidden="true" draggable={false} />;
+  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <path d="M9.5 6V4.9a2.5 2.5 0 0 1 5 0V6" />
+    <rect x="3" y="6" width="18" height="15" rx="7.5" />
+    <path d="M3 11.5H2a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h1m18-4h1a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-1" />
+    <circle cx="9" cy="13.5" r="1.4" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="13.5" r="1.4" fill="currentColor" stroke="none" />
+  </svg>;
 }
 
 export function MorePoliciesIcon(props: IconProps) {

@@ -2,6 +2,7 @@ import { downloadQuotationFile } from "./api";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { ApiError, api, apiUploadWithProgress, formatDate } from "./api";
 import FilePreview, { type PreviewFile } from "./FilePreview";
+import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import { TaskProgress, useAppNotification, type ConfirmOptions, type TaskProgressState } from "./Feedback";
 import "./quote-template.css";
 
@@ -218,10 +219,7 @@ export function QuoteTemplatePanel({
             </svg>
             {categoryLabel} doanh nghiệp
           </span>
-          <h1>Quản lý {categoryLabel}</h1>
-          <p>
-            {category === "quote" || category === "estimate" ? "Lưu mẫu Word, Excel hoặc PDF để sử dụng khi tạo và xuất tài liệu." : category === "settlement" ? "Lưu mẫu Excel để lập hồ sơ từ dữ liệu nghiệm thu và thanh toán." : "Lưu, xem trước và tải về các mẫu tài liệu của doanh nghiệp."}
-          </p>
+          <h1>{categoryLabel}</h1>
         </div>
 
         {!onContinue && (
@@ -395,9 +393,7 @@ export function QuoteTemplatePanel({
           </div>
         ) : filteredTemplates.length === 0 ? (
           <div className="qt-empty-state">
-            <div className="qt-empty-icon">
-              <img src="/quotation/images/quote-empty-3d.svg" alt="" />
-            </div>
+            <QuotationEmptyIllustration kind={templates.length === 0 ? "template" : "search"} />
             <h3>{templates.length === 0 ? `Chưa có ${categoryLabel.toLowerCase()} nào` : "Không tìm thấy mẫu phù hợp"}</h3>
             <p>
               {templates.length === 0
@@ -872,7 +868,7 @@ function CreateTemplateDialog({
           {/* Guidelines box */}
           {(category === "quote" || category === "estimate") && <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
             <strong style={{ color: "#0f172a", display: "block", marginBottom: 4 }}>
-              💡 Lưu ý về cơ chế điền mẫu tự động:
+              Lưu ý về cơ chế điền mẫu tự động:
             </strong>
             Hệ thống AI sẽ tự động phân tích bảng và các trường văn bản trong file mẫu của bạn để điền Tên khách hàng, Mã báo giá, Ngày tạo, Bảng danh mục sản phẩm, Đơn giá và Tổng tiền khi người dùng bấm xuất báo giá.
           </div>}

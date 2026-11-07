@@ -185,13 +185,11 @@
 }
 .quotation-module .price-list-table { min-width: 980px; }
 .quotation-module .price-list-table th { height: 39px; }
-.quotation-module .price-list-table td:first-child { min-width: 190px; white-space: normal; }
-.quotation-module .price-list-table td:first-child strong { display: block; line-height: 1.45; }
-.quotation-module .price-list-table td:nth-child(2) { min-width: 230px; max-width: 360px; white-space: normal; line-height: 1.5; color: #748078; }
-.quotation-module .price-list-table td:nth-child(3) { min-width: 70px; text-align: center; }
-.quotation-module .price-list-table td:nth-child(4) { min-width: 145px; white-space: nowrap; }
-.quotation-module .price-list-table td:nth-child(5) { min-width: 125px; }
-.quotation-module .price-list-table td:nth-child(6) { min-width: 75px; }
+.quotation-module .price-list-table td { white-space: normal; }
+.quotation-module .price-list-table td strong { display: block; line-height: 1.45; }
+.quotation-module .price-list-table .price-list-description { line-height: 1.5; color: var(--color-on-surface-variant); }
+.quotation-module .price-list-table .price-list-unit { text-align: center; }
+.quotation-module .price-list-table .amount-cell { white-space: nowrap; }
 .quotation-module .price-list-action .button { min-height: 31px; padding: 0 10px; font-size: 10px; }
 .quotation-module .price-list-status { display: inline-flex; align-items: center; padding: 5px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
 .quotation-module .price-list-status.active { background: #eaf4ed; color: var(--color-primary); }
