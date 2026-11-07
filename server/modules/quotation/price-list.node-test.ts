@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Binary } from "mongodb";
 import * as XLSX from "xlsx";
-import { analyzePriceList, priceListContent, validatePriceAnalysis, type PriceList } from "./price-list.js";
+import { analyzePriceList, extractAttachedRequest, priceListContent, validatePriceAnalysis, type PriceList } from "./price-list.js";
 import { calculateQuote } from "./pricing.js";
 import { config } from "./config.js";
 
@@ -52,6 +52,26 @@ test("sends saved workbook and request to AI and returns usable quote lines", as
 test("rejects empty and mixed-company price list selections", async () => {
   await assert.rejects(analyzePriceList("Mua máy A", [], []));
   await assert.rejects(analyzePriceList("Mua máy A", [fixture(), { ...fixture(), companyId: "company-b" }], []));
+});
+
+test("uses Luna-compatible parameters to extract an attached request", async (t) => {
+  const previousModel = process.env.QUOTATION_FILE_MODEL;
+  process.env.QUOTATION_FILE_MODEL = "openai/gpt-6-luna";
+  t.after(() => {
+    if (previousModel === undefined) delete process.env.QUOTATION_FILE_MODEL;
+    else process.env.QUOTATION_FILE_MODEL = previousModel;
+  });
+  const extraction = { summary: "2 máy A", searchTerms: ["Máy A"], customerName: "", customerEmail: "" };
+  t.mock.method(globalThis, "fetch", async (_url: unknown, options: RequestInit) => {
+    const body = JSON.parse(String(options.body));
+    assert.equal(body.model, "openai/gpt-6-luna");
+    assert.deepEqual(body.reasoning, { effort: "none" });
+    assert.equal("temperature" in body, false);
+    assert.equal(body.response_format.type, "json_schema");
+    assert.equal(body.provider.require_parameters, true);
+    return Response.json({ choices: [{ message: { content: JSON.stringify(extraction) } }] });
+  });
+  assert.deepEqual(await extractAttachedRequest("", [{ type: "text", text: "Mua 2 máy A" }]), extraction);
 });
 
 test("file-only customer request uses exactly the selected price list and extracts customer details", async (t) => {
