@@ -1,0 +1,105 @@
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+
+export type NotificationType = "success" | "error" | "info";
+export type Notify = (message: string, type?: NotificationType) => void;
+export type ConfirmOptions = {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  tone?: "primary" | "danger";
+  dismissWithClose?: boolean;
+};
+export type TaskProgressState = { label: string; detail?: string; progress?: number | null };
+
+type Notification = { id: number; message: string; type: NotificationType };
+const NotificationContext = createContext<Notify>(() => undefined);
+
+export function NotificationProvider({ notify, children }: { notify: Notify; children: ReactNode }) {
+  return <NotificationContext.Provider value={notify}>{children}</NotificationContext.Provider>;
+}
+
+export function useAppNotification() {
+  return useContext(NotificationContext);
+}
+
+export function useNotification() {
+  const [notification, setNotification] = useState<Notification | null>(null);
+  const nextId = useRef(0);
+  const notify = useCallback<Notify>((message, type = "success") => {
+    nextId.current += 1;
+    setNotification({ id: nextId.current, message, type });
+  }, []);
+  const dismiss = useCallback(() => setNotification(null), []);
+
+  useEffect(() => {
+    if (!notification || notification.type === "error") return;
+    const timer = window.setTimeout(() => setNotification(null), 3800);
+    return () => window.clearTimeout(timer);
+  }, [notification]);
+
+  return { notification, notify, dismiss };
+}
+
+export function NotificationToast({ notification, onDismiss }: { notification: Notification; onDismiss: () => void }) {
+  const icon = notification.type === "success" ? "✓" : notification.type === "error" ? "!" : "i";
+  return <div className={`app-notification is-${notification.type}`} role={notification.type === "error" ? "alert" : "status"} aria-live={notification.type === "error" ? "assertive" : "polite"}>
+    <span className="app-notification-icon" aria-hidden="true">{icon}</span>
+    <span className="app-notification-message">{notification.message}</span>
+    <button type="button" className="app-notification-close" aria-label="Đóng thông báo" onClick={onDismiss}>×</button>
+  </div>;
+}
+
+export function TaskProgress({ label, detail, progress }: TaskProgressState) {
+  const determinate = typeof progress === "number" && Number.isFinite(progress);
+  const value = determinate ? Math.max(0, Math.min(100, progress)) : undefined;
+  return <section className="task-progress" role="status" aria-live="polite" aria-busy="true">
+    <div className="task-progress-heading"><span className="task-progress-spinner" aria-hidden="true" /><strong>{label}</strong>{determinate && <span className="task-progress-percent">{value}%</span>}</div>
+    <div className={`task-progress-track ${determinate ? "is-determinate" : "is-indeterminate"}`} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} {...(determinate ? { "aria-valuenow": value } : { "aria-valuetext": "Đang xử lý" })}>
+      <span style={determinate ? { width: `${value}%` } : undefined} />
+    </div>
+    {detail && <small>{detail}</small>}
+  </section>;
+}
+
+export function useConfirmation() {
+  const [options, setOptions] = useState<ConfirmOptions | null>(null);
+  const resolveRef = useRef<((accepted: boolean) => void) | null>(null);
+  const confirmationRef = useRef<HTMLDialogElement>(null);
+  const confirmationTrigger = useRef<HTMLElement | null>(null);
+  const confirm = useCallback((next: ConfirmOptions) => new Promise<boolean>((resolve) => {
+    confirmationTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    resolveRef.current = resolve;
+    setOptions(next);
+  }), []);
+  const settle = useCallback((accepted: boolean) => {
+    resolveRef.current?.(accepted);
+    resolveRef.current = null;
+    setOptions(null);
+  }, []);
+
+  useEffect(() => {
+    if (!options) return;
+    const node = confirmationRef.current;
+    const trigger = confirmationTrigger.current;
+    node?.showModal();
+    return () => {
+      node?.close();
+      if (trigger?.isConnected) trigger.focus();
+    };
+  }, [options]);
+
+  const dialog = options ? <div className="app-confirm-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) settle(false); }}>
+    <dialog ref={confirmationRef} className={`app-confirm-dialog ${options.dismissWithClose ? "is-close-only" : ""}`} role="alertdialog" aria-labelledby="app-confirm-title" aria-describedby="app-confirm-message" onCancel={(event) => { event.preventDefault(); settle(false); }}>
+      {options.dismissWithClose && <button type="button" autoFocus className="app-confirm-close" aria-label="Đóng hộp xác nhận" onClick={() => settle(false)}>×</button>}
+      <span className={`app-confirm-mark ${options.tone === "danger" ? "is-danger" : ""}`} aria-hidden="true">{options.tone === "danger" ? "!" : "?"}</span>
+      <h2 id="app-confirm-title">{options.title}</h2>
+      <p id="app-confirm-message">{options.message}</p>
+      <div className="app-confirm-actions">
+        {!options.dismissWithClose && <button type="button" autoFocus className="button button-soft" onClick={() => settle(false)}>Hủy</button>}
+        <button type="button" className={`button ${options.tone === "danger" ? "button-danger" : "button-primary"}`} onClick={() => settle(true)}>{options.confirmLabel ?? "Xác nhận"}</button>
+      </div>
+    </dialog>
+  </div> : null;
+
+  return { confirm, dialog };
+}

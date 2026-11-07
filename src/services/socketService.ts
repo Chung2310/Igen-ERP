@@ -37,7 +37,7 @@ class SocketService {
     });
 
     this.socket.on("connect", () => {
-      this.subscribeMessengerScopes();
+      if (this.messengerScopes.length) this.subscribeMessengerScopes();
       console.log(`[SocketService] Connected successfully (Socket ID: ${this.socket?.id})`);
       this.statusCallbacks.forEach((cb) => cb(true));
       
@@ -96,7 +96,12 @@ class SocketService {
   }
 
   setMessengerScopes(scopes: MessengerScope[]) {
+    const hadScopes = this.messengerScopes.length > 0;
     this.messengerScopes = scopes.filter((scope) => scope.accountId.trim());
+    if (!hadScopes && !this.messengerScopes.length) {
+      this.invalidateMessengerScopes();
+      return;
+    }
     this.subscribeMessengerScopes();
   }
 

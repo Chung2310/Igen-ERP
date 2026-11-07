@@ -5,9 +5,10 @@ import userEvent from "@testing-library/user-event";
 import type { TabType } from "../types";
 
 const mockLogout = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockModules = vi.hoisted(() => ({ enabled: ["hr", "chat", "social-marketing"] }));
 
 vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({ userProfile: { uid: "u1", role: "employee", displayName: "Nhân viên", email: "staff@example.com", companyCode: "MAIN", enabledModules: ["social-marketing"], permissions: ["marketing:read", "chat:read"] }, hasPermission: () => true, logout: mockLogout }),
+  useAuth: () => ({ userProfile: { uid: "u1", role: "employee", displayName: "Nhân viên", email: "staff@example.com", companyCode: "MAIN", enabledModules: mockModules.enabled, permissions: ["marketing:read", "chat:read"] }, hasPermission: () => true, logout: mockLogout }),
 }));
 vi.mock("../context/BranchContext", () => ({
   useBranch: () => ({ branches: [], activeBranchId: "", setActiveBranchId: vi.fn(), activeBranch: null }),
@@ -26,6 +27,7 @@ import Header from "./Header";
 
 describe("Header attendance with face checking disabled", () => {
   beforeEach(() => {
+    mockModules.enabled = ["hr", "chat", "social-marketing"];
     HTMLDialogElement.prototype.showModal = function () { this.open = true; };
     HTMLDialogElement.prototype.close = function () { this.open = false; };
     localStorage.setItem("accessToken", "token");
@@ -71,6 +73,14 @@ describe("Header attendance with face checking disabled", () => {
     expect(screen.queryByPlaceholderText("Tìm kiếm trong ERP...")).toBeNull();
     const backLink = screen.getByRole("link", { name: "Về danh sách tính năng" });
     expect(backLink.getAttribute("href")).toBe("/modules");
+  });
+  it("does not poll attendance or offer the assistant when only quotation is enabled", async () => {
+    mockModules.enabled = ["quotation"];
+    render(<Header currentTab="BÁO GIÁ" onSearchSelect={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Check-In|Check-Out/i })).toBeNull();
+    expect((screen.getByRole("button", { name: "Mở Trợ lý AI" }) as HTMLButtonElement).disabled).toBe(true);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes("/timekeeping/"))).toBe(false);
   });
 
   it("does not offer a dark mode control for a saved dark preference", () => {

@@ -169,7 +169,7 @@ companyKnowledgeRouter.post(
 );
 
 
-companyKnowledgeRouter.post("/simulate-page-chat", async (request, res) => {
+companyKnowledgeRouter.post("/simulate-page-chat", managerOnly as never, async (request, res) => {
   const req = request as AuthenticatedRequest;
   const { message, history, documentText, rule, pageId } = req.body || {};
   if (typeof message !== "string" || !message.trim() || message.length > 3000

@@ -9,7 +9,7 @@
     "build:marketing-worker": "esbuild server/workers/marketing-suite.worker.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist-server/marketing-worker.cjs",
     "start:marketing-worker": "node dist-server/marketing-worker.cjs",
     "dev": "tsx watch --exclude \"**/tmp/**\" --exclude \"**/dist/**\" --exclude \"**/dist-server/**\" server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist-server/server.cjs && npm run build:marketing-worker",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist-server/server.cjs && npm run build:marketing-worker && npm run build:quotation-worker",
     "start": "node dist-server/server.cjs",
     "clean": "rm -rf dist dist-server server.js",
     "typecheck": "node --max-old-space-size=6144 node_modules/typescript/bin/tsc --noEmit",
@@ -32,7 +32,11 @@
     "load:production": "tsx tools/production-stepped-load-test.ts",
     "load:setup": "tsx tools/comprehensive-load/setup-command.ts",
     "load:run": "tsx tools/comprehensive-load/run-command.ts",
-    "load:cleanup": "tsx tools/comprehensive-load/cleanup-command.ts"
+    "load:cleanup": "tsx tools/comprehensive-load/cleanup-command.ts",
+    "dev:quotation-worker": "tsx watch server/workers/quotation.worker.ts",
+    "build:quotation-worker": "esbuild server/workers/quotation.worker.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist-server/quotation-worker.cjs",
+    "start:quotation-worker": "node dist-server/quotation-worker.cjs",
+    "test:quotation": "node tools/test-quotation.mjs"
   },
   "dependencies": {
     "@remotion/renderer": "4.0.482",
@@ -87,7 +91,14 @@
     "tailwind-merge": "^3.6.0",
     "twilio": "^6.0.2",
     "web-push": "^3.6.7",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "@xmldom/xmldom": "^0.9.12",
+    "docxtemplater": "^3.71.1",
+    "mongodb": "7.2.0",
+    "pdf-lib": "^1.17.1",
+    "pdfmake": "^0.2.20",
+    "pizzip": "^3.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

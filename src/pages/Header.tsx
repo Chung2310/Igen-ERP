@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft, Bell, LogOut, Settings, X, Package, CheckCheck, Send,
@@ -8,7 +8,7 @@ import { TabType } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useBranch } from "../context/BranchContext";
 import { authService } from "../services/authService";
-import { canViewAiSubscription } from "../config/modules";
+import { canViewAiSubscription, isModuleEnabled } from "../config/modules";
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL, USER_DATA_DELETION_URL } from "../config/brand";
 import { HEADER_MODULE_LABELS } from "../config/header-module-label";
 import { toast } from "./Toast";
@@ -40,7 +40,8 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
   const [logoutSubmitting, setLogoutSubmitting] = useState(false);
   const profileButtonRef = useRef<HTMLButtonElement>(null);
   const canOpenPaidPackages = canViewAiSubscription(userProfile);
-  const canOpenAssistant = hasPermission("chat:read");
+  const canOpenAssistant = isModuleEnabled(userProfile?.enabledModules, "chat") && hasPermission("chat:read");
+  const canUseTimekeeping = isModuleEnabled(userProfile?.enabledModules, "hr");
 
   useEffect(() => {
     if (!showPoliciesMenu) return;
@@ -103,7 +104,10 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
   };
 
   useEffect(() => {
-    if (!userProfile) return;
+    if (!userProfile || !canUseTimekeeping) {
+      setTodayTimekeeping(null);
+      return;
+    }
     fetchHeaderTimekeeping();
     const intervalId = setInterval(fetchHeaderTimekeeping, 30000);
     const handleMutation = () => fetchHeaderTimekeeping();
@@ -113,9 +117,10 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
       window.removeEventListener("timekeeping-mutation", handleMutation);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfile?.uid]);
+  }, [userProfile?.uid, userProfile?.companyCode, activeBranchId, canUseTimekeeping]);
 
   const handleTimekeepingAction = (type: "in" | "out") => {
+    if (!canUseTimekeeping) return;
     if (!navigator.geolocation) {
       toast.error("Trình duyệt của bạn không hỗ trợ định vị GPS.");
       return;
@@ -344,7 +349,7 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
                 <ArrowLeft className="hidden size-5 group-hover:block group-focus-visible:block" aria-hidden="true" />
               </a>
             )}
-            <span className="mr-3 flex shrink-0 flex-col items-start justify-center gap-0.5 sm:mr-4">
+            <span className="mr-1 flex w-20 shrink-0 flex-col items-start justify-center gap-0.5 sm:mr-4 sm:w-auto">
               <ModuleLauncherLogo compact />
               <span className="font-sans text-xs font-semibold leading-tight text-on-surface">{HEADER_MODULE_LABELS[currentTab]}</span>
             </span>
@@ -359,7 +364,7 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
 
 
           {/* Attendance Check-In / Check-Out Button */}
-          {userProfile && (
+          {userProfile && canUseTimekeeping && (
             hasCheckOut ? (
               <span
                 className="hidden sm:flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-100 px-2.5 sm:px-4 py-2 text-xs font-bold text-blue-600 select-none"
@@ -625,7 +630,7 @@ export default function Header({ currentTab, onSearchSelect, variant = "default"
                       <span className="flex-1">Thông báo</span>
                       {unreadCount > 0 && <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[9px] font-bold text-white">{unreadCount > 9 ? "9+" : unreadCount}</span>}
                     </button>
-                  {userProfile && !hasCheckOut && (
+                  {userProfile && canUseTimekeeping && !hasCheckOut && (
                     <button
                       onClick={() => {
                         setShowProfileMenu(false);

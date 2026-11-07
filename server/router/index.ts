@@ -1,3 +1,4 @@
+import quotationRouter from "../modules/quotation/router";
 import { Router } from "express";
 import { marketingSuiteRouter } from "../modules/marketing-suite/router";
 import mongoose from "mongoose";
@@ -51,6 +52,7 @@ import { customerRouter } from "../modules/customer-management/router";
 import { marketingRouter } from "../modules/marketing/router";
 export const apiRouter = Router();
 apiRouter.use(marketingSuiteRouter);
+apiRouter.use("/quotation", requireAuth as any, requireModule("quotation"), quotationRouter);
 
 // Webhooks
 apiRouter.use("/webhook", webhookRouter);
