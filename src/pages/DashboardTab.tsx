@@ -6,6 +6,7 @@ import {
   GraduationCap,
   BriefcaseBusiness,
   MessagesSquare,
+  FileText,
   AlertCircle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -38,6 +39,9 @@ const WorkerOverviewSection = lazy(
 const MarketingOverviewSection = lazy(
   () => import("../components/dashboard/MarketingOverviewSection")
 );
+const QuotationOverviewSection = lazy(
+  () => import("../components/dashboard/QuotationOverviewSection")
+);
 
 interface SectionConfig {
   value: DashboardSubTabType;
@@ -48,6 +52,20 @@ interface SectionConfig {
 }
 
 const ALL_SECTIONS: SectionConfig[] = [
+  {
+    value: "NHAN_SU",
+    slug: "nhan-su",
+    label: "Nhân sự",
+    subtitle: "Chuyên cần, Hợp đồng & Nhân sự",
+    icon: Users,
+  },
+  {
+    value: "BAO_GIA",
+    slug: "bao-gia",
+    label: "Báo giá",
+    subtitle: "Báo giá, Hợp đồng & Nghiệm thu",
+    icon: FileText,
+  },
   {
     value: "TAI_CHINH",
     slug: "tai-chinh",
@@ -61,13 +79,6 @@ const ALL_SECTIONS: SectionConfig[] = [
     label: "Bán lẻ & POS",
     subtitle: "Doanh số, Đơn hàng & Ca bán",
     icon: ShoppingCart,
-  },
-  {
-    value: "NHAN_SU",
-    slug: "nhan-su",
-    label: "Nhân sự",
-    subtitle: "Chuyên cần, Hợp đồng & Nhân sự",
-    icon: Users,
   },
   {
     value: "HOC_VIEN",
@@ -156,6 +167,8 @@ export default function DashboardTab() {
 
     return ALL_SECTIONS.filter((section) => {
       switch (section.value) {
+        case "BAO_GIA":
+          return modules.includes("quotation") && (checkPerm("quotation:read") || checkPerm("quotation:manage"));
         case "TAI_CHINH":
           return (
             modules.includes("finance") &&
@@ -227,6 +240,8 @@ export default function DashboardTab() {
       return <p className="text-pretty text-sm text-on-surface-variant">Chưa có phân hệ tổng quan khả dụng.</p>;
     }
     switch (resolvedSubTab) {
+      case "BAO_GIA":
+        return <SectionErrorBoundary fallbackTitle="Báo giá"><QuotationOverviewSection /></SectionErrorBoundary>;
       case "TAI_CHINH":
         return (
           <SectionErrorBoundary fallbackTitle="Tài chính">

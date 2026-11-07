@@ -12,6 +12,7 @@ export type SettingsSubTabType =
   | "face-recognition";
 
 export type DashboardSubTabType =
+  | "BAO_GIA"
   | "TAI_CHINH"
   | "BAN_LE"
   | "NHAN_SU"
@@ -20,9 +21,10 @@ export type DashboardSubTabType =
   | "MARKETING";
 
 export const DASHBOARD_SUB_TAB_ROUTES: SubTabRouteMap<DashboardSubTabType> = [
+  { slug: "nhan-su", value: "NHAN_SU" },
+  { slug: "bao-gia", value: "BAO_GIA" },
   { slug: "tai-chinh", value: "TAI_CHINH" },
   { slug: "ban-le", value: "BAN_LE" },
-  { slug: "nhan-su", value: "NHAN_SU" },
   { slug: "hoc-vien", value: "HOC_VIEN" },
   { slug: "lao-dong", value: "LAO_DONG" },
   { slug: "marketing", value: "MARKETING" },
