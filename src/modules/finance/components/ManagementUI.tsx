@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 import { HrEmptyIllustration } from "../../../components/hr/HrEmptyIllustration";
 import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
+import { StyledSelect } from "../../../components/common/StyledSelect";
+import { AdminDatePicker } from "../../../components/user-admin/AdminDatePicker";
 
 export const money = (n: number | null | undefined) =>
   n == null ? "Chưa có dữ liệu" : `${Math.round(n).toLocaleString("vi-VN")} đ`;
@@ -335,6 +337,22 @@ export type Field = {
     required?: boolean;
     initial?: string | number;
 };
+function EntryFormField({ field }: { field: Field }) {
+  const [value, setValue] = useState(() => String(field.initial ?? field.options?.[0]?.[0] ?? ""));
+  if (field.options) return <div className="space-y-1 text-sm">
+    <span className="block">{field.label}</span>
+    <input type="hidden" name={field.key} value={value} />
+    <StyledSelect ariaLabel={field.label} className="h-10 rounded-md" menuClassName="finance-select-menu" value={value} onChange={setValue} options={field.options.map(([optionValue, label]) => ({ value: optionValue, label }))} required={field.required !== false} />
+  </div>;
+  if (field.type === "date") return <div className="text-sm">
+    <input type="hidden" name={field.key} value={value} />
+    <AdminDatePicker label={field.label} value={value} onChange={setValue} />
+  </div>;
+  return <label className="space-y-1 text-sm">
+    <span className="block">{field.label}</span>
+    <input className={inputClass} name={field.key} type={field.type || "text"} required={field.required !== false} defaultValue={field.initial} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? "any" : undefined} />
+  </label>;
+}
 export function EntryForm({ title, fields, onSave, onClose }: {
   title: string;
   fields: Field[];
@@ -356,6 +374,11 @@ export function EntryForm({ title, fields, onSave, onClose }: {
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const missingDate = fields.find((field) => field.type === "date" && field.required !== false && !form.get(field.key));
+    if (missingDate) {
+      setError(`Vui lòng chọn ${missingDate.label.toLowerCase()}.`);
+      return;
+    }
     const values = Object.fromEntries(fields.map((field) => [
       field.key,
       field.type === "number" ? Number(form.get(field.key)) : String(form.get(field.key) || ""),
@@ -388,18 +411,7 @@ export function EntryForm({ title, fields, onSave, onClose }: {
           </button>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {fields.map((field) => (
-            <label key={field.key} className="space-y-1 text-sm">
-              <span>{field.label}</span>
-              {field.options ? (
-                <select className={`${inputClass} finance-select`} name={field.key} required={field.required !== false} defaultValue={field.initial}>
-                  {field.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              ) : (
-                <input className={inputClass} name={field.key} type={field.type || "text"} required={field.required !== false} defaultValue={field.initial} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? "any" : undefined} />
-              )}
-            </label>
-          ))}
+          {fields.map((field) => <EntryFormField key={field.key} field={field} />)}
         </div>
         {error && <p role="alert" className="text-sm text-error">{error}</p>}
         <button disabled={busy} className={buttonClass}>{busy ? "Đang lưu…" : "Lưu"}</button>

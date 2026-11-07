@@ -14,7 +14,9 @@ it('opens a placeholder-free ERP search and navigates from a result', () => {
   fireEvent.click(trigger);
 
   const input = screen.getByRole('searchbox', { name: 'Tìm kiếm trong ERP' });
+  expect(input.getAttribute('type')).toBe('text');
   expect(input.hasAttribute('placeholder')).toBe(false);
+  expect(screen.getByRole('button', { name: 'Đóng tìm kiếm' }).className).toContain('bg-surface');
   expect(trigger.getAttribute('aria-expanded')).toBe('true');
 
   fireEvent.change(input, { target: { value: 'so do to chuc' } });

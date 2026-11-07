@@ -1,7 +1,7 @@
 .quotation-module .theme-select { min-width: 0; }
 .quotation-module .theme-select-trigger {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  width: 100%; height: 44px; padding: 0 14px;
+  width: 100%; height: 40px; padding: 0 12px;
   border: 1px solid var(--color-outline-variant); border-radius: 10px;
   background: var(--color-surface-container-lowest); color: var(--color-on-surface);
   font: inherit; font-size: 14px; font-weight: 400; text-align: left;
@@ -22,7 +22,7 @@
 }
 .quotation-module .theme-select-menu button {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  width: 100%; min-height: 40px; padding: 8px 12px;
+  width: 100%; min-height: 36px; padding: 7px 12px;
   border: 0; border-radius: 8px; background: transparent;
   color: var(--color-on-surface); font: inherit; font-size: 14px; font-weight: 400; text-align: left;
 }
@@ -31,8 +31,9 @@
 .quotation-module .theme-select-menu button[aria-selected="true"] { background: color-mix(in srgb, var(--color-primary) 10%, transparent); color: var(--color-primary); font-weight: 400; }
 .quotation-module .theme-select-menu button svg { flex: none; }
 .quotation-module .quote-sort-wrapper .theme-select { min-width: 187px; }
-.quotation-module .quote-sort-wrapper .theme-select-trigger { height: 48px; font-size: 15px; }
-.quotation-module .price-list-sort-wrap .theme-select { min-width: 220px; }
+.quotation-module .quote-sort-wrapper .theme-select-trigger,
+.quotation-module .price-list-sort-wrap .theme-select-trigger { height: 36px; font-size: 14px; }
+.quotation-module .price-list-sort-wrap .theme-select { min-width: 200px; }
 .quotation-module .quote-fee-row .theme-select { width: 46%; }
 .quotation-module .quote-fee-row .theme-select-trigger { height: 42px; }
 @media (max-width: 680px) {

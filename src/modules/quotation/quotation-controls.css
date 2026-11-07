@@ -7,11 +7,55 @@
   box-shadow: none;
 }
 
+/* Keep the price list heading actions aligned and reuse the POS Excel color. */
+.quotation-module .app-shell .price-list-heading {
+  align-items: center;
+}
+
+.quotation-module .app-shell .price-list-header-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.quotation-module .app-shell .price-list-header-actions :is(.button, .price-list-refresh-button) {
+  box-sizing: border-box;
+  height: 36px !important;
+  min-height: 36px !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+  line-height: 18px !important;
+}
+
+.quotation-module .app-shell .price-list-header-actions .price-list-refresh-button {
+  border-radius: 12px;
+}
+
+.quotation-module .app-shell .price-list-header-actions .price-list-excel-button:not(:disabled) {
+  border-color: var(--color-excel-export);
+  background: var(--color-excel-export);
+  color: var(--color-on-excel-export);
+}
+
+.quotation-module .app-shell .price-list-header-actions .price-list-excel-button:hover:not(:disabled) {
+  border-color: var(--color-excel-export-hover);
+  background: var(--color-excel-export-hover);
+  color: var(--color-on-excel-export);
+}
+
 /* Quotation forms use the same compact dialog and field treatment as ERP forms. */
 .quotation-module .app-shell .price-list-product-card .price-list-search-box {
+  height: 40px;
+  max-width: 600px;
+  border-radius: 12px;
   border: 1px solid var(--color-outline-variant) !important;
   background: var(--color-surface-container-lowest) !important;
   box-shadow: none !important;
+}
+
+.quotation-module .app-shell .price-list-product-card .price-list-search-icon {
+  color: var(--color-on-surface-variant);
 }
 
 .quotation-module .app-shell .price-list-product-card .price-list-search-input {
@@ -22,6 +66,13 @@
   background: transparent !important;
   box-shadow: none !important;
   color: var(--color-on-surface) !important;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.quotation-module .app-shell .price-list-product-card .price-list-search-input::placeholder {
+  color: color-mix(in srgb, var(--color-on-surface-variant) 55%, transparent);
+  opacity: 1;
 }
 
 .quotation-module .app-shell .price-list-product-card .price-list-search-box:focus-within {
@@ -39,6 +90,40 @@
   background: var(--color-surface-container-lowest);
   color: var(--color-on-surface);
   box-shadow: 0 20px 50px color-mix(in srgb, var(--color-on-surface) 18%, transparent);
+}
+
+.quotation-module .catalog-bulk-dialog .table-scroll {
+  max-width: 100%;
+}
+
+.quotation-module .catalog-bulk-dialog .data-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.quotation-module .catalog-bulk-dialog .data-table :is(th, td) {
+  box-sizing: border-box;
+  height: auto;
+  overflow-wrap: anywhere;
+  padding-block: 10px;
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.quotation-module .catalog-bulk-dialog .data-table :is(th, td):nth-child(1) { width: 32%; }
+.quotation-module .catalog-bulk-dialog .data-table :is(th, td):nth-child(2) { width: 18%; }
+.quotation-module .catalog-bulk-dialog .data-table :is(th, td):nth-child(3) { width: 23%; }
+.quotation-module .catalog-bulk-dialog .data-table :is(th, td):nth-child(4) { width: 27%; }
+
+.quotation-module .catalog-bulk-dialog .table-scroll:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 680px) {
+  .quotation-module .catalog-bulk-dialog .data-table {
+    min-width: 600px;
+  }
 }
 
 .quotation-module .price-list-edit-dialog .settings-card-heading {
@@ -442,13 +527,13 @@
 }
 
 /* Status filters stay distinct from actions, but use one size and selection pattern. */
-.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn) {
+.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn, .price-list-status-tab) {
   box-sizing: border-box;
   min-height: 36px !important;
-  height: auto !important;
-  padding: 7px 12px !important;
+  height: 36px !important;
+  padding: 0 10px !important;
   border: 1px solid var(--color-outline-variant) !important;
-  border-radius: 12px !important;
+  border-radius: 10px !important;
   background: var(--color-surface-container-lowest) !important;
   background-image: none !important;
   color: var(--color-on-surface) !important;
@@ -458,30 +543,47 @@
   box-shadow: none !important;
 }
 
-.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn):hover:not(:disabled) {
+.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn, .price-list-status-tab):hover:not(:disabled) {
   border-color: var(--color-primary) !important;
   background: color-mix(in srgb, var(--color-primary) 6%, var(--color-surface-container-lowest)) !important;
 }
 
-.quotation-module .app-shell :is(.quote-filter-tab.is-active, .cq-filter-btn.active, .bp-filter-btn.active, .qt-filter-btn.active) {
+.quotation-module .app-shell :is(.quote-filter-tab.is-active, .cq-filter-btn.active, .bp-filter-btn.active, .qt-filter-btn.active, .price-list-status-tab.is-active) {
   border-color: var(--color-primary) !important;
   background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface-container-lowest)) !important;
   color: var(--color-primary) !important;
   font-weight: 600 !important;
 }
 
-.quotation-module .app-shell :is(.quote-filter-tab.is-active, .cq-filter-btn.active, .bp-filter-btn.active, .qt-filter-btn.active) > * {
+.quotation-module .app-shell :is(.quote-filter-tab.is-active, .cq-filter-btn.active, .bp-filter-btn.active, .qt-filter-btn.active, .price-list-status-tab.is-active) > * {
   color: var(--color-primary) !important;
 }
 
-.quotation-module .app-shell :is(.quote-filter-tab.is-active, .cq-filter-btn.active, .bp-filter-btn.active, .qt-filter-btn.active) :is(.tab-badge, .cq-filter-count, .bp-filter-count, .qt-filter-count) {
+.quotation-module .app-shell :is(.quote-filter-tab.is-active, .cq-filter-btn.active, .bp-filter-btn.active, .qt-filter-btn.active, .price-list-status-tab.is-active) :is(.tab-badge, .cq-filter-count, .bp-filter-count, .qt-filter-count, .tab-count) {
   color: var(--color-primary) !important;
   background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container-lowest)) !important;
 }
 
-.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn):focus-visible {
+.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn, .price-list-status-tab):focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+.quotation-module .app-shell :is(.quote-filter-tab, .cq-filter-btn, .bp-filter-btn, .qt-filter-btn, .price-list-status-tab) :is(.tab-badge, .cq-filter-count, .bp-filter-count, .qt-filter-count, .tab-count) {
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotation-module .app-shell .quote-sort-wrapper label {
+  color: var(--color-on-surface-variant);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 /* Small icon actions use the same square and neutral surface. */

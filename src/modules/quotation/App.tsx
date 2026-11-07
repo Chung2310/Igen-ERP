@@ -442,7 +442,7 @@ if (!user) return <p role="status">Phiên ERP đã thay đổi. Vui lòng mở l
   ];
 
   return <NotificationProvider notify={notify}><div className="app-shell">
-    <ModuleNavigation label="Mục Báo giá" activeValue={`${section}-${documentView}`} id="quotation_sub_tabs_bar" className="mb-2 lg:mb-0">
+    <ModuleNavigation label="Mục Báo giá" activeValue={`${section}-${documentView}`} id="quotation_sub_tabs_bar" className="mb-2 lg:mb-0" pinToViewport>
       {navigationItems.map((item) => <ModuleNavigationButton key={item.label} active={item.active} icon={<QuotationSidebarIcon name={item.icon} className="size-5" />} preferProvidedIcon title={item.label} onClick={item.onClick}>{item.label}</ModuleNavigationButton>)}
     </ModuleNavigation>
     <div className="main-column">

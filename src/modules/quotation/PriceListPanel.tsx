@@ -459,9 +459,9 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
     <section className="page-heading-row price-list-heading">
       <div><div className="price-list-title-row"><h1>Bảng giá</h1>{!loading && <span className="price-list-total-badge">{statusCounts.all} sản phẩm</span>}</div></div>
       <div className="price-list-header-actions catalog-header-actions">
-        <ErpRefreshButton loading={loading} onClick={() => { setLoading(true); setSelectedIds(new Set()); setReloadKey(key => key + 1); }} />
-        {products.length > 0 && <button type="button" className="button button-soft price-list-export-button" disabled={loading || exporting || !filteredProducts.length} title={`Xuất ${filteredProducts.length} sản phẩm theo kết quả tìm kiếm và bộ lọc`} onClick={() => void exportExcel()}>{exporting ? "Đang xuất…" : "Xuất Excel"}</button>}
-        <button type="button" className="button button-soft" disabled={!canManage || busy || loading || pendingImports.length > 0} onClick={() => input.current?.click()}>{busy ? "Đang đọc tài liệu…" : "Nhập Excel/CSV"}</button>
+        <ErpRefreshButton className="price-list-refresh-button" loading={loading} onClick={() => { setLoading(true); setSelectedIds(new Set()); setReloadKey(key => key + 1); }} />
+        {products.length > 0 && <button type="button" className="button price-list-export-button price-list-excel-button" disabled={loading || exporting || !filteredProducts.length} title={`Xuất ${filteredProducts.length} sản phẩm theo kết quả tìm kiếm và bộ lọc`} onClick={() => void exportExcel()}>{exporting ? "Đang xuất…" : "Xuất Excel"}</button>}
+        <button type="button" className="button price-list-excel-button" disabled={!canManage || busy || loading || pendingImports.length > 0} onClick={() => input.current?.click()}>{busy ? "Đang đọc tài liệu…" : "Nhập Excel/CSV"}</button>
         <button type="button" className="button button-primary price-list-add-button" disabled={!canManage || busy || loading} title={canManage ? "Nhập sản phẩm trực tiếp" : "Cần quyền quản lý bảng giá"} onClick={openCreate}>Thêm sản phẩm</button>
       </div>
       <input ref={input} type="file" hidden multiple disabled={!hasQuotationCapability("quotation-price-book:manage") || (busy || pendingImports.length > 0)} accept=".csv,.xlsx,.xls" onChange={(event) => void upload(event)} />
@@ -503,7 +503,7 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
             <input
               ref={searchInputRef}
               type="text"
-              className="price-list-search-input"
+              className="price-list-search-input border-0 bg-transparent"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
@@ -525,9 +525,7 @@ export default function PriceListPanel({ onToast }: { onToast: Notify }) {
               >
                 <ClearIcon size={14} />
               </button>
-            ) : (
-              <kbd className="price-list-kbd-hint" title="Nhấn phím / để tìm nhanh">/</kbd>
-            )}
+            ) : null}
           </div>
 
           <div className="price-list-sort-wrap">

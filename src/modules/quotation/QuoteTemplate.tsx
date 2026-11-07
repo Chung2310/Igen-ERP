@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type
 import { ApiError, api, apiUploadWithProgress, formatDate } from "./api";
 import FilePreview, { type PreviewFile } from "./FilePreview";
 import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
+import ThemedSelect from "./ThemedSelect";
 import { TaskProgress, useAppNotification, type ConfirmOptions, type TaskProgressState } from "./Feedback";
 import "./quote-template.css";
 
@@ -512,18 +513,16 @@ export function QuoteTemplatePanel({
                     </button>
 
                     {canManage && !selecting && (
-                      <select
-                        aria-label={`Chuyển nhóm cho mẫu ${item.name || item.originalFilename}`}
-                        title="Chuyển nhóm mẫu"
+                      <ThemedSelect
+                        className="qt-card-category-select"
+                        label={`Chuyển nhóm cho mẫu ${item.name || item.originalFilename}`}
                         value=""
                         disabled={movingId === item.id || Boolean(deletingId)}
-                        onChange={(event) => { const next = event.target.value as TemplateCategory; if (next) void moveTemplate(item, next); }}
-                      >
-                        <option value="">Chuyển nhóm</option>
-                        {templateTabs.filter((tab) => tab.id !== category
+                        onChange={(next) => { if (next) void moveTemplate(item, next as TemplateCategory); }}
+                        options={[{ value: "", label: "Chuyển nhóm" }, ...templateTabs.filter((tab) => tab.id !== category
                           && (tab.id === "contract" ? item.extension === "docx" : true))
-                          .map((tab) => <option key={tab.id} value={tab.id}>{tab.label}</option>)}
-                      </select>
+                          .map((tab) => ({ value: tab.id, label: tab.label }))]}
+                      />
                     )}
                     {canManage && !selecting && (
                       <button

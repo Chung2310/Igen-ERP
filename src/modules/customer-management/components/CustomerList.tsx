@@ -1,5 +1,6 @@
-import { ChevronLeft, ChevronRight, Search, UsersRound } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { StyledSelect } from "../../../components/common/StyledSelect";
+import { StudentEmptyIllustration } from "../../student-management/components/Erp/StudentEmptyIllustration";
 import type { Customer, CustomerStatus, CustomerType } from "../types";
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
 
 export default function CustomerList(props: Props) {
   return (
-    <div className="space-y-3">
+    <div className="flex flex-1 flex-col gap-3">
       <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_190px_190px]">
         <label className="relative block">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
@@ -22,7 +23,8 @@ export default function CustomerList(props: Props) {
         <StyledSelect ariaLabel="Loại khách" value={props.type || "all"} onChange={(value) => props.onTypeChange(value === "all" ? "" : value as CustomerType)} options={[{ value: "all", label: "Tất cả loại khách" }, { value: "regular", label: "Khách thường" }, { value: "vat", label: "Khách xuất VAT" }]} className="rounded-md" menuClassName="rounded-md shadow-sm" />
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-outline-variant bg-surface-container-lowest">
+      <div className="flex flex-1 flex-col rounded-md border border-outline-variant bg-surface-container-lowest">
+        <div className="overflow-x-auto">
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-surface-container-low text-sm font-medium text-on-surface">
             <tr><th scope="col" className="px-3 py-3 font-medium">Mã khách</th><th scope="col" className="px-3 py-3 font-medium">Khách hàng</th><th scope="col" className="px-3 py-3 font-medium">Điện thoại</th><th scope="col" className="px-3 py-3 font-medium">Hạng</th><th scope="col" className="px-3 py-3 font-medium">Loại</th><th scope="col" className="px-3 py-3 font-medium">Trạng thái</th><th scope="col" className="px-3 py-3 text-right font-medium">Thao tác</th></tr>
@@ -41,10 +43,11 @@ export default function CustomerList(props: Props) {
             ))}
           </tbody>
         </table>
-        {!props.items.length && <div className="flex flex-col items-center px-4 py-7 text-center"><span className="flex size-9 items-center justify-center rounded-md bg-primary-container text-on-primary-container"><UsersRound className="size-5" aria-hidden="true" /></span><p className="mt-2 text-sm text-on-surface-variant">Chưa có khách hàng phù hợp.</p></div>}
+        </div>
+        {!props.items.length && <div className="flex flex-1 flex-col items-center justify-center px-4 py-7 text-center"><StudentEmptyIllustration kind="partner" /><p className="mt-2 text-pretty text-sm text-on-surface-variant">Chưa có khách hàng phù hợp.</p></div>}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-on-surface-variant">
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 text-sm text-on-surface-variant">
         <span>{props.total} khách hàng</span>
         <div className="flex gap-2">
           <button type="button" disabled={props.page <= 1} onClick={() => props.onPageChange(props.page - 1)} className="inline-flex items-center gap-1 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-on-surface transition hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft className="size-4" aria-hidden="true" />Trước</button>

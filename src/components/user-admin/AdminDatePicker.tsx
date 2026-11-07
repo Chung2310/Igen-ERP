@@ -151,7 +151,7 @@ export function AdminDatePicker({ label, value, onChange, min, max, inline = fal
             <button type="button" disabled={!allowed(today)} onClick={() => choose(today)} className="rounded-md bg-primary/10 px-2.5 py-1.5 font-medium text-on-surface hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40">Hôm nay</button>
           </div>
         </div>,
-        document.body,
+        triggerRef.current?.closest("dialog") || document.body,
       )}
     </div>
   );

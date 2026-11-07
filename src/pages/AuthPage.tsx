@@ -216,7 +216,7 @@ export default function AuthPage() {
       </div>
 
       <p className="relative z-10 mt-3 text-center text-[11px] font-medium text-white/80">
-        © {new Date().getFullYear()} {BRAND_NAME}. Bản quyền thuộc iGen.
+        © {new Date().getFullYear()} {BRAND_NAME}. Bản quyền thuộc iGen Technology.
       </p>
     </main>
   );
