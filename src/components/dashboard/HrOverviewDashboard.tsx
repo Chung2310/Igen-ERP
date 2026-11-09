@@ -324,7 +324,7 @@ export function HrOverviewDashboard({
   const contractRows = [{ name: "Có hợp đồng hiệu lực", value: contractCovered, color: "var(--hr-analytics-teal)" }, { name: "Chưa có hợp đồng hiệu lực", value: contractMissing, color: "var(--hr-analytics-orange)" }];
   const recruitmentRows = recruitment.departmentRows;
   return (
-    <div className="space-y-4 pb-5">
+    <div className="space-y-3 pb-5">
       {error && <div role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">Không tải được số liệu nhân sự. Vui lòng thử lại sau.</div>}
       <section className="overview-panel space-y-3" aria-label="Tình hình nhân sự">
       <h3 className="text-balance text-lg font-semibold text-on-surface">Tình hình nhân sự</h3>
@@ -338,7 +338,7 @@ export function HrOverviewDashboard({
       </div>
       <p className="text-pretty text-xs text-on-surface-variant">Số nhân sự chỉ tính tài khoản còn tồn tại. Chấm công và đi muộn hiển thị số hôm nay, so sánh với hôm qua.</p>
       </section>
-      <div className={cn("grid items-stretch gap-4", payrollRows !== undefined || canSeeRecruitment ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
+      <div className={cn("grid items-stretch gap-3", payrollRows !== undefined || canSeeRecruitment ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
       <HeadcountChart current={employeeCount} departments={summary?.personnelNow?.departmentHeadcounts ?? null} loading={loading} enterpriseCount={enterpriseCount} branchEmployeeCount={branchEmployeeCount} branchName={employeeScope} hasActiveBranch={hasActiveBranch} />
       <section className="overview-panel hr-analytics min-w-0 space-y-3" aria-labelledby="hr-contract-summary-heading">
         <div className="flex flex-wrap items-center justify-between gap-2">
