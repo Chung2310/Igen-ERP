@@ -92,7 +92,7 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verify runtime permissions, dependencies and media binaries
+      - name: Smoke test runtime without FFmpeg
         run: |
           docker run --rm --network none --entrypoint sh "$CHECK_IMAGE" -ec '
             test "$(id -u)" = 1000
@@ -106,8 +106,12 @@ jobs:
             test -f /app/server/assets/fonts/Roboto-Bold.ttf
             test -d /app/server/modules/marketing-suite/campaign/service/agents/skills
             test -z "$(find /home/node/.cache/yarn -mindepth 1 -maxdepth 1 -print -quit)"
-            node -e "for (const name of [\"mongoose\", \"googleapis\", \"@remotion/renderer\", \"ffmpeg-static\", \"sharp\"]) require(name)"
-            "$FFMPEG_PATH" -version > /dev/null
+            node -e "for (const name of [\"mongoose\", \"googleapis\", \"@remotion/renderer\", \"sharp\"]) require(name)"
+            node -e "try { require.resolve(\"ffmpeg-static\"); process.exit(1); } catch (error) { if (error.code !== \"MODULE_NOT_FOUND\") throw error; }"
+            if command -v ffmpeg > /dev/null 2>&1 || command -v ffprobe > /dev/null 2>&1; then
+              echo "Unexpected system FFmpeg installation"
+              exit 1
+            fi
             timeout 30 "$PUPPETEER_EXECUTABLE_PATH" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --dump-dom about:blank > /tmp/chromium-smoke.html
             grep -q "<html" /tmp/chromium-smoke.html
             du -sh /app/node_modules /home/node/.cache/yarn

@@ -36,6 +36,9 @@ jobs:
       - name: Type check
         run: yarn typecheck
 
+      - name: Check optional media binary resolution
+        run: yarn vitest run server/modules/marketing-suite/shared/service/media-binary.service.test.ts
+
       # Chỉ build thử trên PR để bắt lỗi build (vite/esbuild) trước khi merge.
       # Khi push thì bỏ qua vì Step 2 đã build trong Docker rồi — tránh build trùng
       - name: Build check (PR only)

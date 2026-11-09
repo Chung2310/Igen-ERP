@@ -31,7 +31,7 @@ RUN yarn build
 FROM node:22-alpine AS runner
 
 # Cài ca-certificates và tzdata (Alpine)
-RUN apk add --no-cache ca-certificates tzdata ffmpeg chromium nss freetype harfbuzz ttf-freefont
+RUN apk add --no-cache ca-certificates tzdata chromium nss freetype harfbuzz ttf-freefont
 
 WORKDIR /app
 
@@ -41,7 +41,6 @@ RUN mkdir -p /home/node/.cache/yarn \
 
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV FFMPEG_PATH=/usr/bin/ffmpeg
 ENV CHROME_PATH=/usr/bin/chromium-browser
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
