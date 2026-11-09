@@ -3,7 +3,6 @@ import { workerNotificationsApi } from "../api/workerNotifications.api";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
 import { toast } from "../../../pages/Toast";
 import { HrEmptyIllustration } from "../../../components/hr/HrEmptyIllustration";
-import { HrPageTitle } from "../../../components/hr/HrPageTitle";
 
 type NotificationItem = { _id?: string; title?: string; content?: string; subject?: string; message?: string };
 export function WorkerNotificationsPage({ canManage = true }: { canManage?: boolean }) {
@@ -17,7 +16,6 @@ export function WorkerNotificationsPage({ canManage = true }: { canManage?: bool
   const send = async (event: React.FormEvent) => { event.preventDefault(); if (!title.trim() || !content.trim()) return; setSending(true); try { await workerNotificationsApi.create({ title: title.trim(), content: content.trim() }); setTitle(""); setContent(""); await load(); } catch (e) { toast.error(getApiErrorMessage(e, "Không thể gửi thông báo")); } finally { setSending(false); } };
   return (
     <div className="space-y-3">
-      <HrPageTitle level={1}>Thông báo lao động</HrPageTitle>
       <div className="grid gap-3 lg:grid-cols-2">
         {canManage && (
           <div className="pt-2 sm:pt-3">

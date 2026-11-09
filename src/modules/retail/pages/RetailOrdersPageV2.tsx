@@ -139,16 +139,13 @@ export default function RetailOrdersPageV2() {
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-2">
-            <h1 data-typography="page-title" className="retail-page-title text-on-surface">
-              Đơn hàng
-            </h1>
             <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200/60">
               {orders.length} đơn
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <ErpRefreshButton onClick={() => void refresh()} loading={loading} />
         </div>
       </header>

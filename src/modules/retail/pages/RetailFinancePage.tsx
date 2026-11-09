@@ -62,7 +62,6 @@ export default function RetailFinancePage() {
   const params = scope ? { ...scope, from, to } : {};
   if (!scope) return <p className="text-sm text-on-surface-variant">Vui lòng chọn chi nhánh.</p>;
   return <div className="space-y-3 text-on-surface">
-    <div><h1 className="retail-page-title text-balance text-lg font-semibold">Tài chính bán lẻ</h1></div>
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-outline-variant">
       <nav className="flex gap-2 overflow-x-auto" aria-label="Loại báo cáo">{([ ["cash", "Sổ quỹ"], ["profit", "Lãi lỗ"], ["commission", "Hoa hồng"] ] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} className={cn("min-h-10 shrink-0 border-b-2 px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-primary", view === key ? "border-primary text-primary" : "border-transparent text-on-surface hover:text-primary")} onClick={() => setView(key)}>{label}</button>)}</nav>
       <div className="flex min-w-0 flex-wrap items-center gap-3">

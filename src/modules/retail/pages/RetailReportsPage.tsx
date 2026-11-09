@@ -292,7 +292,6 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
         <div className="flex items-center gap-2.5">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="retail-page-title text-balance text-base font-semibold text-on-surface sm:text-lg">Báo cáo bán hàng</h1>
               {branchDisplayName && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50/80 px-2 py-0.5 text-xs font-semibold text-cyan-800">
                   <Store className="h-3 w-3" />
@@ -303,7 +302,7 @@ export default function RetailReportsPage({ overview = false }: { overview?: boo
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="ml-auto flex flex-wrap items-center gap-2 shrink-0">
           {/* Branch selector inline */}
             <Dropdown id="report-branch" aria-label="Chi nhánh báo cáo" value={selectedBranch || ""} disabled={!canSelectBranches || branchContext?.loading} onChange={(value) => setReportBranch({ workingKey, id: value })} options={[...(canSelectBranches ? [{ value: "all", label: "Tất cả chi nhánh" }] : []), ...branchOptions.map((branch) => ({ value: branch._id, label: branch.name }))]} variant="filter" size="sm" searchable />
 

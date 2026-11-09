@@ -69,7 +69,6 @@ export default function AssetDepreciationPage({
     <section className="finance-page-content">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="finance-page-title">Khấu hao tài sản</h1>
           <p className="text-sm text-on-surface-variant">Lập kế hoạch theo kỳ, soát lại rồi ghi sổ.</p>
         </div>
         <div className="flex items-end gap-3">

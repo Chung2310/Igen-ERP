@@ -35,7 +35,6 @@ import { Pagination } from "../../student-management/components/ui/Pagination";
 import { StyledSelect } from "../../../components/common/StyledSelect";
 import { DateInput24 } from "../../../components/common/TimeInput24";
 import { HrEmptyIllustration } from "../../../components/hr/HrEmptyIllustration";
-import { HrPageTitle } from "../../../components/hr/HrPageTitle";
 import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
 import { cn } from "../../student-management/lib/utils";
@@ -401,7 +400,6 @@ export default function WorkersPage({
     <div className="space-y-3">
       <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
         <div>
-          <HrPageTitle level={1}>Lao động</HrPageTitle>
           <p className="mt-1 pl-4 text-xs tabular-nums text-on-surface-variant">
             {loading ? "..." : `${filtered.length} / ${workers.length}`} Lao động
           </p>

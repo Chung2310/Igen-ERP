@@ -342,21 +342,14 @@ export function WarehouseSection() {
     <section className="space-y-4" aria-label="Kho hàng và Quản lý Tồn kho">
       {/* 1. Header Toolbar */}
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-3.5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 data-typography="page-title" className="text-on-surface">
-              Kho hàng & Số dư tồn kho
-            </h3>
-            {currentWarehouse && (
-              <span className="font-mono text-[11px] font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
-                {currentWarehouse.code}
-              </span>
-            )}
-          </div>
-        </div>
+        {currentWarehouse && (
+          <span className="font-mono text-[11px] font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
+            {currentWarehouse.code}
+          </span>
+        )}
 
         {/* Right Action Bar */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        <div className="ml-auto flex items-center gap-2 flex-wrap sm:flex-nowrap">
           {/* Warehouse Selector using common Dropdown */}
           <div className="flex items-center gap-1.5">
             <span className="text-slate-500 font-semibold text-xs select-none">Kho:</span>

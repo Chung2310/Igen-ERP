@@ -128,7 +128,6 @@ export default function AssetInventoryPage({
     <section className="finance-page-content">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="finance-page-title">Kiểm kê tài sản</h1>
           <p className="text-sm text-on-surface-variant">Quét mã vạch theo phiên, đối chiếu và chốt bảng lệch.</p>
         </div>
         {canManage && (

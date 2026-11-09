@@ -247,8 +247,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
         isSubmitting={withdrawing} error={withdrawalError} onClose={() => setWithdrawal(undefined)} onConfirm={confirmWithdrawal} />}
       <section className="min-w-0 space-y-3" aria-label={pageTitle}>
         <div className="flex flex-wrap items-center justify-between gap-3" ref={heading} tabIndex={-1}>
-          <HrPageTitle>{pageTitle}</HrPageTitle>
-          <div className="flex flex-wrap gap-2">
+          <div className="ml-auto flex flex-wrap gap-2">
             {currentImportKind && canViewImports && <button type="button" className={cn(buttonClass, "min-h-9")} aria-haspopup="dialog"
               onClick={event => { returnFocus.current = event.currentTarget; setImportKind(currentImportKind); }}>
               <Upload size={16} aria-hidden="true" /> {canImport ? "Nhập Excel" : "Mẫu Excel và lịch sử"}

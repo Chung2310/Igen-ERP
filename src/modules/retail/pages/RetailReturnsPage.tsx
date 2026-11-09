@@ -82,10 +82,7 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
   return (
     <main className="flex flex-1 flex-col gap-5 text-on-surface">
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="retail-page-title text-balance text-lg font-semibold">Đổi trả &amp; thu mua</h1>
-        </div>
-        <ErpRefreshButton onClick={() => void load()} loading={loading} />
+        <div className="ml-auto"><ErpRefreshButton onClick={() => void load()} loading={loading} /></div>
       </header>
 
       <section aria-label="Tổng quan chứng từ hiện trên trang" className="grid gap-3 sm:grid-cols-3">

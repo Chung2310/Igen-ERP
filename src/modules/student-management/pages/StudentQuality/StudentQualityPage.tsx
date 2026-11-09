@@ -116,11 +116,7 @@ export function StudentQualityPage({ selectedCenter, canManage, onSelectStudent,
       .quality-progress-modal .quality-scroll-area { scrollbar-gutter: stable; }
     `}</style>
     <header className="flex flex-col gap-2 border-b border-outline-variant pb-3 sm:flex-row sm:items-end sm:justify-between">
-      <div className="flex items-start gap-2.5">
-        <span className="mt-0.5 h-5 w-1 shrink-0 rounded-full bg-primary" />
-        <h1 className="text-balance text-xl font-medium text-on-surface">Chất lượng học viên</h1>
-      </div>
-      <div className="flex shrink-0 gap-2 self-start sm:self-auto">
+      <div className="ml-auto flex shrink-0 gap-2 self-end sm:self-auto">
         {canManage ? <button type="button" title="Thiết lập ngưỡng đánh giá" aria-label="Thiết lập ngưỡng đánh giá" onClick={() => setShowThresholds(true)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-brand-primary"><Settings className="h-4 w-4" /></button> : null}
         <ErpRefreshButton onClick={() => void refetch()} />
       </div>

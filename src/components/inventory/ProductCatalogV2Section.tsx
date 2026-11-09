@@ -276,13 +276,7 @@ export function ProductCatalogV2Section() {
     <section className="space-y-3" aria-label="Danh mục sản phẩm dùng chung">
       {/* Header bar */}
       <div className="flex flex-col gap-3 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h2 data-typography="page-title" className="text-on-surface">Danh mục sản phẩm</h2>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           {/* Grouped setup tools */}
           <div className="inline-flex items-center rounded-xl border border-outline-variant bg-surface-container-lowest p-1 shadow-2xs">
             <button
