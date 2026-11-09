@@ -425,3 +425,4 @@ export function requireHierarchyAccess(idParamName: string = "id") {
 
 
 DEFAULT_ROLE_PERMISSIONS.admin.push("quotation:manage", "quotation-approval:manage", "quotation-price-book:manage", "quotation-template:manage", "quotation-ai:manage", "quotation-contract:manage", "quotation-acceptance:manage");
+DEFAULT_ROLE_PERMISSIONS.admin.push("healthcare:manage", "healthcare-visits:manage", "healthcare-appointments:manage", "healthcare-care:manage", "healthcare-import:manage", "healthcare-settings:manage");

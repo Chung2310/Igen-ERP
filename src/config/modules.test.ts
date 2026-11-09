@@ -9,6 +9,13 @@ test("maps the customer module to its tab and permissions", () => {
   assert.deepEqual(MODULE_READ_PERMISSIONS["QUẢN LÝ KHÁCH HÀNG"], ["customer:read", "customer:manage"]);
 });
 
+test("shows the healthcare workspace only for companies that enable it", () => {
+  assert.equal(MODULE_TAB_MAP.healthcare, "QUẢN LÝ Y TẾ");
+  assert.deepEqual(MODULE_READ_PERMISSIONS["QUẢN LÝ Y TẾ"], ["healthcare:read", "healthcare:manage"]);
+  assert.equal(resolveEnabledTab("QUẢN LÝ Y TẾ", undefined), "TỔNG QUAN");
+  assert.equal(resolveEnabledTab("QUẢN LÝ Y TẾ", ["healthcare"]), "QUẢN LÝ Y TẾ");
+});
+
 const tabs: TabType[] = [
   "TỔNG QUAN",
   "NHÂN SỰ",

@@ -4,7 +4,10 @@ import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardTab from "./DashboardTab";
 
-const mockAuth = vi.hoisted(() => ({ enabledModules: ["hr", "finance", "retail", "student", "worker", "marketing"] }));
+const mockAuth = vi.hoisted(() => ({
+  enabledModules: ["hr", "finance", "retail", "student", "worker", "marketing"],
+  canReadHealthcare: true,
+}));
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({
@@ -15,8 +18,13 @@ vi.mock("../context/AuthContext", () => ({
       enabledModules: mockAuth.enabledModules,
       permissions: ["*"],
     },
-    hasPermission: () => true,
+    hasPermission: (code: string) => !code.startsWith("healthcare:") || mockAuth.canReadHealthcare,
   }),
+}));
+
+vi.mock("../context/BranchContext", async importOriginal => ({
+  ...await importOriginal<typeof import("../context/BranchContext")>(),
+  useBranch: () => ({ activeBranchId: "branch-a", activeBranch: { name: "Cơ sở A" }, loading: false }),
 }));
 
 vi.mock("../components/dashboard/FinanceOverviewSection", () => ({
@@ -36,11 +44,15 @@ vi.mock("../components/dashboard/MarketingOverviewSection", () => ({
 }));
 
 describe("DashboardTab consolidated hub", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   beforeEach(() => {
     window.history.replaceState(null, "", "/dashboard");
     mockAuth.enabledModules = ["hr", "finance", "retail", "student", "worker", "marketing"];
+    mockAuth.canReadHealthcare = true;
   });
 
   it("defaults to the first available overview section", async () => {
@@ -114,6 +126,45 @@ describe("DashboardTab consolidated hub", () => {
     expect(marketingTab.querySelector("svg")?.classList.contains("lucide-messages-square")).toBe(true);
     fireEvent.click(marketingTab);
     expect(await screen.findByTestId("marketing-section")).toBeTruthy();
+  });
+
+  it("loads Y tế only when selected and uses the shared period and branch", async () => {
+    mockAuth.enabledModules = ["finance", "healthcare"];
+    const patient = { _id: "1af48015-2b81-4be6-b3b1-d54d489ac78e", name: "Nguyễn An", code: "BN01" };
+    const appointment = { _id: "6f045410-0c40-4aaf-80bb-f2ebcc39eb25", patientId: patient._id, startsAt: "2026-11-07T02:00:00Z", status: "confirmed" };
+    const request = vi.fn(async (_url: string, _options: RequestInit) => Response.json({
+      patients: 1, visitCount: 1, appointmentCount: 1, careCount: null,
+      todayAppointments: [appointment], dueCare: [], patientReferences: [patient],
+    }));
+    vi.stubGlobal("fetch", request);
+    render(<DashboardTab />);
+    expect(await screen.findByTestId("finance-section")).toBeTruthy();
+    expect(request).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Y tế" }));
+    expect(await screen.findByText("Lượt khám trong kỳ")).toBeTruthy();
+    expect(window.location.search).toBe("?sub=y-te");
+    expect(request.mock.calls[0]?.[0]).toMatch(/^\/api\/v1\/healthcare\/overview\?from=\d{4}-\d{2}-01&to=/);
+    expect(new Headers(request.mock.calls[0]?.[1].headers).get("x-branch-id")).toBe("branch-a");
+    expect(screen.getByRole("link", { name: "BN01 · Nguyễn An" }).getAttribute("href"))
+      .toBe(`/quan-ly-y-te?sub=benh-nhan&branch=branch-a&patientId=${patient._id}`);
+    expect(screen.queryByText("Việc chăm sóc đến hạn")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Kỳ thống kê" }));
+    fireEvent.click(screen.getByRole("option", { name: "Hôm nay" }));
+    expect(await screen.findByText("Lượt khám hôm nay")).toBeTruthy();
+    expect(request.mock.calls[1]?.[0]).toMatch(/from=(\d{4}-\d{2}-\d{2})&to=\1$/);
+  });
+
+  it("hides Y tế for a user without healthcare access even when opening its overview URL", async () => {
+    mockAuth.enabledModules = ["finance", "healthcare"];
+    mockAuth.canReadHealthcare = false;
+    window.history.replaceState(null, "", "/tong-quan?sub=y-te");
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+    render(<DashboardTab />);
+    expect(await screen.findByTestId("finance-section")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Y tế" })).toBeNull();
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("hides unchecked finance, retail and HR sections even for an admin", () => {

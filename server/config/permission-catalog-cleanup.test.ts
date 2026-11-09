@@ -9,10 +9,14 @@ import {
 } from "./permission-catalog";
 
 const EXPECTED_FEATURES = [
-  "access", "asset", "chat", "company-knowledge", "customer", "dashboard", "finance-receivable", "finance-wallet", "hr",
-  "inventory", "labor-partner", "labor-partner-payout", "labor-partner-policy",
+  "access", "asset", "chat", "company-knowledge", "customer", "dashboard", "finance-receivable", "finance-wallet",
+  "healthcare", "healthcare-appointments", "healthcare-care", "healthcare-import", "healthcare-settings", "healthcare-visits",
+  "hr", "inventory", "inventory-count-approval", "labor-partner", "labor-partner-payout", "labor-partner-policy",
   "labor-partner-settlement", "marketing", "omni-inbox", "payroll-payment", "payroll-period", "payroll-policy",
-  "people", "pos", "recruitment", "relationship", "repair", "resource", "retail",
+  "people", "pos", "quotation", "quotation-acceptance", "quotation-ai", "quotation-approval", "quotation-contract",
+  "quotation-price-book", "quotation-template", "recruitment", "relationship", "repair", "resource", "retail",
+  "retail-coupon", "retail-partner", "retail-partner-payout", "retail-partner-policy", "retail-partner-self",
+  "retail-payment-review", "retail-points", "retail-shift-approve", "retail-shift-assign",
   "settings", "social-integration", "timekeeping", "work",
 ];
 

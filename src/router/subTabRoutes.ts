@@ -17,7 +17,8 @@ export type DashboardSubTabType =
   | "NHAN_SU"
   | "HOC_VIEN"
   | "LAO_DONG"
-  | "MARKETING";
+  | "MARKETING"
+  | "Y_TE";
 
 export const DASHBOARD_SUB_TAB_ROUTES: SubTabRouteMap<DashboardSubTabType> = [
   { slug: "tai-chinh", value: "TAI_CHINH" },
@@ -26,6 +27,17 @@ export const DASHBOARD_SUB_TAB_ROUTES: SubTabRouteMap<DashboardSubTabType> = [
   { slug: "hoc-vien", value: "HOC_VIEN" },
   { slug: "lao-dong", value: "LAO_DONG" },
   { slug: "marketing", value: "MARKETING" },
+  { slug: "y-te", value: "Y_TE" },
+];
+
+export type HealthcareTab = "patients" | "visits" | "appointments" | "care" | "settings";
+
+export const HEALTHCARE_SUB_TAB_ROUTES: SubTabRouteMap<HealthcareTab> = [
+  { slug: "benh-nhan", value: "patients" },
+  { slug: "luot-kham", value: "visits" },
+  { slug: "lich-hen", value: "appointments" },
+  { slug: "cham-soc", value: "care" },
+  { slug: "danh-muc", value: "settings" },
 ];
 
 // Nguồn slug ?sub= duy nhất cho toàn app — các trang và điều hướng toàn cục
@@ -90,6 +102,7 @@ export const AI_SUBSCRIPTION_SUB_TAB_ROUTES: SubTabRouteMap<"usage" | "plans"> =
 
 const SUB_TAB_ROUTES_BY_TAB: Partial<Record<TabType, SubTabRouteMap<string>>> = {
   "TỔNG QUAN": DASHBOARD_SUB_TAB_ROUTES as SubTabRouteMap<string>,
+  "QUẢN LÝ Y TẾ": HEALTHCARE_SUB_TAB_ROUTES,
   "NHÂN SỰ": HR_SUB_TAB_ROUTES,
   "KHO & SẢN PHẨM": INVENTORY_SUB_TAB_ROUTES,
   "QUẢN LÝ TÀI NGUYÊN": RESOURCE_SUB_TAB_ROUTES,

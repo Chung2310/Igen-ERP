@@ -21,6 +21,7 @@ import { startRetailPosSessionScheduler } from "./server/modules/retail/services
 import { startMonthlyKpiScheduler } from "./server/service/kanban-monthly-kpi-scheduler.service";
 import { startPayrollPublicationScheduler } from "./server/service/payroll-publication-scheduler.service";
 import { startDomainEventWorker } from "./server/integrations/shared/domain-event-worker";
+import { startHealthcareImportWorker } from "./server/modules/healthcare/import-worker";
 import { apiRouter } from "./server/router";
 import { swaggerRouter } from "./server/swagger";
 import { initSocketServer } from "./server/socket";
@@ -233,6 +234,7 @@ async function startServer() {
   await connectDB();
   facebookCommentService.startWorker();
   startDomainEventWorker();
+  const stopHealthcareImportWorker = startHealthcareImportWorker();
   startCelebrationScheduler();
   startMarketingScheduler();
   startResourceRetentionScheduler();
@@ -414,7 +416,7 @@ async function startServer() {
     if (shuttingDown) return;
     shuttingDown = true;
     httpServer.close(async () => {
-      await flushUserActivityQueue();
+      await Promise.all([flushUserActivityQueue(), stopHealthcareImportWorker()]);
       process.exit(0);
     });
   };
