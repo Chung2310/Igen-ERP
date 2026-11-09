@@ -65,3 +65,29 @@ test("normalizes phone and formats a permanent customer code", () => {
   assert.deepEqual(phoneLookupVariants("0901234567"), ["0901234567", "84901234567"]);
   assert.equal(formatCustomerCode(" igen ", 12), "KH-IGEN-000012");
 });
+
+test("keeps extra customer facts in notes alongside explicitly supplied notes", () => {
+  const customer = normalizeCustomerInput({
+    name: "An", phone: "0901234567", notes: "Khách thân thiết",
+    "Ngân sách": "50 triệu", "Giờ liên hệ": "Buổi chiều",
+    "Số lần mua": 0, "Cần giao hàng": false, "Yêu cầu": { color: "trắng" },
+    empty: "  ", missing: null,
+  });
+  assert.equal(customer.notes, 'Khách thân thiết\nNgân sách: 50 triệu\nGiờ liên hệ: Buổi chiều\nSố lần mua: 0\nCần giao hàng: false\nYêu cầu: {"color":"trắng"}');
+  assert.equal((customer as any)["Ngân sách"], undefined);
+});
+
+test("does not turn customer metadata or credentials into notes", () => {
+  const customer = normalizeCustomerInput({
+    name: "An", phone: "0901234567", _id: "internal", companyCode: "OTHER", branchId: "BRANCH",
+    customerCode: "KH-001", version: 8, createdBy: "ADMIN", createdAt: new Date(),
+    tier: { code: "VIP" }, pointsBalance: 100, avatarUrl: "https://example.com/avatar",
+    password: "private", accessToken: "private", $set: { name: "Other" },
+  });
+  assert.equal(customer.notes, undefined);
+});
+
+test("does not duplicate extra facts when the same input is normalized again", () => {
+  const customer = normalizeCustomerInput({ name: "An", phone: "0901234567", notes: "Ngân sách: 50 triệu", "Ngân sách": "50 triệu" });
+  assert.equal(customer.notes, "Ngân sách: 50 triệu");
+});
