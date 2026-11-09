@@ -47,9 +47,12 @@ def layer_summary(layer):
         operation = "ADD"
     else:
         operation = "other build step"
-    return {"bytes": byte_size(layer.get("Size", 0)), "operation": operation,
-            "system_install": "apk add" in lowered or "apt-get install" in lowered,
-            "recursive_chown": recursive, "dependency_install": install}
+    result = {"bytes": byte_size(layer.get("Size", 0)), "operation": operation,
+              "system_install": "apk add" in lowered or "apt-get install" in lowered,
+              "recursive_chown": recursive, "dependency_install": install}
+    if instruction.startswith("COPY "):
+        result["copy_paths"] = instruction.removesuffix(" # buildkit")
+    return result
 
 
 cache_paths = [
@@ -57,6 +60,7 @@ cache_paths = [
     "/root/.npm", "/home/node/.npm", "/root/.cache/ffmpeg-static-nodejs",
     "/home/node/.cache/ffmpeg-static-nodejs", "/app/.cache",
     "/app/node_modules", "/usr/local/lib/node_modules/n8n", "/tmp",
+    "/app/dist", "/app/dist-server", "/app/server", "/app/public",
 ]
 report = {"generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
           "containers": [], "images": [], "errors": []}
@@ -70,6 +74,8 @@ container_template = (
     '{"id":{{json .Id}},"name":{{json .Name}},"image":{{json .Config.Image}},'
     '"image_id":{{json .Image}},"status":{{json .State.Status}},"writable_bytes":{{.SizeRw}},'
     '"log_path":{{json .LogPath}},"log_driver":{{json .HostConfig.LogConfig.Type}},'
+    '"log_max_size":{{json (index .HostConfig.LogConfig.Config "max-size")}},'
+    '"log_max_file":{{json (index .HostConfig.LogConfig.Config "max-file")}},'
     '"mounts":{{json .Mounts}}}'
 )
 if container_ids:
@@ -101,6 +107,20 @@ if container_ids:
                     row["cache_probe_note"] = "Requested paths or du unavailable in this container"
             except subprocess.TimeoutExpired:
                 row["cache_probe_note"] = "Cache measurement timed out"
+            if row["name"] in {"igen-marketing-production", "production-ansanweb-1",
+                               "lux-care-production", "igen-bni-production"}:
+                try:
+                    usage = command(["docker", "exec", "--user", "0", row["id"], "sh", "-c",
+                                     "du -sk /app/node_modules/* 2>/dev/null | sort -nr | head -n 20"],
+                                    timeout=30)
+                    row["largest_dependency_paths"] = []
+                    for entry in usage.stdout.splitlines():
+                        pieces = entry.split(None, 1)
+                        if len(pieces) == 2 and pieces[0].isdigit():
+                            row["largest_dependency_paths"].append(
+                                {"path": pieces[1], "bytes": int(pieces[0]) * 1024})
+                except subprocess.TimeoutExpired:
+                    row["dependency_probe_note"] = "Dependency measurement timed out"
         report["containers"].append(row)
 
 image_ids = set(checked(["docker", "image", "ls", "-q", "--no-trunc"]).split())
