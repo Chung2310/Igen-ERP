@@ -14,6 +14,7 @@ import { assistantSpeechVoices } from "../../src/shared/assistant-speech-voices"
 import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 import { deleteAssistantMemory, listAssistantMemories, saveAssistantMemory, updateAssistantMemory } from "./memory";
 import { enhanceStudioImagePrompt, generateStudioImages, studioImageRatios } from "./studio-images";
+import { editStudioImage, studioEditModes } from "./studio-image-edit";
 
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
@@ -24,6 +25,15 @@ const wrap = (handler: (req: AuthenticatedRequest) => Promise<unknown>) => async
 };
 assistantRouter.get("/settings", wrap(getSettings));
 assistantRouter.post("/studio/images/optimize-prompt", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ prompt: Joi.string().trim().min(3).max(2000).required() }) }), wrap(req => enhanceStudioImagePrompt(req.body.prompt)));
+assistantRouter.post("/studio/images/edit", expensiveApiRateLimiter, validateRequest({ body: Joi.object({
+  sourceImage: Joi.string().max(21_000_000).pattern(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/).required(),
+  prompt: Joi.string().trim().min(3).max(2000).required(),
+  mode: Joi.string().valid(...studioEditModes).required(),
+  region: Joi.object({
+    x: Joi.number().min(0).max(1).required(), y: Joi.number().min(0).max(1).required(),
+    width: Joi.number().greater(0).max(1).required(), height: Joi.number().greater(0).max(1).required(),
+  }).custom((value, helpers) => value.x + value.width <= 1.001 && value.y + value.height <= 1.001 ? value : helpers.error("any.invalid")),
+}) }), wrap(req => editStudioImage(req.body)));
 assistantRouter.post("/studio/images", expensiveApiRateLimiter, validateRequest({ body: Joi.object({
   prompt: Joi.string().trim().min(3).max(2000).required(),
   aspectRatio: Joi.string().valid(...studioImageRatios).required(),

@@ -229,6 +229,7 @@ export interface OpenRouterImageParams {
   /** Reference images (base64 data URL hoặc https URL) cho image-to-image */
   referenceImages?: string[];
   allowFallback?: boolean;
+  preserveInputAspectRatio?: boolean;
 }
 
 /**
@@ -246,7 +247,9 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
 
   const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"]);
   const ratioKey = params.aspectRatio && allowedRatios.has(params.aspectRatio) ? params.aspectRatio : "1:1";
-  const finalPrompt = `${params.prompt}\n\nGenerate the image with a ${ratioKey} aspect ratio.`;
+  const finalPrompt = params.preserveInputAspectRatio
+    ? params.prompt
+    : `${params.prompt}\n\nGenerate the image with a ${ratioKey} aspect ratio.`;
 
   // Build message content — text prompt + optional reference images
   const content: any[] = [{ type: "text", text: finalPrompt }];
@@ -257,7 +260,7 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
   console.log(`[OpenRouter Image] chat+modalities | model=${model} | promptLen=${params.prompt.length} | aspectRatio=${ratioKey}`);
 
   try {
-    return await generateImageWithRetries(apiKey, model, content, ratioKey, 3);
+    return await generateImageWithRetries(apiKey, model, content, params.preserveInputAspectRatio ? undefined : ratioKey, 3);
   } catch (error: any) {
     const fallbackModel = getFallbackImageModel();
     if (params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
@@ -265,7 +268,7 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     console.warn(
       `[OpenRouter Image] Model ${model} thất bại, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
     );
-    return await generateImageWithRetries(apiKey, fallbackModel, content, ratioKey, 2);
+    return await generateImageWithRetries(apiKey, fallbackModel, content, params.preserveInputAspectRatio ? undefined : ratioKey, 2);
   }
 }
 
@@ -273,7 +276,7 @@ async function generateImageWithRetries(
   apiKey: string,
   model: string,
   content: any[],
-  aspectRatio: string,
+  aspectRatio: string | undefined,
   maxAttempts: number
 ): Promise<{ url: string }> {
   const body: Record<string, any> = {
@@ -282,7 +285,7 @@ async function generateImageWithRetries(
     // Trigger image generation theo cách chính thức của OpenRouter SDK
     modalities: ["image", "text"],
     // Gemini image models nhận tỉ lệ qua image_config của OpenRouter.
-    image_config: { aspect_ratio: aspectRatio },
+    ...(aspectRatio ? { image_config: { aspect_ratio: aspectRatio } } : {}),
   };
 
   let lastError: any;

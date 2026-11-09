@@ -6,6 +6,7 @@ import "./AssistantRainbowBorder.css";
 import { AssistantStudioImage } from "./AssistantStudioImage";
 import { AssistantStudioChart } from "./AssistantStudioChart";
 import { AssistantStudioInfographic } from "./AssistantStudioInfographic";
+import { AssistantStudioEdit } from "./AssistantStudioEdit";
 
 type StudioCategory = "Hình ảnh" | "Video" | "Âm thanh" | "Nội dung";
 type StudioTool = {
@@ -73,9 +74,9 @@ export function AssistantStudio() {
     setNotice("Nội dung đã sẵn sàng trên màn hình. Tính năng xử lý sẽ hoạt động khi dịch vụ AI được kết nối.");
   };
 
-  return <section aria-label="AI Studio" className={cn("min-h-0 flex-1 overflow-y-auto bg-surface-container-lowest text-on-surface", selected?.id === "create-image" || selected?.id === "chart" || selected?.id === "infographic" ? "p-0" : "px-4 py-8 sm:px-8 lg:px-12")}>
-    <div className={cn("w-full", selected?.id === "create-image" || selected?.id === "chart" || selected?.id === "infographic" ? "min-h-full" : "mx-auto max-w-6xl")}>
-      {selected?.id === "create-image" ? <AssistantStudioImage onBack={() => setSelectedId(null)} /> : selected?.id === "chart" ? <AssistantStudioChart onBack={() => setSelectedId(null)} /> : selected?.id === "infographic" ? <AssistantStudioInfographic onBack={() => setSelectedId(null)} /> : selected ? <>
+  return <section aria-label="AI Studio" className={cn("min-h-0 flex-1 overflow-y-auto bg-surface-container-lowest text-on-surface", selected?.id === "create-image" || selected?.id === "edit-image" || selected?.id === "chart" || selected?.id === "infographic" ? "p-0" : "px-4 py-8 sm:px-8 lg:px-12")}>
+    <div className={cn("w-full", selected?.id === "create-image" || selected?.id === "edit-image" || selected?.id === "chart" || selected?.id === "infographic" ? "min-h-full" : "mx-auto max-w-6xl")}>
+      {selected?.id === "create-image" ? <AssistantStudioImage onBack={() => setSelectedId(null)} /> : selected?.id === "edit-image" ? <AssistantStudioEdit onBack={() => setSelectedId(null)} /> : selected?.id === "chart" ? <AssistantStudioChart onBack={() => setSelectedId(null)} /> : selected?.id === "infographic" ? <AssistantStudioInfographic onBack={() => setSelectedId(null)} /> : selected ? <>
         <button type="button" onClick={() => { setSelectedId(null); setNotice(""); }} className={cn("mb-7 inline-flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface", focusClass)}><ArrowLeft className="size-4" aria-hidden="true" />Quay lại AI Studio</button>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
           <section aria-labelledby="studio-tool-title">
