@@ -61,6 +61,7 @@ cache_paths = [
     "/home/node/.cache/ffmpeg-static-nodejs", "/app/.cache",
     "/app/node_modules", "/usr/local/lib/node_modules/n8n", "/tmp",
     "/app/dist", "/app/dist-server", "/app/server", "/app/public",
+    "/app/.next", "/app/.next/cache", "/app/node_modules/onnxruntime-node",
 ]
 report = {"generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
           "containers": [], "images": [], "errors": []}
@@ -73,6 +74,7 @@ container_ids = checked(["docker", "ps", "-aq", "--no-trunc"]).split()
 container_template = (
     '{"id":{{json .Id}},"name":{{json .Name}},"image":{{json .Config.Image}},'
     '"image_id":{{json .Image}},"status":{{json .State.Status}},"writable_bytes":{{.SizeRw}},'
+    '"health_status":{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}},'
     '"log_path":{{json .LogPath}},"log_driver":{{json .HostConfig.LogConfig.Type}},'
     '"log_max_size":{{json (index .HostConfig.LogConfig.Config "max-size")}},'
     '"log_max_file":{{json (index .HostConfig.LogConfig.Config "max-file")}},'
@@ -121,6 +123,48 @@ if container_ids:
                                 {"path": pieces[1], "bytes": int(pieces[0]) * 1024})
                 except subprocess.TimeoutExpired:
                     row["dependency_probe_note"] = "Dependency measurement timed out"
+            if row["name"] in {"igen-marketing-production", "production-ansanweb-1"}:
+                probe_script = """
+                (async () => {
+                  const result = {};
+                  const marketing = process.argv[1] === 'marketing';
+                  const base = 'http://127.0.0.1:' + (process.env.PORT || (marketing ? 3005 : 3006));
+                  for (const [key, endpoint] of [['backend', '/api/v1/health'], ['frontend', '/']]) {
+                    try {
+                      const r = await fetch(base + endpoint, {signal: AbortSignal.timeout(5000)});
+                      result[key] = r.ok;
+                      if (key === 'backend') {
+                        const d = await r.json();
+                        result[key] = r.ok && d.status === 'ok' &&
+                          (d.database === 'connected' || String(d.services?.database).startsWith('online'));
+                      }
+                    } catch { result[key] = false; }
+                  }
+                  if (marketing) {
+                    const {spawnSync} = require('node:child_process');
+                    for (const [key, binary, flag] of [
+                      ['ffmpeg', require('ffmpeg-static'), '-version'],
+                      ['ffprobe', 'ffprobe', '-version'],
+                      ['chromium', '/usr/bin/chromium-headless-shell', '--version']
+                    ]) {
+                      try { result[key] = spawnSync(binary, [flag], {timeout: 5000}).status === 0; }
+                      catch { result[key] = false; }
+                    }
+                  } else {
+                    try {
+                      const r = await fetch(base + '/api/health', {signal: AbortSignal.timeout(5000)});
+                      result.next = r.ok && (await r.json()).status === 'ok';
+                    } catch { result.next = false; }
+                  }
+                  console.log(JSON.stringify(result));
+                })().catch(() => { console.log(JSON.stringify({probe_failed: true})); });
+                """
+                try:
+                    mode = "marketing" if row["name"] == "igen-marketing-production" else "ansan"
+                    result = checked(["docker", "exec", row["id"], "node", "-e", probe_script, mode], timeout=40)
+                    row["runtime_checks"] = json.loads(result)
+                except (RuntimeError, ValueError, subprocess.TimeoutExpired):
+                    row["runtime_checks"] = {"probe_failed": True}
         report["containers"].append(row)
 
 image_ids = set(checked(["docker", "image", "ls", "-q", "--no-trunc"]).split())
