@@ -1,5 +1,6 @@
 ﻿import { Types } from "mongoose";
 import { CustomerError } from "./customer-errors";
+import { appendCustomerNotes } from "./customer-notes";
 import { formatCustomerCode, normalizeCustomerInput, normalizePhone, phoneLookupVariants } from "./customer-normalization";
 import type { CustomerInput, CustomerStatus, CustomerType, ICustomer } from "./interfaces/customer.interface";
 import { CustomerCounterModel } from "./models/customer-counter.model";
@@ -77,7 +78,7 @@ export function createCustomerService(repository: CustomerRepository) {
       return { items, total, page, limit };
     },
 
-    async create(scope: CustomerScope, input: CustomerInput, actor: CustomerActor) {
+    async create(scope: CustomerScope, input: CustomerInput | Record<string, unknown>, actor: CustomerActor) {
       const values = normalizeCustomerInput(input);
       if (await repository.findByPhone(scope, values.normalizedPhone)) throw duplicatePhoneError();
       const sequence = await repository.nextSequence(scope);
@@ -105,11 +106,12 @@ export function createCustomerService(repository: CustomerRepository) {
       return customer;
     },
 
-    async update(scope: CustomerScope, id: string, input: CustomerInput, version: number) {
+    async update(scope: CustomerScope, id: string, input: CustomerInput | Record<string, unknown>, version: number) {
       requireId(id);
       const current = await repository.findById(scope, id);
       if (!current) throw new CustomerError("CUSTOMER_NOT_FOUND", "Không tìm thấy khách hàng.", 404);
-      const values = normalizeCustomerInput({ ...current, ...input });
+      // Capture only submitted extra information, never metadata from the stored record.
+      const values = normalizeCustomerInput({ ...current, ...input }, input);
       const samePhone = await repository.findByPhone(scope, values.normalizedPhone);
       if (samePhone && String(samePhone._id) !== id) throw duplicatePhoneError();
       try {
@@ -120,6 +122,19 @@ export function createCustomerService(repository: CustomerRepository) {
         throw error;
       }
       throw new CustomerError("CUSTOMER_VERSION_CONFLICT", "Hồ sơ đã được thay đổi ở nơi khác. Vui lòng tải lại.", 409);
+    },
+
+    async appendNotes(scope: CustomerScope, id: string, additions: readonly string[]) {
+      requireId(id);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const current = await repository.findById(scope, id);
+        if (!current) throw new CustomerError("CUSTOMER_NOT_FOUND", "Không tìm thấy khách hàng.", 404);
+        const notes = appendCustomerNotes(current.notes, additions);
+        if (notes === String(current.notes ?? "").trim()) return current;
+        const updated = await repository.updateWithVersion(scope, id, current.version, { notes });
+        if (updated) return updated;
+      }
+      throw new CustomerError("CUSTOMER_VERSION_CONFLICT", "Hồ sơ đã được thay đổi ở nơi khác. Vui lòng thử lại.", 409);
     },
 
     async setStatus(scope: CustomerScope, id: string, status: CustomerStatus, version: number) {

@@ -2,6 +2,7 @@ import { openrouterChat } from "../service/openrouter.service";
 import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import { AssistantError } from "./policy";
 import { ASSISTANT_OPERATIONS, type AssistantOperation } from "./catalog";
+import { additionalCustomerNotes, appendCustomerNotes } from "../modules/customer-management/customer-notes";
 export interface AssistantInterpretation { actionId: string | null; values: Record<string, unknown>; intentType?: "general_question" | "workflow" | "ambiguous"; cancel?: boolean; newRequest?: boolean; suggestedActionIds?: string[]; }
 function contextualPartnerActionIds(text: string, pending: unknown, workflows: AssistantWorkflow[], messages: { role: string; content: string }[]) {
   const intent = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0111\u0110]/g, "d").toLowerCase();
@@ -778,6 +779,18 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
   if (parsed.actionId && !workflows.some(w => w.actionId === parsed.actionId)) throw new AssistantError("AI đề xuất thao tác ngoài danh mục được phép. Chưa có dữ liệu nào được thay đổi.", 403);
   const selectedWorkflow = parsed.actionId ? workflows.find(workflow => workflow.actionId === parsed.actionId) : undefined;
   if (selectedWorkflow) {
+    const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.id === selectedWorkflow.actionId);
+    if (operation?.id === "customer.create" || (operation?.method === "PATCH" && operation.path === "/customers/:id")) {
+      const extraFields = Object.fromEntries(Object.entries(parsed.values).filter(([key]) => !selectedWorkflow.fields.some(field => field.key === key)));
+      const previous = pending as { actionId?: string; values?: Record<string, unknown> } | null;
+      const sameCustomer = selectedWorkflow.fields.filter(field => field.source === "path").every(field =>
+        parsed.values[field.key] === undefined || previous?.values?.[field.key] === undefined || parsed.values[field.key] === previous.values[field.key]);
+      const priorNotes = !parsed.newRequest && previous?.actionId === selectedWorkflow.actionId && sameCustomer && typeof previous.values?.notes === "string"
+        ? previous.values.notes : undefined;
+      const notes = appendCustomerNotes(priorNotes, [typeof parsed.values.notes === "string" ? parsed.values.notes : "", ...additionalCustomerNotes(extraFields)]);
+      if (notes) parsed.values.notes = notes;
+      for (const key of Object.keys(extraFields)) delete parsed.values[key];
+    }
     for (const [key, value] of Object.entries(parsed.values)) {
       if (selectedWorkflow.fields.some(field => field.key === key) || !key.startsWith("path_")) continue;
       const queryKey = key.slice("path_".length);

@@ -657,6 +657,11 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
         : input[field.key];
     }
   }
+  if (op.method === "PATCH" && op.path === "/customers/:id" && typeof body.notes === "string") {
+    // Append assistant facts while preserving the profile's existing notes.
+    body.additionalNotes = body.notes;
+    delete body.notes;
+  }
   if (op.id === "department.update" && typeof body.name !== "string") {
     let departments: AssistantRecord[];
     try { departments = await lookupRecords(req, "department.list"); }
