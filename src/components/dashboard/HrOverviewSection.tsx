@@ -99,7 +99,7 @@ export default function HrOverviewSection() {
   const branchName = branchContext?.activeBranch?.name || userProfile?.branchName || "Toàn công ty";
 
   return (
-    <div className="space-y-5 text-left text-on-surface">
+    <div className="text-left text-on-surface">
       <h2 className="sr-only">Tổng quan Nhân sự</h2>
 
       <HrOverviewDashboard
