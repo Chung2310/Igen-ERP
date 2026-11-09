@@ -1,0 +1,48 @@
+name: VPS storage audit
+
+on:
+  push:
+    branches: ['codex/vps-storage-audit-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Read container and image storage usage
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check diagnostic script syntax
+        run: python3 -c 'import ast; ast.parse(open(".github/scripts/vps-storage-audit.py").read())'
+
+      - name: Collect storage metadata over SSH
+        env:
+          VPS_SSH_HOST: ${{ secrets.SSH_HOST_PROD }}
+          VPS_SSH_USER: ${{ secrets.SSH_USER_PROD }}
+          VPS_SSH_PORT: ${{ secrets.SSH_PORT_PROD || '22' }}
+          VPS_SSH_KEY: ${{ secrets.SSH_KEY_PROD }}
+        run: |
+          set -eu
+          umask 077
+          audit_key=$(mktemp "$RUNNER_TEMP/vps-audit-key.XXXXXX")
+          audit_hosts=$(mktemp "$RUNNER_TEMP/vps-audit-hosts.XXXXXX")
+          trap 'rm -f "$audit_key" "$audit_hosts"' EXIT
+          printf '%s\n' "$VPS_SSH_KEY" > "$audit_key"
+          ssh-keyscan -T 15 -p "$VPS_SSH_PORT" "$VPS_SSH_HOST" > "$audit_hosts" 2>/dev/null
+          ssh -i "$audit_key" -p "$VPS_SSH_PORT" \
+            -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$audit_hosts" \
+            "$VPS_SSH_USER@$VPS_SSH_HOST" 'python3 -B -' \
+            < .github/scripts/vps-storage-audit.py > vps-storage-audit.json
+          python3 -c 'import json; r=json.load(open("vps-storage-audit.json")); print("Containers:", len(r["containers"])); print("Images:", len(r["images"])); print("Storage audit complete.")'
+
+      - name: Save diagnostic report
+        uses: actions/upload-artifact@v4
+        with:
+          name: vps-storage-audit
+          path: vps-storage-audit.json
+          retention-days: 7
