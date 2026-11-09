@@ -6,6 +6,13 @@ import { AssistantStudio } from "./AssistantStudio";
 afterEach(cleanup);
 
 describe("AssistantStudio", () => {
+  it("opens the infographic workspace from the image tools", () => {
+    render(<AssistantStudio />);
+    fireEvent.click(screen.getByRole("button", { name: /Tạo infographic/ }));
+    expect(screen.getByRole("form", { name: "Thiết lập tạo infographic" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /Minh họa hai bản infographic/ })).toBeTruthy();
+  });
+
   it("filters tools and opens a frontend-only request draft", () => {
     render(<AssistantStudio />);
     expect(screen.getByRole("heading", { name: "Chào mừng đến với iGen AI Studio" })).toBeTruthy();
