@@ -83,7 +83,7 @@ export default function RetailWorkspace() {
         {canOpenPos && <ModuleNavigationButton active={false} disabled={openingPos} icon={<Store />} onClick={() => void openPos()} title="Vào quầy POS bằng phiên của tài khoản đang đăng nhập" className="text-primary">Vào quầy POS</ModuleNavigationButton>}
       </ModuleNavigation>
       <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-1 sm:pb-4 lg:pl-0 [overflow-anchor:none]">
-        <div className={cn("min-h-full rounded-md border border-outline-variant bg-surface-container-lowest p-4", activeTab === "BẢO HÀNH" && "flex flex-col")}>
+        <div className={cn("min-h-full rounded-md border border-outline-variant bg-surface-container-lowest p-4", (activeTab === "BẢO HÀNH" || activeTab === "ĐỔI TRẢ") && "flex flex-col")}>
           <Suspense fallback={<div role="status" className="text-sm text-on-surface-variant">Đang tải phân hệ bán hàng...</div>}>
           {activeTab === "ĐƠN HÀNG" && <OrdersPage />}
           {activeTab === "ĐỔI TRẢ" && <ReturnsPage />}

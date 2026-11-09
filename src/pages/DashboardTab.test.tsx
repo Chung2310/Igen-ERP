@@ -43,6 +43,10 @@ vi.mock("../components/dashboard/MarketingOverviewSection", () => ({
   default: () => <div data-testid="marketing-section">Marketing Dashboard Content</div>,
 }));
 
+vi.mock("../components/dashboard/QuotationOverviewSection", () => ({
+  default: () => <div data-testid="quotation-section">Quotation Dashboard Content</div>,
+}));
+
 describe("DashboardTab consolidated hub", () => {
   afterEach(() => {
     cleanup();
@@ -61,8 +65,10 @@ describe("DashboardTab consolidated hub", () => {
     expect(document.querySelector("#dashboard_tab_wrapper")?.classList.contains("h-full")).toBe(true);
     expect(screen.getByRole("navigation", { name: "Phân hệ Tổng quan" }).textContent).not.toContain("Tổng quan hệ thống");
     expect(screen.queryByRole("button", { name: "Doanh nghiệp" })).toBeNull();
-    expect(await screen.findByTestId("finance-section")).toBeTruthy();
-    expect(window.location.search).toBe("?sub=tai-chinh");
+    expect(await screen.findByTestId("hr-section")).toBeTruthy();
+    expect(window.location.search).toBe("?sub=nhan-su");
+    const navigation = screen.getByRole("navigation", { name: "Phân hệ Tổng quan" });
+    expect(navigation.querySelector("button")?.textContent).toContain("Nhân sự");
   });
 
   it("places the period selector beside the tabs and shows dates only for a custom range", async () => {
@@ -82,17 +88,17 @@ describe("DashboardTab consolidated hub", () => {
     expect(period.querySelector("#overview-period-comparison")).toBeNull();
     expect(screen.getByRole("textbox", { name: "Từ ngày Tổng quan" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Đến ngày Tổng quan" })).toBeTruthy();
-    expect(await screen.findByTestId("finance-section")).toBeTruthy();
+    expect(await screen.findByTestId("hr-section")).toBeTruthy();
   });
 
   it("redirects the removed enterprise overview link to an available section", async () => {
     window.history.replaceState(null, "", "/tong-quan?sub=doanh-nghiep");
     render(<DashboardTab />);
-    expect(await screen.findByTestId("finance-section")).toBeTruthy();
-    expect(window.location.search).toBe("?sub=tai-chinh");
+    expect(await screen.findByTestId("hr-section")).toBeTruthy();
+    expect(window.location.search).toBe("?sub=nhan-su");
   });
 
-  it("uses the first enabled section when finance is unavailable", async () => {
+  it("uses the first enabled section when other modules are unavailable", async () => {
     mockAuth.enabledModules = ["hr"];
     render(<DashboardTab />);
     expect(await screen.findByTestId("hr-section")).toBeTruthy();
@@ -118,6 +124,14 @@ describe("DashboardTab consolidated hub", () => {
     const hrButtons = screen.getAllByText("Nhân sự");
     fireEvent.click(hrButtons[0]);
     expect(await screen.findByTestId("hr-section")).toBeTruthy();
+  });
+
+  it("shows quotation overview only when the module is enabled", async () => {
+    mockAuth.enabledModules = ["hr", "quotation"];
+    render(<DashboardTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Báo giá" }));
+    expect(await screen.findByTestId("quotation-section")).toBeTruthy();
+    expect(window.location.search).toBe("?sub=bao-gia");
   });
 
   it("keeps the Marketing dashboard in the consolidated overview", async () => {
@@ -174,6 +188,7 @@ describe("DashboardTab consolidated hub", () => {
     expect(navigation.textContent).not.toContain("Tài chính");
     expect(navigation.textContent).not.toContain("Bán lẻ & POS");
     expect(navigation.textContent).not.toContain("Nhân sự");
+    expect(navigation.textContent).not.toContain("Báo giá");
     expect(navigation.textContent).toContain("Học viên & Đào tạo");
   });
 });

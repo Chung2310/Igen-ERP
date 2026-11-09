@@ -531,7 +531,8 @@
 
 .quotation-module .budget-dialog {
   width: min(1080px, calc(100vw - 32px));
-  max-height: 92vh;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
   border: 0;
   border-radius: 18px;
   background: var(--color-surface-container-lowest);
@@ -540,6 +541,10 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.quotation-module .budget-dialog:not([open]) {
+  display: none;
 }
 
 .quotation-module .budget-dialog::backdrop {
@@ -1364,7 +1369,7 @@
 
 .quotation-module .bp-toolbar {
   min-height: 98px;
-  padding: 18px 26px;
+  padding: 18px 20px;
   border-bottom-color: #e6edf3;
   background: linear-gradient(110deg, #fbfdff, #f8fbfe);
 }

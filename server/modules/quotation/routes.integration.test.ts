@@ -52,6 +52,18 @@ describe("quotation routes use ERP scope and capability checks", () => {
   const request = (path: string, actor = "manager", init: RequestInit = {}) => fetch(`${base}${path}`, { ...init, headers: { "Content-Type": "application/json", "x-test-actor": actor, ...init.headers } });
   const scope = () => ({ companyCode, branchId: branch, companyId: quotationScopeId(companyCode, branch) });
   const collection = (name: string) => mongoose.connection.db!.collection(quotationCollectionName(name));
+  it("scopes overview by branch and hides document metrics without their permissions", async () => {
+    const viewerResponse = await request("/overview?from=1970-01-01&to=1970-01-01", "viewer");
+    expect(viewerResponse.status).toBe(200);
+    const viewerOverview = await viewerResponse.json();
+    expect(viewerOverview.quotes.total).toBe(1);
+    expect(viewerOverview.quotes.values).toEqual([{ currency: "VND", customer: 0, estimate: 150, approvedCustomer: 0, approvedEstimate: 0 }]);
+    expect(viewerOverview.contracts).toBeNull();
+    expect(viewerOverview.acceptances).toBeNull();
+    const otherBranchResponse = await request("/overview?from=1970-01-01&to=1970-01-01", "manager", { headers: { "x-branch-id": otherBranch } });
+    expect((await otherBranchResponse.json()).quotes.total).toBe(0);
+    expect((await request("/overview?from=1970-02-30&to=1970-02-30")).status).toBe(400);
+  });
   const seedEstimate = async () => {
     const original = await collection("quotes").findOne({ _id: quoteId });
     const estimate = { ...original, _id: new ObjectId(), quoteNumber: `REGEN-${new ObjectId()}`, status: "needs_info", taxRate: 0.1, taxRateConfirmed: true, shippingFee: 50, shippingFeeConfirmed: true, informationNeeded: ["Câu hỏi bổ sung: Cần bao nhiêu giờ?"], additionalInformation: {}, templateFillPlan: { edits: [] }, xlsxTemplateFillPlan: { cells: [] }, updatedAt: new Date(1000) };

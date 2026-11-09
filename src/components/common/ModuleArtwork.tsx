@@ -1,15 +1,15 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import type { TabType } from "../../types";
 
 type ArtworkProps = { module: TabType; className?: string };
 
-// Compact app marks: one vivid tile, a clear white silhouette, and tonal details.
+// Custom detailed app marks on soft gradient tiles.
 const accentPalettes = {
-  blue: { bg: "#2477E8", mid: "#8ED4FF", light: "#DDF3FF", detail: "#FFE28B" },
-  coral: { bg: "#E95070", mid: "#FFB5C0", light: "#FFE2E7", detail: "#FFD58B" },
-  orange: { bg: "#D77D19", mid: "#FFD087", light: "#FFF0D7", detail: "#7F4612" },
-  teal: { bg: "#0A9F96", mid: "#92E4D6", light: "#E0FFF6", detail: "#FFDA88" },
-  violet: { bg: "#7958C9", mid: "#CAB9F4", light: "#F0E9FF", detail: "#FFDC8D" },
+  blue: { from: "#67B3F2", bg: "#2477E8", mid: "#8ED4FF", light: "#DDF3FF", detail: "#FFE28B" },
+  coral: { from: "#F58AA0", bg: "#E95070", mid: "#FFB5C0", light: "#FFE2E7", detail: "#FFD58B" },
+  orange: { from: "#F6B363", bg: "#D77D19", mid: "#FFD087", light: "#FFF0D7", detail: "#7F4612" },
+  teal: { from: "#57D4C5", bg: "#0A9F96", mid: "#92E4D6", light: "#E0FFF6", detail: "#FFDA88" },
+  violet: { from: "#B39AE9", bg: "#7958C9", mid: "#CAB9F4", light: "#F0E9FF", detail: "#FFDC8D" },
 } as const;
 
 const accentByModule: Partial<Record<TabType, keyof typeof accentPalettes>> = {
@@ -52,6 +52,7 @@ export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
     case "BÁN LẺ":
       art = <><path d="M6 20 10 9h28l4 11v7H6z" fill={a.coral}/><path d="M10 9h28l4 11H6z" fill={a.gold}/><path d="M7 27h34v14H7z" fill={a.blue}/><path d="M15 28h10v13H15z" fill={a.white}/><path d="M31 31h7v6h-7z" fill={a.mint}/><path d="M6 20c0 5 7 7 9 1 2 6 8 6 10 0 2 6 8 6 10 0 2 6 7 4 7-1" fill={a.coral}/></>; break;
     case "BÁO GIÁ":
+      art = <><path d="M10 5h21l8 8v27a3 3 0 0 1-3 3H10a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z" fill={a.blue}/><path d="M31 5v8h8z" fill={a.gold}/><path d="M13 18h18M13 24h15M13 30h10" stroke={a.white} strokeWidth="2.5" strokeLinecap="round"/><circle cx="32" cy="35" r="8" fill={a.mint}/><path d="m28.5 35 2.5 2.5 4.5-5" stroke={a.white} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></>; break;
     case "TÀI CHÍNH":
       art = <><path d="m5 18 19-11 19 11v4H5z" fill={a.gold}/><path d="M8 24h6v13H8zm13 0h6v13h-6zm13 0h6v13h-6z" fill={a.blue}/><path d="M5 38h38v4H5z" fill={a.mint}/><circle cx="24" cy="16" r="3" fill={a.white}/></>; break;
     case "QUẢN LÝ TÀI NGUYÊN":
@@ -81,5 +82,6 @@ export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
     default:
       art = <><rect x="10" y="10" width="28" height="28" rx="7" fill={a.blue}/><circle cx="24" cy="24" r="9" fill={a.gold}/><circle cx="24" cy="24" r="4" fill={a.white}/><path d="M22 4h4v6h-4zM22 38h4v6h-4zM4 22h6v4H4zM38 22h6v4h-6z" fill={a.mint}/></>;
   }
-  return <svg viewBox="0 0 48 48" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><rect width="48" height="48" rx="11" fill={accent.bg}/><g transform="translate(4 4) scale(.833333)">{art}</g></svg>;
+  const gradientId = useId().replace(/:/g, "");
+  return <svg viewBox="0 0 48 48" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><defs><linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={accent.from}/><stop offset="100%" stopColor={accent.bg}/></linearGradient></defs><rect x="0.5" y="0.5" width="47" height="47" rx="11" fill={"url(#" + gradientId + ")"} stroke="rgba(255, 255, 255, 0.32)"/><g transform="translate(4 4) scale(.833333)">{art}</g></svg>;
 }

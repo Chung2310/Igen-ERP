@@ -2547,14 +2547,13 @@
   line-height: 1.35;
 }
 
-.quotation-module .quote-creation-dialog .form-card,
 .quotation-module .quote-creation-dialog .analysis-card {
   padding: 20px;
   border-color: #e5edf1;
   border-radius: 14px;
 }
 
-.quotation-module .quote-creation-dialog:not(:has(.analysis-card)) .form-card {
+.quotation-module .quote-creation-dialog .form-card {
   padding: 0;
   border: 0;
   background: transparent;
@@ -2729,7 +2728,6 @@
 }
 
 @media (max-width: 600px) {
-  .quotation-module .quote-creation-dialog .form-card,
   .quotation-module .quote-creation-dialog .analysis-card {
     padding: 16px;
   }
@@ -3171,7 +3169,7 @@
 
 .quotation-module .app-shell .price-list-product-card .price-list-toolbar-section {
   gap: 16px;
-  padding: 20px 24px 16px;
+  padding: 20px 20px 16px;
 }
 
 .quotation-module .app-shell .price-list-product-card .price-list-search-box,
@@ -4456,7 +4454,7 @@
 
 .quotation-module .quote-workspace-page .quote-kpi-strip { margin: 0; }
 .quotation-module .quote-workspace-page .quote-list-card { min-height: 555px; border-color: #e5edf4; border-radius: 17px; box-shadow: 0 7px 22px rgba(42,91,130,.035); }
-.quotation-module .quote-workspace-toolbar { gap: 19px; padding: 18px 18px 20px; background: #fcfdff; border-bottom-color: #e9eef3; }
+.quotation-module .quote-workspace-toolbar { gap: 19px; padding: 18px 20px 20px; background: #fcfdff; border-bottom-color: #e9eef3; }
 .quotation-module .quote-toolbar-top { flex-wrap: nowrap; gap: 28px; }
 .quotation-module .quote-search-wrapper { max-width: 930px; height: 50px; padding: 0 17px; border-color: #d7e3ee; border-radius: 11px; color: #536789; }
 .quotation-module .quote-search-wrapper > svg { color: #607393; }

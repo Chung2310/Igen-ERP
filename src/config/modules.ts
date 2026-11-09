@@ -122,12 +122,8 @@ export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "GÓI AI & LƯỢT SỬ DỤNG": ["marketing:read", "omni-inbox:read", "company-knowledge:read", "social-integration:read", "quotation-ai:read", "quotation-ai:manage"],
 };
 
-export function isAiSubscriptionEnabled(enabledModules: string[] | undefined): boolean {
-  return Boolean(enabledModules?.some((key) => ["social-marketing", "omni-inbox", "company-knowledge", "quotation"].includes(key)));
-}
-
 export function canViewAiSubscription(user: UserProfile | null | undefined): boolean {
-  return Boolean(user?.companyCode) && isAiSubscriptionEnabled(user?.enabledModules)
+  return Boolean(user?.companyCode)
     && (user?.role === "admin" || user?.role === "superadmin"
       || Boolean(user?.permissions?.some((code) => code === "*" || MODULE_READ_PERMISSIONS["GÓI AI & LƯỢT SỬ DỤNG"]!.includes(code))));
 }
@@ -173,7 +169,7 @@ export function isModuleEnabled(enabledModules: string[] | undefined, key: Modul
 }
 
 function isTabEnabled(tab: TabType, enabledModules: string[] | undefined): boolean {
-  if (tab === "GÓI AI & LƯỢT SỬ DỤNG") return isAiSubscriptionEnabled(enabledModules);
+  if (tab === "GÓI AI & LƯỢT SỬ DỤNG") return true;
   if (tab === "ĐỐI TÁC" && !isModuleEnabled(enabledModules, "student")) return false;
   if (tab === "ĐỐI TÁC LAO ĐỘNG" && !isModuleEnabled(enabledModules, "worker")) return false;
   const moduleKey = TAB_MODULE_MAP[tab];

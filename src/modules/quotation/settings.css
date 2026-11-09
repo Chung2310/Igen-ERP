@@ -97,7 +97,7 @@
 .quotation-module .quote-file-reference { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .quotation-module .quote-file-reference strong { flex: 1 1 220px; overflow-wrap: anywhere; }
 .quotation-module .customer-card > .eyebrow:has(+ .created-by), .quotation-module .customer-card .created-by { display: none; }
-.quotation-module .file-preview-dialog { width: min(1040px, calc(100vw - 32px)); max-width: none; height: min(820px, calc(100dvh - 32px)); max-height: none; padding: 0; border: 1px solid #dfe7e1; border-radius: 14px; color: #27352c; background: #f8faf8; box-shadow: 0 22px 80px #00ADFC40; }
+.quotation-module .file-preview-dialog { width: min(1040px, calc(100vw - 32px)); max-width: none; height: min(820px, calc(100dvh - 32px)); max-height: none; margin: auto; padding: 0; border: 1px solid #dfe7e1; border-radius: 14px; color: #27352c; background: #f8faf8; box-shadow: 0 22px 80px #00ADFC40; }
 .quotation-module .file-preview-dialog::backdrop { background: rgba(22, 34, 43, 0.16); backdrop-filter: blur(10px); }
 .quotation-module .file-preview-shell { display: flex; flex-direction: column; width: 100%; height: 100%; }
 .quotation-module .file-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 20px; background: var(--color-surface-container-lowest); border-bottom: 1px solid #e9eeea; }
@@ -185,13 +185,11 @@
 }
 .quotation-module .price-list-table { min-width: 980px; }
 .quotation-module .price-list-table th { height: 39px; }
-.quotation-module .price-list-table td:first-child { min-width: 190px; white-space: normal; }
-.quotation-module .price-list-table td:first-child strong { display: block; line-height: 1.45; }
-.quotation-module .price-list-table td:nth-child(2) { min-width: 230px; max-width: 360px; white-space: normal; line-height: 1.5; color: #748078; }
-.quotation-module .price-list-table td:nth-child(3) { min-width: 70px; text-align: center; }
-.quotation-module .price-list-table td:nth-child(4) { min-width: 145px; white-space: nowrap; }
-.quotation-module .price-list-table td:nth-child(5) { min-width: 125px; }
-.quotation-module .price-list-table td:nth-child(6) { min-width: 75px; }
+.quotation-module .price-list-table td { white-space: normal; }
+.quotation-module .price-list-table td strong { display: block; line-height: 1.45; }
+.quotation-module .price-list-table .price-list-description { line-height: 1.5; color: var(--color-on-surface-variant); }
+.quotation-module .price-list-table .price-list-unit { text-align: center; }
+.quotation-module .price-list-table .amount-cell { white-space: nowrap; }
 .quotation-module .price-list-action .button { min-height: 31px; padding: 0 10px; font-size: 10px; }
 .quotation-module .price-list-status { display: inline-flex; align-items: center; padding: 5px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
 .quotation-module .price-list-status.active { background: #eaf4ed; color: var(--color-primary); }
@@ -2335,24 +2333,11 @@
 }
 
 .quotation-module .detail-stack .quote-detail-header-card {
-  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
-  overflow: hidden;
   padding: 24px 26px 20px;
-  border-color: #dce7f1;
   border-radius: 18px;
-  background: radial-gradient(ellipse at 92% 0%, rgba(14, 165, 233, .08), transparent 34%), var(--color-surface-container-lowest);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, .045);
-}
-
-.quotation-module .detail-stack .quote-detail-header-card::before {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: linear-gradient(180deg, #0ea5e9, #2563eb);
-  content: "";
 }
 
 .quotation-module .detail-stack .quote-header-title-box,

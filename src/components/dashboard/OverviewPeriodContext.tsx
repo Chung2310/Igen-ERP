@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { StyledSelect } from "../common/StyledSelect";
 import { VietnameseDatePicker } from "../../modules/student-management/components/Batches/VietnameseDatePicker";
 import { displayComparisonDate, previousComparisonRange } from "./overviewComparison";
-import { cn } from "../../modules/student-management/lib/utils";
 
 export type OverviewSelection = "day" | "week" | "month" | "year" | "custom";
 type OverviewPeriodValue = { selection: OverviewSelection; from: string; to: string; previousFrom: string; previousTo: string };
@@ -78,11 +77,11 @@ export function OverviewPeriodToolbar() {
   if (!controls) return null;
   const comparison = comparisonText(controls);
   const shortComparison = shortComparisonText(controls);
-  return <section aria-label="Kỳ thống kê Tổng quan" className={cn("flex min-w-0 flex-wrap items-start justify-end gap-2 text-xs text-on-surface", controls.selection !== "custom" && "sm:translate-y-2.5")}>
+  return <section aria-label="Kỳ thống kê Tổng quan" className="flex min-w-0 flex-wrap items-start justify-end gap-2 py-1.5 text-xs text-on-surface">
     <div ref={controls.setActionsHost} className="flex flex-wrap items-center justify-end gap-2" />
     <div className="w-40 shrink-0 sm:w-48">
       <PeriodSelect controls={controls} className="h-9" />
-      {controls.selection !== "custom" && <p id="overview-period-comparison" title={comparison} className="mt-0.5 truncate text-xs leading-4 tabular-nums text-on-surface-variant">{shortComparison}</p>}
+      {controls.selection !== "custom" && <p id="overview-period-comparison" title={comparison} className="mt-1 truncate text-xs leading-4 tabular-nums text-on-surface-variant">{shortComparison}</p>}
     </div>
   </section>;
 }

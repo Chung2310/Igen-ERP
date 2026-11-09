@@ -7,6 +7,12 @@
 .hr-analytics-stat { border-radius: 6px; background: var(--color-surface-container-low); padding: 12px; }
 .hr-analytics-stat dt { color: var(--color-on-surface-variant); font-size: 12px; }
 .hr-analytics-stat dd { margin-top: 4px; color: var(--color-on-surface); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hr-analytics-stat[data-tone="primary"] dd { color: color-mix(in srgb, var(--color-primary) 70%, var(--color-on-surface)); }
+.hr-analytics-stat[data-tone="warning"] dd { color: var(--color-tertiary); }
+.hr-analytics-stat[data-tone="error"] dd { color: var(--color-error); }
+.hr-analytics-stat[data-tone="violet"] dd { color: color-mix(in srgb, var(--hr-analytics-violet) 80%, var(--color-on-surface)); }
+.hr-analytics-stat[data-tone="teal"] dd { color: color-mix(in srgb, var(--hr-analytics-teal) 75%, var(--color-on-surface)); }
+.hr-analytics-stat[data-tone="green"] dd { color: color-mix(in srgb, var(--hr-analytics-green) 75%, var(--color-on-surface)); }
 .hr-analytics-gauge { display: grid; width: 138px; height: 138px; place-items: center; border-radius: 50%; }
 .hr-analytics-gauge > div { display: flex; width: 104px; height: 104px; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; background: var(--color-surface-container-lowest); }
 .hr-analytics .recharts-cartesian-axis-tick-value { fill: var(--color-on-surface-variant); }

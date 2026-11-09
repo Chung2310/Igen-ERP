@@ -1,0 +1,786 @@
+/* Match the ERP workspace rhythm established by the Human Resources module. */
+.quotation-module .app-shell {
+  --quotation-panel-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+  background: var(--color-surface) !important;
+  color: var(--color-on-surface);
+}
+
+.quotation-module .app-shell > .sidebar {
+  padding: 16px 12px !important;
+  background: var(--color-surface-container-lowest) !important;
+  border-color: var(--color-outline-variant) !important;
+}
+
+.quotation-module .app-shell .side-nav {
+  gap: 4px;
+}
+
+.quotation-module .app-shell .nav-button {
+  min-height: 40px;
+  height: auto;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: transparent !important;
+  color: var(--color-on-surface) !important;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.quotation-module .app-shell .nav-button:hover {
+  background: color-mix(in srgb, var(--color-primary) 7%, var(--color-surface-container-lowest)) !important;
+  color: var(--color-primary) !important;
+}
+
+.quotation-module .app-shell .nav-button.active {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface-container-lowest)) !important;
+  color: var(--color-primary) !important;
+  font-weight: 600;
+}
+
+.dark .quotation-module .app-shell .side-nav .nav-button.active {
+  color: var(--color-primary) !important;
+}
+
+.quotation-module .app-shell .nav-button.active::before {
+  display: none !important;
+}
+
+.quotation-module .app-shell .nav-button > svg {
+  color: inherit !important;
+}
+
+.quotation-module .app-shell .main-content {
+  width: 100%;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 16px !important;
+  background: transparent !important;
+}
+
+.quotation-module .app-shell .page-stack,
+.quotation-module .dashboard-page {
+  gap: 12px !important;
+}
+
+.quotation-module .quotation-overview-header,
+.quotation-module .app-shell :is(
+  .metric-card,
+  .content-card,
+  .quote-kpi-card,
+  .bp-kpi-card,
+  .cq-kpi-card,
+  .qt-kpi-card,
+  .bp-content-card,
+  .cq-content-card,
+  .qt-content-card
+) {
+  background: var(--color-surface-container-lowest) !important;
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--quotation-panel-shadow) !important;
+}
+
+.quotation-module .quotation-overview-header {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.quotation-module .quotation-overview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.quotation-module .quotation-overview-heading h1,
+.quotation-module .app-shell .quote-workspace-header h1,
+.quotation-module .app-shell :is(.bp-header-copy, .cq-header-copy, .qt-header-copy) h1 {
+  margin: 0;
+  color: var(--color-on-surface) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+}
+
+.quotation-module .quotation-overview-heading p,
+.quotation-module .app-shell .quote-workspace-header p,
+.quotation-module .app-shell :is(.bp-header-copy, .cq-header-copy, .qt-header-copy) p {
+  margin: 4px 0 0;
+  color: var(--color-on-surface-variant) !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+}
+
+.quotation-module .quotation-overview-header .quote-quota-card.variant-banner {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 6px;
+  background: var(--color-surface) !important;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.quotation-module .app-shell .quote-quota-card :is(.quote-quota-count-text, .quote-plan-name, .quote-quota-status-line strong) {
+  color: var(--color-on-surface) !important;
+}
+
+.quotation-module .app-shell .quote-quota-card .quote-quota-subline {
+  color: var(--color-on-surface-variant) !important;
+}
+
+.quotation-module .app-shell .quote-quota-card .quote-quota-plan-tag {
+  color: var(--color-primary);
+}
+
+.quotation-module .app-shell .button-primary {
+  background: var(--color-primary) !important;
+  background-image: none !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-on-primary) !important;
+  box-shadow: none !important;
+}
+
+.quotation-module .app-shell .quote-create-button {
+  min-height: 36px !important;
+  margin: 0 !important;
+  padding: 0 16px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+.quotation-module .dashboard-page .metric-grid {
+  gap: 12px !important;
+}
+
+.quotation-module .dashboard-page .metric-card {
+  height: auto !important;
+  min-height: 112px;
+  padding: 14px !important;
+}
+
+.quotation-module .dashboard-page .metric-watermark {
+  display: none;
+}
+
+.quotation-module .dashboard-page .metric-top {
+  color: var(--color-on-surface-variant) !important;
+  font-size: 14px !important;
+  line-height: 20px;
+  gap: 10px;
+}
+
+.quotation-module .dashboard-page .metric-icon {
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-container-lowest)) !important;
+  color: var(--color-primary) !important;
+}
+
+.quotation-module .dashboard-page .metric-card .metric-value {
+  margin: 8px 0 0 !important;
+  color: var(--color-on-surface) !important;
+  font-size: 28px !important;
+  line-height: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotation-module .dashboard-page .metric-note {
+  color: var(--color-on-surface-variant) !important;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.quotation-module .dashboard-page .recent-card {
+  min-height: 0 !important;
+  padding: 16px !important;
+}
+
+.quotation-module .dashboard-page .dashboard-empty-state {
+  min-height: 0 !important;
+  align-items: flex-start;
+  padding: 20px 0 4px;
+  text-align: left;
+}
+
+.quotation-module .dashboard-page .dashboard-empty-state h3 {
+  color: var(--color-on-surface) !important;
+  font-size: 14px;
+}
+
+.quotation-module .dashboard-page .dashboard-empty-state p {
+  color: var(--color-on-surface-variant) !important;
+  font-size: 12px;
+}
+
+.quotation-module .dashboard-page .dashboard-empty-state .button {
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 6px;
+  background-image: none;
+  box-shadow: none;
+}
+
+.quotation-module .dashboard-page .recent-card .card-heading {
+  margin-bottom: 12px;
+}
+
+.quotation-module .dashboard-page .card-heading h2 {
+  margin: 0;
+  color: var(--color-on-surface) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 28px;
+}
+
+.quotation-module .dashboard-page .dashboard-empty-state img {
+  display: none;
+}
+
+.quotation-module .app-shell .quote-workspace-topbar {
+  display: none;
+}
+
+.quotation-module .app-shell .quote-heading-icon {
+  display: none;
+}
+
+.quotation-module .app-shell .quote-quota-card.variant-workspace {
+  min-height: 0 !important;
+  padding: 16px !important;
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 6px !important;
+  background: var(--color-surface-container-lowest) !important;
+  box-shadow: var(--quotation-panel-shadow) !important;
+}
+
+.quotation-module .app-shell .quote-quota-card.variant-workspace::before {
+  display: none !important;
+}
+
+.quotation-module .app-shell :is(.bp-header-banner, .cq-header-banner, .qt-header-banner) {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 16px !important;
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 6px !important;
+  background: var(--color-surface-container-lowest) !important;
+  background-image: none !important;
+  box-shadow: var(--quotation-panel-shadow) !important;
+}
+
+.quotation-module .app-shell :is(.bp-header-banner, .cq-header-banner, .qt-header-banner)::before,
+.quotation-module .app-shell :is(.bp-header-banner, .cq-header-banner, .qt-header-banner)::after {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .quotation-module .app-shell > .sidebar {
+    padding: 12px !important;
+  }
+
+  .quotation-module .app-shell .main-content {
+    padding: 12px !important;
+  }
+
+  .quotation-module .quotation-overview-heading .quote-create-button {
+    width: 100%;
+  }
+
+  .quotation-module .dashboard-page .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* The quotation rail uses the same ModuleNavigation component and geometry as HR. */
+@media (min-width: 1024px) {
+  .quotation-module .app-shell:has(> #quotation_sub_tabs_bar) {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none !important;
+    padding: 0 0 0 16rem !important;
+  }
+
+  .quotation-module .app-shell:has(> #quotation_sub_tabs_bar[data-collapsed="true"]) {
+    padding-left: 5rem !important;
+  }
+
+  #quotation_sub_tabs_bar {
+    padding-top: 8px;
+    row-gap: 4px;
+    grid-template-rows: 44px minmax(0, 1fr) auto;
+  }
+
+  #quotation_sub_tabs_bar > [data-module-navigation-toggle] {
+    width: 36px;
+    height: 36px;
+    justify-self: start;
+    align-self: center;
+    margin-inline: 6px 0;
+  }
+
+  #quotation_sub_tabs_bar > [data-module-navigation-header-action] {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    margin-inline-end: 6px;
+  }
+}
+
+/* The quotation button reset must not shrink the shared HR navigation text. */
+#quotation_sub_tabs_bar {
+  font-family: var(--font-sans);
+  font-synthesis: auto;
+  -webkit-font-smoothing: auto;
+}
+
+#quotation_sub_tabs_bar nav > button {
+  font-family: var(--font-sans);
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 20px !important;
+}
+
+#quotation_sub_tabs_bar nav > button[aria-current="page"] {
+  font-weight: 600 !important;
+}
+
+#quotation_sub_tabs_bar nav > button > span:last-child {
+  font-weight: inherit !important;
+}
+
+/* Keep the filled HR artwork crisp; the generic rail's SVG stroke obscures its cutouts. */
+#quotation_sub_tabs_bar nav > button > span:first-child,
+#quotation_sub_tabs_bar nav > button > span:first-child > svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+#quotation_sub_tabs_bar nav > button > span:first-child > svg {
+  stroke: none;
+}
+
+@media (max-width: 1023px) {
+  .quotation-module .app-shell:has(> #quotation_sub_tabs_bar) {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0 !important;
+  }
+
+  #quotation_sub_tabs_bar {
+    width: 100%;
+    margin: 0;
+  }
+}
+.quotation-module .app-shell .main-content {
+  padding: 0 !important;
+}
+
+.quotation-module .app-shell .quote-workspace-page {
+  gap: 12px !important;
+}
+
+.quotation-module .app-shell .quote-workspace-header {
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 16px !important;
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 6px !important;
+  background: var(--color-surface-container-lowest) !important;
+  box-shadow: var(--quotation-panel-shadow) !important;
+}
+
+.quotation-module .app-shell .quote-workspace-page .quote-list-card {
+  border: 1px solid var(--color-outline-variant) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--quotation-panel-shadow) !important;
+}
+
+.quotation-module .app-shell .quote-workspace-toolbar {
+  background: var(--color-surface-container-lowest) !important;
+  border-bottom-color: var(--color-outline-variant) !important;
+}
+
+/* Keep page titles and search controls clear of redundant nested panels. */
+.quotation-module .app-shell .quote-workspace-header,
+.quotation-module .app-shell :is(.bp-header-banner, .cq-header-banner, .qt-header-banner),
+.quotation-module .app-shell .workflow-page:not(.workflow-detail-page) > .workflow-header {
+  min-height: 0 !important;
+  padding: 8px 8px 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.quotation-module .app-shell :is(.customer-quotes-page, .budget-page, .templates-page),
+.quotation-module .app-shell .workflow-page:not(.workflow-detail-page) {
+  gap: 12px !important;
+}
+
+.quotation-module .app-shell :is(.quote-workspace-header, .cq-header-banner, .bp-header-banner, .qt-header-banner, .price-list-heading),
+.quotation-module .app-shell .workflow-page:not(.workflow-detail-page) > .workflow-header {
+  margin-bottom: 0 !important;
+}
+
+.quotation-module .app-shell :is(.quote-workspace-header, .cq-header-banner, .bp-header-banner, .qt-header-banner, .price-list-heading) h1,
+.quotation-module .app-shell .workflow-page:not(.workflow-detail-page) > .workflow-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 !important;
+  color: var(--color-on-surface) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+}
+
+.quotation-module .app-shell :is(.quote-workspace-header, .cq-header-banner, .bp-header-banner, .qt-header-banner, .price-list-heading) h1::before,
+.quotation-module .app-shell .workflow-page:not(.workflow-detail-page) > .workflow-header h1::before {
+  content: "";
+  width: 4px;
+  height: 20px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-primary);
+}
+
+.quotation-module .app-shell .qt-header-banner .qt-header-badge {
+  display: none;
+}
+
+.quotation-module .app-shell .workflow-page:not(.workflow-detail-page) > .workflow-header::before {
+  display: none;
+}
+
+.quotation-module .app-shell .workflow-page:not(.workflow-detail-page) > .workflow-header .workflow-header-badge {
+  display: none;
+}
+
+.quotation-module .app-shell .quote-workspace-page .quote-quota-card.variant-workspace.tone-unlimited {
+  display: none !important;
+}
+
+.quotation-module .app-shell .quote-workspace-page .quote-quota-card.variant-workspace:not(.tone-unlimited) {
+  min-height: 0 !important;
+  padding: 8px 16px !important;
+  gap: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.quotation-module .app-shell .quote-workspace-page .quote-quota-card.variant-workspace .quote-quota-ring {
+  display: none;
+}
+
+.quotation-module .app-shell .quote-search-wrapper {
+  position: relative;
+  height: 46px;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.quotation-module .app-shell .quote-search-wrapper:focus-within {
+  border: 0;
+  box-shadow: none;
+}
+
+.quotation-module .app-shell .quote-search-wrapper > svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  z-index: 1;
+  transform: translateY(-50%);
+}
+
+.quotation-module .app-shell .quote-search-input {
+  width: 100%;
+  height: 100%;
+  padding: 0 42px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 6px;
+  background: var(--color-surface-container-lowest);
+}
+
+.quotation-module .app-shell .quote-search-input:focus {
+  border-color: var(--color-primary);
+}
+
+.quotation-module .app-shell .quote-search-clear-btn,
+.quotation-module .app-shell .quote-search-shortcut {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* HR Department statistics: compact colored cards with values before icons. */
+.quotation-module .dashboard-page .metric-card,
+.quotation-module .app-shell .quote-workspace-page .quote-kpi-card {
+  display: flex;
+  min-height: 100px !important;
+  height: auto !important;
+  padding: 12px !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  color: var(--color-on-primary) !important;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 8%) !important;
+}
+
+.quotation-module .dashboard-page .metric-card.tone-mint,
+.quotation-module .app-shell .quote-kpi-card.tone-total {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #7950e9 0%, #6247e1 100%) !important;
+}
+
+.quotation-module .dashboard-page .metric-card.tone-sand,
+.quotation-module .app-shell .quote-kpi-card.tone-pending {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #4269f0 0%, #2a60eb 100%) !important;
+}
+
+.quotation-module .dashboard-page .metric-card.tone-lavender,
+.quotation-module .app-shell .quote-kpi-card.tone-approved {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #0b92be 0%, #06b2e6 100%) !important;
+}
+
+.quotation-module .dashboard-page .metric-card.tone-blue,
+.quotation-module .app-shell .quote-kpi-card.tone-revenue {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #d85c27 0%, #f47835 100%) !important;
+}
+
+.quotation-module .dashboard-page .metric-top {
+  width: 100%;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--color-on-primary) !important;
+  font-size: 12px !important;
+  font-weight: 500;
+}
+
+.quotation-module .dashboard-page .metric-top > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-on-primary) !important;
+}
+
+.quotation-module .dashboard-page .metric-icon,
+.quotation-module .app-shell .quote-kpi-card .quote-kpi-icon {
+  display: grid;
+  width: 36px !important;
+  height: 36px !important;
+  flex: none !important;
+  place-items: center;
+  border-radius: 8px !important;
+  background: rgb(255 255 255 / 15%) !important;
+  color: var(--color-on-primary) !important;
+}
+
+.quotation-module .dashboard-page .metric-card .metric-icon svg,
+.quotation-module .app-shell .quote-kpi-card .quote-kpi-icon svg {
+  color: var(--color-on-primary) !important;
+}
+
+.quotation-module .dashboard-page .metric-card .metric-value,
+.quotation-module .app-shell .quote-kpi-card .quote-kpi-value {
+  margin: -15px 0 0 !important;
+  color: var(--color-on-primary) !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotation-module .dashboard-page .metric-note,
+.quotation-module .app-shell .quote-kpi-card .quote-kpi-label {
+  color: var(--color-on-primary) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.quotation-module .dashboard-page .metric-note {
+  margin-top: auto;
+  opacity: 0.85;
+}
+
+.quotation-module .app-shell .quote-workspace-page .quote-kpi-strip {
+  gap: 12px !important;
+}
+
+.quotation-module .app-shell .quote-workspace-page .quote-kpi-card {
+  flex-direction: row-reverse;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quotation-module .app-shell .quote-kpi-card .quote-kpi-data {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quotation-module .app-shell .quote-kpi-card .quote-kpi-value {
+  margin: 0 !important;
+}
+
+/* Use the compact HR Department statistic cards in every quotation workspace. */
+.quotation-module .app-shell :is(.quote-kpi-strip, .bp-kpi-grid, .cq-kpi-grid, .qt-kpi-grid, .cqd-kpi-grid) {
+  gap: 12px !important;
+}
+
+.quotation-module .app-shell :is(.quote-kpi-card, .bp-kpi-card, .cq-kpi-card, .qt-kpi-card, .cqd-kpi-box) {
+  display: flex !important;
+  min-width: 0;
+  min-height: 100px !important;
+  height: auto !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  padding: 12px !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background-image: none;
+  color: var(--color-on-primary) !important;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%) !important;
+  transform: none !important;
+}
+
+.quotation-module .app-shell :is(.quote-kpi-card, .bp-kpi-card, .cq-kpi-card, .qt-kpi-card, .cqd-kpi-box)::after {
+  display: none !important;
+}
+
+.quotation-module .app-shell :is(.quote-kpi-card, .bp-kpi-card, .cq-kpi-card, .qt-kpi-card, .cqd-kpi-box):nth-child(4n + 1) {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #7950e9 0%, #6247e1 100%) !important;
+}
+
+.quotation-module .app-shell :is(.quote-kpi-card, .bp-kpi-card, .cq-kpi-card, .qt-kpi-card, .cqd-kpi-box):nth-child(4n + 2) {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #4269f0 0%, #2a60eb 100%) !important;
+}
+
+.quotation-module .app-shell :is(.quote-kpi-card, .bp-kpi-card, .cq-kpi-card, .qt-kpi-card, .cqd-kpi-box):nth-child(4n + 3) {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #0b92be 0%, #06b2e6 100%) !important;
+}
+
+.quotation-module .app-shell :is(.quote-kpi-card, .bp-kpi-card, .cq-kpi-card, .qt-kpi-card, .cqd-kpi-box):nth-child(4n + 4) {
+  background: linear-gradient(90deg, rgb(255 255 255 / 24%) 0%, rgb(255 255 255 / 8%) 42%, transparent 72%), linear-gradient(105deg, #d85c27 0%, #f47835 100%) !important;
+}
+
+.quotation-module .app-shell .quote-kpi-card {
+  flex-direction: row-reverse !important;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.quotation-module .app-shell :is(.bp-kpi-top, .cq-kpi-top, .qt-kpi-top) {
+  display: flex !important;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quotation-module .app-shell :is(.bp-kpi-body, .cq-kpi-body, .qt-kpi-body) {
+  display: flex !important;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 4px;
+}
+
+.quotation-module .app-shell :is(.bp-kpi-label, .cq-kpi-label, .qt-kpi-label, .cqd-kpi-box-title, .quote-kpi-label) {
+  min-width: 0;
+  color: var(--color-on-primary) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+  text-transform: none !important;
+}
+
+.quotation-module .app-shell :is(.bp-kpi-value, .cq-kpi-value, .qt-kpi-value, .cqd-kpi-box-value, .quote-kpi-value) {
+  max-width: 100%;
+  color: var(--color-on-primary) !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  line-height: 28px !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotation-module .app-shell :is(.bp-kpi-sub, .cq-kpi-sub, .qt-kpi-sub, .cqd-kpi-box-sub) {
+  max-width: 100%;
+  margin-top: auto;
+  color: var(--color-on-primary) !important;
+  font-size: 11px !important;
+  line-height: 15px !important;
+  white-space: normal !important;
+  opacity: .86;
+}
+
+.quotation-module .app-shell :is(.bp-kpi-icon, .cq-kpi-icon, .qt-kpi-icon, .quote-kpi-icon) {
+  display: grid !important;
+  width: 36px !important;
+  height: 36px !important;
+  flex: 0 0 36px !important;
+  place-items: center;
+  border-radius: 8px !important;
+  background: rgb(255 255 255 / 15%) !important;
+  color: var(--color-on-primary) !important;
+}
+
+.quotation-module .app-shell :is(.bp-kpi-icon, .cq-kpi-icon, .qt-kpi-icon, .quote-kpi-icon) svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.quotation-module .app-shell :is(.bp-kpi-icon, .cq-kpi-icon, .qt-kpi-icon, .quote-kpi-icon) svg,
+.quotation-module .app-shell :is(.bp-kpi-icon, .cq-kpi-icon, .qt-kpi-icon, .quote-kpi-icon) svg * {
+  color: var(--color-on-primary) !important;
+  stroke: currentColor !important;
+}
+
+.quotation-module .app-shell :is(.qt-kpi-card:nth-child(3) .qt-kpi-value, .cqd-kpi-box:nth-child(4) .cqd-kpi-box-value) {
+  font-size: 16px !important;
+  line-height: 20px !important;
+}
+
+/* Give every quotation route one continuous surface beside the shared rail. */
+.quotation-module .app-shell > .main-column {
+  min-width: 0;
+  padding: 0;
+}
+
+.quotation-module .app-shell > .main-column > .main-content {
+  min-height: calc(100dvh - 88px);
+  padding: 8px !important;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 8px;
+  background: var(--color-surface-container-lowest) !important;
+  box-shadow: var(--quotation-panel-shadow);
+}
+
+@media (max-width: 768px) {
+  .quotation-module .app-shell > .main-column {
+    padding-top: 8px;
+  }
+
+  .quotation-module .app-shell > .main-column > .main-content {
+    min-height: 0;
+    padding: 8px !important;
+  }
+}

@@ -89,6 +89,28 @@ it('keeps the rail within the visible page height while content extends below th
   page.remove();
 });
 
+it('keeps a viewport-pinned rail full height when its workspace ends above the viewport', () => {
+  const page = document.createElement('main');
+  page.id = 'primary_page_container';
+  page.getBoundingClientRect = () => ({ top: 72, bottom: 900 } as DOMRect);
+  const workspace = document.createElement('div');
+  workspace.getBoundingClientRect = () => ({ top: -500, bottom: 40, left: 8 } as DOMRect);
+  page.appendChild(workspace);
+  document.body.appendChild(page);
+
+  render(
+    <ModuleNavigation label="Mục kiểm tra" pinToViewport>
+      <ModuleNavigationButton active>Đầu tiên</ModuleNavigationButton>
+    </ModuleNavigation>,
+    { container: workspace }
+  );
+
+  const rail = workspace.querySelector<HTMLElement>('[data-module-navigation]');
+  expect(rail?.style.visibility).toBe('');
+  expect(rail?.style.getPropertyValue('--module-navigation-height')).toBe(`${Math.min(892, window.innerHeight - 8) - 80}px`);
+  page.remove();
+});
+
 it('renders a clean flat navigation bar without chevron buttons and supports wheel scroll', () => {
   render(
     <ModuleNavigation label="Mục kiểm tra">

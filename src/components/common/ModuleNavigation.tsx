@@ -30,6 +30,7 @@ interface ModuleNavigationProps {
   id?: string;
   className?: string;
   wheelScroll?: boolean;
+  pinToViewport?: boolean;
   layout?: 'sidebar' | 'horizontal';
   toggleIcon?: (collapsed: boolean) => ReactNode;
   headerAction?: ReactNode;
@@ -45,6 +46,7 @@ export function ModuleNavigation({
   id,
   className,
   wheelScroll = true,
+  pinToViewport = false,
   layout = 'sidebar',
   toggleIcon,
   headerAction,
@@ -77,7 +79,9 @@ export function ModuleNavigation({
       const pageBounds = page.getBoundingClientRect();
       const parentBounds = parent.getBoundingClientRect();
       const top = Math.max(pageBounds.top + 8, parentBounds.top);
-      const bottom = Math.min(pageBounds.bottom - 8, parentBounds.bottom, window.innerHeight - 8);
+      const bottom = pinToViewport
+        ? Math.min(pageBounds.bottom - 8, window.innerHeight - 8)
+        : Math.min(pageBounds.bottom - 8, parentBounds.bottom, window.innerHeight - 8);
       rail.style.visibility = bottom > top ? '' : 'hidden';
       rail.style.setProperty('--module-navigation-left', `${parentBounds.left}px`);
       rail.style.setProperty('--module-navigation-top', `${top}px`);
@@ -98,7 +102,7 @@ export function ModuleNavigation({
       window.removeEventListener('resize', schedulePosition);
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [layout]);
+  }, [layout, pinToViewport]);
 
   useEffect(() => {
     const nav = navRef.current;

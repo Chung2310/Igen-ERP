@@ -19,6 +19,7 @@ import { readAssistantTableFile } from "./assistant-table-file";
 import { AssistantTrainingContentForm } from "./AssistantTrainingContentForm";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { StyledSelect } from "./StyledSelect";
+import { AiAssistantIcon } from "./HeaderShortcutIcons";
 import { messageDateLabel, messageLocalDateKey, messageTimeLabel } from "./chatMessageTime";
 
 interface SpeechRecognitionInstance {
@@ -146,22 +147,19 @@ function AssistantVoiceChatIcon() {
   </svg>;
 }
 
-function AssistantPopupBrandIcon() {
-  const gradientId = useId().replace(/:/g, "");
-  return <svg viewBox="0 0 40 40" className="size-4.5 shrink-0" aria-hidden="true" focusable="false">
-    <defs><linearGradient id={gradientId} x1="2" y1="5" x2="38" y2="35" gradientUnits="userSpaceOnUse"><stop stopColor="#00adfc" /><stop offset="55%" stopColor="#199bff" /><stop offset="100%" stopColor="#7567ff" /></linearGradient></defs>
-    <path d="M3.5 33 15 7l11.5 26M8 24h14M34 8v25" fill="none" stroke={`url(#${gradientId})`} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>;
-}
-
 function AssistantRailIcon({ name }: { name: AssistantSidebarIconName }) {
   return <span className="assistant-side-icon" aria-hidden="true"><AssistantSidebarIcon name={name} /></span>;
 }
 
-function AssistantMessageAvatar() {
-  return <span className="assistant-message-avatar mt-0.5 grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-outline-variant bg-surface-container-lowest" aria-hidden="true">
-    <img src="/assistant-igen-head.webp" alt="" className="size-full object-contain" />
-  </span>;
+function AssistantHeaderAvatar() {
+  return <img src="/assistant-igen-head.webp" alt="" aria-hidden="true" draggable={false} className="block size-8 shrink-0 object-contain" />;
+}
+
+function AssistantVerifiedBadge() {
+  return <svg viewBox="0 0 20 20" className="size-4.5 shrink-0" aria-hidden="true" focusable="false">
+    <path d="M10 1.1 12.1 2.3 14.5 2.1 15.8 4.2 18 5.4 17.8 7.8 19 10 17.8 12.2 18 14.6 15.8 15.8 14.5 17.9 12.1 17.7 10 18.9 7.9 17.7 5.5 17.9 4.2 15.8 2 14.6 2.2 12.2 1 10 2.2 7.8 2 5.4 4.2 4.2 5.5 2.1 7.9 2.3Z" fill="var(--color-primary)" />
+    <path d="m6 10 2.6 2.6L14 7.3" fill="none" stroke="var(--color-on-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>;
 }
 
 function AssistantLiveVoiceIcon() {
@@ -1178,7 +1176,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       }}
       className={cn("assistant-launcher-button fixed z-40 flex size-14 touch-none select-none items-center justify-center rounded-full border-2 border-primary bg-transparent text-on-surface shadow-[0_0_8px_1px_rgba(0,173,252,0.25)] cursor-grab active:cursor-grabbing", focusClass)}
     >
-      {isOpen ? <X className="size-6" aria-hidden="true" /> : <img src="/assistant-igen-head.webp" alt="" aria-hidden="true" className="pointer-events-none size-full object-contain" />}
+      {isOpen ? <X className="size-6" aria-hidden="true" /> : <AiAssistantIcon className="pointer-events-none size-10" />}
     </button>}
     <section
       id="erp-chatbot-panel"
@@ -1200,15 +1198,18 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       className="assistant-workspace m-0 overflow-hidden rounded-2xl border border-outline-variant bg-surface p-0 text-on-surface shadow-2xl"
     >
       <div className="flex h-full min-h-0 flex-col">
-        {mode === "standalone" ? <h2 id="erp-chatbot-title" className="sr-only">Trợ lý ảo AI</h2> : <header className={cn("flex shrink-0 items-center justify-between border-b py-2.5", headerPanel ? "assistant-popup-header gap-1 border-outline-variant px-3 text-on-surface" : "gap-2 border-outline-variant bg-surface-container-lowest px-4")}>
-          <div className={cn("flex min-w-0 items-center", headerPanel ? "shrink-0 gap-2" : "gap-3")}>
-            <AssistantPopupBrandIcon />
-            <h2 id="erp-chatbot-title" className={cn(headerPanel ? "shrink-0 whitespace-nowrap text-base font-semibold leading-none text-on-surface" : "text-balance truncate text-lg font-bold text-on-surface")}>iGen AI</h2>
-            {headerPanel && <StyledSelect value={assistantMode} options={assistantHeaderOptions} onChange={value => openMode(value as AssistantMode)} ariaLabel={`Chế độ iGen AI: ${assistantMode === "work" ? "Thao tác" : "Hỏi đáp"}`} disabled={isLoading || Boolean(retryRef.current)} className="h-7 w-7 shrink-0 justify-center gap-0 rounded-md border-0 bg-transparent px-0 text-on-surface hover:bg-primary/10 [&>span]:sr-only" menuClassName="min-w-36 rounded-xl" />}
+        {mode === "standalone" ? <h2 id="erp-chatbot-title" className="sr-only">Trợ lý ảo AI</h2> : <header className={cn("flex shrink-0 items-center justify-between border-b-2 py-2.5", headerPanel ? "assistant-popup-header gap-1 border-outline-variant px-3 text-on-surface" : "gap-2 border-outline-variant bg-surface-container-lowest px-4")}>
+          <div className={cn("flex min-w-0 items-center", headerPanel ? "h-8 shrink-0 gap-2" : "gap-3")}>
+            <AssistantHeaderAvatar />
+            <div className={cn("flex min-w-0 items-center gap-1", headerPanel && "h-8")}>
+              <h2 id="erp-chatbot-title" className={cn(headerPanel ? "shrink-0 whitespace-nowrap text-base font-semibold leading-5 text-on-surface" : "text-balance truncate text-lg font-bold text-on-surface")}>iGen AI</h2>
+              <span role="img" aria-label="Trợ lý iGen đã xác minh" title="Trợ lý iGen đã xác minh" className="inline-flex size-5 shrink-0 items-center justify-center"><AssistantVerifiedBadge /></span>
+            </div>
+            {headerPanel && <StyledSelect value={assistantMode} options={assistantHeaderOptions} onChange={value => openMode(value as AssistantMode)} ariaLabel={`Chế độ iGen AI: ${assistantMode === "work" ? "Thao tác" : "Hỏi đáp"}`} menuLabel="Chọn chế độ" disabled={isLoading || Boolean(retryRef.current)} className="h-7 w-7 shrink-0 justify-center gap-0 rounded-md border-0 bg-transparent px-0 text-primary hover:bg-primary/10 [&>span]:sr-only" menuClassName="min-w-36 rounded-lg [&_[role=option]]:rounded-md" />}
           </div>
-          <div className={cn("flex shrink-0 items-center", headerPanel ? "gap-0.5" : "gap-1")}>
+          <div className={cn("flex shrink-0 items-center text-primary", headerPanel ? "gap-0.5" : "gap-1")}>
             {headerPanel && <button type="button" aria-label="Lịch sử trò chuyện" title="Lịch sử trò chuyện" aria-pressed={view === "history"} onClick={() => changeView(view === "history" ? "chat" : "history")} className={cn("flex size-8 items-center justify-center rounded-lg hover:bg-primary/10", focusClass)}><History className="size-4" aria-hidden="true" /></button>}
-            {isSpeaking && <><span role="status" className="sr-only">Đang tạo hoặc phát câu trả lời thành tiếng.</span><button type="button" aria-label="Dừng đọc câu trả lời" title="Dừng đọc câu trả lời" aria-pressed="true" onClick={stopReplySpeech} className={cn("flex size-10 items-center justify-center rounded-xl hover:bg-surface-container-high", focusClass)}><VolumeX className="size-4" aria-hidden="true" /></button></>}
+            {isSpeaking && <><span role="status" className="sr-only">Đang tạo hoặc phát câu trả lời thành tiếng.</span><button type="button" aria-label="Dừng đọc câu trả lời" title="Dừng đọc câu trả lời" aria-pressed="true" onClick={stopReplySpeech} className={cn("flex items-center justify-center", headerPanel ? "size-8 rounded-lg hover:bg-primary/10" : "size-10 rounded-xl hover:bg-surface-container-high", focusClass)}><VolumeX className="size-4" aria-hidden="true" /></button></>}
             {mode === "popup" && <button type="button" aria-label={fullscreen ? "Thu về cửa sổ lớn" : "Mở toàn màn hình"} aria-pressed={fullscreen} onClick={() => setFullscreen(value => !value)} className={cn("hidden items-center justify-center sm:flex", headerPanel ? "size-8 rounded-lg hover:bg-primary/10" : "size-10 rounded-xl hover:bg-surface-container-high", focusClass)}>{fullscreen ? <Minimize2 className="size-4" aria-hidden="true" /> : <Maximize2 className="size-4" aria-hidden="true" />}</button>}
             <button type="button" aria-label="Bắt đầu cuộc trò chuyện mới" title="Bắt đầu cuộc trò chuyện mới" disabled={isLoading || Boolean(retryRef.current) || messages.length <= 1} onClick={startNew} className={cn("flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-40", headerPanel ? "size-8 rounded-lg hover:bg-primary/10" : "size-10 rounded-xl hover:bg-surface-container-high", focusClass)}>
               <MessageSquarePlus className="size-4" aria-hidden="true" />
@@ -1294,7 +1295,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         </div>}
         {isWelcomeScreen ? headerPanel ? <div ref={logRef} className="flex min-h-0 flex-1 flex-col justify-end gap-4 overflow-y-auto overscroll-contain bg-surface-container-lowest p-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2"><AssistantPopupBrandIcon /><h3 className="text-balance text-lg font-semibold text-on-surface">iGen AI</h3></div>
+            <div className="flex items-center gap-2"><h3 className="text-balance text-lg font-semibold text-on-surface">iGen AI</h3><AssistantVerifiedBadge /></div>
             <p className="text-pretty text-sm text-on-surface-variant">{assistantMode === "qa" ? "Mình có thể giải đáp câu hỏi về hệ thống và công việc của bạn." : "Mình có thể giúp bạn thực hiện công việc trong hệ thống. Mọi thay đổi đều cần bạn xác nhận."}</p>
             {isLoading && <p role="status" className="text-sm text-on-surface-variant">Đang tải cuộc trò chuyện…</p>}
           </div>
@@ -1339,32 +1340,30 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           <div className={cn("flex w-full items-start gap-2.5", message.role === "user" ? "justify-end" : "justify-start")}>
             {message.role === "user" ? <div className="flex max-w-full flex-col items-end gap-1">
             {time && <time dateTime={message.createdAt} className="text-xs tabular-nums text-on-surface-variant">{time}</time>}
-            <div className="max-w-3xl rounded-full bg-primary/10 px-5 py-3 text-sm leading-relaxed text-on-surface">
+            <div className="max-w-3xl rounded-full bg-primary/10 px-3 py-2 text-sm leading-relaxed text-on-surface">
               <span className="sr-only">Bạn: </span>
               <p className="whitespace-pre-wrap break-words text-pretty" style={{ overflowWrap: "anywhere" }}>
                 {message.content.split(/(\*\*.*?\*\*)/g).map((part, i) => part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part)}
               </p>
             </div>
-            </div> : <>
-            <AssistantMessageAvatar />
-            <div className="min-w-0 w-full max-w-4xl">
-              <div className="min-w-0 flex-1">
-                <div className="mb-1.5 flex items-center gap-2"><p aria-hidden="true" className="assistant-message-author text-sm font-semibold">iGen AI</p>{time && <time dateTime={message.createdAt} className="text-xs tabular-nums text-on-surface-variant">{time}</time>}</div>
-                <div className="text-sm leading-relaxed text-on-surface">
-                  <span className="sr-only">iGen AI: </span>
-                  {revealingReply && !isViewingHistory && message === messages[messages.length - 1] && message.content === revealingReply.content
-                    ? <RevealingAssistantMessage
-                      key={revealingReply.requestId}
-                      content={message.content}
-                      requestId={revealingReply.requestId}
-                      onProgress={followReplyReveal}
-                      onComplete={finishReplyReveal}
-                    />
-                      : <div aria-hidden="true" className="assistant-message-final"><AssistantMessageContent content={message.content} /></div>}
-                </div>
+            </div> : <div className="min-w-0 w-full max-w-4xl">
+              <div className="flex items-center gap-2">
+                <p aria-hidden="true" className="assistant-message-author text-xs font-semibold">iGen AI</p>
+                {time && <time dateTime={message.createdAt} className="text-xs tabular-nums text-on-surface-variant">{time}</time>}
               </div>
-            </div>
-            </>}
+              <div className="mt-1.5 min-w-0 text-sm leading-relaxed text-on-surface">
+                <span className="sr-only">iGen AI: </span>
+                {revealingReply && !isViewingHistory && message === messages[messages.length - 1] && message.content === revealingReply.content
+                  ? <RevealingAssistantMessage
+                    key={revealingReply.requestId}
+                    content={message.content}
+                    requestId={revealingReply.requestId}
+                    onProgress={followReplyReveal}
+                    onComplete={finishReplyReveal}
+                  />
+                    : <div aria-hidden="true" className="assistant-message-final"><AssistantMessageContent content={message.content} /></div>}
+              </div>
+            </div>}
           </div>
           </React.Fragment>;
           })}
@@ -1431,15 +1430,8 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             </div>}
           </section>}
           {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Mở phân hệ để xem kết quả</a>}
-          {isLoading && isOpen && <div role="status" className="assistant-thinking-status flex items-start gap-2.5 text-sm text-on-surface-variant">
-            <AssistantMessageAvatar />
-            <div className="min-w-0">
-              <p aria-hidden="true" className="assistant-message-author mb-1.5 text-sm font-semibold">iGen AI</p>
-              <div className="flex items-center gap-2">
-                <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
-                <span>{retryRef.current ? "Đang soạn câu trả lời..." : "Đang tải cuộc trò chuyện..."}</span>
-              </div>
-            </div>
+          {isLoading && isOpen && <div role="status" aria-label={retryRef.current ? "Đang soạn câu trả lời" : "Đang tải cuộc trò chuyện"} className="assistant-thinking-status flex items-center py-1 text-on-surface-variant">
+            <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
           </div>}
           </div>
         </div>

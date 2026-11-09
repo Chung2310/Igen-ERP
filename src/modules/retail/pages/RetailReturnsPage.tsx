@@ -80,7 +80,7 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
   }
 
   return (
-    <main className="space-y-5 text-on-surface">
+    <main className="flex flex-1 flex-col gap-5 text-on-surface">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="retail-page-title text-balance text-lg font-semibold">Đổi trả &amp; thu mua</h1>
@@ -116,7 +116,7 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
         </div>
       )}
 
-      <section aria-label="Danh sách phiếu đổi trả" aria-busy={loading} className="min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest">
+      <section aria-label="Danh sách phiếu đổi trả" aria-busy={loading} className={cn("min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest", !loading && items.length > 0 && "flex flex-1 flex-col")}>
         {loading ? (
           <div role="status" aria-live="polite" className="p-4 sm:p-5">
             <span className="sr-only">Đang tải chứng từ đổi trả...</span>
@@ -129,7 +129,7 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
             </ul>
           </div>
         ) : items.length ? (
-          <div className="visible-scrollbar overflow-x-auto focus-visible:outline-2 focus-visible:outline-primary" role="region" aria-label="Bảng phiếu đổi trả, cuộn ngang để xem các cột" tabIndex={0}>
+          <div className="visible-scrollbar flex-1 overflow-x-auto focus-visible:outline-2 focus-visible:outline-primary" role="region" aria-label="Bảng phiếu đổi trả, cuộn ngang để xem các cột" tabIndex={0}>
             <table className="w-full min-w-[100rem] text-left text-sm">
               <caption className="sr-only">Danh sách phiếu đổi trả và thu mua</caption>
               <thead className="bg-surface text-on-surface-variant">
@@ -166,7 +166,7 @@ export default function RetailReturnsPage({ onOpenOrders }: Props) {
         )}
       </section>
 
-      {total > 0 && <nav aria-label="Phân trang chứng từ" className="flex flex-wrap items-center justify-between gap-3">
+      {total > 0 && <nav aria-label="Phân trang chứng từ" className="mt-auto flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-on-surface-variant">Trang {page} / {pageCount} · {total.toLocaleString("vi-VN")} phiếu</p>
         <div className="flex gap-2">
           <button type="button" aria-label="Trang trước" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1 || loading} className="inline-flex min-h-11 items-center gap-1 rounded-lg border border-outline px-3 text-sm font-medium text-on-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">

@@ -9,6 +9,9 @@ interface Props {
   onChange: (value: string) => void;
   disabled?: boolean;
   className?: string;
+  min?: string;
+  required?: boolean;
+  clearable?: boolean;
 }
 
 const weekdays = ["Thứ hai", "Thứ ba", "Thứ tư", "Thứ năm", "Thứ sáu", "Thứ bảy", "Chủ nhật"];
@@ -41,7 +44,7 @@ function Chevron({ direction, double = false }: { direction: "left" | "right"; d
   return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={direction === "left" ? "m14 6-6 6 6 6" : "m10 6 6 6-6 6"} />{double && <path d={direction === "left" ? "m19 6-6 6 6 6" : "m5 6 6 6-6 6"} />}</svg>;
 }
 
-export default function VietnameseDatePicker({ id, label, value, onChange, disabled = false, className = "" }: Props) {
+export default function VietnameseDatePicker({ id, label, value, onChange, disabled = false, className = "", min, required = false, clearable = true }: Props) {
   const generatedId = useId();
   const popupId = `${generatedId}-calendar`;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -49,15 +52,17 @@ export default function VietnameseDatePicker({ id, label, value, onChange, disab
   const popupRef = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [view, setView] = useState(() => { const date = parseDate(value) ?? new Date(); return { year: date.getFullYear(), month: date.getMonth() }; });
   const [position, setPosition] = useState({ top: 0, left: 0, width: 312 });
   const today = dateKey(new Date());
+  const isOpen = open && !disabled;
   const start = new Date(view.year, view.month, 1);
   start.setDate(start.getDate() - (start.getDay() + 6) % 7);
   const days = Array.from({ length: 42 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     const reposition = () => {
       const bounds = triggerRef.current?.getBoundingClientRect();
       if (!bounds) return;
@@ -83,31 +88,31 @@ export default function VietnameseDatePicker({ id, label, value, onChange, disab
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
     };
-  }, [open, view.year, view.month]);
+  }, [isOpen, view.year, view.month]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     const frame = requestAnimationFrame(() => {
-      const target = popupRef.current?.querySelector<HTMLButtonElement>(`[data-date="${value || today}"]`)
-        ?? popupRef.current?.querySelector<HTMLButtonElement>('.vi-date-days button:not(.is-outside)');
+      const target = popupRef.current?.querySelector<HTMLButtonElement>(`[data-date="${value || today}"]:not(:disabled)`)
+        ?? popupRef.current?.querySelector<HTMLButtonElement>('.vi-date-days button:not(.is-outside):not(:disabled)')
+        ?? popupRef.current?.querySelector<HTMLButtonElement>('.vi-date-header button');
       target?.focus();
     });
     return () => cancelAnimationFrame(frame);
-  }, [open]);
+  }, [isOpen, today, value]);
 
   useEffect(() => {
-    if (!open || !pendingFocus.current) return;
+    if (!isOpen || !pendingFocus.current) return;
     const key = pendingFocus.current;
     pendingFocus.current = null;
     popupRef.current?.querySelector<HTMLButtonElement>(`[data-date="${key}"]`)?.focus();
-  }, [open, view.year, view.month]);
-
-  useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
+  }, [isOpen, view.year, view.month]);
 
   const toggle = () => {
     if (!open) {
       const selected = parseDate(value) ?? new Date();
       setView({ year: selected.getFullYear(), month: selected.getMonth() });
+      setPortalTarget(rootRef.current?.closest<HTMLElement>("dialog") ?? rootRef.current?.closest<HTMLElement>(".quotation-module") ?? document.body);
     }
     setOpen((current) => !current);
   };
@@ -115,16 +120,15 @@ export default function VietnameseDatePicker({ id, label, value, onChange, disab
     const next = new Date(view.year, view.month + amount, 1);
     setView({ year: next.getFullYear(), month: next.getMonth() });
   };
-  const choose = (date: Date) => { onChange(dateKey(date)); setOpen(false); triggerRef.current?.focus(); };
+  const choose = (date: Date) => { if (min && dateKey(date) < min) return; onChange(dateKey(date)); setOpen(false); triggerRef.current?.focus(); };
   const moveDay = (date: Date, offset: number) => {
     const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);
+    if (min && dateKey(next) < min) return;
     pendingFocus.current = dateKey(next);
     setView({ year: next.getFullYear(), month: next.getMonth() });
     requestAnimationFrame(() => { popupRef.current?.querySelector<HTMLButtonElement>(`[data-date="${dateKey(next)}"]`)?.focus(); });
   };
-  const portalTarget = rootRef.current?.closest("dialog") ?? rootRef.current?.closest(".quotation-module") ?? document.body;
-
-  return <div className={`vi-date-picker ${open ? "is-open" : ""} ${className}`} ref={rootRef}>
+  return <div className={`vi-date-picker ${isOpen ? "is-open" : ""} ${className}`} ref={rootRef}>
     <button
       ref={triggerRef}
       id={id}
@@ -132,13 +136,15 @@ export default function VietnameseDatePicker({ id, label, value, onChange, disab
       className="vi-date-trigger"
       aria-label={`${label}: ${value ? displayDate(value) : "Chưa chọn"}`}
       aria-haspopup="dialog"
-      aria-expanded={open}
-      aria-controls={open ? popupId : undefined}
+      aria-expanded={isOpen}
+      aria-required={required || undefined}
+      aria-controls={isOpen ? popupId : undefined}
       disabled={disabled}
       onClick={toggle}
       onKeyDown={(event) => { if (event.key === "ArrowDown" && !open) { event.preventDefault(); toggle(); } }}
     ><span className={value ? "" : "is-placeholder"}>{displayDate(value)}</span><CalendarIcon /></button>
-    {open && createPortal(<div
+    {required && <input type="date" className="sr-only quotation-date-native" tabIndex={-1} required min={min} value={value} onChange={(event) => onChange(event.target.value)} onInvalid={(event) => { event.preventDefault(); triggerRef.current?.focus(); }} />}
+    {isOpen && portalTarget && createPortal(<div
       id={popupId}
       ref={popupRef}
       className="vi-date-popup"
@@ -167,6 +173,7 @@ export default function VietnameseDatePicker({ id, label, value, onChange, disab
           className={`${date.getMonth() !== view.month ? "is-outside" : ""} ${key === today ? "is-today" : ""} ${key === value ? "is-selected" : ""}`}
           aria-label={`${weekdays[(date.getDay() + 6) % 7]}, ngày ${date.getDate()} tháng ${date.getMonth() + 1} năm ${date.getFullYear()}`}
           aria-pressed={key === value}
+          disabled={Boolean(min && key < min)}
           onClick={() => choose(date)}
           onKeyDown={(event) => {
             const offsets: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
@@ -175,8 +182,8 @@ export default function VietnameseDatePicker({ id, label, value, onChange, disab
         >{date.getDate()}</button>;
       })}</div>
       <div className="vi-date-footer">
-        <button type="button" onClick={() => { onChange(""); setOpen(false); triggerRef.current?.focus(); }}>Xóa ngày</button>
-        <button type="button" onClick={() => choose(new Date())}>Hôm nay</button>
+        {clearable && !required && <button type="button" onClick={() => { onChange(""); setOpen(false); triggerRef.current?.focus(); }}>Xóa ngày</button>}
+        <button type="button" disabled={Boolean(min && today < min)} onClick={() => choose(new Date())}>Hôm nay</button>
       </div>
     </div>, portalTarget)}
   </div>;
