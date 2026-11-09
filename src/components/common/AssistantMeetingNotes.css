@@ -1,0 +1,12 @@
+.assistant-meeting-source[aria-pressed="true"] {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--color-surface-container-lowest), var(--color-surface-container-lowest)) padding-box,
+    linear-gradient(115deg, #00adfc, #7567ff, #ff57b3, #ff9d43, #ffe66d, #4ed9a2) border-box;
+}
+
+.assistant-meeting-source[aria-pressed="true"]:hover {
+  background:
+    linear-gradient(var(--color-surface-container-low), var(--color-surface-container-low)) padding-box,
+    linear-gradient(115deg, #00adfc, #7567ff, #ff57b3, #ff9d43, #ffe66d, #4ed9a2) border-box;
+}

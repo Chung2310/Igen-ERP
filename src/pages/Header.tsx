@@ -339,7 +339,7 @@ export default function Header({ currentTab, onSearchSelect, onAssistantOpen, va
 
   return (
     <>
-      <header className={isLauncher ? "relative z-40 flex min-w-0 flex-1 items-center justify-end" : "sticky top-0 z-40 flex h-18 min-w-0 items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest pl-1 pr-3 shadow-xs sm:gap-4 sm:pr-6"} id={isLauncher ? "launcher_header_controls" : "app_header"}>
+      <header className={isLauncher ? "relative z-40 flex min-w-0 flex-1 items-center justify-end" : cn("sticky top-0 z-40 flex h-18 min-w-0 items-center justify-between gap-2 border-b border-outline-variant bg-surface-container-lowest pl-1 pr-3 sm:gap-4 sm:pr-6", currentTab !== "TRỢ LÝ AI" && "shadow-xs")} id={isLauncher ? "launcher_header_controls" : "app_header"}>
         {!isLauncher && <div className="relative flex min-w-0 flex-1 items-center">
           <div className={cn("group relative ml-3 flex shrink-0 items-center sm:ml-4", userProfile?.role !== "superadmin" && "pr-10")}>
             {userProfile?.role !== "superadmin" && (
