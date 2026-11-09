@@ -3,6 +3,9 @@ import { PAGE_CUSTOMER_NOTES_KEY, savePageCustomer } from "./page-customer.servi
 import { getModuleStateForCompany, isServiceSubscriptionBlocked } from "../../../../middleware/require-module";
 import { CustomerModel } from "../../../customer-management/models/customer.model";
 import { CustomerService } from "../../../customer-management/customer.service";
+import { queuePageCustomerSheet } from "./page-customer-sheet.service";
+
+vi.mock("./page-customer-sheet.service", () => ({ queuePageCustomerSheet: vi.fn().mockResolvedValue(undefined) }));
 
 vi.mock("../../../../middleware/require-module", () => ({
   getModuleStateForCompany: vi.fn(), isServiceSubscriptionBlocked: vi.fn(() => false),
@@ -24,6 +27,13 @@ describe("Page customer bridge", () => {
     expect(await savePageCustomer(input)).toBe("CUSTOMER");
     expect(CustomerService.create).toHaveBeenCalledWith({ companyCode: "ACME" },
       expect.objectContaining({ name: "An", phone: "0901234567", source: "page" }), expect.anything());
+    expect(queuePageCustomerSheet).toHaveBeenCalledWith("ACME", "PAGE", "CUSTOMER");
+  });
+  it("keeps the ERP customer when scheduling Sheet synchronization fails", async () => {
+    vi.mocked(queuePageCustomerSheet).mockRejectedValueOnce(new Error("Queue unavailable"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try { expect(await savePageCustomer(input)).toBe("CUSTOMER"); }
+    finally { log.mockRestore(); }
   });
   it("does not persist an inferred phone or when Customer module is disabled", async () => {
     expect(await savePageCustomer({ ...input, message: "Tên tôi là An" })).toBeUndefined();

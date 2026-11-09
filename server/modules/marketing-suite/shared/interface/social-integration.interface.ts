@@ -31,5 +31,6 @@ export interface ISocialIntegration extends Document {
   isMock: boolean;
   aiAutoReplyConfig?: IAiAutoReplyConfig;
   orderSheetConfig?: IOrderSheetConfig;
+  leadSheetConfig?: { enabled: boolean; spreadsheetUrl: string; spreadsheetId: string; sheetName: string; updatedAt?: Date };
 }
 

@@ -108,7 +108,7 @@ async function accessToken() {
   return cachedToken.value;
 }
 
-async function sheetsFetch(path: string, init?: RequestInit) {
+export async function sheetsFetch(path: string, init?: RequestInit) {
   const token = await accessToken();
   const { projectId } = credentials();
   const response = await fetch(`${SHEETS_API}/${path}`, {
@@ -128,14 +128,14 @@ async function sheetsFetch(path: string, init?: RequestInit) {
   return result as Record<string, unknown>;
 }
 
-function safeSheetName(value: string, fallback: string) {
+export function safeSheetName(value: string, fallback: string) {
   const name = String(value || fallback).trim().slice(0, 80);
   const invalidCharacters = ["\\", "/", "?", "*", "[", "]", ":"];
   if (!name || invalidCharacters.some((character) => name.includes(character))) throw new Error("Ten tab Google Sheet khong hop le.");
   return name;
 }
 
-function a1SheetName(value: string) {
+export function a1SheetName(value: string) {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
@@ -150,7 +150,7 @@ function columnLetters(columnNumber: number) {
   return result;
 }
 
-function safeCell(value: unknown) {
+export function safeCell(value: unknown) {
   if (value === null || value === undefined) return "";
   if (typeof value === "number" || typeof value === "boolean") return value;
   const text = String(value);
@@ -181,7 +181,7 @@ async function metadata(spreadsheetId: string) {
   return sheetsFetch(`${encodeURIComponent(spreadsheetId)}?fields=properties.title,sheets.properties`);
 }
 
-async function ensureTabs(spreadsheetId: string, tabNames: string[]) {
+export async function ensureTabs(spreadsheetId: string, tabNames: string[]) {
   const info = await metadata(spreadsheetId) as {
     sheets?: Array<{ properties?: { title?: string; sheetId?: number; gridProperties?: { columnCount?: number } } }>;
   };
