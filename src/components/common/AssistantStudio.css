@@ -1,0 +1,10 @@
+.assistant-studio-card {
+  border: 1px solid transparent;
+  background: var(--color-surface-container-lowest);
+}
+
+.assistant-workspace[data-standalone="false"] .assistant-studio-card:is(:hover, :focus-visible) {
+  background:
+    linear-gradient(var(--color-surface-container-lowest), var(--color-surface-container-lowest)) padding-box,
+    linear-gradient(115deg, #00adfc, #7567ff, #ff57b3, #ff9d43, #ffe66d, #4ed9a2) border-box;
+}

@@ -12,6 +12,7 @@ const launcherModules: TabType[] = [
   "KHO & SẢN PHẨM",
   "SỬA CHỮA & BẢO HÀNH",
   "QUẢN LÝ HỌC VIÊN",
+  "QUẢN LÝ Y TẾ",
   "QUẢN LÝ LAO ĐỘNG",
   "QUẢN LÝ KHÁCH HÀNG",
   "BÁN LẺ",
