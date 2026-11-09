@@ -36,6 +36,9 @@ jobs:
       - name: Type check
         run: yarn typecheck
 
+      - name: Check optional media binary resolution
+        run: yarn vitest run server/modules/marketing-suite/shared/service/media-binary.service.test.ts
+
       # Chỉ build thử trên PR để bắt lỗi build (vite/esbuild) trước khi merge.
       # Khi push thì bỏ qua vì Step 2 đã build trong Docker rồi — tránh build trùng
       - name: Build check (PR only)
@@ -189,9 +192,12 @@ jobs:
           port: ${{ secrets.SSH_PORT_PROD || '22' }}
           envs: ENV_FILE_CONTENT
           script: |
+            set -eu
             TARGET_DIR="/opt/igen-erp/production"
             IMAGE_TAG="production"
             CONTAINER_NAME="igen-erp-production"
+            IMAGE_REF="ghcr.io/chung2310/igen-erp:$IMAGE_TAG"
+            previous_image=$(docker inspect --format '{{.Image}}' "$CONTAINER_NAME" 2>/dev/null || true)
 
             # Tạo thư mục đích nếu chưa tồn tại và chuyển vào
             mkdir -p "$TARGET_DIR"
@@ -205,11 +211,39 @@ jobs:
 
             # Tải (pull) image mới trước khi tắt container cũ để giảm tối đa downtime
             export COMPOSE_PROJECT_NAME="$CONTAINER_NAME"
-            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose pull
+            df -h /
+            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose -f docker-compose.yml pull
+            expected_image=$(docker image inspect --format '{{.Id}}' "$IMAGE_REF")
 
             # Khởi động lại container mới
-            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose up -d --remove-orphans
+            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose -f docker-compose.yml up -d --remove-orphans
+
+            healthy=0
+            if [ "$(docker inspect --format '{{.Image}}' "$CONTAINER_NAME")" = "$expected_image" ]; then
+              for attempt in $(seq 1 30); do
+                if docker exec "$CONTAINER_NAME" node -e 'fetch("http://127.0.0.1:" + (process.env.PORT || "3000") + "/api/v1/health", { signal: AbortSignal.timeout(3000) }).then(async (response) => { const data = await response.json(); if (!response.ok || data.status !== "ok" || !String(data.services?.database).startsWith("online")) process.exit(1); }).catch(() => process.exit(1));'; then
+                  healthy=1
+                  break
+                fi
+                sleep 2
+              done
+            fi
+            if [ "$healthy" != 1 ]; then
+              echo "ERP health check failed; retaining the previous image."
+              if [ -n "$previous_image" ]; then
+                docker tag "$previous_image" "$IMAGE_REF"
+                IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose -f docker-compose.yml up -d --no-deps igen-erp
+              fi
+              exit 1
+            fi
+            echo "ERP production health check passed."
+
+            # Remove only the replaced image after the new API and database are healthy.
+            if [ -n "$previous_image" ] && [ "$previous_image" != "$expected_image" ]; then
+              docker image rm "$previous_image" || echo "Previous image is still referenced; retaining it."
+            fi
 
             # Giải phóng dung lượng ổ đĩa bằng cách xóa các image dangling/rác cũ và build cache
             docker image prune -f
             docker builder prune -f
+            df -h /
