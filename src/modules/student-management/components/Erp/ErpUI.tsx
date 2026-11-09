@@ -1,10 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import React from 'react';
-import { Plus, Search, LucideIcon, Trash2, ChevronDown, X } from 'lucide-react';
+import { Plus, Search, LucideIcon, Trash2, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { StudentEmptyIllustration, type StudentEmptyIllustrationKind } from './StudentEmptyIllustration';
 import { primaryCreateButtonClass } from '../../../../components/common/primaryCreateButton';
 import '../../student-workspace.css';
+export { ErpTableHead } from '../../../../components/common/ErpTableHead';
+export { ErpModal } from '../../../../components/common/ErpModal';
 /**
  * Bộ UI primitives dùng chung cho các trang Khóa học / Lớp / Giảng viên / Tài nguyên.
  * Giao diện hợp nhất dùng nền sáng cố định (theme dark của bản demo ERP đã bỏ).
@@ -126,55 +128,6 @@ export function ErpFilterRail({ children, className }: { children: React.ReactNo
   );
 }
 
-export function ErpModal({
-  isOpen = true,
-  title,
-  titleClassName,
-  onClose,
-  children,
-  maxWidth = "max-w-md",
-  zIndex = "z-50",
-  className,
-}: {
-  isOpen?: boolean;
-  onClose: () => void;
-  title: string;
-  titleClassName?: string;
-  children: React.ReactNode;
-  maxWidth?: string;
-  zIndex?: string;
-  className?: string;
-}) {
-  if (!isOpen) return null;
-
-  return (
-    <div className={cn("fixed inset-0 flex items-center justify-center p-3 sm:p-4", zIndex)}>
-      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
-      <div className={cn(
-        "relative max-h-[90vh] w-full space-y-3.5 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-on-surface shadow-lg sm:p-5",
-        maxWidth,
-        className
-      )}>
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-1 shrink-0 rounded-full bg-[#00ADFC]" />
-            <h3 className={cn("text-sm font-semibold text-on-surface normal-case sm:text-base", titleClassName)}>{title}</h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white shadow-xs hover:bg-rose-600 focus-visible:outline-2 focus-visible:outline-primary"
-            title="Đóng"
-           data-erp-modal-close>
-            <X className="w-4 h-4 stroke-[2.5]" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 export function ErpField({ label, children, actions, className }: { label: string; children: React.ReactNode; actions?: React.ReactNode; hint?: string; className?: string }) {
   return (
     <div className={cn("space-y-1 text-left", className)}>
@@ -252,18 +205,6 @@ export function ErpLoadingState({ message = "Đang tải dữ liệu..." }: { me
       <div className="w-8 h-8 rounded-full border-4 border-[#00ADFC] border-t-transparent animate-spin mx-auto" />
       <p className="text-xs font-medium text-slate-600">{message}</p>
     </div>
-  );
-}
-
-export function ErpTableHead({ columns }: { columns: string[] }) {
-  return (
-    <thead>
-      <tr className="border-b border-outline-variant bg-surface-container-low text-xs font-medium text-on-surface-variant">
-        {columns.map((col) => (
-          <th key={col} className="px-4 py-2.5 text-left font-medium text-on-surface-variant">{col}</th>
-        ))}
-      </tr>
-    </thead>
   );
 }
 

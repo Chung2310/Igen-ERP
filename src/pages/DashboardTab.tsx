@@ -10,6 +10,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { StethoscopeIcon } from "@phosphor-icons/react/dist/csr/Stethoscope";
+import { isModuleEnabled } from "../config/modules";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import {
   DASHBOARD_SUB_TAB_ROUTES,
@@ -38,6 +40,9 @@ const WorkerOverviewSection = lazy(
 );
 const MarketingOverviewSection = lazy(
   () => import("../components/dashboard/MarketingOverviewSection")
+);
+const HealthcareOverviewSection = lazy(
+  () => import("../components/dashboard/HealthcareOverviewSection")
 );
 const QuotationOverviewSection = lazy(
   () => import("../components/dashboard/QuotationOverviewSection")
@@ -100,6 +105,13 @@ const ALL_SECTIONS: SectionConfig[] = [
     label: "Marketing & CRM",
     subtitle: "Chiến dịch, Tương tác & Kênh",
     icon: MessagesSquare,
+  },
+  {
+    value: "Y_TE",
+    slug: "y-te",
+    label: "Y tế",
+    subtitle: "Bệnh nhân, Lượt khám, Lịch hẹn & Chăm sóc",
+    icon: StethoscopeIcon,
   },
 ];
 
@@ -215,6 +227,9 @@ export default function DashboardTab() {
             (checkPerm("marketing:read") ||
               checkPerm("marketing:manage"))
           );
+        case "Y_TE":
+          return isModuleEnabled(modules, "healthcare") &&
+            (checkPerm("healthcare:read") || checkPerm("healthcare:manage"));
         default:
           return true;
       }
@@ -278,6 +293,12 @@ export default function DashboardTab() {
             <MarketingOverviewSection />
           </SectionErrorBoundary>
         );
+      case "Y_TE":
+        return (
+          <SectionErrorBoundary fallbackTitle="Y tế">
+            <HealthcareOverviewSection />
+          </SectionErrorBoundary>
+        );
       default:
         return null;
     }
@@ -313,7 +334,7 @@ export default function DashboardTab() {
               key={tab.value}
               active={isActive}
               icon={iconName ? <HrSidebarIcon name={iconName} /> : <tab.icon />}
-              preferProvidedIcon={tab.value === "MARKETING"}
+              preferProvidedIcon={tab.value === "MARKETING" || tab.value === "Y_TE"}
               onClick={() => setActiveSubTab(tab.value)}
             >
               {tab.label}

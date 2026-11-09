@@ -34,6 +34,7 @@ import { ShieldIcon } from "@phosphor-icons/react/dist/csr/Shield";
 import { ShoppingCartIcon } from "@phosphor-icons/react/dist/csr/ShoppingCart";
 import { SparkleIcon } from "@phosphor-icons/react/dist/csr/Sparkle";
 import { StudentIcon } from "@phosphor-icons/react/dist/csr/Student";
+import { StethoscopeIcon } from "@phosphor-icons/react/dist/csr/Stethoscope";
 import { UsersIcon } from "@phosphor-icons/react/dist/csr/Users";
 import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
 import { WrenchIcon } from "@phosphor-icons/react/dist/csr/Wrench";
@@ -73,6 +74,7 @@ export interface MenuItem {
 
 const baseMenuItems: MenuItem[] = [
   { label: "BÁO GIÁ", title: "Báo giá", icon: FileTextIcon, group: "operations" },
+  { label: "QUẢN LÝ Y TẾ", title: "Quản lý y tế", icon: StethoscopeIcon, group: "operations" },
   { label: "GÓI AI & LƯỢT SỬ DỤNG", title: "Gói AI & lượt sử dụng", icon: Sparkles, group: "subscription" },
   ...MARKETING_SUITE_MENU.map((item) => ({ ...item, group: "marketing" as const })),
   {
@@ -189,6 +191,7 @@ const menuIcons: Partial<Record<TabType, PhosphorIcon>> = {
   "BÁN LẺ": ShoppingCartIcon,
   "ĐỐI TÁC BÁN LẺ": UsersThreeIcon,
   "BÁO GIÁ": FileTextIcon,
+  "QUẢN LÝ Y TẾ": StethoscopeIcon,
   "TÀI CHÍNH": FileTextIcon,
   "OMNI INBOX": ChatCircleIcon,
   "MARKETING": UsersThreeIcon,

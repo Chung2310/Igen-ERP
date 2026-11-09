@@ -1,12 +1,13 @@
 import type { TabType, UserProfile } from "../types";
 
 /** Đồng bộ với server/config/module-keys.ts */
-export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge", "quotation"] as const;
+export const MODULE_KEYS = ["hr", "inventory", "resource", "chat", "student", "worker", "customer", "partner", "retail", "retail-partner", "repair", "finance", "marketing", "social-marketing", "omni-inbox", "company-knowledge", "quotation", "healthcare"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
-export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "retail-partner" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge" && key !== "quotation") as Exclude<ModuleKey, "retail" | "retail-partner" | "finance" | "marketing" | "social-marketing" | "omni-inbox" | "company-knowledge" | "quotation">[];
+export const DEFAULT_MODULE_KEYS = MODULE_KEYS.filter((key) => key !== "retail" && key !== "retail-partner" && key !== "finance" && key !== "marketing" && key !== "social-marketing" && key !== "omni-inbox" && key !== "company-knowledge" && key !== "quotation" && key !== "healthcare");
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
   quotation: "Báo giá",
+  healthcare: "Quản lý y tế",
   hr: "Nhân sự",
   inventory: "Kho & Sản phẩm",
   resource: "Quản lý tài nguyên",
@@ -27,6 +28,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
 
 export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
   quotation: "BÁO GIÁ",
+  healthcare: "QUẢN LÝ Y TẾ",
   hr: "NHÂN SỰ",
   inventory: "KHO & SẢN PHẨM",
   resource: "QUẢN LÝ TÀI NGUYÊN",
@@ -47,6 +49,7 @@ export const MODULE_TAB_MAP: Record<ModuleKey, TabType> = {
 
 export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
   "BÁO GIÁ": "quotation",
+  "QUẢN LÝ Y TẾ": "healthcare",
   "NHÂN SỰ": "hr",
   "KHO & SẢN PHẨM": "inventory",
   "SỬA CHỮA & BẢO HÀNH": "repair",
@@ -69,6 +72,7 @@ export const TAB_MODULE_MAP: Partial<Record<TabType, ModuleKey>> = {
 
 export const MODULE_OPTIONS = [
   { key: "quotation", label: MODULE_LABELS.quotation, moduleKeys: ["quotation"] },
+  { key: "healthcare", label: MODULE_LABELS.healthcare, moduleKeys: ["healthcare"] },
   { key: "hr", label: MODULE_LABELS.hr, moduleKeys: ["hr"] },
   { key: "inventory", label: MODULE_LABELS.inventory, moduleKeys: ["inventory"] },
   { key: "resource", label: MODULE_LABELS.resource, moduleKeys: ["resource"] },
@@ -94,6 +98,7 @@ export const MODULE_OPTIONS = [
  */
 export const MODULE_READ_PERMISSIONS: Partial<Record<TabType, string[]>> = {
   "BÁO GIÁ": ["quotation:read", "quotation:manage"],
+  "QUẢN LÝ Y TẾ": ["healthcare:read", "healthcare:manage"],
   "TỔNG QUAN": ["dashboard:read"],
   "NHÂN SỰ": ["hr:read", "access:read", "work:read", "timekeeping:read"],
   "ĐỐI TÁC": ["relationship:read", "relationship:manage"],
@@ -157,7 +162,7 @@ export const HIDE_AI_AUTO_REPLY = true;
  */
 export function isModuleEnabled(enabledModules: string[] | undefined, key: ModuleKey): boolean {
   if (key === "retail-partner") return Boolean(enabledModules?.includes("retail") && enabledModules.includes(key));
-  if (key === "retail" || key === "finance" || key === "social-marketing" || key === "omni-inbox" || key === "company-knowledge" || key === "quotation") return Boolean(enabledModules?.includes(key));
+  if (key === "retail" || key === "finance" || key === "social-marketing" || key === "omni-inbox" || key === "company-knowledge" || key === "quotation" || key === "healthcare") return Boolean(enabledModules?.includes(key));
   if (!enabledModules) return true;
   if (enabledModules.length === 0) return false;
   return enabledModules.includes(key);
