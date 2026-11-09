@@ -1,0 +1,128 @@
+name: Docker image check
+
+on:
+  push:
+    branches: ['codex/erp-docker-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: docker-image-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image-check:
+    name: Build, measure and smoke test ERP image
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BASELINE_IMAGE: ghcr.io/chung2310/igen-erp:production
+      CHECK_IMAGE: igen-erp:image-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Log in to read the production image
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Measure the current production image
+        id: baseline
+        continue-on-error: true
+        run: |
+          docker pull "$BASELINE_IMAGE"
+          docker image inspect "$BASELINE_IMAGE" > baseline-image.json
+          docker history --no-trunc "$BASELINE_IMAGE" > baseline-history.txt
+          echo "size=$(docker image inspect --format '{{.Size}}' "$BASELINE_IMAGE")" >> "$GITHUB_OUTPUT"
+          docker image rm "$BASELINE_IMAGE"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Read production disk capacity
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST_PROD }}
+          username: ${{ secrets.SSH_USER_PROD }}
+          key: ${{ secrets.SSH_KEY_PROD }}
+          port: ${{ secrets.SSH_PORT_PROD || '22' }}
+          command_timeout: 2m
+          script: |
+            set -eu
+            df -B1 --output=size,used,avail,pcent /
+            docker system df
+            docker inspect --format '{{.Image}} {{.State.Status}}' igen-erp-production
+            free -m
+            swapon --show --bytes
+
+      - name: Build the ERP image without publishing or deploying
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          provenance: false
+          tags: ${{ env.CHECK_IMAGE }}
+
+      - name: Record image size and layers
+        env:
+          BASELINE_BYTES: ${{ steps.baseline.outputs.size }}
+        run: |
+          docker image inspect "$CHECK_IMAGE" > image-inspect.json
+          docker history --no-trunc "$CHECK_IMAGE" > image-history.txt
+          image_bytes=$(docker image inspect --format '{{.Size}}' "$CHECK_IMAGE")
+          printf 'image_bytes=%s\nbaseline_bytes=%s\n' "$image_bytes" "$BASELINE_BYTES" > image-size.txt
+          {
+            echo '### ERP Docker image size'
+            printf 'New image: %s (%s bytes)\n\n' "$(numfmt --to=iec-i --suffix=B "$image_bytes")" "$image_bytes"
+            if [[ "$BASELINE_BYTES" =~ ^[0-9]+$ ]]; then
+              printf 'Production baseline on the same runner: %s (%s bytes)\n\n' "$(numfmt --to=iec-i --suffix=B "$BASELINE_BYTES")" "$BASELINE_BYTES"
+              saved_bytes=$((BASELINE_BYTES - image_bytes))
+              printf 'Difference: %s bytes\n' "$saved_bytes"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify runtime permissions, dependencies and media binaries
+        run: |
+          docker run --rm --network none --entrypoint sh "$CHECK_IMAGE" -ec '
+            test "$(id -u)" = 1000
+            test -w /app
+            test -w /app/node_modules
+            mkdir /app/logs/image-check /app/uploads/image-check /app/server/cache/ai-settlements/image-check
+            rmdir /app/logs/image-check /app/uploads/image-check /app/server/cache/ai-settlements/image-check
+            test -f /app/dist/index.html
+            for bundle in /app/dist-server/*.cjs; do node --check "$bundle"; done
+            test -f /app/server/assets/fonts/Roboto-Regular.ttf
+            test -f /app/server/assets/fonts/Roboto-Bold.ttf
+            test -d /app/server/modules/marketing-suite/campaign/service/agents/skills
+            test -z "$(find /home/node/.cache/yarn -mindepth 1 -maxdepth 1 -print -quit)"
+            node -e "for (const name of [\"mongoose\", \"googleapis\", \"@remotion/renderer\", \"ffmpeg-static\", \"sharp\"]) require(name)"
+            "$FFMPEG_PATH" -version > /dev/null
+            timeout 30 "$PUPPETEER_EXECUTABLE_PATH" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --dump-dom about:blank > /tmp/chromium-smoke.html
+            grep -q "<html" /tmp/chromium-smoke.html
+            du -sh /app/node_modules /home/node/.cache/yarn
+          ' | tee image-smoke-test.txt
+
+      - name: Upload image measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp-docker-image-check
+          path: |
+            baseline-image.json
+            baseline-history.txt
+            image-inspect.json
+            image-history.txt
+            image-size.txt
+            image-smoke-test.txt
+          if-no-files-found: warn
