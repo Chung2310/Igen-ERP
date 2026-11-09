@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { ArrowLeft, BarChart3, FilePlus2, FileText, Link2, Plus, Send, Trash2 } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
+import "./AssistantRainbowBorder.css";
 import { HrEmptyIllustration } from "../hr/HrEmptyIllustration";
 
 type NotebookKind = "analysis" | "research";
@@ -95,7 +96,7 @@ export function AssistantNotebook() {
       <p className="mt-5 text-pretty text-xs text-on-surface-variant">Bản nháp chỉ tồn tại trong phiên mở trang này; chưa lưu hoặc gửi dữ liệu lên máy chủ.</p>
     </div> : <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center py-10 text-center">
       <h1 className="max-w-3xl text-balance text-3xl font-semibold leading-tight sm:text-4xl">Biến tài liệu và dữ liệu thành <span className="bg-[linear-gradient(90deg,#00adfc_0%,#199bff_55%,#7567ff_100%)] bg-clip-text text-transparent">hiểu biết hữu ích</span></h1>
-      <div className="mt-9 grid w-full max-w-2xl gap-4 sm:grid-cols-2">{notebookTypes.map(item => <button key={item.id} type="button" onClick={() => { setKind(item.id); setSources([]); setQuestion(""); setNotice(""); }} className={cn("group flex min-h-64 flex-col items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest p-6 text-center hover:border-primary hover:bg-surface-container-low", focusClass)}><img src={item.artwork} alt="" width="112" height="112" className="size-28 object-contain" /><span className="mt-4 text-lg font-semibold text-on-surface">{item.title}</span><span className="mt-3 max-w-xs text-pretty text-sm leading-6 text-on-surface-variant">{item.description}</span></button>)}</div>
+      <div className="mt-9 grid w-full max-w-2xl gap-4 sm:grid-cols-2">{notebookTypes.map(item => <button key={item.id} type="button" onClick={() => { setKind(item.id); setSources([]); setQuestion(""); setNotice(""); }} className={cn("assistant-rainbow-hover-card group flex min-h-64 flex-col items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest p-6 text-center", focusClass)}><img src={item.artwork} alt="" width="112" height="112" className="size-28 object-contain" /><span className="mt-4 text-lg font-semibold text-on-surface">{item.title}</span><span className="mt-3 max-w-xs text-pretty text-sm leading-6 text-on-surface-variant">{item.description}</span></button>)}</div>
     </div>}
   </main>;
 }

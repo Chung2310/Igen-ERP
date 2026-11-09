@@ -2,6 +2,9 @@ import { useId, useMemo, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowUpRight, AudioLines, FileText, Image, Search, Sparkles, Video, WandSparkles, Youtube } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import "./AssistantStudio.css";
+import "./AssistantRainbowBorder.css";
+import { AssistantStudioImage } from "./AssistantStudioImage";
+import { AssistantStudioChart } from "./AssistantStudioChart";
 
 type StudioCategory = "Hình ảnh" | "Video" | "Âm thanh" | "Nội dung";
 type StudioTool = {
@@ -17,7 +20,7 @@ type StudioTool = {
 };
 
 const tools: StudioTool[] = [
-  { id: "create-image", title: "Tạo hình ảnh", description: "Biến ý tưởng thành hình ảnh theo mô tả của bạn", category: "Hình ảnh", icon: Image, artwork: 0, promptLabel: "Mô tả hình ảnh", promptPlaceholder: "Mô tả chủ thể, bối cảnh, phong cách và tỉ lệ ảnh bạn muốn tạo…" },
+  { id: "create-image", title: "Tạo hình ảnh", description: "Biến ý tưởng thành hình ảnh theo mô tả của bạn", category: "Hình ảnh", icon: Image, artwork: 0, promptLabel: "Mô tả hình ảnh", promptPlaceholder: "Mô tả chủ thể, bối cảnh và các chi tiết bạn muốn xuất hiện…" },
   { id: "edit-image", title: "Chỉnh sửa hình ảnh", description: "Mô tả phần bạn muốn thay đổi trên ảnh", category: "Hình ảnh", icon: WandSparkles, artwork: 1, promptLabel: "Yêu cầu chỉnh sửa", promptPlaceholder: "Ví dụ: Xóa nền và giữ nguyên sản phẩm ở giữa ảnh…" },
   { id: "infographic", title: "Tạo infographic", description: "Trình bày thông tin bằng hình ảnh dễ hiểu", category: "Hình ảnh", icon: FileText, artwork: 2, promptLabel: "Nội dung infographic", promptPlaceholder: "Nhập các ý chính, số liệu và đối tượng người xem…" },
   { id: "chart", title: "Tạo biểu đồ", description: "Biến dữ liệu thành biểu đồ trực quan", category: "Hình ảnh", icon: Image, artwork: 3, promptLabel: "Dữ liệu và mục tiêu", promptPlaceholder: "Mô tả dữ liệu, kiểu biểu đồ và điều bạn muốn làm nổi bật…" },
@@ -69,9 +72,9 @@ export function AssistantStudio() {
     setNotice("Nội dung đã sẵn sàng trên màn hình. Tính năng xử lý sẽ hoạt động khi dịch vụ AI được kết nối.");
   };
 
-  return <section aria-label="AI Studio" className="min-h-0 flex-1 overflow-y-auto bg-surface-container-lowest px-4 py-8 text-on-surface sm:px-8 lg:px-12">
-    <div className="mx-auto w-full max-w-6xl">
-      {selected ? <>
+  return <section aria-label="AI Studio" className={cn("min-h-0 flex-1 overflow-y-auto bg-surface-container-lowest text-on-surface", selected?.id === "create-image" || selected?.id === "chart" ? "p-0" : "px-4 py-8 sm:px-8 lg:px-12")}>
+    <div className={cn("w-full", selected?.id === "create-image" || selected?.id === "chart" ? "min-h-full" : "mx-auto max-w-6xl")}>
+      {selected?.id === "create-image" ? <AssistantStudioImage onBack={() => setSelectedId(null)} /> : selected?.id === "chart" ? <AssistantStudioChart onBack={() => setSelectedId(null)} /> : selected ? <>
         <button type="button" onClick={() => { setSelectedId(null); setNotice(""); }} className={cn("mb-7 inline-flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface", focusClass)}><ArrowLeft className="size-4" aria-hidden="true" />Quay lại AI Studio</button>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
           <section aria-labelledby="studio-tool-title">

@@ -1,5 +1,6 @@
 ﻿import { useState } from "react";
 import { cn } from "../../modules/student-management/lib/utils";
+import "./AssistantRainbowBorder.css";
 import { AssistantToolArtwork } from "./AssistantToolArtwork";
 
 function SearchIcon() {
@@ -56,7 +57,7 @@ export function AssistantTools() {
   );
   const groupedTools = categories.slice(1).map(name => ({ name, tools: visibleTools.filter(tool => tool.category === name) })).filter(group => group.tools.length);
 
-  return <div className="flex min-h-0 flex-1 flex-col bg-surface-container-lowest text-on-surface">
+  return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-container-lowest text-on-surface">
     <header className="flex flex-col gap-4 border-b border-outline-variant px-4 py-5 sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-8">
       <div>
         <h3 className="text-balance text-lg font-semibold">Công cụ</h3>
@@ -80,7 +81,7 @@ export function AssistantTools() {
         {groupedTools.length ? groupedTools.map(group => <section key={group.name} aria-label={group.name} className="mb-7">
           <h4 className="mb-3 text-balance text-base font-semibold">{group.name}</h4>
           <div className="grid gap-3 xl:grid-cols-2">
-            {group.tools.map(tool => <article key={tool.id} className={cn("flex min-w-0 flex-wrap items-start gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 hover:border-primary/60", selectedId === tool.id && "border-primary")}>
+            {group.tools.map(tool => <article key={tool.id} className={cn("assistant-rainbow-hover-card flex min-w-0 flex-wrap items-start gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4", selectedId === tool.id && "border-primary")}>
               <AssistantToolArtwork id={tool.id} />
               <button type="button" onClick={() => setSelectedId(tool.id)} aria-pressed={selectedId === tool.id} className={cn("min-w-0 flex-1 rounded-sm text-left", focusClass)}>
                 <span className="block text-sm font-medium leading-5">{tool.title}</span>

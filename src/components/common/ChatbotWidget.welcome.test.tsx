@@ -11,6 +11,7 @@ vi.mock("../../context/BranchContext", () => ({ useBranchOptional: () => null })
 vi.mock("../../services/assistantService", () => ({ assistantService: {
   settings: () => new Promise(() => undefined),
   state: () => new Promise(() => undefined),
+  conversations: () => Promise.resolve({ items: [], nextCursor: null }),
 } }));
 
 afterEach(() => { cleanup(); localStorage.clear(); });

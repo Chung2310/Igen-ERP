@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AudioLines, FileAudio, FileText, History, Mic, Monitor, Upload } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
-import "./AssistantMeetingNotes.css";
+import "./AssistantRainbowBorder.css";
 
 type MeetingMode = "record" | "upload";
 type AudioSource = "microphone" | "browser";
@@ -59,12 +59,12 @@ export function AssistantMeetingNotes({ standalone = true }: { standalone?: bool
 
         {mode === "record" ? <>
           <div role="group" aria-label="Nguồn âm thanh" className="mt-10 grid w-full gap-4 sm:mt-14 sm:grid-cols-2 sm:gap-6">
-            <button type="button" aria-label="Ghi âm trực tiếp" aria-pressed={source === "microphone"} onClick={() => { setSource("microphone"); setNotice(""); }} className={cn("flex min-h-36 flex-col items-start rounded-xl border bg-surface-container-lowest p-5 text-left hover:bg-surface-container-low", standalone && "assistant-meeting-source", source === "microphone" ? standalone ? "shadow-sm" : "border-primary shadow-sm" : "border-outline-variant", focusClass)}>
+            <button type="button" aria-label="Ghi âm trực tiếp" aria-pressed={source === "microphone"} onClick={() => { setSource("microphone"); setNotice(""); }} className={cn("flex min-h-36 flex-col items-start rounded-xl border bg-surface-container-lowest p-5 text-left hover:bg-surface-container-low", standalone && "assistant-meeting-source", source === "microphone" ? "border-primary shadow-sm" : "border-outline-variant", focusClass)}>
               <span className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">{standalone ? <MeetingIcon name="record" className="size-5" /> : <AudioLines className="size-5" aria-hidden="true" />}</span>
               <span className="assistant-meeting-source-title mt-3 text-sm font-semibold">Ghi âm trực tiếp</span>
               <span className="mt-2 text-pretty text-sm leading-5 text-on-surface-variant">Ghi lại âm thanh từ micro của bạn ngay lập tức</span>
             </button>
-            <button type="button" aria-label="Ghi âm tab trình duyệt" aria-pressed={source === "browser"} onClick={() => { setSource("browser"); setNotice(""); }} className={cn("flex min-h-36 flex-col items-start rounded-xl border bg-surface-container-lowest p-5 text-left hover:bg-surface-container-low", standalone && "assistant-meeting-source", source === "browser" ? standalone ? "shadow-sm" : "border-primary shadow-sm" : "border-outline-variant", focusClass)}>
+            <button type="button" aria-label="Ghi âm tab trình duyệt" aria-pressed={source === "browser"} onClick={() => { setSource("browser"); setNotice(""); }} className={cn("flex min-h-36 flex-col items-start rounded-xl border bg-surface-container-lowest p-5 text-left hover:bg-surface-container-low", standalone && "assistant-meeting-source", source === "browser" ? "border-primary shadow-sm" : "border-outline-variant", focusClass)}>
               <span className="flex size-10 items-center justify-center rounded-lg bg-surface-container-low text-on-surface">{standalone ? <MeetingIcon name="browser" className="size-5" /> : <Monitor className="size-5" aria-hidden="true" />}</span>
               <span className="assistant-meeting-source-title mt-3 text-sm font-semibold">Ghi âm tab trình duyệt</span>
               <span className="mt-2 text-pretty text-sm leading-5 text-on-surface-variant">Ghi lại âm thanh từ một tab trình duyệt khác</span>

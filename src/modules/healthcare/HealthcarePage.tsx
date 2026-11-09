@@ -65,15 +65,15 @@ export default function HealthcarePage() {
   const branch = useBranch();
   if (branch.loading) return <div className={panelClass}><Feedback loading /></div>;
   if (!branch.activeBranchId) return <div className={panelClass}>
-    <HrPageTitle>Quản lý y tế</HrPageTitle>
+    <HrPageTitle>Bệnh nhân</HrPageTitle>
     <Feedback error={branch.error || "Chọn chi nhánh đang hoạt động để sử dụng Quản lý y tế."} onRetry={branch.error ? branch.retry : undefined} />
   </div>;
   return <HealthcareWorkspace key={`${userProfile?.uid}:${userProfile?.companyCode}:${branch.activeBranchId}`}
-    branchId={branch.activeBranchId} branchName={branch.activeBranch?.name} hasPermission={hasPermission} />;
+    branchId={branch.activeBranchId} hasPermission={hasPermission} />;
 }
 
-export function HealthcareWorkspace({ branchId, branchName, hasPermission }: {
-  branchId: string; branchName?: string; hasPermission: (permission: string) => boolean;
+export function HealthcareWorkspace({ branchId, hasPermission }: {
+  branchId: string; hasPermission: (permission: string) => boolean;
 }) {
   const api = useMemo(() => healthcareApi(branchId), [branchId]);
   const [location, setLocation] = useState(() =>
@@ -223,11 +223,7 @@ export function HealthcareWorkspace({ branchId, branchName, hasPermission }: {
         {label}
       </ModuleNavigationButton>)}
     </ModuleNavigation>
-    <div ref={content} className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-3 pb-3 pt-2 lg:pl-0">
-      <header className="space-y-1">
-        <HrPageTitle>Quản lý y tế</HrPageTitle>
-        {branchName && <p className="text-sm text-on-surface-variant">{branchName}</p>}
-      </header>
+    <div ref={content} className="mx-2 mb-2 min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 sm:p-4 lg:ml-0">
       {notice && <p role="status" className="rounded-lg border border-outline-variant bg-surface-container-lowest p-3 text-sm">{notice}</p>}
       {editor && <RecordEditor key={`${editor.kind}:${editor.record?._id || "new"}`} editor={editor} api={api}
         catalog={catalog.data || []} staff={staff.data || []} directory={editorDirectory}
@@ -249,9 +245,9 @@ export function HealthcareWorkspace({ branchId, branchName, hasPermission }: {
           : "Bản ghi sẽ chuyển sang trạng thái Đã hủy và được giữ trong lịch sử."}
         confirmLabel={withdrawal.kind === "catalog" ? "Ngừng sử dụng" : "Xác nhận hủy"} cancelLabel="Quay lại"
         isSubmitting={withdrawing} error={withdrawalError} onClose={() => setWithdrawal(undefined)} onConfirm={confirmWithdrawal} />}
-      <section className={panelClass} aria-labelledby="healthcare-section-title">
+      <section className="min-w-0 space-y-3" aria-label={pageTitle}>
         <div className="flex flex-wrap items-center justify-between gap-3" ref={heading} tabIndex={-1}>
-          <h3 id="healthcare-section-title" data-typography="section-title" className="text-balance text-lg font-semibold">{pageTitle}</h3>
+          <HrPageTitle>{pageTitle}</HrPageTitle>
           <div className="flex flex-wrap gap-2">
             {currentImportKind && canViewImports && <button type="button" className={cn(buttonClass, "min-h-9")} aria-haspopup="dialog"
               onClick={event => { returnFocus.current = event.currentTarget; setImportKind(currentImportKind); }}>
@@ -265,6 +261,7 @@ export function HealthcareWorkspace({ branchId, branchName, hasPermission }: {
           </div>
         </div>
         {hasList && <TableFilterToolbar
+          className="rounded-none! border-0! bg-transparent! p-0! shadow-none!"
           search={{ value: search, onChange: value => { setSearch(value.slice(0, 100)); setPage(1); },
             placeholder: searchHints[tab], ariaLabel: searchHints[tab], className: "min-w-0" }}
           dateFilter={{ label: dateLabels[tab], value: datePeriod, onChange: value => { setDatePeriod(value); setPage(1); }, compact: true }}

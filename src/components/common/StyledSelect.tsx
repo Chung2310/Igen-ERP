@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
@@ -6,6 +6,7 @@ import { cn } from "../../modules/student-management/lib/utils";
 export type StyledSelectOption = {
   value: string;
   label: string;
+  icon?: ReactNode;
   disabled?: boolean;
 };
 
@@ -152,8 +153,11 @@ export function StyledSelect({
         }}
         className={cn("flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm font-normal text-on-surface outline-none transition-colors hover:border-primary focus-visible:border-primary focus-visible:ring-0 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60", className)}
       >
-        <span className={cn("min-w-0 truncate", showingPlaceholder && "text-on-surface-variant/60")}>
-          {selectedOption?.label ?? placeholder}
+        <span className="flex min-w-0 items-center gap-2">
+          {selectedOption?.icon}
+          <span className={cn("min-w-0 truncate", showingPlaceholder && "text-on-surface-variant/60")}>
+            {selectedOption?.label ?? placeholder}
+          </span>
         </span>
         <ChevronDown className={cn("size-4 shrink-0 text-primary transition-transform", open && "rotate-180")} aria-hidden="true" />
       </button>
@@ -198,7 +202,10 @@ export function StyledSelect({
                 }}
                 className={cn("flex min-h-9 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm font-normal transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-45", selected ? "bg-primary/10 text-primary" : "text-on-surface hover:bg-primary/5")}
               >
-                <span className="min-w-0 truncate">{option.label}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  {option.icon}
+                  <span className="min-w-0 truncate">{option.label}</span>
+                </span>
                 {selected && <Check className="size-4 shrink-0 text-primary" aria-hidden="true" />}
               </button>
             );
