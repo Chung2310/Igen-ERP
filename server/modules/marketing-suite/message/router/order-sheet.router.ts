@@ -4,8 +4,10 @@ import Joi from "joi";
 import { orderSheetController } from "../controller/order-sheet.controller.ts";
 import { requireAuth } from "../../shared/middleware/auth";
 import { validateRequest } from "../../../../middleware/validation";
+import { leadSheetRouter } from "./lead-sheet.router";
 
 export const orderSheetRouter = Router();
+orderSheetRouter.use("/integrations/:integrationId/leads", leadSheetRouter);
 const integrationParams = { params: Joi.object({ integrationId: Joi.string().hex().length(24).required() }) };
 const orderParams = { params: Joi.object({ orderId: Joi.string().guid({ version: ["uuidv4"] }).required() }) };
 

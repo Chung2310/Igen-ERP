@@ -3,6 +3,7 @@ import { CustomerService } from "../../../customer-management/customer.service";
 import { CustomerModel } from "../../../customer-management/models/customer.model";
 import { normalizePhone, phoneLookupVariants } from "../../../customer-management/customer-normalization";
 import { appendCustomerNotes } from "../../../customer-management/customer-notes";
+import { queuePageCustomerSheet } from "./page-customer-sheet.service";
 
 type IntakeField = { key: string; label: string };
 export const PAGE_CUSTOMER_NOTES_KEY = "__customer_notes";
@@ -51,11 +52,17 @@ export async function savePageCustomer(input: {
   const state = await getModuleStateForCompany(input.companyCode);
   if (!state.exists || isServiceSubscriptionBlocked(state) || !state.modules?.includes("customer")) return undefined;
   const companyCode = input.companyCode.trim().toUpperCase();
+  const saved = async (customerId: string) => {
+    await queuePageCustomerSheet(companyCode, input.pageId, customerId).catch(error => {
+      console.error("[PageCustomerSheet] Không thể xếp lịch đồng bộ hồ sơ ERP:", error);
+    });
+    return customerId;
+  };
   const remember = async (customer: { _id: unknown; email?: string; address?: string; contactName?: string }) => {
     const notes = [...additions, ...profileNotes.filter(field => String(customer[field.key as "email" | "address" | "contactName"] || "").trim() !== field.value)
       .map(field => `${field.label}: ${field.value}`)];
     await CustomerService.appendNotes({ companyCode }, String(customer._id), notes);
-    return String(customer._id);
+    return saved(String(customer._id));
   };
   const filter = input.customerId ? { companyCode, _id: input.customerId }
     : { companyCode, normalizedPhone: { $in: phoneLookupVariants(phone) } };
@@ -67,7 +74,7 @@ export async function savePageCustomer(input: {
       ...profile, name: profile.name?.slice(0, 200) || `Khách Page ${phone.slice(-4)}`, phone, source: "page",
       notes: appendCustomerNotes(undefined, additions),
     }, { id: "page-chatbot", name: "Chatbot Page" });
-    return String(customer._id);
+    return saved(String(customer._id));
   } catch (error) {
     if ((error as { code?: string }).code !== "CUSTOMER_PHONE_EXISTS") throw error;
     const duplicate = await CustomerModel.findOne({ companyCode, normalizedPhone: { $in: phoneLookupVariants(phone) } }).select("_id email address contactName").lean();

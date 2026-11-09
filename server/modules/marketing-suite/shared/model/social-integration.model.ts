@@ -22,6 +22,13 @@ const SocialIntegrationSchema = new Schema<ISocialIntegration>({
   verifyToken: { type: String },
   isMock: { type: Boolean, default: false },
   aiAutoReplyConfig: { type: AiAutoReplyConfigSchema, default: () => ({}) },
+  leadSheetConfig: {
+    enabled: { type: Boolean, default: false },
+    spreadsheetUrl: { type: String, default: "", trim: true },
+    spreadsheetId: { type: String, default: "", trim: true },
+    sheetName: { type: String, default: "Leads", trim: true, maxlength: 80 },
+    updatedAt: { type: Date },
+  },
   orderSheetConfig: {
     enabled: { type: Boolean, default: false },
     spreadsheetUrl: { type: String, default: "", trim: true },

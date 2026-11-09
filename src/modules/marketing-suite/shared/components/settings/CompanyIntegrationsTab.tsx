@@ -8,6 +8,7 @@ import { toast } from "../../../../../pages/Toast";
 import { socialIntegrationService, SocialIntegration } from "../../services/socialIntegrationService";
 import { getAccessToken } from "../../services/authService";
 import OrderSheetConfigCard from "./OrderSheetConfigCard";
+import LeadSheetConfigCard from "./LeadSheetConfigCard";
 import TelegramOrderConfigCard from "./TelegramOrderConfigCard";
 import SepayConfigCard from "./SepayConfigCard";
 import IntegrationSection from "./IntegrationSection";
@@ -1557,6 +1558,9 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       </div>
                     </div>
 
+                    {item.platform === "Facebook" && (
+                      <LeadSheetConfigCard integration={item} />
+                    )}
                     {item.platform === "Facebook" && (
                       <OrderSheetConfigCard
                         integration={item}
