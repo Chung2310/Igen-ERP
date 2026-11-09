@@ -6,6 +6,8 @@ import QuotationApp from "./App";
 import "./styles.css";
 import "./homepage.css";
 import "./erp.css";
+import "./hr-alignment.css";
+import "./quotation-controls.css";
 
 function ScopedQuotation() {
   const { userProfile } = useAuth(); const { activeBranchId } = useBranch();

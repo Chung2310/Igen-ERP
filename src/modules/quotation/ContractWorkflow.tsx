@@ -4,6 +4,8 @@ import { api, createGeneratedExport, downloadGeneratedFile, getLatestGeneratedFi
 import { formatVndInputValue, parseVndInputValue, updateVndInput } from "./money-input";
 import type { AcceptanceRecord, Contract, Quote } from "./types";
 import { AcceptanceCreationDialog, ApprovedEstimatePickerDialog, ContractCreationDialog } from "./DocumentDialogs";
+import VietnameseDatePicker from "./VietnameseDatePicker";
+import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import "./contract-workflow.css";
 
 type View = "contracts" | "acceptances";
@@ -234,7 +236,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
   if (loading) return <div className="workflow-page"><div className="workflow-loading"><span className="spinner spinner-dark" />Đang tải dữ liệu…</div></div>;
   const sectionHeader = <>
     <header className={`workflow-header${view === "contracts" && !id ? " workflow-contract-list-header" : ""}`}>
-      <div className="workflow-header-copy"><span className="workflow-header-badge">{id ? view === "contracts" ? "CHI TIẾT HỢP ĐỒNG" : "CHI TIẾT NGHIỆM THU" : view === "contracts" ? "QUẢN LÝ HỢP ĐỒNG" : "QUẢN LÝ NGHIỆM THU"}</span><h1>{view === "contracts" ? "Hợp đồng" : "Nghiệm thu"}</h1><p>{view === "contracts" ? id ? "Nội dung và trạng thái hồ sơ hợp đồng." : "Theo dõi các hợp đồng được tạo từ dự toán đã duyệt." : id ? "Thông tin bàn giao, khối lượng và giá trị nghiệm thu." : "Theo dõi biên bản nghiệm thu từ các hợp đồng đã ký."}</p></div>
+      <div className="workflow-header-copy"><span className="workflow-header-badge">{id ? view === "contracts" ? "CHI TIẾT HỢP ĐỒNG" : "CHI TIẾT NGHIỆM THU" : "DANH SÁCH"}</span><h1>{view === "contracts" ? "Hợp đồng" : "Nghiệm thu"}</h1></div>
       {view === "contracts" && !id && <button type="button" className="button button-primary" onClick={() => setShowEstimatePicker(true)} disabled={!hasQuotationCapability("quotation-contract:manage")}>Tạo hợp đồng từ dự toán</button>}
     </header>
   </>;
@@ -244,12 +246,12 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
       <span className="workflow-card-header"><strong className="workflow-card-code">{item.contractNumber}</strong><span className={`workflow-status ${item.status === "signed" ? "is-complete" : "is-draft"}`}>{item.status === "signed" ? "Đã ký" : "Bản nháp"}</span></span>
       <span className="workflow-card-body"><span className="workflow-card-label">Khách hàng</span><strong className="workflow-card-title">{item.customerName}</strong><span className="workflow-card-contact">{[item.customerPhone, item.customerEmail].filter(Boolean).join(" · ") || "Chưa có thông tin liên hệ"}</span><span className="workflow-card-description">Từ dự toán {item.quoteNumber}{item.projectName ? ` · ${item.projectName}` : ""}</span></span>
       <span className="workflow-card-footer"><span className="workflow-card-total"><small>Giá trị hợp đồng</small><strong>{formatMoney(item.total, item.currency)}</strong></span><span className="workflow-card-open">Mở hồ sơ <span aria-hidden="true">→</span></span></span>
-    </button>)}</div> : <div className="workflow-empty"><h2>Chưa có hợp đồng</h2><p>Chọn dự toán đã duyệt để bắt đầu tạo hợp đồng.</p></div>
+    </button>)}</div> : <div className="workflow-empty"><QuotationEmptyIllustration kind="contract" /><h2>Chưa có hợp đồng</h2><p>Chọn dự toán đã duyệt để bắt đầu tạo hợp đồng.</p></div>
       : records.length ? <div className="workflow-cards-grid">{records.map((item) => <button className="workflow-card" key={item._id} onClick={() => navigate("acceptances", item._id)}>
         <span className="workflow-card-header"><strong className="workflow-card-code">{item.acceptanceNumber}</strong><span className={`workflow-status ${item.status === "completed" ? "is-complete" : "is-draft"}`}>{item.status === "completed" ? "Hoàn tất" : "Bản nháp"}</span></span>
         <span className="workflow-card-body"><span className="workflow-card-label">Khách hàng</span><strong className="workflow-card-title">{contracts.find((linkedContract) => linkedContract._id === item.contractId)?.customerName || item.contractNumber}</strong><span className="workflow-card-contact">{[contracts.find((linkedContract) => linkedContract._id === item.contractId)?.customerPhone, contracts.find((linkedContract) => linkedContract._id === item.contractId)?.customerEmail].filter(Boolean).join(" · ") || "Chưa có thông tin liên hệ"}</span><span className="workflow-card-description">Biên bản {item.acceptanceNumber} · Tạo ngày {formatDate(item.createdAt)}</span></span>
         <span className="workflow-card-footer"><span className="workflow-card-total"><small>Mã biên bản</small><strong>{item.acceptanceNumber}</strong></span><span className="workflow-card-open">Mở hồ sơ <span aria-hidden="true">→</span></span></span>
-      </button>)}</div> : <div className="workflow-empty"><h2>Chưa có biên bản nghiệm thu</h2><p>Mở hợp đồng đã ký và chọn “Tạo nghiệm thu”.</p></div>}
+      </button>)}</div> : <div className="workflow-empty"><QuotationEmptyIllustration kind="acceptance" /><h2>Chưa có biên bản nghiệm thu</h2><p>Mở hợp đồng đã ký và chọn “Tạo nghiệm thu”.</p></div>}
     {showEstimatePicker && <ApprovedEstimatePickerDialog contracts={contracts} notify={notify} onClose={() => setShowEstimatePicker(false)} onSelect={(quote) => { setShowEstimatePicker(false); setContractSourceQuote(quote); }} />}
     {contractSourceQuote && <ContractCreationDialog quote={contractSourceQuote} notify={notify} onClose={() => setContractSourceQuote(null)} onCreated={(createdId, fileError) => {
       setContractSourceQuote(null);
@@ -259,7 +261,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
   </div>;
 
   if (!contract || (view === "acceptances" && !record)) {
-    return <div className="workflow-page">{sectionHeader}<button className="button button-soft" onClick={() => navigate(view)}>Quay lại</button><p>Không tìm thấy chứng từ.</p></div>;
+    return <div className="workflow-page">{sectionHeader}<div className="workflow-empty"><QuotationEmptyIllustration kind="search" /><p>Không tìm thấy chứng từ.</p><button className="button button-soft" onClick={() => navigate(view)}>Quay lại</button></div></div>;
   }
 
   if (view === "contracts") {
@@ -358,7 +360,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
 
       <div className="workflow-footer">
         <span>{contract.status === "signed" ? "Đã ký ngày " + contract.signedDate : "Hợp đồng đang ở bản nháp"}</span>
-        {editable && <div><input aria-label="Ngày ký hợp đồng" type="date" value={signedDate} onChange={(event) => setSignedDate(event.target.value)} /><button className="button button-primary" disabled={!hasQuotationCapability("quotation-contract:manage") || (busy || !signedDate || !scope.trim() || !projectName.trim() || !projectAddress.trim() || !deliverables.trim() || !signingPlace.trim() || !paymentTerms.trim() || !deliveryTerms.trim())} onClick={() => void signContract()}>Xác nhận đã ký</button></div>}
+        {editable && <div><VietnameseDatePicker label="Ngày ký hợp đồng" value={signedDate} onChange={setSignedDate} disabled={busy} clearable={false} /><button className="button button-primary" disabled={!hasQuotationCapability("quotation-contract:manage") || (busy || !signedDate || !scope.trim() || !projectName.trim() || !projectAddress.trim() || !deliverables.trim() || !signingPlace.trim() || !paymentTerms.trim() || !deliveryTerms.trim())} onClick={() => void signContract()}>Xác nhận đã ký</button></div>}
       </div>
       <div className="workflow-origin"><button className="text-button" onClick={() => openQuote(contract.quoteId)}>Xem dự toán gốc {contract.quoteNumber} →</button></div>
       {showAcceptanceDialog && <AcceptanceCreationDialog contract={contract} onClose={() => setShowAcceptanceDialog(false)} onCreated={(nextId, fileError) => { setShowAcceptanceDialog(false); navigate("acceptances", nextId); notify(fileError ? `Đã lưu biên bản nhưng chưa tạo được file: ${fileError}` : "Đã tạo biên bản nghiệm thu.", fileError ? "error" : "success"); }} notify={notify} />}
@@ -447,7 +449,7 @@ export default function ContractWorkflow({ view, id, navigate, openQuote, notify
       <form className="workflow-form workflow-acceptance-form" onSubmit={(event) => void saveAcceptance(event)}>
         <h2>Biên bản nghiệm thu</h2>
         <div className="workflow-two-fields">
-          <label>Ngày nghiệm thu{editable ? <input type="date" required min={contract.signedDate ?? undefined} value={acceptedDate} onChange={(event) => setAcceptedDate(event.target.value)} /> : <p className="workflow-text-value">{formatDate(acceptance.acceptedDate)}</p>}</label>
+          <div className="workflow-date-field"><span>Ngày nghiệm thu</span>{editable ? <VietnameseDatePicker label="Ngày nghiệm thu" value={acceptedDate} onChange={setAcceptedDate} min={contract.signedDate ?? undefined} required clearable={false} /> : <p className="workflow-text-value">{formatDate(acceptance.acceptedDate)}</p>}</div>
           <label>Địa điểm nghiệm thu{editable ? <input required maxLength={250} value={location} onChange={(event) => setLocation(event.target.value)} /> : <p className="workflow-text-value">{location || "—"}</p>}</label>
         </div>
         <div className="workflow-two-fields">

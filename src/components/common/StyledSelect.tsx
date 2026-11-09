@@ -18,6 +18,7 @@ type StyledSelectProps = {
   disabled?: boolean;
   className?: string;
   menuClassName?: string;
+  menuLabel?: string;
   appearance?: "default" | "erp";
   describedBy?: string;
   required?: boolean;
@@ -32,6 +33,7 @@ export function StyledSelect({
   disabled = false,
   className = "",
   menuClassName = "",
+  menuLabel,
   describedBy,
   required = false,
 }: StyledSelectProps) {
@@ -48,7 +50,7 @@ export function StyledSelect({
   const updatePosition = useCallback(() => {
     const bounds = triggerRef.current?.getBoundingClientRect();
     if (!bounds) return;
-    const desiredHeight = Math.min(280, options.length * 40 + 12);
+    const desiredHeight = Math.min(280, options.length * 40 + 12 + (menuLabel ? 28 : 0));
     const spaceBelow = window.innerHeight - bounds.bottom - 12;
     const spaceAbove = bounds.top - 12;
     const placeAbove = spaceBelow < desiredHeight && spaceAbove > spaceBelow;
@@ -59,7 +61,7 @@ export function StyledSelect({
       width: Math.min(bounds.width, window.innerWidth - 24),
       maxHeight,
     });
-  }, [options.length]);
+  }, [options.length, menuLabel]);
 
   const openMenu = () => {
     if (disabled || options.length === 0) return;
@@ -178,6 +180,7 @@ export function StyledSelect({
           className={cn("fixed z-[200] overflow-y-auto rounded-xl border border-outline-variant bg-surface-container-lowest p-1 text-on-surface shadow-lg", menuClassName)}
           style={position}
         >
+          {menuLabel && <p role="presentation" className="px-3 py-1.5 text-xs font-medium text-on-surface-variant">{menuLabel}</p>}
           {options.map((option, index) => {
             const selected = option.value === value;
             return (

@@ -6,6 +6,8 @@ import {
 } from "../api/financeAssets.api";
 import { canManageAssets } from "./FixedAssetsPage";
 import { FinanceEmptyState } from "../components/FinanceEmptyState";
+import { AdminDatePicker } from "../../../components/user-admin/AdminDatePicker";
+import { StyledSelect } from "../../../components/common/StyledSelect";
 
 const RESULT_LABELS: Record<string, string> = {
   pending: "Chưa kiểm",
@@ -148,7 +150,6 @@ export default function AssetInventoryPage({
             ["sessionCode", "Mã phiên", "text"],
             ["name", "Tên phiên", "text"],
             ["branchIds", "Chi nhánh (để trống = toàn công ty)", "text"],
-            ["inventoryDate", "Ngày kiểm kê", "date"],
           ].map(([field, label, type]) => (
             <label key={field} className="text-sm font-semibold text-on-surface-variant">
               {label}
@@ -161,6 +162,7 @@ export default function AssetInventoryPage({
               />
             </label>
           ))}
+          <AdminDatePicker label="Ngày kiểm kê" value={openForm.inventoryDate} onChange={(inventoryDate) => setOpenForm((current) => ({ ...current, inventoryDate }))} />
           <button
             type="button"
             disabled={busy}
@@ -213,16 +215,9 @@ export default function AssetInventoryPage({
                 placeholder="Quét hoặc nhập mã vạch"
                 className="flex-1 rounded-md border border-outline-variant px-3 py-2 text-sm"
               />
-              <select
-                aria-label="Kết quả kiểm kê"
-                value={result}
-                onChange={(event) => setResult(event.target.value as typeof result)}
-                className="finance-select"
-              >
-                <option value="present">Khớp</option>
-                <option value="damaged">Hư hỏng</option>
-                <option value="surplus">Thừa</option>
-              </select>
+              <StyledSelect ariaLabel="Kết quả kiểm kê" className="h-10 w-40 rounded-md" menuClassName="finance-select-menu" value={result} onChange={(value) => setResult(value as typeof result)} options={[
+                { value: "present", label: "Khớp" }, { value: "damaged", label: "Hư hỏng" }, { value: "surplus", label: "Thừa" },
+              ]} />
               <button
                 type="button"
                 disabled={busy}

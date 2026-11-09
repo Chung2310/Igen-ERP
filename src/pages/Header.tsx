@@ -442,7 +442,7 @@ export default function Header({ currentTab, onSearchSelect, onAssistantOpen, va
               title={canOpenAssistant ? "Mở Trợ lý AI" : "Bạn chưa được cấp quyền dùng Trợ lý AI"}
               className="hidden size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40 lg:flex"
             >
-              <AiAssistantIcon className="size-7" />
+              <AiAssistantIcon className="size-6" />
             </button>
             <div ref={policiesMenuRef} className="relative">
               <button

@@ -105,7 +105,7 @@ export default function RetailCommissionPoliciesPanel({ companyCode, partners }:
           <h2 id="retail-policies-heading" className="text-balance text-lg font-semibold text-on-surface">Chính sách hoa hồng</h2>
           <p className="mt-1 text-pretty text-sm text-on-surface-variant">Tạo phiên bản mức chung toàn công ty hoặc mức riêng cho cộng tác viên bán lẻ.</p>
         </div>
-        <ErpPrimaryButton type="button" icon={Plus} onClick={() => open()} className="min-h-11 justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Tạo mới</ErpPrimaryButton>
+        <ErpPrimaryButton type="button" icon={Plus} onClick={() => open()} className="min-h-9 justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Tạo mới</ErpPrimaryButton>
       </div>
       {message && <p role="status" className="mt-4 text-sm text-on-surface-variant">{message}</p>}
       {error ? <p role="alert" className="mt-4 text-sm text-error">{error} <button type="button" onClick={() => void load()} className="font-semibold underline focus-visible:outline-2 focus-visible:outline-primary">Thử lại</button></p>
@@ -142,7 +142,7 @@ export default function RetailCommissionPoliciesPanel({ companyCode, partners }:
           <label className="grid gap-1 text-sm font-medium">Phụ kiện (%)<input className={fieldClass} type="number" min="10" max="15" step="0.01" required value={form.accessoryPercent} onChange={(event) => setForm((current) => ({ ...current, accessoryPercent: event.target.value }))} disabled={saving} /></label>
           <label className="grid gap-1 text-sm font-medium">Công sửa chữa (%)<input className={fieldClass} type="number" min="10" max="15" step="0.01" required value={form.repairPercent} onChange={(event) => setForm((current) => ({ ...current, repairPercent: event.target.value }))} disabled={saving} /></label>
         </div>
-        <div className="flex flex-wrap justify-end gap-2 border-t border-outline-variant pt-4"><button type="button" onClick={close} disabled={saving} className="min-h-11 rounded-lg border border-outline-variant px-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Hủy</button><ErpPrimaryButton type="submit" icon={Plus} disabled={saving} className="min-h-11 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">{saving ? "Đang lưu..." : draft === "new" ? "Lưu phiên bản" : "Cập nhật chính sách"}</ErpPrimaryButton></div>
+        <div className="flex flex-wrap justify-end gap-2 border-t border-outline-variant pt-4"><button type="button" onClick={close} disabled={saving} className="min-h-9 rounded-lg border border-outline-variant px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">Hủy</button><ErpPrimaryButton type="submit" icon={Plus} disabled={saving} className="min-h-9 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50">{saving ? "Đang lưu..." : draft === "new" ? "Lưu phiên bản" : "Cập nhật chính sách"}</ErpPrimaryButton></div>
       </form>
     </dialog>}
   </section>;

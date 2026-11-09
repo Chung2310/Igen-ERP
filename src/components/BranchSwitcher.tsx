@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Check, ChevronDown, GitBranch } from "lucide-react";
+import { Building2, Check, ChevronDown } from "lucide-react";
 import type { BranchOption } from "../context/BranchContext";
 
 interface BranchSwitcherProps {
@@ -68,11 +68,11 @@ export default function BranchSwitcher({ branches, activeBranchId, onChange }: B
             setOpen(true);
           }
         }}
-        className="flex max-w-28 min-w-0 items-center gap-1.5 rounded-xl bg-[#eaf8ff] px-2.5 py-2 text-[#075a82] transition-colors hover:bg-[#d9f2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00adfc] sm:max-w-[260px]"
+        className="flex h-10 max-w-28 min-w-0 items-center gap-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-on-surface shadow-sm transition-colors hover:bg-surface focus-visible:border-primary focus-visible:outline-none sm:max-w-[260px]"
       >
-        <GitBranch className="h-4 w-4 shrink-0 text-[#0099df]" aria-hidden="true" />
+        <Building2 className="h-4 w-4 shrink-0 text-on-surface-variant" strokeWidth={1.8} aria-hidden="true" />
         <span className="hidden shrink-0 text-xs sm:inline">Chi nhánh</span>
-        <span className="min-w-0 truncate text-xs font-medium">{activeBranch ? `${activeBranch.name} (${activeBranch.code})` : "Chọn chi nhánh"}</span>
+        <span className="min-w-0 truncate text-xs">{activeBranch ? `${activeBranch.name} (${activeBranch.code})` : "Chọn chi nhánh"}</span>
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
 

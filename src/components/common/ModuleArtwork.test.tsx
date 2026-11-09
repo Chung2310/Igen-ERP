@@ -36,21 +36,22 @@ describe("ModuleArtwork", () => {
     expect(rendered).not.toContain(fallback);
   });
 
-  it("uses a distinct solid tile with a white pictogram", () => {
+  it("uses soft gradient tiles with custom white pictograms", () => {
     const svg = renderToStaticMarkup(<ModuleArtwork module="NHÂN SỰ" />);
-    expect(svg).toContain('rx="11" fill="#E95070"');
-    expect(svg).toContain('#FFFFFF');
-    expect(svg).not.toContain('<linearGradient');
+    expect(svg).toContain('<linearGradient');
+    expect(svg).toContain('stop-color="#F58AA0"');
+    expect(svg).toContain('fill="#FFFFFF"');
+    expect(svg).not.toContain('class="lucide');
     const chat = renderToStaticMarkup(<ModuleArtwork module="TRÒ CHUYỆN" />);
-    expect(chat).toContain('rx="11" fill="#7958C9"');
-    expect(chat).not.toContain('#E95070');
+    expect(chat).toContain('stop-color="#B39AE9"');
+    expect(chat).toContain('M6 9h31');
   });
 
-  it("uses a recognizable robot face for the AI assistant", () => {
-    const svg = renderToStaticMarkup(<ModuleArtwork module="TRỢ LÝ AI" />);
-    const fallback = renderToStaticMarkup(<ModuleArtwork module={"__unknown__" as TabType} />);
-    expect(svg).toContain('x="8" y="15" width="32" height="28"');
-    expect(svg).toContain('cx="19" cy="28"');
-    expect(svg).not.toBe(fallback);
+  it("keeps Báo giá and Tài chính visually distinct", () => {
+    const quotation = renderToStaticMarkup(<ModuleArtwork module="BÁO GIÁ" />);
+    const finance = renderToStaticMarkup(<ModuleArtwork module="TÀI CHÍNH" />);
+    expect(quotation).toContain('M10 5h21l8 8');
+    expect(finance).toContain('m5 18 19-11 19 11');
+    expect(quotation).not.toBe(finance);
   });
 });

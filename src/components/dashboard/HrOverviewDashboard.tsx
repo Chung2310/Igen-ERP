@@ -4,7 +4,7 @@ import {
   FileText, FileWarning, FolderTree, GraduationCap, Layers3, ShieldCheck, UsersRound,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ComponentType, ReactNode } from "react";
 import type { DashboardSummary } from "../../types/dashboard";
 import type { RecruitmentApplicant, RecruitmentJob, RecruitmentPipeline } from "../../types/recruitment";
@@ -16,6 +16,7 @@ import { AnimatedOverviewValue } from "./AnimatedOverviewValue";
 import { OverviewKpiDelta } from "./OverviewKpiDelta";
 import { useOverviewPeriod } from "./OverviewPeriodContext";
 import { summarizeHrRecruitment } from "./hrRecruitmentOverview";
+import type { DepartmentPayrollRow } from "./hrPayrollOverview";
 
 type Icon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
@@ -87,12 +88,13 @@ function PanelHeader({ title, badge }: { title: string; badge?: string }) {
 }
 
 const departmentColors = ["var(--hr-analytics-blue)", "var(--hr-analytics-teal)", "var(--hr-analytics-orange)", "var(--hr-analytics-violet)", "var(--hr-analytics-red)", "var(--hr-analytics-cyan)", "var(--hr-analytics-gold)", "var(--hr-analytics-green)"];
+const pieCallout = (name: string, share: number, x: unknown, y: unknown, anchor: unknown) => <text x={Number(x)} y={Number(y)} textAnchor={anchor === "end" ? "end" : "start"} dominantBaseline="middle" fontFamily="inherit" style={{ fill: "var(--color-on-surface)", fontSize: 11, fontWeight: 400 }}>{name.length > 13 ? `${name.slice(0, 12)}…` : name} {Math.round(share * 100)}%</text>;
 
-function HeadcountChart({ current, departments, loading }: { current: number | null; departments: Array<{ name: string; value: number }> | null; loading: boolean }) {
+function HeadcountChart({ current, departments, loading, enterpriseCount, branchEmployeeCount, branchName, hasActiveBranch }: { current: number | null; departments: Array<{ name: string; value: number }> | null; loading: boolean; enterpriseCount: number | null; branchEmployeeCount: number | null; branchName: string; hasActiveBranch: boolean }) {
   const reduceMotion = useReducedMotion();
   const departmentRows = (departments ?? []).filter(row => row.value > 0).sort((a, b) => b.value - a.value);
-  const rows = departmentRows.length > 4
-    ? [...departmentRows.slice(0, 4), { name: "Các phòng ban khác", value: departmentRows.slice(4).reduce((sum, row) => sum + row.value, 0) }]
+  const rows = departmentRows.length > 3
+    ? [...departmentRows.slice(0, 3), { name: "Phòng ban khác", value: departmentRows.slice(3).reduce((sum, row) => sum + row.value, 0) }]
     : departmentRows;
   const percent = (value: number) => current ? `${(value / current * 100).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}%` : "0%";
 
@@ -101,10 +103,46 @@ function HeadcountChart({ current, departments, loading }: { current: number | n
     {loading ? <div className="h-40 rounded-md bg-surface-container-low" role="status" aria-label="Đang tải biểu đồ quy mô nhân sự" />
       : !current || !rows.length ? <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">Chưa có dữ liệu phòng ban. Mở Sơ đồ tổ chức để xem nhân sự.</p>
         : <div className="min-w-0" role="img" aria-label={`Cơ cấu nhân sự theo phòng ban, tổng ${numberText(current)} người: ${rows.map(row => `${row.name} ${numberText(row.value)} người, ${percent(row.value)}`).join("; ")}`}>
-          <div className="relative h-40 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={rows} dataKey="value" nameKey="name" innerRadius="56%" outerRadius="80%" paddingAngle={1} stroke="none" isAnimationActive={!reduceMotion} animationDuration={700}>{rows.map((row, index) => <Cell key={`${row.name}-${index}`} fill={departmentColors[index % departmentColors.length]} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người · ${percent(value)}` : value} /></PieChart></ResponsiveContainer></OverviewChartViewport><span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><strong className="text-xl font-semibold tabular-nums text-on-surface">{numberText(current)}</strong><span className="text-xs text-on-surface-variant">nhân sự</span></span></div>
-          <ul className="space-y-1.5 text-xs">{rows.map((row, index) => <li key={`${row.name}-${index}`} className="flex items-center justify-between gap-3"><span className="flex min-w-0 items-center gap-2 text-on-surface-variant"><span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: departmentColors[index % departmentColors.length] }} /><span className="truncate" title={row.name}>{row.name}</span></span><strong className="shrink-0 tabular-nums text-on-surface">{numberText(row.value)} · {percent(row.value)}</strong></li>)}</ul>
+          <div className="relative h-48 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={rows} dataKey="value" nameKey="name" innerRadius={39} outerRadius={62} paddingAngle={1} stroke="none" labelLine={{ stroke: "var(--color-on-surface-variant)", strokeWidth: 1 }} label={({ name, percent: share, x, y, textAnchor }) => pieCallout(String(name), share ?? 0, x, y, textAnchor)} isAnimationActive={!reduceMotion} animationDuration={700}>{rows.map((row, index) => <Cell key={`${row.name}-${index}`} fill={departmentColors[index % departmentColors.length]} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người · ${percent(value)}` : value} /></PieChart></ResponsiveContainer></OverviewChartViewport><span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><strong className="text-xl font-semibold tabular-nums text-on-surface">{numberText(current)}</strong><span className="text-xs text-on-surface-variant">nhân sự</span></span></div>
         </div>}
+    <p className="mt-3 border-t border-outline-variant pt-2 text-pretty text-xs text-on-surface-variant">Tổng số nhân sự doanh nghiệp: <strong className="tabular-nums text-on-surface">{numberText(enterpriseCount, loading)}</strong>{hasActiveBranch && <> · {branchName}: <strong className="tabular-nums text-on-surface">{numberText(branchEmployeeCount, loading)}</strong></>}</p>
   </Card>;
+}
+
+function PayrollDepartmentChart({ rows, loading }: { rows: DepartmentPayrollRow[] | null; loading: boolean }) {
+  const reduceMotion = useReducedMotion();
+  const total = rows?.reduce((sum, row) => sum + row.total, 0) ?? 0;
+  const topRows = rows?.slice(0, 3) ?? [];
+  const pieRows = rows && rows.length > 3
+    ? [...topRows, { name: "Phòng ban khác", total: rows.slice(3).reduce((sum, row) => sum + row.total, 0) }]
+    : topRows;
+  const money = (value: number) => `${Math.round(value).toLocaleString("vi-VN")} ₫`;
+  return <section className="overview-panel hr-analytics h-full min-w-0 space-y-3" aria-labelledby="hr-payroll-department-heading">
+    <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="hr-payroll-department-heading" className="text-balance text-lg font-semibold text-on-surface">Lương theo phòng ban</h2><button type="button" onClick={() => openHrTab("payroll")} className="text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary">Chi tiết</button></div>
+    {loading ? <div className="h-40 rounded-md bg-surface-container-low" role="status" aria-label="Đang tải cơ cấu lương theo phòng ban" />
+      : !rows ? <p role="status" className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">Không tải được dữ liệu lương nhân sự.</p>
+        : !rows.length ? <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">Chưa có nhân sự để thống kê lương.</p>
+          : <div role="img" aria-label={`Cơ cấu quỹ lương theo phòng ban: ${rows.map(row => `${row.name} ${money(row.total)}`).join("; ")}`}>
+              {total > 0 ? <div className="h-48 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pieRows.filter(row => row.total > 0)} dataKey="total" nameKey="name" innerRadius={39} outerRadius={62} stroke="none" labelLine={{ stroke: "var(--color-on-surface-variant)", strokeWidth: 1 }} label={({ name, percent: share, x, y, textAnchor }) => pieCallout(String(name), share ?? 0, x, y, textAnchor)} isAnimationActive={!reduceMotion} animationDuration={700}>{pieRows.filter(row => row.total > 0).map((row, index) => <Cell key={row.name} fill={departmentColors[index % departmentColors.length]} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? money(value) : value} /></PieChart></ResponsiveContainer></OverviewChartViewport></div>
+                : <p className="rounded-md bg-surface-container-low px-3 py-4 text-center text-pretty text-xs text-on-surface-variant">Chưa có mức lương được cập nhật.</p>}
+            </div>}
+  </section>;
+}
+
+function AveragePayrollChart({ rows, loading }: { rows: DepartmentPayrollRow[] | null; loading: boolean }) {
+  const reduceMotion = useReducedMotion();
+  const averageRows = [...(rows ?? [])].sort((a, b) => b.average - a.average);
+  const money = (value: number) => `${Math.round(value).toLocaleString("vi-VN")} ₫`;
+  const axisMoney = (value: number) => value ? `${(value / 1_000_000).toLocaleString("vi-VN", { maximumFractionDigits: 1 })} tr` : "0";
+  return <section className="overview-panel hr-analytics min-w-0 space-y-3" aria-labelledby="hr-average-payroll-heading">
+    <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="hr-average-payroll-heading" className="text-balance text-lg font-semibold text-on-surface">Lương bình quân theo phòng ban</h2><button type="button" onClick={() => openHrTab("payroll")} className="text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary">Chi tiết</button></div>
+    {loading ? <div className="h-40 rounded-md bg-surface-container-low" role="status" aria-label="Đang tải lương bình quân theo phòng ban" />
+      : !rows ? <p role="status" className="rounded-md bg-surface-container-low px-4 py-8 text-center text-pretty text-xs text-on-surface-variant">Không tải được dữ liệu lương nhân sự.</p>
+        : !rows.length ? <p className="rounded-md bg-surface-container-low px-4 py-8 text-center text-pretty text-xs text-on-surface-variant">Chưa có nhân sự để thống kê lương.</p>
+          : <div tabIndex={averageRows.length > 3 ? 0 : undefined} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-primary" role="img" aria-label={`Lương bình quân theo phòng ban, chưa cập nhật lương tính 0 đồng: ${averageRows.map(row => `${row.name} ${money(row.average)} trên ${row.count} nhân sự`).join("; ")}`}>
+            <div className="h-64 w-full" style={{ minWidth: Math.max(320, averageRows.length * 96) }}><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><BarChart data={averageRows} margin={{ top: 8, right: 12, bottom: 4, left: 8 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" axisLine={false} tickLine={false} interval={0} height={52} tick={{ fontSize: 11, fill: "var(--color-on-surface-variant)" }} tickFormatter={(name: string) => name.length > 12 ? `${name.slice(0, 11)}…` : name} /><YAxis axisLine={false} tickLine={false} width={54} tick={{ fontSize: 11, fill: "var(--color-on-surface-variant)" }} tickFormatter={axisMoney} /><Tooltip formatter={(value) => typeof value === "number" ? money(value) : value} cursor={false} /><Bar dataKey="average" name="Lương bình quân" fill="var(--hr-analytics-teal)" maxBarSize={38} isAnimationActive={!reduceMotion} animationDuration={700} /></BarChart></ResponsiveContainer></OverviewChartViewport></div>
+          </div>}
+  </section>;
 }
 
 function TaskChart({ summary, previous, loading }: { summary: DashboardSummary | null; previous: DashboardSummary | null; loading: boolean }) {
@@ -254,13 +292,16 @@ function Attendance({ summary, yesterdayAttendance, loading }: { summary: Dashbo
 }
 
 export function HrOverviewDashboard({
-  summary, previousSummary, yesterdayAttendance, employeeCount, employeeScope, loading, error, canSeeTimekeeping, canSeeRecruitment, applicants, jobs, pipeline,
+  summary, previousSummary, yesterdayAttendance, employeeCount, employeeScope, enterpriseCount, branchEmployeeCount, hasActiveBranch, loading, error, canSeeTimekeeping, canSeeRecruitment, applicants, jobs, pipeline, payrollRows,
 }: {
   summary: DashboardSummary | null;
   previousSummary: DashboardSummary | null;
   yesterdayAttendance: { checkedIn: number; late: number; total: number } | null;
   employeeCount: number | null;
   employeeScope: string;
+  enterpriseCount: number | null;
+  branchEmployeeCount: number | null;
+  hasActiveBranch: boolean;
   loading: boolean;
   error: boolean;
   canSeeTimekeeping: boolean;
@@ -268,6 +309,7 @@ export function HrOverviewDashboard({
   applicants: RecruitmentApplicant[] | null;
   jobs: RecruitmentJob[] | null;
   pipeline: RecruitmentPipeline | null;
+  payrollRows?: DepartmentPayrollRow[] | null;
 }) {
   const reduceMotion = useReducedMotion();
   const overviewPeriod = useOverviewPeriod();
@@ -280,11 +322,9 @@ export function HrOverviewDashboard({
   const contractTotal = contractCovered + contractMissing;
   const contractCoverage = contractTotal ? contractMissing === 0 ? 100 : Math.floor(contractCovered / contractTotal * 1000) / 10 : 0;
   const contractRows = [{ name: "Có hợp đồng hiệu lực", value: contractCovered, color: "var(--hr-analytics-teal)" }, { name: "Chưa có hợp đồng hiệu lực", value: contractMissing, color: "var(--hr-analytics-orange)" }];
-  const recruitmentShare = (headcount: number) => recruitment.openHeadcount ? Math.round(headcount / recruitment.openHeadcount * 100) : 0;
-  const recruitmentWidth = (headcount: number) => recruitment.openHeadcount ? headcount / recruitment.openHeadcount * 100 : 0;
-  const recruitmentRows = recruitment.departmentRows.slice(0, 4);
+  const recruitmentRows = recruitment.departmentRows;
   return (
-    <div className="space-y-4 pb-5">
+    <div className="space-y-3 pb-5">
       {error && <div role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">Không tải được số liệu nhân sự. Vui lòng thử lại sau.</div>}
       <section className="overview-panel space-y-3" aria-label="Tình hình nhân sự">
       <h3 className="text-balance text-lg font-semibold text-on-surface">Tình hình nhân sự</h3>
@@ -298,8 +338,8 @@ export function HrOverviewDashboard({
       </div>
       <p className="text-pretty text-xs text-on-surface-variant">Số nhân sự chỉ tính tài khoản còn tồn tại. Chấm công và đi muộn hiển thị số hôm nay, so sánh với hôm qua.</p>
       </section>
-      <div className={cn("grid items-stretch gap-4", canSeeRecruitment ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
-      <HeadcountChart current={employeeCount} departments={summary?.personnelNow?.departmentHeadcounts ?? null} loading={loading} />
+      <div className={cn("grid items-stretch gap-3", payrollRows !== undefined || canSeeRecruitment ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
+      <HeadcountChart current={employeeCount} departments={summary?.personnelNow?.departmentHeadcounts ?? null} loading={loading} enterpriseCount={enterpriseCount} branchEmployeeCount={branchEmployeeCount} branchName={employeeScope} hasActiveBranch={hasActiveBranch} />
       <section className="overview-panel hr-analytics min-w-0 space-y-3" aria-labelledby="hr-contract-summary-heading">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="hr-contract-summary-heading" className="text-balance text-lg font-semibold text-on-surface">Tình hình hợp đồng</h2>
@@ -308,11 +348,11 @@ export function HrOverviewDashboard({
         {loading ? <div className="h-40 rounded-md bg-surface-container-low" role="status" aria-label="Đang tải biểu đồ hợp đồng" />
           : !personnel || !contractTotal ? <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">Chưa có dữ liệu hợp đồng. Mở Chi tiết để kiểm tra.</p>
             : <div className="min-w-0" role="img" aria-label={`Tỷ lệ có hợp đồng hiệu lực ${contractCoverage}%. ${contractRows.map(row => `${row.name}: ${numberText(row.value)} người`).join("; ")}`}>
-              <div className="relative h-40 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={contractRows.filter(row => row.value > 0)} dataKey="value" nameKey="name" innerRadius="56%" outerRadius="80%" stroke="none" isAnimationActive={!reduceMotion} animationDuration={700}>{contractRows.filter(row => row.value > 0).map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người` : value} /></PieChart></ResponsiveContainer></OverviewChartViewport><span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><strong className="text-xl font-semibold tabular-nums text-on-surface">{contractCoverage}%</strong><span className="text-xs text-on-surface-variant">có hợp đồng</span></span></div>
-              <ul className="space-y-1.5 text-xs">{contractRows.map(row => <li key={row.name} className="flex items-center justify-between gap-3"><span className="flex min-w-0 items-center gap-2 text-on-surface-variant"><span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: row.color }} />{row.name}</span><strong className="shrink-0 tabular-nums text-on-surface">{numberText(row.value)}</strong></li>)}</ul>
+              <div className="relative h-48 min-w-0"><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={contractRows.filter(row => row.value > 0)} dataKey="value" nameKey="name" innerRadius={39} outerRadius={62} stroke="none" labelLine={{ stroke: "var(--color-on-surface-variant)", strokeWidth: 1 }} label={({ name, percent: share, x, y, textAnchor }) => pieCallout(String(name).startsWith("Có") ? "Có HĐ" : "Chưa HĐ", share ?? 0, x, y, textAnchor)} isAnimationActive={!reduceMotion} animationDuration={700}>{contractRows.filter(row => row.value > 0).map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người` : value} /></PieChart></ResponsiveContainer></OverviewChartViewport><span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center"><strong className="text-xl font-semibold tabular-nums text-on-surface">{contractCoverage}%</strong><span className="text-xs text-on-surface-variant">có hợp đồng</span></span></div>
             </div>}
         {!loading && personnel && <p className="border-t border-outline-variant pt-2 text-pretty text-xs tabular-nums text-on-surface-variant">Sắp hết hạn: {numberText(personnel.expiringContractCount)} · Gia hạn trong kỳ: {numberText(personnel.renewedEmployeeCount)}</p>}
       </section>
+      {payrollRows !== undefined && <PayrollDepartmentChart rows={payrollRows} loading={loading} />}
       {canSeeRecruitment && <section className="overview-panel min-w-0 space-y-3" aria-labelledby="hr-recruitment-summary-heading">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="hr-recruitment-summary-heading" className="text-balance text-lg font-semibold text-on-surface">Tình hình tuyển dụng</h2>
@@ -321,15 +361,14 @@ export function HrOverviewDashboard({
         <p className="text-pretty text-xs tabular-nums text-on-surface-variant">{numberText(recruitment.openJobCount, loading || jobs == null)} vị trí · {numberText(recruitment.openHeadcount, loading || jobs == null)} cần tuyển · {numberText(recruitment.currentApplicantCount, loading)} ứng viên trong kỳ</p>
         {loading ? <div className="h-40 rounded-md bg-surface-container-low" role="status" aria-label="Đang tải biểu đồ tuyển dụng" />
           : jobs == null || !recruitmentRows.length ? <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-container-low px-4 text-center text-pretty text-xs text-on-surface-variant">{jobs == null ? "Chưa tải được dữ liệu tuyển dụng." : "Chưa có vị trí đang mở. Mở Chi tiết để tạo vị trí mới."}</p>
-            : <div role="img" aria-label={`Phòng ban tuyển nhiều nhất: ${recruitmentRows.map(row => `${row.name} cần ${numberText(row.headcount)} người, chiếm ${recruitmentShare(row.headcount)}% chỉ tiêu`).join("; ")}`} className="space-y-3">
-              {recruitmentRows.map((row, index) => <div key={row.name} className="space-y-1"><div className="flex items-baseline justify-between gap-2 text-xs"><strong className="min-w-0 truncate text-on-surface" title={row.name}>{row.name}</strong><span className="shrink-0 tabular-nums text-on-surface">{numberText(row.headcount)} · {recruitmentShare(row.headcount)}%</span></div><div className="h-2.5 overflow-hidden rounded-full bg-surface-container-low" aria-hidden="true"><OverviewChartViewport><motion.div initial={reduceMotion ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.65, delay: index * 0.08, ease: "easeOut" }} className="h-full rounded-full bg-primary" style={{ width: `${recruitmentWidth(row.headcount)}%`, transformOrigin: "left" }} /></OverviewChartViewport></div></div>)}
+            : <div tabIndex={recruitmentRows.length > 3 ? 0 : undefined} role="img" aria-label={`Chỉ tiêu tuyển dụng theo phòng ban: ${recruitmentRows.map(row => `${row.name} cần ${numberText(row.headcount)} người`).join("; ")}`} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-primary">
+              <div className="h-52 w-full" style={{ minWidth: Math.max(280, recruitmentRows.length * 96) }}><OverviewChartViewport><ResponsiveContainer width="100%" height="100%"><BarChart data={recruitmentRows} margin={{ top: 18, right: 8, bottom: 4, left: 0 }}><CartesianGrid stroke="var(--color-outline-variant)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" axisLine={false} tickLine={false} interval={0} height={46} tick={{ fontSize: 10, fill: "var(--color-on-surface-variant)" }} tickFormatter={(name: string) => name.length > 12 ? `${name.slice(0, 11)}…` : name} /><YAxis axisLine={false} tickLine={false} width={28} allowDecimals={false} tick={{ fontSize: 10, fill: "var(--color-on-surface-variant)" }} /><Tooltip formatter={(value) => typeof value === "number" ? `${numberText(value)} người` : value} cursor={false} /><Bar dataKey="headcount" name="Chỉ tiêu tuyển" fill="var(--color-primary)" maxBarSize={40} isAnimationActive={!reduceMotion} animationDuration={700}><LabelList dataKey="headcount" position="top" fill="var(--color-on-surface)" fontSize={11} /></Bar></BarChart></ResponsiveContainer></OverviewChartViewport></div>
             </div>}
       </section>}
-      </div>
-      <div className="grid items-stretch gap-4 lg:grid-cols-2">
         <TaskChart summary={summary} previous={previousSummary} loading={loading} />
         <TrainingChart summary={summary} previous={previousSummary} loading={loading} />
       </div>
+      {payrollRows !== undefined && <AveragePayrollChart rows={payrollRows} loading={loading} />}
       {canSeeTimekeeping && <Attendance summary={summary} yesterdayAttendance={yesterdayAttendance} loading={loading && !summary} />}
       <HrAnalyticsPanels summary={summary} yesterdayAttendance={yesterdayAttendance} applicants={applicants} jobs={jobs} pipeline={pipeline} loading={loading} canSeeTimekeeping={canSeeTimekeeping} canSeeRecruitment={canSeeRecruitment} />
       <section aria-labelledby="hr-quick-links-heading">

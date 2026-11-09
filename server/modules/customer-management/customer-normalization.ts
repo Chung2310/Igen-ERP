@@ -1,4 +1,5 @@
 import { CustomerError } from "./customer-errors";
+import { additionalCustomerNotes, appendCustomerNotes } from "./customer-notes";
 import type { CustomerGender, CustomerInput, CustomerSource, CustomerStatus, CustomerType } from "./interfaces/customer.interface";
 
 const CUSTOMER_TYPES = new Set<CustomerType>(["regular", "vat"]);
@@ -42,7 +43,7 @@ function normalizeDateOfBirth(value: unknown): Date | undefined {
   return date;
 }
 
-export function normalizeCustomerInput(input: CustomerInput | Record<string, unknown>) {
+export function normalizeCustomerInput(input: CustomerInput | Record<string, unknown>, submittedInput = input) {
   const name = String(input.name ?? "").trim();
   if (!name) throw new CustomerError("CUSTOMER_NAME_REQUIRED", "Tên khách hàng là bắt buộc.");
 
@@ -71,7 +72,7 @@ export function normalizeCustomerInput(input: CustomerInput | Record<string, unk
   const email = optional(input.email)?.toLowerCase();
   const dateOfBirth = normalizeDateOfBirth(input.dateOfBirth);
   const address = optional(input.address);
-  const notes = optional(input.notes);
+  const notes = appendCustomerNotes(optional(input.notes), additionalCustomerNotes(submittedInput));
 
   return {
     name,

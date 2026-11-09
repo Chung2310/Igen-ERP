@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { TabType } from "../types";
-import { filterEnabledTabs, MODULE_KEYS, MODULE_READ_PERMISSIONS, MODULE_TAB_MAP, resolveEnabledTab } from "./modules";
+import { canViewAiSubscription, filterEnabledTabs, MODULE_KEYS, MODULE_READ_PERMISSIONS, MODULE_TAB_MAP, resolveEnabledTab } from "./modules";
 
 test("maps the customer module to its tab and permissions", () => {
   assert.ok(MODULE_KEYS.includes("customer" as any));
   assert.equal(MODULE_TAB_MAP.customer, "QUẢN LÝ KHÁCH HÀNG");
   assert.deepEqual(MODULE_READ_PERMISSIONS["QUẢN LÝ KHÁCH HÀNG"], ["customer:read", "customer:manage"]);
+});
+
+test("shows the healthcare workspace only for companies that enable it", () => {
+  assert.equal(MODULE_TAB_MAP.healthcare, "QUẢN LÝ Y TẾ");
+  assert.deepEqual(MODULE_READ_PERMISSIONS["QUẢN LÝ Y TẾ"], ["healthcare:read", "healthcare:manage"]);
+  assert.equal(resolveEnabledTab("QUẢN LÝ Y TẾ", undefined), "TỔNG QUAN");
+  assert.equal(resolveEnabledTab("QUẢN LÝ Y TẾ", ["healthcare"]), "QUẢN LÝ Y TẾ");
 });
 
 const tabs: TabType[] = [
@@ -33,6 +40,13 @@ test("resolveEnabledTab redirects a disabled module to overview", () => {
 test("assistant navigation follows the chat module flag", () => {
   assert.equal(resolveEnabledTab("TRỢ LÝ AI", ["quotation"]), "TỔNG QUAN");
   assert.equal(resolveEnabledTab("TRỢ LÝ AI", ["chat"]), "TRỢ LÝ AI");
+});
+
+test("tenant admins can open AI plans before enabling an AI feature module", () => {
+  const aiTab = "GÓI AI & LƯỢT SỬ DỤNG";
+  assert.deepEqual(filterEnabledTabs([aiTab], ["hr", "chat"]), [aiTab]);
+  assert.equal(canViewAiSubscription({ companyCode: "TEST", role: "admin", enabledModules: ["hr", "chat"], permissions: [] } as any), true);
+  assert.equal(canViewAiSubscription({ companyCode: "TEST", role: "user", enabledModules: ["hr", "chat"], permissions: [] } as any), false);
 });
 
 test("shows both enabled modules regardless of legacy business type", () => {

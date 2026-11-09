@@ -10,6 +10,7 @@ import CustomerFormDialog from "./components/CustomerFormDialog";
 import CustomerList from "./components/CustomerList";
 import { ModuleNavigation, ModuleNavigationButton } from "../../components/common/ModuleNavigation";
 import { primaryCreateButtonClass } from "../../components/common/primaryCreateButton";
+import { cn } from "../student-management/lib/utils";
 import type { BillingProfileInput, Customer, CustomerInput, CustomerStatus, CustomerType, PaginatedCustomers } from "./types";
 
 const emptyResult: PaginatedCustomers = { items: [], total: 0, page: 1, limit: 20 };
@@ -205,7 +206,7 @@ function CustomerWorkspaceContent() {
         <ModuleNavigationButton active={activeTab === "list"} icon={<Users />} onClick={() => setActiveTab("list")}>Danh sách khách hàng</ModuleNavigationButton>
         <ModuleNavigationButton active={activeTab === "settings"} icon={<Settings />} onClick={() => setActiveTab("settings")}>Cài đặt khách hàng</ModuleNavigationButton>
       </ModuleNavigation>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-xs sm:p-4">
+      <div className={cn("min-h-0 flex-1 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-xs sm:p-4", activeTab === "list" ? "flex flex-col gap-3" : "space-y-3")}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 h-6 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />

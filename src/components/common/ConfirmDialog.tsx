@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { AlertTriangle, CircleHelp, Loader2, X } from "lucide-react";
 
 type ConfirmDialogProps = {
@@ -6,9 +6,11 @@ type ConfirmDialogProps = {
   cancelLabel?: string;
   confirmLabel?: string;
   description: string;
+  error?: string;
   icon?: "alert" | "question";
   isOpen: boolean;
   isSubmitting?: boolean;
+  native?: boolean;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
   showCancel?: boolean;
@@ -32,9 +34,11 @@ export function ConfirmDialog({
   cancelLabel = "Hủy",
   confirmLabel = "Xác nhận",
   description,
+  error,
   icon = "alert",
   isOpen,
   isSubmitting = false,
+  native = false,
   onClose,
   onConfirm,
   showCancel = true,
@@ -42,8 +46,26 @@ export function ConfirmDialog({
   tone = "danger",
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const nativeRef = useRef<HTMLDialogElement>(null);
+  const useNative = native && appearance === "erp";
+  useLayoutEffect(() => {
+    const dialog = nativeRef.current;
+    if (!isOpen || !useNative || !dialog) return;
+    const parentDialog = dialog.parentElement?.closest("dialog");
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
+    return () => {
+      if (dialog.open && typeof dialog.close === "function") dialog.close();
+      if (!parentDialog?.isConnected || !parentDialog.open) return;
+      if (previousFocus && parentDialog.contains(previousFocus)) previousFocus.focus();
+      if (!parentDialog.contains(document.activeElement) || dialog.contains(document.activeElement)) {
+        parentDialog.querySelector<HTMLElement>('[tabindex="-1"]')?.focus();
+      }
+    };
+  }, [isOpen, useNative]);
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || useNative) return;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusable = () => Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || []);
     focusable()[0]?.focus();
@@ -65,7 +87,7 @@ export function ConfirmDialog({
       document.body.style.overflow = previousOverflow;
       previousFocus?.focus();
     };
-  }, [isOpen, isSubmitting, onClose]);
+  }, [isOpen, isSubmitting, onClose, useNative]);
 
   if (!isOpen) return null;
 
@@ -73,9 +95,8 @@ export function ConfirmDialog({
   const DialogIcon = icon === "question" ? CircleHelp : AlertTriangle;
 
   if (appearance === "erp") {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-2xs" role="presentation">
-        <div ref={dialogRef} className="w-full max-w-[480px] overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest text-left text-on-surface shadow-xl" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description">
+    const content = (
+        <div ref={dialogRef} className="max-h-[calc(100dvh-2rem)] w-full max-w-[480px] overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest text-left text-on-surface shadow-xl" role={useNative ? undefined : "dialog"} aria-modal={useNative ? undefined : true} aria-labelledby={useNative ? undefined : "confirm-dialog-title"} aria-describedby={useNative ? undefined : "confirm-dialog-description"}>
           <div className="flex items-center justify-between gap-3 border-b border-outline-variant px-5 py-4">
             <div className="flex min-w-0 items-center gap-3">
               <span className="h-5 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
@@ -95,6 +116,7 @@ export function ConfirmDialog({
             </button>
           </div>
           <p id="confirm-dialog-description" className="px-5 py-5 text-sm leading-6 text-on-surface-variant text-pretty">{description}</p>
+          {error && <p role="alert" className="px-5 pb-4 text-sm text-error">{error}</p>}
           <div className="flex justify-end gap-2 border-t border-outline-variant px-5 py-4">
             {showCancel && (
               <button type="button" onClick={onClose} disabled={isSubmitting} className="inline-flex h-10 min-w-20 cursor-pointer items-center justify-center rounded-xl border border-outline-variant px-4 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">
@@ -112,8 +134,28 @@ export function ConfirmDialog({
             </button>
           </div>
         </div>
-      </div>
     );
+    if (useNative) {
+      return <dialog ref={nativeRef} role="alertdialog" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description"
+        closedby={isSubmitting ? "none" : "closerequest"}
+        onKeyDown={event => {
+          if (event.key !== "Escape" || event.defaultPrevented) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (!isSubmitting) onClose();
+        }}
+        onCancel={event => {
+          if (event.target !== event.currentTarget) return;
+          event.preventDefault();
+          event.stopPropagation();
+          // Keep the underlying form locked until the native close request finishes.
+          if (!isSubmitting) setTimeout(onClose, 0);
+        }}
+        className="fixed inset-0 m-0 size-full max-h-none max-w-none items-center justify-center border-0 bg-transparent p-4 backdrop:bg-black/55 open:flex">
+        {content}
+      </dialog>;
+    }
+    return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-2xs" role="presentation">{content}</div>;
   }
 
   return (

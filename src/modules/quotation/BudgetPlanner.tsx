@@ -2,6 +2,7 @@ import { hasQuotationCapability } from "./api";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { ApiError, api, createGeneratedExport, downloadGeneratedFile, getLatestGeneratedFile, formatMoney, type GeneratedFileRef } from "./api";
 import MoneyInput from "./MoneyInput";
+import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import { TaskProgress } from "./Feedback";
 import type { CatalogItem } from "./types";
 import "./budget-planner.css";
@@ -310,7 +311,7 @@ export default function BudgetPlanner({ onAiUsed }: { onAiUsed: () => void }) {
       {/* Header Hero Banner */}
       <section className="bp-header-banner">
         <div className="bp-header-copy">
-          <h1>Tư vấn Ngân sách & Đề xuất Hạng mục</h1>
+          <h1>Ngân sách & hạng mục</h1>
         </div>
         <div className="bp-header-actions">
           <button type="button" className="bp-create-btn" onClick={openCreate} disabled={!hasQuotationCapability("quotation:manage")}>
@@ -432,11 +433,7 @@ export default function BudgetPlanner({ onAiUsed }: { onAiUsed: () => void }) {
         {/* Plans Grid */}
         {filteredPlans.length === 0 ? (
           <div className="bp-empty-state">
-            <div className="bp-empty-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3Z" />
-              </svg>
-            </div>
+            <QuotationEmptyIllustration kind={history.length === 0 ? "budget" : "search"} />
             <h3>{history.length === 0 ? "Chưa có phương án tư vấn nào" : "Không tìm thấy phương án phù hợp"}</h3>
             <p>
               {history.length === 0

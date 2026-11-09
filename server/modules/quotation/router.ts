@@ -2,6 +2,7 @@ import { registerCatalogRoutes } from "./catalog.routes";
 import { createCatalogProduct, importCatalogProducts } from "./catalog.service";
 import { mapCatalogRow, type CatalogImportRow } from "./catalog-validation";
 import { canQuotation } from "./context";
+import { summarizeQuotationOverview } from "./overview";
 // Business handlers ported from Quote-assistance@9fa13e5. ERP adapters own identity, scope, files and jobs.
 import { createQuotationRouter } from "./router-adapter";
 import { assertQuotationPermission } from "./context";
@@ -1264,6 +1265,29 @@ app.post("/quote-requests/:id/analyze", async (request, response) => {
   response.json({ analysis: result, candidates });
 });
 
+
+app.get("/overview", async (request, response) => {
+  const from = String(request.query.from || "");
+  const to = String(request.query.to || "");
+  const validDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split("-").map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+  };
+  if (!validDate(from) || !validDate(to) || from > to) return fail(response, "Khoảng ngày thống kê không hợp lệ.");
+  const start = new Date(`${from}T00:00:00+07:00`);
+  const end = new Date(new Date(`${to}T00:00:00+07:00`).getTime() + 86_400_000);
+  const db = await connectDatabase();
+  const companyId = userOf(request).companyId;
+  const range = { companyId, createdAt: { $gte: start, $lt: end } };
+  const [quotes, contracts, acceptances] = await Promise.all([
+    db.collection<Quote>("quotes").find(range, { projection: { kind: 1, status: 1, total: 1, totalUnknown: 1, currency: 1, customerName: 1, "lines.name": 1, "lines.quantity": 1, "lines.unit": 1, createdAt: 1 } }).toArray(),
+    canQuotation("quotation-contract:read") ? db.collection<Contract>("contracts").find(range, { projection: { status: 1 } }).toArray() : Promise.resolve(null),
+    canQuotation("quotation-acceptance:read") ? db.collection<AcceptanceRecord>("acceptanceRecords").find(range, { projection: { status: 1 } }).toArray() : Promise.resolve(null),
+  ]);
+  response.json(summarizeQuotationOverview(from, to, quotes, contracts, acceptances));
+});
 
 app.get("/quotes", async (request, response) => {
   const db = await connectDatabase();

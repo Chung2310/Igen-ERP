@@ -33,7 +33,7 @@ import { authService, getAccessToken } from "../../services/authService";
 import { toast } from "../../pages/Toast";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { getApiErrorMessage } from "../../utils/errorMessage";
-import { filterOrgChartEmployees, getManagerForEmployee } from "./orgChartUtils";
+import { arrangeOrgChartEmployees, filterOrgChartEmployees, getManagerForEmployee } from "./orgChartUtils";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { cn } from "../../modules/student-management/lib/utils";
 
@@ -1079,49 +1079,8 @@ export default function OrgChartTab({
     return matchSearch && matchDepartment;
   };
 
-  // Auto-arrange employees without parentId into the correct hierarchy based on role
-  const arrangedEmployees = (() => {
-    const ROLE_LEVEL: Record<string, number> = {
-      superadmin: 0,
-      admin: 1,
-      branch_owner: 2,
-      manager: 3,
-      user: 4,
-    };
-
-    // Build a mutable copy with virtual parentId for rendering
-    const list = employees.map(e => ({ ...e }));
-
-    list.forEach(emp => {
-      // If already has a valid parentId that exists, skip
-      if (emp.parentId && list.some(p => p.id === emp.parentId)) return;
-
-      const myLevel = ROLE_LEVEL[usersList.find(u => u.uid === emp.id)?.role ?? "user"] ?? 4;
-
-      // Find the best parent: highest-level employee that is strictly above this one
-      let bestParent: typeof list[0] | undefined;
-
-      for (let targetLevel = myLevel - 1; targetLevel >= 0; targetLevel--) {
-        const candidates = list.filter(p => {
-          const pRole = usersList.find(u => u.uid === p.id)?.role ?? "user";
-          return ROLE_LEVEL[pRole] === targetLevel && p.id !== emp.id;
-        });
-        if (candidates.length > 0) {
-          bestParent = candidates[0];
-          break;
-        }
-      }
-
-      if (bestParent) {
-        emp.parentId = bestParent.id;
-      } else {
-        // This employee is truly at the top
-        emp.parentId = undefined;
-      }
-    });
-
-    return list;
-  })();
+  // Keep admin accounts at the same level in the displayed tree, including older saved links.
+  const arrangedEmployees = arrangeOrgChartEmployees(employees, new Map(usersList.map(user => [user.uid, user.role])));
 
   // Identify root employees (nodes with no parent in the arranged tree)
   const rootEmployees = arrangedEmployees.filter(e => !e.parentId || !arrangedEmployees.some(p => p.id === e.parentId))
@@ -1573,7 +1532,7 @@ export default function OrgChartTab({
                     <p className="text-xs mt-1">Vui lòng thêm thành viên mới đầu tiên</p>
                   </div>
                 ) : (
-                  rootEmployees.map(root => renderBranch(root))
+                  <div className="flex items-start justify-center gap-4">{rootEmployees.map(root => renderBranch(root))}</div>
                 )}
               </div>
             </div>

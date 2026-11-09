@@ -9,6 +9,8 @@ import type { RecruitmentApplicant, RecruitmentJob, RecruitmentPipeline } from "
 import { yesterday } from "./OverviewChartSummary";
 import { useOverviewPeriod } from "./OverviewPeriodContext";
 import { previousComparisonRange } from "./overviewComparison";
+import { authService } from "../../services/authService";
+import { summarizeDepartmentPayroll, type DepartmentPayrollRow } from "./hrPayrollOverview";
 
 export default function HrOverviewSection() {
   const { userProfile, hasPermission } = useAuth();
@@ -26,6 +28,8 @@ export default function HrOverviewSection() {
   const [applicants, setApplicants] = useState<RecruitmentApplicant[] | null>(null);
   const [jobs, setJobs] = useState<RecruitmentJob[] | null>(null);
   const [pipeline, setPipeline] = useState<RecruitmentPipeline | null>(null);
+  const [payrollRows, setPayrollRows] = useState<DepartmentPayrollRow[] | null>(null);
+  const [enterpriseCount, setEnterpriseCount] = useState<number | null>(null);
 
   const isManager =
     userProfile?.role === "superadmin" ||
@@ -33,6 +37,9 @@ export default function HrOverviewSection() {
     userProfile?.role === "manager";
   const canSeeTimekeeping = isManager || hasPermission("timekeeping:read") || hasPermission("timekeeping:manage");
   const canSeeRecruitment = isManager || hasPermission("recruitment:read") || hasPermission("recruitment:manage");
+  const canSeePayroll = (userProfile?.role === "superadmin" || userProfile?.role === "admin" || hasPermission("payroll-period:read") || hasPermission("payroll-period:manage"))
+    && (userProfile?.role === "superadmin" || userProfile?.role === "admin" || hasPermission("hr:read") || hasPermission("access:read"));
+  const companyCode = userProfile?.companyCode;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -49,6 +56,7 @@ export default function HrOverviewSection() {
         canSeeRecruitment ? recruitmentApi.listApplicants(undefined, activeBranchId) : Promise.resolve([]),
         canSeeRecruitment ? recruitmentApi.listJobs(undefined, activeBranchId) : Promise.resolve([]),
         canSeeRecruitment ? recruitmentApi.getPipeline(activeBranchId) : Promise.resolve(null),
+        companyCode ? authService.getUsersByCompany(companyCode) : Promise.resolve(null),
       ] as const);
       if (results[0].status === "fulfilled") setSummary(results[0].value); else { setSummary(null); setError(true); }
       setPreviousSummary(results[1].status === "fulfilled" ? results[1].value : null);
@@ -56,13 +64,24 @@ export default function HrOverviewSection() {
       setApplicants(results[3].status === "fulfilled" ? results[3].value : null);
       setJobs(results[4].status === "fulfilled" ? results[4].value : null);
       setPipeline(results[5].status === "fulfilled" ? results[5].value : null);
-      if (results.some(result => result.status === "rejected")) setError(true);
+      setEnterpriseCount(results[6].status === "fulfilled" && results[6].value
+        ? results[6].value.filter(employee => employee.role !== "superadmin").length
+        : null);
+      if (results.slice(0, 6).some(result => result.status === "rejected")) setError(true);
+      if (canSeePayroll && companyCode) {
+        try {
+          const employees = await authService.getUsersByCompany(companyCode, activeBranchId);
+          setPayrollRows(summarizeDepartmentPayroll(employees));
+        } catch {
+          setPayrollRows(null);
+        }
+      } else setPayrollRows(null);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, [activeBranchId, canSeeRecruitment, canSeeTimekeeping, selectedFrom, selectedTo, selectedPeriod]);
+  }, [activeBranchId, canSeeRecruitment, canSeeTimekeeping, canSeePayroll, companyCode, selectedFrom, selectedTo, selectedPeriod]);
 
   useEffect(() => {
     let active = true;
@@ -80,7 +99,7 @@ export default function HrOverviewSection() {
   const branchName = branchContext?.activeBranch?.name || userProfile?.branchName || "Toàn công ty";
 
   return (
-    <div className="space-y-5 text-left text-on-surface">
+    <div className="text-left text-on-surface">
       <h2 className="sr-only">Tổng quan Nhân sự</h2>
 
       <HrOverviewDashboard
@@ -89,6 +108,9 @@ export default function HrOverviewSection() {
         yesterdayAttendance={yesterdayAttendance}
         employeeCount={employeeCount}
         employeeScope={branchName}
+        enterpriseCount={enterpriseCount ?? (!activeBranchId ? summary?.timekeeping.totalEmployees ?? null : null)}
+        branchEmployeeCount={canSeeTimekeeping ? summary?.timekeeping.totalEmployees ?? null : employeeCount}
+        hasActiveBranch={Boolean(activeBranchId)}
         loading={loading}
         error={error}
         canSeeTimekeeping={canSeeTimekeeping}
@@ -96,6 +118,7 @@ export default function HrOverviewSection() {
         applicants={applicants}
         jobs={jobs}
         pipeline={pipeline}
+        payrollRows={canSeePayroll ? payrollRows : undefined}
       />
     </div>
   );

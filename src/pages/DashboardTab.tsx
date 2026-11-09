@@ -6,9 +6,12 @@ import {
   GraduationCap,
   BriefcaseBusiness,
   MessagesSquare,
+  FileText,
   AlertCircle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { StethoscopeIcon } from "@phosphor-icons/react/dist/csr/Stethoscope";
+import { isModuleEnabled } from "../config/modules";
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import {
   DASHBOARD_SUB_TAB_ROUTES,
@@ -38,6 +41,12 @@ const WorkerOverviewSection = lazy(
 const MarketingOverviewSection = lazy(
   () => import("../components/dashboard/MarketingOverviewSection")
 );
+const HealthcareOverviewSection = lazy(
+  () => import("../components/dashboard/HealthcareOverviewSection")
+);
+const QuotationOverviewSection = lazy(
+  () => import("../components/dashboard/QuotationOverviewSection")
+);
 
 interface SectionConfig {
   value: DashboardSubTabType;
@@ -48,6 +57,20 @@ interface SectionConfig {
 }
 
 const ALL_SECTIONS: SectionConfig[] = [
+  {
+    value: "NHAN_SU",
+    slug: "nhan-su",
+    label: "Nhân sự",
+    subtitle: "Chuyên cần, Hợp đồng & Nhân sự",
+    icon: Users,
+  },
+  {
+    value: "BAO_GIA",
+    slug: "bao-gia",
+    label: "Báo giá",
+    subtitle: "Báo giá, Hợp đồng & Nghiệm thu",
+    icon: FileText,
+  },
   {
     value: "TAI_CHINH",
     slug: "tai-chinh",
@@ -61,13 +84,6 @@ const ALL_SECTIONS: SectionConfig[] = [
     label: "Bán lẻ & POS",
     subtitle: "Doanh số, Đơn hàng & Ca bán",
     icon: ShoppingCart,
-  },
-  {
-    value: "NHAN_SU",
-    slug: "nhan-su",
-    label: "Nhân sự",
-    subtitle: "Chuyên cần, Hợp đồng & Nhân sự",
-    icon: Users,
   },
   {
     value: "HOC_VIEN",
@@ -89,6 +105,13 @@ const ALL_SECTIONS: SectionConfig[] = [
     label: "Marketing & CRM",
     subtitle: "Chiến dịch, Tương tác & Kênh",
     icon: MessagesSquare,
+  },
+  {
+    value: "Y_TE",
+    slug: "y-te",
+    label: "Y tế",
+    subtitle: "Bệnh nhân, Lượt khám, Lịch hẹn & Chăm sóc",
+    icon: StethoscopeIcon,
   },
 ];
 
@@ -156,6 +179,8 @@ export default function DashboardTab() {
 
     return ALL_SECTIONS.filter((section) => {
       switch (section.value) {
+        case "BAO_GIA":
+          return modules.includes("quotation") && (checkPerm("quotation:read") || checkPerm("quotation:manage"));
         case "TAI_CHINH":
           return (
             modules.includes("finance") &&
@@ -202,6 +227,9 @@ export default function DashboardTab() {
             (checkPerm("marketing:read") ||
               checkPerm("marketing:manage"))
           );
+        case "Y_TE":
+          return isModuleEnabled(modules, "healthcare") &&
+            (checkPerm("healthcare:read") || checkPerm("healthcare:manage"));
         default:
           return true;
       }
@@ -227,6 +255,8 @@ export default function DashboardTab() {
       return <p className="text-pretty text-sm text-on-surface-variant">Chưa có phân hệ tổng quan khả dụng.</p>;
     }
     switch (resolvedSubTab) {
+      case "BAO_GIA":
+        return <SectionErrorBoundary fallbackTitle="Báo giá"><QuotationOverviewSection /></SectionErrorBoundary>;
       case "TAI_CHINH":
         return (
           <SectionErrorBoundary fallbackTitle="Tài chính">
@@ -261,6 +291,12 @@ export default function DashboardTab() {
         return (
           <SectionErrorBoundary fallbackTitle="Marketing">
             <MarketingOverviewSection />
+          </SectionErrorBoundary>
+        );
+      case "Y_TE":
+        return (
+          <SectionErrorBoundary fallbackTitle="Y tế">
+            <HealthcareOverviewSection />
           </SectionErrorBoundary>
         );
       default:
@@ -298,7 +334,7 @@ export default function DashboardTab() {
               key={tab.value}
               active={isActive}
               icon={iconName ? <HrSidebarIcon name={iconName} /> : <tab.icon />}
-              preferProvidedIcon={tab.value === "MARKETING"}
+              preferProvidedIcon={tab.value === "MARKETING" || tab.value === "Y_TE"}
               onClick={() => setActiveSubTab(tab.value)}
             >
               {tab.label}
@@ -309,7 +345,7 @@ export default function DashboardTab() {
 
       {/* Content Area with independent scroll */}
       <main
-        className="min-h-0 flex-1 overflow-y-auto px-2 py-2 sm:px-2 sm:py-3"
+        className="min-h-0 flex-1 overflow-y-auto px-2 pt-1 pb-2 sm:pt-2 sm:pb-3"
         id="dashboard_tab_content"
       >
         <OverviewPeriodCustomRange />

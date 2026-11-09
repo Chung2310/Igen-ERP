@@ -265,6 +265,11 @@
   font-size: 10px;
 }
 
+.quotation-module .quote-supplement-product-table .quote-supplement-unit-select .theme-select-trigger {
+  height: 34px;
+  padding-inline: 8px;
+}
+
 .quotation-module .quote-supplement-card input[type="number"] {
   appearance: textfield;
   -moz-appearance: textfield;
