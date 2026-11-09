@@ -74,7 +74,7 @@ container_ids = checked(["docker", "ps", "-aq", "--no-trunc"]).split()
 container_template = (
     '{"id":{{json .Id}},"name":{{json .Name}},"image":{{json .Config.Image}},'
     '"image_id":{{json .Image}},"status":{{json .State.Status}},"writable_bytes":{{.SizeRw}},'
-    '"health_status":{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}},'
+    '"health_status":{{with (index .State "Health")}}{{json .Status}}{{else}}null{{end}},'
     '"log_path":{{json .LogPath}},"log_driver":{{json .HostConfig.LogConfig.Type}},'
     '"log_max_size":{{json (index .HostConfig.LogConfig.Config "max-size")}},'
     '"log_max_file":{{json (index .HostConfig.LogConfig.Config "max-file")}},'
