@@ -68,11 +68,11 @@ export function Feedback({ loading, error, onRetry }: { loading?: boolean; error
 export function Table({ headers, children, empty, emptyKind = "search" }: {
   headers: string[]; children: ReactNode; empty?: string; emptyKind?: HrEmptyIllustrationKind;
 }) {
-  if (empty) return <div className="flex flex-col items-center gap-2 rounded-lg border border-outline-variant px-4 py-5 text-center">
+  if (empty) return <div className="flex flex-col items-center gap-2 border-t border-outline-variant px-4 py-5 text-center">
     <HrEmptyIllustration kind={emptyKind} className="h-14 w-24" />
     <p className="text-pretty text-sm text-on-surface-variant">{empty}</p>
   </div>;
-  return <div className="overflow-x-auto rounded-lg border border-outline-variant">
+  return <div className="overflow-x-auto border-t border-outline-variant">
     <table className="w-full border-collapse text-left text-sm tabular-nums">
       <ErpTableHead columns={headers} />
       <tbody className="divide-y divide-outline-variant">{children}</tbody>

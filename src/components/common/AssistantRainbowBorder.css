@@ -1,0 +1,66 @@
+:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source)::before,
+:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source)::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+  opacity: 0;
+}
+
+:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source)::before {
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  width: 300%;
+  aspect-ratio: 1;
+  background: conic-gradient(#00adfc, #7567ff, #ff57b3, #ff9d43, #ffe66d, #4ed9a2, #00adfc);
+  transform: translate(-50%, -50%) rotate(0turn);
+}
+
+:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source)::after {
+  z-index: 1;
+  inset: 1px;
+  border-radius: calc(0.75rem - 1px);
+  background: var(--assistant-rainbow-fill, var(--color-surface-container-lowest));
+}
+
+:is(.assistant-workspace[data-standalone="true"] :is(.assistant-studio-card, .assistant-rainbow-hover-card), .assistant-meeting-source) > * {
+  position: relative;
+  z-index: 2;
+}
+
+:is(.assistant-workspace[data-standalone="true"] .assistant-studio-card:is(:hover, :focus-visible), .assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within), .assistant-meeting-source:hover)::before {
+  opacity: 1;
+  animation: assistant-rainbow-rotate 2.8s linear infinite;
+}
+
+:is(.assistant-workspace[data-standalone="true"] .assistant-studio-card:is(:hover, :focus-visible), .assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within), .assistant-meeting-source:hover)::after {
+  opacity: 1;
+}
+
+.assistant-meeting-source:hover {
+  border-color: transparent;
+}
+
+.assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within) {
+  border-color: transparent;
+}
+
+.assistant-meeting-source:hover {
+  --assistant-rainbow-fill: var(--color-surface-container-low);
+}
+
+@keyframes assistant-rainbow-rotate {
+  to { transform: translate(-50%, -50%) rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.assistant-workspace[data-standalone="true"] .assistant-studio-card:is(:hover, :focus-visible), .assistant-workspace[data-standalone="true"] .assistant-rainbow-hover-card:is(:hover, :focus-within), .assistant-meeting-source:hover)::before {
+    animation: none;
+  }
+}

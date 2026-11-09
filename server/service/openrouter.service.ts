@@ -228,6 +228,7 @@ export interface OpenRouterImageParams {
   resolution?: string;
   /** Reference images (base64 data URL hoặc https URL) cho image-to-image */
   referenceImages?: string[];
+  allowFallback?: boolean;
 }
 
 /**
@@ -243,22 +244,9 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     ? mapModelName(params.model)
     : (process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image");
 
-  // Map aspect ratio string → pixel dimensions để nhúng vào prompt và image_generation_config
-  const ASPECT_RATIO_MAP: Record<string, { width: number; height: number }> = {
-    "1:1":  { width: 1024, height: 1024 },
-    "16:9": { width: 1344, height: 768 },
-    "9:16": { width: 768,  height: 1344 },
-    "4:3":  { width: 1152, height: 864 },
-    "3:4":  { width: 864,  height: 1152 },
-    "3:2":  { width: 1216, height: 832 },
-    "2:3":  { width: 832,  height: 1216 },
-  };
-  const ratioKey = params.aspectRatio || "1:1";
-  const dimensions = ASPECT_RATIO_MAP[ratioKey] || ASPECT_RATIO_MAP["1:1"];
-
-  // Build prompt — nhúng aspect ratio instruction vào cuối để model tôn trọng tỉ lệ
-  const aspectRatioInstruction = `Generate the image with aspect ratio ${ratioKey} (${dimensions.width}x${dimensions.height} pixels).`;
-  const finalPrompt = `${params.prompt}\n\n${aspectRatioInstruction}`;
+  const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"]);
+  const ratioKey = params.aspectRatio && allowedRatios.has(params.aspectRatio) ? params.aspectRatio : "1:1";
+  const finalPrompt = `${params.prompt}\n\nGenerate the image with a ${ratioKey} aspect ratio.`;
 
   // Build message content — text prompt + optional reference images
   const content: any[] = [{ type: "text", text: finalPrompt }];
@@ -266,18 +254,18 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
     content.push({ type: "image_url", image_url: { url: img } });
   }
 
-  console.log(`[OpenRouter Image] chat+modalities | model=${model} | promptLen=${params.prompt.length} | aspectRatio=${ratioKey} | dimensions=${dimensions.width}x${dimensions.height}`);
+  console.log(`[OpenRouter Image] chat+modalities | model=${model} | promptLen=${params.prompt.length} | aspectRatio=${ratioKey}`);
 
   try {
-    return await generateImageWithRetries(apiKey, model, content, dimensions, 3);
+    return await generateImageWithRetries(apiKey, model, content, ratioKey, 3);
   } catch (error: any) {
     const fallbackModel = getFallbackImageModel();
-    if (isNonFallbackableError(error) || fallbackModel === model) throw error;
+    if (params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
 
     console.warn(
       `[OpenRouter Image] Model ${model} thất bại, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
     );
-    return await generateImageWithRetries(apiKey, fallbackModel, content, dimensions, 2);
+    return await generateImageWithRetries(apiKey, fallbackModel, content, ratioKey, 2);
   }
 }
 
@@ -285,7 +273,7 @@ async function generateImageWithRetries(
   apiKey: string,
   model: string,
   content: any[],
-  dimensions: { width: number; height: number },
+  aspectRatio: string,
   maxAttempts: number
 ): Promise<{ url: string }> {
   const body: Record<string, any> = {
@@ -293,11 +281,8 @@ async function generateImageWithRetries(
     messages: [{ role: "user", content }],
     // Trigger image generation theo cách chính thức của OpenRouter SDK
     modalities: ["image", "text"],
-    // Truyền image_generation_config theo chuẩn OpenRouter (một số model hỗ trợ)
-    image_generation_config: {
-      width: dimensions.width,
-      height: dimensions.height,
-    },
+    // Gemini image models nhận tỉ lệ qua image_config của OpenRouter.
+    image_config: { aspect_ratio: aspectRatio },
   };
 
   let lastError: any;
@@ -319,7 +304,6 @@ async function generateImageWithRetries(
       }
 
       const data = (await response.json()) as any;
-      console.log("[OpenRouter Image Debug] Raw response:", JSON.stringify(data).slice(0, 1000));
 
       // OpenRouter trả ảnh trong message.images (non-standard field), không phải message.content
       const images = data.choices?.[0]?.message?.images;

@@ -3,6 +3,9 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Use Alpine's FFmpeg binary so ffmpeg-static does not need a separate GitHub Release download.
+RUN apk add --no-cache ffmpeg
+
 # Copy package management files (only yarn.lock to avoid npm conflicts)
 COPY package.json yarn.lock ./
 

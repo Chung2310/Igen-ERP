@@ -30,6 +30,12 @@ jobs:
           node-version: 22
           cache: 'yarn'
 
+      - name: Install system FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
+          echo "FFMPEG_BIN=$(command -v ffmpeg)" >> "$GITHUB_ENV"
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile --prefer-offline --no-progress
 

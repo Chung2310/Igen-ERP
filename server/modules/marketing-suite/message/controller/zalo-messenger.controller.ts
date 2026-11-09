@@ -59,6 +59,14 @@ export const zaloMessengerController = {
   async receiveWebhookEvent(req: Request, res: Response): Promise<any> {
     try {
       const body = req.body;
+      const eventName = typeof body?.event_name === "string" ? body.event_name.trim().toLowerCase() : "";
+      // Zalo's developer-console webhook probe uses a fixed fake recipient ID.
+      // Acknowledge that probe without processing it; real OA events still need a valid signature.
+      const isDeveloperConsoleProbe = String(body?.recipient?.id || "") === "579745863508352884";
+      if (!eventName || ["test", "verify", "webhook_test", "test_webhook"].includes(eventName) || isDeveloperConsoleProbe) {
+        return res.status(200).json({ success: true, message: "WEBHOOK_REACHABLE" });
+      }
+
       const { verifyZaloWebhook } = await import("../webhook-signature");
       if (!verifyZaloWebhook({ signature: req.get("x-zevent-signature"), rawBody: (req as Request & { rawBody?: string }).rawBody, appId: String(body?.app_id || ""), timestamp: body?.timestamp, expectedAppId: process.env.ZALO_APP_ID, secret: process.env.ZALO_OA_SECRET_KEY })) return res.status(401).json({ success: false, message: "Invalid Zalo webhook signature." });
       

@@ -35,9 +35,12 @@ it("loads directories on demand and waits for catalog choices before editing an 
   render(<HealthcareWorkspace branchId="branch-a" hasPermission={() => true} />);
 
   expect(await screen.findByText("Chưa có dữ liệu phù hợp.")).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Bệnh nhân" })).toBeTruthy();
+  expect(screen.queryByRole("heading", { name: "Quản lý y tế" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Tổng quan" })).toBeNull();
   expect(calls).toEqual(["/patients/search"]);
   fireEvent.click(screen.getByRole("button", { name: "Lịch hẹn" }));
+  expect(screen.getByRole("heading", { name: "Lịch hẹn" })).toBeTruthy();
   fireEvent.click(await screen.findByRole("button", { name: "Sửa lịch" }));
   const editor = within(screen.getByRole("dialog", { name: "Chỉnh sửa lịch hẹn" }));
   expect(editor.getByRole("status").textContent).toBe("Đang tải dữ liệu…");
