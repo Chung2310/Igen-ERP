@@ -3,12 +3,16 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Use Alpine's FFmpeg binary so ffmpeg-static does not need a separate GitHub Release download.
+RUN apk add --no-cache ffmpeg
+
 # Copy package management files (only yarn.lock to avoid npm conflicts)
 COPY package.json yarn.lock ./
 
 # Install ALL dependencies (including devDependencies needed for build)
 # NODE_ENV must NOT be "production" here so devDeps are installed
 ENV NODE_ENV=development
+ENV FFMPEG_BIN=/usr/bin/ffmpeg
 RUN --mount=type=cache,target=/root/.cache/yarn yarn install --frozen-lockfile
 
 # Copy the entire workspace (excluding files in .dockerignore)
@@ -36,6 +40,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV FFMPEG_PATH=/usr/bin/ffmpeg
+ENV FFMPEG_BIN=/usr/bin/ffmpeg
 ENV CHROME_PATH=/usr/bin/chromium-browser
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
