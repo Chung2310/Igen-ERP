@@ -49,3 +49,4 @@ service_account*.json
 .worktrees/
 .superpowers/
 docs/
+demo-data/quotation/staging-ai/
