@@ -44,6 +44,39 @@ interface ValidationRow {
 
 const DATE_PATTERN = /^([0-2][0-9]|3[0-1])\/(0[1-9]|1[0-2])\/\d{4}$/;
 
+const formatExcelDateParts = (year: number, month: number, day: number): string => {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) return '';
+
+  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+};
+
+const normalizeEnrollmentDate = (value: unknown, date1904 = false): string => {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return String(value);
+    return formatExcelDateParts(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate());
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value, { date1904 });
+    // A plain year such as 2026 is not an Excel date serial. Don't silently
+    // turn it into a date in 1905.
+    if (!parsed || parsed.y < 1927) return String(value);
+    return formatExcelDateParts(parsed.y, parsed.m, parsed.d) || String(value);
+  }
+
+  const raw = String(value ?? '').trim();
+  const isoDate = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoDate) {
+    return formatExcelDateParts(Number(isoDate[1]), Number(isoDate[2]), Number(isoDate[3])) || raw;
+  }
+  return raw;
+};
+
 const formatExcelPhone = (phoneVal: unknown): string => {
   if (phoneVal === undefined || phoneVal === null) return '';
   let clean = String(phoneVal).trim().replace(/[\s.-]/g, '');
@@ -127,6 +160,10 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
 
       const note = 'Chỉ bắt buộc: Họ và tên, Số điện thoại, Email. Các cột còn lại có thể để trống.';
       const ws = XLSX.utils.aoa_to_sheet([[note], headers, ...data]);
+      const excelSerial = (year: number, month: number, day: number) =>
+        Math.floor(Date.UTC(year, month - 1, day) / 86400000) + 25569;
+      ws['K3'] = { t: 'n', v: excelSerial(2026, 6, 15), z: 'dd/mm/yyyy', w: '15/06/2026' };
+      ws['K4'] = { t: 'n', v: excelSerial(2026, 6, 20), z: 'dd/mm/yyyy', w: '20/06/2026' };
       ws['!cols'] = cols;
       ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
 
@@ -137,6 +174,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
         ['L\u01b0u \u00fd'],
         ['Ba cột bắt buộc: Họ và tên, Số điện thoại, Email.'],
         ['Các cột còn lại là tùy chọn. CCCD / CMND có thể để trống và được phép trùng.'],
+        ['Ngày nhập học chấp nhận ô ngày của Excel hoặc văn bản DD/MM/YYYY; có thể để trống.'],
         ['Hệ thống chỉ kiểm tra trùng Số điện thoại và Email.'],
         ['Kh\u00f4ng c\u1ea7n nh\u1eadp ownerId, centerId ho\u1eb7c m\u00e3 trung t\u00e2m. H\u1ec7 th\u1ed1ng t\u1ef1 g\u00e1n trung t\u00e2m khi nh\u1eadp d\u1eef li\u1ec7u.'],
         ['Trường "Mã lớp" là không bắt buộc. Nếu nhập và mã lớp tồn tại, học viên sẽ được tự động xếp vào lớp đó.'],
@@ -192,7 +230,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
         const arrayBuffer = e.target?.result;
         if (!arrayBuffer) return;
 
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: false });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 });
 
@@ -231,6 +269,9 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           const getCellValue = (field: string): string => {
             const idx = headerMap[field];
             if (idx === undefined || row[idx] === undefined || row[idx] === null) return '';
+            if (field === 'enrollmentDate') {
+              return normalizeEnrollmentDate(row[idx], Boolean(workbook.Workbook?.WBProps?.date1904));
+            }
             return String(row[idx]).trim();
           };
 
