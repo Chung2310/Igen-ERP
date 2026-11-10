@@ -23,9 +23,11 @@ async function main() {
     const inbox = await import("./message/service/ai-auto-reply.service");
     const deposits = await import("./message/service/cake-deposit-worker");
     const customerSheets = await import("./message/service/page-customer-sheet.service");
+    const inboxSync = await import("./message/service/facebook-inbox-sync.service");
     await inbox.startFacebookAutoReplyQueueWorker(); deposits.startCakeDepositWorker();
     inbox.startAutoFollowUpWorker();
     customerSheets.startPageCustomerSheetWorker();
+    inboxSync.startFacebookInboxSyncWorker();
     if (process.env.MARKETING_TELEGRAM_POLLING_ENABLED === "true") {
       const { telegramService } = await import("./shared/service/telegram.service");
       await telegramService.startPolling();
@@ -36,6 +38,7 @@ async function main() {
     const caption = await import("./shared/queue/video-caption-queue");
     bulk.initBulkCreateWorker(); caption.initVideoCaptionWorker();
   }
+  console.log(`[ERP Marketing worker] Ready (${role}).`);
 }
 let stopping = false;
 async function stop() {

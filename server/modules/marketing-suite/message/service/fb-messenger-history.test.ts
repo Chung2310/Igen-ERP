@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ conversation: vi.fn(), conversationUpdate: vi.fn(), messages: vi.fn(), latest: vi.fn(), persist: vi.fn(), emit: vi.fn(), send: vi.fn(), trigger: vi.fn() }));
+const mocks = vi.hoisted(() => ({ conversation: vi.fn(), conversationUpdate: vi.fn(), messages: vi.fn(), exists: vi.fn(), latest: vi.fn(), persist: vi.fn(), emit: vi.fn(), send: vi.fn(), trigger: vi.fn() }));
 vi.mock("../model/fb-messenger.model.ts", () => ({
-  FBConversationModel: { findOne: mocks.conversation, findOneAndUpdate: mocks.conversationUpdate }, FBMessageModel: { find: mocks.messages, findOne: mocks.latest, findOneAndUpdate: mocks.persist },
+  FBConversationModel: { findOne: mocks.conversation, findOneAndUpdate: mocks.conversationUpdate }, FBMessageModel: { find: mocks.messages, exists: mocks.exists, findOne: mocks.latest, findOneAndUpdate: mocks.persist },
 }));
 vi.mock("../../../../model/user.model.ts", () => ({ UserModel: {} }));
 vi.mock("../../shared/socket", () => ({ emitToMessengerAccount: mocks.emit }));
@@ -27,6 +27,44 @@ beforeEach(() => {
   vi.spyOn(fbMessengerService, "shouldSync").mockReturnValue(true);
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+it("recovers a recent message missed by webhooks and does not trigger the same message twice", async () => {
+  const conversation = { _id: "conversation", pageId: "page", recipientId: "customer", facebookConversationId: "graph-conversation",
+    senderName: "Customer", avatarUrl: "https://example.com/avatar.png", status: "open", save: vi.fn() };
+  mocks.conversation.mockResolvedValue(conversation);
+  const newMessage = { id: "new-inbound", message: "Có bán hàng k", created_time: new Date().toISOString(), from: { id: "customer" } };
+  vi.spyOn(fbMessengerService, "getPageAccessTokenByPageId").mockResolvedValue("test-token");
+  vi.spyOn(fbMessengerService, "subscribePageWebhooks").mockResolvedValue({ success: true });
+  vi.spyOn(fbMessengerService, "fetchGraphJson").mockImplementation(async url => url.includes("/conversations?")
+    ? { data: [{ id: "graph-conversation", senders: { data: [{ id: "customer", name: "Customer" }] }, messages: { data: [newMessage] } }] }
+    : { data: [newMessage] });
+  mocks.exists.mockImplementation(async ({ messageId }) => rows.some(row => row.messageId === messageId));
+  mocks.messages.mockImplementation((_filter, projection) => projection ? Promise.resolve([...rows]) : { sort: async () => rows });
+  mocks.persist.mockImplementation(async (_filter, value) => { rows.push(value); return value; });
+  await fbMessengerService.syncConversationsFromFacebook("page", { companyCode: "ACME", source: "company" }, { reconcileMessages: true });
+  expect(mocks.trigger).toHaveBeenCalledWith("facebook", "page", "conversation", newMessage.message, newMessage.id);
+  expect(mocks.persist.mock.invocationCallOrder[0]).toBeLessThan(mocks.trigger.mock.invocationCallOrder[0]);
+  await fbMessengerService.syncConversationsFromFacebook("page", { companyCode: "ACME", source: "company" }, { reconcileMessages: true });
+  expect(mocks.trigger).toHaveBeenCalledTimes(1);
+});
+
+it("does not recover stale messages or reopen staff-closed conversations", async () => {
+  const conversation = { _id: "conversation", pageId: "page", recipientId: "customer", status: "closed", save: vi.fn() };
+  mocks.conversation.mockResolvedValue(conversation);
+  mocks.exists.mockResolvedValue(false);
+  vi.spyOn(fbMessengerService, "getPageAccessTokenByPageId").mockResolvedValue("test-token");
+  vi.spyOn(fbMessengerService, "subscribePageWebhooks").mockResolvedValue({ success: true });
+  const data = { data: [{ id: "graph", senders: { data: [{ id: "customer" }] }, messages: { data: [{ id: "new", created_time: new Date().toISOString(), from: { id: "customer" } }] } }] };
+  vi.spyOn(fbMessengerService, "fetchGraphJson").mockResolvedValue(data);
+  const sync = vi.spyOn(fbMessengerService, "syncMessagesFromFacebook").mockResolvedValue([]);
+  await fbMessengerService.syncConversationsFromFacebook("page", undefined, { reconcileMessages: true });
+  expect(conversation.save).not.toHaveBeenCalled();
+  expect(sync).not.toHaveBeenCalled();
+  data.data[0].messages.data[0].created_time = "2020-01-01T00:00:00Z";
+  mocks.conversation.mockClear();
+  await fbMessengerService.syncConversationsFromFacebook("page", undefined, { reconcileMessages: true });
+  expect(mocks.conversation).not.toHaveBeenCalled();
+});
 
 it("returns the Facebook reply in the same sync response even when cached inbound messages already exist", async () => {
   vi.spyOn(fbMessengerService, "syncMessagesFromFacebook").mockImplementation(async () => {

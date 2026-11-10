@@ -77,7 +77,7 @@ export const fbMessengerService = {
     return parsed;
   },
 
-  async syncConversationsFromFacebook(pageId: string, tokenContext?: FacebookTokenContext) {
+  async syncConversationsFromFacebook(pageId: string, tokenContext?: FacebookTokenContext, options?: { reconcileMessages?: boolean }) {
     const startedAt = Date.now();
     console.log(`[FB Service syncConversations] Bắt đầu đồng bộ hội thoại trực tiếp từ Facebook cho Page ID: ${pageId}`);
     const token = await this.getPageAccessTokenByPageId(pageId, tokenContext);
@@ -103,6 +103,9 @@ export const fbMessengerService = {
     for (const fbConversation of conversations) {
       const senders = Array.isArray(fbConversation?.senders?.data) ? fbConversation.senders.data : [];
       const latestMessage = Array.isArray(fbConversation?.messages?.data) ? fbConversation.messages.data[0] : null;
+      if (options?.reconcileMessages && (!latestMessage?.id
+        || !isFacebookReplyWindowOpen(new Date(latestMessage.created_time))
+        || await FBMessageModel.exists({ messageId: latestMessage.id }))) continue;
       const nonPageSender = senders.find((sender: any) => sender?.id && sender.id !== pageId);
       const fallbackRecipientId = latestMessage?.from?.id && latestMessage.from.id !== pageId
         ? latestMessage.from.id
@@ -124,6 +127,7 @@ export const fbMessengerService = {
 
       let avatarUrl = "";
       let senderName = nonPageSender?.name || "";
+      if (options?.reconcileMessages && conversation?.status === "closed") continue;
 
       // Chỉ fetch profile của khách hàng nếu hội thoại chưa có trong DB hoặc chưa có đủ Tên/Avatar
       if (!conversation || !conversation.avatarUrl || !conversation.senderName || conversation.senderName === "Khách hàng Facebook") {
@@ -171,6 +175,7 @@ export const fbMessengerService = {
 
       // Phát sự kiện socket để cập nhật realtime danh sách ở frontend
       emitToMessengerAccount("facebook", pageId, "conversation_updated", conversation);
+      if (options?.reconcileMessages) await this.syncMessagesFromFacebook(pageId, recipientId, tokenContext);
     }
 
     console.log(`[FB Service syncConversations] Đồng bộ xong ${conversations.length} hội thoại từ Facebook cho Page ID: ${pageId} trong ${Date.now() - startedAt}ms`);

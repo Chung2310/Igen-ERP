@@ -202,8 +202,10 @@ jobs:
             TARGET_DIR="/opt/igen-erp/production"
             IMAGE_TAG="production"
             CONTAINER_NAME="igen-erp-production"
+            INBOX_CONTAINER_NAME="$CONTAINER_NAME-inbox"
             IMAGE_REF="ghcr.io/chung2310/igen-erp:$IMAGE_TAG"
             previous_image=$(docker inspect --format '{{.Image}}' "$CONTAINER_NAME" 2>/dev/null || true)
+            previous_inbox_image=$(docker inspect --format '{{.Image}}' "$INBOX_CONTAINER_NAME" 2>/dev/null || true)
 
             # Tạo thư mục đích nếu chưa tồn tại và chuyển vào
             mkdir -p "$TARGET_DIR"
@@ -218,31 +220,39 @@ jobs:
             # Tải (pull) image mới trước khi tắt container cũ để giảm tối đa downtime
             export COMPOSE_PROJECT_NAME="$CONTAINER_NAME"
             df -h /
-            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose -f docker-compose.yml pull
+            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose -f docker-compose.yml --profile inbox pull
             expected_image=$(docker image inspect --format '{{.Id}}' "$IMAGE_REF")
 
             # Khởi động lại container mới
-            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose -f docker-compose.yml up -d --remove-orphans
+            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose -f docker-compose.yml --profile inbox up -d --remove-orphans
 
             healthy=0
-            if [ "$(docker inspect --format '{{.Image}}' "$CONTAINER_NAME")" = "$expected_image" ]; then
+            if [ "$(docker inspect --format '{{.Image}}' "$CONTAINER_NAME")" = "$expected_image" ] && [ "$(docker inspect --format '{{.Image}}' "$INBOX_CONTAINER_NAME")" = "$expected_image" ]; then
               for attempt in $(seq 1 30); do
-                if docker exec "$CONTAINER_NAME" node -e 'fetch("http://127.0.0.1:" + (process.env.PORT || "3000") + "/api/v1/health", { signal: AbortSignal.timeout(3000) }).then(async (response) => { const data = await response.json(); if (!response.ok || data.status !== "ok" || !String(data.services?.database).startsWith("online")) process.exit(1); }).catch(() => process.exit(1));'; then
-                  healthy=1
-                  break
+                inbox_started_at=$(docker inspect --format '{{.State.StartedAt}}' "$INBOX_CONTAINER_NAME")
+                if [ "$(docker inspect --format '{{.State.Running}}' "$INBOX_CONTAINER_NAME")" = "true" ] && docker logs --since "$inbox_started_at" "$INBOX_CONTAINER_NAME" 2>&1 | grep -F -q '[ERP Marketing worker] Ready (inbox).'; then
+                  if docker exec "$CONTAINER_NAME" node -e 'fetch("http://127.0.0.1:" + (process.env.PORT || "3000") + "/api/v1/health", { signal: AbortSignal.timeout(3000) }).then(async (response) => { const data = await response.json(); if (!response.ok || data.status !== "ok" || !String(data.services?.database).startsWith("online")) process.exit(1); }).catch(() => process.exit(1));'; then
+                    healthy=1
+                    break
+                  fi
                 fi
                 sleep 2
               done
             fi
             if [ "$healthy" != 1 ]; then
+              docker logs --tail 60 "$INBOX_CONTAINER_NAME" 2>&1 | grep -F '[ERP Marketing worker]' || true
+              IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose -f docker-compose.yml --profile inbox stop inbox-worker || true
               echo "ERP health check failed; retaining the previous image."
               if [ -n "$previous_image" ]; then
                 docker tag "$previous_image" "$IMAGE_REF"
                 IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose -f docker-compose.yml up -d --no-deps igen-erp
+                if [ "$previous_inbox_image" = "$previous_image" ]; then
+                  IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose -f docker-compose.yml --profile inbox up -d --no-deps inbox-worker
+                fi
               fi
               exit 1
             fi
-            echo "ERP production health check passed."
+            echo "ERP production API and inbox worker health checks passed."
 
             # Remove only the replaced image after the new API and database are healthy.
             if [ -n "$previous_image" ] && [ "$previous_image" != "$expected_image" ]; then
