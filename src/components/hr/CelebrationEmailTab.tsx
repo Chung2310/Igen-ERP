@@ -6,7 +6,6 @@ import { authService } from "../../services/authService";
 import type { TemplateVariableConfig } from "../template-editor/templateEditorTypes";
 import { toFriendlyTokens } from "../template-editor/templateTokenCodec";
 import { HR_BIRTHDAY_TEMPLATE_VARIABLES, HR_HOLIDAY_TEMPLATE_VARIABLES } from "./hrCelebrationVariableRegistry";
-import { HrPageTitle } from "./HrPageTitle";
 
 function RichTextEditor({
   value,
@@ -226,7 +225,6 @@ export default function CelebrationEmailTab() {
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <HrPageTitle>Email chúc mừng</HrPageTitle>
           <p className="mt-0.5 text-sm text-[#536B8F]">Thiết lập lời chúc gửi đến nhân sự.</p>
         </div>
         <button

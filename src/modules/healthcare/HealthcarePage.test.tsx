@@ -47,9 +47,12 @@ it("loads directories on demand and waits for catalog choices before editing an 
   render(<HealthcareWorkspace branchId="branch-a" hasPermission={() => true} />);
 
   expect(await screen.findByText("Chưa có dữ liệu phù hợp.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Bệnh nhân" }).getAttribute("aria-current")).toBe("page");
+  expect(screen.queryByRole("heading", { name: "Quản lý y tế" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Tổng quan" })).toBeNull();
   expect(calls).toEqual(["/patients/search"]);
   fireEvent.click(screen.getByRole("button", { name: "Lịch hẹn" }));
+  expect(screen.getByRole("button", { name: "Lịch hẹn" }).getAttribute("aria-current")).toBe("page");
   fireEvent.click(await screen.findByRole("button", { name: "Sửa lịch hẹn" }));
   const editor = within(screen.getByRole("dialog", { name: "Chỉnh sửa lịch hẹn" }));
   expect(editor.getByRole("status").textContent).toBe("Đang tải dữ liệu…");
@@ -242,7 +245,7 @@ it("includes the catalog in the shared module sidebar and keeps it selected afte
   const menu = within(screen.getByRole("navigation", { name: "Nghiệp vụ y tế" }));
   const settings = menu.getByRole("button", { name: "Cài đặt danh mục" });
   fireEvent.click(settings);
-  expect(await screen.findByRole("heading", { name: "Danh mục y tế" })).toBeTruthy();
+  expect(await screen.findByRole("region", { name: "Danh mục y tế" })).toBeTruthy();
   expect(window.location.search).toBe("?sub=danh-muc");
   expect(settings.getAttribute("aria-current")).toBe("page");
   expect(settings.querySelector(".module-nav-filled svg")).toBeTruthy();

@@ -338,11 +338,7 @@ export function OutboundSection({
 
       {/* 1. Header Section */}
       <div className="flex flex-col gap-3 border-b border-outline-variant pb-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 data-typography="page-title" className="inventory-outbound-title text-on-surface">Xuất hàng</h3>
-        </div>
-
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <ErpRefreshButton onClick={() => void loadWarehouses()} />
           <button
             type="button"

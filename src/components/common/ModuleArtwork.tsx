@@ -15,7 +15,7 @@ const accentPalettes = {
 const accentByModule: Partial<Record<TabType, keyof typeof accentPalettes>> = {
   "BÁO GIÁ": "teal", "TỔNG QUAN": "blue", "TRỢ LÝ AI": "blue", "NHÂN SỰ": "coral", "ĐỐI TÁC LAO ĐỘNG": "orange",
   "ĐỐI TÁC": "violet", "KHO & SẢN PHẨM": "teal", "SỬA CHỮA & BẢO HÀNH": "orange",
-  "QUẢN LÝ HỌC VIÊN": "blue", "QUẢN LÝ LAO ĐỘNG": "teal",
+  "QUẢN LÝ HỌC VIÊN": "blue", "QUẢN LÝ LAO ĐỘNG": "teal", "QUẢN LÝ Y TẾ": "teal",
   "QUẢN LÝ KHÁCH HÀNG": "coral", "BÁN LẺ": "orange",
   "ĐỐI TÁC BÁN LẺ": "teal", "TÀI CHÍNH": "blue",
   "OMNI INBOX": "violet",
@@ -45,6 +45,8 @@ export function ModuleArtwork({ module, className = "" }: ArtworkProps) {
       art = <><path d="M30 7a11 11 0 0 0-10 14L7 34a5 5 0 0 0 7 7l13-13A11 11 0 0 0 41 17l-8 7-7-3-3-7z" fill={a.blue}/><path d="M30 7a11 11 0 0 0-10 14l7 7A11 11 0 0 0 41 17l-8 7-7-3-3-7z" fill={a.mint}/><circle cx="11" cy="37" r="2" fill={a.white}/><path d="m30 30 5 2v5l-5 3-5-3v-5z" fill={a.gold}/></>; break;
     case "QUẢN LÝ HỌC VIÊN":
       art = <><path d="m4 17 19-9 19 9-19 9z" fill={a.blue}/><path d="M12 24v9c7 6 15 6 22 0v-9l-11 5z" fill={a.mint}/><circle cx="23" cy="17" r="4" fill={a.gold}/><path d="M42 18v13" stroke={a.gold} strokeWidth="3" strokeLinecap="round"/><circle cx="42" cy="34" r="3" fill={a.coral}/></>; break;
+    case "QUẢN LÝ Y TẾ":
+      art = <><path d="M9 29V20c0-6 5-11 11-11h8c6 0 11 5 11 11v9H9Z" fill={a.blue}/><path d="M9 29h30v6a5 5 0 0 1-5 5H14a5 5 0 0 1-5-5v-6Z" fill={a.gold}/><path d="M22 14h4v4h4v4h-4v4h-4v-4h-4v-4h4v-4Z" fill={a.white}/><path d="M12 31h24" stroke={a.mint} strokeWidth="2" strokeLinecap="round"/></>; break;
     case "QUẢN LÝ LAO ĐỘNG":
       art = <><path d="M8 16h32v24H8z" rx="4" fill={a.blue}/><path d="M17 16v-4a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v4" fill="none" stroke={a.gold} strokeWidth="4"/><path d="M8 22h32v7H8z" fill={a.mint}/><path d="M21 24h6v9h-6z" fill={a.gold}/></>; break;
     case "QUẢN LÝ KHÁCH HÀNG":

@@ -12,7 +12,6 @@ import { ModuleNavigation, ModuleNavigationButton } from "../components/common/M
 import { useSubTabRouter } from "../hooks/useSubTabRouter";
 import { SETTINGS_SUB_TAB_ROUTES, type SettingsSubTabType } from "../router/subTabRoutes";
 import { canManageFaces } from "../services/faceManagementService";
-import { HrPageTitle } from "../components/hr/HrPageTitle";
 import { cn } from "../modules/student-management/lib/utils";
 import "./settings-tab.css";
 
@@ -118,9 +117,6 @@ export default function SettingsTab() {
 
       <div className="settings-workspace min-h-0 flex-1 overflow-y-auto">
         <section className="settings-content-card min-h-full rounded-md border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
-          <div className="mb-3">
-            <HrPageTitle level={1}>{activeSubTab === "profile" ? "Hồ sơ cá nhân" : activeSubTab === "erp" ? "Cấu hình ERP" : "Nhận diện khuôn mặt"}</HrPageTitle>
-          </div>
           <div className={cn("grid grid-cols-1 items-start gap-3", activeSubTab === "profile" && "lg:grid-cols-3")}>
 
         {/* Left Column: Quick Profile Card */}

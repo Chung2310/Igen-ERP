@@ -306,11 +306,7 @@ export default function RetailCouponsPage({ canManagePoints = false }: { canMana
     <div className="space-y-3">
       {/* Top Banner / Header */}
       <div className="flex flex-col justify-between gap-4 border-b border-outline-variant pb-3 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="retail-page-title text-balance text-lg font-semibold text-on-surface">Mã ưu đãi & Tự động tặng mã</h1>
-        </div>
-
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           {activeSubTab === "coupons" ? (
             <>
               <button

@@ -246,7 +246,6 @@ export default function RetailSettingsPage() {
           <div className="flex items-start gap-4">
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="retail-page-title text-balance text-lg font-semibold text-on-surface">Cài đặt bán hàng</h1>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50/80 px-3 py-0.5 text-xs font-semibold text-cyan-800">
                   <Store className="h-3.5 w-3.5" />
                   {activeBranch?.name || `Chi nhánh: ${activeBranchId}`}
@@ -255,7 +254,7 @@ export default function RetailSettingsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
+          <div className="ml-auto flex items-center gap-2.5 shrink-0 self-end sm:self-center">
             {hasChanges && (
               <button
                 type="button"

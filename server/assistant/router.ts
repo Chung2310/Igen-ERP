@@ -1,5 +1,6 @@
 import { Router } from "express";
 import Joi from "joi";
+import multer from "multer";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAuth, requirePermission } from "../middleware/auth";
 import { validateRequest } from "../middleware/validation";
@@ -13,6 +14,9 @@ import { synthesizeVietnameseSpeech } from "./speech";
 import { assistantSpeechVoices } from "../../src/shared/assistant-speech-voices";
 import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 import { deleteAssistantMemory, listAssistantMemories, saveAssistantMemory, updateAssistantMemory } from "./memory";
+import { enhanceStudioImagePrompt, generateStudioImages, studioImageRatios } from "./studio-images";
+import { editStudioImage, studioEditModes } from "./studio-image-edit";
+import { listStudioTranscripts, transcribeStudioAudio } from "./studio-transcription";
 
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
@@ -22,6 +26,32 @@ const wrap = (handler: (req: AuthenticatedRequest) => Promise<unknown>) => async
   catch (error) { if (!(error instanceof AssistantError)) console.error("[assistant]", error); return res.status(error instanceof AssistantError ? error.status : 500).json({ success: false, message: error instanceof AssistantError ? error.message : "Không thể xử lý trợ lý AI lúc này." }); }
 };
 assistantRouter.get("/settings", wrap(getSettings));
+const studioAudioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(mp3|wav|m4a|ogg|flac)$/i.test(file.originalname)) });
+assistantRouter.post("/studio/transcriptions", expensiveApiRateLimiter, (req, res, next) => studioAudioUpload.single("audio")(req, res, (error) => error ? res.status(413).json({ success: false, message: "Tệp âm thanh vượt giới hạn 50 MB hoặc không hợp lệ." }) : next()), wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để lưu bản chép lời.", 403);
+  if (!req.file) throw new AssistantError("Chọn tệp MP3, WAV, M4A, OGG hoặc FLAC.", 400);
+  return transcribeStudioAudio({ buffer: req.file.buffer, fileName: req.file.originalname.slice(0, 255), companyCode: req.user.companyCode, userId: req.user.id });
+}));
+assistantRouter.get("/studio/transcriptions", wrap(req => {
+  if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để xem bản chép lời.", 403);
+  return listStudioTranscripts(req.user.companyCode, req.user.id);
+}));
+assistantRouter.post("/studio/images/optimize-prompt", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ prompt: Joi.string().trim().min(3).max(2000).required() }) }), wrap(req => enhanceStudioImagePrompt(req.body.prompt)));
+assistantRouter.post("/studio/images/edit", expensiveApiRateLimiter, validateRequest({ body: Joi.object({
+  sourceImage: Joi.string().max(21_000_000).pattern(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/).required(),
+  prompt: Joi.string().trim().min(3).max(2000).required(),
+  mode: Joi.string().valid(...studioEditModes).required(),
+  region: Joi.object({
+    x: Joi.number().min(0).max(1).required(), y: Joi.number().min(0).max(1).required(),
+    width: Joi.number().greater(0).max(1).required(), height: Joi.number().greater(0).max(1).required(),
+  }).custom((value, helpers) => value.x + value.width <= 1.001 && value.y + value.height <= 1.001 ? value : helpers.error("any.invalid")),
+}) }), wrap(req => editStudioImage(req.body)));
+assistantRouter.post("/studio/images", expensiveApiRateLimiter, validateRequest({ body: Joi.object({
+  prompt: Joi.string().trim().min(3).max(2000).required(),
+  aspectRatio: Joi.string().valid(...studioImageRatios).required(),
+  count: Joi.number().integer().min(1).max(4).required(),
+  referenceImage: Joi.string().max(5_600_000).pattern(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/),
+}) }), wrap(req => generateStudioImages(req.body)));
 assistantRouter.patch("/settings", validateRequest({ body: Joi.object({ version: Joi.number().integer().min(0).required(), windowMode: Joi.string().valid("window", "fullscreen").required(), enterToSend: Joi.boolean().required(), showSuggestions: Joi.boolean().required(), instructions: Joi.string().max(2000).allow("").required(), responseRules: Joi.string().max(2000).allow(""), alwaysConfirm: Joi.boolean().required(), speakReplies: Joi.boolean().required(), speechVoice: Joi.string().valid(...assistantSpeechVoices), wakeWordEnabled: Joi.boolean().required(), memoryEnabled: Joi.boolean(), autoMemoryEnabled: Joi.boolean() }) }), wrap(req => saveSettings(req, req.body)));
 assistantRouter.get("/memory", wrap(listAssistantMemories));
 assistantRouter.post("/memory", validateRequest({ body: Joi.object({ content: Joi.string().trim().min(1).max(300).required() }) }), wrap(req => saveAssistantMemory(req, req.body.content, "manual")));

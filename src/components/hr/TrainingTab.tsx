@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
-import { HrPageTitle } from "./HrPageTitle";
 import {
   BookOpen,
   CheckCircle2,
@@ -846,7 +845,6 @@ export default function TrainingTab({
           {/* Training section title and supervisor controls */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2.5">
-              <HrPageTitle>Đào tạo nhân sự</HrPageTitle>
               <span className="rounded-full bg-primary-container px-2.5 py-1 text-xs font-medium text-on-surface-variant tabular-nums">
                 {courses.length} khóa học
               </span>

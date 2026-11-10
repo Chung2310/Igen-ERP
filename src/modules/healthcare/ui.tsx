@@ -73,7 +73,7 @@ export function Table({ headers, children, empty, emptyKind = "search", selectAl
   selectAll?: { checked: boolean; disabled?: boolean; label: string; onChange: (checked: boolean) => void };
   columnWidths?: string[]; minWidth?: string;
 }) {
-  if (empty) return <div className="flex flex-col items-center gap-2 rounded-lg border border-outline-variant px-4 py-5 text-center">
+  if (empty) return <div className="flex flex-col items-center gap-2 border-t border-outline-variant px-4 py-5 text-center">
     <HrEmptyIllustration kind={emptyKind} className="h-14 w-24" />
     <p className="text-pretty text-sm text-on-surface-variant">{empty}</p>
   </div>;

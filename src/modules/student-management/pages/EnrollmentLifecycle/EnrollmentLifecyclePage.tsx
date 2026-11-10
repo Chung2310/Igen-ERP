@@ -68,10 +68,7 @@ export function EnrollmentLifecyclePage() {
   return (
     <div className="space-y-4 p-3 text-left sm:p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
-          <h1 className="text-balance text-xl font-medium text-on-surface">Bảo lưu & học lại</h1>
-        </div>
-        <span className="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+        <span className="ml-auto inline-flex w-fit items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
           <Users className="h-4 w-4 text-sky-600" />
           {rows.length} học viên
         </span>

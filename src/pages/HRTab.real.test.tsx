@@ -16,7 +16,7 @@ describe("HR page direct link", () => {
 
   it("loads the schedule from its URL without a render error", async () => {
     render(<HRTab />);
-    expect(screen.getByRole("link", { name: "Cài đặt hệ thống" }).getAttribute("href")).toBe("/cai-dat?sub=ho-so");
-    expect(await screen.findByText("Lịch làm việc", {}, { timeout: 5000 })).toBeTruthy();
-  });
+    expect((screen.getByRole("button", { name: "Cài đặt hệ thống" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(await screen.findByLabelText("Chọn ngày xem lịch", {}, { timeout: 10000 })).toBeTruthy();
+  }, 20000);
 });

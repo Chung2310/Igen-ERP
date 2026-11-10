@@ -322,16 +322,13 @@ export default function RetailInvoicesPageContent() {
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-2">
-            <h1 data-typography="page-title" className="retail-page-title text-on-surface">
-              Hóa đơn nội bộ
-            </h1>
             <span className="rounded-full bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-700 border border-cyan-200/60">
               {total.toLocaleString("vi-VN")} chứng từ
             </span>
           </div>
         </div>
 
-        <ErpRefreshButton onClick={() => void loadInvoices()} loading={loading} />
+        <div className="ml-auto"><ErpRefreshButton onClick={() => void loadInvoices()} loading={loading} /></div>
       </header>
 
       {/* Quick Summary KPIs */}

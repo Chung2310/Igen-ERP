@@ -38,7 +38,6 @@ test('shows shared available quota with held calls excluded and an accessible pe
 test('opens the upgrade catalog directly from its URL', async () => {
   window.history.replaceState(null, '', '/goi-ai?sub=goi-nang-cap');
   render(<AiSubscriptionPage />);
-  expect(screen.getByRole('heading', { name: 'Nâng cấp gói AI' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Gói nâng cấp' }).getAttribute('aria-pressed')).toBe('true');
 });
 

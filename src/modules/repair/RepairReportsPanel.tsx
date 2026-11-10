@@ -39,7 +39,6 @@ export default function RepairReportsPanel() {
 
   return <div className="space-y-4">
     <div>
-      <h1 className="text-balance text-xl font-semibold">Báo cáo sửa chữa & bảo hành</h1>
       <p className="mt-1 text-pretty text-sm text-on-surface-variant">Doanh thu và hiệu suất xử lý sản phẩm, thiết bị và hạng mục dịch vụ trong kỳ.</p>
     </div>
 

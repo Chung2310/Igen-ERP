@@ -32,9 +32,6 @@ function OrderWarrantyContent({ companyCode, branchId }: { companyCode: string; 
   }, [companyCode, branchId, filters, reload]);
 
   return <section className="flex flex-1 flex-col gap-4 text-on-surface">
-    <header className="border-b border-outline-variant pb-3">
-      <h2 className="retail-page-title text-balance text-lg font-semibold">Bảo hành theo đơn hàng</h2>
-    </header>
     <form onSubmit={event => { event.preventDefault(); setFilters(previous => ({ ...previous, q: search.trim(), page: 1 })); }} className="grid grid-cols-1 items-end gap-3 border-b border-outline-variant pb-4 sm:grid-cols-2 xl:flex">
       <label className="flex min-w-0 flex-col gap-1.5 text-sm font-medium text-on-surface sm:col-span-2 xl:flex-1">Tìm bảo hành
         <span className="relative block">

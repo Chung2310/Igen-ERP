@@ -711,14 +711,15 @@ function ScopedImageGenerationWorkspace({ initialPrompt, cardId, onMediaSaved, i
 
           {/* Section 5: Mô hình tạo ảnh */}
           <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
-            <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">Mô hình tạo ảnh</label>
+            <label htmlFor="content-studio-image-model" className="text-xs font-bold text-on-surface uppercase tracking-wide">Mô hình tạo ảnh</label>
             <select
-              className="w-full text-xs p-2.5 border border-slate-200 bg-white rounded-xl focus:outline-none cursor-pointer font-medium"
+              id="content-studio-image-model"
+              className="w-full rounded-xl border border-outline-variant bg-surface-container-lowest p-2.5 text-xs font-medium text-on-surface focus:border-primary focus:outline-none cursor-pointer"
               value={imageModel}
               onChange={(e) => setImageModel(e.target.value)}
             >
               <option value="gemini-banana-pro">iGen Image Pro</option>
-              <option value="gemini-banana-flash">iGen Image Flash</option>
+              <option value="gemini-banana-flash">iGen Image Flash (Recraft)</option>
             </select>
           </div>
 

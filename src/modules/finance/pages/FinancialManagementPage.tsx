@@ -88,7 +88,7 @@ export default function FinancialManagementPage({ view }: {
     const title = { overview: "Tổng quan tài chính", cash: "Thu - Chi", profit: "Lãi lỗ", vat: "Thuế VAT", breakeven: "Hòa vốn" }[view];
     const embeddedOverview = view === "overview" && Boolean(overviewPeriod);
     return <section className="finance-page-content">
-      <h1 className={embeddedOverview ? "sr-only" : "finance-page-title"}>{title}</h1>
+      {view === "overview" && !embeddedOverview && <h1 className="finance-page-title">{title}</h1>}
       {/* Top Filter and Scope Toolbar */}
       {!embeddedOverview && <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-outline-variant bg-surface-container-lowest p-3.5 shadow-xs">
         <div className="flex flex-wrap items-center gap-3">

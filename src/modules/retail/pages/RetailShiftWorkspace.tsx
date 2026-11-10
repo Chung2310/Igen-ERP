@@ -140,9 +140,6 @@ export default function RetailShiftWorkspace() {
     : Boolean(movementRequest.current) || (Number.isSafeInteger(amount) && amount > 0 && Boolean(reason.trim()));
   if (!scope) return <p>Vui lòng chọn chi nhánh.</p>;
   return <section className="mx-auto max-w-7xl space-y-5">
-    <header className="border-b border-outline-variant pb-3">
-      <h1 className="retail-page-title text-balance text-lg font-semibold text-on-surface">Phiên POS</h1>
-    </header>
     <form onSubmit={(event) => void open(event)} className="relative z-10 overflow-visible rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-outline-variant bg-surface-container-lowest px-4 py-4 sm:px-5">
         <div className="flex items-center gap-3">

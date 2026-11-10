@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
-import { HrPageTitle } from "./HrPageTitle";
 import { HrStatusBadge } from "./HrStatusBadge";
 import { renderAsync } from "docx-preview";
 import {
@@ -532,7 +531,6 @@ export default function WorkflowTab({
       <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest" id="workflow_tab">
         <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-6">
           <div className="flex items-center gap-2.5">
-            <HrPageTitle>Quy trình làm việc</HrPageTitle>
             <span className="rounded-full border border-[#bceaff] bg-[#f0faff] px-2.5 py-0.5 text-xs font-normal text-[#008dcc]">
               {workflows.length}
             </span>

@@ -733,11 +733,7 @@ function QuoteWorkspace({
       </div>
       {/* HEADER ROW */}
       <section className="page-heading-row quote-workspace-header">
-        <div className="quote-workspace-heading-left">
-          <span className="quote-heading-icon"><Icon name="quote" size={26} /></span>
-          <div><h1>Dự toán</h1></div>
-        </div>
-        <div className="page-heading-actions">
+        <div className="page-heading-actions ml-auto">
           {loadFailed && (
             <button type="button" className="button button-soft" onClick={() => setReloadKey((key) => key + 1)}>
               Tải lại
