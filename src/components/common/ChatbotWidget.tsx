@@ -1276,7 +1276,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         {isWelcomeScreen ? headerPanel ? <div ref={logRef} className="flex min-h-0 flex-1 flex-col justify-end gap-4 overflow-y-auto overscroll-contain bg-surface-container-lowest p-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2"><h3 className="text-balance text-lg font-semibold text-on-surface">iGen AI</h3><AssistantVerifiedBadge /></div>
-            <p className="text-pretty text-sm text-on-surface-variant">{assistantMode === "qa" ? "Mình có thể giải đáp câu hỏi về hệ thống và công việc của bạn." : "Mình có thể giúp bạn thực hiện công việc trong hệ thống. Mọi thay đổi đều cần bạn xác nhận."}</p>
+            <p className="text-pretty text-sm text-on-surface-variant">{assistantMode === "qa" ? "Mình có thể trả lời câu hỏi kiến thức, giải thích, viết, tóm tắt hoặc lên ý tưởng." : "Mình có thể giúp bạn thực hiện công việc trong hệ thống. Mọi thay đổi đều cần bạn xác nhận."}</p>
             {isLoading && <p role="status" className="text-sm text-on-surface-variant">Đang tải cuộc trò chuyện…</p>}
           </div>
           {settings.showSuggestions && synced && <div role="group" aria-label={assistantMode === "qa" ? "Gợi ý câu hỏi" : "Gợi ý yêu cầu"} className="flex flex-wrap gap-2">
