@@ -64,7 +64,24 @@ describe("Page intake flow", () => {
     expect(guidance.missingFields.map((field: { key: string }) => field.key)).toEqual(["phone"]);
     expect(guidance.requiredReply).toBeUndefined();
     expect(guidance.instruction).toContain("Trả lời câu hỏi mới nhất");
-    expect(savePageCustomer).toHaveBeenCalledWith(expect.objectContaining({ values: { name: "Thủy" }, message: grouped.combinedText }));
+    expect(savePageCustomer).toHaveBeenCalledWith(expect.objectContaining({ values: { name: "Thủy" }, message: "Alo\n" + grouped.combinedText }));
+  });
+  it("can save a phone supplied in earlier customer history without using the bot's hotline as source proof", async () => {
+    const contactFields = [
+      { key: "name", label: "Họ tên", question: "Cho em xin tên nhé?" },
+      { key: "phone", label: "Số điện thoại", question: "Cho em xin số liên hệ nhé?" },
+    ];
+    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 1, goal: "Tư vấn Ruby Queen", fields: contactFields, completionMessage: "Cảm ơn." }) } as any);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as any);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ name: "Thủy", phone: "0900000000" }) } as any);
+    await pageIntakeFlow.process({ companyCode: "RUBYQUEEN", pageId: "PAGE", conversationId: "C", messageId: "NAME",
+      message: "Thủy", imageUrls: [], history: [
+        { sender: "model", text: "Hotline Ruby Queen là 0965959929. Cho em xin số điện thoại của mình nhé?" },
+        { sender: "user", text: "0900000000" },
+        { sender: "model", text: contactFields[0].question },
+      ] });
+    expect(savePageCustomer).toHaveBeenCalledWith(expect.objectContaining({ message: "0900000000\nThủy",
+      values: { name: "Thủy", phone: "0900000000" } }));
   });
   it("does not extract or save sales information from a self-harm message", async () => {
     const result = await pageIntakeFlow.process({ companyCode: "RUBYQUEEN", pageId: "PAGE", conversationId: "C", messageId: "CRISIS",
