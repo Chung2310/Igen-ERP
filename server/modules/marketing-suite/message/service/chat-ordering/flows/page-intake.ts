@@ -55,7 +55,10 @@ export const pageIntakeFlow: ChatOrderFlow = {
     if (existing?.version === flow.version && existing.completedAt) return undefined;
     const values = await extractValues(input, fields, known);
     const text = nextIntakeReply(fields, values, flow.completionMessage);
-    const customerId = await savePageCustomer({ ...stateKey, customerId: existing?.customerId, message: input.message, fields, values });
+    // A phone may have been supplied in an earlier customer turn. Keep its
+    // source proof while excluding contact numbers mentioned only by the bot.
+    const customerMessages = [...(input.history || []).filter(turn => turn.sender === "user").map(turn => turn.text), input.message];
+    const customerId = await savePageCustomer({ ...stateKey, customerId: existing?.customerId, message: customerMessages.join("\n"), fields, values });
     // Persist before delivery for idempotent retries. A failed send can replay the same reply.
     await PageChatFlowStateModel.updateOne(stateKey, { $set: { version: flow.version, values, ...(customerId ? { customerId } : {}), lastMessageId: input.messageId, lastReply: text,
       completedAt: fields.every(field => values[field.key]) ? new Date() : null } }, { upsert: true });
