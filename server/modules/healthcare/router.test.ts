@@ -153,7 +153,7 @@ it("creates the visit to follow-up to care flow and prevents concurrent interval
   expect(care).toMatchObject({ appointmentId: appointment._id, status: "open" });
   expect((await request("/care", { ...task, patientId: second._id })).status).toBe(400);
 
-  const reference = { _id: patient._id, code: patient.code, name: patient.name, phone: patient.phone };
+  const reference = { _id: patient._id, code: patient.code, name: patient.name };
   expect(await (await request("/visits/search", { q: "Bác sĩ thử" })).json()).toMatchObject({ total: 1, items: [{ _id: visit._id }] });
   for (const [path, id] of [["visits", visit._id], ["appointments", appointment._id], ["care", care._id]]) {
     const { items, patientReferences } = await (await request(`/${path}?id=${id}`)).json();

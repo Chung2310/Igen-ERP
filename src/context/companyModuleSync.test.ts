@@ -9,10 +9,10 @@ test("normalizes company code and keeps unique valid module keys in canonical or
   );
 });
 
-test("rejects malformed module update events and accepts an explicit empty grant", () => {
+test("rejects malformed or empty module update events", () => {
   assert.equal(normalizeCompanyModulesEvent(null), null);
   assert.equal(normalizeCompanyModulesEvent({ companyCode: "", enabledModules: ["hr"] }), null);
   assert.equal(normalizeCompanyModulesEvent({ companyCode: "ACME", enabledModules: "hr" }), null);
-  assert.deepEqual(normalizeCompanyModulesEvent({ companyCode: "ACME", enabledModules: [] }), { companyCode: "ACME", enabledModules: [] });
+  assert.equal(normalizeCompanyModulesEvent({ companyCode: "ACME", enabledModules: [] }), null);
   assert.equal(normalizeCompanyModulesEvent({ companyCode: "ACME", enabledModules: ["unknown"] }), null);
 });

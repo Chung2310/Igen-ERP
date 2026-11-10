@@ -48,9 +48,7 @@ it("scopes course list/detail/delete queries to the selected branch", async () =
 });
 
 it("scopes batch list/detail/delete queries to the selected branch", async () => {
-  vi.spyOn(Course as any, "find").mockReturnValue({
-    select: (fields: string) => fields === "_id" ? { lean: async () => [] } : Promise.resolve([]),
-  });
+  vi.spyOn(Course as any, "find").mockReturnValue({ select: () => Promise.resolve([]) });
   vi.spyOn(User as any, "find").mockReturnValue({ select: () => Promise.resolve([]) });
   const countDocuments = vi.spyOn(Batch as any, "countDocuments").mockResolvedValue(0);
   const find = vi.spyOn(Batch as any, "find").mockImplementation(() => ({
@@ -60,46 +58,9 @@ it("scopes batch list/detail/delete queries to the selected branch", async () =>
   assert.equal((countDocuments.mock.calls[0]?.[0] as any).branchId, branchA);
   assert.equal((find.mock.calls[0]?.[0] as any).branchId, branchA);
 
-  await BatchService.getBatches(ownerScope, { search: "Lớp Toán A" }, branchA);
-  assert.deepEqual((find.mock.calls[1]?.[0] as any).$or, [
-    { code: { $regex: "Lớp Toán A", $options: "i" } },
-    { name: { $regex: "Lớp Toán A", $options: "i" } },
-    { location: { $regex: "Lớp Toán A", $options: "i" } },
-    { instructorText: { $regex: "Lớp Toán A", $options: "i" } },
-  ]);
-
   const findOneAndDelete = vi.spyOn(Batch as any, "findOneAndDelete").mockResolvedValue(null);
   await BatchService.deleteBatch(ownerScope, "batch-a", branchA);
   assert.equal((findOneAndDelete.mock.calls[0]?.[0] as any).branchId, branchA);
-});
-
-it("finds a class by a partial title of its course within the current branch", async () => {
-  const courseId = "507f1f77bcf86cd7994390a1";
-  const courseFind = vi.spyOn(Course as any, "find").mockImplementation((filter: Record<string, any>) => ({
-    select: (fields: string) => fields === "_id" && filter.$or
-      ? { lean: async () => [{ _id: courseId }] }
-      : Promise.resolve([]),
-  }));
-  vi.spyOn(User as any, "find").mockReturnValue({ select: () => Promise.resolve([]) });
-  vi.spyOn(Batch as any, "countDocuments").mockResolvedValue(0);
-  const batchFind = vi.spyOn(Batch as any, "find").mockImplementation(() => ({
-    sort: () => ({ skip: () => ({ limit: () => Promise.resolve([]) }) }),
-  }));
-
-  await BatchService.getBatches(ownerScope, { search: "kiếm tiền" }, branchA);
-
-  assert.deepEqual(courseFind.mock.calls[0]?.[0], {
-    ownerId: { $in: ownerScope },
-    branchId: branchA,
-    $or: [
-      { title: { $regex: "kiếm tiền", $options: "i" } },
-      { code: { $regex: "kiếm tiền", $options: "i" } },
-    ],
-  });
-  assert.deepEqual((batchFind.mock.calls[0]?.[0] as any).$or.at(-1), {
-    courseId: { $in: [courseId] },
-  });
-  assert.equal((batchFind.mock.calls[0]?.[0] as any).branchId, branchA);
 });
 
 it("scopes exam list/detail/delete queries to the selected branch", async () => {

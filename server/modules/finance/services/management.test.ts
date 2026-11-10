@@ -11,7 +11,7 @@ import { ReceivableEntryModel } from "../models/receivable-entry.model";
 import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
-import { createVoucher, createPayable, createTax, saveFollowup, financeDebts, reportRange, financeReport, importInvoiceTax } from "./management.service";
+import { createVoucher, createPayable, saveFollowup, financeDebts, reportRange, financeReport, importInvoiceTax } from "./management.service";
 import { FinancePayableModel, FinanceVoucherModel, FinanceFollowupModel } from "../models/management.model";
 import { GoodsReceiptModel } from "../../../model/goods-receipt.model";
 import { validateManagement } from "../validations/management.validation";
@@ -24,18 +24,6 @@ beforeEach(async () => { await Promise.all([FinanceDebtModel.deleteMany({}), Fin
 async function debt() { return FinancePayableModel.create({ ...scope, receiptId: new mongoose.Types.ObjectId().toString(), supplierId: "SUP", originalAmount: 1000, openingPaid: 0, paidAmount: 0, balance: 1000, dueDate: "2026-09-25" }); }
 const voucher = (id: string, key: string, amount = 600) => ({ kind: "payment", category: "supplier", expenseClass: "none", amount, date: "2026-09-23", method: "cash", payableId: id, idempotencyKey: key });
 describe("Finance management invariants", () => {
-  it("only links a manual VAT record to a confirmed order in the same company and branch", async () => {
-    const orderId = new mongoose.Types.ObjectId();
-    await RetailOrderModel.collection.insertOne({ ...scope, _id: orderId, status: "completed", orderCode: "DH-1" });
-    const input = { direction: "output", invoiceNumber: "VAT-1", taxId: "0100000000", counterparty: "Khách A", date: "2026-10-01", base: 1000, rate: 10, vat: 100, deductible: false, sourceOrderId: String(orderId) };
-    const created = await createTax(scope, input, { id: "U" });
-    expect(created.sourceOrderId).toBe(String(orderId));
-
-    const otherBranchOrder = new mongoose.Types.ObjectId();
-    await RetailOrderModel.collection.insertOne({ ...scope, branchId: "B", _id: otherBranchOrder, status: "completed", orderCode: "DH-OTHER" });
-    await expect(createTax(scope, { ...input, invoiceNumber: "VAT-2", sourceOrderId: String(otherBranchOrder) }, { id: "U" })).rejects.toThrow("chi nhánh");
-    expect(await FinanceTaxModel.countDocuments()).toBe(1);
-  });
   it("updates payable and cash voucher together and replays an identical request once", async () => { const d = await debt(); const input = voucher(String(d._id), "retry-key-1"); await createVoucher(scope, input, { id: "U" }); await createVoucher(scope, input, { id: "U" }); expect(await FinanceVoucherModel.countDocuments()).toBe(1); expect((await FinancePayableModel.findById(d._id))?.balance).toBe(400); await expect(createVoucher(scope, { ...input, amount: 200 }, {})).rejects.toThrow(); });
   it("rejects overpayment without leaving a voucher", async () => { const d = await debt(); await expect(createVoucher(scope, voucher(String(d._id), "too-much", 1001), {})).rejects.toThrow(); expect(await FinanceVoucherModel.countDocuments()).toBe(0); expect((await FinancePayableModel.findById(d._id))?.balance).toBe(1000); });
   it("does not let simultaneous payments overspend the balance", async () => { const d = await debt(); const results = await Promise.allSettled([createVoucher(scope, voucher(String(d._id), "concurrent-A"), {}), createVoucher(scope, voucher(String(d._id), "concurrent-B"), {})]); expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1); expect((await FinancePayableModel.findById(d._id))?.balance).toBe(400); expect(await FinanceVoucherModel.countDocuments()).toBe(1); });

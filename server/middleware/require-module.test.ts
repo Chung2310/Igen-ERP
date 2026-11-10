@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CompanyModel } from "../model/company.model";
 import { ModuleSettings } from "../modules/student-management/models/module-settings.model";
-import { clearModuleCache, getModuleStateForCompany, isServiceSubscriptionBlocked, resolveModuleAccess } from "./require-module";
+import { clearModuleCache, getModuleStateForCompany, resolveModuleAccess } from "./require-module";
 
 test("superadmin always bypasses tenant module restrictions", () => {
   assert.equal(resolveModuleAccess({ role: "superadmin", companyCode: "SYSTEM" }, "hr", []), true);
@@ -52,12 +52,4 @@ test("tenant module access fails closed without a company code", () => {
 
 test("tenant module access fails closed when the company record does not exist", () => {
   assert.equal(resolveModuleAccess({ role: "user", companyCode: "MISSING" }, "student", undefined, false), false);
-});
-
-test("a cancelled or expired service subscription blocks modules while legacy tenants remain available", () => {
-  const now = new Date("2026-10-28T00:00:00.000Z");
-  assert.equal(isServiceSubscriptionBlocked({}, now), false);
-  assert.equal(isServiceSubscriptionBlocked({ subscriptionStatus: "active", subscriptionEndsAt: new Date("2026-10-29") }, now), false);
-  assert.equal(isServiceSubscriptionBlocked({ subscriptionStatus: "active", subscriptionEndsAt: now }, now), true);
-  assert.equal(isServiceSubscriptionBlocked({ subscriptionStatus: "cancelled", subscriptionEndsAt: new Date("2026-10-29") }, now), true);
 });

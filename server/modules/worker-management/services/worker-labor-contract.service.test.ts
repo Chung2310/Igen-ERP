@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { WorkerLaborContractModel } from "../models/worker-labor-contract.model";
 import { WorkerModel } from "../models/worker.model";
 import {
@@ -19,7 +19,7 @@ const mongoSession = {
 beforeEach(() => {
   mongoSession.withTransaction.mockClear();
   mongoSession.endSession.mockClear();
-  vi.spyOn(WorkerLaborContractModel.db, "startSession").mockResolvedValue(mongoSession as any);
+  vi.spyOn(mongoose, "startSession").mockResolvedValue(mongoSession as any);
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -160,7 +160,7 @@ describe("worker labor contract service", () => {
     );
     expect((update as any).$set.status).toBe("renewed");
     expect(result.current).toBe(savedNext);
-    expect(WorkerLaborContractModel.db.startSession).toHaveBeenCalledTimes(1);
+    expect(mongoose.startSession).toHaveBeenCalledTimes(1);
     expect(mongoSession.withTransaction).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledWith({ session: mongoSession });
     expect((close.mock.calls[0][2] as any).session).toBe(mongoSession);

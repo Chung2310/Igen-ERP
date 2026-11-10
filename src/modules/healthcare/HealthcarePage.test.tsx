@@ -61,17 +61,15 @@ it("loads directories on demand and waits for catalog choices before editing an 
   await act(async () => {
     resolveCatalog(Response.json([{ _id: "d1", kind: "doctor", name: "Bác sĩ Minh", active: true }]));
   });
-  const doctor = await screen.findByRole("button", { name: "Chọn bác sĩ trong ERP (nếu có)" });
-  expect(doctor.textContent).toContain("Bác sĩ Minh");
-  expect(new FormData(doctor.closest("form")!).get("doctorId")).toBe("d1");
+  const doctor = await screen.findByLabelText("Bác sĩ");
+  expect((doctor as HTMLSelectElement).value).toBe("d1");
   expect(calls).toHaveLength(3);
   expect(calls).toEqual(expect.arrayContaining(["/patients/search", "/appointments", "/catalog"]));
 
   fireEvent.click(editor.getByRole("button", { name: "Đóng biểu mẫu" }));
   fireEvent.click(screen.getByRole("button", { name: "Giao việc chăm sóc" }));
-  const assignee = await screen.findByRole("button", { name: /Nhân viên phụ trách/ });
-  fireEvent.click(assignee);
-  expect(within(await screen.findByRole("listbox")).getByRole("option", { name: "Nhân viên thử" })).toBeTruthy();
+  const assignee = await screen.findByLabelText(/Nhân viên phụ trách/);
+  expect(assignee.textContent).toContain("Nhân viên thử");
   expect(calls.slice(3)).toEqual(["/staff"]);
 });
 
@@ -116,7 +114,6 @@ it("opens patient details and the edit form as popups from the patient list", as
   const patient = {
     _id: "p1", code: "BN01", name: "Nguyễn An", phone: "0900000000", dateOfBirth: "2010-11-07",
     address: "Hà Nội", note: "Ghi chú", hospitalProfile: { gender: "Nữ", birthYear: "2010", phoneText: "0900000000" },
-    createdAt: "2026-11-07T00:00:00.000Z", updatedAt: "2026-11-07T00:00:00.000Z", revision: 1,
   };
   vi.stubGlobal("fetch", async (url: string) => {
     const path = url.replace("/api/v1/healthcare", "").split("?")[0];
@@ -126,7 +123,7 @@ it("opens patient details and the edit form as popups from the patient list", as
   });
   render(<HealthcareWorkspace branchId="branch-a" hasPermission={() => true} />);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Nguyễn An" }));
+  fireEvent.click(await screen.findByRole("button", { name: "BN01" }));
   const details = within(await screen.findByRole("dialog", { name: "Hồ sơ bệnh nhân · BN01" }));
   expect(details.getByText("Nguyễn An")).toBeTruthy();
   fireEvent.click(details.getByRole("button", { name: "Sửa hồ sơ bệnh nhân" }));

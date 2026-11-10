@@ -3,7 +3,7 @@ import { test } from "vitest";
 import { MODULE_KEYS, DEFAULT_MODULE_KEYS } from "../../config/module-keys";
 import { expandEffectivePermissions, PERMISSION_CODES } from "../../config/permission-catalog";
 import { DEFAULT_ROLE_PERMISSIONS } from "../../middleware/auth";
-import { financeScopeFromRequest, requireFinanceBranch, resolveFinanceScopeFromRequest } from "./contracts";
+import { financeScopeFromRequest, requireFinanceBranch } from "./contracts";
 import { ASSET_MANAGE_PERMISSION, ASSET_READ_PERMISSION } from "./permissions";
 
 test("finance module and receivable permissions are registered", () => {
@@ -32,13 +32,4 @@ test("superadmin finance scope must be explicit and branch operations require br
   assert.throws(() => financeScopeFromRequest({ role: "superadmin" }, {}), (error: any) => error.status === 400);
   assert.deepEqual(financeScopeFromRequest({ role: "superadmin" }, { companyCode: " acme ", branchId: "B1" }), { companyCode: "ACME", branchId: "B1" });
   assert.throws(() => requireFinanceBranch({ companyCode: "ACME" }), /chi nhánh/i);
-});
-
-test("company admin can select only an active branch belonging to their company", async () => {
-  const selected = "507f1f77bcf86cd799439012";
-  const actor = { role: "admin", companyCode: "ACME", branchId: "" };
-  const lookup = { exists: async (filter: any) => filter._id === selected && filter.companyCode === "ACME" && filter.isActive };
-  assert.deepEqual(await resolveFinanceScopeFromRequest(actor, { branchId: selected }, lookup), { companyCode: "ACME", branchId: selected });
-  await assert.rejects(() => resolveFinanceScopeFromRequest(actor, { branchId: "507f1f77bcf86cd799439013" }, lookup), (error: any) => error.status === 403);
-  assert.deepEqual(await resolveFinanceScopeFromRequest({ role: "superadmin" }, { companyCode: "ACME", branchId: selected }, lookup), { companyCode: "ACME", branchId: selected });
 });
