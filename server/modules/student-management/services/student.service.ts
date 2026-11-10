@@ -246,6 +246,7 @@ export class StudentService {
       phone: normalizePhone(String(writeData.phone ?? "")),
       idCard: typeof writeData.idCard === "string" ? normalizeIdCard(writeData.idCard) : writeData.idCard,
       fee: normalizeFee(writeData.fee),
+      tuitionWaived: false,
       courseId: typeof writeData.courseId === "string" ? writeData.courseId.trim() : writeData.courseId,
     };
 
@@ -386,6 +387,8 @@ export class StudentService {
     }
     if (typeof writeData.fee !== "undefined") {
       writeData.fee = normalizeFee(writeData.fee);
+      // A manually edited fee is no longer the explicit free-tuition marker from Excel.
+      writeData.tuitionWaived = false;
     }
     if (typeof writeData.courseId === "string") {
       writeData.courseId = writeData.courseId.trim();
@@ -605,7 +608,7 @@ export class StudentService {
     const errors: { row: number; name: string; phone: string; reason: string }[] = [];
     const validStudents: Partial<IStudent>[] = [];
     const acceptedInputs: BulkStudentInput[] = [];
-    const tuitionUpdates: Array<{ id: string; phone: string; fee: string }> = [];
+    const tuitionUpdates: Array<{ id: string; phone: string; fee: string; tuitionWaived: boolean }> = [];
     const importedPayments: Array<{
       _id: Types.ObjectId;
       studentId: string;
@@ -702,7 +705,12 @@ export class StudentService {
       seenPhonesInBatch.add(phone);
       if (email && !isTuitionUpdate) seenEmailsInBatch.add(email);
       if (isTuitionUpdate && existingStudent) {
-        tuitionUpdates.push({ id: String(existingStudent._id), phone, fee: safeFee.toLocaleString("vi-VN") });
+        tuitionUpdates.push({
+          id: String(existingStudent._id),
+          phone,
+          fee: safeFee.toLocaleString("vi-VN"),
+          tuitionWaived: safeFee === 0,
+        });
         continue;
       }
       if (batchCode) plannedBatchAdds.set(batchCode, (plannedBatchAdds.get(batchCode) || 0) + 1);
@@ -746,6 +754,7 @@ export class StudentService {
         registrationDate,
         enrollmentDate,
         fee: fee || safeFee.toLocaleString("vi-VN"),
+        tuitionWaived: data.feeProvided === true && safeFee === 0,
         paidAmount: importedPaidAmount,
         paymentHistory,
         address,
@@ -805,7 +814,7 @@ export class StudentService {
       const result = await Student.bulkWrite(tuitionUpdates.map((update) => ({
         updateOne: {
           filter: { _id: update.id, phone: update.phone, ...query },
-          update: { $set: { fee: update.fee } },
+          update: { $set: { fee: update.fee, tuitionWaived: update.tuitionWaived } },
         },
       })));
       updatedFeeCount = result.matchedCount;

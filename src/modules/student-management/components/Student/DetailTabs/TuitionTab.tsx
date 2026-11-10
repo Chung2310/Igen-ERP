@@ -259,7 +259,11 @@ export function TuitionTab({
                 let statusColor = 'text-rose-500';
                 let bgColor = 'bg-rose-50 border-rose-100';
 
-                if (remaining <= 0 && totalFee > 0) {
+                if (student.tuitionWaived === true && totalFee === 0) {
+                  statusLabel = 'Miễn phí';
+                  statusColor = 'text-emerald-600';
+                  bgColor = 'bg-emerald-50 border-emerald-100';
+                } else if (remaining <= 0 && totalFee > 0) {
                   statusLabel = 'Đã đóng đủ';
                   statusColor = 'text-emerald-600';
                   bgColor = 'bg-emerald-50 border-emerald-100';
@@ -297,7 +301,11 @@ export function TuitionTab({
               )}
             </div>
 
-            {totalFee === 0 ? (
+            {student.tuitionWaived === true && totalFee === 0 ? (
+              <div className="w-full py-4 text-center text-xs font-medium text-emerald-700">
+                Học viên được miễn học phí.
+              </div>
+            ) : totalFee === 0 ? (
               <div className="w-full py-4 text-center text-xs font-normal text-rose-600">
                 Chưa đóng học phí (Chưa cấu hình học phí)
               </div>

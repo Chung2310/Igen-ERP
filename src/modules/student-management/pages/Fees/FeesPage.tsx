@@ -169,7 +169,10 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
     const total = parseCurrency(student.fee || '0');
     const paid = periodPaidByStudent[String(student.id)] || 0;
     const debt = total - paid;
+    const tuitionWaived = student.tuitionWaived === true && total === 0;
 
+    if (debtFilter === 'Miễn phí' && !tuitionWaived) return false;
+    if (debtFilter !== 'Miễn phí' && tuitionWaived) return false;
     if (debtFilter === 'Còn nợ' && debt <= 0) return false;
     if (debtFilter === 'Đã hoàn thành' && debt > 0) return false;
     if (searchQuery && !student.fullName.toLowerCase().includes(searchQuery.toLowerCase()) && !student.phone.includes(searchQuery)) return false;
@@ -278,7 +281,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       <div className="grid grid-cols-1 gap-2 rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-sm sm:grid-cols-3">
         <div className="space-y-0.5">
           <label className="text-xs font-normal text-slate-600">Trạng thái nợ</label>
-          <RoadmapPicker value={debtFilter} placeholder="Tất cả" allowClear={false} options={[{ value: 'Tất cả', label: 'Tất cả' }, { value: 'Còn nợ', label: 'Còn nợ' }, { value: 'Đã hoàn thành', label: 'Đã hoàn thành' }]} onChange={setDebtFilter} />
+          <RoadmapPicker value={debtFilter} placeholder="Tất cả" allowClear={false} options={[{ value: 'Tất cả', label: 'Tất cả' }, { value: 'Còn nợ', label: 'Còn nợ' }, { value: 'Đã hoàn thành', label: 'Đã hoàn thành' }, { value: 'Miễn phí', label: 'Miễn phí' }]} onChange={setDebtFilter} />
         </div>
 
         <div className="space-y-0.5 sm:col-span-2">
@@ -329,6 +332,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                 const paid = periodPaidByStudent[String(student.id)] || 0;
                 const debt = total - paid;
                 const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
+                const tuitionWaived = student.tuitionWaived === true && total === 0;
 
                 return (
                   <tr key={student.id} className="group transition-colors hover:bg-sky-50/40">
@@ -376,7 +380,9 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                       </span>
                     </td>
                     <td className="px-3 py-1.5 border-b border-slate-50 min-w-[100px]">
-                      <div className="flex items-center gap-2">
+                      {tuitionWaived ? (
+                        <span className="inline-flex whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Miễn phí</span>
+                      ) : <div className="flex items-center gap-2">
                         <div className="flex-1 h-1 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
                           <motion.div
                             initial={false}
@@ -388,7 +394,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                           />
                         </div>
                         <span className="w-7 text-xs font-normal text-slate-500">{progress}%</span>
-                      </div>
+                      </div>}
                     </td>
                     <td className="px-3 py-1.5 border-b border-slate-50 text-center">
                       <span className="text-xs font-normal text-slate-500">

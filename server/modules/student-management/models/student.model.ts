@@ -90,6 +90,7 @@ const studentSchema = new Schema<IStudent>(
     registrationDate: { type: String, required: true },
     enrollmentDate: { type: String, default: "" },
     fee: { type: String, required: true },
+    tuitionWaived: { type: Boolean, default: false },
     paidAmount: { type: Number, default: 0 },
     address: { type: String, default: "" },
     status: {
