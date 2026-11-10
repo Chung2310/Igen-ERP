@@ -1,0 +1,34 @@
+// @vitest-environment jsdom
+import { afterEach, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { AssistantStudio } from "./AssistantStudio";
+import { assistantService } from "../../services/assistantService";
+
+afterEach(cleanup);
+
+it("shows three separate audio tools inside AI Studio", () => {
+  render(<AssistantStudio />);
+  const audio = screen.getByRole("region", { name: "Âm thanh" });
+  expect(audio.querySelectorAll("button.assistant-studio-card")).toHaveLength(3);
+  for (const artwork of audio.querySelectorAll("button.assistant-studio-card span[aria-hidden]")) {
+    expect(artwork.getAttribute("style")).toContain("ai-studio-audio-tools.png");
+  }
+  fireEvent.click(screen.getByRole("button", { name: /Chuyển giọng nói thành văn bản/ }));
+  expect(screen.getByRole("heading", { name: "Chuyển giọng nói thành văn bản", level: 2 })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Tải lên từ máy tính" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Quay lại AI Studio" }));
+  fireEvent.click(screen.getByRole("button", { name: /Tạo giọng cá nhân/ }));
+  expect((screen.getByRole("button", { name: /Bắt đầu ghi âm · Sắp ra mắt/ }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("submits an audio file and shows the returned transcript", async () => {
+  const submit = vi.spyOn(assistantService, "transcribeStudioAudio").mockResolvedValue({ id: "one", fileName: "mau.mp3", text: "Xin chào iGen", createdAt: new Date().toISOString() });
+  render(<AssistantStudio />);
+  fireEvent.click(screen.getByRole("button", { name: /Chuyển giọng nói thành văn bản/ }));
+  const file = new File(["audio"], "mau.mp3", { type: "audio/mpeg" });
+  fireEvent.change(screen.getByLabelText("Chọn tệp âm thanh"), { target: { files: [file] } });
+  fireEvent.click(screen.getByRole("button", { name: "Chuyển thành văn bản" }));
+  await waitFor(() => expect(submit).toHaveBeenCalledWith(file));
+  expect(await screen.findByText("Xin chào iGen")).toBeTruthy();
+  submit.mockRestore();
+});

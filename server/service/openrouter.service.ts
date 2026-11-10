@@ -7,6 +7,8 @@
  * (OPENROUTER_FALLBACK_MODEL / OPENROUTER_FALLBACK_IMAGE_MODEL).
  */
 
+import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, generateRecraftImage } from "./openrouter-image-api";
+
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 function getApiKey(): string {
@@ -76,6 +78,8 @@ export type OpenRouterContentPart =
 
 export interface OpenRouterChatParams {
   model: string;
+  /** Model dự phòng riêng cho tác vụ này khi model chính lỗi hoặc hết lượt. */
+  fallbackModel?: string;
   messages: OpenRouterMessage[];
   temperature?: number;
   /** Return JSON object (response_format: json_object) */
@@ -128,7 +132,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
       return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries);
     } catch (error: any) {
       lastError = error;
-      const fallbackModel = getFallbackModel();
+      const fallbackModel = params.fallbackModel ? mapModelName(params.fallbackModel) : getFallbackModel();
 
       if (!isNonFallbackableError(error) && fallbackModel !== mappedModel) {
         console.warn(
@@ -233,20 +237,22 @@ export interface OpenRouterImageParams {
 }
 
 /**
- * Image generation qua OpenRouter /chat/completions với modalities: ["image", "text"]
- * Đây là cách chính thức theo OpenRouter SDK — /images endpoint bị geo-block Vietnam.
- * Model chính lỗi hết retry → fallback sang getFallbackImageModel().
+ * Recraft tạo ảnh mới qua Images API; các model hỗ trợ ảnh tham chiếu dùng chat completions.
+ * Model chính lỗi thì có thể dùng model dự phòng nếu luồng cho phép.
  */
 export async function openrouterGenerateImage(params: OpenRouterImageParams): Promise<{ url: string }> {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error("[OpenRouter] OPENROUTER_API_KEY chưa được cấu hình trong .env");
 
-  const model = params.model
+  const configuredModel = params.model
     ? mapModelName(params.model)
-    : (process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image");
+    : (process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL);
 
   const allowedRatios = new Set(["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"]);
   const ratioKey = params.aspectRatio && allowedRatios.has(params.aspectRatio) ? params.aspectRatio : "1:1";
+  const model = configuredModel === DEFAULT_IMAGE_MODEL && (params.referenceImages?.length || !RECRAFT_ASPECT_RATIOS.has(ratioKey))
+    ? IMAGE_EDIT_MODEL
+    : configuredModel;
   const finalPrompt = params.preserveInputAspectRatio
     ? params.prompt
     : `${params.prompt}\n\nGenerate the image with a ${ratioKey} aspect ratio.`;
@@ -260,10 +266,11 @@ export async function openrouterGenerateImage(params: OpenRouterImageParams): Pr
   console.log(`[OpenRouter Image] chat+modalities | model=${model} | promptLen=${params.prompt.length} | aspectRatio=${ratioKey}`);
 
   try {
+    if (model === DEFAULT_IMAGE_MODEL) return await generateRecraftImage(apiKey, params.prompt, ratioKey);
     return await generateImageWithRetries(apiKey, model, content, params.preserveInputAspectRatio ? undefined : ratioKey, 3);
   } catch (error: any) {
     const fallbackModel = getFallbackImageModel();
-    if (params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
+    if (model === DEFAULT_IMAGE_MODEL || params.allowFallback === false || isNonFallbackableError(error) || fallbackModel === model) throw error;
 
     console.warn(
       `[OpenRouter Image] Model ${model} thất bại, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
