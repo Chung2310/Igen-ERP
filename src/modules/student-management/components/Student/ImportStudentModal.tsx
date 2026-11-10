@@ -2,15 +2,15 @@ import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X, Upload, Download, AlertCircle,
-  CheckCircle2, Loader2, AlertTriangle, Play
+  CheckCircle2, Loader2, AlertTriangle, Play, RefreshCw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { apiFetch } from '../../lib/api';
 import { toast } from '../../../../pages/Toast';
 import { useAuth } from '../../../../context/AuthContext';
 import { useEntityLabel } from '../../hooks/useEntityLabel';
-import { useBatches } from '../../hooks/useBatches';
 import { authService } from '../../../../services/authService';
+import { isValidImportDate, normalizeExcelDate } from '../../lib/excelDate';
 
 interface ImportStudentModalProps {
   isOpen: boolean;
@@ -25,6 +25,7 @@ interface ParsedStudent {
   phone: string;
   rank: string;
   fee: string;
+  feeProvided?: boolean;
   paidAmount?: number;
   birthday?: string;
   idCard?: string;
@@ -39,47 +40,33 @@ interface ValidationRow {
   rowNum: number;
   data: ParsedStudent;
   isValid: boolean;
+  willUpdateTuition?: boolean;
   errors: string[];
 }
 
-const DATE_PATTERN = /^([0-2][0-9]|3[0-1])\/(0[1-9]|1[0-2])\/\d{4}$/;
-
-const formatExcelDateParts = (year: number, month: number, day: number): string => {
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) return '';
-
-  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
-};
-
-const normalizeEnrollmentDate = (value: unknown, date1904 = false): string => {
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) return String(value);
-    return formatExcelDateParts(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate());
+const parseExcelAmount = (value: unknown): { amount: number; valid: boolean } => {
+  if (value === undefined || value === null || String(value).trim() === '') return { amount: 0, valid: true };
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value >= 0
+      ? { amount: value, valid: true }
+      : { amount: 0, valid: false };
   }
 
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const parsed = XLSX.SSF.parse_date_code(value, { date1904 });
-    // A plain year such as 2026 is not an Excel date serial. Don't silently
-    // turn it into a date in 1905.
-    if (!parsed || parsed.y < 1927) return String(value);
-    return formatExcelDateParts(parsed.y, parsed.m, parsed.d) || String(value);
+  const normalized = String(value)
+    .trim()
+    .replace(/(?:vnđ|vnd|₫|đ)/gi, '')
+    .replace(/\s/g, '');
+  if (!/^\d+$/.test(normalized) && !/^\d{1,3}(?:[.,]\d{3})+$/.test(normalized)) {
+    return { amount: 0, valid: false };
   }
 
-  const raw = String(value ?? '').trim();
-  const isoDate = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (isoDate) {
-    return formatExcelDateParts(Number(isoDate[1]), Number(isoDate[2]), Number(isoDate[3])) || raw;
-  }
-  return raw;
+  const amount = Number(normalized.replace(/[.,]/g, ''));
+  return Number.isSafeInteger(amount) ? { amount, valid: true } : { amount: 0, valid: false };
 };
 
 const formatExcelPhone = (phoneVal: unknown): string => {
   if (phoneVal === undefined || phoneVal === null) return '';
-  let clean = String(phoneVal).trim().replace(/[\s.-]/g, '');
+  let clean = String(phoneVal).trim().replace(/[\s().-]/g, '');
   if (!clean) return '';
   if (clean.startsWith('84') && clean.length === 11) {
     clean = '0' + clean.slice(2);
@@ -93,17 +80,11 @@ const formatExcelPhone = (phoneVal: unknown): string => {
   return clean;
 };
 
-const normalizeBatchCode = (value: unknown): string => String(value || "")
-  .trim()
-  .replace(/\s+/g, " ")
-  .toLocaleUpperCase("vi-VN");
-
 export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter }: ImportStudentModalProps) {
   const entityLabel = useEntityLabel();
   const { userProfile: user } = useAuth();
   const businessType = 'general';
-  
-  const { batches } = useBatches(selectedCenter === 'all' ? undefined : selectedCenter);
+  const needsCenterSelection = user?.role === 'superadmin' && (!selectedCenter || selectedCenter === 'all');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,9 +95,11 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [tuitionColumnDetected, setTuitionColumnDetected] = useState(false);
   const [importResult, setImportResult] = useState<{
     success: boolean;
     importedCount: number;
+    updatedFeeCount: number;
     skippedCount: number;
     errors: { row: number; name: string; phone: string; reason: string }[];
   } | null>(null);
@@ -126,6 +109,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
     setValidationRows([]);
     setFileName('');
     setSourceFile(null);
+    setTuitionColumnDetected(false);
     setErrorMsg(null);
     setImportResult(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -158,10 +142,14 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
         { wch: 12 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 35 }, { wch: 16 }, { wch: 12 }
       ];
 
-      const note = 'Chỉ bắt buộc: Họ và tên, Số điện thoại, Email. Các cột còn lại có thể để trống.';
+      const note = 'Bắt buộc: Họ và tên, Số điện thoại, Email. Số điện thoại phải là 10 chữ số di động Việt Nam. Các cột còn lại có thể để trống.';
       const ws = XLSX.utils.aoa_to_sheet([[note], headers, ...data]);
       const excelSerial = (year: number, month: number, day: number) =>
         Math.floor(Date.UTC(year, month - 1, day) / 86400000) + 25569;
+      // Export both date columns as real Excel date cells, while import also
+      // accepts the same serials after a user changes their format to General.
+      ws['G3'] = { t: 'n', v: excelSerial(1995, 12, 25), z: 'dd/mm/yyyy', w: '25/12/1995' };
+      ws['G4'] = { t: 'n', v: excelSerial(2000, 5, 10), z: 'dd/mm/yyyy', w: '10/05/2000' };
       ws['K3'] = { t: 'n', v: excelSerial(2026, 6, 15), z: 'dd/mm/yyyy', w: '15/06/2026' };
       ws['K4'] = { t: 'n', v: excelSerial(2026, 6, 20), z: 'dd/mm/yyyy', w: '20/06/2026' };
       ws['!cols'] = cols;
@@ -173,9 +161,10 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
       const guide = XLSX.utils.aoa_to_sheet([
         ['L\u01b0u \u00fd'],
         ['Ba cột bắt buộc: Họ và tên, Số điện thoại, Email.'],
+        ['Số điện thoại cần gồm 10 chữ số, bắt đầu bằng 03, 05, 07, 08 hoặc 09. Email cần đúng định dạng.'],
         ['Các cột còn lại là tùy chọn. CCCD / CMND có thể để trống và được phép trùng.'],
-        ['Ngày nhập học chấp nhận ô ngày của Excel hoặc văn bản DD/MM/YYYY; có thể để trống.'],
-        ['Hệ thống chỉ kiểm tra trùng Số điện thoại và Email.'],
+        ['Ngày sinh/năm sinh chấp nhận ô ngày Excel, DD/MM/YYYY hoặc riêng năm YYYY. Ngày nhập học chấp nhận ô ngày Excel hoặc DD/MM/YYYY; có thể để trống.'],
+        ['Hệ thống kiểm tra định dạng và trùng Số điện thoại/Email; học phí, đã đóng, còn nợ phải là số nguyên không âm; nếu nhập đủ ba cột thì tổng học phí phải khớp.'],
         ['Kh\u00f4ng c\u1ea7n nh\u1eadp ownerId, centerId ho\u1eb7c m\u00e3 trung t\u00e2m. H\u1ec7 th\u1ed1ng t\u1ef1 g\u00e1n trung t\u00e2m khi nh\u1eadp d\u1eef li\u1ec7u.'],
         ['Trường "Mã lớp" là không bắt buộc. Nếu nhập và mã lớp tồn tại, học viên sẽ được tự động xếp vào lớp đó.'],
       ]);
@@ -194,26 +183,34 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
     row.forEach((cell, idx) => {
       if (!cell) return;
       const val = String(cell).trim().toLowerCase();
-      const normalizedHeader = val.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+      const normalizedHeader = val.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9]+/g, " ").trim();
       if (val.includes('họ và tên') || val.includes('họ tên') || val === 'tên') map.fullName = idx;
       else if (val.includes('số điện thoại') || val.includes('điện thoại') || val === 'sdt') map.phone = idx;
-      else if (val.includes('hạng bằng') || val.includes('hạng') || val === 'hang' || val.includes('khóa học') || val.includes('khoa hoc')) map.rank = idx;
-      else if (val.includes('học phí') || val.includes('hoc phi')) map.fee = idx;
-      else if (val.includes('đã đóng') || val.includes('da dong') || val === 'dong') map.paidAmount = idx;
-      else if (val.includes('ngày sinh') || val.includes('ngay sinh') || val === 'năm sinh') map.birthday = idx;
+      else if (normalizedHeader.includes('da dong') || normalizedHeader.includes('da nop') || normalizedHeader.includes('da thu') || normalizedHeader.includes('da thanh toan') || normalizedHeader.includes('hoc phi thanh toan') || normalizedHeader.includes('tien da dong') || normalizedHeader.includes('tien da nop') || normalizedHeader.includes('paid amount') || normalizedHeader.includes('amount paid')) map.paidAmount = idx;
+      else if (normalizedHeader.includes('con no') || normalizedHeader.includes('no hoc phi') || normalizedHeader.includes('con lai') || normalizedHeader.includes('du no') || normalizedHeader.includes('con thieu') || normalizedHeader.includes('chua dong') || normalizedHeader.includes('chua nop') || normalizedHeader.includes('chua thu') || normalizedHeader.includes('chua thanh toan') || normalizedHeader.includes('con phai nop') || normalizedHeader.includes('con phai dong') || normalizedHeader.includes('so tien con') || normalizedHeader.includes('amount due') || normalizedHeader.includes('remaining balance') || normalizedHeader.includes('outstanding')) map.remainingAmount = idx;
+      else if (normalizedHeader.includes('hoc phi') || normalizedHeader.includes('tien hoc') || normalizedHeader.includes('tuition') || normalizedHeader === 'fee' || normalizedHeader.includes('total fee') || normalizedHeader.includes('course fee') || normalizedHeader === 'hp' || normalizedHeader.includes('tong hp') || normalizedHeader.includes('tong phi') || normalizedHeader.includes('tong tien hoc') || normalizedHeader.includes('tong tien') || normalizedHeader.includes('so tien hoc') || normalizedHeader.includes('so tien phai nop') || normalizedHeader.includes('tien phai nop') || normalizedHeader.includes('thanh tien') || normalizedHeader.includes('phi khoa hoc')) map.fee = idx;
+      else if (val.includes('hạng bằng') || val.includes('hạng') || normalizedHeader === 'hang' || val.includes('khóa học') || normalizedHeader.includes('khoa hoc')) map.rank = idx;
+      else if (val.includes('ngày sinh') || val.includes('ngay sinh') || val === 'năm sinh' || normalizedHeader.includes('date of birth') || normalizedHeader.includes('birth date') || normalizedHeader === 'dob' || normalizedHeader.includes('year of birth')) map.birthday = idx;
       else if (val.includes('cccd') || val.includes('cmnd') || val.includes('định danh')) map.idCard = idx;
       else if (val.includes('email')) map.email = idx;
       else if (val.includes('người giới thiệu') || val.includes('giới thiệu')) map.referral = idx;
       else if (val.includes('địa chỉ') || val.includes('dia chi') || val.includes('nơi ở')) map.address = idx;
-      else if (val.includes('ngày nhập học') || val.includes('ngay nhap hoc') || val.includes('nhập học')) map.enrollmentDate = idx;
+      else if (val.includes('ngày nhập học') || val.includes('ngay nhap hoc') || val.includes('nhập học') || normalizedHeader.includes('enrollment date') || normalizedHeader.includes('enrolment date') || normalizedHeader.includes('admission date') || normalizedHeader === 'date enrolled') map.enrollmentDate = idx;
       else if (normalizedHeader.includes('ma lop') || normalizedHeader.includes('lop hoc') || normalizedHeader.includes('lop / du an') || normalizedHeader.includes('class code') || normalizedHeader.includes('batch')) map.batchCode = idx;
     });
     return map;
   };
 
   const processFile = (file: File) => {
-    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls') && !file.name.endsWith('.csv')) {
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (!extension || !['xlsx', 'xls', 'csv'].includes(extension)) {
+      clearImportState();
       setErrorMsg('Vui lòng chọn file Excel đúng định dạng (.xlsx, .xls, .csv)');
+      return;
+    }
+    if (needsCenterSelection) {
+      clearImportState();
+      setErrorMsg('Vui lòng chọn một trung tâm cụ thể trước khi nhập học viên.');
       return;
     }
 
@@ -222,6 +219,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
     setErrorMsg(null);
     setImportResult(null);
     setValidationRows([]);
+    setTuitionColumnDetected(false);
     setIsValidating(true);
 
     const reader = new FileReader();
@@ -231,24 +229,41 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
         if (!arrayBuffer) return;
 
         const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: false });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1 });
+        const matchingSheets = workbook.SheetNames.flatMap((sheetName) => {
+          const worksheet = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json<unknown[]>(worksheet, { header: 1, raw: true });
+          const headerRowIndex = rows.findIndex((row, index) => {
+            if (index > 9 || !Array.isArray(row)) return false;
+            const candidate = mapHeaders(row);
+            return candidate.fullName !== undefined && candidate.phone !== undefined;
+          });
+          return headerRowIndex >= 0 ? [{ sheetName, rows, headerRowIndex }] : [];
+        });
+
+        if (matchingSheets.length === 0) {
+          setErrorMsg(`Không tìm thấy sheet có đủ cột Họ và tên, Số điện thoại. Email bắt buộc với học viên mới; chỉ được bỏ trống khi cập nhật học phí cho học viên đã có. Các sheet đã kiểm tra: ${workbook.SheetNames.join(', ') || 'không có'}.`);
+          return;
+        }
+        if (matchingSheets.length > 1) {
+          setErrorMsg(`File có nhiều sheet dữ liệu (${matchingSheets.map((sheet) => sheet.sheetName).join(', ')}). Vui lòng giữ lại một sheet học viên để tránh bỏ sót hoặc nhập nhầm dữ liệu.`);
+          return;
+        }
+
+        const { rows, headerRowIndex } = matchingSheets[0];
+        // Keep raw numeric values: Excel dates are stored as serials even when
+        // the user changes the cell format from Date to General.
+        const date1904 = Boolean(workbook.Workbook?.WBProps?.date1904);
 
         if (rows.length < 2) {
           setErrorMsg('File Excel không có dữ liệu hoặc thiếu tiêu đề cột.');
           return;
         }
 
-        const headerRowIndex = rows.findIndex((row, index) => {
-          if (index > 9 || !Array.isArray(row)) return false;
-          const candidate = mapHeaders(row);
-          return candidate.fullName !== undefined && candidate.phone !== undefined && candidate.email !== undefined;
-        });
         const headerMap = headerRowIndex >= 0 ? mapHeaders(rows[headerRowIndex]) : {};
+        setTuitionColumnDetected(headerMap.fee !== undefined || headerMap.remainingAmount !== undefined);
         const missingHeaders = [];
         if (headerMap.fullName === undefined) missingHeaders.push('Họ và tên');
         if (headerMap.phone === undefined) missingHeaders.push('Số điện thoại');
-        if (headerMap.email === undefined) missingHeaders.push('Email');
         // Cột "Hạng bằng" chỉ dành cho ngành lái xe — không còn bắt buộc
 
         if (missingHeaders.length > 0) {
@@ -269,20 +284,28 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           const getCellValue = (field: string): string => {
             const idx = headerMap[field];
             if (idx === undefined || row[idx] === undefined || row[idx] === null) return '';
-            if (field === 'enrollmentDate') {
-              return normalizeEnrollmentDate(row[idx], Boolean(workbook.Workbook?.WBProps?.date1904));
+            if (field === 'enrollmentDate' || field === 'birthday') {
+              return normalizeExcelDate(row[idx], date1904);
             }
             return String(row[idx]).trim();
           };
 
-          const feeNum = parseInt(getCellValue('fee').replace(/\D/g, ''), 10) || 0;
-          const paidAmount = parseInt(getCellValue('paidAmount').replace(/\D/g, ''), 10) || 0;
+          const explicitFee = parseExcelAmount(row[headerMap.fee ?? -1]);
+          const paidAmountResult = parseExcelAmount(row[headerMap.paidAmount ?? -1]);
+          const remainingAmountResult = parseExcelAmount(row[headerMap.remainingAmount ?? -1]);
+          const hasExplicitFee = headerMap.fee !== undefined && row[headerMap.fee] !== undefined && row[headerMap.fee] !== null && String(row[headerMap.fee]).trim() !== '';
+          const hasExplicitPaidAmount = headerMap.paidAmount !== undefined && row[headerMap.paidAmount] !== undefined && row[headerMap.paidAmount] !== null && String(row[headerMap.paidAmount]).trim() !== '';
+          const hasExplicitRemainingAmount = headerMap.remainingAmount !== undefined && row[headerMap.remainingAmount] !== undefined && row[headerMap.remainingAmount] !== null && String(row[headerMap.remainingAmount]).trim() !== '';
+          const paidAmount = paidAmountResult.amount;
+          const remainingAmount = remainingAmountResult.amount;
+          const feeNum = hasExplicitFee ? explicitFee.amount : (headerMap.remainingAmount !== undefined ? paidAmount + remainingAmount : 0);
           const studentData: ParsedStudent = {
             sourceRow: i + 1,
             fullName: getCellValue('fullName'),
             phone: formatExcelPhone(getCellValue('phone')),
             rank: getCellValue('rank').toUpperCase(),
             fee: feeNum > 0 ? feeNum.toLocaleString('vi-VN') : '0',
+            feeProvided: hasExplicitFee || hasExplicitRemainingAmount,
             paidAmount,
             birthday: getCellValue('birthday'),
             idCard: getCellValue('idCard'),
@@ -296,25 +319,29 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
           const errors: string[] = [];
           if (!studentData.fullName) errors.push('Họ tên không được trống');
           if (!studentData.phone) errors.push('Số điện thoại không được trống');
+          else if (!/^0[35789]\d{8}$/.test(studentData.phone)) errors.push('Số điện thoại không hợp lệ (cần 10 chữ số, bắt đầu bằng 03, 05, 07, 08 hoặc 09)');
           else if (seenPhones.has(studentData.phone)) errors.push('SĐT bị trùng lặp trong file');
           else seenPhones.add(studentData.phone);
           const normalizedEmail = studentData.email?.trim().toLowerCase() || '';
-          if (!normalizedEmail) errors.push('Email không được trống');
-          else if (seenEmails.has(normalizedEmail)) errors.push('Email bị trùng lặp trong file');
-          else seenEmails.add(normalizedEmail);
+          if (!normalizedEmail && !studentData.feeProvided) errors.push('Email không được trống');
+          else if (normalizedEmail && !studentData.feeProvided && !/^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i.test(normalizedEmail)) errors.push('Email không đúng định dạng');
+          else if (normalizedEmail && !studentData.feeProvided && seenEmails.has(normalizedEmail)) errors.push('Email bị trùng lặp trong file');
+          else if (normalizedEmail && !studentData.feeProvided) seenEmails.add(normalizedEmail);
+          if (!explicitFee.valid) errors.push('Học phí phải là số nguyên không âm; ví dụ 1.000.000 hoặc 1000000');
+          if (!paidAmountResult.valid) errors.push('Số tiền đã đóng phải là số nguyên không âm; ví dụ 500.000');
+          if (!remainingAmountResult.valid) errors.push('Số tiền còn nợ phải là số nguyên không âm; ví dụ 500.000');
           if (paidAmount > feeNum) errors.push(`Số tiền đã đóng (${paidAmount.toLocaleString('vi-VN')}đ) không được vượt quá học phí (${studentData.fee}đ)`);
+          if (hasExplicitFee && hasExplicitPaidAmount && hasExplicitRemainingAmount && explicitFee.valid && paidAmountResult.valid && remainingAmountResult.valid && paidAmount + remainingAmount !== explicitFee.amount) {
+            errors.push('Học phí phải bằng số tiền đã đóng cộng số tiền còn nợ');
+          }
 
           // Hạng bằng là tùy chọn tự do, không cần kiểm tra thuộc danh sách cố định lái xe nữa
 
-          if (studentData.enrollmentDate && !DATE_PATTERN.test(studentData.enrollmentDate)) {
-            errors.push('Ngày nhập học không đúng định dạng DD/MM/YYYY');
+          if (studentData.birthday && !isValidImportDate(studentData.birthday, true)) {
+            errors.push('Ngày sinh không tồn tại hoặc sai định dạng DD/MM/YYYY (có thể nhập riêng năm sinh YYYY)');
           }
-
-          if (studentData.batchCode) {
-            const exists = batches.some(b => normalizeBatchCode(b.code) === normalizeBatchCode(studentData.batchCode));
-            if (!exists) {
-              errors.push(`Mã lớp "${studentData.batchCode}" không tồn tại trong hệ thống`);
-            }
+          if (studentData.enrollmentDate && !isValidImportDate(studentData.enrollmentDate)) {
+            errors.push('Ngày nhập học không tồn tại hoặc sai định dạng DD/MM/YYYY');
           }
 
           validationResults.push({ rowNum: i + 1, data: studentData, isValid: errors.length === 0, errors });
@@ -334,6 +361,10 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
             method: 'POST',
             body: JSON.stringify({ students: candidates.map((row) => row.data) }),
           });
+          for (const update of preview.feeUpdates || []) {
+            const target = candidates[Number(update.index)];
+            if (target) target.willUpdateTuition = true;
+          }
           for (const conflict of preview.errors || []) {
             const target = candidates[Number(conflict.index)];
             if (!target || !conflict.reason) continue;
@@ -358,6 +389,10 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
   };
 
   const handleImport = async () => {
+    if (needsCenterSelection) {
+      setErrorMsg('Vui lòng chọn một trung tâm cụ thể trước khi nhập học viên.');
+      return;
+    }
     const validData = validationRows.filter(r => r.isValid).map(r => r.data);
     if (validData.length === 0) {
       const message = totalErrors > 0
@@ -389,11 +424,15 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
         setImportResult({
           success: true,
           importedCount: res.importedCount,
+          updatedFeeCount: res.updatedFeeCount || 0,
           skippedCount: res.skippedCount,
           errors: res.errors || []
         });
         window.dispatchEvent(new Event('student-mutation'));
-        toast.success(`Đã nhập thành công ${res.importedCount} ${entityLabel.singular}!`);
+        const updatedFeeCount = Number(res.updatedFeeCount || 0);
+        toast.success(updatedFeeCount > 0
+          ? `Đã nhập ${res.importedCount} ${entityLabel.singular} mới và cập nhật học phí cho ${updatedFeeCount} học viên.`
+          : `Đã nhập thành công ${res.importedCount} ${entityLabel.singular}!`);
 
         if (res.errors?.length === 0 && res.skippedCount === 0) {
           setTimeout(() => {
@@ -461,7 +500,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
             {isValidating && (
               <div className="p-4 mb-6 bg-cyan-50 border border-cyan-100 rounded-2xl flex items-center gap-3 text-cyan-700">
                 <Loader2 className="w-5 h-5 animate-spin shrink-0" />
-                <p className="text-xs font-bold">Đang kiểm tra trùng SĐT và email với dữ liệu hiện có...</p>
+              <p className="text-xs font-bold">Đang kiểm tra định dạng, trùng SĐT/email, mã lớp và sĩ số...</p>
               </div>
             )}
 
@@ -474,10 +513,14 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
                   <h3 className="text-lg font-bold text-slate-800">Kết quả nhập dữ liệu</h3>
                   <p className="text-slate-500 text-sm mt-1">Đã xử lý xong danh sách {entityLabel.singular} từ file <strong>{fileName}</strong></p>
                 </div>
-                <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
                   <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
                     <span className="text-2xl font-black text-emerald-600">{importResult.importedCount}</span>
                     <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">{entityLabel.titleCase} mới đã tạo</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                    <span className="text-2xl font-black text-cyan-600">{importResult.updatedFeeCount || 0}</span>
+                    <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">Học phí đã cập nhật</p>
                   </div>
                   <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
                     <span className="text-2xl font-black text-amber-500">{importResult.skippedCount}</span>
@@ -560,9 +603,16 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
                   </div>
                 </div>
 
+                <div className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-xs ${tuitionColumnDetected ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                  {tuitionColumnDetected ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
+                  <p>{tuitionColumnDetected
+                    ? 'Đã nhận diện cột học phí/còn nợ. Các số tiền bên dưới sẽ được lưu vào hồ sơ và hiện trong mục Học phí.'
+                    : 'Chưa nhận diện được cột tổng học phí hoặc còn nợ. Các dòng này sẽ có học phí 0đ. Hãy đổi tiêu đề cột thành “Học phí”, “Tổng học phí” hoặc “Còn nợ” rồi chọn lại file.'}</p>
+                </div>
+
                 <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-white">
                   <div className="overflow-x-auto max-h-[350px] no-scrollbar">
-                    <table className="w-full text-left text-xs min-w-[900px]">
+                    <table className="w-full text-left text-xs min-w-[1000px]">
                       <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
                         <tr>
                           <th className="px-4 py-3 text-slate-400 font-bold text-center w-12">Dòng</th>
@@ -571,6 +621,7 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
 
                           <th className="px-3 py-3 text-slate-400 font-bold w-24">Học phí</th>
                           <th className="px-3 py-3 text-slate-400 font-bold w-24">Đã đóng</th>
+                          <th className="px-3 py-3 text-slate-400 font-bold w-28">Ngày sinh / năm sinh</th>
                           <th className="px-3 py-3 text-slate-400 font-bold w-28">Ngày nhập học</th>
                           <th className="px-4 py-3 text-slate-400 font-bold">Trạng thái / Chi tiết lỗi</th>
                         </tr>
@@ -584,12 +635,13 @@ export function ImportStudentModal({ isOpen, onClose, onSuccess, selectedCenter 
 
                             <td className="px-3 py-3 text-slate-600 font-semibold">{row.data.fee}đ</td>
                             <td className="px-3 py-3 text-emerald-600 font-semibold">{(row.data.paidAmount || 0).toLocaleString('vi-VN')}đ</td>
+                            <td className="px-3 py-3 text-slate-600 font-semibold">{row.data.birthday || <span className="text-slate-300 italic">Không có</span>}</td>
                             <td className="px-3 py-3 text-slate-600 font-semibold">{row.data.enrollmentDate || <span className="text-slate-300 italic">Không có</span>}</td>
                             <td className="px-4 py-3">
                               {row.isValid ? (
                                 <div className="flex items-center gap-1.5 text-emerald-600 font-bold">
-                                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                                  <span>Hợp lệ</span>
+                                  {row.willUpdateTuition ? <RefreshCw className="w-3.5 h-3.5 shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
+                                  <span>{row.willUpdateTuition ? 'Sẽ cập nhật học phí' : 'Hợp lệ'}</span>
                                 </div>
                               ) : (
                                 <div className="flex items-start gap-1.5 text-rose-500 font-semibold">
