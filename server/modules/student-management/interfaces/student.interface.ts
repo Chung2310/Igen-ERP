@@ -86,6 +86,8 @@ export interface IStudent extends Document {
   registrationDate: string;
   enrollmentDate?: string;
   fee: string;
+  /** Set when an explicit Excel tuition value of 0 means the learner studies for free. */
+  tuitionWaived?: boolean;
   paidAmount?: number;
   address: string;
   status: StudentStatus[];

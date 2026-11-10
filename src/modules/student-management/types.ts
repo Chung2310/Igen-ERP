@@ -32,6 +32,8 @@ export interface DrivingStudent {
   registrationDate: string;
   enrollmentDate?: string;
   fee: string; // This is the TOTAL fee string (e.g. "12,000,000")
+  /** Explicitly marked as free by an Excel tuition import with a 0 total. */
+  tuitionWaived?: boolean;
   paidAmount?: number; // Total amount paid so far
   address: string;
   status: StudentStatus[];
