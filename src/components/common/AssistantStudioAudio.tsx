@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Clock3, FileText, Minus, Plus, RotateCcw, SlidersHorizontal, Upload } from "lucide-react";
+import { ArrowLeft, Clock3, Minus, Plus, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { assistantService, type AssistantStudioTranscript } from "../../services/assistantService";
 import { getAssistantSpeechHistoryUserId, listAssistantSpeechHistory, saveAssistantSpeechHistory, type AssistantSpeechHistoryItem } from "../../services/assistantSpeechHistory";
@@ -239,11 +239,11 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
           onDrop={(event) => { event.preventDefault(); setDraggingDocument(false); const file = event.dataTransfer.files[0]; if (file) void chooseDocument(file); }}
           className={cn("flex min-h-80 lg:min-h-[28rem] flex-col items-center justify-center rounded-xl border border-dashed bg-surface p-6 text-center", draggingDocument ? "border-primary" : "border-outline-variant")}
         >
-          <FileText className="mb-3 size-10 text-primary" aria-hidden="true" />
+          <AudioArtwork panel={1} />
           <p className="text-pretty text-sm font-medium">{documentFile?.name || "Kéo và thả tệp tài liệu vào đây"}</p>
           <p className="mt-1 text-pretty text-xs text-on-surface-variant">PDF, DOCX hoặc TXT · tối đa 20 MB. PDF scan cần OCR trước.</p>
           <input ref={documentInputRef} type="file" accept=".pdf,.docx,.txt" className="sr-only" aria-label="Chọn tệp tài liệu" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void chooseDocument(file); event.currentTarget.value = ""; }} />
-          <button type="button" onClick={() => documentInputRef.current?.click()} disabled={documentBusy} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-sm font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><Upload className="size-4" aria-hidden="true" />Tải lên từ máy tính</button>
+          <button type="button" onClick={() => documentInputRef.current?.click()} disabled={documentBusy} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-sm font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">Tải lên từ máy tính</button>
           {documentBusy && <p role="status" className="mt-3 text-sm text-on-surface-variant">Đang đọc nội dung tài liệu…</p>}
           {documentText && <div className="mt-4 w-full rounded-lg border border-outline-variant bg-surface-container-low p-3 text-left"><p className="mb-2 text-xs font-medium text-on-surface-variant">Đã trích xuất {documentText.length.toLocaleString("vi-VN")} ký tự</p><p className="max-h-28 overflow-y-auto whitespace-pre-wrap text-pretty text-sm text-on-surface">{documentText}</p></div>}
         </div>}
