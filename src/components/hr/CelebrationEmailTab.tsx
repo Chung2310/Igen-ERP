@@ -223,34 +223,31 @@ export default function CelebrationEmailTab() {
 
   return (
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="mt-0.5 text-sm text-[#536B8F]">Thiết lập lời chúc gửi đến nhân sự.</p>
-        </div>
-        <button
-          onClick={save}
-          disabled={busy}
-          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg bg-[#087BDF] px-3.5 text-sm font-medium text-white transition-colors hover:bg-[#006CC6] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Lưu cấu hình
-        </button>
-      </div>
-
       <div className="flex flex-wrap items-center gap-2.5 rounded-2xl bg-white px-3 py-2 shadow-[0_2px_16px_rgba(33,84,123,0.07)]">
         <Toggle label="Tự động sinh nhật" checked={config.birthdayEnabled} onChange={(v: boolean) => setConfig({ ...config, birthdayEnabled: v })} />
         <Toggle label="Tự động lễ/Tết" checked={config.holidayEnabled} onChange={(v: boolean) => setConfig({ ...config, holidayEnabled: v })} />
-        <label className="ml-auto flex items-center gap-2 rounded-xl bg-[#F5FAFE] px-3 py-1.5 text-sm font-medium text-[#15396C]">
-          <Clock3 className="h-4 w-4 text-[#087BDF]" aria-hidden="true" />
-          Giờ gửi
-          <input
-            type="time"
-            value={config.sendTime}
-            onChange={(e) => setConfig({ ...config, sendTime: e.target.value })}
-            lang="vi-VN"
-            className="h-8 cursor-pointer rounded-lg border border-[#DCE7F4] bg-white px-2 text-sm font-medium text-[#15396C] outline-none focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15"
-          />
-        </label>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 rounded-xl bg-[#F5FAFE] px-3 py-1.5 text-sm font-medium text-[#15396C]">
+            <Clock3 className="h-4 w-4 text-[#087BDF]" aria-hidden="true" />
+            Giờ gửi
+            <input
+              type="time"
+              value={config.sendTime}
+              onChange={(e) => setConfig({ ...config, sendTime: e.target.value })}
+              lang="vi-VN"
+              className="h-8 cursor-pointer rounded-lg border border-[#DCE7F4] bg-white px-2 text-sm font-medium text-[#15396C] outline-none focus:border-[#8BDCF9] focus:ring-2 focus:ring-[#00ADFC]/15"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy}
+            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg bg-[#087BDF] px-3.5 text-sm font-medium text-white transition-colors hover:bg-[#006CC6] focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
+            Lưu cấu hình
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 items-stretch gap-3 xl:grid-cols-2">
