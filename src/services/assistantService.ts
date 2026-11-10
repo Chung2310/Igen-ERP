@@ -1,5 +1,6 @@
 import type { AssistantSettings, AssistantReply, AssistantWorkflow, AssistantWorkflowUpdate, AssistantTableAttachment, AssistantTrainingContentForm } from "../shared/assistant-workflow";
 import type { AssistantSpeechVoice } from "../shared/assistant-speech-voices";
+import type { AssistantSpeechControls } from "../shared/assistant-speech";
 export interface AssistantTurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
 export interface AssistantConversationSummary { conversationId: string; mode?: "work" | "qa"; title: string; preview: string; messageCount: number; updatedAt: string; }
 export interface AssistantConversationCursor { before: string; beforeId: string; }
@@ -16,6 +17,19 @@ async function request<T>(path: string, init: RequestInit = {}, branchId?: strin
 }
 export const assistantService = {
   studioTranscripts: () => request<AssistantStudioTranscript[]>("/studio/transcriptions"),
+  extractSpeechDocument: async (file: File): Promise<{ fileName: string; text: string }> => {
+    const form = new FormData();
+    form.append("document", file);
+    const token = localStorage.getItem("accessToken");
+    const response = await fetch("/api/v1/chatbot/assistant/speech/document", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) throw new Error(result.message || "Không thể đọc tệp tài liệu.");
+    return result.data as { fileName: string; text: string };
+  },
   transcribeStudioAudio: async (file: File): Promise<AssistantStudioTranscript> => {
     const form = new FormData();
     form.append("audio", file);
@@ -49,7 +63,7 @@ export const assistantService = {
   deleteConversation: (id: string, branchId?: string) => request<{ deleted: boolean }>(`/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }, branchId),
   state: (id: string, signal?: AbortSignal, branchId?: string) => request<{ messages: { role: "user" | "assistant"; content: string; createdAt?: string }[]; lastReply: AssistantReply | null; busy: boolean; mode?: "work" | "qa"; requestId?: string }>(`/conversations/${encodeURIComponent(id)}`, { signal }, branchId),
   turn: (data: AssistantTurnInput, signal?: AbortSignal, branchId?: string, deviceId?: string) => request<AssistantReply>("/turns", { method: "POST", body: JSON.stringify(data), signal }, branchId, deviceId),
-  speech: async (text: string, signal?: AbortSignal, voice?: AssistantSpeechVoice): Promise<Blob> => {
+  speech: async (text: string, signal?: AbortSignal, voice?: AssistantSpeechVoice, controls?: AssistantSpeechControls): Promise<Blob> => {
     const token = localStorage.getItem("accessToken");
     let response: Response;
     try {
@@ -57,7 +71,7 @@ export const assistantService = {
         method: "POST",
         signal,
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ text, ...(voice ? { voice } : {}) }),
+        body: JSON.stringify({ text, ...(voice ? { voice } : {}), ...(controls ? { controls } : {}) }),
       });
     } catch (error) {
       if (signal?.aborted) throw error;

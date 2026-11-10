@@ -11,6 +11,7 @@ import { clearConversationMemory, conversationMemory, conversationState, deleteC
 import { interpretWorkflowText } from "./workflow-text";
 import { getSettings, saveSettings } from "./settings";
 import { synthesizeVietnameseSpeech } from "./speech";
+import { extractSpeechDocument } from "./studio-speech-document";
 import { assistantSpeechVoices } from "../../src/shared/assistant-speech-voices";
 import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 import { deleteAssistantMemory, listAssistantMemories, saveAssistantMemory, updateAssistantMemory } from "./memory";
@@ -27,6 +28,11 @@ const wrap = (handler: (req: AuthenticatedRequest) => Promise<unknown>) => async
 };
 assistantRouter.get("/settings", wrap(getSettings));
 const studioAudioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(mp3|wav|m4a|ogg|flac)$/i.test(file.originalname)) });
+const speechDocumentUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(pdf|docx|txt)$/i.test(file.originalname)) });
+assistantRouter.post("/speech/document", expensiveApiRateLimiter, (req, res, next) => speechDocumentUpload.single("document")(req, res, (error) => error ? res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ success: false, message: error.code === "LIMIT_FILE_SIZE" ? "Tệp tài liệu không được vượt quá 20 MB." : "Chỉ hỗ trợ tệp PDF, Word (.docx) và văn bản (.txt)." }) : next()), wrap(req => {
+  if (!req.file) throw new AssistantError("Tải lên tệp PDF, Word (.docx) hoặc văn bản (.txt).", 400);
+  return extractSpeechDocument({ buffer: req.file.buffer, fileName: req.file.originalname });
+}));
 assistantRouter.post("/studio/transcriptions", expensiveApiRateLimiter, (req, res, next) => studioAudioUpload.single("audio")(req, res, (error) => error ? res.status(413).json({ success: false, message: "Tệp âm thanh vượt giới hạn 50 MB hoặc không hợp lệ." }) : next()), wrap(req => {
   if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để lưu bản chép lời.", 403);
   if (!req.file) throw new AssistantError("Chọn tệp MP3, WAV, M4A, OGG hoặc FLAC.", 400);
@@ -89,12 +95,19 @@ const trainingContent = Joi.object({
     : quiz)).required(),
 });
 assistantRouter.post("/turns", validateRequest({ body: Joi.object({ conversationId: id, requestId: id, mode: Joi.string().valid("work", "qa"), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent").with("skipReferenceKeys", "referenceSelections").with("attachment", "text") }), wrap(req => processTurn(req, req.body)));
-assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required(), voice: Joi.string().valid(...assistantSpeechVoices) }) }), async (req: any, res: any) => {
+const speechControls = Joi.object({
+  speed: Joi.number().min(0.7).max(1.2).required(),
+  pausePeriod: Joi.number().min(0).max(3).required(),
+  pauseComma: Joi.number().min(0).max(3).required(),
+  pauseSemicolon: Joi.number().min(0).max(3).required(),
+  pauseNewline: Joi.number().min(0).max(3).required(),
+});
+assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required(), voice: Joi.string().valid(...assistantSpeechVoices), controls: speechControls }) }), async (req: any, res: any) => {
   const controller = new AbortController();
   const abortOnClose = () => { if (!res.writableEnded) controller.abort(); };
   res.once("close", abortOnClose);
   try {
-    const audio = await synthesizeVietnameseSpeech(req.body.text, controller.signal, req.body.voice);
+    const audio = await synthesizeVietnameseSpeech(req.body.text, controller.signal, req.body.voice, req.body.controls);
     if (controller.signal.aborted) return;
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Cache-Control", "no-store");

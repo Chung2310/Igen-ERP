@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Clock3, Plus } from "lucide-react";
+import { ArrowLeft, Clock3, FileText, Minus, Plus, RotateCcw, SlidersHorizontal, Upload } from "lucide-react";
+import { cn } from "../../modules/student-management/lib/utils";
 import { assistantService, type AssistantStudioTranscript } from "../../services/assistantService";
 import AssistantSpeechVoicePicker from "./AssistantSpeechVoicePicker";
 import { defaultAssistantSpeechVoice, type AssistantSpeechVoice } from "../../shared/assistant-speech-voices";
+import { defaultAssistantSpeechControls, type AssistantSpeechControls } from "../../shared/assistant-speech";
 
 export type AudioTool = "clone" | "speak" | "transcribe";
 const inputClass = "w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none";
 const buttonClass = "rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary hover:opacity-90 focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50";
+const speechPauseLabels: { key: "pausePeriod" | "pauseComma" | "pauseSemicolon" | "pauseNewline"; label: string }[] = [
+  { key: "pausePeriod", label: "Ngắt dấu chấm [.]" },
+  { key: "pauseComma", label: "Ngắt dấu phẩy [,]" },
+  { key: "pauseSemicolon", label: "Ngắt dấu chấm phẩy [;]" },
+  { key: "pauseNewline", label: "Ngắt xuống dòng" },
+];
 
 function AudioArtwork({ panel }: { panel: 0 | 1 | 2 }) {
   return <span aria-hidden="true" className="mx-auto mb-4 block size-24 rounded-xl border border-outline-variant bg-surface" style={{ backgroundImage: 'url("/ai-studio-audio-tools.png")', backgroundSize: "300% 100%", backgroundPosition: `${panel * 50}% 0%` }} />;
@@ -15,7 +23,7 @@ function AudioArtwork({ panel }: { panel: 0 | 1 | 2 }) {
 function UploadArea({ label, hint, accept, file, onFile, panel, disabled = false }: { label: string; hint: string; accept: string; file: File | null; onFile: (file: File) => void; panel: 0 | 2; disabled?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  return <div className={`rounded-xl border border-dashed bg-surface p-6 text-center ${dragging ? "border-primary" : "border-outline-variant"}`}
+  return <div className={cn("rounded-xl border border-dashed bg-surface p-6 text-center", dragging ? "border-primary" : "border-outline-variant")}
     onDragOver={(event) => { event.preventDefault(); if (!disabled) setDragging(true); }}
     onDragLeave={() => setDragging(false)}
     onDrop={(event) => { event.preventDefault(); setDragging(false); const item = event.dataTransfer.files[0]; if (!disabled && item) onFile(item); }}>
@@ -30,6 +38,12 @@ function UploadArea({ label, hint, accept, file, onFile, panel, disabled = false
 export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool; onBack: () => void }) {
   const [text, setText] = useState("");
   const [voiceId, setVoiceId] = useState<AssistantSpeechVoice>(defaultAssistantSpeechVoice);
+  const [speechControls, setSpeechControls] = useState<AssistantSpeechControls>(defaultAssistantSpeechControls);
+  const [speechSource, setSpeechSource] = useState<"text" | "file">("text");
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [documentText, setDocumentText] = useState("");
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [draggingDocument, setDraggingDocument] = useState(false);
   const [audioUrl, setAudioUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -37,6 +51,8 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
   const [transcript, setTranscript] = useState<AssistantStudioTranscript | null>(null);
   const [transcriptHistory, setTranscriptHistory] = useState<AssistantStudioTranscript[]>([]);
   const [showTranscriptHistory, setShowTranscriptHistory] = useState(false);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+  const activeSpeechText = speechSource === "text" ? text : documentText;
   const pageTitle = tool === "clone" ? "Tạo giọng cá nhân" : tool === "speak" ? "Tạo audio" : "Chuyển giọng nói thành văn bản";
   useEffect(() => () => { if (audioUrl.startsWith("blob:")) URL.revokeObjectURL(audioUrl); }, [audioUrl]);
   useEffect(() => {
@@ -48,10 +64,10 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
 
   async function generate() {
     setError(""); setAudioUrl("");
-    if (!text.trim()) return setError("Nhập văn bản cần chuyển đổi.");
+    if (!activeSpeechText.trim()) return setError(speechSource === "file" ? "Tải lên tệp tài liệu cần chuyển thành giọng nói." : "Nhập văn bản cần chuyển đổi.");
     setBusy(true);
     try {
-      const audio = await assistantService.speech(text.trim(), undefined, voiceId);
+      const audio = await assistantService.speech(activeSpeechText.trim(), undefined, voiceId, speechControls);
       setAudioUrl(URL.createObjectURL(audio));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không thể tạo audio."); }
     finally { setBusy(false); }
@@ -65,6 +81,27 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
     setError("");
     setTranscriptFile(file); setTranscript(null);
   };
+
+  async function chooseDocument(file: File) {
+    if (!/\.(pdf|docx|txt)$/i.test(file.name) || file.size === 0 || file.size > 20 * 1024 * 1024) {
+      setDocumentFile(null);
+      setDocumentText("");
+      setError("Chọn tệp PDF, DOCX hoặc TXT có dung lượng tối đa 20 MB.");
+      return;
+    }
+    setDocumentFile(file);
+    setDocumentText("");
+    setError("");
+    setDocumentBusy(true);
+    try {
+      const extracted = await assistantService.extractSpeechDocument(file);
+      setDocumentText(extracted.text);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể đọc tệp tài liệu.");
+    } finally {
+      setDocumentBusy(false);
+    }
+  }
 
   async function transcribe() {
     if (!transcriptFile) return setError("Chọn tệp âm thanh cần chuyển đổi.");
@@ -86,6 +123,11 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
 
   function reset() {
     setText("");
+    setSpeechSource("text");
+    setDocumentFile(null);
+    setDocumentText("");
+    setSpeechControls(defaultAssistantSpeechControls);
+    setVoiceId(defaultAssistantSpeechVoice);
     setAudioUrl("");
     setError("");
     setTranscriptFile(null);
@@ -108,31 +150,49 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
     </header>
     <main className="mx-auto w-full max-w-screen-2xl flex-1 space-y-6 p-4 text-on-surface sm:p-6">
 
-    {tool === "speak" && <section aria-labelledby="speak-title" className="grid gap-5 lg:grid-cols-5 lg:gap-6">
+    {tool === "speak" && <section aria-labelledby="speak-title" aria-busy={busy || documentBusy} className="grid gap-5 lg:grid-cols-5 lg:gap-6">
       <div className="space-y-4 lg:col-span-3">
-        <h2 id="speak-title" className="text-lg font-semibold text-balance">Nội dung</h2>
-        <div>
-          <label htmlFor="audio-text" className="sr-only">Văn bản cần chuyển thành giọng nói</label>
-          <textarea id="audio-text" value={text} onChange={(event) => setText(event.target.value)} maxLength={10000} rows={15} placeholder="Nhập hoặc dán nội dung văn bản cần chuyển thành giọng nói..." className={`${inputClass} min-h-80 resize-y p-4`} aria-describedby="audio-text-count" />
-        </div>
-      </div>
-      <aside aria-label="Quản trị và thiết lập giọng đọc" className="space-y-5 rounded-xl border border-outline-variant bg-surface p-4 sm:p-6 lg:col-span-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-balance">Giọng đọc</h2>
-          <button type="button" disabled aria-label="Tạo giọng cá nhân, sắp ra mắt" className="inline-flex min-h-10 items-center gap-2 rounded-full border border-outline-variant px-3 text-sm font-medium text-on-surface-variant disabled:cursor-not-allowed disabled:opacity-70">
-            <span>Tạo giọng cá nhân</span>
-            <span className="rounded-full bg-surface-container-low px-2 py-0.5 text-xs">Sắp ra mắt</span>
-          </button>
+          <h2 id="speak-title" className="text-lg font-semibold text-balance">Nội dung</h2>
+          <fieldset className="flex flex-wrap items-center gap-4 text-sm">
+            <legend className="sr-only">Nguồn nội dung để chuyển thành giọng nói</legend>
+            <label className="inline-flex cursor-pointer items-center gap-2"><input type="radio" name="speech-source" value="text" checked={speechSource === "text"} onChange={() => { setSpeechSource("text"); setError(""); }} className="size-4 accent-primary" />Văn bản</label>
+            <label className="inline-flex cursor-pointer items-center gap-2"><input type="radio" name="speech-source" value="file" checked={speechSource === "file"} onChange={() => { setSpeechSource("file"); setError(""); }} className="size-4 accent-primary" />Tệp tài liệu</label>
+          </fieldset>
         </div>
-        <AssistantSpeechVoicePicker value={voiceId} onChange={setVoiceId} />
-        <div className="rounded-xl bg-surface-container-low p-4">
-          <p className="text-sm font-medium text-on-surface">Giọng đọc tiếng Việt</p>
-          <p className="mt-1 text-pretty text-sm text-on-surface-variant">Chọn một giọng để nghe trước khi tải audio.</p>
+        {speechSource === "text" ? <div>
+          <label htmlFor="audio-text" className="sr-only">Văn bản cần chuyển thành giọng nói</label>
+          <textarea id="audio-text" value={text} onChange={(event) => { setText(event.target.value); setError(""); }} maxLength={10000} rows={15} placeholder="Nhập hoặc dán nội dung văn bản cần chuyển thành giọng nói..." className={`${inputClass} min-h-80 resize-y p-4`} aria-describedby="audio-text-count" />
+        </div> : <div
+          onDragOver={(event) => { event.preventDefault(); if (!documentBusy) setDraggingDocument(true); }}
+          onDragLeave={() => setDraggingDocument(false)}
+          onDrop={(event) => { event.preventDefault(); setDraggingDocument(false); const file = event.dataTransfer.files[0]; if (file) void chooseDocument(file); }}
+          className={cn("flex min-h-80 flex-col items-center justify-center rounded-xl border border-dashed bg-surface p-6 text-center", draggingDocument ? "border-primary" : "border-outline-variant")}
+        >
+          <FileText className="mb-3 size-10 text-primary" aria-hidden="true" />
+          <p className="text-pretty text-sm font-medium">{documentFile?.name || "Kéo và thả tệp tài liệu vào đây"}</p>
+          <p className="mt-1 text-pretty text-xs text-on-surface-variant">PDF, DOCX hoặc TXT · tối đa 20 MB. PDF scan cần OCR trước.</p>
+          <input ref={documentInputRef} type="file" accept=".pdf,.docx,.txt" className="sr-only" aria-label="Chọn tệp tài liệu" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void chooseDocument(file); event.currentTarget.value = ""; }} />
+          <button type="button" onClick={() => documentInputRef.current?.click()} disabled={documentBusy} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-sm font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><Upload className="size-4" aria-hidden="true" />Tải lên từ máy tính</button>
+          {documentBusy && <p role="status" className="mt-3 text-sm text-on-surface-variant">Đang đọc nội dung tài liệu…</p>}
+          {documentText && <div className="mt-4 w-full rounded-lg border border-outline-variant bg-surface-container-low p-3 text-left"><p className="mb-2 text-xs font-medium text-on-surface-variant">Đã trích xuất {documentText.length.toLocaleString("vi-VN")} ký tự</p><p className="max-h-28 overflow-y-auto whitespace-pre-wrap text-pretty text-sm text-on-surface">{documentText}</p></div>}
+        </div>}
+      </div>
+      <aside aria-label="Quản trị và thiết lập" className="space-y-5 rounded-xl border border-outline-variant bg-surface p-4 sm:p-6 lg:col-span-2">
+        <div className="flex items-center gap-2"><SlidersHorizontal className="size-4 text-on-surface-variant" aria-hidden="true" /><h2 className="text-lg font-semibold text-balance">Quản trị và thiết lập</h2></div>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-semibold">Giọng đọc</h3><button type="button" disabled aria-label="Tạo giọng cá nhân, sắp ra mắt" className="inline-flex min-h-9 items-center gap-2 rounded-full border border-outline-variant px-3 text-xs font-medium text-on-surface-variant disabled:cursor-not-allowed disabled:opacity-70"><span>Tạo giọng cá nhân</span><span className="rounded-full bg-surface-container-low px-2 py-0.5">Sắp ra mắt</span></button></div>
+          <AssistantSpeechVoicePicker value={voiceId} onChange={setVoiceId} />
         </div>
+        <section aria-labelledby="speech-settings-title" className="space-y-4 border-t border-outline-variant pt-4">
+          <div className="flex items-center justify-between gap-2"><h3 id="speech-settings-title" className="text-sm font-semibold">Tốc độ và nhịp đọc</h3><button type="button" onClick={() => setSpeechControls(defaultAssistantSpeechControls)} className="inline-flex items-center gap-1 text-xs text-on-surface-variant hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"><RotateCcw className="size-3.5" aria-hidden="true" />Đặt lại mặc định</button></div>
+          <div className="space-y-2"><div className="flex items-center justify-between gap-3"><label htmlFor="speech-speed" className="text-sm">Tốc độ đọc</label><span className="min-w-12 rounded-md border border-outline-variant bg-surface-container-lowest px-2 py-1 text-center text-sm tabular-nums">{Number(speechControls.speed.toFixed(2))}x</span></div><input id="speech-speed" type="range" min="0.7" max="1.2" step="0.05" value={speechControls.speed} onChange={(event) => setSpeechControls((current) => ({ ...current, speed: Number(event.target.value) }))} className="w-full accent-primary" aria-describedby="speech-speed-hint" /><p id="speech-speed-hint" className="text-xs text-on-surface-variant">Từ 0,7x đến 1,2x</p></div>
+          <div className="space-y-2.5">{speechPauseLabels.map(({ key, label }) => <div key={key} className="grid grid-cols-[minmax(0,1fr)_2rem_5.5rem_2rem] items-center gap-2"><label htmlFor={key} className="text-xs text-on-surface">{label}</label><button type="button" aria-label={`Giảm ${label.toLocaleLowerCase("vi-VN")}`} disabled={speechControls[key] <= 0} onClick={() => setSpeechControls((current) => ({ ...current, [key]: Math.max(0, Number((current[key] - 0.05).toFixed(2))) }))} className="inline-flex size-8 items-center justify-center rounded-md border border-outline-variant bg-surface-container-low text-on-surface hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-primary"><Minus className="size-4" aria-hidden="true" /></button><div className="relative"><input id={key} type="number" min="0" max="3" step="0.05" value={speechControls[key]} onChange={(event) => { const value = Number(event.target.value); setSpeechControls((current) => ({ ...current, [key]: Math.max(0, Math.min(3, Number.isFinite(value) ? value : 0)) })); }} className="w-full rounded-md border border-outline-variant bg-surface-container-lowest px-2 py-1.5 pr-10 text-center text-sm tabular-nums text-on-surface focus:border-primary focus:outline-none" aria-label={`${label}, giây`} /><span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-on-surface-variant">giây</span></div><button type="button" aria-label={`Tăng ${label.toLocaleLowerCase("vi-VN")}`} disabled={speechControls[key] >= 3} onClick={() => setSpeechControls((current) => ({ ...current, [key]: Math.min(3, Number((current[key] + 0.05).toFixed(2))) }))} className="inline-flex size-8 items-center justify-center rounded-md border border-outline-variant bg-surface-container-low text-on-surface hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-primary"><Plus className="size-4" aria-hidden="true" /></button></div>)}</div>
+        </section>
       </aside>
       <div className="flex flex-wrap items-center justify-between gap-3 lg:col-span-5">
-        <p id="audio-text-count" className="text-sm tabular-nums text-on-surface-variant">Ký tự: {text.length.toLocaleString("vi-VN")} / 10.000</p>
-        <button type="button" onClick={generate} disabled={busy || !text.trim()} className={buttonClass}>{busy ? "Đang chuyển đổi..." : "Chuyển đổi"}</button>
+        <p id="audio-text-count" className="text-sm tabular-nums text-on-surface-variant">Ký tự: {activeSpeechText.length.toLocaleString("vi-VN")} / 10.000</p>
+        <button type="button" onClick={generate} disabled={busy || documentBusy || !activeSpeechText.trim()} className={buttonClass}>{busy ? "Đang chuyển đổi..." : "Chuyển đổi"}</button>
       </div>
       {audioUrl && <div className="space-y-3 lg:col-span-5"><audio controls src={audioUrl} className="w-full" aria-label="Audio vừa tạo" /><a href={audioUrl} download="igen-audio.mp3" className="inline-block text-sm font-medium text-primary underline">Tải audio xuống</a></div>}
     </section>}
