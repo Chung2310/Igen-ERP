@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Clock3, Download, Minus, Plus, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { UploadSimple } from "@phosphor-icons/react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { assistantService, type AssistantStudioTranscript } from "../../services/assistantService";
 import { getAssistantSpeechHistoryUserId, listAssistantSpeechHistory, saveAssistantSpeechHistory, type AssistantSpeechHistoryItem } from "../../services/assistantSpeechHistory";
@@ -33,7 +34,7 @@ function UploadArea({ label, hint, accept, file, onFile, panel, disabled = false
     <p className="text-pretty text-sm font-medium text-on-surface">{file ? file.name : label}</p>
     <p className="mt-1 text-pretty text-xs text-on-surface-variant">{hint}</p>
     <input ref={input} type="file" accept={accept} disabled={disabled} className="sr-only" aria-label="Chọn tệp âm thanh" onChange={(event) => { const item = event.target.files?.[0]; if (item) onFile(item); event.currentTarget.value = ""; }} />
-    <button type="button" disabled={disabled} onClick={() => input.current?.click()} className="mt-5 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">Tải lên từ máy tính</button>
+    <button type="button" disabled={disabled} onClick={() => input.current?.click()} className="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><UploadSimple size={18} aria-hidden="true" />Tải lên từ máy tính</button>
   </div>;
 }
 
@@ -243,7 +244,7 @@ export default function AssistantStudioAudio({ tool, onBack }: { tool: AudioTool
           <p className="text-pretty text-sm font-medium">{documentFile?.name || "Kéo và thả tệp tài liệu vào đây"}</p>
           <p className="mt-1 text-pretty text-xs text-on-surface-variant">PDF, DOCX hoặc TXT · tối đa 20 MB.</p>
           <input ref={documentInputRef} type="file" accept=".pdf,.docx,.txt" className="sr-only" aria-label="Chọn tệp tài liệu" onChange={(event) => { const file = event.currentTarget.files?.[0]; if (file) void chooseDocument(file); event.currentTarget.value = ""; }} />
-          <button type="button" onClick={() => documentInputRef.current?.click()} disabled={documentBusy} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-sm font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50">Tải lên từ máy tính</button>
+          <button type="button" onClick={() => documentInputRef.current?.click()} disabled={documentBusy} className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 text-sm font-medium hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"><UploadSimple size={18} aria-hidden="true" />Tải lên từ máy tính</button>
           {documentBusy && <p role="status" className="mt-3 text-sm text-on-surface-variant">Đang đọc nội dung tài liệu…</p>}
           {documentText && <div className="mt-4 w-full rounded-lg border border-outline-variant bg-surface-container-low p-3 text-left"><p className="mb-2 text-xs font-medium text-on-surface-variant">Đã trích xuất {documentText.length.toLocaleString("vi-VN")} ký tự</p><p className="max-h-28 overflow-y-auto whitespace-pre-wrap text-pretty text-sm text-on-surface">{documentText}</p></div>}
         </div>}
