@@ -23,7 +23,6 @@ import { tiktokMessengerService } from "./tiktok-messenger.service.ts";
 import { aiKnowledgeService } from "../../knowledge/service/ai-knowledge.service.ts";
 import { assertPersonalAutoReplyOwnership, selectAutoReplyCompanyIntegration } from "./auto-reply-owner";
 import { selectCurrentOrderContext } from "./messenger-order-context";
-import { getCustomerSafetyReply } from "./chat-safety";
 import { chatOrderFlowRegistry } from "./chat-ordering/registry";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import { splitHistoryAndPendingInboundMessages, type ChatImageObservation } from "./chat-image-context";
@@ -1058,8 +1057,7 @@ export const aiAutoReplyService = {
             const companyCode = targetCompanyCode;
             const aiTrace = aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
             const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
-              const safetyReply = getCustomerSafetyReply(groupedCustomerMessage);
-              const orderFlow = !safetyReply && channel === "facebook" ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId) : undefined;
+              const orderFlow = channel === "facebook" ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId) : undefined;
               const customerSession = orderFlow && await orderFlow.isEnabled(resolvedPlatformId)
                 ? await orderFlow.prepareSession({ companyCode, pageId: resolvedPlatformId, conversationId }, latestDbMessage.messageId) : undefined;
               // Generic intake uses the conversation history. Inbound messages are
@@ -1088,7 +1086,7 @@ export const aiAutoReplyService = {
               const effectiveRagContext = preparedReplyContext.ragContext;
               const pricingContextText = effectiveRagContext.pricingContextText || "";
               const conversationalInstructions = buildChatConversationInstructions(aiConfig.advancedInstructions);
-              const visualReply = !safetyReply && preparedReplyContext.visualInput ? await geminiService.chat(groupedCustomerMessage, history,
+              const visualReply = preparedReplyContext.visualInput ? await geminiService.chat(groupedCustomerMessage, history,
                 { ...aiConfig, advancedInstructions: conversationalInstructions }, effectiveRagContext) : undefined;
               const visualContext = visualReply?.visual || preparedReplyContext.visualInput?.previous;
               let imageObservation: ChatImageObservation | undefined = visualContext
@@ -1139,7 +1137,7 @@ export const aiAutoReplyService = {
                 businessContext: [aiConfig.advancedInstructions, aiConfig.customerServiceScript,
                   effectiveRagContext.contextText, effectiveRagContext.scenarioContextText].filter(Boolean).join("\n\n"),
               }) : undefined;
-              let aiResponse = safetyReply ? { text: safetyReply, isMock: false } : checkoutReply?.consultationContext ? await geminiService.chat(groupedCustomerMessage, history, {
+              let aiResponse = checkoutReply?.consultationContext ? await geminiService.chat(groupedCustomerMessage, history, {
                 ...aiConfig,
                 advancedInstructions: [conversationalInstructions, orderFlow?.conversationInstructions,
                   orderFlow?.consultationInstructions].filter(Boolean).join("\n"),

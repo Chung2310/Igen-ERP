@@ -63,6 +63,9 @@ describe("Page intake flow", () => {
     expect(guidance.collected).toEqual({ name: "Thủy" });
     expect(guidance.missingFields.map((field: { key: string }) => field.key)).toEqual(["phone"]);
     expect(guidance.requiredReply).toBeUndefined();
+    expect(guidance.suggestedQuestion).toBeUndefined();
+    expect(guidance.completionMessage).toBeUndefined();
+    expect(guidance.missingFields).toEqual([{ key: "phone", label: "Số điện thoại" }]);
     expect(guidance.instruction).toContain("Trả lời câu hỏi mới nhất");
     expect(savePageCustomer).toHaveBeenCalledWith(expect.objectContaining({ values: { name: "Thủy" }, message: "Alo\n" + grouped.combinedText }));
   });
@@ -82,14 +85,6 @@ describe("Page intake flow", () => {
       ] });
     expect(savePageCustomer).toHaveBeenCalledWith(expect.objectContaining({ message: "0900000000\nThủy",
       values: { name: "Thủy", phone: "0900000000" } }));
-  });
-  it("does not extract or save sales information from a self-harm message", async () => {
-    const result = await pageIntakeFlow.process({ companyCode: "RUBYQUEEN", pageId: "PAGE", conversationId: "C", messageId: "CRISIS",
-      message: "Tôi muốn tự vẫn", imageUrls: [] });
-    expect(result).toBeUndefined();
-    expect(PageChatFlowModel.findOne).not.toHaveBeenCalled();
-    expect(generateReplyCompletion).not.toHaveBeenCalled();
-    expect(savePageCustomer).not.toHaveBeenCalled();
   });
   it("keeps unconfigured customer facts and syncs later replies to the linked customer", async () => {
     vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 2, goal: "Tư vấn sơn", fields, completionMessage: "Đã nhận thông tin." }) } as any);

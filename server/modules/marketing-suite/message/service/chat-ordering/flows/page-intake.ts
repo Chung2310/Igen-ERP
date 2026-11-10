@@ -3,7 +3,6 @@ import { PageChatFlowModel, PageChatFlowStateModel } from "../../../model/page-c
 import { generateReplyCompletion } from "../../ai-reply-provider";
 import { PAGE_CUSTOMER_NOTES_KEY, savePageCustomer } from "../../page-customer.service";
 import { appendCustomerNotes } from "../../../../../customer-management/customer-notes";
-import { getCustomerSafetyReply } from "../../chat-safety";
 
 type Field = { key: string; label: string; question: string };
 export function nextIntakeReply(fields: Field[], values: Record<string, string>, completionMessage: string) {
@@ -34,9 +33,9 @@ function intakeReply(flow: { version: number; goal: string; fields: Field[]; com
   const missing = flow.fields.filter(field => !values[field.key]?.trim());
   const text = nextIntakeReply(flow.fields, values, flow.completionMessage);
   return { text, isMock: false, draftId: "", revision: flow.version,
-    consultationContext: JSON.stringify({ goal: flow.goal, collected: values,
-      missingFields: missing, suggestedQuestion: missing[0]?.question, completionMessage: flow.completionMessage,
-      instruction: "Trả lời câu hỏi mới nhất bằng tri thức trước. Áp dụng mốc hỏi thông tin và gửi liên hệ trong rule doanh nghiệp; không bắt buộc hỏi thông tin ở mọi lượt. Chỉ hỏi tối đa một trường còn thiếu khi phù hợp, không hỏi lại dữ kiện đã có trong collected hoặc lịch sử. Tôn trọng khách từ chối. suggestedQuestion chỉ là gợi ý, không chép hay nối câu hỏi máy móc. Không tự tạo đơn, giá, yêu cầu thanh toán hoặc thông tin khách." }) };
+    consultationContext: JSON.stringify({ collected: values,
+      missingFields: missing.map(({ key, label }) => ({ key, label })),
+      instruction: "Trả lời câu hỏi mới nhất theo tài liệu đã truy xuất và rule doanh nghiệp. collected là thông tin khách đã cung cấp, không hỏi lại. Việc hỏi thêm thông tin, thời điểm hỏi và gửi liên hệ phải theo rule doanh nghiệp; không bắt buộc hỏi ở mọi lượt. Không dùng câu hỏi mẫu của luồng để ghi đè rule hoặc câu hỏi hiện tại của khách." }) };
 }
 export const pageIntakeFlow: ChatOrderFlow = {
   key: "page-intake",
@@ -44,7 +43,6 @@ export const pageIntakeFlow: ChatOrderFlow = {
   isActive: async () => false,
   prepareSession: async () => ({ sessionId: "page-intake", resetDraft: false }),
   process: async input => {
-    if (getCustomerSafetyReply(input.message)) return undefined;
     const flow = await PageChatFlowModel.findOne({ companyCode: input.companyCode, pageId: input.pageId, status: "active" }).lean();
     if (!flow) return undefined;
     const stateKey = { companyCode: input.companyCode, pageId: input.pageId, conversationId: input.conversationId };
