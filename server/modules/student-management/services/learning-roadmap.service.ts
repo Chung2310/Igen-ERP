@@ -157,7 +157,7 @@ export class LearningRoadmapService {
       const effectiveEligible = previous?.overrideEligible ?? evaluated.eligible;
       return {
         studentId, studentName: studentMap.get(studentId)?.fullName || "Học viên không còn tồn tại", studentPhone: studentMap.get(studentId)?.phone || "",
-        enrollmentId: enrollment ? idOf(enrollment._id) : "", attendanceRate, assignmentRate, miniTestRate, examRate,
+        enrollmentId: enrollment ? idOf(enrollment._id) : "", enrollmentStatus: enrollment?.status || "", attendanceRate, assignmentRate, miniTestRate, examRate,
         teacherAssessment: qualityMap.get(studentId)?.teacherAssessment || "",
         eligible: effectiveEligible, eligibilityReasons: evaluated.reasons, intent: previous?.intent || "pending",
         teacherNote: previous?.teacherNote || "", overrideEligible: previous?.overrideEligible ?? null, overrideReason: previous?.overrideReason || "",
@@ -197,6 +197,93 @@ export class LearningRoadmapService {
       await ClassWaitlistEntry.updateMany({ ...ownerQuery(ownerId), studentId: input.studentId, roadmapId: input.roadmapId, sourceBatchId: input.batchId, status: "waiting" }, { $set: { status: "cancelled" } });
     }
     return { decision, queued: Boolean(shouldQueue) };
+  }
+
+  static async promoteStudents(ownerId: OwnerScope, actor: Actor, input: { sourceBatchId: string; roadmapId: string; targetBatchId: string; studentIds: string[] }) {
+    const studentIds = [...new Set(input.studentIds.map((id) => String(id).trim()).filter(Boolean))];
+    if (!studentIds.length) throw new ValidationError("VALIDATION_FAILED", "Hãy chọn ít nhất một học viên.");
+
+    const session = await mongoose.startSession();
+    try {
+      let result: { sourceBatchId: string; targetBatchId: string; studentIds: string[] } | undefined;
+      await session.withTransaction(async () => {
+        const sourceBatch = await Batch.findOne({ _id: input.sourceBatchId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
+        if (!sourceBatch) throw new ValidationError("VALIDATION_FAILED", "Không tìm thấy lớp nguồn.");
+        if (sourceBatch.status !== "Đã kết thúc") throw new ValidationError("VALIDATION_FAILED", "Chỉ có thể lên level trực tiếp sau khi lớp đã kết thúc.");
+        const selectedRoadmapId = String(input.roadmapId || sourceBatch.roadmapId || "");
+        if (!selectedRoadmapId) throw new ValidationError("VALIDATION_FAILED", "Hãy chọn lộ trình có level tiếp theo cho lớp này.");
+        if (sourceBatch.roadmapId && sourceBatch.roadmapId !== selectedRoadmapId) throw new ValidationError("VALIDATION_FAILED", "Lớp học đã được gắn với một lộ trình khác.");
+        if (studentIds.some((studentId) => !(sourceBatch.learnerIds || []).includes(studentId))) throw new ValidationError("VALIDATION_FAILED", "Có học viên không thuộc lớp nguồn.");
+
+        const roadmap = await LearningRoadmap.findOne({ _id: selectedRoadmapId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId), status: "active" }).session(session);
+        const sourceStep = sourceBatch.roadmapStepId
+          ? roadmap?.steps.find((step) => step.id === sourceBatch.roadmapStepId)
+          : roadmap?.steps.find((step) => step.courseId === sourceBatch.courseId);
+        const targetStep = sourceStep && roadmap?.steps.find((step) => step.order === sourceStep.order + 1);
+        if (!roadmap || !sourceStep || sourceStep.courseId !== sourceBatch.courseId) throw new ValidationError("VALIDATION_FAILED", "Không tìm thấy chặng lộ trình của lớp nguồn.");
+        if (!targetStep) throw new ValidationError("VALIDATION_FAILED", "Lớp đang ở level cuối, không có level kế tiếp.");
+        if (!sourceBatch.roadmapId || !sourceBatch.roadmapStepId) {
+          sourceBatch.roadmapId = idOf(roadmap._id);
+          sourceBatch.roadmapStepId = sourceStep.id;
+          await sourceBatch.save({ session });
+        }
+
+        const targetBatch = await Batch.findOne({ _id: input.targetBatchId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
+        if (!targetBatch) throw new ValidationError("VALIDATION_FAILED", "Không tìm thấy lớp đích.");
+        if (String(targetBatch.ownerId) !== String(sourceBatch.ownerId) || targetBatch.branchId !== sourceBatch.branchId) throw new ValidationError("VALIDATION_FAILED", "Lớp đích phải thuộc cùng đơn vị và chi nhánh với lớp nguồn.");
+        if (targetBatch.status !== "Sắp khai giảng") throw new ValidationError("VALIDATION_FAILED", "Chỉ có thể chuyển học viên vào lớp đang sắp khai giảng.");
+        if (targetBatch.courseId !== targetStep.courseId || targetBatch.roadmapId !== String(roadmap._id) || targetBatch.roadmapStepId !== targetStep.id) throw new ValidationError("VALIDATION_FAILED", "Lớp đích không thuộc đúng level tiếp theo của lộ trình.");
+
+        const sourceEnrollments = await BatchEnrollment.find({ batchId: input.sourceBatchId, studentId: { $in: studentIds }, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
+        const enrollmentByStudent = new Map(sourceEnrollments.map((enrollment) => [enrollment.studentId, enrollment]));
+        if (sourceEnrollments.length !== studentIds.length) throw new ValidationError("VALIDATION_FAILED", "Một hoặc nhiều học viên chưa có dữ liệu đăng ký lớp để chuyển.");
+        const unavailable = sourceEnrollments.find((enrollment) => !["Đang học", "Chờ xếp lớp tiếp theo", "Hoàn thành khóa"].includes(enrollment.status));
+        if (unavailable) throw new ValidationError("VALIDATION_FAILED", "Chỉ có thể chuyển học viên đang học, chờ lên lớp hoặc đã hoàn thành khóa.");
+
+        const course = await Course.findOne({ _id: targetBatch.courseId, ...ownerQuery(ownerId), ...branchQuery(actor.branchId) }).session(session);
+        const capacity = targetStep.maxClassSize || resolveQuota(targetBatch.quota, course?.maxLearners);
+        if (capacity > 0 && targetBatch.learnerIds.length + studentIds.filter((studentId) => !targetBatch.learnerIds.includes(studentId)).length > capacity) {
+          throw new ValidationError("VALIDATION_FAILED", `Lớp đích vượt sĩ số tối đa (${capacity} học viên).`);
+        }
+        if (studentIds.some((studentId) => targetBatch.learnerIds.includes(studentId))) throw new ValidationError("VALIDATION_FAILED", "Có học viên đã thuộc lớp đích.");
+        const duplicateAtStep = await BatchEnrollment.exists({ ...ownerQuery(ownerId), ...branchQuery(actor.branchId), studentId: { $in: studentIds }, roadmapId: String(roadmap._id), roadmapStepId: targetStep.id, status: { $in: ACTIVE_ENROLLMENT_STATUSES } }).session(session);
+        if (duplicateAtStep) throw new ValidationError("VALIDATION_FAILED", "Có học viên đã được xếp vào một lớp khác tại level này.");
+
+        const now = new Date();
+        const reason = "Chuyển level trực tiếp, không yêu cầu thi.";
+        const decisions = new Map<string, string>();
+        for (const studentId of studentIds) {
+          const enrollment = enrollmentByStudent.get(studentId)!;
+          const decision = await StudentProgressionDecision.findOneAndUpdate(
+            { ...ownerQuery(ownerId), ...branchQuery(actor.branchId), sourceBatchId: input.sourceBatchId, studentId, roadmapId: String(roadmap._id) },
+            { $set: { sourceStepId: sourceStep.id, targetStepId: targetStep.id, sourceEnrollmentId: idOf(enrollment._id), intent: "continue", teacherNote: reason, eligible: true, eligibilityReasons: [], eligibilitySnapshot: { directPromotion: true, promotedAt: now }, overrideEligible: true, overrideReason: reason, overrideBy: actor.uid, overrideAt: now }, $setOnInsert: { ownerId: sourceBatch.ownerId, branchId: actor.branchId } },
+            { upsert: true, returnDocument: "after", session },
+          );
+          decisions.set(studentId, idOf(decision._id));
+        }
+
+        const enrollments = await BatchEnrollment.create(studentIds.map((studentId) => ({ ownerId: targetBatch.ownerId, branchId: targetBatch.branchId, batchId: input.targetBatchId, studentId, allowedSessions: 0, attendedSessions: 0, status: "Đang học", joinedAt: now, roadmapId: String(roadmap._id), roadmapStepId: targetStep.id, sourceEnrollmentId: idOf(enrollmentByStudent.get(studentId)!._id), enrollmentReason: "promotion", history: [{ at: now, action: "promoted", actorId: actor.uid, note: reason }] })), { session, ordered: true });
+        const allowedSessions = await resolveBatchTotalSessions(targetBatch);
+        await BatchEnrollment.updateMany({ _id: { $in: enrollments.map((enrollment) => enrollment._id) } }, { $set: { allowedSessions } }, { session });
+
+        targetBatch.learnerIds.push(...studentIds);
+        await targetBatch.save({ session });
+        for (let index = 0; index < studentIds.length; index += 1) {
+          const studentId = studentIds[index];
+          const sourceEnrollment = enrollmentByStudent.get(studentId)!;
+          sourceEnrollment.status = "Hoàn thành khóa";
+          sourceEnrollment.history.push({ at: now, action: "promoted_to_next_batch", actorId: actor.uid, note: targetBatch.code });
+          await sourceEnrollment.save({ session });
+          await ClassWaitlistEntry.updateMany(
+            { ...ownerQuery(ownerId), ...branchQuery(actor.branchId), studentId, roadmapId: String(roadmap._id), targetStepId: targetStep.id, sourceBatchId: input.sourceBatchId, status: "waiting" },
+            { $set: { status: "assigned", assignedAt: now, assignedBatchId: input.targetBatchId, assignedEnrollmentId: idOf(enrollments[index]._id), progressionDecisionId: decisions.get(studentId) || "" } },
+            { session },
+          );
+        }
+        result = { sourceBatchId: input.sourceBatchId, targetBatchId: input.targetBatchId, studentIds };
+      });
+      return result!;
+    } finally { await session.endSession(); }
   }
 
   static async listWaitlist(ownerId: OwnerScope, filters: { roadmapId?: string; targetStepId?: string; batchId?: string; search?: string; page?: string | number; limit?: string | number }, branchId?: string) {
