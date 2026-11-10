@@ -2,12 +2,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AssistantStudioInfographic } from "./AssistantStudioInfographic";
-import { requestEnhancedStudioImagePrompt, requestStudioImages } from "./assistantStudioImageApi";
+import { requestStudioImages } from "./assistantStudioImageApi";
 
 vi.mock("./assistantStudioImageApi", async importOriginal => ({
   ...(await importOriginal<typeof import("./assistantStudioImageApi")>()),
   requestStudioImages: vi.fn(),
-  requestEnhancedStudioImagePrompt: vi.fn(),
 }));
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -31,16 +30,11 @@ describe("AssistantStudioInfographic", () => {
     expect(screen.getByText("Lịch sử trong phiên này")).toBeTruthy();
   });
 
-  it("normalizes the content and shows generation errors", async () => {
-    vi.mocked(requestEnhancedStudioImagePrompt).mockResolvedValue("Quy trình bán hàng gồm ba giai đoạn rõ ràng.");
+  it("shows infographic generation errors", async () => {
     vi.mocked(requestStudioImages).mockRejectedValue(new Error("Không thể tạo ảnh lúc này."));
     render(<AssistantStudioInfographic onBack={() => {}} />);
     const prompt = screen.getByRole("textbox", { name: /Nội dung cần thể hiện/ }) as HTMLTextAreaElement;
     fireEvent.change(prompt, { target: { value: "Quy trình bán hàng" } });
-    fireEvent.click(screen.getByRole("button", { name: "Chuẩn hóa nội dung infographic" }));
-    await waitFor(() => expect(prompt.value).toBe("Quy trình bán hàng gồm ba giai đoạn rõ ràng."));
-    fireEvent.click(screen.getByRole("button", { name: "Khôi phục nội dung gốc" }));
-    expect(prompt.value).toBe("Quy trình bán hàng");
     fireEvent.submit(screen.getByRole("form", { name: "Thiết lập tạo infographic" }));
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Không thể tạo ảnh lúc này.");
   });

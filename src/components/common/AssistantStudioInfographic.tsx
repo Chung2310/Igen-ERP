@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, ChevronDown, Clock3, Download, LoaderCircle, Plus, WandSparkles } from "lucide-react";
+import { ArrowLeft, ChevronDown, Clock3, Download, LoaderCircle, Plus } from "lucide-react";
 import { cn } from "../../modules/student-management/lib/utils";
 import { StyledSelect } from "./StyledSelect";
-import { requestEnhancedStudioImagePrompt, requestStudioImages, type StudioImageRequest, type StudioImageResponse } from "./assistantStudioImageApi";
+import { requestStudioImages, type StudioImageRequest, type StudioImageResponse } from "./assistantStudioImageApi";
 
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
 const layouts = [
@@ -91,9 +91,6 @@ function EmptyArtwork() {
 
 export function AssistantStudioInfographic({ onBack }: { onBack: () => void }) {
   const [prompt, setPrompt] = useState("");
-  const promptRef = useRef("");
-  const [originalPrompt, setOriginalPrompt] = useState("");
-  const [promptStatus, setPromptStatus] = useState("");
   const [layoutId, setLayoutId] = useState<Layout["id"]>("auto");
   const [layoutOpen, setLayoutOpen] = useState(false);
   const layoutRef = useRef<HTMLDivElement>(null);
@@ -102,7 +99,6 @@ export function AssistantStudioInfographic({ onBack }: { onBack: () => void }) {
   const [history, setHistory] = useState<Result[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [optimizing, setOptimizing] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -112,28 +108,10 @@ export function AssistantStudioInfographic({ onBack }: { onBack: () => void }) {
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, [layoutOpen]);
 
-  async function optimizePrompt() {
-    const source = promptRef.current.trim();
-    if (source.length < 3 || loading || optimizing) return;
-    setOptimizing(true);
-    setError("");
-    try {
-      const enhanced = await requestEnhancedStudioImagePrompt(source);
-      if (promptRef.current.trim() === source) {
-        if (enhanced.length > 1500) throw new Error("Mô tả sau chuẩn hóa quá dài. Hãy rút gọn nội dung.");
-        setOriginalPrompt(source);
-        promptRef.current = enhanced;
-        setPrompt(enhanced);
-        setPromptStatus("Đã chuẩn hóa nội dung. Bạn có thể chỉnh lại trước khi tạo infographic.");
-      }
-    } catch (requestError) { setError((requestError as Error).message); }
-    finally { setOptimizing(false); }
-  }
-
   async function createInfographic(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const content = prompt.trim();
-    if (content.length < 3 || loading || optimizing) return;
+    if (content.length < 3 || loading) return;
     setError("");
     setLoading(true);
     setShowHistory(false);
@@ -149,7 +127,7 @@ export function AssistantStudioInfographic({ onBack }: { onBack: () => void }) {
   }
 
   function reset() {
-    setPrompt(""); promptRef.current = ""; setOriginalPrompt(""); setPromptStatus("");
+    setPrompt("");
     setLayoutId("auto"); setRatio("3:4"); setResult(null); setShowHistory(false); setError("");
   }
 
@@ -157,7 +135,25 @@ export function AssistantStudioInfographic({ onBack }: { onBack: () => void }) {
   return <div className="grid min-h-full min-w-0 lg:min-h-[calc(100dvh-5.5rem)] lg:grid-cols-[18rem_minmax(0,1fr)]">
     <form onSubmit={createInfographic} aria-label="Thiết lập tạo infographic" className="flex min-w-0 flex-col gap-4 border-b border-outline-variant bg-surface-container-lowest p-4 sm:p-5 lg:min-h-full lg:border-b-0 lg:border-r">
       <div className="flex min-h-9 items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm lg:text-xs"><button type="button" onClick={onBack} className={cn("inline-flex shrink-0 items-center gap-1 rounded-md py-1 text-on-surface-variant hover:text-primary", focusClass)}><ArrowLeft className="size-4" aria-hidden="true" />AI Studio</button><span className="text-on-surface-variant" aria-hidden="true">/</span><h1 className="min-w-0 truncate font-semibold">Tạo infographic</h1></div>
-      <div><label htmlFor="studio-infographic-prompt" className="mb-1 block text-sm font-medium">Nội dung cần thể hiện <span className="text-error">*</span></label><div className="relative"><textarea id="studio-infographic-prompt" required minLength={3} maxLength={1500} rows={9} value={prompt} onChange={event => { promptRef.current = event.target.value; setPrompt(event.target.value); setOriginalPrompt(""); setPromptStatus(""); setError(""); }} disabled={loading} aria-describedby="studio-infographic-count studio-infographic-prompt-status" placeholder="Ví dụ: Quy trình kê khai thuế của hộ kinh doanh, gồm các bước, thời hạn và lưu ý quan trọng…" className="min-h-52 w-full resize-y rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-3 pb-10 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none" /><button type="button" onClick={optimizePrompt} disabled={loading || optimizing || prompt.trim().length < 3} aria-label={optimizing ? "Đang chuẩn hóa nội dung" : "Chuẩn hóa nội dung infographic"} title="Chuẩn hóa nội dung" className={cn("absolute bottom-3 right-2 inline-flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>{optimizing ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <WandSparkles className="size-4" aria-hidden="true" />}</button></div><div className="mt-1 flex items-center justify-between gap-2 text-xs text-on-surface-variant"><span id="studio-infographic-prompt-status" role="status" className="text-pretty">{optimizing ? "Đang chuẩn hóa nội dung…" : promptStatus}</span><span id="studio-infographic-count" className="shrink-0 tabular-nums">{prompt.length.toLocaleString("vi-VN")}/1.500</span></div>{originalPrompt && <button type="button" onClick={() => { promptRef.current = originalPrompt; setPrompt(originalPrompt); setOriginalPrompt(""); setPromptStatus(""); }} className={cn("mt-1 text-xs text-primary hover:underline", focusClass)}>Khôi phục nội dung gốc</button>}</div>
+      <div>
+        <label htmlFor="studio-infographic-prompt" className="mb-1 block text-sm font-medium">Nội dung cần thể hiện <span className="text-error">*</span></label>
+        <textarea
+          id="studio-infographic-prompt"
+          required
+          minLength={3}
+          maxLength={1500}
+          rows={9}
+          value={prompt}
+          onChange={event => { setPrompt(event.target.value); setError(""); }}
+          disabled={loading}
+          aria-describedby="studio-infographic-count"
+          placeholder="Ví dụ: Quy trình kê khai thuế của hộ kinh doanh, gồm các bước, thời hạn và lưu ý quan trọng…"
+          className="min-h-52 w-full resize-y rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-3 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none"
+        />
+        <div className="mt-1 flex justify-end text-xs text-on-surface-variant">
+          <span id="studio-infographic-count" className="shrink-0 tabular-nums">{prompt.length.toLocaleString("vi-VN")}/1.500</span>
+        </div>
+      </div>
       <div ref={layoutRef} onKeyDown={event => { if (event.key === "Escape" && layoutOpen) { setLayoutOpen(false); (layoutRef.current?.querySelector("button") as HTMLButtonElement)?.focus(); } }} className="relative">
         <span className="mb-1 block text-sm font-medium">Bố cục</span>
         <button type="button" aria-label="Bố cục" aria-expanded={layoutOpen} aria-controls={layoutOpen ? "studio-infographic-layouts" : undefined} onClick={() => setLayoutOpen(value => !value)} disabled={loading} className={cn("flex min-h-10 w-full items-center gap-2 rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-left text-sm hover:border-primary", focusClass)}><span className="grid size-5 shrink-0 place-items-center rounded bg-primary/10 text-primary"><LayoutArtwork kind={selectedLayout.id} /></span><span className="min-w-0 flex-1 truncate">{selectedLayout.label}</span><ChevronDown className={cn("size-4 text-on-surface-variant", layoutOpen && "rotate-180")} aria-hidden="true" /></button>
@@ -169,7 +165,7 @@ export function AssistantStudioInfographic({ onBack }: { onBack: () => void }) {
         </div>}
       </div>
       <div><span className="mb-1 block text-sm font-medium">Tỷ lệ khung hình</span><StyledSelect appearance="erp" ariaLabel="Tỷ lệ infographic" value={ratio} onChange={value => setRatio(value as StudioImageRequest["aspectRatio"])} disabled={loading} options={[{ value: "3:4", label: "3:4 · Dọc" }, { value: "9:16", label: "9:16 · Dọc dài" }, { value: "1:1", label: "1:1 · Vuông" }, { value: "16:9", label: "16:9 · Ngang" }, { value: "4:3", label: "4:3 · Ngang gọn" }]} className="h-10 rounded-md" /></div>
-      <button type="submit" disabled={loading || optimizing || prompt.trim().length < 3} className={cn("inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 lg:mt-auto", focusClass)}>{loading ? <><LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />Đang tạo infographic…</> : "Tạo infographic"}</button>
+      <button type="submit" disabled={loading || prompt.trim().length < 3} className={cn("inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 lg:mt-auto", focusClass)}>{loading ? <><LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />Đang tạo infographic…</> : "Tạo infographic"}</button>
       {error && <p role="alert" className="text-pretty rounded-lg border border-error/30 bg-error/5 p-3 text-sm text-error">{error}</p>}
     </form>
     <section aria-label="Kết quả tạo infographic" aria-busy={loading} className="flex min-h-96 min-w-0 flex-col bg-surface-container-lowest p-4 lg:min-h-full lg:p-6"><div className="flex items-center justify-end gap-2"><button type="button" onClick={reset} className={cn("inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant px-3 text-xs hover:bg-surface-container-low", focusClass)}><Plus className="size-4" aria-hidden="true" />Tạo mới</button><button type="button" aria-pressed={showHistory} onClick={() => setShowHistory(value => !value)} className={cn("inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant px-3 text-xs hover:bg-surface-container-low", focusClass)}><Clock3 className="size-4" aria-hidden="true" />Lịch sử</button></div>
