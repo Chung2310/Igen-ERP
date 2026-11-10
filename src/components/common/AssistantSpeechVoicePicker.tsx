@@ -6,6 +6,10 @@ import {
   type AssistantSpeechVoice,
 } from "../../shared/assistant-speech-voices";
 
+function VietnamFlag() {
+  return <img src="/flag-vietnam.svg" alt="" aria-hidden="true" className="size-4 shrink-0 rounded-full border border-outline-variant object-cover" />;
+}
+
 function VoicePortrait({ voice, size = "large" }: { voice: AssistantSpeechVoice; size?: "large" | "small" }) {
   const profile = getAssistantSpeechVoiceProfile(voice);
   const column = profile.portraitIndex % 7;
@@ -59,7 +63,7 @@ export default function AssistantSpeechVoicePicker({
           <span className="block truncate font-medium text-on-surface">{selected.name}</span>
           <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-on-surface-variant">
             <span className="rounded-full bg-surface-container-low px-2 py-0.5">{selected.gender}</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-low px-2 py-0.5"><span aria-hidden="true">🇻🇳</span>Việt Nam</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-low px-2 py-0.5"><VietnamFlag />Việt Nam</span>
           </span>
         </span>
         <ChevronDown className="size-4 shrink-0 text-on-surface-variant group-open:rotate-180" aria-hidden="true" />
@@ -80,7 +84,7 @@ export default function AssistantSpeechVoicePicker({
               <VoicePortrait voice={profile.id} size="small" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-on-surface">{profile.name}</span>
-                <span className="block text-xs text-on-surface-variant">{profile.gender} · <span aria-hidden="true">🇻🇳</span> Việt Nam</span>
+                <span className="inline-flex items-center gap-1 text-xs text-on-surface-variant">{profile.gender} · <VietnamFlag />Việt Nam</span>
               </span>
               {value === profile.id && <Check className="size-4 shrink-0 text-primary" aria-hidden="true" />}
             </button>
