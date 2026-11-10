@@ -276,10 +276,7 @@ export function ExamsPage({ selectedCenter, canManage = true }: { selectedCenter
       {(examLoadError || batchLoadError || resourceLoadError) && <StudentLoadState error={examLoadError || batchLoadError || resourceLoadError} onRetry={() => { void Promise.all([reloadExams(), reloadBatches(), reloadResources()]); }} />}
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
-          <h1 className="text-balance text-xl font-medium text-on-surface">Lịch thi</h1>
-        </div>
-        <div className="flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-1.5">
           <button
             onClick={handleExport}
             className="flex items-center gap-1.5 px-3 py-2 bg-white border border-sky-100 rounded-xl text-xs font-medium text-slate-700 hover:bg-sky-50 transition-colors cursor-pointer"

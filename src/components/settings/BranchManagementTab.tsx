@@ -7,7 +7,6 @@ import { toAttendanceNetwork } from "../../utils/attendanceNetwork";
 import { RoadmapPicker } from "../../modules/student-management/components/ui/RoadmapPicker";
 import { UserFormModal } from "../user-admin/UserFormModal";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
-import { HrPageTitle } from "../hr/HrPageTitle";
 import { HrEmptyIllustration } from "../hr/HrEmptyIllustration";
 import { BranchCardIllustration, getBranchIllustrationKind } from "./BranchCardIllustration";
 import "./BranchManagementTab.css";
@@ -155,8 +154,7 @@ export default function BranchManagementTab({ presentation = "cards" }: { presen
   if (userProfile?.role !== "admin") return null;
   return <section className="min-h-full rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-6">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <HrPageTitle>Quản lý chi nhánh</HrPageTitle>
-      <button type="button" onClick={openCreate} className={primaryCreateButtonClass}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" />Thêm chi nhánh</button>
+      <button type="button" onClick={openCreate} className={`ml-auto ${primaryCreateButtonClass}`}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" />Thêm chi nhánh</button>
     </div>
     <div className="mt-4 flex flex-col gap-3 sm:flex-row"><label className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Tìm kiếm chi nhánh" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm theo mã hoặc tên" className="h-10 w-full rounded-xl border border-sky-100 bg-white pl-9 pr-3 text-sm font-normal text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10" /></label><div className="w-full sm:w-48"><RoadmapPicker ariaLabel="Lọc trạng thái" value={status} onChange={(value) => setStatus(value as typeof status)} placeholder="Tất cả trạng thái" allowClear={false} portal options={[{ value: "all", label: "Tất cả trạng thái" }, { value: "active", label: "Đang hoạt động" }, { value: "inactive", label: "Đã vô hiệu hóa" }]} /></div></div>
     {loading ? <p className="py-10 text-center text-sm text-slate-500">Đang tải chi nhánh...</p> : filtered.length === 0 ? <div className="flex flex-col items-center py-10 text-center text-sm text-slate-500"><HrEmptyIllustration kind={query || status !== "all" ? "search" : "branch"} /><p className="mt-1">Chưa có chi nhánh phù hợp.</p></div> : presentation === "table" ? (

@@ -30,7 +30,8 @@ it('preserves selection, disabled actions and native keyboard focus', () => {
   );
   const activeButton = screen.getByRole('button', { name: 'Đầu tiên' });
   expect(screen.getByRole('button', { name: 'Tìm kiếm trong ERP' })).toBeTruthy();
-  expect(screen.getByRole('link', { name: 'Cài đặt hệ thống' }).getAttribute('href')).toBe('/cai-dat?sub=ho-so');
+  expect((screen.getByRole('button', { name: 'Cài đặt hệ thống' }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByRole('link', { name: 'Cài đặt hệ thống' })).toBeNull();
   expect(activeButton.getAttribute('aria-current')).toBe('page');
   expect(activeButton.className).toContain('bg-primary/5');
   expect(activeButton.className).toContain('text-primary');

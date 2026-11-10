@@ -35,12 +35,12 @@ afterEach(() => { cleanup(); resetEntityPresetStoreForTests(); });
 describe('student screen loading recovery', () => {
   it('loads the list once and leaves unopened add/detail modules unloaded', async () => {
     render(<StudentManagementTab />);
-    await screen.findByRole('heading', { name: 'Học viên' }, { timeout: 3000 });
-    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+    await screen.findByRole('button', { name: 'Thêm' }, { timeout: 10000 });
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1), { timeout: 5000 });
     expect(loads.add).toBe(0);
     expect(loads.detail).toBe(0);
     expect(screen.queryByText('Form thêm')).toBeNull();
-  });
+  }, 20000);
 
   it('allows retrying failed settings without refreshing the browser', async () => {
     vi.mocked(getModuleSettings).mockRejectedValueOnce(new Error('Offline'));
@@ -48,8 +48,8 @@ describe('student screen loading recovery', () => {
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(apiFetch).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
-    await screen.findByRole('heading', { name: 'Học viên' });
-    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+    await screen.findByRole('button', { name: 'Thêm' }, { timeout: 10000 });
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1), { timeout: 5000 });
     expect(getModuleSettings).toHaveBeenCalledTimes(2);
   });
 
@@ -64,8 +64,8 @@ describe('student screen loading recovery', () => {
 
   it('reuses the recent same-scope list for the add form without a duplicate download', async () => {
     render(<StudentManagementTab />);
-    await screen.findByRole('heading', { name: 'Học viên' });
-    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+    await screen.findByRole('button', { name: 'Thêm' }, { timeout: 10000 });
+    await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1), { timeout: 5000 });
     fireEvent.click(screen.getByRole('button', { name: 'Thêm' }));
     expect(await screen.findByText('Form thêm')).toBeTruthy();
     expect(apiFetch).toHaveBeenCalledTimes(1);

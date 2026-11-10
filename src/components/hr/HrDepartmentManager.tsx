@@ -7,7 +7,6 @@ import { cn } from "../../modules/student-management/lib/utils";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { StyledSelect } from "../common/StyledSelect";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
-import { HrPageTitle } from "./HrPageTitle";
 import { HrStatusBadge } from "./HrStatusBadge";
 import "./HrDepartmentManager.css";
 
@@ -314,7 +313,7 @@ export function HrDepartmentManager({ companyCode, departments, managers, manage
       <ManagerFrame inline={inline} busy={busy} onClose={onClose} label="Quản lý phòng ban" initialFocusRef={nameInputRef}>
         <div className={cn("flex w-full flex-col", inline ? "gap-5" : "max-h-[calc(100dvh-2rem)] max-w-5xl overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-lowest shadow-xl")}>
           <header className={cn("flex flex-col gap-4", inline ? "sm:flex-row sm:items-center sm:justify-between" : "border-b border-outline-variant px-5 py-4 sm:flex-row sm:items-center sm:justify-between")}>
-            {inline ? <HrPageTitle>Quản lý phòng ban</HrPageTitle> : (
+            {!inline && (
               <div className="flex min-w-0 items-center gap-2.5">
                 <span className="mt-0.5 h-5 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container" aria-hidden="true"><Building2 className="size-4" /></span>
@@ -323,7 +322,7 @@ export function HrDepartmentManager({ companyCode, departments, managers, manage
             )}
 
             {inline && canManage ? (
-              <button type="button" onClick={() => setIsAddOpen(true)} className={primaryCreateButtonClass}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Thêm phòng ban</button>
+              <button type="button" onClick={() => setIsAddOpen(true)} className={cn(primaryCreateButtonClass, "ml-auto")}><Plus className="size-4 stroke-[2.5]" aria-hidden="true" /> Thêm phòng ban</button>
             ) : !inline && <button type="button" aria-label="Đóng" onClick={onClose} disabled={busy} className={closeButtonClass} data-erp-modal-close><X className="size-4 stroke-[2.5]" aria-hidden="true" /></button>}
           </header>
 

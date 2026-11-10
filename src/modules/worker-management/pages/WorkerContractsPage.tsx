@@ -24,7 +24,6 @@ import { workerContractStatusLabel } from "../types";
 import { StyledSelect } from "../../../components/common/StyledSelect";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 import { HrEmptyIllustration } from "../../../components/hr/HrEmptyIllustration";
-import { HrPageTitle } from "../../../components/hr/HrPageTitle";
 import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
 import type {
@@ -233,16 +232,15 @@ export default function WorkerContractsPage({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto bg-surface-container-lowest">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <HrPageTitle level={1}>Hợp đồng lao động</HrPageTitle>
-        {(expiringCount > 0 || expiredCount > 0) && (
+      {(expiringCount > 0 || expiredCount > 0) && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
             aria-label={alertOnly ? "Xem tất cả hợp đồng" : "Chỉ xem hợp đồng cảnh báo"}
             aria-pressed={alertOnly}
             title={alertOnly ? "Xem tất cả hợp đồng" : "Chỉ xem hợp đồng cảnh báo"}
             onClick={() => setAlertOnly((value) => !value)}
-            className={`inline-flex min-h-9 items-center gap-2 rounded-xl border px-3 py-1.5 text-sm transition-colors ${expiredCount > 0 ? "border-rose-200 text-rose-700 hover:bg-rose-50" : "border-amber-200 text-amber-800 hover:bg-amber-50"} ${alertOnly ? (expiredCount > 0 ? "bg-rose-50" : "bg-amber-50") : "bg-white"}`}
+            className={`ml-auto inline-flex min-h-9 items-center gap-2 rounded-xl border px-3 py-1.5 text-sm transition-colors ${expiredCount > 0 ? "border-rose-200 text-rose-700 hover:bg-rose-50" : "border-amber-200 text-amber-800 hover:bg-amber-50"} ${alertOnly ? (expiredCount > 0 ? "bg-rose-50" : "bg-amber-50") : "bg-white"}`}
           >
             <AlertTriangle className="h-4 w-4 shrink-0" />
             {expiredCount > 0 && <span>{expiredCount} đã hết hạn</span>}
@@ -250,8 +248,8 @@ export default function WorkerContractsPage({
             {expiringCount > 0 && <span>{expiringCount} sắp hết hạn <span className="opacity-70">trong 30 ngày</span></span>}
             {alertOnly && <X className="ml-1 h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
           </button>
-        )}
-      </div>
+        </div>
+      )}
       {error && (
         <div
           role="alert"

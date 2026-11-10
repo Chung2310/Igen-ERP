@@ -45,11 +45,10 @@ function ChartPreview({ type }: { type: ChartType }) {
   })}</svg>;
 
   if (resolved === "Biểu đồ thác nước") {
-    let cumulative = 0;
     return <svg viewBox="0 0 800 360" className="size-full" aria-hidden="true">{grid}{demoRows.map((row, index) => {
       const step = row.value / total * 260;
-      const y = 305 - cumulative - step;
-      cumulative += step;
+      const previous = demoRows.slice(0, index).reduce((sum, item) => sum + item.value, 0) / total * 260;
+      const y = 305 - previous - step;
       return <rect key={row.name} x={105 + index * 135} y={y} width="90" height={step} rx="3" fill={row.color} />;
     })}</svg>;
   }

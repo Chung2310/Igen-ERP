@@ -15,11 +15,11 @@ export function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-function SystemSettingsLink() {
-  return <a href="/cai-dat?sub=ho-so" aria-label="Cài đặt hệ thống" title="Cài đặt hệ thống" className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-on-surface hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
+function SystemSettingsButton() {
+  return <button type="button" disabled title="Cài đặt hệ thống đã có trong phân hệ Cài đặt" className="flex min-h-11 w-full cursor-not-allowed items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium text-on-surface-variant opacity-50">
     <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">{getSidebarMenuFilledIcon('Cài đặt')}</span>
     <span>Cài đặt hệ thống</span>
-  </a>;
+  </button>;
 }
 
 interface ModuleNavigationProps {
@@ -183,7 +183,7 @@ export function ModuleNavigation({
         </nav>
       </div>
       {actions && <div data-module-navigation-actions className="flex min-w-0 shrink-0 flex-wrap items-center gap-3">{actions}</div>}
-      {layout === 'sidebar' && footer !== null && <div data-module-navigation-footer className="hidden min-w-0">{footer ?? <SystemSettingsLink />}</div>}
+      {layout === 'sidebar' && footer !== null && <div data-module-navigation-footer className="hidden min-w-0">{footer ?? <SystemSettingsButton />}</div>}
     </div>
   );
 }

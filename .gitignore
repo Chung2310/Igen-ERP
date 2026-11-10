@@ -50,3 +50,4 @@ service_account*.json
 .superpowers/
 docs/
 demo-data/quotation/staging-ai/
+test-data/

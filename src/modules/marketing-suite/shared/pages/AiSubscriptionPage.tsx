@@ -103,8 +103,7 @@ function CompanyAiSubscription({ companyName, companyCode }: { companyName?: str
       <div className="min-h-0 flex-1 overflow-y-auto p-1 sm:p-1.5 lg:p-0">
         <div className="ai-subscription-panel ai-subscription-content min-h-full w-full space-y-5 p-4">
           <header className="flex items-start justify-between gap-3">
-            <h1 className="min-w-0 text-balance text-xl font-semibold sm:text-2xl">{view === 'usage' ? 'Hạn mức AI' : 'Nâng cấp gói AI'}</h1>
-            <div className="flex shrink-0 items-center gap-3">{companyName && <span title={companyName} className="hidden max-w-48 items-center gap-1.5 text-xs text-on-surface-variant md:flex"><Building2 className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">{companyName}</span></span>}<ErpRefreshButton disabled={!loaded} loading={refreshing} onClick={refresh}>{refreshing ? 'Đang cập nhật…' : 'Làm mới'}</ErpRefreshButton></div>
+            <div className="ml-auto flex shrink-0 items-center gap-3">{companyName && <span title={companyName} className="hidden max-w-48 items-center gap-1.5 text-xs text-on-surface-variant md:flex"><Building2 className="size-4 shrink-0" aria-hidden="true" /><span className="truncate">{companyName}</span></span>}<ErpRefreshButton disabled={!loaded} loading={refreshing} onClick={refresh}>{refreshing ? 'Đang cập nhật…' : 'Làm mới'}</ErpRefreshButton></div>
           </header>
           {error && <div role="alert" className="ai-subscription-notice flex items-start gap-3 rounded-xl border p-4"><AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><div className="min-w-0"><p className="text-sm font-semibold">Chưa cập nhật được hạn mức AI</p><p className="mt-1 text-pretty text-sm leading-6">{error} {subscription ? 'Số liệu hiển thị là lần tải thành công gần nhất.' : 'Bấm Làm mới để thử lại.'}</p></div></div>}
           <div id="ai_subscription_usage" hidden={view !== 'usage'} className="space-y-5">

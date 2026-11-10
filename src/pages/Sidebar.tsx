@@ -85,7 +85,7 @@ const baseMenuItems: MenuItem[] = [
   },
   {
     label: "TRỢ LÝ AI",
-    title: "Trợ lý AI",
+    title: "Trợ lý ERP",
     icon: Sparkles,
     group: "operations",
   },

@@ -517,11 +517,10 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       {(batchLoadError || courseLoadError || categoryLoadError) && <StudentLoadState error={batchLoadError || courseLoadError || categoryLoadError} onRetry={() => { void Promise.all([reloadBatches(), reloadCourses(), reloadCategories()]); }} />}
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
-          <h1 className="text-balance text-lg font-semibold text-on-surface">{entityLabel.tabLabel}</h1>
+        <div>
           <p className="mt-0.5 text-xs font-normal text-on-surface-variant">{loading ? '...' : `${filteredStudents.length} / ${students.length}`} {entityLabel.singular}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
           {canManage && selectedStudentIds.length > 0 && !isUnassignedScope && (
             <button
               onClick={handleBulkDelete}

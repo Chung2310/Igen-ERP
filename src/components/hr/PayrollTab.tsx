@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Coins, FileSpreadsheet, Inbox, Lock, Maximize2, Minimize2, Play, Plus, RefreshCw, Search, Trash2, UserRoundMinus, UsersRound, X } from "lucide-react";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
-import { HrPageTitle } from "./HrPageTitle";
 import * as XLSX from "xlsx";
 import { toast } from "../../pages/Toast";
 import { payrollService } from "../../services/payrollService";
@@ -514,10 +513,7 @@ export default function PayrollTab({ canManage, canPublishPayslips = canManage, 
 
   return <section className="min-h-0 flex-1 space-y-2 overflow-auto rounded-lg border border-outline-variant bg-surface-container-lowest p-4 sm:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <HrPageTitle>Bảng lương</HrPageTitle>
-      </div>
-      <MonthPicker value={period} onChange={setPeriod} />
+      <div className="ml-auto"><MonthPicker value={period} onChange={setPeriod} /></div>
     </div>
 
     <div role="tablist" aria-label="Các mục bảng lương" className="flex gap-1 overflow-x-auto border-b border-outline-variant">
