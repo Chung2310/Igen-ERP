@@ -8,6 +8,10 @@ export const assistantSpeechVoices = [
 export type AssistantSpeechVoice = typeof assistantSpeechVoices[number];
 export const defaultAssistantSpeechVoice: AssistantSpeechVoice = "sarah";
 
+export function assistantSpeechVoiceLabel(voice: AssistantSpeechVoice): string {
+  return `Tiếng Việt · ${voice[0].toUpperCase()}${voice.slice(1)}`;
+}
+
 export function isAssistantSpeechVoice(value: unknown): value is AssistantSpeechVoice {
   return typeof value === "string" && (assistantSpeechVoices as readonly string[]).includes(value);
 }
