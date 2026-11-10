@@ -16,10 +16,9 @@ describe("generic CRUD permission policy", () => {
     }
   });
 
-  it("assigns HR permissions to training and workflow mutations", () => {
-    for (const modelName of ["training-courses", "workflows"]) {
-      expect(policy[modelName]).toMatchObject({ read: "hr:read", manage: "hr:manage" });
-    }
+  it("allows workflow managers to read work processes they are authorized to edit", () => {
+    expect(policy.workflows).toMatchObject({ read: ["hr:read", "hr:manage"], manage: "hr:manage" });
+    expect(policy["training-courses"]).toMatchObject({ read: "hr:read", manage: "hr:manage" });
   });
 
   it("assigns self-service permissions to training enrollments", () => {

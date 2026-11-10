@@ -1,11 +1,22 @@
 {
-  "total": 1157,
-  "connectedContracts": 793,
-  "connectedManualRoutes": 21,
-  "connectedRoutes": 814,
-  "reviewPending": 0,
-  "intentionallyUnsupported": 343,
-  "unresolved": [],
+  "total": 1267,
+  "connectedContracts": 797,
+  "connectedManualRoutes": 49,
+  "connectedRoutes": 846,
+  "reviewPending": 75,
+  "intentionallyUnsupported": 346,
+  "unresolved": [
+    {
+      "file": "server\\modules\\quotation\\router.ts",
+      "line": 2291,
+      "expression": "app.get([\"/contracts/:id/docx\", \"/contracts/:id/file\"], async (request, response) => {\r\n  const id = asId(request.params.id);\r\n  if (!id) return fail(response, "
+    },
+    {
+      "file": "server\\modules\\quotation\\router.ts",
+      "line": 2489,
+      "expression": "app.get([\"/acceptance-records/:id/docx\", \"/acceptance-records/:id/file\"], async (request, response) => {\r\n  const id = asId(request.params.id);\r\n  if (!id) retu"
+    }
+  ],
   "entries": [
     {
       "method": "GET",
@@ -240,6 +251,22 @@
       "line": 34
     },
     {
+      "method": "POST",
+      "path": "/zalo/oauth-session",
+      "status": "pending",
+      "reason": "Cần tệp, xác thực hoặc luồng tích hợp riêng",
+      "file": "server/modules/marketing-suite/shared/zalo-oauth.router.ts",
+      "line": 43
+    },
+    {
+      "method": "GET",
+      "path": "/zalo/oauth-callback",
+      "status": "pending",
+      "reason": "Cần tệp, xác thực hoặc luồng tích hợp riêng",
+      "file": "server/modules/marketing-suite/shared/zalo-oauth.router.ts",
+      "line": 86
+    },
+    {
       "method": "GET",
       "path": "/marketing-settings/authors/:id",
       "status": "contract",
@@ -341,7 +368,7 @@
       "status": "unsupported",
       "reason": "Webhook xác minh /webhooks/tiktok nhận challenge của nhà cung cấp; đây là callback máy chủ, không phải truy vấn dữ liệu tài khoản.",
       "file": "server/modules/marketing-suite/router.ts",
-      "line": 45
+      "line": 47
     },
     {
       "method": "POST",
@@ -349,7 +376,7 @@
       "status": "unsupported",
       "reason": "Webhook /webhooks/tiktok nhận sự kiện bên ngoài cần chữ ký/định dạng từ nhà cung cấp; chat không giả lập nguồn gửi webhook.",
       "file": "server/modules/marketing-suite/router.ts",
-      "line": 46
+      "line": 48
     },
     {
       "method": "POST",
@@ -2169,11 +2196,43 @@
     },
     {
       "method": "GET",
+      "path": "/order-sheets/integrations/:integrationId/leads",
+      "status": "contract",
+      "id": "api.get.d89b9a22f3011fb5",
+      "file": "server/modules/marketing-suite/message/router/lead-sheet.router.ts",
+      "line": 36
+    },
+    {
+      "method": "PUT",
+      "path": "/order-sheets/integrations/:integrationId/leads",
+      "status": "contract",
+      "id": "api.put.fa5a4973ae409caa",
+      "file": "server/modules/marketing-suite/message/router/lead-sheet.router.ts",
+      "line": 52
+    },
+    {
+      "method": "POST",
+      "path": "/order-sheets/integrations/:integrationId/leads/test",
+      "status": "contract",
+      "id": "api.post.a65b7929820f9bba",
+      "file": "server/modules/marketing-suite/message/router/lead-sheet.router.ts",
+      "line": 61
+    },
+    {
+      "method": "POST",
+      "path": "/order-sheets/integrations/:integrationId/leads/retry",
+      "status": "pending",
+      "reason": "Cần hợp đồng dữ liệu ghi trước khi kết nối",
+      "file": "server/modules/marketing-suite/message/router/lead-sheet.router.ts",
+      "line": 67
+    },
+    {
+      "method": "GET",
       "path": "/order-sheets/service-account",
       "status": "unsupported",
       "reason": "Endpoint đọc thông tin service account có thể lộ cấu hình/credential tích hợp Google Sheets; không đưa dữ liệu bí mật vào chat.",
       "file": "server/modules/marketing-suite/message/router/order-sheet.router.ts",
-      "line": 12
+      "line": 14
     },
     {
       "method": "POST",
@@ -2181,7 +2240,7 @@
       "status": "unsupported",
       "reason": "Kiểm tra tích hợp Google Sheets cần chọn credential và có thể ghi thử ra tài liệu ngoài; dùng màn hình thiết lập tích hợp.",
       "file": "server/modules/marketing-suite/message/router/order-sheet.router.ts",
-      "line": 13
+      "line": 15
     },
     {
       "method": "POST",
@@ -2189,7 +2248,7 @@
       "status": "unsupported",
       "reason": "Tạo template trong Google Sheets ghi cấu trúc ra dịch vụ ngoài; chat chưa có lựa chọn tài liệu đích và preview toàn bộ thay đổi.",
       "file": "server/modules/marketing-suite/message/router/order-sheet.router.ts",
-      "line": 14
+      "line": 16
     },
     {
       "method": "GET",
@@ -2197,7 +2256,7 @@
       "status": "contract",
       "id": "marketing.order-sheet.orders.list",
       "file": "server/modules/marketing-suite/message/router/order-sheet.router.ts",
-      "line": 15
+      "line": 17
     },
     {
       "method": "POST",
@@ -2205,7 +2264,7 @@
       "status": "unsupported",
       "reason": "Gửi lại đồng bộ đơn sang Google Sheets có thể tạo bản ghi trùng ở hệ thống ngoài; chưa có workflow idempotent chọn theo mã đơn và tài liệu đích.",
       "file": "server/modules/marketing-suite/message/router/order-sheet.router.ts",
-      "line": 16
+      "line": 18
     },
     {
       "method": "GET",
@@ -2280,6 +2339,750 @@
       "line": 26
     },
     {
+      "method": "GET",
+      "path": "/quotation/usage",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 554
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/quote-templates",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 560
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/quote-template",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 576
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/quote-template",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 582
+    },
+    {
+      "method": "PATCH",
+      "path": "/quotation/quote-template/:id/category",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 614
+    },
+    {
+      "method": "DELETE",
+      "path": "/quotation/quote-template/:id",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 643
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/quote-template/:id/file",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 668
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/price-list/:id/file",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 685
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/files",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 696
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/export-jobs/:id",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 708
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/generated-export-files/latest",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 731
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/files/:id/download",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 828
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/files/:id/preview",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 844
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/files",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 857
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/dashboard",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 914
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/price-list",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 929
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/price-list/preview",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 935
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/price-list",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 952
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/catalog/import/preview",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1011
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/catalog/import/confirm",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1033
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/request-files",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1078
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/request-files/:id/preview",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1093
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/quote-requests",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1110
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/quote-requests",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1166
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/quote-requests/:id/analyze",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1174
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/overview",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1269
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/quotes",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1292
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/customer-quotes/suggest",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1357
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/budget-plans",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1369
+    },
+    {
+      "method": "PATCH",
+      "path": "/quotation/budget-plans/:id",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1376
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/budget-plans/:id/export",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1451
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/budget-plans/suggest",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1497
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/customer-quotes",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1525
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/quotes/from-customer",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1594
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/quotes",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1639
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/quotes/:id",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1756
+    },
+    {
+      "method": "DELETE",
+      "path": "/quotation/quotes/:id",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1815
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/quotes/:id/request-file/preview",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1832
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/quotes/:id/recalculate",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1856
+    },
+    {
+      "method": "PATCH",
+      "path": "/quotation/quotes/:id",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 1891
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/quotes/:id/submit-review",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2033
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/quotes/:id/approve",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2048
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/quotes/:id/reject",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2076
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/document-templates/:kind",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2133
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/contract-templates",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2154
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/acceptance-templates",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2160
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/settlement-templates",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2166
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/contracts",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2174
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/contracts/prefill",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2182
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/contracts",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2194
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/contracts/:id",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2283
+    },
+    {
+      "method": "PATCH",
+      "path": "/quotation/contracts/:id",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2342
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/contracts/:id/sign",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2372
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/acceptance-records",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2397
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/acceptance-records",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2405
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/acceptance-records/:id",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2479
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/acceptance-records/:id/settlement.xlsx",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2574
+    },
+    {
+      "method": "PATCH",
+      "path": "/quotation/acceptance-records/:id",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2641
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/acceptance-records/:id/complete",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2680
+    },
+    {
+      "method": "POST",
+      "path": "/quotation/quotes/:id/export/retry",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2705
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/quotes/:id/export",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2725
+    },
+    {
+      "method": "GET",
+      "path": "/quotation/quotes/:id/pdf",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/modules/quotation/router.ts",
+      "line": 2861
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/overview",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 38,
+      "id": "healthcare.overview"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/patients/search",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 68,
+      "id": "healthcare.patient.list"
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/patients/:id",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 74,
+      "id": "healthcare.patient.detail"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/patients",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 77,
+      "id": "healthcare.patient.create"
+    },
+    {
+      "method": "PATCH",
+      "path": "/healthcare/patients/:id",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 84,
+      "id": "healthcare.patient.update"
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/visits",
+      "status": "unsupported",
+      "reason": "Trợ lý dùng POST /healthcare/visits/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng.",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 104
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/visits/search",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 105,
+      "id": "healthcare.visit.list"
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/visits/:id/report",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 106,
+      "id": "healthcare.visit.report"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/visits",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 111,
+      "id": "healthcare.visit.create"
+    },
+    {
+      "method": "PATCH",
+      "path": "/healthcare/visits/:id",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 115,
+      "id": "healthcare.visit.update"
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/appointments",
+      "status": "unsupported",
+      "reason": "Trợ lý dùng POST /healthcare/appointments/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng.",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 134
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/appointments/search",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 135,
+      "id": "healthcare.appointment.list"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/appointments",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 136,
+      "id": "healthcare.appointment.create"
+    },
+    {
+      "method": "PATCH",
+      "path": "/healthcare/appointments/:id",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 140,
+      "id": "healthcare.appointment.update"
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/care",
+      "status": "unsupported",
+      "reason": "Trợ lý dùng POST /healthcare/care/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng.",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 154
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/care/search",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 155,
+      "id": "healthcare.care.list"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/care",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 156,
+      "id": "healthcare.care.create"
+    },
+    {
+      "method": "PATCH",
+      "path": "/healthcare/care/:id",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 160,
+      "id": "healthcare.care.update"
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/catalog",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 168,
+      "id": "healthcare.catalog.list"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/catalog",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 171,
+      "id": "healthcare.catalog.create"
+    },
+    {
+      "method": "PATCH",
+      "path": "/healthcare/catalog/:id",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 174,
+      "id": "healthcare.catalog.update"
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/staff",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 182,
+      "id": "healthcare.staff.list"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/patients/bulk-delete-preview",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 231,
+      "id": "healthcare.patient.bulk-delete-preview"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/patients/bulk-delete",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 235,
+      "id": "healthcare.patient.bulk-delete"
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/imports",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 248,
+      "id": "healthcare.import.list"
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/imports/template/:kind",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 251,
+      "id": "healthcare.import.template"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/imports/preview/:kind",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 257,
+      "id": "healthcare.import.preview"
+    },
+    {
+      "method": "GET",
+      "path": "/healthcare/imports/:id",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 264,
+      "id": "healthcare.import.detail"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/imports/:id/rows/search",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 267,
+      "id": "healthcare.import.rows"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/imports/:id/commit",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 270,
+      "id": "healthcare.import.commit"
+    },
+    {
+      "method": "POST",
+      "path": "/healthcare/imports/:id/retry",
+      "status": "manual",
+      "file": "server/modules/healthcare/router.ts",
+      "line": 274,
+      "id": "healthcare.import.retry"
+    },
+    {
       "method": "POST",
       "path": "/webhook/payment",
       "status": "unsupported",
@@ -2301,7 +3104,7 @@
       "status": "unsupported",
       "reason": "Health check hạ tầng chỉ phục vụ giám sát dịch vụ, không phải thao tác dữ liệu tài khoản.",
       "file": "server/router/index.ts",
-      "line": 61
+      "line": 65
     },
     {
       "method": "GET",
@@ -2645,14 +3448,14 @@
       "status": "contract",
       "id": "account.colleagues.list",
       "file": "server/router/auth.router.ts",
-      "line": 271
+      "line": 272
     },
     {
       "method": "GET",
       "path": "/auth/users",
       "status": "manual",
       "file": "server/router/auth.router.ts",
-      "line": 276,
+      "line": 277,
       "id": "employee.list"
     },
     {
@@ -2661,7 +3464,7 @@
       "status": "unsupported",
       "reason": "Đọc nhật ký hoạt động cá nhân theo ID người dùng; đây là dữ liệu kiểm toán cần quyền quản trị và lọc phạm vi rõ ràng.",
       "file": "server/router/auth.router.ts",
-      "line": 277
+      "line": 278
     },
     {
       "method": "GET",
@@ -2669,7 +3472,7 @@
       "status": "unsupported",
       "reason": "Liệt kê tenant toàn hệ thống; dữ liệu chỉ dành cho superadmin, ngoài phạm vi doanh nghiệp hiện tại.",
       "file": "server/router/auth.router.ts",
-      "line": 297
+      "line": 298
     },
     {
       "method": "GET",
@@ -2677,14 +3480,14 @@
       "status": "unsupported",
       "reason": "Trả thông tin IP kết nối để phục vụ chẩn đoán bảo mật; không phải dữ liệu nghiệp vụ cần trợ lý thao tác.",
       "file": "server/router/auth.router.ts",
-      "line": 298
+      "line": 299
     },
     {
       "method": "GET",
       "path": "/auth/branches",
       "status": "manual",
       "file": "server/router/auth.router.ts",
-      "line": 299,
+      "line": 300,
       "id": "branch.list"
     },
     {
@@ -2693,7 +3496,7 @@
       "status": "contract",
       "id": "branch.create",
       "file": "server/router/auth.router.ts",
-      "line": 300
+      "line": 301
     },
     {
       "method": "POST",
@@ -2701,7 +3504,7 @@
       "status": "unsupported",
       "reason": "Gán chủ sở hữu chi nhánh làm thay đổi quyền quản trị và người chịu trách nhiệm; cần luồng bàn giao chi nhánh chuyên biệt.",
       "file": "server/router/auth.router.ts",
-      "line": 301
+      "line": 302
     },
     {
       "method": "DELETE",
@@ -2709,7 +3512,7 @@
       "status": "contract",
       "id": "branch.pending.delete",
       "file": "server/router/auth.router.ts",
-      "line": 302
+      "line": 303
     },
     {
       "method": "PATCH",
@@ -2717,7 +3520,7 @@
       "status": "contract",
       "id": "branch.update",
       "file": "server/router/auth.router.ts",
-      "line": 303
+      "line": 304
     },
     {
       "method": "PATCH",
@@ -2725,7 +3528,7 @@
       "status": "unsupported",
       "reason": "Đọc hoặc sửa cấu hình tenant/Google Drive bằng mã công ty; có thể vượt phạm vi công ty đang đăng nhập.",
       "file": "server/router/auth.router.ts",
-      "line": 325
+      "line": 326
     },
     {
       "method": "GET",
@@ -2733,7 +3536,7 @@
       "status": "unsupported",
       "reason": "Callback OAuth /auth/companies/drive/oauth-callback nhận code/state dùng một lần sau khi người dùng duyệt trên nhà cung cấp; chỉ trình duyệt hoàn tất được luồng này.",
       "file": "server/router/auth.router.ts",
-      "line": 338
+      "line": 339
     },
     {
       "method": "GET",
@@ -2741,7 +3544,7 @@
       "status": "unsupported",
       "reason": "Đọc thông tin Drive theo mã tenant; route có thể truy cập kết nối công ty khác và không giới hạn trong tenant đang đăng nhập.",
       "file": "server/router/auth.router.ts",
-      "line": 343
+      "line": 344
     },
     {
       "method": "GET",
@@ -2749,7 +3552,7 @@
       "status": "unsupported",
       "reason": "Khởi tạo OAuth /auth/companies/:code/drive/oauth-url cần chuyển người dùng sang trang nhà cung cấp và xác nhận quyền trên trình duyệt; chat không thể hoàn tất redirect an toàn.",
       "file": "server/router/auth.router.ts",
-      "line": 350
+      "line": 351
     },
     {
       "method": "POST",
@@ -2757,7 +3560,7 @@
       "status": "unsupported",
       "reason": "Ngắt kết nối Drive theo mã tenant, có thể làm gián đoạn tệp của công ty khác; chỉ quản trị tenant trong giao diện cấu hình được phép.",
       "file": "server/router/auth.router.ts",
-      "line": 358
+      "line": 359
     },
     {
       "method": "PATCH",
@@ -2765,14 +3568,14 @@
       "status": "unsupported",
       "reason": "Cập nhật nhiều tài khoản/role trong một lần; chưa có preview ảnh hưởng và có thể làm thay đổi quyền truy cập hàng loạt.",
       "file": "server/router/auth.router.ts",
-      "line": 429
+      "line": 430
     },
     {
       "method": "PATCH",
       "path": "/auth/users/:id",
       "status": "manual",
       "file": "server/router/auth.router.ts",
-      "line": 432,
+      "line": 433,
       "id": "employee.update"
     },
     {
@@ -2781,7 +3584,7 @@
       "status": "unsupported",
       "reason": "Route xóa tài khoản bị đăng ký ở nhiều router, nhận ID cơ sở dữ liệu và chưa có danh sách nhân sự cùng preview tác động để chọn theo tên. Không gọi từ chat.",
       "file": "server/router/auth.router.ts",
-      "line": 435
+      "line": 436
     },
     {
       "method": "POST",
@@ -4621,7 +5424,7 @@
       "status": "contract",
       "id": "api.get.15793bc7bd272c4c",
       "file": "server/router/kanban.router.ts",
-      "line": 218
+      "line": 219
     },
     {
       "method": "GET",
@@ -4629,7 +5432,7 @@
       "status": "contract",
       "id": "task.list",
       "file": "server/router/kanban.router.ts",
-      "line": 230
+      "line": 231
     },
     {
       "method": "POST",
@@ -4637,7 +5440,7 @@
       "status": "contract",
       "id": "api.post.f2b2178c81901b8e",
       "file": "server/router/kanban.router.ts",
-      "line": 270
+      "line": 269
     },
     {
       "method": "PATCH",
@@ -4645,14 +5448,14 @@
       "status": "contract",
       "id": "task.activity.update",
       "file": "server/router/kanban.router.ts",
-      "line": 323
+      "line": 322
     },
     {
       "method": "PATCH",
       "path": "/kanban/tasks/:id",
       "status": "manual",
       "file": "server/router/kanban.router.ts",
-      "line": 369,
+      "line": 386,
       "id": "task.update"
     },
     {
@@ -4661,7 +5464,7 @@
       "status": "contract",
       "id": "api.delete.35dac79ef381e139",
       "file": "server/router/kanban.router.ts",
-      "line": 470
+      "line": 487
     },
     {
       "method": "GET",
@@ -4669,7 +5472,7 @@
       "status": "contract",
       "id": "api.get.8e53379f0ff1bf95",
       "file": "server/router/kanban.router.ts",
-      "line": 489
+      "line": 506
     },
     {
       "method": "POST",
@@ -4677,7 +5480,7 @@
       "status": "contract",
       "id": "api.post.e0125cd5872cd784",
       "file": "server/router/kanban.router.ts",
-      "line": 511
+      "line": 529
     },
     {
       "method": "PATCH",
@@ -4685,7 +5488,7 @@
       "status": "contract",
       "id": "api.patch.016a33228acac407",
       "file": "server/router/kanban.router.ts",
-      "line": 545
+      "line": 563
     },
     {
       "method": "DELETE",
@@ -4693,7 +5496,7 @@
       "status": "contract",
       "id": "api.delete.b0c8940fa928ef44",
       "file": "server/router/kanban.router.ts",
-      "line": 568
+      "line": 586
     },
     {
       "method": "GET",
@@ -4865,11 +5668,59 @@
     },
     {
       "method": "GET",
+      "path": "/chatbot/assistant/conversations/:id/files/:fileId",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/assistant/router.ts",
+      "line": 29
+    },
+    {
+      "method": "GET",
       "path": "/chatbot/assistant/settings",
       "status": "contract",
       "id": "account.assistant-settings.read",
       "file": "server/assistant/router.ts",
-      "line": 23
+      "line": 43
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/studio/transcriptions",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/assistant/router.ts",
+      "line": 45
+    },
+    {
+      "method": "GET",
+      "path": "/chatbot/assistant/studio/transcriptions",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/assistant/router.ts",
+      "line": 50
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/studio/images/optimize-prompt",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/assistant/router.ts",
+      "line": 54
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/studio/images/edit",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/assistant/router.ts",
+      "line": 55
+    },
+    {
+      "method": "POST",
+      "path": "/chatbot/assistant/studio/images",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/assistant/router.ts",
+      "line": 64
     },
     {
       "method": "PATCH",
@@ -4877,7 +5728,7 @@
       "status": "contract",
       "id": "account.assistant-settings.update",
       "file": "server/assistant/router.ts",
-      "line": 24
+      "line": 70
     },
     {
       "method": "GET",
@@ -4885,7 +5736,7 @@
       "status": "unsupported",
       "reason": "Bản ghi nhớ cá nhân của trợ lý được quản lý qua phần cài đặt riêng; không phải dữ liệu nghiệp vụ để tra cứu trong cuộc trò chuyện.",
       "file": "server/assistant/router.ts",
-      "line": 25
+      "line": 71
     },
     {
       "method": "POST",
@@ -4893,7 +5744,7 @@
       "status": "unsupported",
       "reason": "Việc lưu ghi nhớ do trợ lý và phần cài đặt quản lý; không cho phép tạo trực tiếp bản ghi nhớ qua workflow nghiệp vụ trong chat.",
       "file": "server/assistant/router.ts",
-      "line": 26
+      "line": 72
     },
     {
       "method": "PATCH",
@@ -4901,7 +5752,7 @@
       "status": "unsupported",
       "reason": "Bản ghi nhớ cá nhân được chỉnh trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 27
+      "line": 73
     },
     {
       "method": "DELETE",
@@ -4909,7 +5760,7 @@
       "status": "unsupported",
       "reason": "Bản ghi nhớ cá nhân được quản lý trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 28
+      "line": 74
     },
     {
       "method": "GET",
@@ -4917,7 +5768,7 @@
       "status": "unsupported",
       "reason": "API cấp dữ liệu cấu hình workflow cho màn hình biên tập; không phải thao tác nghiệp vụ chạy trên dữ liệu công ty.",
       "file": "server/assistant/router.ts",
-      "line": 29
+      "line": 75
     },
     {
       "method": "POST",
@@ -4925,7 +5776,7 @@
       "status": "unsupported",
       "reason": "API tạo bản diễn giải workflow cho trình biên tập theo văn bản tùy ý; chỉ dùng trong luồng chỉnh workflow, không thực thi dữ liệu nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 30
+      "line": 76
     },
     {
       "method": "PATCH",
@@ -4933,7 +5784,7 @@
       "status": "unsupported",
       "reason": "API lưu toàn bộ workflow cá nhân theo phiên bản và cấu trúc trường tùy chỉnh; chưa có bộ cập nhật từng trường được kiểm soát cho lời gọi chat.",
       "file": "server/assistant/router.ts",
-      "line": 31
+      "line": 77
     },
     {
       "method": "POST",
@@ -4941,7 +5792,7 @@
       "status": "unsupported",
       "reason": "API khôi phục cấu hình workflow cá nhân về mặc định trong màn hình quản lý; không phải thao tác dữ liệu nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 32
+      "line": 78
     },
     {
       "method": "GET",
@@ -4949,7 +5800,39 @@
       "status": "unsupported",
       "reason": "API phân trang lịch sử phiên chat của giao diện; nội dung hội thoại cần xem trong màn hình lịch sử, không dùng làm danh sách hồ sơ nghiệp vụ.",
       "file": "server/assistant/router.ts",
-      "line": 33
+      "line": 79
+    },
+    {
+      "method": "GET",
+      "path": "/chatbot/assistant/conversations/:conversationId/memory",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/assistant/router.ts",
+      "line": 80
+    },
+    {
+      "method": "PATCH",
+      "path": "/chatbot/assistant/conversations/:conversationId/memory",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/assistant/router.ts",
+      "line": 81
+    },
+    {
+      "method": "DELETE",
+      "path": "/chatbot/assistant/conversations/:conversationId/memory",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/assistant/router.ts",
+      "line": 82
+    },
+    {
+      "method": "DELETE",
+      "path": "/chatbot/assistant/conversations/:conversationId",
+      "status": "pending",
+      "reason": "Hạ tầng, xác thực hoặc chưa xác định phân hệ",
+      "file": "server/assistant/router.ts",
+      "line": 83
     },
     {
       "method": "GET",
@@ -4957,7 +5840,7 @@
       "status": "unsupported",
       "reason": "API tải trạng thái và nội dung của một phiên chat bằng UUID nội bộ; dùng riêng cho giao diện xem lại hội thoại.",
       "file": "server/assistant/router.ts",
-      "line": 34
+      "line": 84
     },
     {
       "method": "POST",
@@ -4965,7 +5848,7 @@
       "status": "unsupported",
       "reason": "API điều phối chính của trợ lý AI; không gọi lồng từ một workflow để tránh đệ quy và gửi lại nội dung hội thoại.",
       "file": "server/assistant/router.ts",
-      "line": 57
+      "line": 107
     },
     {
       "method": "POST",
@@ -4973,7 +5856,7 @@
       "status": "unsupported",
       "reason": "Endpoint nội bộ tạo âm thanh tiếng Việt cho giao diện trợ lý; chỉ được gọi theo tùy chọn đọc câu trả lời, không phải thao tác nghiệp vụ cho AI thực hiện.",
       "file": "server/assistant/router.ts",
-      "line": 58
+      "line": 108
     },
     {
       "method": "POST",
@@ -6000,12 +6883,20 @@
       "line": 17
     },
     {
+      "method": "POST",
+      "path": "/learning-roadmaps/batches/:batchId/promote",
+      "status": "contract",
+      "id": "api.post.a484725b60ee53a4",
+      "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
+      "line": 18
+    },
+    {
       "method": "GET",
       "path": "/learning-roadmaps/waitlist",
       "status": "contract",
       "id": "api.get.4cdab0fff8c4d760",
       "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
-      "line": 18
+      "line": 19
     },
     {
       "method": "POST",
@@ -6013,7 +6904,7 @@
       "status": "contract",
       "id": "api.post.c0e39dc15690ae19",
       "file": "server/modules/student-management/routes/learning-roadmap.routes.ts",
-      "line": 19
+      "line": 20
     },
     {
       "method": "POST",
@@ -6805,7 +7696,7 @@
       "status": "contract",
       "id": "repair.device.lookup",
       "file": "server/modules/repair/router.ts",
-      "line": 51
+      "line": 52
     },
     {
       "method": "GET",
@@ -6813,7 +7704,7 @@
       "status": "contract",
       "id": "api.get.5bc56e7749f48d08",
       "file": "server/modules/repair/router.ts",
-      "line": 52
+      "line": 53
     },
     {
       "method": "GET",
@@ -6821,7 +7712,7 @@
       "status": "contract",
       "id": "api.get.0f5ed5841e8dea43",
       "file": "server/modules/repair/router.ts",
-      "line": 53
+      "line": 54
     },
     {
       "method": "GET",
@@ -6829,7 +7720,7 @@
       "status": "contract",
       "id": "api.get.8502b66106a7ab96",
       "file": "server/modules/repair/router.ts",
-      "line": 54
+      "line": 66
     },
     {
       "method": "GET",
@@ -6837,7 +7728,7 @@
       "status": "contract",
       "id": "api.get.a647fdd78184d877",
       "file": "server/modules/repair/router.ts",
-      "line": 55
+      "line": 67
     },
     {
       "method": "POST",
@@ -6845,7 +7736,7 @@
       "status": "contract",
       "id": "api.post.79291125e27b1d36",
       "file": "server/modules/repair/router.ts",
-      "line": 56
+      "line": 68
     },
     {
       "method": "POST",
@@ -6853,7 +7744,7 @@
       "status": "contract",
       "id": "api.post.951d43982cb708bc",
       "file": "server/modules/repair/router.ts",
-      "line": 57
+      "line": 69
     },
     {
       "method": "POST",
@@ -6861,7 +7752,7 @@
       "status": "contract",
       "id": "api.post.dd4d2216f9ecc537",
       "file": "server/modules/repair/router.ts",
-      "line": 58
+      "line": 70
     },
     {
       "method": "POST",
@@ -6869,7 +7760,7 @@
       "status": "contract",
       "id": "api.post.1ee164077121787a",
       "file": "server/modules/repair/router.ts",
-      "line": 59
+      "line": 71
     },
     {
       "method": "POST",
@@ -6877,7 +7768,7 @@
       "status": "contract",
       "id": "api.post.572b64fca460dafc",
       "file": "server/modules/repair/router.ts",
-      "line": 60
+      "line": 72
     },
     {
       "method": "POST",
@@ -6885,7 +7776,7 @@
       "status": "contract",
       "id": "api.post.ad54adfbaa37674b",
       "file": "server/modules/repair/router.ts",
-      "line": 61
+      "line": 73
     },
     {
       "method": "GET",
@@ -6893,7 +7784,7 @@
       "status": "contract",
       "id": "api.get.8cb8202ecb5a1164",
       "file": "server/modules/repair/router.ts",
-      "line": 62
+      "line": 74
     },
     {
       "method": "GET",
@@ -6901,7 +7792,7 @@
       "status": "contract",
       "id": "api.get.e8ac82522784cf77",
       "file": "server/modules/repair/router.ts",
-      "line": 63
+      "line": 75
     },
     {
       "method": "GET",
@@ -6909,7 +7800,7 @@
       "status": "contract",
       "id": "api.get.cd0981c57831ef5c",
       "file": "server/modules/repair/router.ts",
-      "line": 64
+      "line": 76
     },
     {
       "method": "POST",
@@ -6917,7 +7808,7 @@
       "status": "contract",
       "id": "api.post.30630b0bdc49b30c",
       "file": "server/modules/repair/router.ts",
-      "line": 65
+      "line": 77
     },
     {
       "method": "POST",
@@ -6925,7 +7816,7 @@
       "status": "contract",
       "id": "api.post.6fda6d726245dee1",
       "file": "server/modules/repair/router.ts",
-      "line": 66
+      "line": 78
     },
     {
       "method": "GET",
@@ -6933,7 +7824,7 @@
       "status": "contract",
       "id": "api.get.c5fac63d8679d159",
       "file": "server/modules/repair/router.ts",
-      "line": 67
+      "line": 79
     },
     {
       "method": "POST",
@@ -6941,7 +7832,7 @@
       "status": "contract",
       "id": "api.post.5a64bf0894869ec7",
       "file": "server/modules/repair/router.ts",
-      "line": 68
+      "line": 80
     },
     {
       "method": "POST",
@@ -6949,7 +7840,7 @@
       "status": "contract",
       "id": "repair.feedback.link.create",
       "file": "server/modules/repair/router.ts",
-      "line": 69
+      "line": 81
     },
     {
       "method": "GET",
@@ -6957,7 +7848,7 @@
       "status": "contract",
       "id": "repair.parts.list",
       "file": "server/modules/repair/router.ts",
-      "line": 70
+      "line": 82
     },
     {
       "method": "POST",
@@ -6965,7 +7856,7 @@
       "status": "contract",
       "id": "api.post.aed04d8555cb4291",
       "file": "server/modules/repair/router.ts",
-      "line": 71
+      "line": 83
     },
     {
       "method": "POST",
@@ -6973,7 +7864,7 @@
       "status": "contract",
       "id": "api.post.2b44c18916b1a882",
       "file": "server/modules/repair/router.ts",
-      "line": 72
+      "line": 84
     },
     {
       "method": "GET",
@@ -6981,7 +7872,7 @@
       "status": "contract",
       "id": "api.get.7517d0cca9ca76c9",
       "file": "server/modules/repair/router.ts",
-      "line": 75
+      "line": 87
     },
     {
       "method": "POST",
@@ -6989,7 +7880,7 @@
       "status": "contract",
       "id": "api.post.8ed57322c93cc536",
       "file": "server/modules/repair/router.ts",
-      "line": 78
+      "line": 90
     },
     {
       "method": "POST",
@@ -6997,7 +7888,7 @@
       "status": "contract",
       "id": "api.post.742b8c7c7d343778",
       "file": "server/modules/repair/router.ts",
-      "line": 79
+      "line": 91
     },
     {
       "method": "GET",
@@ -7005,7 +7896,7 @@
       "status": "contract",
       "id": "api.get.2c71c36e4f1d283e",
       "file": "server/modules/repair/router.ts",
-      "line": 80
+      "line": 92
     },
     {
       "method": "GET",
@@ -7013,7 +7904,7 @@
       "status": "contract",
       "id": "api.get.d2d1a3ba9b169ce6",
       "file": "server/modules/repair/router.ts",
-      "line": 83
+      "line": 95
     },
     {
       "method": "POST",
@@ -7021,7 +7912,7 @@
       "status": "contract",
       "id": "repair.notification.resend",
       "file": "server/modules/repair/router.ts",
-      "line": 84
+      "line": 96
     },
     {
       "method": "GET",
@@ -7029,7 +7920,7 @@
       "status": "contract",
       "id": "api.get.da5aa81551ee7ce6",
       "file": "server/modules/repair/router.ts",
-      "line": 104
+      "line": 116
     },
     {
       "method": "PUT",
@@ -7037,7 +7928,7 @@
       "status": "contract",
       "id": "api.put.b1eda41fa88b2cc9",
       "file": "server/modules/repair/router.ts",
-      "line": 109
+      "line": 121
     },
     {
       "method": "GET",
@@ -7045,7 +7936,7 @@
       "status": "contract",
       "id": "api.get.3938bd395acae1c5",
       "file": "server/modules/repair/router.ts",
-      "line": 118
+      "line": 130
     },
     {
       "method": "GET",
@@ -7053,7 +7944,7 @@
       "status": "contract",
       "id": "api.get.25ab7ad5caa4684f",
       "file": "server/modules/repair/router.ts",
-      "line": 122
+      "line": 134
     },
     {
       "method": "GET",
@@ -7061,7 +7952,7 @@
       "status": "contract",
       "id": "api.get.68886fa48772aa78",
       "file": "server/modules/repair/router.ts",
-      "line": 123
+      "line": 135
     },
     {
       "method": "GET",
@@ -7069,7 +7960,7 @@
       "status": "contract",
       "id": "api.get.e25284fbbeeaf62d",
       "file": "server/modules/repair/router.ts",
-      "line": 124
+      "line": 136
     },
     {
       "method": "GET",
@@ -7577,22 +8468,22 @@
     },
     {
       "method": "GET",
-      "path": "/retail/invoices",
-      "status": "contract",
-      "id": "api.get.7dbbf412571837ea",
+      "path": "/retail/invoices/summary",
+      "status": "manual",
+      "id": "retail.invoice.summary",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
       "line": 6
     },
     {
       "method": "GET",
-      "path": "/retail/invoices/bulk-pdf",
-      "status": "unsupported",
-      "reason": "Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ.",
+      "path": "/retail/invoices",
+      "status": "contract",
+      "id": "api.get.7dbbf412571837ea",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
       "line": 7
     },
     {
-      "method": "POST",
+      "method": "GET",
       "path": "/retail/invoices/bulk-pdf",
       "status": "unsupported",
       "reason": "Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ.",
@@ -7601,11 +8492,19 @@
     },
     {
       "method": "POST",
+      "path": "/retail/invoices/bulk-pdf",
+      "status": "unsupported",
+      "reason": "Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ.",
+      "file": "server/modules/retail/routes/retail-invoice.routes.ts",
+      "line": 9
+    },
+    {
+      "method": "POST",
       "path": "/retail/invoices/:id/pos-print",
       "status": "unsupported",
       "reason": "Endpoint tạo lệnh in hóa đơn tại POS, phụ thuộc máy in/phiên quầy đang hoạt động; chat không có kênh chọn và điều khiển thiết bị. Dùng màn hình thu ngân.",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 9
+      "line": 10
     },
     {
       "method": "POST",
@@ -7613,7 +8512,7 @@
       "status": "unsupported",
       "reason": "Endpoint in biên nhận thanh toán qua thiết bị POS đang gắn với ca; chat không thể xác minh máy in và quầy đích. Dùng màn hình thu ngân.",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 10
+      "line": 11
     },
     {
       "method": "POST",
@@ -7621,7 +8520,7 @@
       "status": "unsupported",
       "reason": "In lại hóa đơn cần thiết bị/quầy đích và kiểm tra bản in đã phát hành; chat chưa có xác nhận thiết bị. Dùng giao diện hóa đơn/POS.",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 11
+      "line": 12
     },
     {
       "method": "GET",
@@ -7629,7 +8528,7 @@
       "status": "unsupported",
       "reason": "Endpoint trả tệp PDF thay vì dữ liệu hội thoại; trợ lý đã có workflow xem chi tiết hóa đơn theo số hóa đơn. Dùng màn hình hóa đơn để tải tệp PDF.",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 12
+      "line": 13
     },
     {
       "method": "GET",
@@ -7637,7 +8536,7 @@
       "status": "contract",
       "id": "api.get.25096366f15d730b",
       "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 13
+      "line": 14
     },
     {
       "method": "GET",
@@ -9254,14 +10153,6 @@
       "id": "retail.coupon.create",
       "file": "server/modules/retail/routes/retail-coupon.routes.ts",
       "line": 76
-    },
-    {
-      "method": "GET",
-      "path": "/retail/invoices/summary",
-      "status": "manual",
-      "id": "retail.invoice.summary",
-      "file": "server/modules/retail/routes/retail-invoice.routes.ts",
-      "line": 6
     }
   ]
 }

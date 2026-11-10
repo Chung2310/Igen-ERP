@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createRetailFinanceSettlementContract,
   requireRetailBranch,
+  resolveRetailScopeFromRequest,
   RetailScopeError,
   retailScopeFromRequest,
 } from "./contracts";
@@ -52,6 +53,17 @@ test("superadmin must provide explicit company and branch scope", () => {
       { companyCode: " acme ", branchId: "B1" },
     )),
     { companyCode: "ACME", branchId: "B1" },
+  );
+});
+
+test("company admin can select only an active retail branch in their company", async () => {
+  const selected = "507f1f77bcf86cd799439012";
+  const actor = { role: "admin", companyCode: "ACME", branchId: "" };
+  const lookup = { exists: async (filter: any) => filter._id === selected && filter.companyCode === "ACME" && filter.isActive };
+  assert.deepEqual(await resolveRetailScopeFromRequest(actor, { branchId: selected }, lookup), { companyCode: "ACME", branchId: selected });
+  await assert.rejects(
+    () => resolveRetailScopeFromRequest(actor, { branchId: "507f1f77bcf86cd799439013" }, lookup),
+    (error: any) => error instanceof RetailScopeError && error.status === 403,
   );
 });
 

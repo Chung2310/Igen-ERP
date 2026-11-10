@@ -81,7 +81,7 @@ describe("worker management API wiring", () => {
   });
 
   it("applies the selected company scope when loading profile project options", async () => {
-    vi.spyOn(WorkerProjectService, "list").mockResolvedValue([] as any);
+    vi.spyOn(WorkerProjectService, "list").mockResolvedValue({ projects: [], total: 0, page: 1, limit: 10 } as any);
     const app = express();
     app.use(express.json());
     app.use((req: any, _res, next) => {
@@ -99,16 +99,16 @@ describe("worker management API wiring", () => {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:${address.port}/api/v1/worker-management/projects?companyCode=labor&branchId=branch-2`,
+        `http://127.0.0.1:${address.port}/api/v1/worker-management/projects?companyCode=labor&branchId=0123456789abcdef01234567`,
       );
       expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ success: true, data: [] });
+      expect(await response.json()).toEqual({ success: true, data: [], total: 0, page: 1, limit: 10 });
       expect(WorkerProjectService.list).toHaveBeenCalledWith(
         {
           companyCode: "LABOR",
-          branchId: "branch-2",
+          branchId: "0123456789abcdef01234567",
         },
-        {},
+        { page: 1, limit: 10 },
       );
     } finally {
       server.close();

@@ -11,13 +11,17 @@ test("partners use standalone read and manage permissions", () => {
   const seed = read("server/config/database.ts");
   const uiCatalog = read("src/utils/permissionUtils.ts");
   const auth = read("server/middleware/auth.ts");
+  const studentAuth = read("server/modules/student-management/middlewares/auth.middleware.ts");
 
   assert.match(mount, /requirePermission\("relationship:read"\)/);
+  assert.match(mount, /partnerAuthMiddleware/);
   assert.doesNotMatch(
     mount,
     /use\("\/partners"[\s\S]{0,180}requireStudentModule/,
   );
   assert.match(routes, /requirePermission\("relationship:manage"\)/);
+  assert.match(routes, /partnerAuthMiddleware/);
+  assert.match(studentAuth, /requiresAssignedStudentBranch\(req\.user\.role, req\.user\.branchId, options\.allowUnassignedAdmin\)/);
   assert.doesNotMatch(routes, /requirePermission\("people:manage"\)/);
   for (const source of [catalog, seed, uiCatalog]) {
     assert.match(source, /relationship:read/);
