@@ -15,6 +15,7 @@ export interface ChatOrderFlowSession {
 export interface ChatOrderFlowInput extends ChatOrderScope {
   messageId: string;
   message: string;
+  history?: Array<{ sender: string; text: string }>;
   imageUrls: string[];
   observation?: ChatImageObservation;
   visualMode?: boolean;
