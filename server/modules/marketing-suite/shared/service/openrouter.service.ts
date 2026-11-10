@@ -61,6 +61,15 @@ export interface OpenRouterChatParams {
     maxTokens?: number;
     exclude?: boolean;
   };
+  operation?: string;
+  onDiagnostics?: (diagnostics: OpenRouterChatDiagnostics) => void;
+}
+
+export interface OpenRouterChatDiagnostics {
+  model: string;
+  finishReason: string;
+  completionTokens?: number;
+  reasoningTokens?: number;
 }
 
 /**
@@ -190,13 +199,18 @@ async function openrouterChatUnmetered(params: OpenRouterChatParams): Promise<{ 
       const data = (await response.json()) as any;
       const text: string = data.choices?.[0]?.message?.content || "";
       const elapsed = Date.now() - startTime;
+      const diagnostics: OpenRouterChatDiagnostics = {
+        model: String(data.model || mappedModel).slice(0, 200),
+        finishReason: String(data.choices?.[0]?.finish_reason || "unknown").slice(0, 40),
+        completionTokens: data.usage?.completion_tokens,
+        reasoningTokens: data.usage?.completion_tokens_details?.reasoning_tokens,
+      };
+      params.onDiagnostics?.(diagnostics);
       if (!text.trim()) {
         const emptyError = new Error("OpenRouter returned an empty completion.") as any;
         emptyError.status = 502;
         emptyError.providerCode = "EMPTY_COMPLETION";
-        emptyError.finishReason = String(data.choices?.[0]?.finish_reason || "unknown").slice(0, 40);
-        emptyError.completionTokens = data.usage?.completion_tokens;
-        emptyError.reasoningTokens = data.usage?.completion_tokens_details?.reasoning_tokens;
+        Object.assign(emptyError, diagnostics);
         console.warn("[OpenRouter] Empty completion:", JSON.stringify({
           model: mappedModel, finishReason: emptyError.finishReason,
           completionTokens: emptyError.completionTokens, reasoningTokens: emptyError.reasoningTokens,
@@ -204,6 +218,9 @@ async function openrouterChatUnmetered(params: OpenRouterChatParams): Promise<{ 
         throw emptyError;
       }
       console.log(`[OpenRouter] Success | model=${data.model || mappedModel} | ${elapsed}ms | len=${text.length}`);
+      console.log("[OpenRouter] Completion diagnostics:", JSON.stringify({
+        operation: params.operation || "text_generation", ...diagnostics,
+      }));
       succeeded = true;
       return { text };
     } catch (error: any) {

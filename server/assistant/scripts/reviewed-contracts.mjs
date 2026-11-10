@@ -3470,3 +3470,10 @@ Object.assign(reviewedContracts, {
   assistantUnsupported:'Route tra theo ID người dùng, không có quyền nghiệp vụ tường minh và trả thông tin tài khoản ngân hàng của người khác; không mở cho hội thoại.',
  },
 });
+
+// Search aliases share business behavior; chat uses POST so patient names and filters stay in the body.
+for (const entity of ['visits', 'appointments', 'care']) {
+ reviewedContracts[`GET /healthcare/${entity}`] = {
+  assistantUnsupported: `Trợ lý dùng POST /healthcare/${entity}/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng.`,
+ };
+}

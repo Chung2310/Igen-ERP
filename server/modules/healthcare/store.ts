@@ -22,8 +22,10 @@ const listPrivateFields = { ...privateFields, "report.fields": 0 };
 const patientSearchFields = ["code", "name", "phone", "hospitalProfile.phoneText"];
 
 export async function healthcareDb() {
-  const db = mongoose.connection.db;
-  if (!db) throw new InternalError();
+  const connectionDb = mongoose.connection.db;
+  if (!connectionDb) throw new InternalError();
+  // Keep one driver type at the module boundary when Mongoose installs its own MongoDB copy.
+  const db = connectionDb as unknown as Db;
   let ready = indexes.get(db);
   if (!ready) {
     const scope = { companyCode: 1, branchId: 1 } as const;
