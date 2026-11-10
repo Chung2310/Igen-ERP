@@ -44,6 +44,7 @@ export interface Visit extends HealthcareRecord {
   patientId: string;
   visitedOn: string;
   doctorId: string;
+  doctorName?: string;
   roomId: string;
   serviceId: string;
   status: VisitStatus;
@@ -64,6 +65,7 @@ export interface Appointment extends HealthcareRecord {
   patientId: string;
   visitId: string;
   doctorId: string;
+  doctorName?: string;
   roomId: string;
   startsAt: string;
   endsAt: string;
@@ -74,6 +76,7 @@ export interface Appointment extends HealthcareRecord {
 export interface CareTask extends HealthcareRecord {
   patientId: string;
   appointmentId: string;
+  visitId?: string;
   assigneeId: string;
   title: string;
   dueOn: string;
@@ -91,7 +94,7 @@ export interface CatalogItem extends HealthcareRecord {
 export type RecordInput<T extends HealthcareRecord> = Omit<T, keyof HealthcareRecord>;
 export type HealthcareList<T> = { items: T[]; total: number; page: number; pageSize: number };
 export type HealthcareStaff = { _id: string; name: string };
-export type PatientReference = Pick<Patient, "_id" | "code" | "name">;
+export type PatientReference = Pick<Patient, "_id" | "code" | "name"> & Partial<Pick<Patient, "phone">>;
 export type HealthcarePatientList<T> = HealthcareList<T> & { patientReferences: PatientReference[] };
 export type HealthcareOverview = {
   today: string;
@@ -136,5 +139,6 @@ export interface ImportRowResult {
   label: string;
   status: ImportRowStatus;
   message?: string;
+  preview?: Record<string, string>;
   recordId?: string;
 }
