@@ -14,7 +14,7 @@ import { synthesizeVietnameseSpeech } from "./speech";
 import { assistantSpeechVoices } from "../../src/shared/assistant-speech-voices";
 import { expensiveApiRateLimiter } from "../middleware/rate-limit";
 import { deleteAssistantMemory, listAssistantMemories, saveAssistantMemory, updateAssistantMemory } from "./memory";
-import { enhanceStudioImagePrompt, generateStudioImages, studioImageRatios } from "./studio-images";
+import { generateStudioImages, studioImageRatios } from "./studio-images";
 import { editStudioImage, studioEditModes } from "./studio-image-edit";
 import { listStudioTranscripts, transcribeStudioAudio } from "./studio-transcription";
 
@@ -36,7 +36,6 @@ assistantRouter.get("/studio/transcriptions", wrap(req => {
   if (!req.user?.companyCode || !req.user.id) throw new AssistantError("Cần chọn doanh nghiệp để xem bản chép lời.", 403);
   return listStudioTranscripts(req.user.companyCode, req.user.id);
 }));
-assistantRouter.post("/studio/images/optimize-prompt", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ prompt: Joi.string().trim().min(3).max(2000).required() }) }), wrap(req => enhanceStudioImagePrompt(req.body.prompt)));
 assistantRouter.post("/studio/images/edit", expensiveApiRateLimiter, validateRequest({ body: Joi.object({
   sourceImage: Joi.string().max(21_000_000).pattern(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/).required(),
   prompt: Joi.string().trim().min(3).max(2000).required(),
