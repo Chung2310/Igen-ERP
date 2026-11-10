@@ -80,6 +80,48 @@ it("sends after silence, reads the reply, and resumes for a second request witho
   expect(mocks.turn.mock.calls[1][0].text).toBe("lọc khách hàng mới");
 });
 
+it("keeps the conversation enabled across several replies and a temporary recognition disconnection", async () => {
+  await open(); vi.useFakeTimers(); enable();
+  for (const text of ["xem khách hàng", "lọc khách hàng mới", "xem thêm thông tin"]) {
+    const turnsBefore = mocks.turn.mock.calls.length;
+    hear(text);
+    await advance(1400);
+    expect(mocks.turn).toHaveBeenCalledTimes(turnsBefore + 1);
+    expect(mocks.turn.mock.calls.at(-1)![0].text).toBe(text);
+    expect(screen.getByRole("button", { name: "Tắt chế độ 2 chiều" }).getAttribute("aria-pressed")).toBe("true");
+    const count = Recognition.instances.length;
+    await advance(1000);
+    expect(Recognition.instances).toHaveLength(count);
+    act(() => ReplyAudio.instances.at(-1)!.onended?.());
+    await advance(250);
+    expect(Recognition.instances).toHaveLength(count + 1);
+    if (turnsBefore === 0) {
+      const disconnected = Recognition.instances.at(-1)!;
+      act(() => disconnected.onerror?.({ error: "network" }));
+      await advance(2000);
+      expect(Recognition.instances).toHaveLength(count + 2);
+      expect(mocks.turn).toHaveBeenCalledTimes(1);
+    }
+  }
+  fireEvent.click(screen.getByRole("button", { name: "Tắt chế độ 2 chiều" }));
+  const count = Recognition.instances.length;
+  await advance(5000);
+  expect(Recognition.instances).toHaveLength(count);
+  expect(mocks.turn).toHaveBeenCalledTimes(3);
+});
+
+it("listens again after a reply cannot be read aloud", async () => {
+  mocks.speech.mockRejectedValueOnce(new Error("Không thể tạo giọng nói lúc này."));
+  await open(); vi.useFakeTimers(); enable(); hear("xem khách hàng");
+  await advance(1400);
+  await advance(250);
+  expect(Recognition.instances).toHaveLength(2);
+  expect(screen.getByRole("button", { name: "Tắt chế độ 2 chiều" }).getAttribute("aria-pressed")).toBe("true");
+  hear("yêu cầu tiếp theo");
+  await advance(1400);
+  expect(mocks.turn).toHaveBeenCalledTimes(2);
+});
+
 it("stops listening without sending the unfinished request", async () => {
   await open(); vi.useFakeTimers(); enable();
   hear("nội dung chưa gửi");

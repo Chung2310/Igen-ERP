@@ -298,6 +298,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
   const attachmentButtonRef = useRef<HTMLButtonElement>(null);
   const [isListening, setIsListening] = useState(false);
   const [twoWayVoiceEnabled, setTwoWayVoiceEnabled] = useState(false);
+  const [twoWayRestartVersion, setTwoWayRestartVersion] = useState(0);
   const twoWayVoiceRef = useRef(false);
   const voiceBlockedRef = useRef(false);
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("off");
@@ -371,6 +372,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
       speechAudioUrlRef.current = null;
       setIsSpeaking(false);
+      if (twoWayVoiceRef.current) setTwoWayRestartVersion(value => value + 1);
     };
     try {
       const audioBlob = await assistantService.speech(text, controller.signal, settings.speechVoice);
@@ -542,7 +544,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       retryRef.current = null;
       try { localStorage.removeItem(requestKey); } catch { /* Keep in memory. */ }
     } catch (cause) { if (!controller.signal.aborted) setError((cause as Error).message); }
-    finally { if (!controller.signal.aborted) setIsLoading(false); requestRef.current = null; }
+    finally {
+      requestRef.current = null;
+      if (!controller.signal.aborted) {
+        setIsLoading(false);
+        // Completion explicitly schedules the next voice turn, even when reply
+        // playback finishes before React commits the loading/speaking states.
+        if (twoWayVoiceRef.current) setTwoWayRestartVersion(value => value + 1);
+      }
+    }
   };
 
   useEffect(() => {
@@ -874,7 +884,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     const timer = cooldown ? window.setTimeout(begin, cooldown) : null;
     if (!cooldown) begin();
     return () => { if (timer !== null) window.clearTimeout(timer); stop?.(); };
-  }, [twoWayVoiceEnabled, settingsReady, isOpen, synced, isLoading, pendingVoiceCommand, isSpeaking, isReadingAttachment, isViewingHistory, view, isSettingsDialogOpen]);
+  }, [twoWayVoiceEnabled, twoWayRestartVersion, settingsReady, isOpen, synced, isLoading, pendingVoiceCommand, isSpeaking, isReadingAttachment, isViewingHistory, view, isSettingsDialogOpen]);
   useEffect(() => {
     if (!settingsReady || !settings.wakeWordEnabled || twoWayVoiceEnabled || voiceBlockedRef.current || voiceTurnBusy || pendingVoiceCommand || isSpeaking || isViewingHistory || view !== "chat" || isSettingsDialogOpen) return;
     const contextError = voiceContextError();
