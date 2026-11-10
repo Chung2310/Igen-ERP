@@ -1561,7 +1561,6 @@
     "dns",
     "dotenv",
     "express",
-    "ffmpeg-static",
     "fs",
     "http",
     "https",

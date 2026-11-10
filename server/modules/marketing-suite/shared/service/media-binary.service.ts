@@ -1,25 +1,4 @@
 import { existsSync } from "fs";
-import path from "path";
-import ffmpegStaticPath from "ffmpeg-static";
-
-function remotionBinaryCandidates(binaryName: "ffmpeg" | "ffprobe") {
-  const executable = process.platform === "win32" ? `${binaryName}.exe` : binaryName;
-  const platformPackages =
-    process.platform === "win32"
-      ? ["@remotion/compositor-win32-x64-msvc"]
-      : process.platform === "darwin"
-        ? ["@remotion/compositor-darwin-x64", "@remotion/compositor-darwin-arm64"]
-        : [
-            "@remotion/compositor-linux-x64-gnu",
-            "@remotion/compositor-linux-x64-musl",
-            "@remotion/compositor-linux-arm64-gnu",
-            "@remotion/compositor-linux-arm64-musl",
-          ];
-
-  return platformPackages.map((packageName) =>
-    path.resolve(process.cwd(), "node_modules", ...packageName.split("/"), executable)
-  );
-}
 
 function isUsableConfiguredBinary(configured: string) {
   const looksLikeCommandName = !configured.includes("/") && !configured.includes("\\");
@@ -33,17 +12,7 @@ export function resolveMediaBinary(
   const configured = (configuredPath || (binaryName === "ffmpeg" ? process.env.FFMPEG_PATH : process.env.FFPROBE_PATH))?.trim();
   if (configured && isUsableConfiguredBinary(configured)) return configured;
 
-  if (binaryName === "ffmpeg" && ffmpegStaticPath && existsSync(ffmpegStaticPath)) {
-    return ffmpegStaticPath;
-  }
-
-  // Alpine images provide a musl-compatible ffprobe via apk. Prefer the
-  // system binary instead of a glibc-linked Remotion helper from node_modules.
-  // The latter can exist on disk but fail to spawn with ENOENT on Alpine.
-  if (binaryName === "ffprobe") return binaryName;
-
-  const bundled = remotionBinaryCandidates(binaryName).find((candidate) =>
-    existsSync(candidate)
-  );
-  return bundled || binaryName;
+  // Media tools are optional host dependencies, never bundled at startup.
+  // Callers already report a clear unavailable error when spawn returns ENOENT.
+  return binaryName;
 }

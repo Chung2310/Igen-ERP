@@ -22,8 +22,10 @@ async function main() {
   if (role === "all" || role === "inbox") {
     const inbox = await import("./message/service/ai-auto-reply.service");
     const deposits = await import("./message/service/cake-deposit-worker");
+    const customerSheets = await import("./message/service/page-customer-sheet.service");
     await inbox.startFacebookAutoReplyQueueWorker(); deposits.startCakeDepositWorker();
     inbox.startAutoFollowUpWorker();
+    customerSheets.startPageCustomerSheetWorker();
     if (process.env.MARKETING_TELEGRAM_POLLING_ENABLED === "true") {
       const { telegramService } = await import("./shared/service/telegram.service");
       await telegramService.startPolling();

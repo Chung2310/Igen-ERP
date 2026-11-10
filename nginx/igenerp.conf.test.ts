@@ -59,9 +59,24 @@ test("uses separate wide CGNAT backstops for API, auth, and socket traffic", () 
   assert.match(siteConfig, /zone=igen_api:20m rate=100r\/s/);
   assert.match(siteConfig, /zone=igen_auth:10m rate=10r\/s/);
   assert.match(siteConfig, /zone=igen_socket:20m rate=50r\/s/);
-  assert.match(siteConfig, /location \^~ \/api\/v1\/auth\/[\s\S]*limit_req zone=igen_auth burst=30 nodelay;[\s\S]*limit_conn igen_per_ip 100/);
+  assert.match(siteConfig, /location ~\* \^\/api\/v1\/auth\/[^\n]+\{[^}]*limit_req zone=igen_auth burst=30 nodelay;[^}]*limit_conn igen_per_ip 100/);
   assert.match(siteConfig, /location ~ \^\/api\/v1\/[\s\S]*limit_req zone=igen_expensive burst=10 nodelay;[\s\S]*limit_conn igen_per_ip 100/);
   assert.match(siteConfig, /location \/api\/[\s\S]*limit_conn igen_per_ip 300/);
   assert.match(siteConfig, /location \/socket\.io\/[\s\S]*limit_req zone=igen_socket burst=100 nodelay/);
   assert.match(siteConfig, /location \/socket\.io\/[\s\S]*limit_conn igen_per_ip 500/);
+});
+
+test("credential limits exclude normal authenticated reads and branch management", () => {
+  const authLocation = siteConfig.match(/location ~\* (\^\/api\/v1\/auth\/\S+) \{/);
+  assert.ok(authLocation, "credential endpoints must have an explicit auth location");
+  const credentialPath = new RegExp(authLocation[1], "i");
+  for (const endpoint of ["login", "register", "register-company", "register-user", "refresh-token", "change-password"]) {
+    assert.ok(credentialPath.test(`/api/v1/auth/${endpoint}`), `${endpoint} must keep auth flood control`);
+    assert.ok(credentialPath.test(`/api/v1/auth/${endpoint}/`));
+    assert.ok(credentialPath.test(`/api/v1/auth/${endpoint.toUpperCase()}`), "Express routes also accept uppercase endpoint names");
+  }
+  for (const endpoint of ["branches", "branches/branch-id", "branches/branch-id/owner", "me", "users", "users/user-id", "telegram-link", "current-ip"]) {
+    assert.equal(credentialPath.test(`/api/v1/auth/${endpoint}`), false, `${endpoint} must use the general API limit`);
+  }
+  assert.doesNotMatch(siteConfig, /location\s+\^~?\s+\/api\/v1\/auth\//, "a blanket auth prefix would override location selection");
 });
