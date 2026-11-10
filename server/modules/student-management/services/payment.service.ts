@@ -3,11 +3,13 @@ import { Student } from "../models/student.model";
 import { IPayment } from "../interfaces/payment.interface";
 import { logger } from "../config/logger";
 import { parsePaymentDate } from "../utils/payment-date.util";
+import { resolveOwnerFilter } from "../utils/auth.util";
 
 interface PaymentFilters {
   page?: number | string;
   limit?: number | string;
   studentId?: string;
+  ownerFilter?: string;
   startDate?: string;
   endDate?: string;
 }
@@ -147,12 +149,13 @@ export class PaymentService {
     const page = Math.max(1, filters.page ? parseInt(String(filters.page)) || 1 : 1);
     const limit = Math.min(5000, Math.max(1, filters.limit ? parseInt(String(filters.limit)) || 100 : 100));
     const skip = (page - 1) * limit;
+    const resolvedOwnerId = await resolveOwnerFilter(ownerId, filters.ownerFilter);
 
     const query: Record<string, unknown> = {
       ...buildBranchScopeQuery(branchId),
     };
-    if (ownerId !== "ALL") {
-      query.ownerId = Array.isArray(ownerId) ? { $in: ownerId } : ownerId;
+    if (resolvedOwnerId !== "ALL") {
+      query.ownerId = Array.isArray(resolvedOwnerId) ? { $in: resolvedOwnerId } : resolvedOwnerId;
     }
     if (filters.studentId) query.studentId = filters.studentId;
 
