@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Bot, Brain, MessageSquare, Settings2, type LucideIcon } from "lucide-react";
 import type { AssistantSettings } from "../../shared/assistant-workflow";
-import { assistantSpeechVoiceLabel, assistantSpeechVoices, type AssistantSpeechVoice } from "../../shared/assistant-speech-voices";
 import { assistantService } from "../../services/assistantService";
 import { cn } from "../../modules/student-management/lib/utils";
+import AssistantSpeechVoicePicker from "./AssistantSpeechVoicePicker";
 
 const control = "min-h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2 text-base text-on-surface focus-visible:border-primary focus-visible:outline-none";
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
@@ -179,14 +179,15 @@ export function AssistantSettingsEditor({ settings, onSave }: { settings: Assist
           <SettingsSection id="assistant-response-title" title="Trả lời và xác nhận" description="Chọn cách trợ lý phản hồi và xử lý các thao tác cập nhật." icon={Settings2}>
             {responseSettings.map(item => <PreferenceToggle key={item.key} item={item} checked={draft[item.key]} onChange={value => updateToggle(item.key, value)} />)}
             <div className="space-y-2 py-4 first:pt-0 last:pb-0">
-              <label htmlFor="assistant-speech-voice" className="block text-sm font-medium">Giọng đọc tiếng Việt</label>
-              <select id="assistant-speech-voice" value={draft.speechVoice} onChange={event => {
-                stopPreview();
-                setPreviewError("");
-                setDraft(current => ({ ...current, speechVoice: event.target.value as AssistantSpeechVoice }));
-              }} aria-describedby="assistant-speech-voice-help" className={control}>
-                {assistantSpeechVoices.map(voice => <option key={voice} value={voice}>{assistantSpeechVoiceLabel(voice)}</option>)}
-              </select>
+              <AssistantSpeechVoicePicker
+                value={draft.speechVoice}
+                describedBy="assistant-speech-voice-help"
+                onChange={voice => {
+                  stopPreview();
+                  setPreviewError("");
+                  setDraft(current => ({ ...current, speechVoice: voice }));
+                }}
+              />
               <p id="assistant-speech-voice-help" className="text-pretty text-sm leading-6 text-on-surface-variant">Chọn giọng rồi lưu để dùng cho câu trả lời tiếp theo. Nghe thử cũng tạo âm thanh qua OpenRouter và có tính phí.</p>
               <button type="button" onClick={() => void togglePreview()} aria-pressed={previewState !== "idle"} className={cn("min-h-11 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm font-medium text-on-surface hover:bg-surface-container-low", focusClass)}>{previewState === "idle" ? "Nghe thử giọng" : "Dừng nghe thử"}</button>
               {previewState !== "idle" && <p role="status" className="text-pretty text-sm text-on-surface-variant">{previewState === "loading" ? "Đang tạo đoạn nghe thử…" : "Đang phát đoạn nghe thử."}</p>}

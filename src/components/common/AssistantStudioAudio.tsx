@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { assistantService, type AssistantStudioTranscript } from "../../services/assistantService";
-import { assistantSpeechVoiceLabel, assistantSpeechVoices, defaultAssistantSpeechVoice, type AssistantSpeechVoice } from "../../shared/assistant-speech-voices";
+import AssistantSpeechVoicePicker from "./AssistantSpeechVoicePicker";
+import { defaultAssistantSpeechVoice, type AssistantSpeechVoice } from "../../shared/assistant-speech-voices";
 
 export type AudioTool = "clone" | "speak" | "transcribe";
 const inputClass = "w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none";
@@ -81,13 +82,36 @@ export default function AssistantStudioAudio({ tool }: { tool: AudioTool }) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  return <main className="mx-auto max-w-6xl space-y-6 rounded-xl bg-surface-container-lowest p-4 text-on-surface sm:p-6">
-    <header><p className="text-sm text-on-surface-variant">AI Studio / Âm thanh</p><div className="mt-2 flex flex-wrap items-center gap-2"><h1 className="text-lg font-semibold text-balance">{tool === "clone" ? "Tạo giọng cá nhân" : tool === "speak" ? "Chuyển văn bản thành giọng nói" : "Chuyển giọng nói thành văn bản"}</h1>{tool === "clone" && <span className="rounded-full border border-outline-variant px-2 py-1 text-xs font-medium text-on-surface-variant">Sắp ra mắt</span>}</div></header>
+  return <main className="mx-auto max-w-screen-2xl space-y-6 rounded-xl bg-surface-container-lowest p-4 text-on-surface sm:p-6">
+    <header><p className="text-sm text-on-surface-variant">AI Studio / {tool === "transcribe" ? "Chuyển giọng nói thành văn bản" : "Tạo audio"}</p><div className="mt-2 flex flex-wrap items-center gap-2"><h1 className="text-lg font-semibold text-balance">{tool === "clone" ? "Tạo giọng cá nhân" : tool === "speak" ? "Chuyển văn bản thành giọng nói" : "Chuyển giọng nói thành văn bản"}</h1>{tool === "clone" && <span className="rounded-full border border-outline-variant px-2 py-1 text-xs font-medium text-on-surface-variant">Sắp ra mắt</span>}</div></header>
 
-    {tool === "speak" && <section aria-labelledby="speak-title" className="grid gap-6 lg:grid-cols-2">
-      <div className="space-y-4"><h2 id="speak-title" className="text-lg font-semibold text-balance">Chuyển văn bản thành giọng nói</h2>
-        <div><label htmlFor="audio-text" className="mb-2 block text-sm font-medium">Nội dung</label><textarea id="audio-text" value={text} onChange={(event) => setText(event.target.value)} maxLength={10000} rows={15} placeholder="Nhập hoặc dán nội dung văn bản cần chuyển thành giọng nói..." className={inputClass} aria-describedby="audio-text-count" /><p id="audio-text-count" className="mt-1 text-xs tabular-nums text-on-surface-variant">{text.length} / 10.000 ký tự</p></div>
-      </div><div className="space-y-4 rounded-xl border border-outline-variant bg-surface p-4 sm:p-6"><h2 className="text-lg font-semibold text-balance">Quản trị và thiết lập</h2><div><label htmlFor="audio-voice" className="mb-2 block text-sm font-medium">Giọng đọc tiếng Việt</label><select id="audio-voice" value={voiceId} onChange={(event) => setVoiceId(event.target.value as AssistantSpeechVoice)} className={inputClass}>{assistantSpeechVoices.map((voice) => <option key={voice} value={voice}>{assistantSpeechVoiceLabel(voice)}</option>)}</select></div><button type="button" onClick={generate} disabled={busy || !text.trim()} className={buttonClass}>{busy ? "Đang chuyển đổi..." : "Chuyển đổi"}</button>{audioUrl && <><audio controls src={audioUrl} className="w-full" aria-label="Audio vừa tạo" /><a href={audioUrl} download="igen-audio.mp3" className="inline-block text-sm font-medium text-primary underline">Tải audio xuống</a></>}</div>
+    {tool === "speak" && <section aria-labelledby="speak-title" className="grid gap-5 lg:grid-cols-5 lg:gap-6">
+      <div className="space-y-4 lg:col-span-3">
+        <h2 id="speak-title" className="text-lg font-semibold text-balance">Nội dung</h2>
+        <div>
+          <label htmlFor="audio-text" className="sr-only">Văn bản cần chuyển thành giọng nói</label>
+          <textarea id="audio-text" value={text} onChange={(event) => setText(event.target.value)} maxLength={10000} rows={15} placeholder="Nhập hoặc dán nội dung văn bản cần chuyển thành giọng nói..." className={`${inputClass} min-h-80 resize-y p-4`} aria-describedby="audio-text-count" />
+        </div>
+      </div>
+      <aside aria-label="Quản trị và thiết lập giọng đọc" className="space-y-5 rounded-xl border border-outline-variant bg-surface p-4 sm:p-6 lg:col-span-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-balance">Giọng đọc</h2>
+          <button type="button" disabled aria-label="Tạo giọng cá nhân, sắp ra mắt" className="inline-flex min-h-10 items-center gap-2 rounded-full border border-outline-variant px-3 text-sm font-medium text-on-surface-variant disabled:cursor-not-allowed disabled:opacity-70">
+            <span>Tạo giọng cá nhân</span>
+            <span className="rounded-full bg-surface-container-low px-2 py-0.5 text-xs">Sắp ra mắt</span>
+          </button>
+        </div>
+        <AssistantSpeechVoicePicker value={voiceId} onChange={setVoiceId} />
+        <div className="rounded-xl bg-surface-container-low p-4">
+          <p className="text-sm font-medium text-on-surface">Giọng đọc tiếng Việt</p>
+          <p className="mt-1 text-pretty text-sm text-on-surface-variant">Chọn một giọng để nghe trước khi tải audio.</p>
+        </div>
+      </aside>
+      <div className="flex flex-wrap items-center justify-between gap-3 lg:col-span-5">
+        <p id="audio-text-count" className="text-sm tabular-nums text-on-surface-variant">Ký tự: {text.length.toLocaleString("vi-VN")} / 10.000</p>
+        <button type="button" onClick={generate} disabled={busy || !text.trim()} className={buttonClass}>{busy ? "Đang chuyển đổi..." : "Chuyển đổi"}</button>
+      </div>
+      {audioUrl && <div className="space-y-3 lg:col-span-5"><audio controls src={audioUrl} className="w-full" aria-label="Audio vừa tạo" /><a href={audioUrl} download="igen-audio.mp3" className="inline-block text-sm font-medium text-primary underline">Tải audio xuống</a></div>}
     </section>}
 
     {tool === "clone" && <section aria-labelledby="clone-title" className="mx-auto max-w-3xl space-y-6"><div className="text-center"><h2 id="clone-title" className="text-lg font-semibold text-balance">Tạo giọng cá nhân</h2><p className="mt-2 text-pretty text-sm text-on-surface-variant">Tính năng lưu giọng cá nhân đang được chuẩn bị cho luồng OpenRouter.</p></div><div className="grid gap-4 sm:grid-cols-2"><div className="rounded-xl border border-outline-variant bg-surface p-6 text-center"><AudioArtwork panel={0} /><h3 className="font-medium">Ghi âm trực tiếp</h3><p className="mt-1 text-pretty text-xs text-on-surface-variant">Ghi âm mẫu giọng nói trong không gian yên tĩnh.</p><button type="button" disabled className="mt-5 rounded-lg border border-outline-variant px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50">Bắt đầu ghi âm · Sắp ra mắt</button></div><UploadArea panel={0} disabled label="Tải tệp lên" hint="MP3, WAV, M4A; tối đa 10 MB" accept=".mp3,.wav,.m4a,.webm" file={null} onFile={() => undefined} /></div><ul className="list-inside list-disc space-y-2 rounded-xl border border-outline-variant p-5 text-sm text-on-surface-variant">{["Sử dụng giọng nói của chính bạn hoặc giọng đã được cho phép.", "Đọc trong không gian tĩnh, ít tạp âm.", "Chỉ dùng một giọng nói trong mẫu âm thanh."].map((tip) => <li key={tip}>{tip}</li>)}</ul></section>}
