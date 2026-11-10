@@ -62,13 +62,13 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
     setAppliedStartDate(startValue);
     setAppliedEndDate(end);
   };
-  const periodStudentIds = React.useMemo(() => new Set(payments.map((payment) => String(payment.studentId))), [payments]);
   const periodPaidByStudent = React.useMemo(() => payments.reduce<Record<string, number>>((total, payment) => {
     total[String(payment.studentId)] = (total[String(payment.studentId)] || 0) + Number(payment.amount || 0);
     return total;
   }, {}), [payments]);
   const studentsInPeriod = React.useMemo(() => {
-    const activeStudents = students.filter((student) => periodStudentIds.has(String(student.id)));
+    // Include unpaid learners too; a 0 payment creates no Payment document.
+    const activeStudents = students;
     const activeIds = new Set(activeStudents.map((student) => String(student.id)));
     const archivedById = new Map<string, { name: string; paid: number; lastPaidOn?: string }>();
     payments.forEach((payment) => {
@@ -84,7 +84,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       status: [], registrationDate: '', updatedAt: record.lastPaidOn || '', paymentHistory: [],
     } as Student));
     return [...activeStudents, ...archivedStudents];
-  }, [students, periodStudentIds, payments]);
+  }, [students, payments]);
 
   // Modal state
   const [selectedStudentForPayment, setSelectedStudentForPayment] = useState<Student | null>(null);
