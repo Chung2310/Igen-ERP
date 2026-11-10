@@ -783,8 +783,14 @@ export class StudentService {
                 "general",
                 branchId,
                 creatorId,
-                true,
               );
+              const importedEnrollmentDate = String(matchingInput.enrollmentDate || "").trim();
+              if (importedEnrollmentDate) {
+                await Student.updateOne(
+                  { _id: savedStudent._id, ...query },
+                  { $set: { enrollmentDate: importedEnrollmentDate } },
+                );
+              }
               logger.info(`[Student Import] Linked student ${savedStudent.fullName} (${studentIdStr}) to batch ${importBatch.batch.code}`);
             } else {
               logger.warn(`[Student Import] Batch with code ${code} not found for owner scope ${ownerId}`);
