@@ -53,6 +53,10 @@ interface Message {
 }
 type AssistantMode = "work" | "qa";
 const assistantHeaderOptions = [{ value: "qa", label: "Hỏi đáp" }, { value: "work", label: "Thao tác" }];
+const assistantQuickPrompts: Record<AssistantMode, readonly string[]> = {
+  qa: ["Giải thích AI tạo sinh hoạt động thế nào", "Tóm tắt các ý chính của một văn bản", "Lên kế hoạch học một kỹ năng mới"],
+  work: ["Thêm nhân sự mới", "Tạo khách hàng mới", "Tạo một công việc mới"],
+};
 
 const welcomeMessage: Message = {
   role: "assistant",
@@ -1191,7 +1195,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             <button type="button" aria-label="AI Studio" aria-current={view === "studio" ? "page" : undefined} onClick={() => changeView("studio")} className={cn("assistant-side-item", view === "studio" && "is-active", focusClass)}><AssistantRailIcon name="studio" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>AI Studio</span></button>
             <button type="button" aria-label="Notebook" aria-current={view === "notebook" ? "page" : undefined} onClick={() => changeView("notebook")} className={cn("assistant-side-item", view === "notebook" && "is-active", focusClass)}><AssistantRailIcon name="notebook" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Notebook</span></button>
             <button type="button" aria-label="Ghi chép cuộc họp" aria-current={view === "meeting" ? "page" : undefined} onClick={() => changeView("meeting")} className={cn("assistant-side-item", view === "meeting" && "is-active", focusClass)}><AssistantRailIcon name="meeting" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Ghi chép cuộc họp</span></button>
-            <button type="button" aria-label="Trợ lý AI" aria-current={view === "chat" && assistantMode === "work" ? "page" : undefined} disabled={isLoading || Boolean(retryRef.current)} onClick={openAssistantInput} className={cn("assistant-side-item", view === "chat" && assistantMode === "work" && "is-active", focusClass)}><AssistantRailIcon name="assistant" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Trợ lý AI</span></button>
+            <button type="button" aria-label="Trợ lý ERP" aria-current={view === "chat" && assistantMode === "work" ? "page" : undefined} disabled={isLoading || Boolean(retryRef.current)} onClick={openAssistantInput} className={cn("assistant-side-item", view === "chat" && assistantMode === "work" && "is-active", focusClass)}><AssistantRailIcon name="assistant" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Trợ lý ERP</span></button>
             <button type="button" disabled title="Chưa có tính năng dự án" className="assistant-side-item" aria-label="Dự án (chưa có)"><AssistantRailIcon name="project" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Dự án</span></button>
             <button type="button" aria-label="Công cụ trợ lý" aria-current={view === "tools" ? "page" : undefined} onClick={() => changeView("tools")} className={cn("assistant-side-item", view === "tools" && "is-active", focusClass)}><AssistantRailIcon name="tools" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Công cụ</span></button>
             <button type="button" aria-label="Lịch sử trò chuyện" aria-current={view === "history" ? "page" : undefined} onClick={() => { if (mode === "standalone" && view === "meeting") setHistoryCategory("meeting"); changeView("history"); }} className={cn("assistant-side-item", view === "history" && "is-active", focusClass)}><AssistantRailIcon name="history" /><span className="assistant-side-label" aria-hidden={sidebarCollapsed}>Lịch sử</span></button>
@@ -1207,7 +1211,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
           <button type="button" aria-pressed={view === "studio"} onClick={() => changeView("studio")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "studio" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="studio" />AI Studio</span></button>
           <button type="button" aria-pressed={view === "notebook"} onClick={() => changeView("notebook")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "notebook" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="notebook" />Notebook</span></button>
           <button type="button" aria-pressed={view === "meeting"} onClick={() => changeView("meeting")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "meeting" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="meeting" />Ghi chép cuộc họp</span></button>
-          <button type="button" aria-pressed={view === "chat" && assistantMode === "work"} disabled={isLoading || Boolean(retryRef.current)} onClick={openAssistantInput} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "chat" && assistantMode === "work" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="assistant" />Trợ lý AI</span></button>
+          <button type="button" aria-pressed={view === "chat" && assistantMode === "work"} disabled={isLoading || Boolean(retryRef.current)} onClick={openAssistantInput} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "chat" && assistantMode === "work" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="assistant" />Trợ lý ERP</span></button>
           <button type="button" aria-pressed={view === "tools"} onClick={() => changeView("tools")} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "tools" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><AssistantRailIcon name="tools" />Công cụ</span></button>
           <button type="button" aria-pressed={view === "history"} onClick={() => { if (mode === "standalone" && view === "meeting") setHistoryCategory("meeting"); changeView("history"); }} className={cn("min-w-0 flex-1 rounded-xl px-2 py-2 text-sm", view === "history" && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><History className="size-4 shrink-0" aria-hidden="true" />Lịch sử</span></button>
           <button type="button" aria-haspopup="dialog" aria-expanded={isSettingsDialogOpen} aria-controls="assistant-settings-dialog" onClick={openSettings} className={cn("min-w-0 flex-1 rounded-xl px-1 py-2 text-sm", isSettingsDialogOpen && "bg-surface-container-high font-semibold", focusClass)}><span className="inline-flex items-center justify-center gap-1.5"><Settings2 className="size-4 shrink-0" aria-hidden="true" />Cài đặt</span></button>
@@ -1269,9 +1273,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
         {isViewingHistory && <div ref={historyBannerRef} tabIndex={-1} className={cn("shrink-0 border-b border-outline-variant bg-surface-container-low px-4 py-2 text-center", focusClass)}>
           <p className="text-pretty text-sm">Đang xem lại phiên cũ. Phiên này ở chế độ chỉ đọc.</p>
         </div>}
-        {isWelcomeScreen ? headerPanel ? <div ref={logRef} className="flex min-h-0 flex-1 flex-col justify-center gap-5 overflow-y-auto overscroll-contain bg-surface-container-lowest p-4">
-          <h3 className="text-balance text-center text-lg font-medium text-on-surface">Xin chào {userProfile?.displayName || "bạn"}, mình có thể giúp gì cho bạn?</h3>
-          {isLoading && <p role="status" className="text-center text-sm text-on-surface-variant">Đang tải cuộc trò chuyện…</p>}
+        {isWelcomeScreen ? headerPanel ? <div ref={logRef} className="flex min-h-0 flex-1 flex-col justify-end gap-4 overflow-y-auto overscroll-contain bg-surface-container-lowest p-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2"><h3 className="text-balance text-lg font-semibold text-on-surface">iGen AI</h3><AssistantVerifiedBadge /></div>
+            <p className="text-pretty text-sm text-on-surface-variant">{assistantMode === "qa" ? "Mình có thể trả lời câu hỏi kiến thức, giải thích, viết, tóm tắt hoặc lên ý tưởng." : "Mình có thể giúp bạn thực hiện công việc trong hệ thống. Mọi thay đổi đều cần bạn xác nhận."}</p>
+            {isLoading && <p role="status" className="text-sm text-on-surface-variant">Đang tải cuộc trò chuyện…</p>}
+          </div>
+          {settings.showSuggestions && synced && <div role="group" aria-label={assistantMode === "qa" ? "Gợi ý câu hỏi" : "Gợi ý yêu cầu"} className="flex flex-wrap gap-2">
+            {assistantQuickPrompts[assistantMode].map(prompt => <button key={prompt} type="button" onClick={() => void handleSend(prompt)} disabled={isLoading || Boolean(retryRef.current)} className={cn("min-h-8 rounded-lg border border-outline-variant bg-surface px-2.5 py-1.5 text-left text-xs text-on-surface hover:border-primary hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50", focusClass)}>{prompt}</button>)}
+          </div>}
           {renderComposer("conversation")}
         </div> : <div ref={logRef} className="assistant-welcome assistant-reference-welcome min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-8 sm:px-8">
           <section aria-labelledby="assistant-welcome-title" className="assistant-reference-content mx-auto flex min-h-full w-full max-w-5xl flex-col justify-center gap-5">
@@ -1381,7 +1391,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
               </div>
             </div>}
           </section>}
-          {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Mở phân hệ để xem kết quả</a>}
+          {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Xem kết quả</a>}
           {isLoading && isOpen && <div role="status" aria-label={retryRef.current ? "Đang soạn câu trả lời" : "Đang tải cuộc trò chuyện"} className="assistant-thinking-status flex items-center py-1 text-on-surface-variant">
             <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
           </div>}

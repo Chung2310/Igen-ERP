@@ -1454,13 +1454,14 @@ export default function IdeationTab({ userProfile, setApprovalCards, setSubTab, 
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <span className="text-xs font-bold text-gray-500 font-mono">Mô hình AI</span>
+                      <label htmlFor="campaign-ideation-image-model" className="text-xs font-bold text-on-surface-variant font-mono">Mô hình AI</label>
                       <select
+                        id="campaign-ideation-image-model"
                         value={imageModel}
                         onChange={(e) => setImageModel(e.target.value)}
-                        className="w-full text-xs p-2 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans"
+                        className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest p-2 text-xs text-on-surface font-sans focus:border-primary focus:outline-none"
                       >
-                        <option value="gemini-banana-flash">iGen Gemini 3 Flash</option>
+                        <option value="gemini-banana-flash">iGen Image Flash (Recraft)</option>
                       </select>
                     </div>
 

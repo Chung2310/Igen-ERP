@@ -17,7 +17,12 @@ describe("AssistantStudioChart", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Tạo biểu đồ$/ }));
     expect(screen.getByRole("alert").textContent).toContain("Nhập yêu cầu");
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Yêu cầu tạo biểu đồ" }), { target: { value: "Vẽ cơ cấu khách theo mục đích chuyến đi" } });
+    const createPrompt = screen.getByRole("textbox", { name: "Yêu cầu tạo biểu đồ" }) as HTMLTextAreaElement;
+    fireEvent.change(createPrompt, { target: { value: "Vẽ cơ cấu khách theo mục đích chuyến đi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Chuẩn hóa prompt tạo biểu đồ" }));
+    expect(createPrompt.value).toContain("Nguồn dữ liệu: tệp đính kèm");
+    fireEvent.click(screen.getByRole("button", { name: "Khôi phục prompt gốc" }));
+    expect(createPrompt.value).toBe("Vẽ cơ cấu khách theo mục đích chuyến đi");
     fireEvent.click(screen.getByRole("button", { name: "Biểu đồ cột" }));
     fireEvent.click(screen.getByRole("button", { name: /^Tạo biểu đồ$/ }));
     expect(screen.getByRole("heading", { level: 1, name: "Cơ cấu dữ liệu theo mục đã chọn" })).toBeTruthy();
@@ -27,7 +32,12 @@ describe("AssistantStudioChart", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Chỉnh sửa bằng AI" })[0]);
     const dialog = screen.getByRole("dialog");
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Tiêu đề biểu đồ" }), { target: { value: "Cơ cấu khách du lịch" } });
-    fireEvent.change(within(dialog).getByRole("textbox", { name: "Yêu cầu chỉnh sửa" }), { target: { value: "Làm nổi bật nhóm lớn nhất" } });
+    const editPrompt = within(dialog).getByRole("textbox", { name: "Yêu cầu chỉnh sửa" }) as HTMLTextAreaElement;
+    fireEvent.change(editPrompt, { target: { value: "Làm nổi bật nhóm lớn nhất" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Chuẩn hóa prompt chỉnh sửa biểu đồ" }));
+    expect(editPrompt.value).toContain("Chỉ thay đổi những phần được yêu cầu");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Khôi phục yêu cầu gốc" }));
+    expect(editPrompt.value).toBe("Làm nổi bật nhóm lớn nhất");
     fireEvent.click(within(dialog).getByRole("button", { name: "Áp dụng chỉnh sửa" }));
     expect(screen.getAllByRole("heading", { name: "Cơ cấu khách du lịch" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("status").textContent).toContain("Làm nổi bật nhóm lớn nhất");

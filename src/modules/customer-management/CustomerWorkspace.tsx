@@ -207,24 +207,18 @@ function CustomerWorkspaceContent() {
         <ModuleNavigationButton active={activeTab === "settings"} icon={<Settings />} onClick={() => setActiveTab("settings")}>Cài đặt khách hàng</ModuleNavigationButton>
       </ModuleNavigation>
       <div className={cn("min-h-0 flex-1 overflow-y-auto rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-xs sm:p-4", activeTab === "list" ? "flex flex-col gap-3" : "space-y-3")}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 h-6 w-1 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-          <div>
-            <h1 className="text-lg font-semibold text-on-surface text-balance">Quản lý khách hàng</h1>
-          </div>
-        </div>
+      {canManage && (activeTab === "list" || (activeTab === "settings" && settings && !loadingSettings)) && <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {canManage && activeTab === "list" && (
           <button
             type="button"
             onClick={() => setEditing("new")}
-            className={primaryCreateButtonClass}
+            className={cn(primaryCreateButtonClass, "ml-auto")}
           >
             <Plus className="h-4 w-4" />Thêm khách hàng
           </button>
         )}
         {canManage && activeTab === "settings" && settings && !loadingSettings && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={handleAddTier}
@@ -244,7 +238,7 @@ function CustomerWorkspaceContent() {
             </button>
           </div>
         )}
-      </div>
+      </div>}
 
       {error && (
         <div role="alert" className="flex items-center gap-2 rounded-xl border border-error bg-error-container p-4 text-sm text-on-error-container">

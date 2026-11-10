@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   School, Trash2, Pencil, Users, UserPlus, X, GraduationCap,
   Tag, BookOpen, Clock, CalendarRange, MapPin, ClipboardList,
-  CalendarCheck, BarChart2, LayoutGrid, Rows3, Eye, ChevronDown, Settings
+  CalendarCheck, BarChart2, LayoutGrid, Rows3, Eye, ChevronDown, Settings, ArrowUpRight
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { apiFetch } from '../../lib/api';
@@ -39,6 +39,7 @@ import { VietnameseDatePicker } from '../../components/Batches/VietnameseDatePic
 import { AttendanceModal } from '../../components/Batches/AttendanceModal';
 import { AttendanceViewModal } from '../../components/Batches/AttendanceViewModal';
 import { ManageLearnersModal } from '../../components/Batches/ManageLearnersModal';
+import { DirectLevelPromotionModal } from '../../components/Batches/DirectLevelPromotionModal';
 import { canManageCustomFields } from '../../../shared/custom-fields/permissions';
 import type { CreateFieldInput, FieldDefinition } from '../../../shared/custom-fields/types';
 import { DEFAULT_BATCH_PROGRESS_COLORS, getBatchProgressColors, updateBatchProgressColors, type BatchProgressColors } from '../../api/batchProgressSettings.api';
@@ -327,6 +328,7 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
   const [form, setForm] = useState<BatchForm>(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [manageLearnersId, setManageLearnersId] = useState<string | null>(null);
+  const [promotionBatch, setPromotionBatch] = useState<Batch | null>(null);
   const [assignmentBatchId, setAssignmentBatchId] = useState<string | null>(null);
   const [attendanceBatchId, setAttendanceBatchId] = useState<string | null>(null);
   const [viewAttendanceBatchId, setViewAttendanceBatchId] = useState<string | null>(null);
@@ -673,6 +675,9 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
       </button>}
       {canManage && <button onClick={() => setManageLearnersId(b.id)} title={`Quản lý ${entityLabel.singular}`} className={actionButtonClass('brand')}>
         <Users className="h-4 w-4" />
+      </button>}
+      {canManage && entityLabel.preset === 'student' && b.status === 'Đã kết thúc' && <button onClick={() => setPromotionBatch(b)} title="Mở lớp level tiếp theo và chuyển học viên, không cần thi" aria-label={`Mở lớp level tiếp theo cho lớp ${b.code}`} className={actionButtonClass('brand')}>
+        <ArrowUpRight className="h-4 w-4" />
       </button>}
       {canOperateAssignedBatch && <button onClick={() => setAssignmentBatchId(b.id)} title={entityLabel.preset === 'worker' ? 'Giao nhiệm vụ' : 'Giao bài tập'} className={actionButtonClass('brand')}>
         <ClipboardList className="h-4 w-4" />
@@ -1281,6 +1286,17 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
         />
       )}
 
+      {promotionBatch && (
+        <DirectLevelPromotionModal
+          batch={promotionBatch}
+          batches={batches}
+          courses={courses}
+          classrooms={classrooms}
+          onClose={() => { setPromotionBatch(null); void reloadBatches(); }}
+          onPromoted={() => { notifyBatchMutation(); window.dispatchEvent(new Event('student-mutation')); void reloadBatches(); }}
+        />
+      )}
+
       {/* Confirm Delete Modal */}
       <ErpConfirmModal
         isOpen={deleteConfirm.isOpen}
@@ -1395,6 +1411,13 @@ export function BatchesPage({ selectedCenter, canManage = true }: { selectedCent
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+            {canManage && entityLabel.preset === 'student' && viewingBatch.status === 'Đã kết thúc' && (
+              <div className="border-t border-slate-100 pt-4">
+                <button type="button" onClick={() => { setPromotionBatch(viewingBatch); setViewingBatch(null); }} className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:bg-primary/90">
+                  <ArrowUpRight className="size-4" aria-hidden="true" /> Mở lớp level tiếp theo và chuyển học viên
+                </button>
               </div>
             )}
           </div>

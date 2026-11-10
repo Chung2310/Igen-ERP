@@ -4,6 +4,7 @@ import { IStudent, StudentStatus } from "../interfaces/student.interface";
 import { Student, slugify } from "../models/student.model";
 import { Payment } from "../models/payment.model";
 import { Batch } from "../models/batch.model";
+import { Course } from "../models/course.model";
 import { Exam } from "../models/exam.model";
 import { BatchMiniTest } from "../models/batch-mini-test.model";
 import { BatchEnrollment } from "../models/batch-enrollment.model";
@@ -16,9 +17,10 @@ import { StudentDeviceModel } from "../models/student-device.model";
 import { StudentVerificationCodeModel } from "../models/student-verification-code.model";
 import { StudentAttendanceAttemptModel } from "../models/student-attendance-attempt.model";
 import { StudentFaceEnrollmentAuditModel } from "../models/student-face-enrollment-audit.model";
-import { getPlannedSessionCount, StudentBatchEnrollmentService } from "./student-batch-enrollment.service";
+import { BatchService } from "./batch.service";
 import { BranchModel } from "../../../model/branch.model";
 import { resolveOwnerFilter } from "../utils/auth.util";
+import { parsePaymentDate } from "../utils/payment-date.util";
 import { resolveCustomFieldTenantForOwner } from "../utils/custom-field.util";
 import {
   customFieldWriteService,
@@ -60,6 +62,7 @@ interface BulkStudentInput {
   registrationDate?: string;
   enrollmentDate?: string;
   fee?: string;
+  feeProvided?: boolean;
   status?: string;
   paidAmount?: string | number;
   batchCode?: string;
@@ -99,6 +102,53 @@ function normalizePhone(phone: string): string {
 
 function normalizeBatchCode(code: unknown): string {
   return String(code || "").trim().replace(/\s+/g, " ").toLocaleUpperCase("vi-VN");
+}
+
+function isValidImportPhone(phone: string): boolean {
+  return /^0[35789]\d{8}$/.test(phone);
+}
+
+function isValidImportEmail(email: string): boolean {
+  return /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i.test(email);
+}
+
+function parseImportAmount(value: unknown): number | null {
+  if (value === undefined || value === null || String(value).trim() === "") return 0;
+  if (typeof value === "number") return Number.isSafeInteger(value) && value >= 0 ? value : null;
+
+  const normalized = String(value)
+    .trim()
+    .replace(/(?:vnđ|vnd|₫|đ)/gi, "")
+    .replace(/\s/g, "");
+  if (!/^\d+$/.test(normalized) && !/^\d{1,3}(?:[.,]\d{3})+$/.test(normalized)) return null;
+
+  const amount = Number(normalized.replace(/[.,]/g, ""));
+  return Number.isSafeInteger(amount) ? amount : null;
+}
+
+async function loadBulkImportBatches(ownerId: string | string[], branchId: string | undefined, studentsData: BulkStudentInput[]) {
+  if (!studentsData.some((student) => normalizeBatchCode(student.batchCode))) return new Map();
+
+  const ownerQuery = buildOwnerScopeQuery(ownerId);
+  const batches = await Batch.find({ ...ownerQuery, ...buildBranchScopeQuery(branchId) })
+    .select("code ownerId branchId startDate status daysOfWeek learnerIds quota courseId roadmapId");
+  const courseIds = [...new Set(batches.map((batch) => String(batch.courseId)).filter(Boolean))];
+  const courseQuery: Record<string, unknown> = { _id: { $in: courseIds }, ...ownerQuery };
+  if (branchId) {
+    // Batch creation allows a branch to use a course owned by the center with
+    // no branch assignment, so include those courses when resolving capacity.
+    courseQuery.$or = [{ branchId }, { branchId: null }, { branchId: "" }];
+  }
+  const courses = courseIds.length
+    ? await Course.find(courseQuery).select("_id maxLearners").lean()
+    : [];
+  const coursesById = new Map(courses.map((course) => [String(course._id), course]));
+
+  return new Map(batches.map((batch) => {
+    const course = coursesById.get(String(batch.courseId));
+    const quota = Number(batch.quota) > 0 ? Number(batch.quota) : Number(course?.maxLearners || 0);
+    return [normalizeBatchCode(batch.code), { batch, quota }] as const;
+  }));
 }
 
 function normalizeFee(fee: unknown): string {
@@ -196,6 +246,7 @@ export class StudentService {
       phone: normalizePhone(String(writeData.phone ?? "")),
       idCard: typeof writeData.idCard === "string" ? normalizeIdCard(writeData.idCard) : writeData.idCard,
       fee: normalizeFee(writeData.fee),
+      tuitionWaived: false,
       courseId: typeof writeData.courseId === "string" ? writeData.courseId.trim() : writeData.courseId,
     };
 
@@ -336,6 +387,8 @@ export class StudentService {
     }
     if (typeof writeData.fee !== "undefined") {
       writeData.fee = normalizeFee(writeData.fee);
+      // A manually edited fee is no longer the explicit free-tuition marker from Excel.
+      writeData.tuitionWaived = false;
     }
     if (typeof writeData.courseId === "string") {
       writeData.courseId = writeData.courseId.trim();
@@ -378,7 +431,12 @@ export class StudentService {
           if (amountChanged || dateChanged || noteChanged) {
             await Payment.updateOne(
               { _id: newItem.id as string, ownerId: studentOwnerId },
-              { $set: { amount: Number(newItem.amount), date: newItem.date, note: newItem.note } },
+              { $set: {
+                amount: Number(newItem.amount),
+                date: newItem.date,
+                paidOn: parsePaymentDate(newItem.date),
+                note: newItem.note,
+              } },
             );
           }
         }
@@ -549,23 +607,35 @@ export class StudentService {
     let skippedCount = 0;
     const errors: { row: number; name: string; phone: string; reason: string }[] = [];
     const validStudents: Partial<IStudent>[] = [];
+    const acceptedInputs: BulkStudentInput[] = [];
+    const tuitionUpdates: Array<{ id: string; phone: string; fee: string; tuitionWaived: boolean }> = [];
+    const importedPayments: Array<{
+      _id: Types.ObjectId;
+      studentId: string;
+      studentName: string;
+      amount: number;
+      method: "Chuyển khoản";
+      date: string;
+      paidOn?: Date;
+      note: string;
+      ownerId: string;
+      branchId?: string;
+    }> = [];
 
     const seenPhonesInBatch = new Set<string>();
     const seenEmailsInBatch = new Set<string>();
+    const plannedBatchAdds = new Map<string, number>();
 
     const query: Record<string, unknown> = {
       ...buildOwnerScopeQuery(ownerId),
       ...buildBranchScopeQuery(branchId),
     };
-    const existingStudents = await Student.find(query).select("phone email");
+    const existingStudents = await Student.find(query).select("_id phone email paidAmount");
     const existingPhones = new Set(existingStudents.map((s) => normalizePhone(s.phone)));
     const existingEmails = new Set(existingStudents.map((s) => normalizeEmail(s.email || "")).filter(Boolean));
+    const existingStudentsByPhone = new Map(existingStudents.map((student) => [normalizePhone(student.phone), student]));
 
-    // Chỉ truy vấn lớp khi file thực sự có cột/mã lớp. Nhập học viên thuần túy
-    // không cần phụ thuộc vào collection lớp (và tránh một truy vấn không cần thiết).
-    const hasBatchCode = studentsData.some((student) => Boolean(normalizeBatchCode(student.batchCode)));
-    const availableBatches = hasBatchCode ? await Batch.find(query).select("code ownerId branchId startDate endDate daysOfWeek learnerIds") : [];
-    const batchesByCode = new Map(availableBatches.map((batch) => [normalizeBatchCode(batch.code), batch]));
+    const batchesByCode = await loadBulkImportBatches(ownerId, branchId, studentsData);
 
     for (let i = 0; i < studentsData.length; i++) {
       const rowNum = Number.isInteger(studentsData[i]?.sourceRow) && Number(studentsData[i]?.sourceRow) > 0
@@ -576,29 +646,6 @@ export class StudentService {
       const phone = normalizePhone(String(data.phone || ""));
       const rank = String(data.rank || "").trim().toUpperCase();
       const batchCode = normalizeBatchCode(data.batchCode);
-
-      if (!fullName) {
-        errors.push({ row: rowNum, name: fullName, phone, reason: "Họ và tên không được để trống." });
-        skippedCount++;
-        continue;
-      }
-      if (!phone) {
-        errors.push({ row: rowNum, name: fullName, phone, reason: "Số điện thoại không được để trống." });
-        skippedCount++;
-        continue;
-      }
-      if (seenPhonesInBatch.has(phone)) {
-        errors.push({ row: rowNum, name: fullName, phone, reason: "Số điện thoại bị trùng lặp trong file import." });
-        skippedCount++;
-        continue;
-      }
-      seenPhonesInBatch.add(phone);
-
-      if (existingPhones.has(phone)) {
-        errors.push({ row: rowNum, name: fullName, phone, reason: "Số điện thoại đã tồn tại trong trung tâm hiện tại." });
-        skippedCount++;
-        continue;
-      }
 
       const birthday = String(data.birthday || "").trim();
       const idCard = normalizeIdCard(String(data.idCard || ""));
@@ -611,47 +658,91 @@ export class StudentService {
       const defaultStatus = businessType === "driving" ? "Chờ KSK" : "Đang học";
       const status = String(data.status || defaultStatus).trim();
 
-      if (!email) {
-        errors.push({ row: rowNum, name: fullName, phone, reason: "Email không được để trống." });
+      const feeNum = parseImportAmount(fee);
+      const paidAmount = parseImportAmount(data.paidAmount);
+      const existingStudent = existingStudentsByPhone.get(phone);
+      const isTuitionUpdate = Boolean(data.feeProvided && existingStudent);
+      const rowErrors: string[] = [];
+
+      if (!fullName) rowErrors.push("Họ và tên không được để trống.");
+      if (!phone) rowErrors.push("Số điện thoại không được để trống.");
+      else if (!isValidImportPhone(phone)) rowErrors.push("Số điện thoại không hợp lệ (phải gồm 10 chữ số bắt đầu bằng 03, 05, 07, 08 hoặc 09).");
+      else if (seenPhonesInBatch.has(phone)) rowErrors.push("Số điện thoại bị trùng lặp trong file import.");
+      else if (existingPhones.has(phone) && !isTuitionUpdate) rowErrors.push("Số điện thoại đã tồn tại trong trung tâm hiện tại. Chỉ cập nhật học phí khi file có cột học phí và số điện thoại khớp.");
+
+      if (!email && !isTuitionUpdate) rowErrors.push("Email không được để trống.");
+      else if (email && !isValidImportEmail(email) && !isTuitionUpdate) rowErrors.push("Định dạng email không hợp lệ.");
+      else if (email && seenEmailsInBatch.has(email) && !isTuitionUpdate) rowErrors.push("Email bị trùng lặp trong file import.");
+      else if (email && existingEmails.has(email) && !isTuitionUpdate) rowErrors.push("Email đã tồn tại trong trung tâm hiện tại.");
+
+      const importBatch = batchCode ? batchesByCode.get(batchCode) : undefined;
+      if (!isTuitionUpdate && batchCode && !importBatch) {
+        rowErrors.push(`Mã lớp "${String(data.batchCode || "").trim()}" không tồn tại trong chi nhánh hiện tại.`);
+      }
+      if (feeNum === null) rowErrors.push("Học phí phải là số nguyên không âm.");
+      if (paidAmount === null) rowErrors.push("Số tiền đã đóng phải là số nguyên không âm.");
+      if (isTuitionUpdate && feeNum !== null && feeNum < Number(existingStudent?.paidAmount || 0)) {
+        rowErrors.push("Học phí mới không được thấp hơn số tiền học viên đã đóng.");
+      }
+      if (feeNum !== null && paidAmount !== null && paidAmount > feeNum) {
+        rowErrors.push("Số tiền đã đóng không được vượt quá học phí.");
+      }
+      if (!isTuitionUpdate && importBatch && importBatch.quota > 0) {
+        const plannedAdds = plannedBatchAdds.get(batchCode) || 0;
+        if (importBatch.batch.learnerIds.length + plannedAdds >= importBatch.quota) {
+          rowErrors.push(`Lớp đã đạt sĩ số tối đa (${importBatch.quota} học viên).`);
+        }
+      }
+
+      if (rowErrors.length > 0) {
+        for (const reason of rowErrors) errors.push({ row: rowNum, name: fullName, phone, reason });
         skippedCount++;
         continue;
       }
 
-      if (seenEmailsInBatch.has(email)) {
-        errors.push({ row: rowNum, name: fullName, phone, reason: "Email bị trùng lặp trong file import." });
-        skippedCount++;
+      const safeFee = feeNum ?? 0;
+      const importedPaidAmount = paidAmount ?? 0;
+      seenPhonesInBatch.add(phone);
+      if (email && !isTuitionUpdate) seenEmailsInBatch.add(email);
+      if (isTuitionUpdate && existingStudent) {
+        tuitionUpdates.push({
+          id: String(existingStudent._id),
+          phone,
+          fee: safeFee.toLocaleString("vi-VN"),
+          tuitionWaived: safeFee === 0,
+        });
         continue;
       }
-
-      if (batchCode && !batchesByCode.has(batchCode)) {
-        errors.push({ row: rowNum, name: fullName, phone, reason: `Mã lớp "${String(data.batchCode || "").trim()}" không tồn tại trong chi nhánh hiện tại.` });
-        skippedCount++;
-        continue;
-      }
-      seenEmailsInBatch.add(email);
-
-      if (existingEmails.has(email)) {
-        errors.push({ row: rowNum, name: fullName, phone, reason: "Email đã tồn tại trong trung tâm hiện tại." });
-        skippedCount++;
-        continue;
-      }
-
-      const feeNum = parseInt(fee.replace(/\D/g, ""), 10) || 0;
-      const paidAmount = parseInt(String(data.paidAmount || "0").replace(/\D/g, ""), 10) || 0;
+      if (batchCode) plannedBatchAdds.set(batchCode, (plannedBatchAdds.get(batchCode) || 0) + 1);
+      const studentId = new Types.ObjectId();
+      const paymentId = importedPaidAmount > 0 ? new Types.ObjectId() : null;
 
       const paymentHistory: NonNullable<IStudent["paymentHistory"]> = [];
-      if (paidAmount > 0) {
+      if (paymentId) {
         paymentHistory.push({
-          id: new Types.ObjectId().toString(),
-          amount: Math.min(paidAmount, feeNum),
+          id: paymentId.toString(),
+          amount: importedPaidAmount,
           date: registrationDate,
           method: "Chuyển khoản",
           note: "Nhập từ file Excel",
           recipient: "Hệ thống",
         });
+        importedPayments.push({
+          _id: paymentId,
+          studentId: studentId.toString(),
+          studentName: fullName,
+          amount: importedPaidAmount,
+          method: "Chuyển khoản",
+          date: registrationDate,
+          paidOn: parsePaymentDate(registrationDate) ?? undefined,
+          note: "Nhập từ file Excel",
+          ownerId: targetOwnerId || creatorId,
+          branchId,
+        });
       }
 
       validStudents.push({
+        _id: studentId,
         fullName,
         slug: slugify(fullName),
         phone,
@@ -662,8 +753,9 @@ export class StudentService {
         rank,
         registrationDate,
         enrollmentDate,
-        fee,
-        paidAmount: Math.min(paidAmount, feeNum),
+        fee: fee || safeFee.toLocaleString("vi-VN"),
+        tuitionWaived: data.feeProvided === true && safeFee === 0,
+        paidAmount: importedPaidAmount,
         paymentHistory,
         address,
         status: [status as StudentStatus],
@@ -672,50 +764,69 @@ export class StudentService {
         createdByName: creatorName || "",
         branchId,
       });
+      acceptedInputs.push(data);
 
       existingPhones.add(phone);
     }
 
     if (validStudents.length > 0) {
       const results = await Student.insertMany(validStudents);
+      if (importedPayments.length > 0) await Payment.insertMany(importedPayments);
       importedCount = results.length;
-      logger.info(`[Student] Bulk import complete: successfully imported ${importedCount} students, skipped ${skippedCount} students`);
+      logger.info(`[Student] Bulk import complete: imported ${importedCount} students, updated tuition for ${tuitionUpdates.length}, skipped ${skippedCount} rows`);
 
       // Link students to their respective batches/classes if batchCode is provided
       for (let j = 0; j < results.length; j++) {
         const savedStudent = results[j];
-        const matchingInput = studentsData.find(s => normalizePhone(s.phone || "") === normalizePhone(savedStudent.phone || ""));
-        if (matchingInput && matchingInput.batchCode) {
+        const matchingInput = acceptedInputs[j];
+        if (matchingInput?.batchCode) {
           const code = normalizeBatchCode(matchingInput.batchCode);
           if (code) {
-            const batch = batchesByCode.get(code);
-            if (batch) {
+            const importBatch = batchesByCode.get(code);
+            if (importBatch) {
               const studentIdStr = savedStudent._id.toString();
-              if (!batch.learnerIds.includes(studentIdStr)) {
-                batch.learnerIds.push(studentIdStr);
-                await batch.save();
-                await StudentBatchEnrollmentService.activate({
-                  ownerId: String(batch.ownerId),
-                  branchId: batch.branchId,
-                  batchId: String(batch._id),
-                  studentId: studentIdStr,
-                  actorId: creatorId,
-                  allowedSessions: getPlannedSessionCount(batch),
-                });
-                logger.info(`[Student Import] Linked student ${savedStudent.fullName} (${studentIdStr}) to batch ${batch.code}`);
+              await BatchService.addLearner(
+                ownerId,
+                String(importBatch.batch._id),
+                studentIdStr,
+                "general",
+                branchId,
+                creatorId,
+              );
+              const importedEnrollmentDate = String(matchingInput.enrollmentDate || "").trim();
+              if (importedEnrollmentDate) {
+                await Student.updateOne(
+                  { _id: savedStudent._id, ...query },
+                  { $set: { enrollmentDate: importedEnrollmentDate } },
+                );
               }
+              logger.info(`[Student Import] Linked student ${savedStudent.fullName} (${studentIdStr}) to batch ${importBatch.batch.code}`);
             } else {
               logger.warn(`[Student Import] Batch with code ${code} not found for owner scope ${ownerId}`);
             }
           }
         }
       }
-    } else {
-      logger.info(`[Student] Bulk import complete: no valid students to import. Skipped ${skippedCount} students`);
+    }
+
+    let updatedFeeCount = 0;
+    if (tuitionUpdates.length > 0) {
+      const result = await Student.bulkWrite(tuitionUpdates.map((update) => ({
+        updateOne: {
+          filter: { _id: update.id, phone: update.phone, ...query },
+          update: { $set: { fee: update.fee, tuitionWaived: update.tuitionWaived } },
+        },
+      })));
+      updatedFeeCount = result.matchedCount;
+    }
+
+    if (validStudents.length === 0 && tuitionUpdates.length === 0) {
+      logger.info(`[Student] Bulk import complete: no valid students or tuition updates. Skipped ${skippedCount} rows`);
     }
 
     return {
       importedCount,
+      updatedFeeCount,
       skippedCount,
       errors,
     };
@@ -726,12 +837,16 @@ export class StudentService {
       ...buildOwnerScopeQuery(ownerId),
       ...buildBranchScopeQuery(branchId),
     };
-    const existingStudents = await Student.find(query).select("phone email");
+    const existingStudents = await Student.find(query).select("_id phone email paidAmount");
     const existingPhones = new Set(existingStudents.map((student) => normalizePhone(student.phone)));
     const existingEmails = new Set(existingStudents.map((student) => normalizeEmail(student.email || "")).filter(Boolean));
+    const existingStudentsByPhone = new Map(existingStudents.map((student) => [normalizePhone(student.phone), student]));
     const seenPhones = new Set<string>();
     const seenEmails = new Set<string>();
+    const plannedBatchAdds = new Map<string, number>();
     const errors: BulkStudentValidationError[] = [];
+    const feeUpdates: Array<{ index: number; row: number; name: string }> = [];
+    const batchesByCode = await loadBulkImportBatches(ownerId, branchId, studentsData);
 
     const addError = (index: number, data: BulkStudentInput, reason: string) => {
       errors.push({
@@ -746,21 +861,49 @@ export class StudentService {
     studentsData.forEach((data, index) => {
       const phone = normalizePhone(String(data.phone || ""));
       const email = normalizeEmail(String(data.email || ""));
-      if (phone) {
-        if (seenPhones.has(phone)) addError(index, data, "Số điện thoại bị trùng lặp trong file import.");
-        else if (existingPhones.has(phone)) addError(index, data, "Số điện thoại đã tồn tại trong trung tâm hiện tại.");
-        seenPhones.add(phone);
+      const fullName = String(data.fullName || "").trim();
+      const batchCode = normalizeBatchCode(data.batchCode);
+      const existingStudent = existingStudentsByPhone.get(phone);
+      const isTuitionUpdate = Boolean(data.feeProvided && existingStudent);
+      const rowErrors: string[] = [];
+
+      if (!fullName) rowErrors.push("Họ và tên không được để trống.");
+      if (!phone) rowErrors.push("Số điện thoại không được để trống.");
+      else if (!isValidImportPhone(phone)) rowErrors.push("Số điện thoại không hợp lệ (phải gồm 10 chữ số bắt đầu bằng 03, 05, 07, 08 hoặc 09).");
+      else if (seenPhones.has(phone)) rowErrors.push("Số điện thoại bị trùng lặp trong file import.");
+      else if (existingPhones.has(phone) && !isTuitionUpdate) rowErrors.push("Số điện thoại đã tồn tại trong trung tâm hiện tại. Chỉ cập nhật học phí khi file có cột học phí và số điện thoại khớp.");
+
+      if (!email && !isTuitionUpdate) rowErrors.push("Email không được để trống.");
+      else if (email && !isValidImportEmail(email) && !isTuitionUpdate) rowErrors.push("Định dạng email không hợp lệ.");
+      else if (email && seenEmails.has(email) && !isTuitionUpdate) rowErrors.push("Email bị trùng lặp trong file import.");
+      else if (email && existingEmails.has(email) && !isTuitionUpdate) rowErrors.push("Email đã tồn tại trong trung tâm hiện tại.");
+
+      const fee = parseImportAmount(data.fee);
+      const paidAmount = parseImportAmount(data.paidAmount);
+      if (fee === null) rowErrors.push("Học phí phải là số nguyên không âm.");
+      if (paidAmount === null) rowErrors.push("Số tiền đã đóng phải là số nguyên không âm.");
+      if (isTuitionUpdate && fee !== null && fee < Number(existingStudent?.paidAmount || 0)) rowErrors.push("Học phí mới không được thấp hơn số tiền học viên đã đóng.");
+      if (fee !== null && paidAmount !== null && paidAmount > fee) rowErrors.push("Số tiền đã đóng không được vượt quá học phí.");
+
+      const importBatch = !isTuitionUpdate && batchCode ? batchesByCode.get(batchCode) : undefined;
+      if (!isTuitionUpdate && batchCode && !importBatch) rowErrors.push(`Mã lớp "${String(data.batchCode || "").trim()}" không tồn tại trong chi nhánh hiện tại.`);
+      if (!isTuitionUpdate && importBatch && importBatch.quota > 0) {
+        const plannedAdds = plannedBatchAdds.get(batchCode) || 0;
+        if (importBatch.batch.learnerIds.length + plannedAdds >= importBatch.quota) {
+          rowErrors.push(`Lớp đã đạt sĩ số tối đa (${importBatch.quota} học viên).`);
+        }
       }
-      if (!email) {
-        addError(index, data, "Email không được để trống.");
-      } else {
-        if (seenEmails.has(email)) addError(index, data, "Email bị trùng lặp trong file import.");
-        else if (existingEmails.has(email)) addError(index, data, "Email đã tồn tại trong trung tâm hiện tại.");
-        seenEmails.add(email);
+
+      for (const reason of rowErrors) addError(index, data, reason);
+      if (rowErrors.length === 0) {
+        seenPhones.add(phone);
+        if (email && !isTuitionUpdate) seenEmails.add(email);
+        if (isTuitionUpdate) feeUpdates.push({ index, row: Number(data.sourceRow) || index + 1, name: fullName });
+        else if (batchCode) plannedBatchAdds.set(batchCode, (plannedBatchAdds.get(batchCode) || 0) + 1);
       }
     });
 
-    return { errors };
+    return { errors, feeUpdates };
   }
 
   static async markInstallmentPaid(

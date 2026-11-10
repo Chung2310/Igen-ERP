@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
-import { HrPageTitle } from "./HrPageTitle";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ModuleNavigation, ModuleNavigationButton } from "../common/ModuleNavigation";
 import {
@@ -1483,7 +1482,6 @@ export default function CalendarTab({
           <div className="mb-2 shrink-0 rounded-xl border border-[#DCE7F4] bg-white px-3 py-2 text-left font-normal">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <HrPageTitle>Lịch làm việc</HrPageTitle>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={handlePrevMonth} className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8F7FF] text-[#007EB8] transition-colors hover:bg-[#D7F1FF]" title="Tháng trước" aria-label="Tháng trước"><ChevronLeft className="h-4 w-4" /></button>
                   <DateInput24 value={formatLocalDate(currentDate)} onChange={(date) => { if (date) setCurrentDate(new Date(`${date}T00:00:00`)); }} ariaLabel="Chọn ngày xem lịch" required className="!min-h-9 !w-36 !rounded-lg !px-1.5" />

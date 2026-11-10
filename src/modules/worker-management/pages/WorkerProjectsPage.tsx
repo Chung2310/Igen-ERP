@@ -27,7 +27,6 @@ import { WorkerTimekeepingPanel } from "../components/WorkerTimekeepingPanel";
 import { WorkerQrAttendance } from "../components/WorkerQrAttendance";
 import { WorkerTimekeepingHistory } from "../components/WorkerTimekeepingHistory";
 import { HrEmptyIllustration, type HrEmptyIllustrationKind } from "../../../components/hr/HrEmptyIllustration";
-import { HrPageTitle } from "../../../components/hr/HrPageTitle";
 import { HrStatusBadge } from "../../../components/hr/HrStatusBadge";
 import { primaryCreateButtonClass } from "../../../components/common/primaryCreateButton";
 import { cn } from "../../student-management/lib/utils";
@@ -445,7 +444,6 @@ export function WorkerProjectsPage({
     <div className="space-y-3 text-left">
       {/* Row 1: Title + count */}
       <div>
-        <HrPageTitle level={1}>Dự án tuyển dụng</HrPageTitle>
         <p className="mt-1 pl-4 text-xs tabular-nums text-on-surface-variant">
           {loading ? "..." : `${total}`} dự án
         </p>

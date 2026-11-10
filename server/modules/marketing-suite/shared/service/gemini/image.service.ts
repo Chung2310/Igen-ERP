@@ -2,6 +2,7 @@
 import sharp from "sharp";
 import { cloudinaryService } from "../cloudinary.service.ts";
 import { openrouterGenerateImage } from "../openrouter.service.ts";
+import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL } from "../../../../../service/openrouter-image-api";
 import { clampRegion, readImageBuffer } from "./core";
 import type { NormalizedImageRegion } from "./types";
 
@@ -46,8 +47,8 @@ export class GeminiImageService {
     const model = requestedModel === "gemini-banana-pro"
       ? "google/gemini-3-pro-image"
       : requestedModel === "gemini-banana-flash"
-        ? "google/gemini-3.1-flash-image"
-        : requestedModel || (process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image");
+        ? ((options?.existingImageUris?.length || 0) > 0 ? IMAGE_EDIT_MODEL : DEFAULT_IMAGE_MODEL)
+        : requestedModel || (process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL);
     const negativePrompt = String(options?.negativePrompt || "").trim();
     const finalPrompt = negativePrompt
       ? `${prompt}\n\nAvoid the following: ${negativePrompt}`

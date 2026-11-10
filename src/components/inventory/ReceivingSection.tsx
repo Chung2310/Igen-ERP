@@ -178,10 +178,7 @@ export function ReceivingSection() {
     <section className="space-y-5" aria-label="Nhập hàng">
       {/* ── Page Header ── */}
       <div className="flex flex-col gap-3 pb-2 sm:flex-row sm:items-center sm:justify-between border-b border-outline-variant">
-        <div>
-          <h2 data-typography="page-title" className="text-on-surface">Nhập hàng</h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <ErpRefreshButton onClick={() => void load()} loading={loading} title="Làm mới danh sách" />
           {viewingReceipt?.status === "draft" && (
             <button

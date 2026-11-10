@@ -385,16 +385,12 @@ export function InventoryTransferSection({
       <div className="inventory-transfer-overview">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant pb-3">
           <div className="flex items-center gap-2">
-            <h2 data-typography="page-title" className="text-on-surface">
-              <ArrowLeftRight className="mr-1 inline size-5 align-[-0.2em] text-primary" aria-hidden="true" />
-              Điều chuyển kho
-            </h2>
             <span className="rounded-full bg-cyan-100 px-2.5 py-0.5 text-xs font-semibold text-cyan-800">
               {total} phiếu
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="ml-auto flex items-center gap-2.5">
             <ErpRefreshButton onClick={() => setRevision((v) => v + 1)} loading={loading} title="Làm mới danh sách" />
 
             {canManage && (

@@ -38,20 +38,31 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
   const [appliedEndDate, setAppliedEndDate] = useState('');
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState('');
 
   const fetchPayments = React.useCallback(async () => {
     setPaymentsLoading(true);
+    setPaymentsError('');
     try {
-      const result = await apiFetch<{ success: boolean; payments?: PaymentRecord[] }>('/payments', { params: { startDate: appliedStartDate, endDate: appliedEndDate, limit: 1000 } });
+      const result = await apiFetch<{ success: boolean; payments?: PaymentRecord[]; error?: string; message?: string }>('/payments', {
+        params: { ownerFilter: resolvedCenter, startDate: appliedStartDate, endDate: appliedEndDate, limit: 1000 },
+      });
+      if (!result.success) throw new Error(result.error || result.message || 'Không thể tải dữ liệu thanh toán.');
       setPayments(result.payments || []);
     } catch (error) {
       console.error('Error fetching payments:', error);
+      setPaymentsError(error instanceof Error ? error.message : 'Không thể tải dữ liệu học phí. Vui lòng thử lại.');
     } finally {
       setPaymentsLoading(false);
     }
-  }, [appliedStartDate, appliedEndDate]);
+  }, [resolvedCenter, appliedStartDate, appliedEndDate]);
 
-  React.useEffect(() => { void fetchPayments(); }, [fetchPayments]);
+  React.useEffect(() => {
+    void fetchPayments();
+    const handlePaymentMutation = () => { void fetchPayments(); };
+    window.addEventListener('payment-mutation', handlePaymentMutation);
+    return () => window.removeEventListener('payment-mutation', handlePaymentMutation);
+  }, [fetchPayments]);
   const applyQuickRange = (days: number) => {
     const end = toDateInput(new Date());
     const start = new Date();
@@ -62,13 +73,20 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
     setAppliedStartDate(startValue);
     setAppliedEndDate(end);
   };
-  const periodStudentIds = React.useMemo(() => new Set(payments.map((payment) => String(payment.studentId))), [payments]);
   const periodPaidByStudent = React.useMemo(() => payments.reduce<Record<string, number>>((total, payment) => {
     total[String(payment.studentId)] = (total[String(payment.studentId)] || 0) + Number(payment.amount || 0);
     return total;
   }, {}), [payments]);
+  const hasDateFilter = Boolean(appliedStartDate || appliedEndDate);
+  const paidForStudent = (student: Student) => {
+    const paymentTotal = periodPaidByStudent[String(student.id)];
+    if (hasDateFilter) return paymentTotal || 0;
+    // Keep older imported records visible even if they predate Payment documents.
+    return paymentTotal ?? Number(student.paidAmount || 0);
+  };
   const studentsInPeriod = React.useMemo(() => {
-    const activeStudents = students.filter((student) => periodStudentIds.has(String(student.id)));
+    // Tuition rows come from student records; students with 0 paid have no Payment document.
+    const activeStudents = students;
     const activeIds = new Set(activeStudents.map((student) => String(student.id)));
     const archivedById = new Map<string, { name: string; paid: number; lastPaidOn?: string }>();
     payments.forEach((payment) => {
@@ -84,7 +102,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       status: [], registrationDate: '', updatedAt: record.lastPaidOn || '', paymentHistory: [],
     } as Student));
     return [...activeStudents, ...archivedStudents];
-  }, [students, periodStudentIds, payments]);
+  }, [students, payments]);
 
   // Modal state
   const [selectedStudentForPayment, setSelectedStudentForPayment] = useState<Student | null>(null);
@@ -117,7 +135,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
     // Map data to CSV rows
     const rows = filteredStudents.map(student => {
       const total = parseCurrency(student.fee || '0');
-      const paid = periodPaidByStudent[String(student.id)] || 0;
+      const paid = paidForStudent(student);
       const debt = total - paid;
       const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
 
@@ -154,7 +172,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
   // Stats calculation (computed from all students)
   const stats = studentsInPeriod.reduce((acc, student) => {
     const total = parseCurrency(student.fee || '0');
-    const paid = periodPaidByStudent[String(student.id)] || 0;
+    const paid = paidForStudent(student);
     const debt = total - paid;
 
     acc.totalFee += total;
@@ -167,9 +185,12 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
 
   const filteredStudents = studentsInPeriod.filter(student => {
     const total = parseCurrency(student.fee || '0');
-    const paid = periodPaidByStudent[String(student.id)] || 0;
+    const paid = paidForStudent(student);
     const debt = total - paid;
+    const tuitionWaived = student.tuitionWaived === true && total === 0;
 
+    if (debtFilter === 'Miễn phí' && !tuitionWaived) return false;
+    if (debtFilter !== 'Miễn phí' && tuitionWaived) return false;
     if (debtFilter === 'Còn nợ' && debt <= 0) return false;
     if (debtFilter === 'Đã hoàn thành' && debt > 0) return false;
     if (searchQuery && !student.fullName.toLowerCase().includes(searchQuery.toLowerCase()) && !student.phone.includes(searchQuery)) return false;
@@ -192,10 +213,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
     <div className="space-y-4 p-3 sm:p-4">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-        <div className="relative pl-3.5 before:absolute before:left-0 before:top-0.5 before:h-5 before:w-1 before:rounded-full before:bg-primary">
-          <h1 className="text-balance text-lg font-semibold text-on-surface">Học phí</h1>
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <button
             onClick={handleExport}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary md:flex-none"
@@ -281,7 +299,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       <div className="grid grid-cols-1 gap-2 rounded-md border border-outline-variant bg-surface-container-lowest p-3 shadow-sm sm:grid-cols-3">
         <div className="space-y-0.5">
           <label className="text-xs font-normal text-slate-600">Trạng thái nợ</label>
-          <RoadmapPicker value={debtFilter} placeholder="Tất cả" allowClear={false} options={[{ value: 'Tất cả', label: 'Tất cả' }, { value: 'Còn nợ', label: 'Còn nợ' }, { value: 'Đã hoàn thành', label: 'Đã hoàn thành' }]} onChange={setDebtFilter} />
+          <RoadmapPicker value={debtFilter} placeholder="Tất cả" allowClear={false} options={[{ value: 'Tất cả', label: 'Tất cả' }, { value: 'Còn nợ', label: 'Còn nợ' }, { value: 'Đã hoàn thành', label: 'Đã hoàn thành' }, { value: 'Miễn phí', label: 'Miễn phí' }]} onChange={setDebtFilter} />
         </div>
 
         <div className="space-y-0.5 sm:col-span-2">
@@ -299,6 +317,15 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
           </div>
         </div>
       </div>
+
+      {paymentsError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <span>Không tải được giao dịch học phí: {paymentsError}</span>
+          <button type="button" onClick={() => void fetchPayments()} disabled={paymentsLoading} className="rounded-md border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-50">
+            Thử tải lại
+          </button>
+        </div>
+      )}
 
       {/* Table Section */}
       <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-sm">
@@ -329,9 +356,10 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                 </tr>
               ) : paginatedStudents.map((student) => {
                 const total = parseCurrency(student.fee || '0');
-                const paid = periodPaidByStudent[String(student.id)] || 0;
+                const paid = paidForStudent(student);
                 const debt = total - paid;
                 const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
+                const tuitionWaived = student.tuitionWaived === true && total === 0;
 
                 return (
                   <tr key={student.id} className="group transition-colors hover:bg-sky-50/40">
@@ -379,7 +407,9 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                       </span>
                     </td>
                     <td className="px-3 py-1.5 border-b border-slate-50 min-w-[100px]">
-                      <div className="flex items-center gap-2">
+                      {tuitionWaived ? (
+                        <span className="inline-flex whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Miễn phí</span>
+                      ) : <div className="flex items-center gap-2">
                         <div className="flex-1 h-1 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
                           <motion.div
                             initial={false}
@@ -391,7 +421,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                           />
                         </div>
                         <span className="w-7 text-xs font-normal text-slate-500">{progress}%</span>
-                      </div>
+                      </div>}
                     </td>
                     <td className="px-3 py-1.5 border-b border-slate-50 text-center">
                       <span className="text-xs font-normal text-slate-500">

@@ -16,7 +16,6 @@ import { DateInput24 } from "../common/TimeInput24";
 import { HrFormSelect } from "./HrFormSelect";
 import { primaryCreateButtonClass } from "../common/primaryCreateButton";
 import { HrEmptyIllustration } from "./HrEmptyIllustration";
-import { HrPageTitle } from "./HrPageTitle";
 import { HrStatusBadge } from "./HrStatusBadge";
 import { ContractSignaturePad } from "./ContractSignaturePad";
 import type { ResourceItem } from "../../types";
@@ -582,7 +581,6 @@ export default function ContractsTab({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div>
-              <HrPageTitle>{tab === "extensions" ? "Gia hạn hợp đồng" : "Quản lý hợp đồng"}</HrPageTitle>
               <p className="mt-0.5 text-sm text-on-surface-variant">
                 {tab === "extensions"
                   ? "Theo dõi lịch sử gia hạn hợp đồng của từng nhân viên."

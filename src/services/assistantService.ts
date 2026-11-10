@@ -6,6 +6,7 @@ export interface AssistantConversationCursor { before: string; beforeId: string;
 export interface AssistantConversationPage { items: AssistantConversationSummary[]; nextCursor: AssistantConversationCursor | null; }
 export interface AssistantMemory { id: string; content: string; source?: "explicit" | "manual" | "automatic"; createdAt: string; updatedAt: string; lastUsedAt?: string | null; }
 export interface AssistantSessionMemory { summary: string; summaryMessageCount: number; version: number; messageCount: number; busy?: boolean; updatedAt?: string | null; }
+export interface AssistantStudioTranscript { id: string; fileName: string; text: string; createdAt: string; }
 async function request<T>(path: string, init: RequestInit = {}, branchId?: string, deviceId?: string): Promise<T> {
   const token = localStorage.getItem("accessToken");
   const response = await fetch(`/api/v1/chatbot/assistant${path}`, { ...init, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(branchId ? { "x-branch-id": branchId } : {}), ...(deviceId ? { "x-device-id": deviceId } : {}), ...init.headers } });
@@ -14,6 +15,20 @@ async function request<T>(path: string, init: RequestInit = {}, branchId?: strin
   return result.data;
 }
 export const assistantService = {
+  studioTranscripts: () => request<AssistantStudioTranscript[]>("/studio/transcriptions"),
+  transcribeStudioAudio: async (file: File): Promise<AssistantStudioTranscript> => {
+    const form = new FormData();
+    form.append("audio", file);
+    const token = localStorage.getItem("accessToken");
+    const response = await fetch("/api/v1/chatbot/assistant/studio/transcriptions", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) throw new Error(result.message || "Không thể chuyển giọng nói thành văn bản.");
+    return result.data as AssistantStudioTranscript;
+  },
   settings: (signal?: AbortSignal) => request<AssistantSettings>("/settings", { signal }),
   saveSettings: (data: AssistantSettings) => request<AssistantSettings>("/settings", { method: "PATCH", body: JSON.stringify(data) }),
   memories: (signal?: AbortSignal) => request<AssistantMemory[]>("/memory", { signal }),
