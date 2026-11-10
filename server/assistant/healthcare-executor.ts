@@ -172,7 +172,9 @@ export function projectHealthcareRecords(op: AssistantOperation, response: any):
     if (row.preview && typeof row.preview === "object") Object.defineProperty(safe, "__assistantImportPreview", { value: row.preview, enumerable: false });
     const label = row.name || row.title || row.filename || patient?.name || row.code || "Hồ sơ y tế";
     const timestamp = row.startsAt || row.visitedOn || row.dueOn || row.createdAt;
-    safe.displayName = [label, row.code || patient?.code, row.phone || patient?.phone, row.kind && healthcareValue("kind", row.kind), timestamp && healthcareValue("date", timestamp), row.status && healthcareValue("status", row.status)].filter(Boolean).join(" · ");
+    // Reference option values can be saved in pending conversations; preserve their existing date punctuation.
+    const timeLabel = timestamp && healthcareValue("date", timestamp).replace(/(\d{2}:\d{2}), (?=\d{2}\/\d{2}\/\d{4})/, "$1 ");
+    safe.displayName = [label, row.code || patient?.code, row.phone || patient?.phone, row.kind && healthcareValue("kind", row.kind), timeLabel, row.status && healthcareValue("status", row.status)].filter(Boolean).join(" · ");
     Object.defineProperty(safe, "__assistantHealthcareRecord", { value: row, enumerable: false });
     return safe;
   });

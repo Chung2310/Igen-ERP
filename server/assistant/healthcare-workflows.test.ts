@@ -8,7 +8,7 @@ import { ASSISTANT_OPERATIONS, defaultWorkflow } from "./catalog";
 import { collectValues } from "./policy";
 import { callOperation, lookupRecords, resolveReferences, suggestReferenceOptions, UncertainExecutionError } from "./executor";
 import { healthcareAttachment } from "./healthcare-executor";
-import { formatHealthcareResult } from "./healthcare-result";
+import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
 import { appointmentInput, patientInput, versioned } from "../modules/healthcare/validation";
 import { parseAssistantResultTable } from "../../src/components/common/assistant-message-format";
 
@@ -47,6 +47,15 @@ it("keeps patient search terms in POST bodies and uses only the authenticated br
   expect(url.search).toBe("");
   expect(init.headers).toMatchObject({ Authorization: "Bearer scoped", "x-branch-id": branch });
   expect(JSON.parse(String(init.body))).toEqual({ q: "Nguyễn An", page: 2, pageSize: 25 });
+});
+
+it("continues resolving previously saved reference labels after localizing preview times", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => response({ items: [{ ...patient, createdAt: "2026-11-11T00:00:00.000Z" }], total: 1 })));
+  const previousLabel = "Nguyễn An · BN-001 · 0901234567 · 07:00 11/11/2026";
+  const selected = await resolveReferences(req, op("appointment.create"), { targetBranch: branch, patientId: previousLabel });
+  expect(selected.errors).toEqual([]);
+  expect(selected.values.patientId).toBe(patientId);
+  expect(selected.labels.patientId).toBe(previousLabel);
 });
 
 it("blocks missing branches, non-admin branch changes and invalid UUIDs before dispatch", async () => {
@@ -155,6 +164,19 @@ it("rejects excessive import rows and never exposes technical metadata in result
   const text = formatHealthcareResult(op("appointment.list"), { items: [{ _id: appointmentId, revision: 99, patientName: "Nguyễn An", status: "confirmed", startsAt: "2026-11-10T02:00:00Z" }], total: 1 });
   expect(text).toContain("Đã xác nhận"); expect(text).toContain("09:00");
   expect(text).not.toContain(appointmentId); expect(text).not.toContain("revision");
+});
+
+it("localizes healthcare times in tables and report fields while preserving date-like business text", () => {
+  const iso = "2026-11-11T07:00:00+07:00";
+  const text = formatHealthcareResult(op("appointment.list"), { items: [{ patientName: "Nguyễn An", startsAt: iso, endsAt: "2026-11-11T00:30:00Z" }], total: 1 });
+  expect(parseAssistantResultTable(text)?.rows[0].values).toMatchObject({ "Bắt đầu": "07:00, 11/11/2026", "Kết thúc": "07:30, 11/11/2026" });
+  const report = formatHealthcareResult(op("visit.report"), { fields: { ngay_gio_kham: iso, ngay_sinh: "1992-03-15", ma_phieu: "2026-11-11" } });
+  expect(report).toContain("07:00, 11/11/2026");
+  expect(report).toContain("15/03/1992");
+  expect(report).toContain("2026-11-11");
+  expect(report).not.toContain(iso);
+  expect(healthcareValue("note", iso)).toBe(iso);
+  expect(healthcareValue("code", "2026-11-11")).toBe("2026-11-11");
 });
 
 it("formats created patients and lookups as existing chat tables, including empty optional columns", () => {

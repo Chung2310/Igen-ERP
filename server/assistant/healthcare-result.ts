@@ -1,6 +1,7 @@
 import type { AssistantOperation } from "./catalog";
 import { hospitalReportColumns } from "../../shared/healthcare";
 import { formatAssistantResultTable } from "../../src/shared/assistant-result-table";
+import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 
 export const healthcareLabels: Record<string, string> = {
   code: "Mã", name: "Tên", phone: "Số điện thoại", dateOfBirth: "Ngày sinh", address: "Địa chỉ", note: "Ghi chú",
@@ -22,14 +23,16 @@ export function healthcareValue(key: string, value: unknown): string {
     scheduled: "Chờ xác nhận", confirmed: "Đã xác nhận", arrived: "Đã đến", no_show: "Không đến", open: "Chưa thực hiện", queued: "Đang chờ xử lý", running: "Đang xử lý",
     preview: "Đã kiểm tra, chờ xác nhận ghi", failed: "Thất bại", doctor: "Bác sĩ", room: "Phòng khám", service: "Dịch vụ", patients: "Bệnh nhân", visits: "Lượt khám",
     "hospital-report": "Báo cáo bệnh viện", check: "Kiểm tra dữ liệu", write: "Ghi dữ liệu", ready: "Sẵn sàng", skipped: "Đã bỏ qua", invalid: "Không hợp lệ" } as Record<string, string>)[text] || text;
-  if (/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(text) && Number.isFinite(Date.parse(text))) return new Intl.DateTimeFormat("vi-VN",
-    { day: "2-digit", month: "2-digit", year: "numeric", ...(text.includes("T") ? { hour: "2-digit" as const, minute: "2-digit" as const, hourCycle: "h23" as const } : {}), timeZone: "Asia/Ho_Chi_Minh" }).format(new Date(text));
+  const temporal = ["date", "today", "dateOfBirth"].includes(key) || /(?:At|On|Date)$/.test(key) || key.startsWith("ngay_");
+  const date = temporal ? formatAssistantTemporalValue(text) : undefined;
+  if (date !== undefined) return date;
   return text.slice(0, 1500);
 }
 
 export function formatHealthcareResult(op: AssistantOperation, value: any) {
   if (op.id === "healthcare.visit.report") return [op.title, ...Object.entries(hospitalReportColumns).flatMap(([key, label]) =>
-    typeof value?.fields?.[key] === "string" && value.fields[key] ? [`${label}: ${value.fields[key].slice(0, 1500)}`] : [])].join("\n");
+    typeof value?.fields?.[key] === "string" && value.fields[key] ? [`${label}: ${["ngay_gio_kham", "ngay_sinh", "ngay_hen_tai_kham"].includes(key)
+      ? healthcareValue(key, value.fields[key]) : value.fields[key].slice(0, 1500)}`] : [])].join("\n");
   if (op.id === "healthcare.overview") {
     const patients = new Map<string, any>((value.patientReferences || []).map((p: any) => [p._id, p]));
     const summary = [op.title, ...["today", "patients", "visitCount", "appointmentCount", "careCount"].map(k => `${healthcareLabels[k]}: ${healthcareValue(k, value[k])}`)];

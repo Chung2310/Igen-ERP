@@ -174,6 +174,39 @@ describe("healthcare assistant workflows", () => {
     return res.json() as Promise<any>;
   };
 
+  it("localizes new and restored appointment previews while keeping ISO values for execution", async () => {
+    const suffix = randomUUID().slice(0, 8).toUpperCase();
+    const patient = await fixture("/patients", { name: `Bệnh nhân giờ khám ${suffix}` });
+    const doctor = await fixture("/catalog", { kind: "doctor", code: `BS-${suffix}`, name: `Bác sĩ giờ khám ${suffix}` });
+    const room = await fixture("/catalog", { kind: "room", code: `P-${suffix}`, name: `Phòng giờ khám ${suffix}` });
+    const startsAt = "2026-11-11T07:00:00+07:00";
+    const endsAt = "2026-11-11T07:30:00+07:00";
+    await useHealthcare("appointment.create", { patientId: patient.code, doctorId: doctor.name, roomId: room.name, startsAt, endsAt, note: "2026-11-11" });
+    const request = { conversationId: randomUUID(), requestId: randomUUID(), text: `Đặt lịch khám cho bệnh nhân ${patient.code}` };
+    const preview = (await send("/turns", request)).body.data;
+    expect(preview.status, preview.reply).toBe("confirmation");
+    const checkDisplay = (reply: any) => {
+      expect(reply.action.values).toContainEqual(expect.objectContaining({ label: "Thời gian bắt đầu", value: "07:00, 11/11/2026" }));
+      expect(reply.action.values).toContainEqual(expect.objectContaining({ label: "Thời gian kết thúc", value: "07:30, 11/11/2026" }));
+      expect(reply.action.values).toContainEqual(expect.objectContaining({ label: "Ghi chú", value: "2026-11-11" }));
+    };
+    checkDisplay(preview);
+    const session = await AssistantSessionModel.findOne({ conversationId: request.conversationId }).lean() as any;
+    expect(session.pending.resolved).toMatchObject({ startsAt, endsAt });
+    const legacyPreview = { ...preview, action: { ...preview.action, values: preview.action.values.map((item: any) => ({ ...item,
+      value: item.label === "Thời gian bắt đầu" ? startsAt : item.label === "Thời gian kết thúc" ? endsAt : item.value })) } };
+    await AssistantSessionModel.updateOne({ conversationId: request.conversationId }, { $set: { lastReply: legacyPreview, "pending.preview": legacyPreview.action } });
+    await AssistantTurnModel.updateOne({ requestId: request.requestId }, { $set: { result: legacyPreview } });
+    checkDisplay((await send(`/conversations/${request.conversationId}`)).body.data.lastReply);
+    checkDisplay((await send("/turns", request)).body.data);
+    const booked = (await confirm(request.conversationId, preview.action.id)).body.data;
+    expect(booked.status, booked.reply).toBe("completed");
+    expect(parseAssistantResultTable(booked.reply)?.rows[0].values).toMatchObject({ "Bắt đầu": "07:00, 11/11/2026", "Kết thúc": "07:30, 11/11/2026" });
+    const appointment = await records(await healthcareDb(), "appointments").findOne({ patientId: patient._id });
+    expect(new Date(appointment!.startsAt).toISOString()).toBe("2026-11-11T00:00:00.000Z");
+    expect(appointment!.note).toBe("2026-11-11");
+  }, 60_000);
+
   it("upgrades old patient requirements and creates an automatically coded patient with an editable follow-up", async () => {
     const operation = ASSISTANT_OPERATIONS.find(item => item.id === "healthcare.patient.create")!;
     const legacy = defaultWorkflow(operation);

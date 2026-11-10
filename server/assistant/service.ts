@@ -21,6 +21,7 @@ import { normalizeAssistantReply } from "./general-answer";
 import { answerAssistantConversation } from "./documents";
 import { decorateHealthcareResult, healthcareAttachment } from "./healthcare-executor";
 import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
+import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
 export { missingOptionalCreateFields } from "./completion";
 export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
@@ -45,14 +46,19 @@ function safeAssistantPreviewFieldValue(field: AssistantField, rawValue: Assista
   if (field.reference && typeof rawValue === "string" && /^\d{6,32}$/.test(rawValue.trim()) && displayValue === rawValue) {
     return "Bản ghi đã chọn";
   }
-  return hideInternalAssistantIds(displayValue);
+  const visibleValue = hideInternalAssistantIds(displayValue);
+  return (typeof visibleValue === "string" && ["date", "datetime"].includes(field.type)
+    ? formatAssistantTemporalValue(visibleValue) : undefined) ?? visibleValue;
 }
-function sanitizeActionPreview(preview: NonNullable<AssistantReply["action"]>) {
-  return { ...preview, values: preview.values.filter(item => !item.defaulted).map(item => ({ ...item, value: hideInternalAssistantIds(item.value) })) };
+function sanitizeActionPreview(preview: NonNullable<AssistantReply["action"]>, operation?: AssistantOperation) {
+  return { ...preview, values: preview.values.filter(item => !item.defaulted).map(item => {
+    const field = operation?.fields.find(candidate => candidate.label === item.label);
+    return { ...item, value: field ? safeAssistantPreviewFieldValue(field, item.value, item.value) : hideInternalAssistantIds(item.value) };
+  }) };
 }
-function sanitizeReplyPreview(reply: AssistantReply | null | undefined): AssistantReply | null {
+function sanitizeReplyPreview(reply: AssistantReply | null | undefined, operation?: AssistantOperation): AssistantReply | null {
   if (!reply) return null;
-  return presentAssistantReply({ ...reply, ...(reply.action ? { action: sanitizeActionPreview(reply.action) } : {}) });
+  return presentAssistantReply({ ...reply, ...(reply.action ? { action: sanitizeActionPreview(reply.action, operation) } : {}) });
 }
 const isAssistantRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 function parseStructuredAssistantValue(value: unknown) {
@@ -1234,7 +1240,8 @@ export async function conversationState(req: AuthenticatedRequest, conversationI
   const scope = { ...conversationReadScope(req), conversationId };
   const session = await AssistantSessionModel.findOne(scope).lean();
   const turn = await AssistantTurnModel.findOne(scope).sort({ createdAt: -1 }).lean();
-  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null) || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
+  const operation = operationById((session?.pending as PendingAction | undefined)?.actionId || turn?.actionId || "");
+  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null, operation) || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
 }
 
 export async function conversationMemory(req: AuthenticatedRequest, conversationId: string) {
@@ -1370,7 +1377,17 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     if ((error as { code?: number }).code !== 11000) throw error;
     const existing = await AssistantTurnModel.findOne(requestFilter).lean();
     if (!existing || existing.digest !== digest) throw new AssistantError("Mã yêu cầu đã được dùng cho nội dung khác.", 409);
-    if (existing.result) return sanitizeReplyPreview(existing.result as AssistantReply)!;
+    if (existing.result) {
+      const cached = existing.result as AssistantReply;
+      let operation = operationById(existing.actionId || "");
+      if (!operation && cached.action) {
+        // Older collecting turns kept their operation only in the pending action.
+        const stored = await AssistantSessionModel.findOne({ ...scope, conversationId: input.conversationId }).select("pending").lean();
+        const pendingAction = stored?.pending as PendingAction | undefined;
+        if (pendingAction?.id === cached.action.id) operation = operationById(pendingAction.actionId);
+      }
+      return sanitizeReplyPreview(cached, operation)!;
+    }
     return Date.now() - new Date(existing.updatedAt).getTime() > 120_000 ? uncertainReply() : processingReply();
   }
   const sessionFilter = { ...scope, conversationId: input.conversationId };
@@ -1384,7 +1401,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   }
   let pending = restorePendingActionId(session.pending as PendingAction | null);
   let pendingDocumentRequest = session.pendingDocumentRequest || "";
-  if (pending) pending.preview = sanitizeActionPreview(pending.preview);
+  if (pending) pending.preview = sanitizeActionPreview(pending.preview, operationById(pending.actionId));
   let hasDispatched = false;
   let completion: AssistantCompletion | undefined;
   let reply: AssistantReply;
