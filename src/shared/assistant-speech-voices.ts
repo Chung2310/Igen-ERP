@@ -2,7 +2,7 @@
 export const assistantSpeechVoiceProfiles = [
   { id: "sarah", name: "Thu Hà", gender: "Nữ", portraitIndex: 0 },
   { id: "george", name: "Tuấn Tài", gender: "Nam", portraitIndex: 1 },
-  { id: "adam", name: "Văn Long", gender: "Nam", portraitIndex: 2 },
+  { id: "adam", name: "Adam", gender: "Nam", portraitIndex: 2 },
   { id: "alice", name: "Minh Anh", gender: "Nữ", portraitIndex: 3 },
   { id: "bella", name: "Ngọc Hân", gender: "Nữ", portraitIndex: 4 },
   { id: "bill", name: "Quốc Bảo", gender: "Nam", portraitIndex: 5 },

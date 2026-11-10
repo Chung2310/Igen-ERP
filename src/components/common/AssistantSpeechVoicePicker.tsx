@@ -51,7 +51,7 @@ export default function AssistantSpeechVoicePicker({
     >
       <summary
         ref={summaryRef}
-        aria-label={`Chọn giọng đọc. Đang chọn ${selected.name}, giọng ${selected.gender.toLowerCase()}, tiếng Việt.`}
+        aria-label={`Chọn giọng đọc. Đang chọn ${selected.name}, giọng ${selected.gender.toLowerCase()}, quốc tịch Việt Nam.`}
         className="flex min-h-16 cursor-pointer list-none items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-left hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden"
       >
         <VoicePortrait voice={selected.id} />
@@ -59,7 +59,7 @@ export default function AssistantSpeechVoicePicker({
           <span className="block truncate font-medium text-on-surface">{selected.name}</span>
           <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-on-surface-variant">
             <span className="rounded-full bg-surface-container-low px-2 py-0.5">{selected.gender}</span>
-            <span className="rounded-full bg-surface-container-low px-2 py-0.5">Tiếng Việt</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-low px-2 py-0.5"><span aria-hidden="true">🇻🇳</span>Việt Nam</span>
           </span>
         </span>
         <ChevronDown className="size-4 shrink-0 text-on-surface-variant group-open:rotate-180" aria-hidden="true" />
@@ -80,7 +80,7 @@ export default function AssistantSpeechVoicePicker({
               <VoicePortrait voice={profile.id} size="small" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-on-surface">{profile.name}</span>
-                <span className="block text-xs text-on-surface-variant">{profile.gender} · Tiếng Việt</span>
+                <span className="block text-xs text-on-surface-variant">{profile.gender} · <span aria-hidden="true">🇻🇳</span> Việt Nam</span>
               </span>
               {value === profile.id && <Check className="size-4 shrink-0 text-primary" aria-hidden="true" />}
             </button>
