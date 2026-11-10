@@ -414,8 +414,8 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
         {hasList && <>
           <Feedback loading={list.loading} error={list.error} onRetry={list.refresh} />
           {list.data && <Table headers={listHeaders}
-            columnWidths={tab === "settings" ? ["150px", "180px", "300px", "160px", "150px"] : sectionTableWidths[tab]}
-            minWidth={tab === "settings" ? "940px" : sectionTableMinWidths[tab]}
+            columnWidths={sectionTableWidths[tab]}
+            minWidth={sectionTableMinWidths[tab]}
             selectAll={tab === "patients" && canManage ? {
               checked: allPatientRowsSelected,
               disabled: selectedPatientIds.length >= 500 && !allPatientRowsSelected,
