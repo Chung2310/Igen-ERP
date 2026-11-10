@@ -10,6 +10,7 @@ import {
   safeParseJson,
 } from "./core";
 import type { ChatRagContext } from "./types";
+import { getCustomerSafetyReply } from "../../../message/service/chat-safety";
 import { CHAT_VISUAL_GUIDANCE, CHAT_VISUAL_SCHEMA, parseChatVisualReply, visualToImageObservation,
   type ChatReply, type ChatVisualResult } from "../../../message/service/chat-visual-context";
 import { IMAGE_SELECTION_PREFIX, isImagePriceInquiry, selectImageQuote, extractImageQuoteRows } from "../../../message/service/chat-image-context";
@@ -393,6 +394,8 @@ export class GeminiChatService {
     aiConfig: any,
     ragContext?: ChatRagContext
   ): Promise<ChatReply> {
+    const safetyReply = getCustomerSafetyReply(message);
+    if (safetyReply) return { text: safetyReply, isMock: false };
     const imageObservation = ragContext?.imageObservation;
     const visualInput = ragContext?.visualInput;
     const hasVisual = Boolean(visualInput || ragContext?.visualContext);

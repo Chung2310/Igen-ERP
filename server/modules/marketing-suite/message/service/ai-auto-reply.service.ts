@@ -23,6 +23,7 @@ import { tiktokMessengerService } from "./tiktok-messenger.service.ts";
 import { aiKnowledgeService } from "../../knowledge/service/ai-knowledge.service.ts";
 import { assertPersonalAutoReplyOwnership, selectAutoReplyCompanyIntegration } from "./auto-reply-owner";
 import { selectCurrentOrderContext } from "./messenger-order-context";
+import { getCustomerSafetyReply } from "./chat-safety";
 import { chatOrderFlowRegistry } from "./chat-ordering/registry";
 import { AI_REPLY_PRIMARY_MODEL } from "../../../../../shared/marketing-suite/ai-reply-models";
 import { splitHistoryAndPendingInboundMessages, type ChatImageObservation } from "./chat-image-context";
@@ -1057,10 +1058,13 @@ export const aiAutoReplyService = {
             const companyCode = targetCompanyCode;
             const aiTrace = aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
             const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
-              const orderFlow = channel === "facebook" ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId) : undefined;
+              const safetyReply = getCustomerSafetyReply(groupedCustomerMessage);
+              const orderFlow = !safetyReply && channel === "facebook" ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId) : undefined;
               const customerSession = orderFlow && await orderFlow.isEnabled(resolvedPlatformId)
                 ? await orderFlow.prepareSession({ companyCode, pageId: resolvedPlatformId, conversationId }, latestDbMessage.messageId) : undefined;
-              if (customerSession) {
+              // Generic intake uses the conversation history. Inbound messages are
+              // not assigned the synthetic "page-intake" consultation session ID.
+              if (customerSession && orderFlow?.key !== "page-intake") {
                 const sessionMessages = await FBMessageModel.find({ conversationId, consultationSessionId: customerSession.sessionId })
                   .sort({ timestamp: -1 }).limit(60).lean();
                 const aiContextMessages = withFacebookActionPayload(sessionMessages.reverse());
@@ -1084,7 +1088,7 @@ export const aiAutoReplyService = {
               const effectiveRagContext = preparedReplyContext.ragContext;
               const pricingContextText = effectiveRagContext.pricingContextText || "";
               const conversationalInstructions = buildChatConversationInstructions(aiConfig.advancedInstructions);
-              const visualReply = preparedReplyContext.visualInput ? await geminiService.chat(groupedCustomerMessage, history,
+              const visualReply = !safetyReply && preparedReplyContext.visualInput ? await geminiService.chat(groupedCustomerMessage, history,
                 { ...aiConfig, advancedInstructions: conversationalInstructions }, effectiveRagContext) : undefined;
               const visualContext = visualReply?.visual || preparedReplyContext.visualInput?.previous;
               let imageObservation: ChatImageObservation | undefined = visualContext
@@ -1127,7 +1131,7 @@ export const aiAutoReplyService = {
               console.log(`[AI AutoReply] Gemini call: conversationId=${conversationId}, channel=${channel}`);
               const checkoutReply = orderFlow ? await orderFlow.process({
                 companyCode, pageId: resolvedPlatformId, conversationId, messageId: latestDbMessage?.messageId || incomingMessageId,
-                message: groupedCustomerMessage, imageUrls: pendingImageUrls, observation: imageObservation,
+                message: groupedCustomerMessage, history, imageUrls: pendingImageUrls, observation: imageObservation,
                 visualMode: aiConfig.imageReplyEnabled === true,
                 replyDeadlineAt: effectiveRagContext.replyDeadlineAt,
                 customerAddressStyle: aiConfig.customerAddressStyle,
@@ -1135,13 +1139,13 @@ export const aiAutoReplyService = {
                 businessContext: [aiConfig.advancedInstructions, aiConfig.customerServiceScript,
                   effectiveRagContext.contextText, effectiveRagContext.scenarioContextText].filter(Boolean).join("\n\n"),
               }) : undefined;
-              let aiResponse = checkoutReply?.consultationContext ? await geminiService.chat(groupedCustomerMessage, history, {
+              let aiResponse = safetyReply ? { text: safetyReply, isMock: false } : checkoutReply?.consultationContext ? await geminiService.chat(groupedCustomerMessage, history, {
                 ...aiConfig,
                 advancedInstructions: [conversationalInstructions, orderFlow?.conversationInstructions,
                   orderFlow?.consultationInstructions].filter(Boolean).join("\n"),
               }, { ...effectiveRagContext, visualInput: undefined, visualContext, imageObservation: undefined, imageDescription: imageObservation?.description, pricingContextText,
-                contextText: `${effectiveRagContext.contextText || ""}\nThông tin đơn đang tư vấn (dữ liệu): ${checkoutReply.consultationContext}`,
-              }).catch(error => { if (aiConfig.imageReplyEnabled === true) throw error; return checkoutReply; }) : checkoutReply || visualReply || await geminiService.chat(groupedCustomerMessage, history,
+                contextText: `${effectiveRagContext.contextText || ""}\n${orderFlow?.key === "page-intake" ? "Thông tin khách đã cung cấp" : "Thông tin đơn đang tư vấn"} (dữ liệu): ${checkoutReply.consultationContext}`,
+              }).catch(error => { if (aiConfig.imageReplyEnabled === true || orderFlow?.key === "page-intake") throw error; return checkoutReply; }) : checkoutReply || visualReply || await geminiService.chat(groupedCustomerMessage, history,
                 { ...aiConfig, advancedInstructions: conversationalInstructions }, {
                 ...effectiveRagContext, imageObservation, imageDescription: imageObservation?.description, pricingContextText,
               });
@@ -1149,11 +1153,6 @@ export const aiAutoReplyService = {
                 aiResponse = await geminiService.reviewReply(groupedCustomerMessage, history,
                   { ...aiConfig, advancedInstructions: conversationalInstructions }, checkoutReply.text,
                   { ...effectiveRagContext, visualInput: undefined, visualContext });
-              }
-              if (orderFlow?.key === "page-intake" && checkoutReply) {
-                const required = checkoutReply.text.trim();
-                const body = aiResponse.text.trim();
-                aiResponse = { ...aiResponse, text: body.includes(required) ? body : [body, required].filter(Boolean).join("\n\n") };
               }
               if (channel === "facebook") requireFacebookReplyText(aiResponse?.text);
               if (checkoutReply?.wordingSource && orderFlow?.preservesReplyFacts

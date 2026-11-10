@@ -1,4 +1,5 @@
 import { generateReplyCompletion } from "../../message/service/ai-reply-provider";
+import { getCustomerSafetyReply } from "../../message/service/chat-safety";
 import { getPageErpContext } from "../../message/service/page-erp-context.service";
 import { aiKnowledgeService } from "./ai-knowledge.service";
 import { AIKnowledgeChunkModel, AIKnowledgeDocumentModel } from "../model/ai-knowledge.model";
@@ -135,6 +136,9 @@ export async function simulatePageChat(input: {
   companyCode: string; pageId?: string; message: string; history: SimulatedTurn[];
   documentText?: string; rule?: string;
 }): Promise<SimulatedResult> {
+  const safetyReply = getCustomerSafetyReply(input.message);
+  if (safetyReply) return { text: safetyReply, stage: "Hỗ trợ an toàn", known: {},
+    nextStep: "Ưu tiên an toàn của khách; tạm dừng thu thập thông tin bán hàng", sources: [], mode: "ai" };
   if (!process.env.OPENROUTER_API_KEY && /sơn nhà|mua sơn|bán sơn/i.test(input.documentText || "")) return fallbackPaintReply(input);
   const context = await aiKnowledgeService.prepareChatContext({
     companyCode: input.companyCode, channel: "facebook", pageId: input.pageId || undefined,

@@ -7,6 +7,7 @@ import { CakeCheckoutModel } from "../model/cake-checkout.model.ts";
 import type { ChatRagContext } from "../../shared/service/gemini/types";
 import type { ChatContextMessage } from "./chat-context";
 import { isNewOrderStartMessage } from "./messenger-order-context";
+import { getCustomerSafetyReply } from "./chat-safety";
 
 export interface ChatSourceMessage {
   messageId?: string;
@@ -75,6 +76,11 @@ export async function prepareChatReplyContext(input: {
   deadlineAt?: number;
 }): Promise<PreparedChatReplyContext> {
   const timestamp = input.timestamp || new Date();
+  // Safety support needs neither product retrieval nor image generation.
+  if (getCustomerSafetyReply(input.message)) return {
+    ragContext: { companyCode: input.companyCode, contextText: "", matches: 0 },
+    memoryImages: [], sourceMessageId: input.messageId, sourceTimestamp: timestamp, resetMemory: false,
+  };
   const messages = input.messages || [];
   const historyIds = new Set(input.history.map(message => message.messageId).filter(Boolean));
   const pendingMessages = new Set(splitHistoryAndPendingInboundMessages(messages).pendingMessages);
