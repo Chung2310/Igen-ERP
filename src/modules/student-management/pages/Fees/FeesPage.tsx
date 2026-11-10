@@ -38,20 +38,31 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
   const [appliedEndDate, setAppliedEndDate] = useState('');
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState('');
 
   const fetchPayments = React.useCallback(async () => {
     setPaymentsLoading(true);
+    setPaymentsError('');
     try {
-      const result = await apiFetch<{ success: boolean; payments?: PaymentRecord[] }>('/payments', { params: { startDate: appliedStartDate, endDate: appliedEndDate, limit: 1000 } });
+      const result = await apiFetch<{ success: boolean; payments?: PaymentRecord[]; error?: string; message?: string }>('/payments', {
+        params: { ownerFilter: resolvedCenter, startDate: appliedStartDate, endDate: appliedEndDate, limit: 1000 },
+      });
+      if (!result.success) throw new Error(result.error || result.message || 'Không thể tải dữ liệu thanh toán.');
       setPayments(result.payments || []);
     } catch (error) {
       console.error('Error fetching payments:', error);
+      setPaymentsError(error instanceof Error ? error.message : 'Không thể tải dữ liệu học phí. Vui lòng thử lại.');
     } finally {
       setPaymentsLoading(false);
     }
-  }, [appliedStartDate, appliedEndDate]);
+  }, [resolvedCenter, appliedStartDate, appliedEndDate]);
 
-  React.useEffect(() => { void fetchPayments(); }, [fetchPayments]);
+  React.useEffect(() => {
+    void fetchPayments();
+    const handlePaymentMutation = () => { void fetchPayments(); };
+    window.addEventListener('payment-mutation', handlePaymentMutation);
+    return () => window.removeEventListener('payment-mutation', handlePaymentMutation);
+  }, [fetchPayments]);
   const applyQuickRange = (days: number) => {
     const end = toDateInput(new Date());
     const start = new Date();
@@ -62,13 +73,20 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
     setAppliedStartDate(startValue);
     setAppliedEndDate(end);
   };
-  const periodStudentIds = React.useMemo(() => new Set(payments.map((payment) => String(payment.studentId))), [payments]);
   const periodPaidByStudent = React.useMemo(() => payments.reduce<Record<string, number>>((total, payment) => {
     total[String(payment.studentId)] = (total[String(payment.studentId)] || 0) + Number(payment.amount || 0);
     return total;
   }, {}), [payments]);
+  const hasDateFilter = Boolean(appliedStartDate || appliedEndDate);
+  const paidForStudent = (student: Student) => {
+    const paymentTotal = periodPaidByStudent[String(student.id)];
+    if (hasDateFilter) return paymentTotal || 0;
+    // Keep older imported records visible even if they predate Payment documents.
+    return paymentTotal ?? Number(student.paidAmount || 0);
+  };
   const studentsInPeriod = React.useMemo(() => {
-    const activeStudents = students.filter((student) => periodStudentIds.has(String(student.id)));
+    // Tuition rows come from student records; students with 0 paid have no Payment document.
+    const activeStudents = students;
     const activeIds = new Set(activeStudents.map((student) => String(student.id)));
     const archivedById = new Map<string, { name: string; paid: number; lastPaidOn?: string }>();
     payments.forEach((payment) => {
@@ -84,7 +102,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
       status: [], registrationDate: '', updatedAt: record.lastPaidOn || '', paymentHistory: [],
     } as Student));
     return [...activeStudents, ...archivedStudents];
-  }, [students, periodStudentIds, payments]);
+  }, [students, payments]);
 
   // Modal state
   const [selectedStudentForPayment, setSelectedStudentForPayment] = useState<Student | null>(null);
@@ -117,7 +135,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
     // Map data to CSV rows
     const rows = filteredStudents.map(student => {
       const total = parseCurrency(student.fee || '0');
-      const paid = periodPaidByStudent[String(student.id)] || 0;
+      const paid = paidForStudent(student);
       const debt = total - paid;
       const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
 
@@ -154,7 +172,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
   // Stats calculation (computed from all students)
   const stats = studentsInPeriod.reduce((acc, student) => {
     const total = parseCurrency(student.fee || '0');
-    const paid = periodPaidByStudent[String(student.id)] || 0;
+    const paid = paidForStudent(student);
     const debt = total - paid;
 
     acc.totalFee += total;
@@ -167,7 +185,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
 
   const filteredStudents = studentsInPeriod.filter(student => {
     const total = parseCurrency(student.fee || '0');
-    const paid = periodPaidByStudent[String(student.id)] || 0;
+    const paid = paidForStudent(student);
     const debt = total - paid;
     const tuitionWaived = student.tuitionWaived === true && total === 0;
 
@@ -300,6 +318,15 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
         </div>
       </div>
 
+      {paymentsError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <span>Không tải được giao dịch học phí: {paymentsError}</span>
+          <button type="button" onClick={() => void fetchPayments()} disabled={paymentsLoading} className="rounded-md border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100 disabled:opacity-50">
+            Thử tải lại
+          </button>
+        </div>
+      )}
+
       {/* Table Section */}
       <div className="overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest shadow-sm">
         <div className="overflow-x-auto no-scrollbar">
@@ -329,7 +356,7 @@ export function FeesPage({ onSelectStudent, selectedCenter }: FeesPageProps) {
                 </tr>
               ) : paginatedStudents.map((student) => {
                 const total = parseCurrency(student.fee || '0');
-                const paid = periodPaidByStudent[String(student.id)] || 0;
+                const paid = paidForStudent(student);
                 const debt = total - paid;
                 const progress = total > 0 ? Math.round((paid / total) * 100) : 0;
                 const tuitionWaived = student.tuitionWaived === true && total === 0;
