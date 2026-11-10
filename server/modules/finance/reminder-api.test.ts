@@ -7,8 +7,10 @@ test("reminder routes expose history, detail, manual run, and retry with exact p
   assert.deepEqual(FINANCE_REMINDER_ROUTE_PERMISSIONS, {
     "GET /runs": "finance-receivable:read",
     "GET /runs/:id": "finance-receivable:read",
+    "GET /deliveries/retryable": "finance-receivable:manage",
     "POST /runs": "finance-receivable:manage",
     "POST /deliveries/:id/retry": "finance-receivable:manage",
+    "POST /deliveries/:id/retry-in-app": "finance-receivable:manage",
   });
   const routes = financeReminderRoutes.stack
     .filter((layer: any) => layer.route)
@@ -19,7 +21,7 @@ test("reminder routes expose history, detail, manual run, and retry with exact p
 
 test("controller derives scope, ignores body scope, and passes actor to manual commands", async () => {
   const calls: any[] = [];
-  const dependencies = Object.fromEntries(["list", "detail", "run", "retry"].map((name) => [name, async (...args: any[]) => {
+  const dependencies = Object.fromEntries(["list", "listRetryable", "detail", "run", "retry", "retryInApp"].map((name) => [name, async (...args: any[]) => {
     calls.push([name, ...args]);
     return { name };
   }]));
@@ -28,10 +30,14 @@ test("controller derives scope, ignores body scope, and passes actor to manual c
   const actor = { id: "u1", role: "user", companyCode: "ACME", branchId: "B1" };
 
   await controller.run({ user: actor, query: {}, params: {}, body: { companyCode: "EVIL", branchId: "B9" } }, response, assert.fail);
+  await controller.listRetryable({ user: actor, query: { page: "2" }, params: {}, body: {} }, response, assert.fail);
   await controller.retry({ user: actor, query: {}, params: { id: "d1" }, body: { branchId: "B9" } }, response, assert.fail);
+  await controller.retryInApp({ user: actor, query: {}, params: { id: "d2" }, body: { branchId: "B9" } }, response, assert.fail);
 
   assert.deepEqual(calls[0], ["run", { companyCode: "ACME", branchId: "B1" }, actor]);
-  assert.deepEqual(calls[1], ["retry", { companyCode: "ACME", branchId: "B1" }, "d1", actor]);
+  assert.deepEqual(calls[1], ["listRetryable", { companyCode: "ACME", branchId: "B1" }, { page: "2" }]);
+  assert.deepEqual(calls[2], ["retry", { companyCode: "ACME", branchId: "B1" }, "d1", actor]);
+  assert.deepEqual(calls[3], ["retryInApp", { companyCode: "ACME", branchId: "B1" }, "d2", actor]);
 });
 
 test("controller scopes history and forwards dependency errors", async () => {
@@ -44,7 +50,7 @@ test("controller scopes history and forwards dependency errors", async () => {
     retry: async () => ({}),
   });
   const response = { json(value: any) { return value; } } as any;
-  const request: any = { user: { role: "superadmin" }, query: { companyCode: "acme", branchId: "B1", limit: "20" }, params: {}, body: {} };
+  const request: any = { user: { role: "user", companyCode: "ACME", branchId: "B1" }, query: { companyCode: "acme", branchId: "B1", limit: "20" }, params: {}, body: {} };
   await controller.list(request, response, assert.fail);
   assert.deepEqual(calls[0], [{ companyCode: "ACME", branchId: "B1" }, request.query]);
   let forwarded: unknown;

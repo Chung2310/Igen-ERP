@@ -25,3 +25,14 @@ These rules apply whenever a task creates or changes user-facing UI, including f
 - Run the relevant Vitest files for changed behavior.
 - Run `npm run build` before completing a broad frontend change.
 - Report any verification that could not be run. Do not claim visual verification without rendering the affected surface.
+
+## Shared assistant behavior for every module
+
+- The user's assistant requirements apply to all current and future modules. Do not treat them as per-module requests.
+- Business replies must not narrate which workflow is used or list automatically defaulted fields. Enforce this in the shared response presentation and previews, including after AI rewriting. Keep defaults in execution, preserve required questions/confirmation, and show values explicitly supplied by the user even when they equal a default.
+- Display date/time fields through the shared assistant date formatter in Vietnamese calendar format and Vietnam time, including confirmation previews and restored previews. Keep ISO values in pending execution/API payloads; never format arbitrary names or codes just because they resemble dates.
+- Dispatch business API calls through the common `dispatch` path in `server/assistant/service.ts`. Every successful action must reach `completeAssistantOperation`; adapters must not append their own optional-information question or bypass the completion hook.
+- After creation, ask about editable optional fields that are still missing. Keep them optional, allow skipping, respect update permissions, and retain the created record and branch privately for follow-up. Do not ask again for information already supplied or create a second record when the user supplements the first.
+- Structured create, update and lookup results use the shared table component and `src/shared/assistant-result-table.ts`. New formatters should use `formatAssistantResultTable` with approved public fields; do not introduce module-specific opening phrases as a rendering requirement.
+- Response rewriting must preserve structured result tables and follow-up questions using the same shared parser as the UI. Keep internal identifiers, revisions and credentials out of displayed results.
+- Verify a new adapter with the shared completion/structure checks and a meaningful conversation test: create with missing optional data, agree or skip, supplement the same record after confirmation, and render the result table. Catalog registration and API-call tests alone are insufficient.

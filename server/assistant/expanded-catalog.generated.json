@@ -8515,6 +8515,153 @@
     }
   },
   {
+    "id": "api.get.d89b9a22f3011fb5",
+    "title": "Tra cứu đơn hàng bảng dữ liệu / integrations / leads",
+    "description": "Tra cứu đơn hàng bảng dữ liệu / integrations / leads. Đọc dữ liệu trong quyền và phạm vi tài khoản.",
+    "module": "omni-inbox",
+    "permissions": [
+      "social-integration:manage"
+    ],
+    "permissionGroups": [
+      [
+        "social-integration:manage"
+      ]
+    ],
+    "method": "GET",
+    "path": "/order-sheets/integrations/:integrationId/leads",
+    "fields": [
+      {
+        "key": "path_integrationId",
+        "label": "Kênh tích hợp",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "integrationId"
+      }
+    ],
+    "link": "/omni-inbox",
+    "confirmation": false,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.put.fa5a4973ae409caa",
+    "title": "Lưu đơn hàng bảng dữ liệu / integrations / leads",
+    "description": "Lưu đơn hàng bảng dữ liệu / integrations / leads. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "omni-inbox",
+    "permissions": [
+      "social-integration:manage"
+    ],
+    "permissionGroups": [
+      [
+        "social-integration:manage"
+      ]
+    ],
+    "method": "PUT",
+    "path": "/order-sheets/integrations/:integrationId/leads",
+    "fields": [
+      {
+        "key": "path_integrationId",
+        "label": "Kênh tích hợp",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "integrationId"
+      },
+      {
+        "key": "enabled",
+        "label": "enabled",
+        "type": "boolean",
+        "systemRequired": true,
+        "required": true,
+        "source": "body",
+        "apiKey": "enabled"
+      },
+      {
+        "key": "spreadsheetUrl",
+        "label": "spreadsheetUrl",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "body",
+        "apiKey": "spreadsheetUrl"
+      },
+      {
+        "key": "sheetName",
+        "label": "sheetName",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "body",
+        "apiKey": "sheetName"
+      }
+    ],
+    "link": "/omni-inbox",
+    "confirmation": true,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.post.a65b7929820f9bba",
+    "title": "Thực hiện đơn hàng bảng dữ liệu / integrations / leads / test",
+    "description": "Thực hiện đơn hàng bảng dữ liệu / integrations / leads / test. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "omni-inbox",
+    "permissions": [
+      "social-integration:manage"
+    ],
+    "permissionGroups": [
+      [
+        "social-integration:manage"
+      ]
+    ],
+    "method": "POST",
+    "path": "/order-sheets/integrations/:integrationId/leads/test",
+    "fields": [
+      {
+        "key": "path_integrationId",
+        "label": "Kênh tích hợp",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "integrationId"
+      },
+      {
+        "key": "enabled",
+        "label": "enabled",
+        "type": "boolean",
+        "systemRequired": true,
+        "required": true,
+        "source": "body",
+        "apiKey": "enabled"
+      },
+      {
+        "key": "spreadsheetUrl",
+        "label": "spreadsheetUrl",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "body",
+        "apiKey": "spreadsheetUrl"
+      },
+      {
+        "key": "sheetName",
+        "label": "sheetName",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "body",
+        "apiKey": "sheetName"
+      }
+    ],
+    "link": "/omni-inbox",
+    "confirmation": true,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
     "id": "marketing.order-sheet.orders.list",
     "title": "Tra cứu đơn hàng từ tin nhắn",
     "description": "Xem các đơn gần đây của doanh nghiệp, tối đa 100 đơn mỗi lượt. Chỉ hiển thị tên khách, sản phẩm, tổng tiền, trạng thái và thời điểm; ẩn số điện thoại, địa chỉ giao hàng, mã hội thoại, thông tin thanh toán và đơn mô phỏng.",
@@ -30039,6 +30186,75 @@
         "defaultValue": "",
         "source": "body",
         "apiKey": "preferredTimeSlot"
+      }
+    ],
+    "link": "/quan-ly-hoc-vien",
+    "confirmation": true,
+    "resultFields": [],
+    "adapter": "contract"
+  },
+  {
+    "id": "api.post.a484725b60ee53a4",
+    "title": "Thực hiện học tập lộ trình / lớp học / promote",
+    "description": "Thực hiện học tập lộ trình / lớp học / promote. Kiểm tra dữ liệu và xác nhận trước khi ghi.",
+    "module": "student",
+    "permissions": [
+      "people:read"
+    ],
+    "permissionGroups": [
+      [
+        "people:read"
+      ],
+      [
+        "people:manage"
+      ]
+    ],
+    "method": "POST",
+    "path": "/learning-roadmaps/batches/:batchId/promote",
+    "fields": [
+      {
+        "key": "path_batchId",
+        "label": "Mã lớp",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "path",
+        "apiKey": "batchId"
+      },
+      {
+        "key": "roadmapId",
+        "label": "roadmapId",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "body",
+        "apiKey": "roadmapId"
+      },
+      {
+        "key": "targetBatchId",
+        "label": "targetBatchId",
+        "type": "text",
+        "systemRequired": true,
+        "required": true,
+        "source": "body",
+        "apiKey": "targetBatchId"
+      },
+      {
+        "key": "studentIds",
+        "label": "Danh sách học viên",
+        "type": "json",
+        "systemRequired": true,
+        "required": true,
+        "structure": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "required": true
+          },
+          "required": true
+        },
+        "source": "body",
+        "apiKey": "studentIds"
       }
     ],
     "link": "/quan-ly-hoc-vien",

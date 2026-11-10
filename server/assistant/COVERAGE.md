@@ -4,10 +4,10 @@ Catalog chỉ đưa vào executor các route có hợp đồng dữ liệu, quy�
 
 ## Số liệu hiện tại
 
-- Đã quét 1.125 route API; coverage bổ sung adapter cụ thể cho GET /crud/stock-logs từ CRUD tổng quát, tổng cộng 1.126 route. Bộ quét nhận diện quyền tường minh cho 904 route.
-- 793 hợp đồng sinh từ API và 19 adapter thủ công, tổng cộng 812 route đã nối.
+- Inventory hiện có 1.183 route API; coverage gồm 3 adapter từ CRUD tổng quát chưa có trong inventory, tổng cộng 1.186 route. Inventory nhận diện quyền tường minh cho 960 route.
+- 793 hợp đồng sinh từ API và 47 adapter thủ công, tổng cộng 840 route đã nối; 26 adapter mới thuộc Quản lý y tế.
 - 0 route đang chờ rà soát; trợ lý chưa gọi các route này.
-- 314 route đã được đánh giá và chủ ý chưa nối; lý do cụ thể được liệt kê riêng trong `UNSUPPORTED.md`.
+- 346 route đã được đánh giá và chủ ý chưa nối; lý do cụ thể được liệt kê riêng trong `UNSUPPORTED.md`.
 - Các route tạo bằng vòng lặp và helper đã được mở rộng thành path cụ thể; inventory không còn route động chưa phân giải.
 
 Danh sách đầy đủ từng route chưa nối, lý do và tệp nguồn được sinh tại [UNSUPPORTED.md](./UNSUPPORTED.md).
@@ -39,11 +39,13 @@ Danh sách đầy đủ từng route chưa nối, lý do và tệp nguồn đư�
 | --- | ---: |
 | **Tổng đang chờ rà soát** | **0** |
 
-Các route đã đánh giá và chủ ý chưa nối được thống kê riêng: 314 route. Chúng gồm thao tác có side effect khi đọc, route cần chọn tệp/tài khoản/phiên theo luồng riêng, route trùng workflow chuẩn hoặc cần xác nhận/kiểm soát chưa có trong chat. Danh sách và lý do từng route nằm trong [UNSUPPORTED.md](./UNSUPPORTED.md).
+Các route đã đánh giá và chủ ý chưa nối được thống kê riêng: 346 route. Chúng gồm thao tác có side effect khi đọc, route cần chọn tệp/tài khoản/phiên theo luồng riêng, route trùng workflow chuẩn hoặc cần xác nhận/kiểm soát chưa có trong chat. Danh sách và lý do từng route nằm trong [UNSUPPORTED.md](./UNSUPPORTED.md).
 
 ## Adapter thủ công
 
 Các adapter dưới đây là route cố định, được khai báo riêng và có kiểm tra khớp với catalog:
+
+Quản lý y tế bổ sung 26 adapter được liệt kê trong `manual-route-coverage.json`: tổng quan (1), bệnh nhân (4), lượt khám và phiếu bệnh viện (4), lịch hẹn (3), chăm sóc (3), danh mục và nhân viên (4), nhập Excel (7). Các alias GET danh sách lượt khám/lịch hẹn/chăm sóc không tạo workflow trùng; trợ lý gọi POST `/search` để giữ nội dung tìm kiếm trong body. Xem chi tiết cách dùng và giới hạn nhập Excel tại [README.md](./README.md#workflow-quản-lý-y-tế).
 
 | Route | Thao tác |
 | --- | --- |

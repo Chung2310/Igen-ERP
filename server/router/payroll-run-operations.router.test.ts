@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 const permissionGuards = vi.hoisted(() => new Map<any, string | string[]>());
 const mocks = vi.hoisted(() => ({
   runFindOne: vi.fn(),
+  runFind: vi.fn(),
   runFindOneAndUpdate: vi.fn(),
   runCreate: vi.fn(),
   reservationFindOneAndUpdate: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("../middleware/auth", async (importOriginal) => {
 vi.mock("../model/payroll-run.model", () => ({
   PayrollRunModel: {
     findOne: mocks.runFindOne,
+    find: mocks.runFind,
     findOneAndUpdate: mocks.runFindOneAndUpdate,
     create: mocks.runCreate,
   },
@@ -60,12 +62,14 @@ import { payrollController } from "../controller/payroll.controller";
 import { payrollRouter } from "./payroll.router";
 import {
   createRun,
+  listRuns,
   listIssues,
   lockAttendance,
   syncAttendance,
 } from "../service/payroll-run-operations.service";
 import {
   createOperationalRunSchema,
+  listOperationalRunsQuerySchema,
   lockAttendanceSchema,
   syncAttendanceHeadersSchema,
   syncAttendanceSchema,
@@ -100,6 +104,16 @@ const permissionOf = (method: string, path: string) => {
 };
 
 describe("operational payroll request validation", () => {
+  it("validates payroll run list filters against model statuses and bounds the limit", () => {
+    expect(listOperationalRunsQuerySchema.validate({ periodKey: "2026-07", status: "review", limit: "100" }, { convert: true }).value).toEqual({
+      periodKey: "2026-07", status: "review", limit: 100,
+    });
+    expect(listOperationalRunsQuerySchema.validate({ status: "reviewed" }).error).toBeDefined();
+    expect(listOperationalRunsQuerySchema.validate({ periodKey: "2026-13" }).error).toBeDefined();
+    expect(listOperationalRunsQuerySchema.validate({ limit: 101 }).error).toBeDefined();
+    expect(listOperationalRunsQuerySchema.validate({}).value).toMatchObject({ limit: 50 });
+  });
+
   it("requires date-only ISO boundaries, period key, and run type", () => {
     expect(createOperationalRunSchema.validate({
       periodKey: "2026-07",
@@ -145,6 +159,25 @@ describe("payroll run operations", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.auditCreate.mockResolvedValue({});
+  });
+
+  it("lists only runs within the active company and branch and caps the result count", async () => {
+    const results = [{ _id: "run-a", periodKey: "2026-07", version: 2 }];
+    const leanQuery = { lean: vi.fn().mockResolvedValue(results) };
+    const limitQuery = { limit: vi.fn().mockReturnValue(leanQuery) };
+    const sortQuery = { sort: vi.fn().mockReturnValue(limitQuery) };
+    const selectQuery = { select: vi.fn().mockReturnValue(sortQuery) };
+    mocks.runFind.mockReturnValue(selectQuery);
+
+    await expect(listRuns(scope, { periodKey: "2026-07", type: "regular", status: "review", limit: 1000 })).resolves.toBe(results);
+
+    expect(mocks.runFind).toHaveBeenCalledWith({
+      companyCode: "ACME", branchId: "branch-a", periodKey: "2026-07", type: "regular", status: "review",
+    });
+    expect(selectQuery.select).toHaveBeenCalledWith("_id periodKey startDate endDate type status version createdAt");
+    expect(sortQuery.sort).toHaveBeenCalledWith({ periodKey: -1, createdAt: -1, _id: -1 });
+    expect(limitQuery.limit).toHaveBeenCalledWith(100);
+    expect(leanQuery.lean).toHaveBeenCalledOnce();
   });
 
   it("scopes regular overlap detection by company and branch", async () => {
@@ -549,6 +582,7 @@ describe("operational payroll controller and routes", () => {
 
     expect(mounted).toEqual(expect.arrayContaining([
       "POST /runs",
+      "GET /runs",
       "POST /runs/:id/sync-attendance",
       "POST /runs/:id/lock-attendance",
       "GET /runs/:id/issues",
@@ -559,6 +593,10 @@ describe("operational payroll controller and routes", () => {
       "POST /runs/:id/close",
       "GET /runs/:id/audit",
     ]));
+  });
+
+  it("guards run listing with payroll read or manage permission", () => {
+    expect(permissionOf("GET", "/runs")).toEqual(["payroll-period:read", "payroll-period:manage"]);
   });
 
   it("guards line override reads and bulk writes with payroll permissions", () => {

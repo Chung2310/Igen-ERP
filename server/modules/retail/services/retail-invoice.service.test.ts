@@ -127,3 +127,38 @@ test("invoice snapshot preserves immutable customer and VAT snapshots", () => {
   assert.equal(snapshot.customerSnapshot.customerCode, "KH-1");
   assert.equal(snapshot.billingSnapshot.taxId, "0312345678");
 });
+
+test("invoice summary pipeline calculates issue and void totals only inside the scoped filter", () => {
+  const pipeline = invoiceService.buildRetailInvoiceSummaryPipeline({
+    companyCode: "ACME",
+    branchId: "BRANCH-1",
+    issuedAt: { $gte: new Date("2026-08-01T00:00:00+07:00"), $lte: new Date("2026-08-10T23:59:59.999+07:00") },
+  });
+  assert.deepEqual(pipeline[0], {
+    $match: {
+      companyCode: "ACME",
+      branchId: "BRANCH-1",
+      issuedAt: { $gte: new Date("2026-08-01T00:00:00+07:00"), $lte: new Date("2026-08-10T23:59:59.999+07:00") },
+    },
+  });
+  const group = (pipeline[1] as any).$group;
+  assert.deepEqual(group.issuedCount, { $sum: { $cond: [{ $eq: ["$status", "issued"] }, 1, 0] } });
+  assert.deepEqual(group.voidCount, { $sum: { $cond: [{ $eq: ["$status", "void"] }, 1, 0] } });
+  assert.deepEqual(group.issuedAmount, { $sum: { $cond: [{ $eq: ["$status", "issued"] }, { $ifNull: ["$snapshot.grandTotal", 0] }, 0] } });
+  assert.deepEqual(group.voidAmount, { $sum: { $cond: [{ $eq: ["$status", "void"] }, { $ifNull: ["$snapshot.grandTotal", 0] }, 0] } });
+  assert.deepEqual(group.dueAmount, { $sum: { $cond: [{ $eq: ["$status", "issued"] }, { $ifNull: ["$snapshot.dueAmount", 0] }, 0] } });
+});
+
+test("invoice summary projection returns zeros for an empty range and omits internal identifiers", () => {
+  const result = invoiceService.projectRetailInvoiceSummary({ from: "2026-08-01", to: "2026-08-01" }, undefined);
+  assert.deepEqual(result, {
+    range: { from: "2026-08-01", to: "2026-08-01" },
+    invoiceCount: 0,
+    issuedCount: 0,
+    voidCount: 0,
+    issuedAmount: 0,
+    voidAmount: 0,
+    paidAmount: 0,
+    dueAmount: 0,
+  });
+});

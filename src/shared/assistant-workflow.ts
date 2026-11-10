@@ -1,4 +1,5 @@
 import type { AssistantSpeechVoice } from "./assistant-speech-voices";
+import type { AssistantGeneratedFile } from "./assistant-document";
 
 export interface AssistantDataShape {
   type: string;
@@ -48,6 +49,8 @@ export interface AssistantField {
   pattern?: string;
   requiredWhen?: AssistantRequiredCondition;
   minItems?: number;
+  /** Another editable field representing the same information, e.g. a selected doctor or an external name. */
+  alternativeField?: string;
   reference?: string;
   referenceValueKey?: string;
   referenceParentKey?: string;
@@ -101,6 +104,7 @@ export interface AssistantTrainingContentForm {
 }
 export interface AssistantReply {
   reply: string;
+  files?: AssistantGeneratedFile[];
   status: "collecting" | "confirmation" | "completed" | "cancelled" | "unsupported" | "failed" | "processing" | "uncertain";
   action?: { requiresPassword?: boolean; id: string; title: string; values: { label: string; value: AssistantValue; defaulted?: boolean }[] };
   referenceSelections?: AssistantReferenceSelection[];

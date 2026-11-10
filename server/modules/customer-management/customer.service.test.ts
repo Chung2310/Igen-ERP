@@ -24,6 +24,7 @@ test("customer list defaults to active and escapes literal search", () => {
   const filter = buildCustomerListFilter(scope, { q: "A.+", page: 1, limit: 20 });
   assert.equal(filter.companyCode, "IGEN");
   assert.equal(filter.status, "active");
+  assert.equal(buildCustomerListFilter(scope, { status: "all" }).status, undefined);
   assert.ok(String((filter.$or as any[])[0].customerCode).includes("A\\.\\+"));
 
   const phoneFilter = buildCustomerListFilter(scope, { q: "+84 901-234-567" });

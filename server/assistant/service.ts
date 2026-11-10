@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import type { AssistantDataShape, AssistantField, AssistantReferenceSelection, AssistantReply, AssistantTableAttachment, AssistantTrainingContentForm, AssistantValue, AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import { TRAINING_CATEGORY_OPTIONS } from "../../src/shared/training-categories";
-import { AssistantSessionModel, AssistantTurnModel, ensureAssistantIndexes } from "./models";
+import { AssistantDocumentModel, AssistantSessionModel, AssistantTurnModel, ensureAssistantIndexes } from "./models";
 import { actorScope, assertOperation, currentWorkflow, listWorkflows } from "./workflows";
 import { AssistantError, collectValues, isAssistantFieldApplicable, isBlank } from "./policy";
 import { callOperation, lookupRecords, projectRecords, resolveNamedReferenceSelectors, resolveReferences, suggestReferenceOptions, UncertainExecutionError } from "./executor";
@@ -10,12 +10,20 @@ import { getSettings } from "./settings";
 import { interpretRequest, isEmployeeDetailsIntent } from "./interpreter";
 import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./catalog";
 import { formatFriendlyAssistantResult, localizedAssistantFieldLabel } from "./result-format";
+import { presentAssistantReply } from "./reply-presentation";
 import { applyAssistantResponseRules } from "./reply-rules";
+import { assistantRequestGuidance } from "./request-guidance";
 import { autoSaveAssistantMemories } from "./auto-memory";
 import { assistantMemoryContext, containsSensitiveMemoryContent, forgetAssistantMemoryByContent, parseExplicitMemoryCommand, parseExplicitMemoryForgetCommand, saveAssistantMemory } from "./memory";
 import { SESSION_MEMORY_LIMIT, summarizeAssistantSession } from "./session-memory";
 import { mapAssistantTableAttachment } from "./table-import";
-import { answerAssistantGeneralQuestion, normalizeAssistantReply } from "./general-answer";
+import { normalizeAssistantReply } from "./general-answer";
+import { answerAssistantConversation } from "./documents";
+import { decorateHealthcareResult, healthcareAttachment } from "./healthcare-executor";
+import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
+import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
+import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
+export { missingOptionalCreateFields } from "./completion";
 export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
 interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
 function restorePendingActionId(pending: PendingAction | null): PendingAction | null {
@@ -38,15 +46,19 @@ function safeAssistantPreviewFieldValue(field: AssistantField, rawValue: Assista
   if (field.reference && typeof rawValue === "string" && /^\d{6,32}$/.test(rawValue.trim()) && displayValue === rawValue) {
     return "Bản ghi đã chọn";
   }
-  return hideInternalAssistantIds(displayValue);
+  const visibleValue = hideInternalAssistantIds(displayValue);
+  return (typeof visibleValue === "string" && ["date", "datetime"].includes(field.type)
+    ? formatAssistantTemporalValue(visibleValue) : undefined) ?? visibleValue;
 }
-function sanitizeActionPreview(preview: NonNullable<AssistantReply["action"]>) {
-  return { ...preview, values: preview.values.map(item => ({ ...item, value: hideInternalAssistantIds(item.value) })) };
+function sanitizeActionPreview(preview: NonNullable<AssistantReply["action"]>, operation?: AssistantOperation) {
+  return { ...preview, values: preview.values.filter(item => !item.defaulted).map(item => {
+    const field = operation?.fields.find(candidate => candidate.label === item.label);
+    return { ...item, value: field ? safeAssistantPreviewFieldValue(field, item.value, item.value) : hideInternalAssistantIds(item.value) };
+  }) };
 }
-function sanitizeReplyPreview(reply: AssistantReply | null | undefined): AssistantReply | null {
+function sanitizeReplyPreview(reply: AssistantReply | null | undefined, operation?: AssistantOperation): AssistantReply | null {
   if (!reply) return null;
-  if (!reply.action) return reply;
-  return { ...reply, action: sanitizeActionPreview(reply.action) };
+  return presentAssistantReply({ ...reply, ...(reply.action ? { action: sanitizeActionPreview(reply.action, operation) } : {}) });
 }
 const isAssistantRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 function parseStructuredAssistantValue(value: unknown) {
@@ -113,26 +125,7 @@ const conversationReadScope = (req: AuthenticatedRequest) => {
 const sessionMemoryVersionFilter = (version: number) => version === 0
   ? { $or: [{ sessionMemoryVersion: 0 }, { sessionMemoryVersion: { $exists: false } }] }
   : { sessionMemoryVersion: version };
-const friendlyResult = (op: AssistantOperation, value: unknown) => hideInternalAssistantIds(formatFriendlyAssistantResult(op, value));
-export function missingOptionalCreateFields(create: AssistantOperation, workflow: AssistantWorkflow, submitted: Record<string, AssistantValue>, result: unknown, update: AssistantOperation): string[] {
-  if (create.method !== "POST" || !result || typeof result !== "object" || Array.isArray(result)) return [];
-  const record = result as Record<string, unknown>;
-  const editable = new Set(update.fields.filter(field => field.source !== "path" && field.source !== "query").map(field => field.apiKey || field.key));
-  const missing = (value: unknown) => value === undefined || value === null || (typeof value === "string" && !value.trim()) || (Array.isArray(value) && value.length === 0);
-  return workflow.fields.filter(field => {
-    const key = field.apiKey || field.key;
-    if (field.source === "path" || field.source === "query" || field.required || field.systemRequired || field.defaultValue !== undefined || !editable.has(key)) return false;
-    if (/^(?:id|_id|version|password|confirmPassword|companyCode|branchId|createdAt|updatedAt)$/i.test(key)) return false;
-    if (field.requiredWhen) {
-      const condition = field.requiredWhen;
-      const current = record[condition.field] ?? submitted[condition.field];
-      if (condition.equals !== undefined && (Array.isArray(condition.equals) ? condition.equals.includes(current as AssistantValue) : condition.equals === current)) return false;
-      if (condition.present && !missing(current)) return false;
-    }
-    return missing(record[key]) && missing(submitted[field.key]);
-  }).map(field => localizedAssistantFieldLabel(field.apiKey || field.key, field.label, create.id))
-    .filter((label, index, labels) => Boolean(label) && labels.indexOf(label) === index);
-}
+const friendlyResult = (op: AssistantOperation, value: unknown) => hideInternalAssistantIds(op.module === "healthcare" ? formatHealthcareResult(op, value) : formatFriendlyAssistantResult(op, value));
 function friendlyFailure(error: unknown) {
   if (!(error instanceof AssistantError)) return "Mình gặp trục trặc khi xử lý yêu cầu. Hiện chưa xác nhận thao tác nào thành công; bạn thử lại sau giúp mình nhé.";
   const message = error.message || "";
@@ -181,10 +174,10 @@ export function inventoryReceiptFollowUpQuestion(
 }
 const processingReply = (): AssistantReply => ({ status: "processing", reply: "Mình đang xử lý yêu cầu trước. Bạn chờ mình một chút nhé; chưa cần gửi lại yêu cầu." });
 const uncertainReply = (): AssistantReply => ({ status: "uncertain", reply: "Mình chưa xác nhận được yêu cầu trước đã hoàn tất hay chưa. Bạn kiểm tra dữ liệu trong phân hệ giúp mình trước khi thử lại nhé; mình không tự chạy lại để tránh tạo trùng." });
-const hasUpdatePayload = (op: AssistantOperation, values: Record<string, unknown>) => op.adapter === "contract"
-  ? op.fields.some(field => field.source === "body" && !/^(?:expectedVersion|idempotencyKey)$/i.test(field.apiKey || field.key) && values[field.key] !== undefined)
-  : Object.keys(values).some(key => key !== "id" && !key.startsWith("path_") && !/^(?:expectedVersion|idempotencyKey)$/i.test(key));
 function updateDetailsQuestion(op: AssistantOperation, intent: string, values: Record<string, unknown>) {
+  if (op.id === "healthcare.patient.update" && normalizeAssistantText(intent).includes("bo sung thong tin benh nhan vua tao")) {
+    return "Bạn gửi thông tin muốn bổ sung cho bệnh nhân vừa tạo nhé: số điện thoại, ngày sinh, địa chỉ hoặc ghi chú. Bạn có thể chỉ bổ sung những mục đang có thông tin.";
+  }
   if (op.id === "student.batch.update" && isBatchTitleRenameRequest(intent)) {
     return "Bạn muốn sửa thông tin nào của lớp đã chọn? Tên và mã lớp không thể đổi sau khi tạo. Tiêu đề hiển thị lấy từ khóa học; nếu muốn đổi khóa học gắn với riêng lớp này, hãy cho biết khóa học muốn chọn. Bạn cũng có thể sửa lịch học, giờ, ngày, giảng viên, địa điểm hoặc lộ trình.";
   }
@@ -381,6 +374,14 @@ async function latestCompletedAction(req: AuthenticatedRequest, conversationId: 
     ...scopeOf(req), conversationId, status: "completed", "result.status": "completed",
     actionId: { $exists: true, $ne: "" },
   }).sort({ createdAt: -1 }).select("actionId payload").lean() as any;
+}
+async function createdRecordFollowUp(req: AuthenticatedRequest, conversationId: string): Promise<{ actionId: string; values: Record<string, AssistantValue> } | null> {
+  const previous = await latestCompletedAction(req, conversationId);
+  const followUp = previous?.payload?.__assistantFollowUp;
+  const update = followUp && operationById(followUp.actionId);
+  if (!update || !["PATCH", "PUT"].includes(update.method) || !followUp.values || typeof followUp.values !== "object") return null;
+  return { actionId: update.id, values: Object.fromEntries(Object.entries(followUp.values).filter(([key, value]) =>
+    update.fields.some(field => field.key === key) && ["string", "number", "boolean"].includes(typeof value))) as Record<string, AssistantValue> };
 }
 const workerProfileFields = [
   ["phone", "Số điện thoại"],
@@ -630,6 +631,7 @@ function unavailableReferencePrompt(op: AssistantOperation, field: AssistantFiel
   return `Chưa có lựa chọn khả dụng cho ${label}.${skipHint}`;
 }
 function assistantOptionLabel(op: AssistantOperation, field: AssistantField, value: string) {
+  if (op.module === "healthcare") return healthcareValue(field.apiKey || field.key, value);
   if (op.id === "retail.coupon.create" && field.key === "targetType") {
     const labels: Record<string, string> = {
       all_customers: "Tất cả khách hàng",
@@ -768,6 +770,14 @@ export async function missingReferencePrompts(
   const optionSelectionKeys = new Set<string>();
   const awaitingOptional: string[] = [];
   const awaitingLabels: Record<string, string> = {};
+  if (op.module === "healthcare" && !values.targetBranch) {
+    const branchField = op.fields.find(field => field.key === "targetBranch")!;
+    let options: string[] = [];
+    try { options = await suggestOptions(req, op, branchField, values); } catch { /* Keep unreadable branches out of suggestions. */ }
+    const prompt = options.length ? "Bạn chọn chi nhánh y tế để tiếp tục nhé." : "Mình cần tên chi nhánh y tế để tiếp tục. Bạn kiểm tra quyền xem chi nhánh nếu chưa có lựa chọn nhé.";
+    return { prompts: [prompt], textPrompts: options.length ? [] : [prompt], awaitingOptional, awaitingLabels,
+      referenceSelections: options.length ? [{ key: branchField.key, label: branchField.label, required: true, multiple: false, options: options.map(value => ({ label: value, value })) }] : [] };
+  }
   const missingRequiredDetailReference = op.method === "GET" && op.fields.some(field => {
     if (field.source !== "path" || !field.reference || values[field.key] !== undefined || unresolvedReferenceKeys.has(field.key)) return false;
     const configured = workflow.fields.find(candidate => candidate.key === field.key);
@@ -788,7 +798,7 @@ export async function missingReferencePrompts(
       awaitingLabels,
     };
   }
-  const isCreate = op.method === "POST";
+  const isCreate = op.method === "POST" && !op.readOnly;
   const isCatalogProductCreate = isCreate && op.path === "/inventory/catalog/products";
   const branchlessCommissionMutation = String(op.path || "").startsWith("/partners/commission-levels")
     && ["POST", "PATCH", "DELETE"].includes(op.method)
@@ -828,9 +838,16 @@ export async function missingReferencePrompts(
     }
     if (isCatalogProductCreate && field.apiKey === "baseUnitCode" && values[field.key] === undefined) continue;
     if (!field.reference || (values[field.key] !== undefined && !unresolvedReferenceKeys.has(field.key)) || skipped.has(field.key)) continue;
+    if (field.alternativeField && !isBlank(values[field.alternativeField]) && isBlank(values[field.key])) continue;
     const configured = workflow.fields.find(item => item.key === field.key);
     const required = Boolean(field.systemRequired || configured?.required || conditionApplies(field));
-    const relationRequested = relationMentioned(intent, field);
+    const healthcareRelationships: Record<string, RegExp> = {
+      doctorId: /\bbac si\b/, roomId: /\bphong(?: kham)?\b/, serviceId: /\bdich vu\b/,
+      assigneeId: /\b(?:nhan vien|nguoi phu trach|dieu duong|giao cho|phan cong)\b/,
+    };
+    const relationRequested = op.module === "healthcare" && ["PATCH", "PUT"].includes(op.method) && field.source === "body"
+      ? Boolean(healthcareRelationships[field.apiKey || field.key]?.test(normalizeAssistantText(intent)))
+      : relationMentioned(intent, field);
     const mustResolve = required || relationChangeRequested(intent, field);
     const shouldPrompt = required || isCreate || (["PATCH", "PUT"].includes(op.method) && relationRequested);
     if (!shouldPrompt) continue;
@@ -1223,7 +1240,8 @@ export async function conversationState(req: AuthenticatedRequest, conversationI
   const scope = { ...conversationReadScope(req), conversationId };
   const session = await AssistantSessionModel.findOne(scope).lean();
   const turn = await AssistantTurnModel.findOne(scope).sort({ createdAt: -1 }).lean();
-  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null) || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
+  const operation = operationById((session?.pending as PendingAction | undefined)?.actionId || turn?.actionId || "");
+  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null, operation) || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
 }
 
 export async function conversationMemory(req: AuthenticatedRequest, conversationId: string) {
@@ -1289,6 +1307,10 @@ export async function deleteConversation(req: AuthenticatedRequest, conversation
     throw new AssistantError("Phiên đang xử lý. Hãy thử xóa lại sau khi trợ lý trả lời.", 409);
   }
   try {
+    await AssistantDocumentModel.deleteMany({
+      userId: session.userId, companyCode: session.companyCode,
+      branchId: session.branchId || "", conversationId: session.conversationId,
+    });
     await AssistantTurnModel.deleteMany({
       userId: session.userId,
       companyCode: session.companyCode,
@@ -1355,7 +1377,17 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     if ((error as { code?: number }).code !== 11000) throw error;
     const existing = await AssistantTurnModel.findOne(requestFilter).lean();
     if (!existing || existing.digest !== digest) throw new AssistantError("Mã yêu cầu đã được dùng cho nội dung khác.", 409);
-    if (existing.result) return existing.result as AssistantReply;
+    if (existing.result) {
+      const cached = existing.result as AssistantReply;
+      let operation = operationById(existing.actionId || "");
+      if (!operation && cached.action) {
+        // Older collecting turns kept their operation only in the pending action.
+        const stored = await AssistantSessionModel.findOne({ ...scope, conversationId: input.conversationId }).select("pending").lean();
+        const pendingAction = stored?.pending as PendingAction | undefined;
+        if (pendingAction?.id === cached.action.id) operation = operationById(pendingAction.actionId);
+      }
+      return sanitizeReplyPreview(cached, operation)!;
+    }
     return Date.now() - new Date(existing.updatedAt).getTime() > 120_000 ? uncertainReply() : processingReply();
   }
   const sessionFilter = { ...scope, conversationId: input.conversationId };
@@ -1368,9 +1400,12 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     return reply;
   }
   let pending = restorePendingActionId(session.pending as PendingAction | null);
-  if (pending) pending.preview = sanitizeActionPreview(pending.preview);
+  let pendingDocumentRequest = session.pendingDocumentRequest || "";
+  if (pending) pending.preview = sanitizeActionPreview(pending.preview, operationById(pending.actionId));
   let hasDispatched = false;
+  let completion: AssistantCompletion | undefined;
   let reply: AssistantReply;
+  let needsIntentClarification = false;
   let responseRules = "";
   let autoMemoryEnabled = false;
   const sessionMemory = typeof session.sessionMemory === "string" ? session.sessionMemory : "";
@@ -1388,33 +1423,17 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   const history = [...session.messages, { role: "user", content: historyContent, createdAt: new Date().toISOString() }];
 
   const execute = async (op: AssistantOperation, workflow: AssistantWorkflow, values: Record<string, AssistantValue>, password?: string): Promise<AssistantReply> => {
-    const optionalCreateQuestion = async (record: unknown) => {
-      if (op.method !== "POST" || !record || typeof record !== "object" || Array.isArray(record)) return "";
-      const created = record as Record<string, unknown>;
-      if (!["_id", "id", "code", "name", "title", "displayName", "fullName"].some(key => created[key] != null && String(created[key]).trim())) return "";
-      const pairedUpdate = op.id.endsWith(".create") ? operationById(op.id.replace(/\.create$/, ".update")) : undefined;
-      const update = (pairedUpdate && ["PATCH", "PUT"].includes(pairedUpdate.method) ? pairedUpdate : undefined)
-        || ASSISTANT_OPERATIONS.find(candidate => ["PATCH", "PUT"].includes(candidate.method)
-          && candidate.module === op.module
-          && candidate.path.startsWith(`${op.path}/:`)
-          && !candidate.path.slice(op.path.length + 2).includes("/"));
-      if (!update || !["PATCH", "PUT"].includes(update.method)) return "";
-      try {
-        await assertOperation(req, update.id);
-        if (!(await currentWorkflow(req, update.id)).enabled) return "";
-        const missing = missingOptionalCreateFields(op, workflow, values, created, update);
-        if (!missing.length) return "";
-        const shown = missing.slice(0, 6);
-        const more = missing.length > shown.length ? ` và ${missing.length - shown.length} mục khác` : "";
-        return `\nMình thấy các thông tin tùy chọn còn trống: ${shown.join(", ")}${more}. Bạn có muốn bổ sung không? Nếu có, gửi giúp mình mục và nội dung cần thêm nhé.`;
-      } catch { return ""; }
+    const dispatch = async (resolved: Record<string, AssistantValue>) => {
+      const result = await callOperation(req, op, resolved, password, input.requestId);
+      completion = { operation: op, workflow, values: resolved, result, defaultedKeys: pending?.defaultedKeys || [] };
+      return result;
     };
     if (Date.now() - new Date(turn.createdAt).getTime() > 120_000) throw new AssistantError("Yêu cầu đã hết thời gian xử lý trước khi thực thi. Chưa thay đổi dữ liệu; vui lòng gửi lại yêu cầu.", 408);
     await assertOperation(req, op.id);
     if (op.id === "employee.create" && (!password || password.length < 6 || password.length > 128)) throw new AssistantError("Vui lòng nhập mật khẩu khởi tạo (6–128 ký tự) trong ô bảo mật của bản xem trước.");
     const latest = await currentWorkflow(req, op.id);
-    if (latest.version !== workflow.version) throw new AssistantError("Workflow vừa thay đổi. Vui lòng gửi lại nội dung để kiểm tra theo quy tắc mới.", 409);
-    if (op.method !== "GET" && !input.decision?.confirmed && (await getSettings(req)).alwaysConfirm) return { status: "confirmation", reply: "Cài đặt yêu cầu xác nhận trước khi thay đổi dữ liệu. Vui lòng kiểm tra bản xem trước.", action: pending!.preview };
+    if (latest.version !== workflow.version) throw new AssistantError("Quy tắc xử lý vừa thay đổi. Vui lòng gửi lại nội dung để kiểm tra theo quy tắc mới.", 409);
+    if (op.method !== "GET" && !op.readOnly && !input.decision?.confirmed && (await getSettings(req)).alwaysConfirm) return { status: "confirmation", reply: "Cài đặt yêu cầu xác nhận trước khi thay đổi dữ liệu. Vui lòng kiểm tra bản xem trước.", action: pending!.preview };
     const hiddenFields = new Set(op.systemBodyFields || []);
     const validationValues = Object.fromEntries(Object.entries(values).filter(([key]) =>
       !key.startsWith("__assistant")
@@ -1459,9 +1478,29 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         }
       }
     }
-    if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, checked.values)) throw new AssistantError(updateDetailsQuestion(op, input.text || pending?.intent || "", checked.values));
+    if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, pending?.provided || validationValues)) throw new AssistantError(updateDetailsQuestion(op, input.text || pending?.intent || "", checked.values));
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: "executing", actionId: op.id, workflowVersion: workflow.version, payload: checked.values } });
-    hasDispatched = op.method !== "GET";
+    hasDispatched = op.method !== "GET" && !op.readOnly;
+    if (op.module === "healthcare") {
+      const result = await dispatch(checked.values);
+      pending = null;
+      if (op.id === "healthcare.import.template") {
+        const documentId = randomUUID();
+        const file = { id: randomUUID(), fileName: result.filename, format: "xlsx" as const,
+          mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", size: result.__assistantWorkbook.length, bytes: result.__assistantWorkbook };
+        await AssistantDocumentModel.create({ ...scopeOf(req), conversationId: input.conversationId, requestId: input.requestId,
+          documentId, version: 1, title: op.title, content: { title: op.title }, files: [file] });
+        const { bytes: _bytes, ...metadata } = file;
+        return { status: "completed", reply: "Mẫu Excel y tế đã sẵn sàng. Bạn có thể tải tệp bên dưới.",
+          files: [{ ...metadata, documentId, conversationId: input.conversationId, version: 1 }], link: op.link };
+      }
+      if (["healthcare.import.preview", "healthcare.import.commit", "healthcare.import.retry"].includes(op.id) && ["queued", "running"].includes(result.status)) {
+        return { status: "completed", reply: `Đã xếp hàng ${op.id === "healthcare.import.preview" ? "kiểm tra" : "xử lý"} tệp ${result.filename || "Excel y tế"}. Dữ liệu đang được xử lý; bạn có thể yêu cầu xem tiến độ đợt nhập để kiểm tra kết quả.`, link: op.link };
+      }
+      const rendered = op.id === "healthcare.overview" || op.id === "healthcare.visit.report"
+        ? result : await decorateHealthcareResult(req, op, result, checked.values);
+      return { status: "completed", reply: friendlyResult(op, rendered), link: op.link };
+    }
     if (op.method === "GET" && op.id === "worker.list") {
       const search = String(checked.values.query_search || checked.values.search || "");
       const rows = await lookupRecords(req, op.id, search, checked.values);
@@ -1484,7 +1523,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       return { status: "completed", reply: friendlyResult(op, selected), link: op.link };
     }
     if (op.method === "GET" && (op.adapter === "contract" || op.rawResponse)) {
-      const result = await callOperation(req, op, checked.values);
+      const result = await dispatch(checked.values);
       pending = null;
       return { status: "completed", reply: friendlyResult(op, result?.data ?? result), link: op.link };
     }
@@ -1493,7 +1532,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       pending = null;
       return { status: "completed", reply: friendlyResult(op, rows), link: op.link };
     }
-    const result = await callOperation(req, op, checked.values, password, input.requestId);
+    const result = await dispatch(checked.values);
     if (op.adapter === "contract" || op.rawResponse) {
       if (op.id === "worker.partner.kpi.set" && result?.data && typeof result.data === "object" && !Array.isArray(result.data)) {
         const partnerLabel = pending?.preview.values.find(item => /đối tác lao động/i.test(item.label))?.value;
@@ -1503,14 +1542,12 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       }
       pending = null;
       const created = result?.data ?? result;
-      return { status: "completed", reply: friendlyResult(op, created) + await optionalCreateQuestion(created), link: op.link };
+      return { status: "completed", reply: friendlyResult(op, created), link: op.link };
     }
     const records = projectRecords(op, result, req);
     pending = null;
-    const createdRecord = records[0];
-    const createdKey = createdRecord && ["displayName", "name", "title", "fullName", "customerCode", "code", "ticketCode"].find(key => createdRecord[key] !== undefined);
-    const createdLabel = createdKey && createdRecord ? String(createdRecord[createdKey]) : "";
-    return { status: "completed", reply: `Mình đã ${op.title.toLocaleLowerCase("vi")} xong${createdLabel ? ` cho ${createdLabel}` : ""}.${op.id === "employee.create" ? " Hồ sơ cũng đã có tài khoản đăng nhập với vai trò nhân viên." : ""}${await optionalCreateQuestion(createdRecord)}`, link: op.link };
+    return { status: "completed", reply: friendlyResult(op, records[0] || {})
+      + (op.id === "employee.create" ? "\n\nHồ sơ cũng đã có tài khoản đăng nhập với vai trò nhân viên." : ""), link: op.link };
   };
 
   const prepare = async (actionId: string, provided: Record<string, unknown>, forceConfirmation = false, intent = input.text || "", selectedReferenceKeys: string[] = []): Promise<AssistantReply> => {
@@ -1546,7 +1583,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     }
     const creatorName = String(req.user?.displayName || req.user?.email || "iGen Academy");
     const trainingInstructorIsDefault = op.id === "training.create"
-      && (isBlank(contextualValues.instructor) || String(contextualValues.instructor) === creatorName);
+      && isBlank(contextualValues.instructor);
     if (trainingInstructorIsDefault) contextualValues.instructor = creatorName;
     if (previousPending?.awaitingPathReferenceKeys?.length === 1 && input.text?.trim()) {
       contextualValues[previousPending.awaitingPathReferenceKeys[0]] = input.text.trim();
@@ -1554,9 +1591,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     let attachmentSummary = previousPending?.attachmentSummary;
     if (input.attachment) {
       try {
-        const mapped = mapAssistantTableAttachment(op, input.attachment);
+        const mapped = op.id === "healthcare.import.preview" ? healthcareAttachment(input.attachment) : mapAssistantTableAttachment(op, input.attachment);
         if (!mapped.rowCount) return { status: "unsupported", reply: `Tệp ${input.attachment.fileName} chưa có dòng dữ liệu để nhập. Chưa có dữ liệu nào thay đổi.` };
         contextualValues[mapped.fieldKey] = JSON.stringify(mapped.rows);
+        if (op.id === "healthcare.import.preview") contextualValues.filename = input.attachment.fileName;
         attachmentSummary = { fieldKey: mapped.fieldKey, fileName: input.attachment.fileName, rowCount: mapped.rowCount };
       } catch (error) {
         return { status: "unsupported", reply: `${(error as Error).message} Chưa có dữ liệu nào thay đổi.` };
@@ -1693,7 +1731,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     pending = {
       id,
       actionId,
-      provided: Object.fromEntries(Object.entries(selectedValues).filter(([key]) => op.fields.some(field => field.key === key) && !unresolvedReferenceKeys.has(key))),
+      provided: Object.fromEntries(Object.entries(selectedValues).filter(([key]) => op.fields.some(field => field.key === key) && !unresolvedReferenceKeys.has(key) && !collected.defaulted.includes(key))),
       intent,
       explicitReferenceKeys: [...explicitReferenceKeys],
       workflowVersion: workflow.version,
@@ -1705,7 +1743,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       awaitingPathReferenceKeys: failedPathReferenceKeys,
       skippedReferenceKeys: [...skippedReferenceKeys],
       referenceSelections: relationshipPrompts.referenceSelections,
-      ...(kpiPeriodDefaulted ? { defaultedKeys: ["periodAnchor"] } : {}),
+      defaultedKeys: [...collected.defaulted],
     };
     if (collected.missing.length || collected.errors.length || references.errors.length || relationshipPrompts.prompts.length) {
       const lines = [
@@ -1716,14 +1754,13 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         ...(visibleCollectedErrors.length || visibleReferenceErrors.length ? [`Mình cần bạn kiểm tra lại một chút:\n${[...visibleCollectedErrors, ...visibleReferenceErrors].join("\n")}`] : []),
         ...(relationshipPrompts.textPrompts.length ? [relationshipPrompts.textPrompts.join("\n")] : []),
         ...(relationshipPrompts.referenceSelections.length ? ["Mình đã tìm thấy lựa chọn phù hợp. Bạn chọn ngay bên dưới nhé."] : []),
-        ...(collected.defaulted.length ? [`Với thông tin chưa được nêu, mình sẽ dùng giá trị mặc định của workflow: ${workflow.fields.filter(f => collected.defaulted.includes(f.key)).map(f => `${f.label} = ${String(collected.values[f.key] ?? f.defaultValue)}`).join("; ")}.`] : []),
       ];
       return { status: "collecting", reply: lines.join("\n"), action: preview,
         ...(relationshipPrompts.referenceSelections.length ? { referenceSelections: relationshipPrompts.referenceSelections } : {}),
         ...(trainingContentNeedsForm ? { trainingContentForm: trainingContentFormFromValues(selectedValues) } : {}),
       };
     }
-    if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, references.values)) {
+    if (["PATCH", "PUT"].includes(op.method) && !hasUpdatePayload(op, collected.values)) {
       if (op.path === "/inventory/catalog/variants/:id"
         && typeof references.values.path_id === "string"
         && typeof references.values.query_productId === "string") {
@@ -1754,10 +1791,12 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       if (!hasSku) preview.values.push({ label: "SKU đầu tiên", value: "Mã tự sinh; tên và đơn vị theo sản phẩm; chế độ kho theo thể loại; thông số tùy chọn để trống", defaulted: true });
     }
     if (op.optionalPathFields?.includes("id") && references.labels.path_id) preview.values.push({ label: "Ca POS", value: references.labels.path_id, defaulted: false });
-    if (((await getSettings(req)).alwaysConfirm && op.method !== "GET") || workflow.requireConfirmation || forceConfirmation || op.id === "employee.create") return { status: "confirmation", reply: op.id === "employee.create"
+    if (((await getSettings(req)).alwaysConfirm && op.method !== "GET" && !op.readOnly) || workflow.requireConfirmation || forceConfirmation || op.id === "employee.create") return { status: "confirmation", reply: op.id === "employee.create"
       ? "Thông tin nhân sự đã đủ rồi. Bạn nhập mật khẩu khởi tạo vào ô bảo mật trong bản xem trước nhé; đừng gửi mật khẩu trong tin nhắn."
       : op.id === "access.role-permissions.save"
         ? "Thao tác này sẽ thay toàn bộ quyền của vai trò và áp dụng cho mọi tài khoản đang dùng vai trò đó. Bạn kiểm tra lại danh sách quyền trong bản xem trước rồi xác nhận giúp mình nhé."
+        : op.id === "healthcare.patient.bulk-delete"
+          ? "Thao tác này sẽ xóa các bệnh nhân đã chọn cùng toàn bộ lượt khám, lịch hẹn và công việc chăm sóc liên quan. Bạn kiểm tra từng hồ sơ và số dữ liệu sẽ xóa trong bản xem trước, rồi xác nhận để thực hiện nhé."
         : "Mình đã chuẩn bị xong. Bạn xem lại thông tin trong bản xem trước; nếu mọi thứ chính xác, hãy xác nhận để mình thực hiện nhé.", action: preview };
     return execute(op, workflow, references.values);
   };
@@ -1767,20 +1806,36 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     responseRules = settings.responseRules || "";
     autoMemoryEnabled = settings.autoMemoryEnabled ?? false;
     const memories = input.text && settings.memoryEnabled ? await assistantMemoryContext(req, input.text) : [];
-    if (assistantMode === "qa") {
-      if (!input.text || input.attachment || input.decision || input.referenceSelections || input.trainingContent) {
-        throw new AssistantError("Tab Hỏi đáp chỉ nhận câu hỏi dạng tin nhắn. Hãy chuyển sang tab Thao tác để dùng workflow.");
-      }
+    if (assistantMode === "qa" && (!input.text || input.attachment || input.decision || input.referenceSelections || input.trainingContent)) {
+      throw new AssistantError("Tab Hỏi đáp chỉ nhận câu hỏi dạng tin nhắn. Hãy chuyển sang tab Thao tác để tra cứu hoặc cập nhật dữ liệu.");
+    }
+    if (forgetMemoryCommand !== null) {
+      const deleted = await forgetAssistantMemoryByContent(req, forgetMemoryCommand);
       reply = {
         status: "completed",
-        reply: await answerAssistantGeneralQuestion({
+        reply: deleted ? "Mình đã quên ghi nhớ đó khỏi tài khoản của bạn." : "Mình chưa tìm thấy ghi nhớ trùng khớp. Bạn có thể xem và xóa mục trong Cài đặt trợ lý > Ghi nhớ.",
+      };
+    } else if (memoryCommand !== null) {
+      if (!settings.memoryEnabled) {
+        reply = { status: "completed", reply: "Ghi nhớ đang tắt. Bạn có thể bật lại trong Cài đặt trợ lý để AI dùng các ghi nhớ của tài khoản." };
+      } else {
+        const saved = await saveAssistantMemory(req, memoryCommand, "explicit");
+        reply = { status: "completed", reply: `${saved.created ? "Mình đã ghi nhớ" : "Mình đã cập nhật ghi nhớ"} cho tài khoản của bạn: ${saved.item.content}. Bạn có thể xem, sửa hoặc xóa trong Cài đặt trợ lý > Ghi nhớ.` };
+      }
+    } else if (assistantMode === "qa") {
+      const conversationReply = await answerAssistantConversation(req, {
+          conversationId: input.conversationId,
+          requestId: input.requestId,
+          pendingDocumentRequest,
           question: input.text,
           messages: session.messages as { role: "user" | "assistant"; content: string }[],
           instructions: settings?.instructions || "",
           memories,
           sessionMemory,
-        }),
-      };
+      });
+      const { pendingDocumentRequest: nextDocumentRequest, ...publicReply } = conversationReply;
+      if (nextDocumentRequest !== undefined) pendingDocumentRequest = nextDocumentRequest || "";
+      reply = publicReply;
     } else if (input.decision) {
       if (!pending || pending.id !== input.decision.id || !pending.resolved) throw new AssistantError("Bản xem trước đã hết hiệu lực. Hãy gửi lại yêu cầu để kiểm tra.", 409);
       if (!input.decision.confirmed) { pending = null; reply = { status: "cancelled", reply: "Mình đã hủy thao tác theo yêu cầu. Dữ liệu chưa được thay đổi." }; }
@@ -1820,25 +1875,13 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       } else {
         reply = await prepare(operation.id, provided, false, pending.intent);
       }
-    } else if (forgetMemoryCommand !== null) {
-      const deleted = await forgetAssistantMemoryByContent(req, forgetMemoryCommand);
-      reply = {
-        status: "completed",
-        reply: deleted ? "Mình đã quên ghi nhớ đó khỏi tài khoản của bạn." : "Mình chưa tìm thấy ghi nhớ trùng khớp. Bạn có thể xem và xóa mục trong Cài đặt trợ lý > Ghi nhớ.",
-      };
-    } else if (memoryCommand !== null) {
-      if (!settings?.memoryEnabled) {
-        reply = { status: "completed", reply: "Ghi nhớ đang tắt. Bạn có thể bật lại trong Cài đặt trợ lý để AI dùng các ghi nhớ của tài khoản." };
-      } else {
-        const saved = await saveAssistantMemory(req, memoryCommand, "explicit");
-        reply = { status: "completed", reply: `${saved.created ? "Mình đã ghi nhớ" : "Mình đã cập nhật ghi nhớ"} cho tài khoản của bạn: ${saved.item.content}. Bạn có thể xem, sửa hoặc xóa trong Cài đặt trợ lý > Ghi nhớ.` };
-      }
     } else if (input.text && typeof session.lastReply?.reply === "string"
       && session.lastReply.reply.includes("Bạn có muốn bổ sung không?")
       && /^(?:co|vang|dong y|duoc|ok|oke|khong|khong can|thoi|bo qua)(?: nhe| nha)?[.!?]?$/.test(normalizeAssistantText(input.text).trim())) {
       const declined = /^(?:khong|thoi|bo qua)/.test(normalizeAssistantText(input.text).trim());
-      reply = declined
-        ? { status: "completed", reply: "Được nhé, mình giữ nguyên thông tin vừa tạo." }
+      const followUp = declined ? null : await createdRecordFollowUp(req, input.conversationId);
+      reply = declined ? { status: "completed", reply: "Được nhé, mình giữ nguyên thông tin vừa tạo." }
+        : followUp ? await prepare(followUp.actionId, followUp.values, false, "Bổ sung thông tin vừa tạo")
         : { status: "collecting", reply: "Được nhé. Bạn gửi giúp mình mục muốn bổ sung và nội dung cụ thể; mình sẽ chuẩn bị bản cập nhật để bạn kiểm tra trước khi lưu." };
     } else {
       const workflows = (await listWorkflows(req)).filter(w => w.enabled);
@@ -1858,7 +1901,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       if (interpreted.cancel === true) { pending = null; reply = { status: "cancelled", reply: "Mình đã hủy yêu cầu rồi nhé. Dữ liệu chưa được thay đổi." }; }
       else if (laborPartnerMissingInfo) {
         if (!workflows.some(workflow => workflow.actionId === "worker.partner.list")) {
-          reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ đối tác lao động vì workflow tra cứu chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ đối tác lao động vì chức năng tra cứu chưa được bật hoặc tài khoản chưa có quyền." };
         } else {
           reply = await laborPartnerMissingInfoReply(req, input.text || "", previousAction);
         }
@@ -1867,7 +1910,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const operation = ASSISTANT_OPERATIONS.find(item => item.method === "PATCH" && item.path === "/worker-management/partners/:partnerId");
         const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
         if (!operation || !workflow) {
-          reply = { status: "unsupported", reply: "Mình chưa thể cập nhật hồ sơ đối tác lao động vì workflow này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = { status: "unsupported", reply: "Mình chưa thể cập nhật hồ sơ đối tác lao động vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
         } else {
           const pathField = operation.fields.find(field => field.source === "path" && field.apiKey === "partnerId");
           const contextualReference = hasLaborPartnerContext ? laborPartnerReferenceFromAction(previousAction) : "";
@@ -1887,7 +1930,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       }
       else if (workerMissingInfo) {
         if (!workflows.some(workflow => workflow.actionId === "worker.list")) {
-          reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ lao động này vì workflow tra cứu chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ lao động này vì chức năng tra cứu chưa được bật hoặc tài khoản chưa có quyền." };
         } else {
           reply = await workerMissingInfoReply(req, input.conversationId, input.text || "");
         }
@@ -1896,7 +1939,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const operation = ASSISTANT_OPERATIONS.find(op => op.method === "GET" && op.path === "/partners/:id");
         const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
         if (!workflow) {
-          reply = { status: "unsupported", reply: "Mình chưa thể xem thông tin đối tác qua chat vì workflow này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = { status: "unsupported", reply: "Mình chưa thể xem thông tin đối tác qua chat vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
         } else {
           const continuing = pending?.actionId === workflow.actionId && !interpreted.newRequest;
           const provided = { ...(continuing ? pending!.provided : {}), ...interpreted.values };
@@ -1909,7 +1952,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const actionId = "employee.detail";
         const workflow = workflows.find(candidate => candidate.actionId === actionId);
         if (!workflow) {
-          reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ nhân sự qua chat vì workflow này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = { status: "unsupported", reply: "Mình chưa thể xem hồ sơ nhân sự qua chat vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
         } else {
           const continuing = pending?.actionId === actionId && !interpreted.newRequest;
           const values = interpreted.actionId === actionId
@@ -1925,7 +1968,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const actionId = "partner.bank-details.update";
         const workflow = workflows.find(candidate => candidate.actionId === actionId);
         if (!workflow) {
-          reply = { status: "unsupported", reply: "Mình chưa thể cập nhật thông tin chuyển khoản qua chat vì workflow này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = { status: "unsupported", reply: "Mình chưa thể cập nhật thông tin chuyển khoản qua chat vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
         } else {
           const continuing = pending?.actionId === actionId && !interpreted.newRequest;
           const contextualReference = contextualPendingPartnerReference(input.text || "", pending);
@@ -1946,14 +1989,14 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           const provided = { ...(continuing ? pending!.provided : {}), ...interpreted.values };
           reply = await prepare(workflow.actionId, provided, false, continuing ? pending!.intent : input.text || "");
         } else {
-          reply = { status: "unsupported", reply: "Mình chưa thể tạo cấu hình hoa hồng qua chat vì workflow này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = { status: "unsupported", reply: "Mình chưa thể tạo cấu hình hoa hồng qua chat vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
         }
       }
       else if (isPartnerCommissionUpdateIntent(input.text || "", Boolean(pendingPartnerReference(pending)))) {
         const operation = ASSISTANT_OPERATIONS.find(op => op.id === "partner.commission.update");
         const workflow = operation && workflows.find(candidate => candidate.actionId === operation.id);
         if (!workflow) {
-          reply = { status: "unsupported", reply: "Mình chưa thể cập nhật hoa hồng đối tác qua chat vì workflow này chưa được bật hoặc tài khoản chưa có quyền." };
+          reply = { status: "unsupported", reply: "Mình chưa thể cập nhật hoa hồng đối tác qua chat vì chức năng này chưa được bật hoặc tài khoản chưa có quyền." };
         } else {
           const continuing = pending?.actionId === workflow.actionId && !interpreted.newRequest;
           const contextualReference = contextualPendingPartnerReference(input.text || "", pending);
@@ -1968,13 +2011,14 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
       }
       else if (!interpreted.actionId) {
         if (!pending && !input.attachment && interpreted.intentType === "general_question") {
-          reply = { status: "unsupported", reply: "Câu hỏi này phù hợp với tab Hỏi đáp. Bạn chuyển sang Hỏi đáp để tiếp tục nhé; tab Thao tác dành cho tra cứu và cập nhật dữ liệu qua workflow." };
+          reply = { status: "unsupported", reply: "Câu hỏi này phù hợp với tab Hỏi đáp. Bạn chuyển sang Hỏi đáp để tiếp tục nhé; tab Thao tác dành cho tra cứu và cập nhật dữ liệu." };
         } else {
-          const suggestions = (interpreted.suggestedActionIds || []).map(id => workflows.find(workflow => workflow.actionId === id)).filter((workflow): workflow is AssistantWorkflow => Boolean(workflow)).slice(0, 3);
-          const suggestionText = suggestions.length
-            ? `Mình muốn chọn đúng việc cho bạn. Mình có thể ${suggestions.map(workflow => `“${workflow.title}”`).join(" hoặc ")}. Bạn đang muốn làm việc nào? Chưa có dữ liệu nào thay đổi nhé.`
-            : `Mình có thể giúp bạn xem, thêm hoặc cập nhật dữ liệu trong các chức năng đã bật. Bạn đang muốn xử lý mục nào? Nếu cần, bạn cũng có thể xem các thao tác đang dùng được trong “Workflow của tôi”.`;
-          reply = { status: "unsupported", reply: input.attachment ? `Mình đã nhận tệp ${input.attachment.fileName}. Bạn nói giúp mình muốn dùng danh sách này để tạo loại dữ liệu nào nhé; mình chưa thay đổi dữ liệu.` : `${suggestionText}${pending ? " Yêu cầu trước vẫn đang được giữ; bạn có thể bổ sung thông tin hoặc yêu cầu hủy." : ""}` };
+          needsIntentClarification = true;
+          const clarification = input.attachment
+            ? `Mình đã nhận tệp ${input.attachment.fileName}. Bạn muốn dùng tệp này để làm gì?`
+            : "Mình chưa hiểu rõ yêu cầu này. Bạn nói hoặc viết lại cụ thể hơn nhé.";
+          const guidance = assistantRequestGuidance(input.text || "", workflows, Boolean(input.attachment));
+          reply = { status: "unsupported", reply: `${clarification}\n\n${guidance}${pending ? "\n\nYêu cầu trước vẫn được giữ." : ""}` };
         }
       }
       else {
@@ -1997,7 +2041,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const continuingSelectedSkuPriceUpdate = previousOperation?.path === "/inventory/catalog/variants/:id"
           && requestedOperation?.path === "/inventory/catalog/prices/:variantId"
           && selectedProductVariant;
-        const provided = {
+        const provided: Record<string, unknown> = {
           ...(continuing ? pending!.provided : {}),
           ...interpreted.values,
           ...(continuingSelectedSkuPriceUpdate ? {
@@ -2005,6 +2049,16 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
             query_productId: continuingSelectedSkuPriceUpdate.productId,
           } : {}),
         };
+        if (!pending && !interpreted.newRequest && session.lastReply?.reply?.includes("Bạn có muốn bổ sung không?")) {
+          const followUp = await createdRecordFollowUp(req, input.conversationId);
+          const update = followUp && operationById(followUp.actionId);
+          const explicitTarget = update?.fields.some(field => (field.source === "path" || field.key === "id") && provided[field.key] !== undefined);
+          const explicitBranch = update?.fields.find(field => field.source === "query" && field.apiKey === "branchId");
+          if (followUp && update?.id === interpreted.actionId && !explicitTarget
+            && (!explicitBranch || provided[explicitBranch.key] === undefined || provided[explicitBranch.key] === followUp.values[explicitBranch.key])) {
+            Object.assign(provided, { ...followUp.values, ...provided });
+          }
+        }
         reply = await prepare(interpreted.actionId, provided, false, continuing ? pending!.intent : input.text || "");
       }
     }
@@ -2015,29 +2069,42 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
     // interpretation or validation error does not discard the user's draft.
     if (uncertain || (reply.status === "failed" && hasDispatched)) pending = null;
   }
+  reply = await completeAssistantOperation(reply, completion, ASSISTANT_OPERATIONS, async operation => {
+    await assertOperation(req, operation.id);
+    return (await currentWorkflow(req, operation.id)).enabled;
+  });
   if (autoMemoryEnabled && input.text && !memoryCommand && !forgetMemoryCommand && reply.status !== "failed" && reply.status !== "uncertain") {
     await autoSaveAssistantMemories(req, input.text);
   }
-  reply = await applyAssistantResponseRules(reply, responseRules);
+  const defaultedLabels = completion?.workflow.fields.filter(field => completion?.defaultedKeys?.includes(field.key))
+    .flatMap(field => [field.label, localizedAssistantFieldLabel(field.apiKey || field.key, "", completion?.operation.id)]) || [];
+  reply = presentAssistantReply(reply, defaultedLabels);
+  // Keep uncertainty explicit; stylistic rewriting must not invent a selected operation.
+  if (!needsIntentClarification) reply = await applyAssistantResponseRules(reply, responseRules);
   reply = {
     ...reply,
     reply: hideInternalAssistantIds(normalizeAssistantReply(reply.reply, input.text || "")),
     ...(reply.action ? { action: sanitizeActionPreview(reply.action) } : {}),
   };
+  reply = presentAssistantReply(reply, defaultedLabels);
   try {
-    await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: { status: reply.status === "uncertain" ? "uncertain" : "completed", result: reply } });
-    const nextMessages = [...history, { role: "assistant", content: reply.reply, createdAt: new Date().toISOString() }];
+    await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: {
+      status: reply.status === "uncertain" ? "uncertain" : "completed", result: reply,
+      ...(completion?.followUp ? { "payload.__assistantFollowUp": completion.followUp } : {}),
+    } });
+    const nextMessages = [...history, { role: "assistant", content: reply.reply, createdAt: new Date().toISOString(), ...(reply.files?.length ? { files: reply.files } : {}) }];
     const nextMessageCount = Math.max(Number(session.messageCount) || 0, session.messages.length) + 2;
     const sessionUpdate: Record<string, unknown> = {
       mode: assistantMode,
       pending,
+      pendingDocumentRequest,
       lastReply: reply,
       messages: nextMessages.slice(-40),
       messageCount: nextMessageCount,
       busy: false,
     };
     const lastSessionMemoryCount = Number(session.sessionMemoryMessageCount) || 0;
-    const shouldSummarizeSession = nextMessageCount >= 40 && nextMessageCount - lastSessionMemoryCount >= 20;
+    const shouldSummarizeSession = nextMessageCount >= 12 && nextMessageCount - lastSessionMemoryCount >= 12;
     const sessionMemoryVersion = Number(session.sessionMemoryVersion) || 0;
     if (shouldSummarizeSession) {
       sessionUpdate.sessionMemoryMessageCount = nextMessageCount;
@@ -2048,7 +2115,6 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         if (nextSessionMemory === null) return;
         await AssistantSessionModel.updateOne({
           ...sessionFilter,
-          messageCount: nextMessageCount,
           sessionMemoryMessageCount: nextMessageCount,
           ...sessionMemoryVersionFilter(sessionMemoryVersion),
         }, { $set: { sessionMemory: nextSessionMemory }, $inc: { sessionMemoryVersion: 1 } });
