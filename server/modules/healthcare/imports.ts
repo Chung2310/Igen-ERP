@@ -122,7 +122,7 @@ const requiredReportKeys = ["ngay_gio_kham", "ma_phieu", "ten_benh_nhan", "ma_be
 function readHospitalReport(bytes: Buffer) {
   const book = openWorkbook(bytes, true);
   const date1904 = Boolean(book.Workbook?.WBProps?.date1904);
-  const rows: { sheet: string; row: number; fields: HospitalReportFields; visitDate: unknown }[] = [];
+  const rows: { sheet: string; row: number; fields: HospitalReportFields; visitDate: unknown; birthDate: unknown; followUpDate: unknown }[] = [];
   for (const sheetName of book.SheetNames) {
     const sheet = book.Sheets[sheetName];
     if (!sheet?.["!ref"]) continue;
@@ -144,7 +144,14 @@ function readHospitalReport(bytes: Buffer) {
     for (const [index, cells] of values.slice(headerIndex + 1).entries()) {
       if (normalize(cells[columns.stt]) === "tong" || !cells.some(cell => String(cell).trim())) continue;
       const fields = Object.fromEntries(reportKeys.map(key => [key, String(cells[columns[key]] ?? "").trim()])) as HospitalReportFields;
-      rows.push({ sheet: sheetName, row: headerIndex + index + 2, fields, visitDate: cells[columns.ngay_gio_kham] });
+      rows.push({
+        sheet: sheetName,
+        row: headerIndex + index + 2,
+        fields,
+        visitDate: cells[columns.ngay_gio_kham],
+        birthDate: cells[columns.ngay_sinh],
+        followUpDate: cells[columns.ngay_hen_tai_kham],
+      });
       if (rows.length > maxHospitalReportRows) throw formatError("Báo cáo hỗ trợ tối đa 10.000 dòng dữ liệu trong một file.");
     }
   }
@@ -166,11 +173,18 @@ function hospitalVisitDate(value: unknown, date1904: boolean) {
 
 function hospitalRow(row: ReturnType<typeof readHospitalReport>["rows"][number], date1904: boolean): HospitalRow {
   const { fields } = row;
-  const birthYear = /^\d{4}$/.test(fields.ngay_sinh) ? fields.ngay_sinh : undefined;
+  const rawBirthDate = row.birthDate;
+  const numericBirthYear = typeof rawBirthDate === "number" && Number.isInteger(rawBirthDate)
+    && rawBirthDate >= 1900 && rawBirthDate <= new Date().getFullYear()
+    ? String(rawBirthDate)
+    : undefined;
+  const birthYear = numericBirthYear || (/^\d{4}$/.test(fields.ngay_sinh) ? fields.ngay_sinh : undefined);
+  const normalizedBirthDate = birthYear ? "" : excelDate(rawBirthDate, date1904);
+  const followUpOn = excelDate(row.followUpDate, date1904);
   const phone = fields.so_dien_thoai.split("/").map(part => part.trim()).find(part => /^\+?\d[\d ().-]{0,38}$/.test(part)) || "";
   const patient = input(patientInput, {
     code: fields.ma_benh_nhan, name: fields.ten_benh_nhan.normalize("NFC"), phone, address: fields.dia_chi,
-    dateOfBirth: birthYear ? "" : excelDate(fields.ngay_sinh, date1904),
+    dateOfBirth: normalizedBirthDate,
   });
   const date = hospitalVisitDate(row.visitDate, date1904);
   const visit = input(hospitalVisitInput, {
@@ -181,12 +195,17 @@ function hospitalRow(row: ReturnType<typeof readHospitalReport>["rows"][number],
     row: row.row, sheet: row.sheet, kind: "hospital-report",
     patient: { ...patient, hospitalProfile: { gender: fields.gioi_tinh, birthYear, phoneText: fields.so_dien_thoai } },
     visit: {
-      ...visit, report: {
+      ...visit, doctorName: fields.bac_si.normalize("NFC"), report: {
         visitedAt: date.local.includes("T") ? new Date(date.local + "+07:00").toISOString() : "",
         department: fields.phong_ban.normalize("NFC"), doctor: fields.bac_si.normalize("NFC"),
         service: fields.dich_vu_dieu_tri.normalize("NFC").slice(0, 160), sourceStatus: fields.trang_thai.normalize("NFC"),
-        followUpOn: excelDate(fields.ngay_hen_tai_kham, date1904),
-        fields: { ...fields, ngay_gio_kham: date.local },
+        followUpOn,
+        fields: {
+          ...fields,
+          ngay_gio_kham: date.local,
+          ngay_sinh: birthYear || normalizedBirthDate,
+          ngay_hen_tai_kham: followUpOn,
+        },
       },
     },
   };
@@ -217,19 +236,23 @@ async function prepareHospitalReport(db: Db, actor: HealthcareActor, bytes: Buff
       if (!duplicate && !existingPatients.has(candidate.patient.code)) patientCodes.add(candidate.patient.code);
       prepared.push({
         sheet: row.sheet, row: row.row, code, label: `${candidate.patient.code} · ${visitedOn}`,
-        status: duplicate ? "skipped" : "ready", ...(duplicate ? {} : { input: candidate }),
+        status: duplicate ? "skipped" : "ready", preview: candidate.visit.report?.fields,
+        ...(duplicate ? {} : { input: candidate }),
       });
     } catch (error) {
-      prepared.push(invalidRow(row, row.fields.ma_phieu, error));
+      prepared.push(invalidRow(row, row.fields.ma_phieu, error, row.fields));
     }
   }
   return { rows: prepared, patientsReady: patientCodes.size };
 }
 
-function invalidRow({ row, sheet }: { row: number; sheet?: string }, code: string, error: unknown): PreparedRow {
+function invalidRow({ row, sheet }: { row: number; sheet?: string }, code: string, error: unknown, preview?: Record<string, string>): PreparedRow {
   if (!(error instanceof AppError)) throw error;
   const fields = error.details?.fields;
-  return { row, sheet, code: code.slice(0, 100), label: "", status: "invalid", message: Array.isArray(fields) ? `${error.message} (${fields.join(", ")})` : error.message };
+  return { row, sheet, code: code.slice(0, 100), label: "", status: "invalid",
+    message: Array.isArray(fields) ? `${error.message} (${fields.join(", ")})` : error.message,
+    ...(preview ? { preview } : {}),
+  };
 }
 
 const statusAliases: Record<string, Visit["status"]> = {

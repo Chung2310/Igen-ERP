@@ -7,8 +7,8 @@ import { NotFoundError, PayloadTooLargeError, ValidationError } from "../../erro
 import { appointmentStatuses, careStatuses, visitStatuses, type HealthcareList, type HealthcareOverview, type HealthcarePatientList, type ImportKind, type ImportRowStatus } from "../../../shared/healthcare";
 import { getImportJob, importHistory, importTemplate, listImportRows, queueImportCommit, queueImportFile, retryImportJob } from "./imports";
 import { calendarDay, dateRangeFilter, dayBounds, healthcareScope, healthcareStaff, listFilter, prepareAppointment, prepareCare, prepareVisit } from "./operations";
-import { createRecord, findRecord, healthcareDb, listClinicalRecords, listRecords, patientReferences, patientSearchFilter, privateFields, records, scopeFilter, textMatches, updateRecord, visible, type HealthcareActor } from "./store";
-import { appointmentInput, careInput, catalogInput, input, listInput, listSearchInput, patientInput, patientSearchInput, recordId, versioned, visitInput } from "./validation";
+import { createGeneratedPatient, createRecord, findRecord, healthcareDb, listClinicalRecords, listRecords, patientReferences, patientSearchFilter, privateFields, records, scopeFilter, textMatches, updateRecord, visible, type HealthcareActor } from "./store";
+import { appointmentInput, careInput, catalogInput, input, listInput, listSearchInput, patientCreateInput, patientInput, patientSearchInput, recordId, versioned, visitInput } from "./validation";
 
 export const healthcareRouter = Router();
 healthcareRouter.use(requirePermission("healthcare:read") as RequestHandler);
@@ -67,7 +67,7 @@ healthcareRouter.get("/overview", route(async (req, res, db, actor) => {
 
 healthcareRouter.post("/patients/search", route(async (req, res, db, actor) => {
   const query = input(patientSearchInput, req.body);
-  const filter = { ...patientSearchFilter(query.q), ...dateRangeFilter("createdAt", query) };
+  const filter = { ...patientSearchFilter(query.q, query.mode === "selection"), ...dateRangeFilter("createdAt", query) };
   const sort = query.from || query.to ? { createdAt: -1, _id: -1 } as const : { updatedAt: -1, _id: -1 } as const;
   res.json(await listRecords(records(db, "patients"), actor, filter, sort, query.page, query.pageSize));
 }));
@@ -75,7 +75,11 @@ healthcareRouter.get("/patients/:id", route(async (req, res, db, actor) => {
   res.json(visible(await findRecord(records(db, "patients"), actor, idOf(req))));
 }));
 healthcareRouter.post("/patients", permission(""), route(async (req, res, db, actor) => {
-  res.status(201).json(await createRecord(records(db, "patients"), actor, input(patientInput, req.body), patientConflict));
+  const { code, ...value } = input(patientCreateInput, req.body);
+  const patient = code
+    ? await createRecord(records(db, "patients"), actor, { ...value, code }, patientConflict)
+    : await createGeneratedPatient(db, actor, value);
+  res.status(201).json(patient);
 }));
 healthcareRouter.patch("/patients/:id", permission(""), route(async (req, res, db, actor) => {
   const id = idOf(req);
@@ -94,7 +98,7 @@ const visitListing = route(async (req, res, db, actor) => {
   const catalogMatches = catalogIds.length ? ["doctorId", "roomId", "serviceId"].map(field => ({ [field]: { $in: catalogIds } })) : [];
   const page = await listClinicalRecords(records(db, "visits"), actor, listFilter(query, "visitedOn", visitStatuses),
     { visitedOn: -1, _id: -1 }, query,
-    ["code", "report.doctor", "report.department", "report.sourceStatus", "report.service", "report.fields.dich_vu_dieu_tri"], catalogMatches);
+    ["code", "doctorName", "report.doctor", "report.department", "report.sourceStatus", "report.service", "report.fields.dich_vu_dieu_tri"], catalogMatches);
   res.json(await withPatients(db, actor, page));
 });
 healthcareRouter.get("/visits", permission("visits", "read"), visitListing);
@@ -120,8 +124,11 @@ healthcareRouter.patch("/visits/:id", permission("visits"), route(async (req, re
 
 const appointmentListing = route(async (req, res, db, actor) => {
   const query = clinicalQuery(req);
+  const doctorIds = query.q
+    ? await records(db, "catalog").distinct("_id", { ...scopeFilter(actor), kind: "doctor", $or: textMatches(query.q, ["code", "name"]) })
+    : [];
   const page = await listClinicalRecords(records(db, "appointments"), actor, listFilter(query, "startsAt", appointmentStatuses),
-    { startsAt: -1, _id: -1 }, query, []);
+    { startsAt: -1, _id: -1 }, query, ["doctorName"], doctorIds.length ? [{ doctorId: { $in: doctorIds } }] : []);
   res.json(await withPatients(db, actor, page));
 });
 healthcareRouter.get("/appointments", permission("appointments", "read"), appointmentListing);
@@ -190,6 +197,54 @@ const importRowsInput = Joi.object<{ page: number; pageSize: number; q: string; 
   q: Joi.string().trim().allow("").max(100).default(""),
   status: Joi.string().valid("ready", "imported", "skipped", "invalid"),
 }).required();
+const patientDeleteInput = Joi.object<{ ids: string[] }>({
+  ids: Joi.array().items(recordId).min(1).max(500).unique().required(),
+}).required();
+
+async function patientDeletionImpact(db: Db, actor: HealthcareActor, ids: string[]) {
+  const scope = scopeFilter(actor);
+  const patients = await records(db, "patients").find({ ...scope, _id: { $in: ids } })
+    .project<{ _id: string; code: string; name: string; phone: string; createdAt: string; hospitalProfile?: { gender?: string } }>({
+      _id: 1, code: 1, name: 1, phone: 1, createdAt: 1, "hospitalProfile.gender": 1,
+    }).toArray();
+  if (patients.length !== ids.length) throw new NotFoundError("RESOURCE_NOT_FOUND", "Một số hồ sơ không còn tồn tại trong chi nhánh hiện tại.");
+  const patientIds = patients.map(patient => patient._id);
+  const counts = async (kind: "visits" | "appointments" | "care") => records(db, kind).aggregate<{ _id: string; count: number }>([
+    { $match: { ...scope, patientId: { $in: patientIds } } },
+    { $group: { _id: "$patientId", count: { $sum: 1 } } },
+  ]).toArray();
+  const [visits, appointments, care] = await Promise.all([counts("visits"), counts("appointments"), counts("care")]);
+  const map = (rows: Array<{ _id: string; count: number }>) => new Map(rows.map(row => [row._id, row.count]));
+  const visitCounts = map(visits);
+  const appointmentCounts = map(appointments);
+  const careCounts = map(care);
+  return {
+    items: patients.map(patient => ({
+      ...patient,
+      visits: visitCounts.get(patient._id) || 0,
+      appointments: appointmentCounts.get(patient._id) || 0,
+      care: careCounts.get(patient._id) || 0,
+    })),
+  };
+}
+
+healthcareRouter.post("/patients/bulk-delete-preview", permission("", "manage"), route(async (req, res, db, actor) => {
+  const { ids } = input(patientDeleteInput, req.body);
+  res.json(await patientDeletionImpact(db, actor, ids));
+}));
+healthcareRouter.post("/patients/bulk-delete", permission("", "manage"), route(async (req, res, db, actor) => {
+  const { ids } = input(patientDeleteInput, req.body);
+  await patientDeletionImpact(db, actor, ids);
+  const scope = scopeFilter(actor);
+  const filter = { ...scope, patientId: { $in: ids } };
+  const care = await records(db, "care").deleteMany(filter);
+  const appointments = await records(db, "appointments").deleteMany(filter);
+  const visits = await records(db, "visits").deleteMany(filter);
+  const patients = await records(db, "patients").deleteMany({ ...scope, _id: { $in: ids } });
+  if (patients.deletedCount !== ids.length) throw new NotFoundError("RESOURCE_NOT_FOUND", "Một số hồ sơ đã thay đổi trong lúc xóa. Hãy tải lại danh sách.");
+  res.json({ deletedCount: patients.deletedCount, deletedCare: care.deletedCount, deletedAppointments: appointments.deletedCount, deletedVisits: visits.deletedCount });
+}));
+
 healthcareRouter.get("/imports", permission("import", "read"), route(async (_req, res, db, actor) => {
   res.json(await importHistory(db, actor));
 }));
