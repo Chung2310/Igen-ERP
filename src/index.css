@@ -92,6 +92,68 @@ select:not([multiple]):not(.sr-only) option:checked {
   }
 }
 
+/* Keep the AI Studio speech speed control aligned with semantic theme colors. */
+.ai-studio-audio-range {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ai-studio-audio-range::-webkit-slider-runnable-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.ai-studio-audio-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.3125rem;
+  border: 2px solid var(--color-surface-container-lowest);
+  border-radius: 9999px;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.ai-studio-audio-range::-moz-range-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.ai-studio-audio-range::-moz-range-progress {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.ai-studio-audio-range::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--color-surface-container-lowest);
+  border-radius: 9999px;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.ai-studio-audio-range:focus-visible {
+  outline: none;
+}
+
+.ai-studio-audio-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.ai-studio-audio-range:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* Search fields use the same one-pixel outline as the HR department search.
    The ERP-wide header search has its own established appearance. */
 :is(input[type="search"], input[placeholder^="Tìm"], input[aria-label^="Tìm"], input[placeholder^="Search"], input[aria-label^="Search"], :is(div, label):has(> svg.lucide-search) > input):not(#global_search_input):not([class*="border-none"]):not([class*="border-0"]):not([class*="bg-transparent"]):not(.sa-ai-search input) {
