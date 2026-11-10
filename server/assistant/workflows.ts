@@ -6,7 +6,7 @@ import { AssistantWorkflowModel, ensureAssistantIndexes } from "./models";
 import { AssistantError, validateWorkflow } from "./policy";
 import type { AssistantWorkflow, AssistantWorkflowUpdate } from "../../src/shared/assistant-workflow";
 export function actorScope(req: AuthenticatedRequest) {
-  if (!req.user?.id || !req.user.companyCode || req.user.companyCode === "SYSTEM") throw new AssistantError("Tài khoản cần thuộc một doanh nghiệp để dùng workflow.", 403);
+  if (!req.user?.id || !req.user.companyCode || req.user.companyCode === "SYSTEM") throw new AssistantError("Tài khoản cần thuộc một doanh nghiệp để dùng trợ lý xử lý dữ liệu.", 403);
   return { userId: req.user.id, companyCode: req.user.companyCode };
 }
 export async function allowedOperations(req: AuthenticatedRequest): Promise<AssistantOperation[]> {
@@ -48,7 +48,9 @@ export async function listWorkflows(req: AuthenticatedRequest): Promise<Assistan
         : field.type === "json" && field.defaultValue !== undefined && typeof field.defaultValue !== "string"
           ? JSON.stringify(field.defaultValue)
           : field.defaultValue;
-      return { ...base, required: Boolean(base.systemRequired || field.required), defaultValue };
+      // A formerly locked API requirement is not a personal choice once the API relaxes it.
+      const savedRequired = field.systemRequired && !base.systemRequired ? base.required : field.required;
+      return { ...base, required: Boolean(base.systemRequired || savedRequired), defaultValue };
     });
     const savedInstructions = String(config.instructions || "").trim();
     const instructions = baseWorkflow.instructions && !savedInstructions.startsWith(baseWorkflow.instructions)
@@ -67,6 +69,6 @@ export async function saveWorkflow(req: AuthenticatedRequest, actionId: string, 
 }
 export async function currentWorkflow(req: AuthenticatedRequest, actionId: string) {
   const workflow = (await listWorkflows(req)).find(w => w.actionId === actionId);
-  if (!workflow?.enabled || !operationById(actionId)) throw new AssistantError("Workflow này đã tắt hoặc bạn không còn quyền sử dụng.", 403);
+  if (!workflow?.enabled || !operationById(actionId)) throw new AssistantError("Chức năng này đã tắt hoặc bạn không còn quyền sử dụng.", 403);
   return workflow;
 }

@@ -1,8 +1,92 @@
 # Route chưa nối với trợ lý
 
-Tự sinh từ `coverage.generated.json`: 0 route đang chờ rà soát hợp đồng và 343 route đã được đánh giá nhưng chủ ý chưa nối. Lý do dưới đây mô tả điều kiện còn thiếu hoặc rủi ro; route vẫn hoạt động theo quyền của ứng dụng. Chạy lại `node server/assistant/scripts/inventory.mjs` và `node server/assistant/scripts/build-catalog.mjs` sau khi thay đổi route hoặc hợp đồng.
+Tự sinh từ `coverage.generated.json`: 75 route đang chờ rà soát hợp đồng và 346 route đã được đánh giá nhưng chủ ý chưa nối. Lý do dưới đây mô tả điều kiện còn thiếu hoặc rủi ro; route vẫn hoạt động theo quyền của ứng dụng. Chạy lại `node server/assistant/scripts/inventory.mjs` và `node server/assistant/scripts/build-catalog.mjs` sau khi thay đổi route hoặc hợp đồng.
 
 ## Route đang chờ rà soát
+
+### Cần tệp, xác thực hoặc luồng tích hợp riêng (2)
+
+- `POST /zalo/oauth-session` — `server/modules/marketing-suite/shared/zalo-oauth.router.ts:43`
+- `GET /zalo/oauth-callback` — `server/modules/marketing-suite/shared/zalo-oauth.router.ts:86`
+
+### Cần hợp đồng dữ liệu ghi trước khi kết nối (1)
+
+- `POST /order-sheets/integrations/:integrationId/leads/retry` — `server/modules/marketing-suite/message/router/lead-sheet.router.ts:67`
+
+### Hạ tầng, xác thực hoặc chưa xác định phân hệ (72)
+
+- `GET /quotation/usage` — `server/modules/quotation/router.ts:554`
+- `GET /quotation/quote-templates` — `server/modules/quotation/router.ts:560`
+- `GET /quotation/quote-template` — `server/modules/quotation/router.ts:576`
+- `POST /quotation/quote-template` — `server/modules/quotation/router.ts:582`
+- `PATCH /quotation/quote-template/:id/category` — `server/modules/quotation/router.ts:614`
+- `DELETE /quotation/quote-template/:id` — `server/modules/quotation/router.ts:643`
+- `GET /quotation/quote-template/:id/file` — `server/modules/quotation/router.ts:668`
+- `GET /quotation/price-list/:id/file` — `server/modules/quotation/router.ts:685`
+- `GET /quotation/files` — `server/modules/quotation/router.ts:696`
+- `GET /quotation/export-jobs/:id` — `server/modules/quotation/router.ts:708`
+- `GET /quotation/generated-export-files/latest` — `server/modules/quotation/router.ts:731`
+- `GET /quotation/files/:id/download` — `server/modules/quotation/router.ts:828`
+- `GET /quotation/files/:id/preview` — `server/modules/quotation/router.ts:844`
+- `POST /quotation/files` — `server/modules/quotation/router.ts:857`
+- `GET /quotation/dashboard` — `server/modules/quotation/router.ts:914`
+- `GET /quotation/price-list` — `server/modules/quotation/router.ts:929`
+- `POST /quotation/price-list/preview` — `server/modules/quotation/router.ts:935`
+- `POST /quotation/price-list` — `server/modules/quotation/router.ts:952`
+- `POST /quotation/catalog/import/preview` — `server/modules/quotation/router.ts:1011`
+- `POST /quotation/catalog/import/confirm` — `server/modules/quotation/router.ts:1033`
+- `POST /quotation/request-files` — `server/modules/quotation/router.ts:1078`
+- `GET /quotation/request-files/:id/preview` — `server/modules/quotation/router.ts:1093`
+- `POST /quotation/quote-requests` — `server/modules/quotation/router.ts:1110`
+- `GET /quotation/quote-requests` — `server/modules/quotation/router.ts:1166`
+- `POST /quotation/quote-requests/:id/analyze` — `server/modules/quotation/router.ts:1174`
+- `GET /quotation/overview` — `server/modules/quotation/router.ts:1269`
+- `GET /quotation/quotes` — `server/modules/quotation/router.ts:1292`
+- `POST /quotation/customer-quotes/suggest` — `server/modules/quotation/router.ts:1357`
+- `GET /quotation/budget-plans` — `server/modules/quotation/router.ts:1369`
+- `PATCH /quotation/budget-plans/:id` — `server/modules/quotation/router.ts:1376`
+- `GET /quotation/budget-plans/:id/export` — `server/modules/quotation/router.ts:1451`
+- `POST /quotation/budget-plans/suggest` — `server/modules/quotation/router.ts:1497`
+- `POST /quotation/customer-quotes` — `server/modules/quotation/router.ts:1525`
+- `POST /quotation/quotes/from-customer` — `server/modules/quotation/router.ts:1594`
+- `POST /quotation/quotes` — `server/modules/quotation/router.ts:1639`
+- `GET /quotation/quotes/:id` — `server/modules/quotation/router.ts:1756`
+- `DELETE /quotation/quotes/:id` — `server/modules/quotation/router.ts:1815`
+- `GET /quotation/quotes/:id/request-file/preview` — `server/modules/quotation/router.ts:1832`
+- `POST /quotation/quotes/:id/recalculate` — `server/modules/quotation/router.ts:1856`
+- `PATCH /quotation/quotes/:id` — `server/modules/quotation/router.ts:1891`
+- `POST /quotation/quotes/:id/submit-review` — `server/modules/quotation/router.ts:2033`
+- `POST /quotation/quotes/:id/approve` — `server/modules/quotation/router.ts:2048`
+- `POST /quotation/quotes/:id/reject` — `server/modules/quotation/router.ts:2076`
+- `GET /quotation/document-templates/:kind` — `server/modules/quotation/router.ts:2133`
+- `GET /quotation/contract-templates` — `server/modules/quotation/router.ts:2154`
+- `GET /quotation/acceptance-templates` — `server/modules/quotation/router.ts:2160`
+- `GET /quotation/settlement-templates` — `server/modules/quotation/router.ts:2166`
+- `GET /quotation/contracts` — `server/modules/quotation/router.ts:2174`
+- `GET /quotation/contracts/prefill` — `server/modules/quotation/router.ts:2182`
+- `POST /quotation/contracts` — `server/modules/quotation/router.ts:2194`
+- `GET /quotation/contracts/:id` — `server/modules/quotation/router.ts:2283`
+- `PATCH /quotation/contracts/:id` — `server/modules/quotation/router.ts:2342`
+- `POST /quotation/contracts/:id/sign` — `server/modules/quotation/router.ts:2372`
+- `GET /quotation/acceptance-records` — `server/modules/quotation/router.ts:2397`
+- `POST /quotation/acceptance-records` — `server/modules/quotation/router.ts:2405`
+- `GET /quotation/acceptance-records/:id` — `server/modules/quotation/router.ts:2479`
+- `GET /quotation/acceptance-records/:id/settlement.xlsx` — `server/modules/quotation/router.ts:2574`
+- `PATCH /quotation/acceptance-records/:id` — `server/modules/quotation/router.ts:2641`
+- `POST /quotation/acceptance-records/:id/complete` — `server/modules/quotation/router.ts:2680`
+- `POST /quotation/quotes/:id/export/retry` — `server/modules/quotation/router.ts:2705`
+- `GET /quotation/quotes/:id/export` — `server/modules/quotation/router.ts:2725`
+- `GET /quotation/quotes/:id/pdf` — `server/modules/quotation/router.ts:2861`
+- `GET /chatbot/assistant/conversations/:id/files/:fileId` — `server/assistant/router.ts:29`
+- `POST /chatbot/assistant/studio/transcriptions` — `server/assistant/router.ts:45`
+- `GET /chatbot/assistant/studio/transcriptions` — `server/assistant/router.ts:50`
+- `POST /chatbot/assistant/studio/images/optimize-prompt` — `server/assistant/router.ts:54`
+- `POST /chatbot/assistant/studio/images/edit` — `server/assistant/router.ts:55`
+- `POST /chatbot/assistant/studio/images` — `server/assistant/router.ts:64`
+- `GET /chatbot/assistant/conversations/:conversationId/memory` — `server/assistant/router.ts:80`
+- `PATCH /chatbot/assistant/conversations/:conversationId/memory` — `server/assistant/router.ts:81`
+- `DELETE /chatbot/assistant/conversations/:conversationId/memory` — `server/assistant/router.ts:82`
+- `DELETE /chatbot/assistant/conversations/:conversationId` — `server/assistant/router.ts:83`
 
 ## Route đã đánh giá và chủ ý chưa nối
 
@@ -25,8 +109,8 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `POST /facebook/oauth-session` — Tạo phiên OAuth Facebook để mở luồng chuyển hướng trên trình duyệt; chat không thể giữ state/CSRF hoặc hoàn tất bước chấp thuận của Facebook. — `server/modules/marketing-suite/shared/facebook-oauth.router.ts:20`
 - `GET /facebook/oauth-callback` — Callback OAuth nhận state/cookie một lần và tạo hoặc cập nhật thông tin xác thực tích hợp; route còn được đăng ký ở nhiều router. Chỉ chạy qua luồng kết nối Facebook trong giao diện. — `server/modules/marketing-suite/shared/facebook-oauth.router.ts:34`
 - `GET /marketing-subscription/history` — Lịch sử gói AI có dữ liệu giao dịch và gia hạn cấp công ty nhưng route không khai báo quyền nghiệp vụ rõ ràng; chưa nối với trợ lý cho đến khi API giới hạn trường trả về và khai báo quyền đọc phù hợp. — `server/modules/marketing-suite/shared/subscription.router.ts:9`
-- `GET /webhooks/tiktok` — Webhook xác minh /webhooks/tiktok nhận challenge của nhà cung cấp; đây là callback máy chủ, không phải truy vấn dữ liệu tài khoản. — `server/modules/marketing-suite/router.ts:45`
-- `POST /webhooks/tiktok` — Webhook /webhooks/tiktok nhận sự kiện bên ngoài cần chữ ký/định dạng từ nhà cung cấp; chat không giả lập nguồn gửi webhook. — `server/modules/marketing-suite/router.ts:46`
+- `GET /webhooks/tiktok` — Webhook xác minh /webhooks/tiktok nhận challenge của nhà cung cấp; đây là callback máy chủ, không phải truy vấn dữ liệu tài khoản. — `server/modules/marketing-suite/router.ts:47`
+- `POST /webhooks/tiktok` — Webhook /webhooks/tiktok nhận sự kiện bên ngoài cần chữ ký/định dạng từ nhà cung cấp; chat không giả lập nguồn gửi webhook. — `server/modules/marketing-suite/router.ts:48`
 - `POST /gemini/chat` — API nhận lịch sử hội thoại và cấu hình AI tùy ý, trừ phí cho mỗi lượt; trùng mục đích với giao diện trợ lý đã có các workflow công việc và không có giới hạn an toàn cho payload chat tổng quát. — `server/modules/marketing-suite/shared/router/gemini.router.ts:268`
 - `POST /gemini/marketing-pillars/swap` — Cần gửi toàn bộ danh sách trụ cột có cấu trúc động, mã trụ cột và có thể cả ảnh; chưa có cách đọc/chọn trụ cột theo tên để bảo toàn các mục còn lại. — `server/modules/marketing-suite/shared/router/gemini.router.ts:271`
 - `POST /gemini/sync-drive` — Đồng bộ hàng loạt tài liệu từ Google Drive, có thể tạo/cập nhật nhiều mục; cần chọn nguồn và xem trước kết quả đồng bộ trong giao diện tích hợp. — `server/modules/marketing-suite/shared/router/gemini.router.ts:283`
@@ -122,15 +206,18 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `GET /marketing-media/download` — Route GET /marketing-media/download cần truyền/nhận byte tệp; chat không thể chọn tệp cục bộ hoặc trả nội dung tải xuống an toàn. — `server/modules/marketing-suite/shared/router/media.router.ts:47`
 - `GET /marketing-media/audio-proxy` — Proxy trả dữ liệu âm thanh từ URL nguồn; chat chỉ hiển thị metadata đã lọc và không tải byte tệp hoặc nội dung media. — `server/modules/marketing-suite/shared/router/media.router.ts:85`
 - `GET /marketing-media/video-proxy` — Proxy trả dữ liệu video từ URL nguồn; chat không có luồng tải/xem tệp và kiểm tra nguồn media an toàn. — `server/modules/marketing-suite/shared/router/media.router.ts:166`
-- `GET /order-sheets/service-account` — Endpoint đọc thông tin service account có thể lộ cấu hình/credential tích hợp Google Sheets; không đưa dữ liệu bí mật vào chat. — `server/modules/marketing-suite/message/router/order-sheet.router.ts:12`
-- `POST /order-sheets/integrations/:integrationId/test` — Kiểm tra tích hợp Google Sheets cần chọn credential và có thể ghi thử ra tài liệu ngoài; dùng màn hình thiết lập tích hợp. — `server/modules/marketing-suite/message/router/order-sheet.router.ts:13`
-- `POST /order-sheets/integrations/:integrationId/template` — Tạo template trong Google Sheets ghi cấu trúc ra dịch vụ ngoài; chat chưa có lựa chọn tài liệu đích và preview toàn bộ thay đổi. — `server/modules/marketing-suite/message/router/order-sheet.router.ts:14`
-- `POST /order-sheets/orders/:orderId/retry` — Gửi lại đồng bộ đơn sang Google Sheets có thể tạo bản ghi trùng ở hệ thống ngoài; chưa có workflow idempotent chọn theo mã đơn và tài liệu đích. — `server/modules/marketing-suite/message/router/order-sheet.router.ts:16`
+- `GET /order-sheets/service-account` — Endpoint đọc thông tin service account có thể lộ cấu hình/credential tích hợp Google Sheets; không đưa dữ liệu bí mật vào chat. — `server/modules/marketing-suite/message/router/order-sheet.router.ts:14`
+- `POST /order-sheets/integrations/:integrationId/test` — Kiểm tra tích hợp Google Sheets cần chọn credential và có thể ghi thử ra tài liệu ngoài; dùng màn hình thiết lập tích hợp. — `server/modules/marketing-suite/message/router/order-sheet.router.ts:15`
+- `POST /order-sheets/integrations/:integrationId/template` — Tạo template trong Google Sheets ghi cấu trúc ra dịch vụ ngoài; chat chưa có lựa chọn tài liệu đích và preview toàn bộ thay đổi. — `server/modules/marketing-suite/message/router/order-sheet.router.ts:16`
+- `POST /order-sheets/orders/:orderId/retry` — Gửi lại đồng bộ đơn sang Google Sheets có thể tạo bản ghi trùng ở hệ thống ngoài; chưa có workflow idempotent chọn theo mã đơn và tài liệu đích. — `server/modules/marketing-suite/message/router/order-sheet.router.ts:18`
 - `POST /company-telegram-order/test` — Gửi thử qua Telegram phát nội dung ra kênh bên ngoài; chat chưa có người nhận/channel đích được chọn và preview an toàn. — `server/modules/marketing-suite/message/router/company-telegram-order.router.ts:22`
 - `POST /webhooks/sepay/:webhookId` — Webhook /webhooks/sepay/:webhookId nhận sự kiện bên ngoài cần chữ ký/định dạng từ nhà cung cấp; chat không giả lập nguồn gửi webhook. — `server/modules/marketing-suite/message/router/company-sepay.router.ts:24`
+- `GET /healthcare/visits` — Trợ lý dùng POST /healthcare/visits/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng. — `server/modules/healthcare/router.ts:104`
+- `GET /healthcare/appointments` — Trợ lý dùng POST /healthcare/appointments/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng. — `server/modules/healthcare/router.ts:134`
+- `GET /healthcare/care` — Trợ lý dùng POST /healthcare/care/search với cùng phân quyền và bộ lọc để giữ tên bệnh nhân trong body; không đăng ký thêm workflow trùng chức năng. — `server/modules/healthcare/router.ts:154`
 - `POST /webhook/payment` — Webhook thanh toán là callback máy chủ từ nhà cung cấp và bị đăng ký ở nhiều router; không phải thao tác người dùng, không gọi từ hội thoại. — `server/router/webhook.router.ts:9`
 - `POST /webhook/sepay/retail-payment` — Webhook /webhook/sepay/retail-payment nhận sự kiện bên ngoài cần chữ ký/định dạng từ nhà cung cấp; chat không giả lập nguồn gửi webhook. — `server/router/webhook.router.ts:10`
-- `GET /health` — Health check hạ tầng chỉ phục vụ giám sát dịch vụ, không phải thao tác dữ liệu tài khoản. — `server/router/index.ts:61`
+- `GET /health` — Health check hạ tầng chỉ phục vụ giám sát dịch vụ, không phải thao tác dữ liệu tài khoản. — `server/router/index.ts:65`
 - `GET /integrations/google-drive/auth-url` — Tạo URL OAuth để người dùng chuyển sang Google và cấp quyền Drive trên trình duyệt; chat không thể nhận callback/hoàn tất xác thực. — `server/router/google-drive.router.ts:10`
 - `GET /integrations/google-drive/callback` — Callback Google Drive nhận code/state dùng một lần để lưu kết nối Drive; chỉ trình duyệt đã khởi tạo OAuth hoàn tất được luồng. — `server/router/google-drive.router.ts:13`
 - `POST /integrations/google-drive/disconnect` — Ngắt kết nối Drive của tài khoản hiện tại, làm dừng các workflow tệp đang dùng kết nối đó; cần xác nhận trong màn hình tích hợp. — `server/router/google-drive.router.ts:16`
@@ -152,17 +239,17 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `DELETE /auth/telegram-link` — Liên kết/gỡ liên kết Telegram cần xác nhận challenge trên ứng dụng Telegram để tránh gắn nhầm tài khoản. — `server/router/auth.router.ts:171`
 - `POST /auth/change-password` — Đổi mật khẩu cần mật khẩu hiện tại/kiểm tra xác thực; không thu thập bí mật đăng nhập trong chat. — `server/router/auth.router.ts:187`
 - `POST /auth/register-company` — Đăng ký tenant doanh nghiệp mới; đây là luồng onboarding công khai có xác thực và chống lạm dụng riêng. — `server/router/auth.router.ts:220`
-- `GET /auth/users/:id/activity` — Đọc nhật ký hoạt động cá nhân theo ID người dùng; đây là dữ liệu kiểm toán cần quyền quản trị và lọc phạm vi rõ ràng. — `server/router/auth.router.ts:277`
-- `GET /auth/companies` — Liệt kê tenant toàn hệ thống; dữ liệu chỉ dành cho superadmin, ngoài phạm vi doanh nghiệp hiện tại. — `server/router/auth.router.ts:297`
-- `GET /auth/current-ip` — Trả thông tin IP kết nối để phục vụ chẩn đoán bảo mật; không phải dữ liệu nghiệp vụ cần trợ lý thao tác. — `server/router/auth.router.ts:298`
-- `POST /auth/branches/:id/owner` — Gán chủ sở hữu chi nhánh làm thay đổi quyền quản trị và người chịu trách nhiệm; cần luồng bàn giao chi nhánh chuyên biệt. — `server/router/auth.router.ts:301`
-- `PATCH /auth/companies/:id` — Đọc hoặc sửa cấu hình tenant/Google Drive bằng mã công ty; có thể vượt phạm vi công ty đang đăng nhập. — `server/router/auth.router.ts:325`
-- `GET /auth/companies/drive/oauth-callback` — Callback OAuth /auth/companies/drive/oauth-callback nhận code/state dùng một lần sau khi người dùng duyệt trên nhà cung cấp; chỉ trình duyệt hoàn tất được luồng này. — `server/router/auth.router.ts:338`
-- `GET /auth/companies/:code/drive` — Đọc thông tin Drive theo mã tenant; route có thể truy cập kết nối công ty khác và không giới hạn trong tenant đang đăng nhập. — `server/router/auth.router.ts:343`
-- `GET /auth/companies/:code/drive/oauth-url` — Khởi tạo OAuth /auth/companies/:code/drive/oauth-url cần chuyển người dùng sang trang nhà cung cấp và xác nhận quyền trên trình duyệt; chat không thể hoàn tất redirect an toàn. — `server/router/auth.router.ts:350`
-- `POST /auth/companies/:code/drive/disconnect` — Ngắt kết nối Drive theo mã tenant, có thể làm gián đoạn tệp của công ty khác; chỉ quản trị tenant trong giao diện cấu hình được phép. — `server/router/auth.router.ts:358`
-- `PATCH /auth/users/bulk` — Cập nhật nhiều tài khoản/role trong một lần; chưa có preview ảnh hưởng và có thể làm thay đổi quyền truy cập hàng loạt. — `server/router/auth.router.ts:429`
-- `DELETE /auth/users/:id` — Route xóa tài khoản bị đăng ký ở nhiều router, nhận ID cơ sở dữ liệu và chưa có danh sách nhân sự cùng preview tác động để chọn theo tên. Không gọi từ chat. — `server/router/auth.router.ts:435`
+- `GET /auth/users/:id/activity` — Đọc nhật ký hoạt động cá nhân theo ID người dùng; đây là dữ liệu kiểm toán cần quyền quản trị và lọc phạm vi rõ ràng. — `server/router/auth.router.ts:278`
+- `GET /auth/companies` — Liệt kê tenant toàn hệ thống; dữ liệu chỉ dành cho superadmin, ngoài phạm vi doanh nghiệp hiện tại. — `server/router/auth.router.ts:298`
+- `GET /auth/current-ip` — Trả thông tin IP kết nối để phục vụ chẩn đoán bảo mật; không phải dữ liệu nghiệp vụ cần trợ lý thao tác. — `server/router/auth.router.ts:299`
+- `POST /auth/branches/:id/owner` — Gán chủ sở hữu chi nhánh làm thay đổi quyền quản trị và người chịu trách nhiệm; cần luồng bàn giao chi nhánh chuyên biệt. — `server/router/auth.router.ts:302`
+- `PATCH /auth/companies/:id` — Đọc hoặc sửa cấu hình tenant/Google Drive bằng mã công ty; có thể vượt phạm vi công ty đang đăng nhập. — `server/router/auth.router.ts:326`
+- `GET /auth/companies/drive/oauth-callback` — Callback OAuth /auth/companies/drive/oauth-callback nhận code/state dùng một lần sau khi người dùng duyệt trên nhà cung cấp; chỉ trình duyệt hoàn tất được luồng này. — `server/router/auth.router.ts:339`
+- `GET /auth/companies/:code/drive` — Đọc thông tin Drive theo mã tenant; route có thể truy cập kết nối công ty khác và không giới hạn trong tenant đang đăng nhập. — `server/router/auth.router.ts:344`
+- `GET /auth/companies/:code/drive/oauth-url` — Khởi tạo OAuth /auth/companies/:code/drive/oauth-url cần chuyển người dùng sang trang nhà cung cấp và xác nhận quyền trên trình duyệt; chat không thể hoàn tất redirect an toàn. — `server/router/auth.router.ts:351`
+- `POST /auth/companies/:code/drive/disconnect` — Ngắt kết nối Drive theo mã tenant, có thể làm gián đoạn tệp của công ty khác; chỉ quản trị tenant trong giao diện cấu hình được phép. — `server/router/auth.router.ts:359`
+- `PATCH /auth/users/bulk` — Cập nhật nhiều tài khoản/role trong một lần; chưa có preview ảnh hưởng và có thể làm thay đổi quyền truy cập hàng loạt. — `server/router/auth.router.ts:430`
+- `DELETE /auth/users/:id` — Route xóa tài khoản bị đăng ký ở nhiều router, nhận ID cơ sở dữ liệu và chưa có danh sách nhân sự cùng preview tác động để chọn theo tên. Không gọi từ chat. — `server/router/auth.router.ts:436`
 - `POST /super-admin/auth/enrollment/start` — Thiết lập/đổi trạng thái xác thực superadmin (TOTP, recovery, phiên hoặc logout); có thể khóa tài khoản quản trị toàn hệ thống. — `server/router/super-admin.router.ts:29`
 - `POST /super-admin/auth/enrollment/confirm` — Thiết lập/đổi trạng thái xác thực superadmin (TOTP, recovery, phiên hoặc logout); có thể khóa tài khoản quản trị toàn hệ thống. — `server/router/super-admin.router.ts:41`
 - `POST /super-admin/auth/totp/verify` — Thiết lập/đổi trạng thái xác thực superadmin (TOTP, recovery, phiên hoặc logout); có thể khóa tài khoản quản trị toàn hệ thống. — `server/router/super-admin.router.ts:55`
@@ -249,18 +336,18 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `GET /push/public-key` — Đăng ký thông báo đẩy cần quyền notification và subscription của trình duyệt/thiết bị hiện tại. — `server/router/push.router.ts:40`
 - `POST /push/subscribe` — Đăng ký thông báo đẩy cần quyền notification và subscription của trình duyệt/thiết bị hiện tại. — `server/router/push.router.ts:43`
 - `POST /push/unsubscribe` — Đăng ký thông báo đẩy cần quyền notification và subscription của trình duyệt/thiết bị hiện tại. — `server/router/push.router.ts:52`
-- `GET /chatbot/assistant/memory` — Bản ghi nhớ cá nhân của trợ lý được quản lý qua phần cài đặt riêng; không phải dữ liệu nghiệp vụ để tra cứu trong cuộc trò chuyện. — `server/assistant/router.ts:25`
-- `POST /chatbot/assistant/memory` — Việc lưu ghi nhớ do trợ lý và phần cài đặt quản lý; không cho phép tạo trực tiếp bản ghi nhớ qua workflow nghiệp vụ trong chat. — `server/assistant/router.ts:26`
-- `PATCH /chatbot/assistant/memory/:memoryId` — Bản ghi nhớ cá nhân được chỉnh trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ. — `server/assistant/router.ts:27`
-- `DELETE /chatbot/assistant/memory/:memoryId` — Bản ghi nhớ cá nhân được quản lý trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ. — `server/assistant/router.ts:28`
-- `GET /chatbot/assistant/workflows` — API cấp dữ liệu cấu hình workflow cho màn hình biên tập; không phải thao tác nghiệp vụ chạy trên dữ liệu công ty. — `server/assistant/router.ts:29`
-- `POST /chatbot/assistant/workflows/:actionId/interpret` — API tạo bản diễn giải workflow cho trình biên tập theo văn bản tùy ý; chỉ dùng trong luồng chỉnh workflow, không thực thi dữ liệu nghiệp vụ. — `server/assistant/router.ts:30`
-- `PATCH /chatbot/assistant/workflows/:actionId` — API lưu toàn bộ workflow cá nhân theo phiên bản và cấu trúc trường tùy chỉnh; chưa có bộ cập nhật từng trường được kiểm soát cho lời gọi chat. — `server/assistant/router.ts:31`
-- `POST /chatbot/assistant/workflows/:actionId/reset` — API khôi phục cấu hình workflow cá nhân về mặc định trong màn hình quản lý; không phải thao tác dữ liệu nghiệp vụ. — `server/assistant/router.ts:32`
-- `GET /chatbot/assistant/conversations` — API phân trang lịch sử phiên chat của giao diện; nội dung hội thoại cần xem trong màn hình lịch sử, không dùng làm danh sách hồ sơ nghiệp vụ. — `server/assistant/router.ts:33`
-- `GET /chatbot/assistant/conversations/:conversationId` — API tải trạng thái và nội dung của một phiên chat bằng UUID nội bộ; dùng riêng cho giao diện xem lại hội thoại. — `server/assistant/router.ts:34`
-- `POST /chatbot/assistant/turns` — API điều phối chính của trợ lý AI; không gọi lồng từ một workflow để tránh đệ quy và gửi lại nội dung hội thoại. — `server/assistant/router.ts:57`
-- `POST /chatbot/assistant/speech` — Endpoint nội bộ tạo âm thanh tiếng Việt cho giao diện trợ lý; chỉ được gọi theo tùy chọn đọc câu trả lời, không phải thao tác nghiệp vụ cho AI thực hiện. — `server/assistant/router.ts:58`
+- `GET /chatbot/assistant/memory` — Bản ghi nhớ cá nhân của trợ lý được quản lý qua phần cài đặt riêng; không phải dữ liệu nghiệp vụ để tra cứu trong cuộc trò chuyện. — `server/assistant/router.ts:71`
+- `POST /chatbot/assistant/memory` — Việc lưu ghi nhớ do trợ lý và phần cài đặt quản lý; không cho phép tạo trực tiếp bản ghi nhớ qua workflow nghiệp vụ trong chat. — `server/assistant/router.ts:72`
+- `PATCH /chatbot/assistant/memory/:memoryId` — Bản ghi nhớ cá nhân được chỉnh trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ. — `server/assistant/router.ts:73`
+- `DELETE /chatbot/assistant/memory/:memoryId` — Bản ghi nhớ cá nhân được quản lý trong phần cài đặt riêng; không mở endpoint nội bộ này thành workflow nghiệp vụ. — `server/assistant/router.ts:74`
+- `GET /chatbot/assistant/workflows` — API cấp dữ liệu cấu hình workflow cho màn hình biên tập; không phải thao tác nghiệp vụ chạy trên dữ liệu công ty. — `server/assistant/router.ts:75`
+- `POST /chatbot/assistant/workflows/:actionId/interpret` — API tạo bản diễn giải workflow cho trình biên tập theo văn bản tùy ý; chỉ dùng trong luồng chỉnh workflow, không thực thi dữ liệu nghiệp vụ. — `server/assistant/router.ts:76`
+- `PATCH /chatbot/assistant/workflows/:actionId` — API lưu toàn bộ workflow cá nhân theo phiên bản và cấu trúc trường tùy chỉnh; chưa có bộ cập nhật từng trường được kiểm soát cho lời gọi chat. — `server/assistant/router.ts:77`
+- `POST /chatbot/assistant/workflows/:actionId/reset` — API khôi phục cấu hình workflow cá nhân về mặc định trong màn hình quản lý; không phải thao tác dữ liệu nghiệp vụ. — `server/assistant/router.ts:78`
+- `GET /chatbot/assistant/conversations` — API phân trang lịch sử phiên chat của giao diện; nội dung hội thoại cần xem trong màn hình lịch sử, không dùng làm danh sách hồ sơ nghiệp vụ. — `server/assistant/router.ts:79`
+- `GET /chatbot/assistant/conversations/:conversationId` — API tải trạng thái và nội dung của một phiên chat bằng UUID nội bộ; dùng riêng cho giao diện xem lại hội thoại. — `server/assistant/router.ts:84`
+- `POST /chatbot/assistant/turns` — API điều phối chính của trợ lý AI; không gọi lồng từ một workflow để tránh đệ quy và gửi lại nội dung hội thoại. — `server/assistant/router.ts:107`
+- `POST /chatbot/assistant/speech` — Endpoint nội bộ tạo âm thanh tiếng Việt cho giao diện trợ lý; chỉ được gọi theo tùy chọn đọc câu trả lời, không phải thao tác nghiệp vụ cho AI thực hiện. — `server/assistant/router.ts:108`
 - `POST /chatbot/chat` — Endpoint nhận payload hội thoại tổng quát có thể chứa vai trò system; route bị đăng ký ở nhiều router. Chat nghiệp vụ dùng POST /chatbot/assistant/turns với workflow và quyền đã kiểm soát. — `server/router/chatbot.router.ts:25`
 - `GET /auth/teacher/:id` — Đọc hồ sơ giáo viên theo ID qua route công khai, không có quyền nghiệp vụ hoặc bộ lọc phạm vi tài khoản. — `server/modules/student-management/routes/auth.routes.ts:15`
 - `GET /auth/users/:id/bank-settings` — Route tra theo ID người dùng, không có quyền nghiệp vụ tường minh và trả thông tin tài khoản ngân hàng của người khác; không mở cho hội thoại. — `server/modules/student-management/routes/auth.routes.ts:17`
@@ -325,12 +412,12 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `POST /retail/orders/:id/payments/revoke` — Thu hồi thanh toán cần payload và khóa chống trùng của lần thu gốc để tránh đảo nhầm giao dịch; chưa có workflow khôi phục giao dịch chat có xem trước. — `server/modules/retail/routes/retail-order.routes.ts:33`
 - `POST /retail/orders/:id/cancel/reconcile` — Đối soát hủy đơn cần khớp yêu cầu hủy gốc và khóa chống trùng; chat chưa có danh sách phiên hủy để chọn theo mã và xác nhận. — `server/modules/retail/routes/retail-order.routes.ts:35`
 - `POST /retail/orders/:id/cancel/revoke` — Thu hồi hủy đơn cần đúng payload và khóa chống trùng của lần hủy ban đầu; chưa có workflow chat gắn với phiên hủy để kiểm tra tác động. — `server/modules/retail/routes/retail-order.routes.ts:37`
-- `GET /retail/invoices/bulk-pdf` — Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ. — `server/modules/retail/routes/retail-invoice.routes.ts:7`
-- `POST /retail/invoices/bulk-pdf` — Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ. — `server/modules/retail/routes/retail-invoice.routes.ts:8`
-- `POST /retail/invoices/:id/pos-print` — Endpoint tạo lệnh in hóa đơn tại POS, phụ thuộc máy in/phiên quầy đang hoạt động; chat không có kênh chọn và điều khiển thiết bị. Dùng màn hình thu ngân. — `server/modules/retail/routes/retail-invoice.routes.ts:9`
-- `POST /retail/invoices/:id/payment-print` — Endpoint in biên nhận thanh toán qua thiết bị POS đang gắn với ca; chat không thể xác minh máy in và quầy đích. Dùng màn hình thu ngân. — `server/modules/retail/routes/retail-invoice.routes.ts:10`
-- `POST /retail/invoices/:id/reprint` — In lại hóa đơn cần thiết bị/quầy đích và kiểm tra bản in đã phát hành; chat chưa có xác nhận thiết bị. Dùng giao diện hóa đơn/POS. — `server/modules/retail/routes/retail-invoice.routes.ts:11`
-- `GET /retail/invoices/:id/pdf` — Endpoint trả tệp PDF thay vì dữ liệu hội thoại; trợ lý đã có workflow xem chi tiết hóa đơn theo số hóa đơn. Dùng màn hình hóa đơn để tải tệp PDF. — `server/modules/retail/routes/retail-invoice.routes.ts:12`
+- `GET /retail/invoices/bulk-pdf` — Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ. — `server/modules/retail/routes/retail-invoice.routes.ts:8`
+- `POST /retail/invoices/bulk-pdf` — Endpoint trả tệp PDF thay vì dữ liệu hội thoại; chat chưa có luồng tải/xem trước hóa đơn hàng loạt. Dùng màn hình hóa đơn bán lẻ. — `server/modules/retail/routes/retail-invoice.routes.ts:9`
+- `POST /retail/invoices/:id/pos-print` — Endpoint tạo lệnh in hóa đơn tại POS, phụ thuộc máy in/phiên quầy đang hoạt động; chat không có kênh chọn và điều khiển thiết bị. Dùng màn hình thu ngân. — `server/modules/retail/routes/retail-invoice.routes.ts:10`
+- `POST /retail/invoices/:id/payment-print` — Endpoint in biên nhận thanh toán qua thiết bị POS đang gắn với ca; chat không thể xác minh máy in và quầy đích. Dùng màn hình thu ngân. — `server/modules/retail/routes/retail-invoice.routes.ts:11`
+- `POST /retail/invoices/:id/reprint` — In lại hóa đơn cần thiết bị/quầy đích và kiểm tra bản in đã phát hành; chat chưa có xác nhận thiết bị. Dùng giao diện hóa đơn/POS. — `server/modules/retail/routes/retail-invoice.routes.ts:12`
+- `GET /retail/invoices/:id/pdf` — Endpoint trả tệp PDF thay vì dữ liệu hội thoại; trợ lý đã có workflow xem chi tiết hóa đơn theo số hóa đơn. Dùng màn hình hóa đơn để tải tệp PDF. — `server/modules/retail/routes/retail-invoice.routes.ts:13`
 - `GET /retail/reports/export` — Xuất báo cáo bán lẻ thành tệp; xem báo cáo tổng hợp đã tích hợp trong chat thay vì tạo file tải xuống. — `server/modules/retail/routes/retail-report.routes.ts:10`
 - `POST /retail/reports/debt-reminders/run` — Alias cũ gọi cùng RetailDebtReminderService.run nhưng không có contract riêng. Dùng POST /retail/debt-reminders/run; workflow chuẩn đã yêu cầu chọn chi nhánh và xác nhận trước khi tạo nhắc nợ. — `server/modules/retail/routes/retail-report.routes.ts:11`
 - `POST /retail/receivables/adjustments` — FinanceRetailCompatibilityAdapter đổi schema giữa customerId và receivableId tùy cờ finance cutover. Dùng POST /finance/receivables/:id/adjustments để chọn khoản phải thu theo mã hiển thị, chi nhánh và xác nhận với một schema ổn định. — `server/modules/retail/routes/retail-receivable.routes.ts:10`
@@ -352,6 +439,9 @@ Mỗi route có lý do riêng ngay bên cạnh đường dẫn; các endpoint ti
 - `GET /worker-management/qr-attendance/session/:sessionId/status` — Đọc token/trạng thái phiên QR tại /worker-management/qr-attendance/session/:sessionId/status; phiên có thời hạn và cần được hiển thị/quét trên thiết bị thật. — `server/modules/worker-management/routes/worker-qr-attendance.routes.ts:55`
 - `POST /worker-management/qr-attendance/session/:sessionId/close` — Mở/đóng phiên điểm danh QR tại /worker-management/qr-attendance/session/:sessionId/close; cần quản lý vòng đời phiên trên màn hình và xác nhận thiết bị tại chỗ. — `server/modules/worker-management/routes/worker-qr-attendance.routes.ts:62`
 
-## Route được sinh động
+## Khai báo route động chưa phân giải
 
-Các route khai báo bằng vòng lặp và helper đã được mở rộng thành method/path cụ thể trong inventory; không còn khai báo route động chưa phân giải.
+Các khai báo này chưa có đường dẫn API ổn định trong inventory; cần rà soát router để tách thành route cụ thể trước khi đánh giá quyền và hợp đồng.
+
+- `server\modules\quotation\router.ts:2291`
+- `server\modules\quotation\router.ts:2489`

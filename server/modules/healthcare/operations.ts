@@ -68,7 +68,7 @@ export async function prepareAppointment(db: Db, actor: HealthcareActor, value: 
       throw invalidField("patientId", "Lịch hẹn đã gắn với bệnh nhân và lượt khám đã chọn.");
     }
     const moved = previous.startsAt !== booking.startsAt || previous.endsAt !== booking.endsAt ||
-      previous.doctorId !== booking.doctorId || previous.doctorName !== booking.doctorName || previous.roomId !== booking.roomId;
+      previous.doctorId !== booking.doctorId || (previous.doctorName || "") !== (booking.doctorName || "") || previous.roomId !== booking.roomId;
     if (moved && !["scheduled", "confirmed"].includes(previous.status)) {
       throw invalidField("startsAt", "Chỉ lịch chờ hoặc đã xác nhận mới có thể đổi giờ, bác sĩ hoặc phòng.");
     }

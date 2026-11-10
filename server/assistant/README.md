@@ -1,6 +1,63 @@
 # Trợ lý thao tác và workflow cá nhân
 
+Đồng bộ y tế với `develop` tại `d5f9d83f` (10/11/2026): 28 thao tác, tạo bệnh nhân có mã tự sinh, nhận bác sĩ ngoài danh mục, gắn chăm sóc với lượt khám và xem nội dung từng dòng báo cáo Excel. Cấu hình cũ tự bỏ yêu cầu mã bệnh nhân từng bị khóa bắt buộc; các lựa chọn bắt buộc do người dùng chủ động đặt vẫn được giữ. Xóa bệnh nhân cần quyền quản lý, chọn rõ từng hồ sơ, xem số dữ liệu liên quan, xác nhận và kiểm tra lại bản xem trước trước khi xóa. Kết quả vẫn dùng bảng chung, giữ câu hỏi thông tin tùy chọn, ẩn lời dẫn kỹ thuật và trường tự điền.
+
 Trợ lý dùng hội thoại để thu thập thông tin, hỏi lại phần còn thiếu, tra bản ghi theo tên hoặc mã hiển thị, rồi gọi những thao tác ERP đã được khai báo. Mỗi tài khoản có workflow riêng để chỉnh hướng dẫn, trường bắt buộc và giá trị mặc định.
+
+## Quy tắc dùng chung khi thêm module
+
+Các yêu cầu về hỏi bổ sung thông tin tùy chọn và hiển thị bảng là mặc định cho mọi module. `service.ts` gọi API qua `dispatch`, rồi đưa mọi kết quả thành công qua `completeAssistantOperation` trong `completion.ts` tại một điểm chung. Nhánh adapter không tự gắn câu hỏi bổ sung. Hook này kiểm tra quyền cập nhật, bỏ qua thông tin đã có, giữ quyền bỏ qua và lưu riêng định danh hồ sơ/chi nhánh để tiếp tục đúng bản ghi; metadata này không được đưa vào câu trả lời.
+
+`src/shared/assistant-result-table.ts` cung cấp bộ dựng và nhận diện bảng dùng chung cho backend, frontend và bước biên tập câu trả lời. Module mới dùng `formatAssistantResultTable` với các trường công khai đã được duyệt; bộ hiển thị cũng nhận các dòng dữ liệu có nhãn và các kết quả thành công cũ, không phụ thuộc tên phân hệ hay một câu mở đầu riêng. Bảng dùng component hiện có, còn câu hỏi bổ sung nằm bên dưới.
+
+`completion.test.ts` chạy cùng hợp đồng trên mọi module hiện có và một module giả lập mới, đồng thời chặn nhánh thực thi gọi API ngoài dispatcher hoặc bỏ qua hook hoàn tất. Các kiểm thử cấu trúc bảng, quy tắc trả lời và hội thoại nhân sự/y tế xác minh yêu cầu này xuyên module. Quy định triển khai được ghi trong `AGENTS.md` để các lần bổ sung module tiếp theo phải tái sử dụng cơ chế chung.
+
+## Workflow Quản lý y tế
+
+26 workflow trong `healthcare-catalog.ts` được tự khởi tạo cho tài khoản khi mở danh sách workflow, theo module `healthcare` và quyền của từng nghiệp vụ:
+
+- Xem tổng quan; tra cứu, xem hồ sơ, tạo và cập nhật bệnh nhân.
+- Tra cứu, tạo, cập nhật lượt khám và xem phiếu khám bệnh viện đã nhập.
+- Tra cứu, đặt và cập nhật lịch hẹn: xác nhận, báo đã đến, hoàn tất, hủy hoặc ghi nhận không đến theo trạng thái API cho phép.
+- Tra cứu, giao và cập nhật việc chăm sóc; hoàn tất yêu cầu kết quả; chọn nhân viên hoạt động tại đúng chi nhánh.
+- Tra cứu, tạo, sửa hoặc ngừng sử dụng danh mục bác sĩ, phòng và dịch vụ.
+- Tải mẫu Excel thật; kiểm tra bảng đính kèm; xem lịch sử, tiến độ, lỗi từng dòng; xác nhận ghi và thử lại đợt nhập đủ điều kiện.
+
+Ví dụ: “Tìm bệnh nhân mã BN-001”, “Đặt lịch khám cho BN-001 từ 9 giờ đến 9 giờ 30 ngày 12/11/2026”, “Hoàn tất việc chăm sóc đã chọn, kết quả: bệnh nhân xác nhận tái khám”, “Tải mẫu Excel bệnh nhân”. Giờ lịch hẹn cần múi giờ rõ ràng; trợ lý không tự đoán giờ kết thúc.
+
+`healthcare-executor.ts` gọi API trên máy chủ hiện tại, chuyển chi nhánh qua header được xác thực, dùng POST cho tìm kiếm hồ sơ và phân giải tên/mã thành UUID. Cập nhật tự lấy `revision`, giữ nguyên trường không đổi, kiểm tra lại sau xác nhận và chặn hồ sơ đã bị sửa. Các thao tác ghi luôn yêu cầu xác nhận; POST tìm kiếm chỉ đọc không bị coi là thao tác ghi. Kết quả không hiển thị UUID hoặc phiên bản kỹ thuật.
+
+Kết quả tạo, sửa và tra cứu hồ sơ dùng bảng có sẵn của trợ lý. Bảng bệnh nhân luôn có mã, họ tên, số điện thoại, ngày sinh, địa chỉ và ghi chú; ô chưa có thông tin hiển thị `—`. Sau khi tạo, trợ lý hỏi bổ sung những thông tin tùy chọn còn thiếu, không biến chúng thành trường bắt buộc. Người dùng có thể bỏ qua, trả lời “Có” rồi gửi thông tin, hoặc gửi thông tin bổ sung ngay; cập nhật tiếp tục trên đúng bệnh nhân và chi nhánh vừa tạo, vẫn cần xác nhận trước khi lưu. Quy tắc biên tập câu trả lời không viết lại cấu trúc bảng hoặc làm mất câu hỏi bổ sung.
+
+Excel trong chat hỗ trợ tối đa 100 dòng trên một bảng, gồm cả ô trống. Tệp được dựng lại thành XLSX và gửi qua API kiểm tra hiện có, không tự ghi bệnh nhân. Sau khi worker kiểm tra xong, người dùng chọn đợt nhập và xác nhận workflow ghi riêng. Xếp hàng không đồng nghĩa đã nhập thành công. Tệp nhiều trang hoặc trên 100 dòng tiếp tục dùng màn hình Nhập Excel y tế; mẫu tải qua cùng cơ chế file có xác thực của trợ lý.
+
+## Hội thoại giọng nói 2 chiều
+
+- Nút “Bật chế độ 2 chiều” bắt đầu nghe tiếng Việt ngay, không cần nói “Hey Igen”. Sau khoảng 1,4 giây im lặng, nội dung nhận dạng được tự gửi qua luồng hội thoại hiện có. Kết quả tạm vẫn được dùng nếu trình duyệt không trả kết quả cuối; một lượt nghe chỉ gửi một yêu cầu.
+- Micro tạm ngừng khi xử lý yêu cầu và tạo/phát âm thanh trả lời; sau khi phát xong sẽ nghe lượt tiếp theo. Chế độ này đọc câu trả lời bằng giọng đã chọn qua OpenRouter, có tính phí tạo âm thanh, kể cả khi tùy chọn đọc trả lời thông thường đang tắt. Không thay đổi cài đặt đã lưu.
+- Nút “Tắt chế độ 2 chiều” luôn dùng được, dừng micro/phát âm thanh và giữ phần chưa gửi trong ô nhập. Đóng trợ lý, chuyển mục trong trợ lý hoặc mở cài đặt cũng dừng chế độ này. Khi có lỗi quyền micro/kết nối, người dùng chủ động bật lại; không tự lặp yêu cầu cấp quyền.
+- Dùng `SpeechRecognition`/`webkitSpeechRecognition` của trình duyệt và cần quyền micro trên HTTPS hoặc localhost. Test controller và giao diện dùng nhận dạng/âm thanh giả lập; vẫn cần kiểm tra bằng micro thật trên trình duyệt triển khai.
+
+## Tạo tài liệu trong tab Trò chuyện
+
+- Yêu cầu bằng lời như “Lập kế hoạch 30 ngày và xuất Excel, Word, PDF”. Hỗ trợ XLSX, CSV (một bảng), DOCX, PDF, TXT, Markdown và JSON. AI trả cấu trúc được kiểm tra bằng Joi; máy chủ dựng file thật, không thực thi mã do mô hình sinh ra.
+- `AssistantDocument` lưu nội dung nguồn đầy đủ và file nhị phân trong MongoDB theo tài khoản, công ty, chi nhánh, cuộc trò chuyện, tài liệu và phiên bản. Tối đa 50 phiên bản mỗi cuộc trò chuyện, 250.000 ký tự/2.000 dòng nguồn và tổng file đầu ra 8 MB mỗi phiên bản. Xóa cuộc trò chuyện cũng xóa tài liệu.
+- Tiếp tục bằng “Thêm cột Ngân sách” hoặc “Đổi sang PDF”. Đổi định dạng đơn thuần dùng nguyên bản nguồn đã lưu, không nhờ AI viết lại. Các chỉnh sửa tạo phiên bản mới và giữ file cũ. Yêu cầu đang chờ bổ sung dữ liệu được lưu trong phiên để tiếp tục sau khi tải lại trang.
+- File gắn với từng tin nhắn trong lịch sử; tải qua `GET /chatbot/assistant/conversations/:id/files/:fileId`, có xác thực, quyền `chat:read`, phạm vi tài khoản/công ty/chi nhánh và header `private, no-store`. Không cấp liên kết công khai và không dùng đường dẫn do AI cung cấp.
+- Trò chuyện dùng dữ liệu người dùng cung cấp và nội dung đã có; không tự đọc cơ sở dữ liệu ERP. Các bộ xuất nghiệp vụ ERP vẫn đi qua phân hệ và quyền tương ứng.
+- Ngữ cảnh gửi mô hình dùng tối đa 40 tin nhắn gần nhất trong ngân sách 24.000 ký tự, kèm tóm tắt phiên và ghi nhớ cá nhân. Tóm tắt cập nhật mỗi 12 tin nhắn; lệnh ghi nhớ/quên được xử lý trực tiếp ở cả tab Trò chuyện và Thao tác. Nội dung tài liệu được đọc riêng nên không bị cắt theo giới hạn câu trả lời chat.
+
+## Quy tắc tạo file tham khảo công khai
+
+`document-rules.ts` chứa bản quy tắc do Igen tổng hợp và điều chỉnh theo khả năng backend, có mã phiên bản và ngày rà soát nguồn. Quy tắc theo định dạng được gửi vào prompt mỗi lần soạn/sửa; bản xuất lưu `generationRulesVersion` để truy vết. Các nguồn là hướng dẫn công khai, không được coi là toàn bộ system prompt nội bộ của ChatGPT/Claude:
+
+- [Anthropic XLSX](https://github.com/anthropics/skills/blob/main/skills/xlsx/SKILL.md): giữ yêu cầu và dữ liệu, phân biệt nguồn/giả định, bảo toàn cấu trúc khi sửa.
+- [Anthropic DOCX](https://github.com/anthropics/skills/blob/main/skills/docx/SKILL.md): paragraph/heading thực, độ rộng bảng và ô thống nhất, kiểm tra tài liệu xuất.
+- [Anthropic PDF](https://github.com/anthropics/skills/blob/main/skills/pdf/SKILL.md) và [OpenAI PDF](https://github.com/openai/skills/blob/main/skills/.curated/pdf/SKILL.md): chữ rõ, bố cục dễ đọc và rà file đã render.
+
+Ứng dụng thực thi thêm: Excel giữ tên tab hợp lệ (chỉ đổi khi trùng/không hợp lệ), chữ Arial, wrap, dòng đầu in đậm/cố định và bộ lọc; Word dùng bảng DXA, đoạn riêng, heading có outline và footer số trang; PDF có số trang và tránh heading lẻ cuối trang. `document-preflight.ts` mở lại file để kiểm tra cấu trúc/dữ liệu trước khi lưu; kiểm tra này không chứng nhận bố cục trực quan.
+
+Các quy tắc cần môi trường khác được giới hạn rõ: chưa chạy công thức/recalculation, biểu đồ, ảnh hoặc mẫu Office tải lên; không giao file giả lập các khả năng đó. Chưa có LibreOffice trong môi trường hiện tại nên không tuyên bố đã render DOCX/XLSX. Việc soạn vẫn dùng model đã cấu hình qua OpenRouter, không tự đổi sang API Claude hay OpenAI.
 
 ## Nguyên tắc thực thi
 

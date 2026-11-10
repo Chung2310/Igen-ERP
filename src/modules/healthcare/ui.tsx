@@ -10,7 +10,7 @@ import { ApiClientError } from "../../services/apiClientError";
 import type { HealthcareApi } from "./api";
 
 export const panelClass = "min-w-0 space-y-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 sm:p-5";
-export const controlClass = "h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-sm text-on-surface transition-colors placeholder:text-on-surface-variant/70 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/15 disabled:bg-surface-container-low disabled:text-on-surface-variant";
+export const controlClass = "h-11 w-full rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-2 text-sm text-on-surface transition-colors placeholder:text-on-surface-variant/70 focus-visible:border-primary focus-visible:outline-none disabled:bg-surface-container-low disabled:text-on-surface-variant";
 export const buttonClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm font-medium text-on-surface hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50";
 export const primaryClass = "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-primary bg-primary-container px-4 py-2 text-sm font-semibold text-on-primary-container hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50";
 
