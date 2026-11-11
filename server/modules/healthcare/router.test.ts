@@ -94,6 +94,20 @@ function workbookForm(book: XLSX.WorkBook, filename = "qa.xlsx") {
   form.append("file", new Blob([XLSX.write(book, { type: "buffer", bookType: "xlsx" })]), filename);
   return form;
 }
+function hospitalReportForm(rows: Array<Array<string | number>>) {
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([Object.values(hospitalReportColumns), ...rows]), "Tháng 10");
+  return workbookForm(book, "Báo cáo y tế.xlsx");
+}
+function hospitalReportRow({ visitCode, patientCode, patientName, visitDate, followUpDate = "", phone = "0900000000", sourceStatus = "Chờ thực hiện" }:
+  { visitCode: string | number; patientCode: string | number; patientName: string; visitDate: number | string; followUpDate?: string; phone?: string | number; sourceStatus?: string }) {
+  return [1, 1, visitDate, visitCode, patientName, patientCode, "Khách mới", "Thu phí", "Phòng thử", "Nữ", "1990", "36", phone,
+    "Địa chỉ thử", "Lý do thử", "Triệu chứng thử", "Chẩn đoán thử", "Điều trị thử", "Dịch vụ thử", followUpDate,
+    "Bác sĩ thử", sourceStatus, "Đã thanh toán", "Kê đơn thử", "Mua thuốc thử"] as Array<string | number>;
+}
+function excelSerial(day: string) {
+  return Date.parse(`${day}T00:00:00Z`) / 86_400_000 + 25_569;
+}
 
 async function readJob(id: string) {
   return (await (await request(`/imports/${id}`)).json()) as ImportJob;
@@ -135,6 +149,9 @@ it("creates the visit to follow-up to care flow and prevents concurrent interval
   const visit = await created<Visit>("/visits", { code: "LKQA", patientId: patient._id, visitedOn: "2026-11-07", doctorId: doctor._id });
   const today = calendarDay();
   const booking = { startsAt: `${today}T09:00+07:00`, endsAt: `${today}T09:30+07:00`, doctorId: doctor._id };
+  expect((await request("/appointments", {
+    ...booking, scheduledOn: "2000-01-01", patientId: patient._id, visitId: visit._id,
+  })).status).toBe(400);
   const results = await Promise.all([
     request("/appointments", { ...booking, patientId: patient._id, visitId: visit._id }),
     request("/appointments", { ...booking, startsAt: `${today}T09:15+07:00`, patientId: second._id }),
@@ -153,7 +170,7 @@ it("creates the visit to follow-up to care flow and prevents concurrent interval
   expect(care).toMatchObject({ appointmentId: appointment._id, status: "open" });
   expect((await request("/care", { ...task, patientId: second._id })).status).toBe(400);
 
-  const reference = { _id: patient._id, code: patient.code, name: patient.name };
+  const reference = { _id: patient._id, code: patient.code, name: patient.name, phone: patient.phone };
   expect(await (await request("/visits/search", { q: "Bác sĩ thử" })).json()).toMatchObject({ total: 1, items: [{ _id: visit._id }] });
   for (const [path, id] of [["visits", visit._id], ["appointments", appointment._id], ["care", care._id]]) {
     const { items, patientReferences } = await (await request(`/${path}?id=${id}`)).json();
@@ -164,7 +181,7 @@ it("creates the visit to follow-up to care flow and prevents concurrent interval
     expect(patientReferences).toEqual([reference]);
   }
   const overview = await (await request("/overview")).json();
-  expect(overview.todayAppointments).toEqual([{ _id: appointment._id, patientId: patient._id, startsAt: appointment.startsAt, status: "scheduled" }]);
+  expect(overview.todayAppointments).toEqual([{ _id: appointment._id, patientId: patient._id, scheduledOn: today, startsAt: appointment.startsAt, status: "scheduled" }]);
   expect(overview.dueCare).toEqual([{ _id: care._id, patientId: patient._id, dueOn: today, title: task.title }]);
   expect(overview.patientReferences).toEqual([reference]);
   expect(await (await request("/appointments", undefined, { branchId: String(otherBranch) })).json())
@@ -203,6 +220,53 @@ it("previews patients and visits, preserves source rows and replays Excel import
   expect(await finish(visits._id)).toMatchObject({ status: "completed", processed: 1 });
   const list = await (await request("/visits?from=2026-11-07&to=2026-11-07")).json();
   expect(list.items).toContainEqual(expect.objectContaining({ code: "LK001", visitedOn: "2026-11-07", source: { row: 2, batchId: visits._id } }));
+});
+
+it("rejects numeric patient codes, visit codes, and phone values that may have lost leading zeroes", async () => {
+  const rows = [
+    hospitalReportRow({ visitCode: "TYPE-001", patientCode: 123, patientName: "Hồ sơ số 1", visitDate: excelSerial("2026-10-01") }),
+    hospitalReportRow({ visitCode: 456, patientCode: "TYPE-002", patientName: "Hồ sơ số 2", visitDate: excelSerial("2026-10-01") }),
+    hospitalReportRow({ visitCode: "TYPE-003", patientCode: "TYPE-003-BN", patientName: "Hồ sơ số 3", visitDate: excelSerial("2026-10-01"), phone: 901234567 }),
+  ];
+  const preview = await prepare("hospital-report", hospitalReportForm(rows));
+  expect(preview).toMatchObject({ total: 3, ready: 0, invalid: 3 });
+  const issues = await (await request(`/imports/${preview._id}/rows/search`, { status: "invalid" })).json();
+  expect(issues.items.map((row: { message: string }) => row.message).join(" ")).toMatch(/Mã bệnh nhân đang là số/);
+  expect(issues.items.map((row: { message: string }) => row.message).join(" ")).toMatch(/Mã phiếu đang là số/);
+  expect(issues.items.map((row: { message: string }) => row.message).join(" ")).toMatch(/Số điện thoại đang là số/);
+});
+
+it("blocks hospital workbook codes that point at a different patient or visit date", async () => {
+  const first = await created<Patient>("/patients", { code: "COLLISION-A", name: "Nguyễn An" });
+  await created<Patient>("/patients", { code: "COLLISION-B", name: "Trần Bình" });
+  await created<Visit>("/visits", { code: "COLLISION-VISIT", patientId: first._id, visitedOn: "2026-10-01" });
+  await created<Visit>("/visits", { code: "COLLISION-DATE", patientId: first._id, visitedOn: "2026-10-01" });
+  const rows = [
+    hospitalReportRow({ visitCode: "COLLISION-NEW", patientCode: "COLLISION-A", patientName: "Tên không khớp", visitDate: excelSerial("2026-10-01") }),
+    hospitalReportRow({ visitCode: "COLLISION-VISIT", patientCode: "COLLISION-B", patientName: "Trần Bình", visitDate: excelSerial("2026-10-01"), followUpDate: "30/10/2026" }),
+    hospitalReportRow({ visitCode: "COLLISION-DATE", patientCode: "COLLISION-A", patientName: "Nguyễn An", visitDate: excelSerial("2026-10-02") }),
+  ];
+  const preview = await prepare("hospital-report", hospitalReportForm(rows));
+  expect(preview).toMatchObject({ total: 3, ready: 0, invalid: 3 });
+  const issues = await (await request(`/imports/${preview._id}/rows/search`, { status: "invalid" })).json();
+  const messages = issues.items.map((row: { message: string }) => row.message).join(" ");
+  expect(messages).toMatch(/hồ sơ có tên khác/);
+  expect(messages).toMatch(/Mã phiếu đã gắn với bệnh nhân hoặc ngày khám khác/);
+});
+
+it("does not mark past follow-up appointments or follow-up care as completed without an outcome in Excel", async () => {
+  const patient = await created<Patient>("/patients", { code: "PAST-FOLLOWUP", name: "Hồ sơ tái khám cũ" });
+  const preview = await prepare("hospital-report", hospitalReportForm([
+    hospitalReportRow({ visitCode: "PAST-FOLLOWUP-VISIT", patientCode: patient.code, patientName: patient.name,
+      visitDate: excelSerial("2000-01-01"), followUpDate: "01/01/2000", sourceStatus: "Đã thực hiện" }),
+  ]));
+  expect(preview).toMatchObject({ ready: 1, invalid: 0 });
+  expect(await finish(preview._id)).toMatchObject({ status: "completed", inserted: 1, appointmentsInserted: 1, careInserted: 1 });
+  const db = await healthcareDb();
+  const visit = await records(db, "visits").findOne({ code: "PAST-FOLLOWUP-VISIT" });
+  expect(visit).toBeTruthy();
+  expect(await records(db, "appointments").findOne({ visitId: visit!._id })).toMatchObject({ scheduledOn: "2000-01-01", status: "scheduled" });
+  expect(await records(db, "care").findOne({ visitId: visit!._id })).toMatchObject({ dueOn: "2000-01-01", status: "open" });
 });
 
 it("imports a multi-sheet hospital report, preserves source details and searches dated visits by patient or doctor", async () => {

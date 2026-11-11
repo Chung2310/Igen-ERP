@@ -114,8 +114,8 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
       setError({ message: "Chọn bệnh nhân theo tên hoặc số điện thoại.", fields: ["patientId"] });
       return;
     }
-    const requiredDateFields = kind === "visits" ? ["visitedOn"] : kind === "appointments" ? ["startsAt", "endsAt"] : kind === "care" ? ["dueOn"] : [];
-    const requiredOptionFields = kind === "care" ? ["assigneeId"] : kind === "catalog" && !record ? ["kind"] : [];
+    const requiredDateFields = kind === "visits" ? ["visitedOn"] : kind === "appointments" ? ["scheduledOn"] : kind === "care" ? ["dueOn"] : [];
+    const requiredOptionFields = kind === "catalog" && !record ? ["kind"] : [];
     const missingFields = [...requiredDateFields, ...requiredOptionFields].filter(name => !body[name]);
     if (missingFields.length) {
       setError({ message: "Điền đầy đủ các trường bắt buộc.", fields: missingFields });
@@ -124,8 +124,21 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
     if (kind === "catalog") body.active = data.has("active");
     if ((kind === "visits" || kind === "appointments") && body.doctorId) body.doctorName = "";
     if (kind === "appointments") {
-      body.startsAt = `${body.startsAt}+07:00`;
-      body.endsAt = `${body.endsAt}+07:00`;
+      if (Boolean(body.startsAt) !== Boolean(body.endsAt)) {
+        setError({ message: "Điền cả giờ bắt đầu và giờ kết thúc, hoặc để trống cả hai.", fields: ["startsAt", "endsAt"] });
+        return;
+      }
+      if (body.startsAt && body.endsAt) {
+        body.startsAt = `${body.scheduledOn}T${body.startsAt}:00+07:00`;
+        body.endsAt = `${body.scheduledOn}T${body.endsAt}:00+07:00`;
+      } else {
+        body.startsAt = "";
+        body.endsAt = "";
+      }
+    }
+    if (kind === "care" && body.status === "completed" && !String(body.result || "").trim() && !String(body.details || "").trim()) {
+      setError({ message: "Ghi kết quả hoặc nội dung chăm sóc trước khi hoàn tất.", fields: ["result"] });
+      return;
     }
     if (body.status === "cancelled" && record && "status" in record && record.status !== "cancelled") {
       setPending(body);
@@ -185,9 +198,11 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
         </>}
         {kind === "appointments" && <>
           <input type="hidden" name="visitId" value={editor.record?.visitId || editor.visit?._id || ""} />
-          {editor.visit?.report?.followUpOn && <p className="text-sm text-on-surface-variant sm:col-span-2">Ngày tái khám trong Excel: {dayLabel(editor.visit.report.followUpOn)}. Chọn giờ bắt đầu và kết thúc để lưu lịch hẹn.</p>}
-          <Field name="startsAt" label="Bắt đầu (giờ Việt Nam)" type="datetime-local" step={900} value={dateTimeControl(editor.record?.startsAt)} error={error} required />
-          <Field name="endsAt" label="Kết thúc (giờ Việt Nam)" type="datetime-local" step={900} value={dateTimeControl(editor.record?.endsAt)} error={error} required />
+          {editor.visit?.report?.followUpOn && <p className="text-sm text-on-surface-variant sm:col-span-2">Ngày tái khám trong Excel: {dayLabel(editor.visit.report.followUpOn)}.</p>}
+          <Field name="scheduledOn" label="Ngày hẹn" type="date" value={editor.record?.scheduledOn || dateTimeControl(editor.record?.startsAt).slice(0, 10) || editor.visit?.report?.followUpOn} error={error} required />
+          <Field name="startsAt" label="Giờ bắt đầu (không bắt buộc)" type="time" step={900} value={dateTimeControl(editor.record?.startsAt).slice(11, 16)} error={error} />
+          <Field name="endsAt" label="Giờ kết thúc (không bắt buộc)" type="time" step={900} value={dateTimeControl(editor.record?.endsAt).slice(11, 16)} error={error} />
+          <p className="text-xs text-on-surface-variant sm:col-span-2">Có thể lưu ngày tái khám trước rồi bổ sung giờ sau. Khi chưa có giờ, lịch không giữ chỗ bác sĩ hoặc phòng khám.</p>
           <Field name="doctorName" label="Tên bác sĩ" value={editor.record?.doctorName || editor.visit?.doctorName || editor.visit?.report?.doctor} error={error} maxLength={180} placeholder="Nhập tên bác sĩ bên ngoài ERP" />
           <Field name="doctorId" label="Chọn bác sĩ trong ERP (nếu có)" value={editor.record?.doctorId ?? editor.visit?.doctorId} options={catalogOptions("doctor", editor.record?.doctorId)} error={error} />
           <Field name="roomId" label="Phòng khám" value={editor.record?.roomId ?? editor.visit?.roomId} options={catalogOptions("room", editor.record?.roomId)} error={error} />
@@ -198,13 +213,18 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
           <input type="hidden" name="visitId" value={editor.record?.visitId || editor.visit?._id || ""} />
           <Field name="title" label="Việc cần thực hiện" value={editor.record?.title || (editor.appointment ? "Liên hệ về lịch hẹn" : editor.visit?.report?.followUpOn ? "Nhắc tái khám" : "")} error={error} required maxLength={200} placeholder="Ví dụ: Gọi xác nhận lịch hẹn" />
           <Field name="dueOn" label="Hạn xử lý" type="date" value={editor.record?.dueOn || editor.visit?.report?.followUpOn} error={error} required />
-          <Field name="assigneeId" label="Nhân viên phụ trách" required value={editor.record?.assigneeId} error={error} options={[
+          <div className="space-y-1 sm:col-span-2">
+            <label htmlFor="healthcare-care-details" className="block text-sm font-medium">Nội dung chăm sóc</label>
+            <textarea id="healthcare-care-details" name="details" maxLength={4000} rows={5} defaultValue={editor.record?.details || ""}
+              className={`${controlClass} h-auto min-h-28 resize-y py-3`} placeholder="Ghi nhận triệu chứng, chẩn đoán, phương pháp điều trị, kê đơn…" />
+          </div>
+          <Field name="assigneeId" label="Nhân viên phụ trách" value={editor.record?.assigneeId} error={error} options={[
             emptyChoice("Chọn nhân viên phụ trách"),
             ...(editor.record?.assigneeId && !staff.some(item => item._id === editor.record?.assigneeId)
               ? [{ value: editor.record.assigneeId, label: "Người phụ trách hiện tại (ngừng hoạt động)" }] : []),
             ...staff.map(item => ({ value: item._id, label: item.name })),
           ]} />
-          <Field name="result" label="Kết quả chăm sóc" required={careStatus === "completed"} value={editor.record?.result} error={error} maxLength={1000} placeholder="Ghi lại kết quả xử lý" />
+          <Field name="result" label="Kết quả chăm sóc" value={editor.record?.result} error={error} maxLength={1000} placeholder="Ghi lại kết quả xử lý" />
         </>}
         {kind === "catalog" && <>
           {editor.record ? <div><p className="text-sm font-medium">Loại danh mục</p><p className="text-sm">{catalogLabels[editor.record.kind]}</p>

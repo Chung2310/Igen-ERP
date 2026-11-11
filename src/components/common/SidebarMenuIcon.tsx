@@ -127,7 +127,7 @@ const labelToArtwork: Record<string, keyof typeof artwork> = {
   'Chấm công & Lịch làm việc': 'clock', 'Lịch nghỉ lễ': 'gift',
   'Giờ làm việc riêng': 'history', 'Tin tuyển dụng': 'document', 'Ứng viên': 'user', 'Phỏng vấn': 'chat',
   'Danh sách khách hàng': 'list', 'Cài đặt khách hàng': 'settings',
-  'Lượt khám': 'request', 'Chăm sóc': 'handshake', 'Cài đặt danh mục': 'settings',
+  'Lượt khám': 'request', 'Chăm sóc': 'handshake', 'Danh mục': 'settings', 'Cài đặt danh mục': 'settings',
   'Lịch sử giao dịch': 'history', 'Mua hàng & bảo hành': 'bag', 'Dịch vụ & bảo hành': 'shield',
   'Công nợ': 'debt', 'Điểm thưởng': 'gift', 'Hồ sơ VAT': 'vat',
   'Thu - Chi': 'wallet', 'Lãi lỗ': 'chart', 'VAT': 'vat', 'Hòa vốn': 'balance',
@@ -150,6 +150,7 @@ const labelToArtwork: Record<string, keyof typeof artwork> = {
   'Cấu hình ERP': 'settings', 'Nhận diện khuôn mặt': 'scan',
   'Cấp gói người dùng': 'user', 'Gói dịch vụ': 'package',
   'Cấu hình chung': 'settings', 'Học viên & Email': 'book',
+  'Cấu hình tích hợp': 'settings',
 };
 
 export type SidebarArtworkName = keyof typeof artwork;

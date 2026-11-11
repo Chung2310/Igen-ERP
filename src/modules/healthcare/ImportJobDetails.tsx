@@ -178,6 +178,10 @@ export default function ImportJobDetails({ api, initial, canImport, onBack, onCo
           <dd className="mt-1 text-lg font-semibold tabular-nums">{number.format(Number(value))}</dd>
         </div>)}
       </dl>}
+      {job.kind === "hospital-report" && job.status === "completed" &&
+        <p className="text-pretty text-sm text-on-surface-variant">
+          Đã tạo {number.format(job.appointmentsInserted || 0)} lịch tái khám và {number.format(job.careInserted || 0)} hồ sơ chăm sóc từ workbook.
+        </p>}
       {job.status === "preview" && job.invalid > 0 && <p role="alert" className="text-pretty text-sm text-error">Lọc các dòng có lỗi, sửa file và tải lên lại để tiếp tục.</p>}
       {job.status === "preview" && !job.invalid && job.patientsReady !== undefined &&
         <p className="text-pretty text-sm text-on-surface-variant">Dự kiến tạo {number.format(job.patientsReady)} hồ sơ bệnh nhân mới.</p>}
