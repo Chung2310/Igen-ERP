@@ -1057,9 +1057,10 @@ export const aiAutoReplyService = {
             const companyCode = targetCompanyCode;
             const aiTrace = aiConfig.imageReplyEnabled === true ? createChatAiTrace() : undefined;
             const { orderFlow, customerSession, preparedReplyContext, effectiveRagContext, visualContext, checkoutReply, aiResponse } = await withAiUsage({ companyCode }, () => withChatAiTrace(aiTrace, async () => {
-              const orderFlow = channel === "facebook" ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId) : undefined;
-              const customerSession = orderFlow && await orderFlow.isEnabled(resolvedPlatformId)
-                ? await orderFlow.prepareSession({ companyCode, pageId: resolvedPlatformId, conversationId }, latestDbMessage.messageId) : undefined;
+              const intakePlatform = channel === "facebook" || channel === "zalo" || channel === "tiktok" ? channel : undefined;
+              const orderFlow = intakePlatform ? await chatOrderFlowRegistry.resolveForCompanyPage(companyCode, resolvedPlatformId, intakePlatform) : undefined;
+              const customerSession = orderFlow && await orderFlow.isEnabled(resolvedPlatformId, intakePlatform, companyCode)
+                ? await orderFlow.prepareSession({ companyCode, pageId: resolvedPlatformId, conversationId, platform: intakePlatform }, latestDbMessage.messageId) : undefined;
               // Generic intake uses the conversation history. Inbound messages are
               // not assigned the synthetic "page-intake" consultation session ID.
               if (customerSession && orderFlow?.key !== "page-intake") {
@@ -1128,7 +1129,7 @@ export const aiAutoReplyService = {
               console.log(`[AI AutoReply] 🧠 GEMINI CALL: Đang gửi request tới Gemini cho conversation=${conversationId}...`);
               console.log(`[AI AutoReply] Gemini call: conversationId=${conversationId}, channel=${channel}`);
               const checkoutReply = orderFlow ? await orderFlow.process({
-                companyCode, pageId: resolvedPlatformId, conversationId, messageId: latestDbMessage?.messageId || incomingMessageId,
+                companyCode, pageId: resolvedPlatformId, conversationId, platform: intakePlatform, messageId: latestDbMessage?.messageId || incomingMessageId,
                 message: groupedCustomerMessage, history, imageUrls: pendingImageUrls, observation: imageObservation,
                 visualMode: aiConfig.imageReplyEnabled === true,
                 replyDeadlineAt: effectiveRagContext.replyDeadlineAt,
@@ -1287,12 +1288,14 @@ export const aiAutoReplyService = {
               }
 
               if (checkoutReply) {
-                const inbound = await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1 });
-                if (inbound?.messageId !== latestDbMessage?.messageId) return;
-                if (checkoutReply.qrUrl) {
-                  const sentImage = await fbMessengerService.sendImage(resolvedPlatformId, conversationId,
-                  checkoutReply.qrUrl, facebookTokenContext, checkoutReply.qrImageAltText || "[Mã QR thanh toán]", beforeFacebookDelivery);
-                  lastFacebookReplyMessageId = sentImage.messageId;
+                if (channel === "facebook") {
+                  const inbound = await FBMessageModel.findOne({ conversationId, direction: "inbound" }).sort({ timestamp: -1 });
+                  if (inbound?.messageId !== latestDbMessage?.messageId) return;
+                  if (checkoutReply.qrUrl) {
+                    const sentImage = await fbMessengerService.sendImage(resolvedPlatformId, conversationId,
+                      checkoutReply.qrUrl, facebookTokenContext, checkoutReply.qrImageAltText || "[Mã QR thanh toán]", beforeFacebookDelivery);
+                    lastFacebookReplyMessageId = sentImage.messageId;
+                  }
                 }
                 await orderFlow?.markDelivered(checkoutReply);
               }

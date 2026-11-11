@@ -1556,9 +1556,7 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
                       </div>
                     </div>
 
-                    {item.platform === "Facebook" && (
-                      <LeadSheetConfigCard integration={item} />
-                    )}
+                    <LeadSheetConfigCard integration={item} />
                     {item.platform === "Facebook" && (
                       <OrderSheetConfigCard
                         integration={item}

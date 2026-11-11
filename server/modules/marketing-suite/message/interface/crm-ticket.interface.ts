@@ -1,4 +1,5 @@
 import { Document } from "mongoose";
+import type { LeadTargetModule } from "../../../../../shared/marketing-suite/lead-intake";
 
 export interface ILeadProductSelection {
   productId: string;
@@ -7,7 +8,18 @@ export interface ILeadProductSelection {
   quantity: number;
 }
 
+export interface ILeadIntakeFieldSnapshot {
+  key: string;
+  label: string;
+  question: string;
+  type: string;
+  required: boolean;
+  options: string[];
+}
+
 export interface ICRMTicket extends Document {
+  createdAt?: Date;
+  updatedAt?: Date;
   customerName: string;
   company: string;
   value: number;
@@ -19,4 +31,15 @@ export interface ICRMTicket extends Document {
   lastInteraction?: string;
   companyCode: string;
   selectedProducts?: ILeadProductSelection[];
+  answers?: Record<string, string>;
+  intakeSearchText?: string;
+  intakeFields?: ILeadIntakeFieldSnapshot[];
+  sourcePlatform?: "facebook" | "zalo" | "tiktok";
+  sourceAccountId?: string;
+  sourceConversationId?: string;
+  intakeProfileId?: string;
+  intakeProfileVersion?: number;
+  collectionStatus?: "collecting" | "complete" | "needs_human";
+  lastInteractionAt?: Date;
+  moduleSync?: { targetModule: LeadTargetModule; targetRecordId: string; syncedAt: Date; syncedBy: string };
 }

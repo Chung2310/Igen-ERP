@@ -84,6 +84,10 @@ it("retains the integration management permission on integration writes", async 
 it.each([
   ["/omni-inbox/accounts", "GET", "omni-inbox", "omni-inbox:read"],
   ["/omni-inbox/accounts/abc/ai-config", "PATCH", "omni-inbox", "omni-inbox:manage"],
+  ["/marketing-settings/lead-intake-profiles", "GET", "omni-inbox", "omni-inbox:read"],
+  ["/marketing-settings/lead-intake-profiles/draft", "POST", "omni-inbox", "omni-inbox:manage"],
+  ["/marketing-settings/lead-intake-profiles/suggest", "POST", "omni-inbox", "omni-inbox:manage"],
+  ["/marketing-settings/lead-intake-profiles/archive-active", "POST", "omni-inbox", "omni-inbox:manage"],
   ["/marketing-campaigns/accounts", "GET", "social-marketing", "marketing:read"],
   ["/marketing-settings/authors/abc", "GET", "social-marketing", "marketing:read"],
   ["/company-knowledge/accounts", "GET", "company-knowledge", "company-knowledge:read"],
