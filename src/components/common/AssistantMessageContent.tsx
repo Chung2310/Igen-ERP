@@ -42,6 +42,9 @@ export function AssistantMessageContent({ content, visibleCharacters }: { conten
   const visibleParts = visibleCharacters === undefined
     ? totalParts
     : Math.min(totalParts, Math.floor(visibleCharacters / Array.from(content).length * totalParts));
+  if (visibleCharacters !== undefined && visibleParts === 0) {
+    return <MessageParagraph content={Array.from(resultTable.before.join("\n")).slice(0, visibleCharacters).join("")} />;
+  }
   const visibleBefore = resultTable.before.slice(0, visibleParts);
   const visibleRows = resultTable.rows.slice(0, Math.max(0, visibleParts - resultTable.before.length));
   const visibleAfter = resultTable.after.slice(0, Math.max(0, visibleParts - resultTable.before.length - resultTable.rows.length));
@@ -56,10 +59,10 @@ export function AssistantMessageContent({ content, visibleCharacters }: { conten
         className="max-w-full overflow-x-auto rounded-xl border border-outline-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <table
-          aria-label="Kết quả tra cứu"
-          className={cn("w-full border-collapse text-left text-sm", resultTable.headers.length <= 3 ? "table-fixed" : "min-w-max")}
+          aria-label="Kết quả"
+          className={cn("w-full border-collapse text-left text-sm tabular-nums", resultTable.headers.length <= 3 ? "table-fixed" : "min-w-max")}
         >
-          <caption className="sr-only">Kết quả tra cứu</caption>
+          <caption className="sr-only">Kết quả</caption>
           <thead className="bg-surface-container-low text-on-surface">
             <tr>
               <th scope="col" className="w-12 border-b border-outline-variant px-2 py-2.5 font-semibold">STT</th>

@@ -22,8 +22,10 @@ const listPrivateFields = { ...privateFields, "report.fields": 0 };
 const patientSearchFields = ["code", "name", "phone", "hospitalProfile.phoneText"];
 
 export async function healthcareDb() {
-  const db = mongoose.connection.db;
-  if (!db) throw new InternalError();
+  const connectionDb = mongoose.connection.db;
+  if (!connectionDb) throw new InternalError();
+  // Keep one driver type at the module boundary when Mongoose installs its own MongoDB copy.
+  const db = connectionDb as unknown as Db;
   let ready = indexes.get(db);
   if (!ready) {
     const scope = { companyCode: 1, branchId: 1 } as const;
@@ -75,7 +77,7 @@ export async function patientReferences(db: Db, actor: HealthcareScope, rows: re
   if (!rows.length) return [];
   const ids = [...new Set(rows.map(row => row.patientId))];
   return records(db, "patients").find({ ...scopeFilter(actor), _id: { $in: ids } })
-    .project<PatientReference>({ _id: 1, code: 1, name: 1 }).toArray();
+    .project<PatientReference>({ _id: 1, code: 1, name: 1, phone: 1 }).toArray();
 }
 
 export function visible<T extends HealthcareRecord>(row: Stored<T> | WithId<Stored<T>>): Omit<T, "reservations"> {
@@ -119,6 +121,45 @@ export async function createRecord<T extends HealthcareRecord>(
   return visible(row);
 }
 
+type PatientCodeCounter = { _id: string; value: number };
+
+async function nextGeneratedPatientCode(db: Db, actor: HealthcareActor) {
+  const counterId = `patient-code:${actor.companyCode}:${actor.branchId}`;
+  const counters = db.collection<PatientCodeCounter>("healthcare_counters");
+  if (!await counters.findOne({ _id: counterId }, { projection: { _id: 1 } })) {
+    const [latest] = await records(db, "patients").aggregate<{ value: number }>([
+      { $match: { ...scopeFilter(actor), code: { $regex: "^BN[0-9]+$" } } },
+      { $project: { value: { $convert: { input: { $substr: ["$code", 2, 48] }, to: "long", onError: 0, onNull: 0 } } } },
+      { $group: { _id: null, value: { $max: "$value" } } },
+    ]).toArray();
+    try {
+      await counters.updateOne({ _id: counterId }, { $setOnInsert: { value: Number(latest?.value || 0) } }, { upsert: true });
+    } catch (error) {
+      if (!isDuplicate(error)) throw error;
+    }
+  }
+  const counter = await counters.findOneAndUpdate({ _id: counterId }, { $inc: { value: 1 } }, { returnDocument: "after" });
+  if (!counter) throw new InternalError();
+  return `BN${String(counter.value).padStart(6, "0")}`;
+}
+
+export async function createGeneratedPatient(
+  db: Db, actor: HealthcareActor, input: Omit<RecordInput<Patient>, "code">,
+) {
+  const collection = records(db, "patients");
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const row = newRecord<Patient>(actor, { ...input, code: await nextGeneratedPatientCode(db, actor) });
+    try {
+      await collection.insertOne(row as OptionalUnlessRequiredId<Stored<Patient>>);
+      return visible(row);
+    } catch (error) {
+      if (isDuplicate(error)) continue;
+      throw error;
+    }
+  }
+  throw new ConflictError("DATABASE_CONFLICT", "Không thể tự tạo mã bệnh nhân lúc này. Vui lòng thử lại.");
+}
+
 export async function updateRecord<T extends HealthcareRecord>(
   collection: Collection<Stored<T>>, actor: HealthcareActor, id: string, revision: number,
   input: RecordInput<T>, conflictMessage: string,
@@ -160,8 +201,17 @@ export function textMatches(q: string, fields: string[]) {
   return fields.map(field => ({ [field]: { $regex: search, $options: "i" } }));
 }
 
-export function patientSearchFilter(q: string) {
-  return q ? { $or: textMatches(q, patientSearchFields) } : {};
+export function patientSearchFilter(q: string, selectionOnly = false) {
+  if (!q) return {};
+  if (!selectionOnly) return { $or: textMatches(q, patientSearchFields) };
+  const phoneFields = ["phone", "hospitalProfile.phoneText"];
+  const matches = textMatches(q, ["name", ...phoneFields]);
+  const digits = q.replace(/\D/g, "");
+  if (digits.length >= 3) {
+    const formattedPhonePattern = digits.split("").join("[\\s().+/-]*");
+    matches.push(...phoneFields.map(field => ({ [field]: { $regex: formattedPhonePattern, $options: "i" } })));
+  }
+  return { $or: matches };
 }
 
 export async function listClinicalRecords<T extends HealthcareRecord & { patientId: string }>(

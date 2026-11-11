@@ -2,13 +2,15 @@ import type { AssistantField, AssistantWorkflow } from "../../src/shared/assista
 import expandedCatalog from "./expanded-catalog.generated.json";
 import type { ModuleKey } from "../config/module-keys";
 import { TRAINING_CATEGORY_VALUES } from "../../src/shared/training-categories";
+import { HEALTHCARE_OPERATIONS, healthcareWorkflowInstructions } from "./healthcare-catalog";
 
 export interface AssistantOperation {
   id: string; title: string; description: string; module: ModuleKey;
   modules?: ModuleKey[];
   permissions: string[]; method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
-  adapter?: "contract";
+  adapter?: "contract" | "healthcare";
   rawResponse?: boolean;
+  readOnly?: boolean;
   contextBody?: string[];
   contextHeaders?: string[];
   contextQuery?: string[];
@@ -1216,10 +1218,11 @@ operations.push({
   resultFields: ["range", "invoiceCount", "issuedCount", "voidCount", "issuedAmount", "voidAmount", "paidAmount", "dueAmount"],
 });
 
+operations.push(...HEALTHCARE_OPERATIONS);
 export const ASSISTANT_OPERATIONS: readonly AssistantOperation[] = operations;
 export function operationById(id: string) { return ASSISTANT_OPERATIONS.find(op => op.id === id); }
 export function defaultWorkflow(op: AssistantOperation): AssistantWorkflow {
-  const instructions = ["retail.report.summary", "retail.invoice.summary"].includes(op.id)
+  const instructions = op.module === "healthcare" ? healthcareWorkflowInstructions : ["retail.report.summary", "retail.invoice.summary"].includes(op.id)
     ? "Nếu đã gắn chi nhánh, dùng chi nhánh đó; nếu là quản trị viên chưa gắn chi nhánh, hỏi người dùng chọn chi nhánh theo tên trước khi tổng hợp. Không tự đoán khoảng ngày: mặc định hôm nay; khi người dùng nói 7 ngày hoặc 30 ngày gần đây, chọn preset tương ứng; nếu nêu ngày bắt đầu/kết thúc thì điền from và to, không đồng thời dùng preset. Chỉ trình bày số liệu tổng hợp cần thiết bằng tiếng Việt, không hiển thị JSON hoặc mã nội bộ."
     : op.id === "customer.create" || (op.method === "PATCH" && op.path === "/customers/:id")
     ? "Điền thông tin khách hàng vào trường tương ứng khi có. Thông tin khách tự cung cấp không có trường riêng như ngân sách, nhu cầu, sở thích hoặc thời gian liên hệ phải được giữ trong notes (Ghi chú), mỗi dữ kiện một dòng có nhãn rõ ràng. Không bỏ thông tin bổ sung, không suy đoán và không đưa chỉ dẫn thao tác, thông tin hệ thống hoặc dữ liệu đăng nhập vào ghi chú. Khi bổ sung ghi chú, giữ những dữ kiện đã thu thập trong yêu cầu đang xử lý; hệ thống sẽ nối ghi chú mới vào hồ sơ đã có."

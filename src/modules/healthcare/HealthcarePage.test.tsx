@@ -1,7 +1,18 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import * as XLSX from "xlsx";
+import { hospitalReportColumns } from "../../../shared/healthcare";
 import { HealthcareWorkspace } from "./HealthcarePage";
+
+function hospitalWorkbookFile() {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["BÁO CÁO"], [], Object.values(hospitalReportColumns), [1, 1, 46_325, "QA001", "Nguyễn QA", "BN001"],
+  ]), "Tháng 10");
+  const bytes = XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+  return new File([bytes], "Lượt khám.xlsx");
+}
 
 vi.mock("../../context/AuthContext", () => ({ useAuth: vi.fn() }));
 vi.mock("../../context/BranchContext", () => ({ useBranch: vi.fn() }));
@@ -10,6 +21,7 @@ beforeEach(() => window.history.replaceState(null, "", "/quan-ly-y-te"));
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 it("loads directories on demand and waits for catalog choices before editing an appointment", async () => {
@@ -41,7 +53,7 @@ it("loads directories on demand and waits for catalog choices before editing an 
   expect(calls).toEqual(["/patients/search"]);
   fireEvent.click(screen.getByRole("button", { name: "Lịch hẹn" }));
   expect(screen.getByRole("button", { name: "Lịch hẹn" }).getAttribute("aria-current")).toBe("page");
-  fireEvent.click(await screen.findByRole("button", { name: "Sửa lịch" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Sửa lịch hẹn" }));
   const editor = within(screen.getByRole("dialog", { name: "Chỉnh sửa lịch hẹn" }));
   expect(editor.getByRole("status").textContent).toBe("Đang tải dữ liệu…");
   expect(screen.queryByRole("button", { name: "Lưu" })).toBeNull();
@@ -55,7 +67,7 @@ it("loads directories on demand and waits for catalog choices before editing an 
   expect(calls).toEqual(expect.arrayContaining(["/patients/search", "/appointments", "/catalog"]));
 
   fireEvent.click(editor.getByRole("button", { name: "Đóng biểu mẫu" }));
-  fireEvent.click(screen.getByRole("button", { name: "Giao chăm sóc" }));
+  fireEvent.click(screen.getByRole("button", { name: "Giao việc chăm sóc" }));
   const assignee = await screen.findByLabelText(/Nhân viên phụ trách/);
   expect(assignee.textContent).toContain("Nhân viên thử");
   expect(calls.slice(3)).toEqual(["/staff"]);
@@ -98,6 +110,26 @@ it("opens the create form and confirms cancellation before writing a versioned s
   expect(await screen.findByText("Đã hủy bản ghi.")).toBeTruthy();
 });
 
+it("opens patient details and the edit form as popups from the patient list", async () => {
+  const patient = {
+    _id: "p1", code: "BN01", name: "Nguyễn An", phone: "0900000000", dateOfBirth: "2010-11-07",
+    address: "Hà Nội", note: "Ghi chú", hospitalProfile: { gender: "Nữ", birthYear: "2010", phoneText: "0900000000" },
+  };
+  vi.stubGlobal("fetch", async (url: string) => {
+    const path = url.replace("/api/v1/healthcare", "").split("?")[0];
+    if (path === "/patients/search") return Response.json({ items: [patient], total: 1 });
+    if (path === "/patients/p1") return Response.json(patient);
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  render(<HealthcareWorkspace branchId="branch-a" hasPermission={() => true} />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "BN01" }));
+  const details = within(await screen.findByRole("dialog", { name: "Hồ sơ bệnh nhân · BN01" }));
+  expect(details.getByText("Nguyễn An")).toBeTruthy();
+  fireEvent.click(details.getByRole("button", { name: "Sửa hồ sơ bệnh nhân" }));
+  expect(await screen.findByRole("dialog", { name: "Chỉnh sửa bệnh nhân" })).toBeTruthy();
+});
+
 it("queues the hospital workbook, previews rows, and reopens completed rows from history", async () => {
   const calls: string[] = [];
   const previewJob = { _id: "p1", filename: "Lượt khám.xlsx", kind: "hospital-report", status: "preview", phase: "check",
@@ -116,7 +148,7 @@ it("queues the hospital workbook, previews rows, and reopens completed rows from
       return Response.json({ ...previewJob, status: "queued", phase: "write" }, { status: 202 });
     }
     if (path === "/imports/p1/rows/search") return Response.json({ items: [
-      { index: 0, row: 5, sheet: "Tháng 10", code: "QA001", label: "BN001", status: committed ? "imported" : "ready", ...(committed ? { recordId: "a1" } : {}) },
+      { index: 0, row: 5, sheet: "Tháng 10", code: "QA001", label: "BN001", preview: { ma_phieu: "QA001", ten_benh_nhan: "Nguyễn QA" }, status: committed ? "imported" : "ready", ...(committed ? { recordId: "a1" } : {}) },
     ], total: 1, page: 1, pageSize: 25 });
     return Response.json({ items: [], total: 0, patientReferences: [] });
   });
@@ -124,13 +156,13 @@ it("queues the hospital workbook, previews rows, and reopens completed rows from
   fireEvent.click(screen.getByRole("button", { name: "Lượt khám" }));
   fireEvent.click(screen.getByRole("button", { name: "Nhập Excel" }));
   const importer = within(screen.getByRole("dialog", { name: "Nhập dữ liệu Excel" }));
-  expect((importer.getByLabelText("Loại dữ liệu") as HTMLSelectElement).value).toBe("hospital-report");
+  expect(importer.getByRole("button", { name: /Toàn bộ workbook y tế/ }).getAttribute("aria-pressed")).toBe("true");
   expect((importer.getByRole("button", { name: "Tải lên và kiểm tra" }) as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.change(importer.getByLabelText("File Excel"), { target: { files: [new File(["test"], "Lượt khám.xlsx")] } });
+  fireEvent.change(importer.getByLabelText("File Excel"), { target: { files: [hospitalWorkbookFile()] } });
   const preview = importer.getByRole<HTMLButtonElement>("button", { name: "Tải lên và kiểm tra" });
-  expect(preview.disabled).toBe(false);
+  await waitFor(() => expect(preview.disabled).toBe(false));
   fireEvent.submit(preview.form!);
-  expect(await importer.findByText("Tháng 10 · Dòng 5")).toBeTruthy();
+  expect(await importer.findByText("Nguyễn QA")).toBeTruthy();
   fireEvent.click(importer.getByRole("button", { name: "Xác nhận nhập" }));
   expect(calls).not.toContain("/imports/p1/commit");
   const confirmation = within(screen.getByRole("alertdialog", { name: "Xác nhận nhập Excel" }));
@@ -155,10 +187,15 @@ it("applies the shared date and search filters to the server-side visit list", a
   render(<HealthcareWorkspace branchId="branch-a" hasPermission={() => true} />);
   fireEvent.click(screen.getByRole("button", { name: "Lượt khám" }));
   fireEvent.click(screen.getByRole("button", { name: "Hôm nay" }));
+  vi.useFakeTimers();
   fireEvent.change(screen.getByRole("textbox", { name: /Tìm mã phiếu/ }), { target: { value: "BS QA" } });
-  await waitFor(() => expect(search).toHaveBeenCalledWith(expect.objectContaining({
+  await act(async () => { await vi.advanceTimersByTimeAsync(999); });
+  expect(search).not.toHaveBeenCalled();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(search).toHaveBeenCalledWith(expect.objectContaining({
     page: "1", q: "BS QA", from: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), to: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-  })));
+  }));
+  vi.useRealTimers();
   const [[query]] = search.mock.calls;
   expect(query.from).toBe(query.to);
 });

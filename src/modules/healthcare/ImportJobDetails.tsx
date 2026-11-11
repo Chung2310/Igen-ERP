@@ -5,12 +5,11 @@ import { Dropdown } from "../../components/common/Dropdown";
 import { TableFilterToolbar } from "../../components/common/TableFilterToolbar";
 import { TablePagination } from "../../components/common/TablePagination";
 import { HrStatusBadge } from "../../components/hr/HrStatusBadge";
-import { useDebouncedValue } from "../../hooks/useDebouncedValue";
-import type { HealthcareList, ImportJob, ImportKind, ImportRowResult, ImportRowStatus } from "../../../shared/healthcare";
+import { hospitalReportColumns, type HealthcareList, type HospitalReportFields, type ImportJob, type ImportKind, type ImportRowResult, type ImportRowStatus } from "../../../shared/healthcare";
 import type { HealthcareApi } from "./api";
 import { Cell, Feedback, messageOf, primaryClass, RowLink, Table, useHealthcareQuery } from "./ui";
 
-export const importNames = { patients: "Hồ sơ bệnh nhân", visits: "Lượt khám", "hospital-report": "Báo cáo phiếu khám nhiều sheet" };
+export const importNames = { patients: "Hồ sơ bệnh nhân", visits: "Lượt khám", "hospital-report": "Toàn bộ workbook y tế" };
 export const importPending = (job: ImportJob) => job.status === "queued" || job.status === "running";
 const number = new Intl.NumberFormat("vi-VN");
 
@@ -36,28 +35,50 @@ function ImportRows({ api, job, canOpenRecord, onOpenRecord }: {
   onOpenRecord: (kind: ImportKind, id: string) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [q, setQ] = useState("");
   const [status, setStatus] = useState<ImportRowStatus | "">("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const q = useDebouncedValue(search.trim());
+  useEffect(() => {
+    const timer = setTimeout(() => { setQ(search.trim()); setPage(1); }, 1_000);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const reportColumns = Object.keys(hospitalReportColumns) as (keyof HospitalReportFields)[];
+  const isFullWorkbook = job.kind === "hospital-report";
   const { data, error, loading, refreshing, refresh } = useHealthcareQuery<HealthcareList<ImportRowResult>>(
     api, `/imports/${job._id}/rows/search`, JSON.stringify({ q, page, pageSize, ...(status ? { status } : {}) }),
     { keepPreviousData: true },
   );
   return <section aria-label="Các dòng trong file Excel" aria-busy={refreshing} className="min-w-0 space-y-3">
-    <h4 className="text-balance text-sm font-semibold">Chi tiết từng dòng</h4>
+    <div>
+      <h4 className="text-balance text-sm font-semibold">{isFullWorkbook ? "Xem trước toàn bộ thông tin y tế" : "Chi tiết từng dòng"}</h4>
+      {isFullWorkbook && <p className="mt-1 text-xs text-on-surface-variant">Hiển thị đủ {reportColumns.length} cột trong từng sheet. Cuộn ngang để xem các cột phía sau.</p>}
+    </div>
     <TableFilterToolbar
-      search={{ value: search, onChange: value => { setSearch(value.slice(0, 100)); setPage(1); },
+      search={{ value: search, onChange: value => { setSearch(value.slice(0, 100)); },
         ariaLabel: "Tìm dòng trong Excel", placeholder: "Tìm mã, tên hoặc sheet", className: "min-w-0" }}
       totalCount={search || status ? data?.total : undefined} countLabel="dòng" hasActiveFilters={Boolean(search || status)}
-      onResetFilters={() => { setSearch(""); setStatus(""); setPage(1); }}>
+      onResetFilters={() => { setSearch(""); setQ(""); setStatus(""); setPage(1); }}>
       <Dropdown aria-label="Trạng thái dòng" variant="filter" value={status}
         onChange={value => { setStatus(value as ImportRowStatus | ""); setPage(1); }}
         options={[{ value: "", label: "Tất cả trạng thái" }, ...Object.entries(rowStatus).map(([value, item]) => ({ value, label: item.label }))]} />
     </TableFilterToolbar>
     <Feedback loading={loading} error={error} onRetry={refresh} />
     {data && <>
-      <Table headers={["Dòng Excel", "Kết quả", "Bản ghi"]} empty={!data.items.length ? "Không có dòng phù hợp." : undefined}>
+      {isFullWorkbook ? <Table headers={["Sheet / dòng", ...reportColumns.map(key => hospitalReportColumns[key]), "Kiểm tra"]} empty={!data.items.length ? "Không có dòng phù hợp." : undefined}>
+        {data.items.map(({ recordId, ...row }) => <tr key={row.index}>
+          <Cell>
+            <p className="font-medium">{row.sheet || "—"}</p>
+            <p className="text-xs text-on-surface-variant">Dòng {row.row || "—"}</p>
+            {recordId && canOpenRecord(job.kind) && <RowLink onClick={() => onOpenRecord(job.kind, recordId)}>Mở phiếu khám</RowLink>}
+          </Cell>
+          {reportColumns.map(key => <Cell key={key}>{row.preview?.[key] || "—"}</Cell>)}
+          <Cell align="center">
+            <HrStatusBadge dot tone={rowStatus[row.status].tone}>{rowStatus[row.status].label}</HrStatusBadge>
+            {row.message && <p className="mt-1 max-w-64 text-pretty text-xs text-error">{row.message}</p>}
+          </Cell>
+        </tr>)}
+      </Table> : <Table headers={["Dòng Excel", "Kết quả", "Bản ghi"]} empty={!data.items.length ? "Không có dòng phù hợp." : undefined}>
         {data.items.map(({ recordId, ...row }) => <tr key={row.index}>
           <Cell>
             <div className="min-w-0 space-y-1">
@@ -66,14 +87,14 @@ function ImportRows({ api, job, canOpenRecord, onOpenRecord }: {
               {row.label && <p className="max-w-72 break-words text-xs text-on-surface-variant">{row.label}</p>}
             </div>
           </Cell>
-          <Cell>
+          <Cell align="center">
             <HrStatusBadge dot tone={rowStatus[row.status].tone}>{rowStatus[row.status].label}</HrStatusBadge>
             {row.message && <p className="mt-1 max-w-64 text-pretty text-xs text-error">{row.message}</p>}
           </Cell>
           <Cell>{recordId && canOpenRecord(job.kind) &&
             <RowLink onClick={() => onOpenRecord(job.kind, recordId)}>{job.kind === "patients" ? "Mở hồ sơ" : "Mở phiếu khám"}</RowLink>}</Cell>
         </tr>)}
-      </Table>
+      </Table>}
       <TablePagination appearance="erp" className="rounded-lg border shadow-xs sm:sticky sm:bottom-0" currentPage={data.page}
         totalPages={Math.ceil(data.total / data.pageSize)} pageSize={data.pageSize}
         totalItems={data.total} itemLabel="dòng" pageSizeOptions={[10, 25, 50, 100]} onPageChange={setPage} onPageSizeChange={setPageSize} />

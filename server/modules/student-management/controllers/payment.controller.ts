@@ -18,7 +18,15 @@ export class PaymentController {
   static async getList(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const ownerId = await getAllowedOwnerIds(req.user!);
-      const result = await PaymentService.getPayments(ownerId, req.query, req.user!.branchId);
+      const filters = {
+        page: typeof req.query.page === "string" ? req.query.page : undefined,
+        limit: typeof req.query.limit === "string" ? req.query.limit : undefined,
+        studentId: typeof req.query.studentId === "string" ? req.query.studentId : undefined,
+        ownerFilter: typeof req.query.ownerFilter === "string" ? req.query.ownerFilter : undefined,
+        startDate: typeof req.query.startDate === "string" ? req.query.startDate : undefined,
+        endDate: typeof req.query.endDate === "string" ? req.query.endDate : undefined,
+      };
+      const result = await PaymentService.getPayments(ownerId, filters, req.user!.branchId);
       res.json({ success: true, ...result });
     } catch (error: unknown) {
       next(error);

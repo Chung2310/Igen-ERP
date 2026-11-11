@@ -18,6 +18,7 @@ import { deleteAssistantMemory, listAssistantMemories, saveAssistantMemory, upda
 import { generateStudioImages, studioImageRatios } from "./studio-images";
 import { editStudioImage, studioEditModes } from "./studio-image-edit";
 import { listStudioTranscripts, transcribeStudioAudio } from "./studio-transcription";
+import { downloadAssistantFile } from "./documents";
 
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
@@ -26,6 +27,20 @@ const wrap = (handler: (req: AuthenticatedRequest) => Promise<unknown>) => async
   try { return res.json({ success: true, data: await handler(req) }); }
   catch (error) { if (!(error instanceof AssistantError)) console.error("[assistant]", error); return res.status(error instanceof AssistantError ? error.status : 500).json({ success: false, message: error instanceof AssistantError ? error.message : "Không thể xử lý trợ lý AI lúc này." }); }
 };
+assistantRouter.get("/conversations/:id/files/:fileId", validateRequest({ params: Joi.object({ id, fileId: id }) }), async (req: any, res: any) => {
+  try {
+    const file = await downloadAssistantFile(req, req.params.id, req.params.fileId);
+    res.setHeader("Content-Type", file.mimeType);
+    const encodedName = encodeURIComponent(file.fileName).replace(/['()*]/g, character => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+    res.setHeader("Content-Disposition", `attachment; filename="document"; filename*=UTF-8''${encodedName}`);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    return res.send(file.bytes);
+  } catch (error) {
+    if (!(error instanceof AssistantError)) console.error("[assistant file]", error);
+    return res.status(error instanceof AssistantError ? error.status : 500).json({ success: false, message: error instanceof AssistantError ? error.message : "Không thể tải tệp lúc này." });
+  }
+});
 assistantRouter.get("/settings", wrap(getSettings));
 const studioAudioUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(mp3|wav|m4a|ogg|flac)$/i.test(file.originalname)) });
 const speechDocumentUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, callback) => callback(null, /\.(pdf|docx|txt)$/i.test(file.originalname)) });
@@ -75,7 +90,7 @@ assistantRouter.get("/conversations/:conversationId", validateRequest({ params: 
 const tableAttachment = Joi.object({
   fileName: Joi.string().trim().min(1).max(200).required(),
   headers: Joi.array().items(Joi.string().trim().min(1).max(120)).min(1).max(40).required(),
-  rows: Joi.array().items(Joi.object().pattern(Joi.string().max(120), Joi.string().max(2000)).max(40)).min(1).max(100).required(),
+  rows: Joi.array().items(Joi.object().pattern(Joi.string().max(120), Joi.string().max(2000).allow("")).max(40)).min(1).max(100).required(),
 }).max(3);
 const trainingContent = Joi.object({
   lessons: Joi.array().max(50).items(Joi.object({

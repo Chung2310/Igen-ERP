@@ -226,8 +226,13 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       const totalFeeNum = parseInt(String(student.fee).replace(/\D/g, ''), 10) || 0;
       const paidSoFar = student.paidAmount || 0;
       const remaining = totalFeeNum - paidSoFar;
+      const tuitionWaived = student.tuitionWaived === true && totalFeeNum === 0;
 
-      if (feeStatusFilter === 'Đã đóng đủ') {
+      if (feeStatusFilter === 'Miễn phí') {
+        if (!tuitionWaived) return false;
+      } else if (tuitionWaived) {
+        return false;
+      } else if (feeStatusFilter === 'Đã đóng đủ') {
         if (remaining > 0) return false;
       } else if (feeStatusFilter === 'Chưa đóng') {
         if (paidSoFar > 0) return false;
@@ -364,10 +369,10 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
       const paidSoFar = student.paidAmount || 0;
       const remaining = totalFeeNum - paidSoFar;
 
-      let feeStatusStr = 'Chưa đóng';
-      if (remaining <= 0 && totalFeeNum > 0) {
+      let feeStatusStr = student.tuitionWaived === true && totalFeeNum === 0 ? 'Miễn phí' : 'Chưa đóng';
+      if (feeStatusStr !== 'Miễn phí' && remaining <= 0 && totalFeeNum > 0) {
         feeStatusStr = 'Đã đóng đủ';
-      } else if (paidSoFar > 0) {
+      } else if (feeStatusStr !== 'Miễn phí' && paidSoFar > 0) {
         feeStatusStr = 'Còn thiếu';
       }
 
@@ -620,7 +625,7 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
 
         {usesEducationBilling && <div className="space-y-0.5">
           <label className="text-xs font-normal text-slate-600">Học phí</label>
-          <RoadmapPicker value={feeStatusFilter} placeholder="Tất cả học phí" options={[{ value: 'Tất cả học phí', label: 'Tất cả học phí' }, { value: 'Đã đóng đủ', label: 'Đã đóng đủ' }, { value: 'Chưa đóng', label: 'Chưa đóng' }, { value: 'Còn thiếu', label: 'Còn thiếu' }]} onChange={(value) => setFeeStatusFilter(value || 'Tất cả học phí')} />
+          <RoadmapPicker value={feeStatusFilter} placeholder="Tất cả học phí" options={[{ value: 'Tất cả học phí', label: 'Tất cả học phí' }, { value: 'Miễn phí', label: 'Miễn phí' }, { value: 'Đã đóng đủ', label: 'Đã đóng đủ' }, { value: 'Chưa đóng', label: 'Chưa đóng' }, { value: 'Còn thiếu', label: 'Còn thiếu' }]} onChange={(value) => setFeeStatusFilter(value || 'Tất cả học phí')} />
         </div>}
         <div className="space-y-0.5 col-span-2 lg:col-span-1">
           <label htmlFor="student-list-search" className="text-xs font-normal text-slate-600">Tìm kiếm</label>
@@ -772,7 +777,9 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
                           const remaining = totalFeeNum - paidSoFar;
                           return (
                             <>
-                              {totalFeeNum === 0 ? (
+                              {student.tuitionWaived === true && totalFeeNum === 0 ? (
+                                <span className="whitespace-nowrap text-emerald-600">Miễn phí</span>
+                              ) : totalFeeNum === 0 ? (
                                 <span className="text-rose-500/80 whitespace-nowrap">Chưa đóng</span>
                               ) : remaining > 0 ? (
                                 <span className="text-rose-500 whitespace-nowrap">-{formatVND(remaining)}đ</span>

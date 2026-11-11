@@ -1,6 +1,7 @@
 import type { AssistantSettings, AssistantReply, AssistantWorkflow, AssistantWorkflowUpdate, AssistantTableAttachment, AssistantTrainingContentForm } from "../shared/assistant-workflow";
 import type { AssistantSpeechVoice } from "../shared/assistant-speech-voices";
 import type { AssistantSpeechControls } from "../shared/assistant-speech";
+import type { AssistantChatMessage, AssistantGeneratedFile } from "../shared/assistant-document";
 export interface AssistantTurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
 export interface AssistantConversationSummary { conversationId: string; mode?: "work" | "qa"; title: string; preview: string; messageCount: number; updatedAt: string; }
 export interface AssistantConversationCursor { before: string; beforeId: string; }
@@ -61,8 +62,21 @@ export const assistantService = {
   saveSessionMemory: (id: string, summary: string, version: number, branchId?: string) => request<AssistantSessionMemory>(`/conversations/${encodeURIComponent(id)}/memory`, { method: "PATCH", body: JSON.stringify({ summary, version }) }, branchId),
   clearSessionMemory: (id: string, branchId?: string) => request<AssistantSessionMemory>(`/conversations/${encodeURIComponent(id)}/memory`, { method: "DELETE" }, branchId),
   deleteConversation: (id: string, branchId?: string) => request<{ deleted: boolean }>(`/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }, branchId),
-  state: (id: string, signal?: AbortSignal, branchId?: string) => request<{ messages: { role: "user" | "assistant"; content: string; createdAt?: string }[]; lastReply: AssistantReply | null; busy: boolean; mode?: "work" | "qa"; requestId?: string }>(`/conversations/${encodeURIComponent(id)}`, { signal }, branchId),
+  state: (id: string, signal?: AbortSignal, branchId?: string) => request<{ messages: AssistantChatMessage[]; lastReply: AssistantReply | null; busy: boolean; mode?: "work" | "qa"; requestId?: string }>(`/conversations/${encodeURIComponent(id)}`, { signal }, branchId),
   turn: (data: AssistantTurnInput, signal?: AbortSignal, branchId?: string, deviceId?: string) => request<AssistantReply>("/turns", { method: "POST", body: JSON.stringify(data), signal }, branchId, deviceId),
+  downloadFile: async (file: AssistantGeneratedFile, branchId?: string, signal?: AbortSignal): Promise<Blob> => {
+    const token = localStorage.getItem("accessToken");
+    const response = await fetch(`/api/v1/chatbot/assistant/conversations/${encodeURIComponent(file.conversationId)}/files/${encodeURIComponent(file.id)}`, {
+      signal,
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(branchId ? { "x-branch-id": branchId } : {}) },
+    });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result.message || "Không thể tải tệp. Bạn thử lại nhé.");
+    }
+    if (response.headers.get("content-type")?.split(";")[0] !== file.mimeType.split(";")[0]) throw new Error("Máy chủ trả về định dạng tệp không hợp lệ.");
+    return response.blob();
+  },
   speech: async (text: string, signal?: AbortSignal, voice?: AssistantSpeechVoice, controls?: AssistantSpeechControls): Promise<Blob> => {
     const token = localStorage.getItem("accessToken");
     let response: Response;

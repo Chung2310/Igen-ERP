@@ -3,6 +3,7 @@ import { nextIntakeReply, pageIntakeFlow } from "./page-intake";
 import { PageChatFlowModel, PageChatFlowStateModel } from "../../../model/page-chat-flow.model";
 import { generateReplyCompletion } from "../../ai-reply-provider";
 import { PAGE_CUSTOMER_NOTES_KEY, savePageCustomer } from "../../page-customer.service";
+import { splitHistoryAndPendingInboundMessages } from "../../chat-image-context";
 vi.mock("../../../model/page-chat-flow.model", () => ({ PageChatFlowModel: { findOne: vi.fn() }, PageChatFlowStateModel: { findOne: vi.fn(), updateOne: vi.fn() } }));
 vi.mock("../../ai-reply-provider", () => ({ generateReplyCompletion: vi.fn() }));
 vi.mock("../../page-customer.service", () => ({ PAGE_CUSTOMER_NOTES_KEY: "__customer_notes", savePageCustomer: vi.fn() }));
@@ -29,9 +30,61 @@ describe("Page intake flow", () => {
       expect.objectContaining({ $set: expect.objectContaining({ version: 2, values: { surface: "tường", area: "20 m²" }, lastMessageId: "M" }) }),
       { upsert: true }
     );
-    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => ({ version: 2, lastMessageId: "M", lastReply: fields[2].question }) } as any);
-    expect((await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M", message: "Sơn tường 20 m²", imageUrls: [] }))?.text).toBe(fields[2].question);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => ({ version: 2, lastMessageId: "M", lastReply: fields[2].question,
+      values: { surface: "tường", area: "20 m²" } }) } as any);
+    const retried = await pageIntakeFlow.process({ companyCode: "ACME", pageId: "PAGE", conversationId: "C", messageId: "M", message: "Sơn tường 20 m²", imageUrls: [] });
+    expect(retried?.text).toBe(fields[2].question);
+    expect(retried?.consultationContext).toBe(reply?.consultationContext);
     expect(generateReplyCompletion).toHaveBeenCalledTimes(1);
+  });
+  it("preserves a short name and the promotion question grouped after the bot asks for a name", async () => {
+    const contactFields = [
+      { key: "name", label: "Họ tên", question: "Anh/chị cho em xin tên để Ruby Queen tiện tư vấn cho mình nhé?" },
+      { key: "phone", label: "Số điện thoại", question: "Cho em xin số điện thoại liên hệ nhé?" },
+    ];
+    const grouped = splitHistoryAndPendingInboundMessages([
+      { direction: "inbound", text: "Alo" },
+      { direction: "outbound", text: contactFields[0].question },
+      { direction: "inbound", text: "Thủy" },
+      { direction: "inbound", text: "Bên e có sản phẩm nào đang khuyến mại k" },
+    ]);
+    const history = grouped.historyMessages.map(turn => ({ sender: turn.direction === "inbound" ? "user" : "model", text: turn.text }));
+    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 1, goal: "Tư vấn Ruby Queen", fields: contactFields, completionMessage: "Cảm ơn." }) } as any);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as any);
+    vi.mocked(generateReplyCompletion).mockImplementation(async params => {
+      const payload = JSON.parse(String(params.messages[1].content));
+      expect(payload.history).toEqual(history);
+      expect(payload.message).toBe("1. Thủy\n2. Bên e có sản phẩm nào đang khuyến mại k");
+      return { text: JSON.stringify({ name: "Thủy" }) } as any;
+    });
+    const reply = await pageIntakeFlow.process({ companyCode: "RUBYQUEEN", pageId: "PAGE", conversationId: "C", messageId: "PROMO",
+      message: grouped.combinedText, history, imageUrls: [] });
+    const guidance = JSON.parse(reply!.consultationContext!);
+    expect(guidance.collected).toEqual({ name: "Thủy" });
+    expect(guidance.missingFields.map((field: { key: string }) => field.key)).toEqual(["phone"]);
+    expect(guidance.requiredReply).toBeUndefined();
+    expect(guidance.suggestedQuestion).toBeUndefined();
+    expect(guidance.completionMessage).toBeUndefined();
+    expect(guidance.missingFields).toEqual([{ key: "phone", label: "Số điện thoại" }]);
+    expect(guidance.instruction).toContain("Trả lời câu hỏi mới nhất");
+    expect(savePageCustomer).toHaveBeenCalledWith(expect.objectContaining({ values: { name: "Thủy" }, message: "Alo\n" + grouped.combinedText }));
+  });
+  it("can save a phone supplied in earlier customer history without using the bot's hotline as source proof", async () => {
+    const contactFields = [
+      { key: "name", label: "Họ tên", question: "Cho em xin tên nhé?" },
+      { key: "phone", label: "Số điện thoại", question: "Cho em xin số liên hệ nhé?" },
+    ];
+    vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 1, goal: "Tư vấn Ruby Queen", fields: contactFields, completionMessage: "Cảm ơn." }) } as any);
+    vi.mocked(PageChatFlowStateModel.findOne).mockReturnValue({ lean: async () => null } as any);
+    vi.mocked(generateReplyCompletion).mockResolvedValue({ text: JSON.stringify({ name: "Thủy", phone: "0900000000" }) } as any);
+    await pageIntakeFlow.process({ companyCode: "RUBYQUEEN", pageId: "PAGE", conversationId: "C", messageId: "NAME",
+      message: "Thủy", imageUrls: [], history: [
+        { sender: "model", text: "Hotline Ruby Queen là 0965959929. Cho em xin số điện thoại của mình nhé?" },
+        { sender: "user", text: "0900000000" },
+        { sender: "model", text: contactFields[0].question },
+      ] });
+    expect(savePageCustomer).toHaveBeenCalledWith(expect.objectContaining({ message: "0900000000\nThủy",
+      values: { name: "Thủy", phone: "0900000000" } }));
   });
   it("keeps unconfigured customer facts and syncs later replies to the linked customer", async () => {
     vi.mocked(PageChatFlowModel.findOne).mockReturnValue({ lean: async () => ({ version: 2, goal: "Tư vấn sơn", fields, completionMessage: "Đã nhận thông tin." }) } as any);

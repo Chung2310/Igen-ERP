@@ -6,6 +6,7 @@ import { ASSISTANT_OPERATIONS, operationById, type AssistantOperation } from "./
 import { actorScope, assertOperation } from "./workflows";
 import { validateStructuredField } from "./structured-data";
 import { AssistantError } from "./policy";
+import { callHealthcareOperation, HealthcareUncertainExecutionError, lookupHealthcareRecords, projectHealthcareRecords, resolveHealthcareReferences, suggestHealthcareReferences } from "./healthcare-executor";
 
 export class UncertainExecutionError extends Error {}
 export type AssistantRecord = Record<string, AssistantValue>;
@@ -277,6 +278,13 @@ function assertCampaignCalendarRange(input: Record<string, AssistantValue>) {
 
 /** Only calls a code-owned route on this Express listener. Host, URL and credentials are never model inputs. */
 export async function callOperation(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
+  if (op.module === "healthcare") {
+    try { return await callHealthcareOperation(req, op, input); }
+    catch (error) {
+      if (error instanceof HealthcareUncertainExecutionError) throw new UncertainExecutionError(error.message);
+      throw error;
+    }
+  }
   if (op.id === "worker.standard-fields.list") {
     if (input.query_moduleKey !== undefined && input.query_moduleKey !== "students") throw new AssistantError("Trợ lý chỉ hỗ trợ cấu hình trường hồ sơ lao động đang dùng trong giao diện.");
     input.query_moduleKey = "students";
@@ -2949,6 +2957,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   return result;
 }
 export function projectRecords(op: AssistantOperation, response: any, req: AuthenticatedRequest): AssistantRecord[] {
+  if (op.module === "healthcare") return projectHealthcareRecords(op, response);
   const responseData = response?.data ?? response?.user ?? response;
   if (op.id === "hr.workflow.list") {
     const stepKeys = ["id", "title", "description", "assigneeUid", "assignee", "assigneeUids", "relatedUids", "domain", "priority", "deadlineType", "deadlineDays", "deadlineTime", "subTasks", "type", "estDays", "deliverable", "note", "docLinks", "attachments", "position"];
@@ -3615,6 +3624,7 @@ async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOpe
 
 export async function lookupRecords(req: AuthenticatedRequest, operationId: string, search = "", extraValues: Record<string, AssistantValue> = {}) {
   const op = await assertOperation(req, operationId);
+  if (op.module === "healthcare") return lookupHealthcareRecords(req, op, search, extraValues);
   // Some list APIs search business labels, not internal ObjectIds. When a
   // confirmed action rechecks a pinned ID, fetch the scoped page and match it
   // locally instead of sending the ID through a name/code search filter.
@@ -3678,6 +3688,8 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
 }
 
 export async function resolveNamedReferenceSelectors(req: AuthenticatedRequest, op: AssistantOperation, values: Record<string, unknown>) {
+  // Healthcare update fields describe new values, never an implicit target to overwrite.
+  if (op.module === "healthcare") return { ...values };
   const resolved = { ...values };
   const selectors = op.fields.filter(field => ["name", "title", "displayName", "fullName", "code", "email", "phone", "sku"].includes(field.key) && typeof values[field.key] === "string" && String(values[field.key]).trim());
   for (const field of op.fields) {
@@ -3908,6 +3920,7 @@ export async function suggestReferenceOptions(
   values: Record<string, AssistantValue>,
 ) {
   if (!field.reference) return [];
+  if (op.module === "healthcare") return suggestHealthcareReferences(req, op, field, values, lookupRecords, matchesReference);
   const referenceOperation = operationById(field.reference);
   const context: Record<string, AssistantValue> = {};
   for (const candidate of referenceOperation?.fields || []) {
@@ -4026,6 +4039,7 @@ function nestedReferenceLabel(shape: NonNullable<AssistantField["structure"]>, k
 }
 
 export async function resolveReferences(req: AuthenticatedRequest, op: AssistantOperation, values: Record<string, AssistantValue>) {
+  if (op.module === "healthcare") return resolveHealthcareReferences(req, op, values, lookupRecords, matchesReference);
   const resolved = { ...values };
   const labels: Record<string, string> = {};
   const errors: string[] = [];

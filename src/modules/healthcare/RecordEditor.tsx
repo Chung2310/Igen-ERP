@@ -1,15 +1,16 @@
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
+import { Search } from "lucide-react";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { ErpModal } from "../../components/common/ErpModal";
 import type { Appointment, CareTask, CatalogItem, CatalogKind, HealthcareList, HealthcareStaff, Patient, PatientReference, Visit } from "../../../shared/healthcare";
 import type { HealthcareApi } from "./api";
-import { appointmentLabels, buttonClass, careLabels, catalogLabels, controlClass, dateTimeControl, Feedback, Field, formError, primaryClass, useHealthcareQuery, visitLabels, type FormError } from "./ui";
+import { appointmentLabels, buttonClass, careLabels, catalogLabels, controlClass, dateTimeControl, dayLabel, Feedback, Field, formError, primaryClass, useHealthcareQuery, visitLabels, type FormError } from "./ui";
 
 export type Editor =
   | { kind: "patients"; record?: Patient }
   | { kind: "visits"; record?: Visit; patient?: PatientReference }
   | { kind: "appointments"; record?: Appointment; patient?: PatientReference; visit?: Visit }
-  | { kind: "care"; record?: CareTask; patient?: PatientReference; appointment?: Appointment }
+  | { kind: "care"; record?: CareTask; patient?: PatientReference; appointment?: Appointment; visit?: Visit }
   | { kind: "catalog"; record?: CatalogItem };
 
 const nouns = { patients: "bệnh nhân", visits: "lượt khám", appointments: "lịch hẹn", care: "việc chăm sóc", catalog: "danh mục" };
@@ -23,25 +24,56 @@ export function canCancelRecord(kind: keyof typeof statuses, status: string) {
 }
 const choices = (labels: Record<string, string>, keys: string[] = Object.keys(labels)) => keys.map(value => ({ value, label: labels[value] }));
 const emptyChoice = (label: string) => ({ value: "", label });
+type PatientOption = PatientReference & { phone?: string };
 
 function PatientPicker({ api, selected, error }: { api: HealthcareApi; selected?: PatientReference; error?: FormError }) {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
+  const [chosen, setChosen] = useState<PatientOption | undefined>(selected);
+  const [open, setOpen] = useState(false);
   const searchId = useId();
-  const patients = useHealthcareQuery<HealthcareList<PatientReference>>(api, "/patients/search", JSON.stringify({ q: query, pageSize: 25 }));
+  const listId = useId();
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(search.trim()), 1_000);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const patients = useHealthcareQuery<HealthcareList<PatientOption>>(api, query ? "/patients/search" : null,
+    JSON.stringify({ q: query, pageSize: 25, mode: "selection" }));
   const items = patients.data?.items || [];
-  const entries = selected && !items.some(item => item._id === selected._id) ? [selected, ...items] : items;
+  const patientError = error?.fields.includes("patientId") ? error.message : "";
   return <div className="space-y-2 sm:col-span-2">
-    <label htmlFor={searchId} className="block text-sm font-medium">Tìm bệnh nhân theo tên hoặc mã</label>
-    <div className="flex gap-2">
-      <input id={searchId} className={controlClass} value={search} onChange={event => setSearch(event.target.value)}
-        onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); setQuery(search.trim()); } }} />
-      <button type="button" className={buttonClass} onClick={() => setQuery(search.trim())}>Tìm</button>
-    </div>
-    <Feedback loading={patients.loading} error={patients.error} onRetry={patients.refresh} />
-    <Field name="patientId" label="Bệnh nhân" required value={selected?._id} error={error}
-      options={[emptyChoice("Chọn bệnh nhân"), ...entries.map(item => ({ value: item._id, label: `${item.code} · ${item.name}` }))]} />
-    {Boolean(patients.data?.total && patients.data.total > entries.length) && <p className="text-xs text-on-surface-variant">Thu hẹp từ khóa để tìm thêm hồ sơ.</p>}
+    <label htmlFor={searchId} className="block text-sm font-medium">Bệnh nhân <span aria-hidden="true">*</span></label>
+    {chosen ? <div className="flex items-center gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{chosen.name}</p>
+        <p className="mt-0.5 text-xs text-on-surface-variant">{chosen.phone || "Chưa có số điện thoại"}{chosen.code ? ` · ${chosen.code}` : ""}</p>
+      </div>
+      <button type="button" className={buttonClass} onClick={() => { setChosen(undefined); setSearch(""); setQuery(""); setOpen(true); }}>Đổi</button>
+      <input type="hidden" name="patientId" value={chosen._id} />
+    </div> : <div className="relative">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-on-surface-variant" aria-hidden="true" />
+        <input id={searchId} role="combobox" aria-autocomplete="list" aria-expanded={open && Boolean(query)} aria-controls={listId}
+          aria-invalid={Boolean(patientError)} aria-describedby={patientError ? `${searchId}-error` : undefined}
+          className={`${controlClass} pl-9`} value={search} placeholder="Tìm theo tên hoặc số điện thoại"
+          onFocus={() => setOpen(true)} onChange={event => { setChosen(undefined); setSearch(event.target.value); setQuery(""); setOpen(true); }}
+          onKeyDown={event => { if (event.key === "Escape") setOpen(false); }} autoComplete="off" />
+      </div>
+      <input type="hidden" name="patientId" value="" />
+      {open && Boolean(query) && <div id={listId} role="listbox" aria-label="Kết quả tìm bệnh nhân"
+        className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-outline-variant bg-surface-container-lowest shadow-lg">
+        {patients.loading ? <p role="status" className="p-3 text-sm text-on-surface-variant">Đang tìm bệnh nhân…</p>
+          : items.length ? items.map(item => <button key={item._id} type="button" role="option" aria-selected="false"
+            className="block w-full border-b border-outline-variant px-3 py-2.5 text-left last:border-0 hover:bg-surface-container-low focus-visible:bg-surface-container-low focus-visible:outline-none"
+            onClick={() => { setChosen(item); setSearch(""); setQuery(""); setOpen(false); }}>
+            <span className="block truncate text-sm font-medium">{item.name}</span>
+            <span className="mt-0.5 block text-xs text-on-surface-variant">{item.phone || "Chưa có số điện thoại"}</span>
+          </button>)
+            : <p role="status" className="p-3 text-sm text-on-surface-variant">Không tìm thấy bệnh nhân theo tên hoặc số điện thoại.</p>}
+      </div>}
+      {patientError && <p id={`${searchId}-error`} className="text-xs text-error">{patientError}</p>}
+      <Feedback error={patients.error} onRetry={patients.refresh} />
+    </div>}
   </div>;
 }
 
@@ -78,7 +110,19 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
     if (busy) return;
     const data = new FormData(event.currentTarget);
     const body: Record<string, unknown> = Object.fromEntries(data);
+    if ((kind === "visits" || kind === "appointments" || kind === "care") && !body.patientId) {
+      setError({ message: "Chọn bệnh nhân theo tên hoặc số điện thoại.", fields: ["patientId"] });
+      return;
+    }
+    const requiredDateFields = kind === "visits" ? ["visitedOn"] : kind === "appointments" ? ["startsAt", "endsAt"] : kind === "care" ? ["dueOn"] : [];
+    const requiredOptionFields = kind === "care" ? ["assigneeId"] : kind === "catalog" && !record ? ["kind"] : [];
+    const missingFields = [...requiredDateFields, ...requiredOptionFields].filter(name => !body[name]);
+    if (missingFields.length) {
+      setError({ message: "Điền đầy đủ các trường bắt buộc.", fields: missingFields });
+      return;
+    }
     if (kind === "catalog") body.active = data.has("active");
+    if ((kind === "visits" || kind === "appointments") && body.doctorId) body.doctorName = "";
     if (kind === "appointments") {
       body.startsAt = `${body.startsAt}+07:00`;
       body.endsAt = `${body.endsAt}+07:00`;
@@ -91,7 +135,7 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
   }
 
   const catalogOptions = (type: CatalogKind, selected?: string) => [
-    emptyChoice("Chưa chọn"),
+    emptyChoice(`Chọn ${catalogLabels[type].toLocaleLowerCase("vi")}`),
     ...catalog.filter(item => item.kind === type && (item.active || item._id === selected))
       .map(item => ({ value: item._id, label: item.active ? item.name : `${item.name} (ngừng sử dụng)` })),
   ];
@@ -112,12 +156,13 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
     </> : <form onSubmit={submit} aria-busy={busy} className="space-y-4">
       <fieldset disabled={busy} className="grid min-w-0 gap-4 sm:grid-cols-2">
         {kind === "patients" && <>
-          <Field name="code" label="Mã bệnh nhân" value={editor.record?.code} error={error} readOnly={Boolean(editor.record)} required maxLength={50} />
-          <Field name="name" label="Họ và tên" value={editor.record?.name} error={error} required maxLength={180} />
-          <Field name="phone" label="Số điện thoại" type="tel" value={editor.record?.phone} error={error} maxLength={40} />
+          {editor.record ? <Field name="code" label="Mã bệnh nhân" value={editor.record.code} readOnly required maxLength={50} />
+            : <Field name="code" label="Mã bệnh nhân" disabled placeholder="Tự tạo khi lưu hồ sơ" />}
+          <Field name="name" label="Họ và tên" value={editor.record?.name} error={error} required maxLength={180} placeholder="Nhập họ và tên bệnh nhân" />
+          <Field name="phone" label="Số điện thoại" type="tel" value={editor.record?.phone} error={error} maxLength={40} placeholder="Ví dụ: 0901234567" />
           <Field name="dateOfBirth" label="Ngày sinh" type="date" value={editor.record?.dateOfBirth} error={error} />
-          <Field name="address" label="Địa chỉ" value={editor.record?.address} error={error} maxLength={350} />
-          <Field name="note" label="Ghi chú hành chính" value={editor.record?.note} error={error} maxLength={1000} />
+          <Field name="address" label="Địa chỉ" value={editor.record?.address} error={error} maxLength={350} placeholder="Nhập địa chỉ bệnh nhân" />
+          <Field name="note" label="Ghi chú hành chính" value={editor.record?.note} error={error} maxLength={1000} placeholder="Nhập ghi chú (nếu có)" />
         </>}
         {(kind === "visits" || kind === "appointments" || kind === "care") && <>
           {patientId ? <div className="sm:col-span-2">
@@ -131,38 +176,42 @@ export default function RecordEditor({ editor, api, catalog, staff, directory, o
         {kind === "visits" && <>
           <Field name="code" label="Mã lượt khám" value={editor.record?.code} error={error} readOnly={Boolean(editor.record)} required maxLength={50} />
           <Field name="visitedOn" label="Ngày khám" type="date" value={editor.record?.visitedOn} error={error} required />
-          <Field name="doctorId" label="Bác sĩ" value={editor.record?.doctorId} options={catalogOptions("doctor", editor.record?.doctorId)} error={error} />
+          <Field name="doctorName" label="Tên bác sĩ" value={editor.record?.doctorName || editor.record?.report?.doctor} error={error} maxLength={180} placeholder="Nhập tên bác sĩ bên ngoài ERP" />
+          <Field name="doctorId" label="Chọn bác sĩ trong ERP (nếu có)" value={editor.record?.doctorId} options={catalogOptions("doctor", editor.record?.doctorId)} error={error} />
           <Field name="roomId" label="Phòng khám" value={editor.record?.roomId} options={catalogOptions("room", editor.record?.roomId)} error={error} />
           <Field name="serviceId" label="Dịch vụ" value={editor.record?.serviceId} options={catalogOptions("service", editor.record?.serviceId)} error={error} />
-          <Field name="paymentNote" label="Ghi nhận thanh toán tham khảo" value={editor.record?.paymentNote} error={error} maxLength={160} />
-          <Field name="note" label="Ghi chú hành chính" value={editor.record?.note} error={error} maxLength={1000} />
+          <Field name="paymentNote" label="Ghi nhận thanh toán tham khảo" value={editor.record?.paymentNote} error={error} maxLength={160} placeholder="Ví dụ: Đã thanh toán tiền mặt" />
+          <Field name="note" label="Ghi chú hành chính" value={editor.record?.note} error={error} maxLength={1000} placeholder="Nhập ghi chú (nếu có)" />
         </>}
         {kind === "appointments" && <>
           <input type="hidden" name="visitId" value={editor.record?.visitId || editor.visit?._id || ""} />
+          {editor.visit?.report?.followUpOn && <p className="text-sm text-on-surface-variant sm:col-span-2">Ngày tái khám trong Excel: {dayLabel(editor.visit.report.followUpOn)}. Chọn giờ bắt đầu và kết thúc để lưu lịch hẹn.</p>}
           <Field name="startsAt" label="Bắt đầu (giờ Việt Nam)" type="datetime-local" step={900} value={dateTimeControl(editor.record?.startsAt)} error={error} required />
           <Field name="endsAt" label="Kết thúc (giờ Việt Nam)" type="datetime-local" step={900} value={dateTimeControl(editor.record?.endsAt)} error={error} required />
-          <Field name="doctorId" label="Bác sĩ" value={editor.record?.doctorId ?? editor.visit?.doctorId} options={catalogOptions("doctor", editor.record?.doctorId)} error={error} />
+          <Field name="doctorName" label="Tên bác sĩ" value={editor.record?.doctorName || editor.visit?.doctorName || editor.visit?.report?.doctor} error={error} maxLength={180} placeholder="Nhập tên bác sĩ bên ngoài ERP" />
+          <Field name="doctorId" label="Chọn bác sĩ trong ERP (nếu có)" value={editor.record?.doctorId ?? editor.visit?.doctorId} options={catalogOptions("doctor", editor.record?.doctorId)} error={error} />
           <Field name="roomId" label="Phòng khám" value={editor.record?.roomId ?? editor.visit?.roomId} options={catalogOptions("room", editor.record?.roomId)} error={error} />
-          <Field name="note" label="Ghi chú lịch hẹn" value={editor.record?.note} error={error} maxLength={1000} />
+          <Field name="note" label="Ghi chú lịch hẹn" value={editor.record?.note} error={error} maxLength={1000} placeholder="Ví dụ: Khách cần đổi giờ nếu bận" />
         </>}
         {kind === "care" && <>
           <input type="hidden" name="appointmentId" value={editor.record?.appointmentId || editor.appointment?._id || ""} />
-          <Field name="title" label="Việc cần thực hiện" value={editor.record?.title || (editor.appointment ? "Liên hệ về lịch hẹn" : "")} error={error} required maxLength={200} />
-          <Field name="dueOn" label="Hạn xử lý" type="date" value={editor.record?.dueOn} error={error} required />
+          <input type="hidden" name="visitId" value={editor.record?.visitId || editor.visit?._id || ""} />
+          <Field name="title" label="Việc cần thực hiện" value={editor.record?.title || (editor.appointment ? "Liên hệ về lịch hẹn" : editor.visit?.report?.followUpOn ? "Nhắc tái khám" : "")} error={error} required maxLength={200} placeholder="Ví dụ: Gọi xác nhận lịch hẹn" />
+          <Field name="dueOn" label="Hạn xử lý" type="date" value={editor.record?.dueOn || editor.visit?.report?.followUpOn} error={error} required />
           <Field name="assigneeId" label="Nhân viên phụ trách" required value={editor.record?.assigneeId} error={error} options={[
-            emptyChoice("Chọn nhân viên"),
+            emptyChoice("Chọn nhân viên phụ trách"),
             ...(editor.record?.assigneeId && !staff.some(item => item._id === editor.record?.assigneeId)
               ? [{ value: editor.record.assigneeId, label: "Người phụ trách hiện tại (ngừng hoạt động)" }] : []),
             ...staff.map(item => ({ value: item._id, label: item.name })),
           ]} />
-          <Field name="result" label="Kết quả chăm sóc" required={careStatus === "completed"} value={editor.record?.result} error={error} maxLength={1000} />
+          <Field name="result" label="Kết quả chăm sóc" required={careStatus === "completed"} value={editor.record?.result} error={error} maxLength={1000} placeholder="Ghi lại kết quả xử lý" />
         </>}
         {kind === "catalog" && <>
           {editor.record ? <div><p className="text-sm font-medium">Loại danh mục</p><p className="text-sm">{catalogLabels[editor.record.kind]}</p>
             <input type="hidden" name="kind" value={editor.record.kind} /></div>
-            : <Field name="kind" label="Loại danh mục" options={choices(catalogLabels)} error={error} required />}
-          <Field name="code" label="Mã danh mục" value={editor.record?.code} error={error} required maxLength={50} />
-          <Field name="name" label="Tên hiển thị" value={editor.record?.name} error={error} required maxLength={180} />
+            : <Field name="kind" label="Loại danh mục" options={[emptyChoice("Chọn loại danh mục"), ...choices(catalogLabels)]} error={error} required />}
+          <Field name="code" label="Mã danh mục" value={editor.record?.code} error={error} required maxLength={50} placeholder="Ví dụ: BS001" />
+          <Field name="name" label="Tên hiển thị" value={editor.record?.name} error={error} required maxLength={180} placeholder="Nhập tên hiển thị" />
           <label className="flex items-center gap-2 self-end py-2 text-sm"><input type="checkbox" name="active" defaultChecked={editor.record?.active ?? true} /> Đang sử dụng</label>
         </>}
       </fieldset>

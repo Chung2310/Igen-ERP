@@ -57,18 +57,18 @@ export async function prepareVisit(db: Db, actor: HealthcareActor, value: Record
     checkCatalog(db, actor, value.roomId, "room", previous?.roomId),
     checkCatalog(db, actor, value.serviceId, "service", previous?.serviceId),
   ]);
-  return value;
+  return { ...value, doctorName: value.doctorId ? "" : value.doctorName?.trim() || "" };
 }
 
 export async function prepareAppointment(db: Db, actor: HealthcareActor, value: RecordInput<Appointment>, previous?: Appointment) {
   checkStatus("appointments", value.status, previous?.status);
-  const booking = appointmentReservations(value);
+  const booking = appointmentReservations({ ...value, doctorName: value.doctorId ? "" : value.doctorName?.trim() || "" });
   if (previous) {
     if (previous.patientId !== booking.patientId || previous.visitId !== booking.visitId) {
       throw invalidField("patientId", "Lịch hẹn đã gắn với bệnh nhân và lượt khám đã chọn.");
     }
     const moved = previous.startsAt !== booking.startsAt || previous.endsAt !== booking.endsAt ||
-      previous.doctorId !== booking.doctorId || previous.roomId !== booking.roomId;
+      previous.doctorId !== booking.doctorId || (previous.doctorName || "") !== (booking.doctorName || "") || previous.roomId !== booking.roomId;
     if (moved && !["scheduled", "confirmed"].includes(previous.status)) {
       throw invalidField("startsAt", "Chỉ lịch chờ hoặc đã xác nhận mới có thể đổi giờ, bác sĩ hoặc phòng.");
     }
@@ -86,8 +86,9 @@ export async function prepareAppointment(db: Db, actor: HealthcareActor, value: 
 
 export async function prepareCare(db: Db, actor: HealthcareActor, value: RecordInput<CareTask>, previous?: CareTask) {
   checkStatus("care", value.status, previous?.status);
-  if (previous && (previous.patientId !== value.patientId || previous.appointmentId !== value.appointmentId)) {
-    throw invalidField("patientId", "Việc chăm sóc đã gắn với bệnh nhân và lịch hẹn đã chọn.");
+  if (previous && (previous.patientId !== value.patientId || previous.appointmentId !== value.appointmentId ||
+    (previous.visitId || "") !== (value.visitId || ""))) {
+    throw invalidField("patientId", "Việc chăm sóc đã gắn với bệnh nhân, lượt khám và lịch hẹn đã chọn.");
   }
   if (value.status === "completed" && !value.result) throw invalidField("result", "Cần ghi kết quả trước khi hoàn tất.");
   await checkPatient(db, actor, value.patientId);
@@ -97,6 +98,9 @@ export async function prepareCare(db: Db, actor: HealthcareActor, value: RecordI
   if (value.appointmentId && !await records(db, "appointments").findOne({
     ...scopeFilter(actor), _id: value.appointmentId, patientId: value.patientId,
   }, { projection: { _id: 1 } })) throw invalidField("appointmentId", "Lịch hẹn không khớp với bệnh nhân đã chọn.");
+  if (value.visitId && !await records(db, "visits").findOne({
+    ...scopeFilter(actor), _id: value.visitId, patientId: value.patientId,
+  }, { projection: { _id: 1 } })) throw invalidField("visitId", "Lượt khám không khớp với bệnh nhân đã chọn.");
   return value;
 }
 

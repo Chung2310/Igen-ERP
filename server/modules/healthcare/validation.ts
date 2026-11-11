@@ -27,17 +27,20 @@ export function input<T>(schema: Joi.Schema<T>, data: unknown): T {
   return result.value as T;
 }
 
-export const patientInput = Joi.object<RecordInput<Patient>>({
-  code: patientCode, name: requiredText(180),
+const patientFields = {
+  name: requiredText(180),
   phone: text(40).pattern(/^[+\d ().-]*$/),
   dateOfBirth: localDate.allow("").default("").custom((value, helpers) =>
     !value || value <= new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10) ? value : helpers.error("date.max"),
   ),
   address: text(350), note: text(1000),
-}).required();
+};
+export type PatientCreateInput = Omit<RecordInput<Patient>, "code"> & { code?: string };
+export const patientCreateInput = Joi.object<PatientCreateInput>({ code: patientCode.optional(), ...patientFields }).required();
+export const patientInput = Joi.object<RecordInput<Patient>>({ code: patientCode, ...patientFields }).required();
 
 const visitFields = {
-  code, visitedOn: localDate.required(), doctorId: optionalId,
+  code, visitedOn: localDate.required(), doctorId: optionalId, doctorName: text(180),
   roomId: optionalId, serviceId: optionalId, status: Joi.string().valid(...visitStatuses).default("registered"),
   paymentNote: text(160), note: text(1000),
 };
@@ -45,12 +48,12 @@ export const visitInput = Joi.object<RecordInput<Visit>>({ ...visitFields, patie
 export const hospitalVisitInput = Joi.object<Omit<RecordInput<Visit>, "patientId">>(visitFields).required();
 
 export const appointmentInput = Joi.object<RecordInput<Appointment>>({
-  patientId: recordId, visitId: optionalId, doctorId: optionalId, roomId: optionalId,
+  patientId: recordId, visitId: optionalId, doctorId: optionalId, doctorName: text(180), roomId: optionalId,
   startsAt: instant, endsAt: instant, status: Joi.string().valid(...appointmentStatuses).default("scheduled"), note: text(1000),
 }).required();
 
 export const careInput = Joi.object<RecordInput<CareTask>>({
-  patientId: recordId, appointmentId: optionalId, assigneeId: Joi.string().hex().length(24).required(),
+  patientId: recordId, appointmentId: optionalId, visitId: optionalId, assigneeId: Joi.string().hex().length(24).required(),
   title: requiredText(200), dueOn: localDate.required(), status: Joi.string().valid(...careStatuses).default("open"), result: text(1000),
 }).required();
 
@@ -69,9 +72,10 @@ export const listInput = Joi.object<ListQuery>({
   id: recordId.optional(), patientId: recordId.optional(), status: Joi.string().max(24), from: localDate, to: localDate,
 });
 export const listSearchInput = listInput.keys({ q: text(100) });
-export const patientSearchInput = Joi.object<{ q: string; page: number; pageSize: number; from?: string; to?: string }>({
+export const patientSearchInput = Joi.object<{ q: string; page: number; pageSize: number; from?: string; to?: string; mode?: "selection" }>({
   q: text(100), from: localDate, to: localDate, page: Joi.number().integer().min(1).max(5000).default(1),
   pageSize: Joi.number().integer().min(1).max(100).default(25),
+  mode: Joi.string().valid("selection").optional(),
 });
 
 const visitTransitions: Record<Visit["status"], Visit["status"][]> = {
