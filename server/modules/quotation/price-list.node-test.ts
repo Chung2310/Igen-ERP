@@ -65,7 +65,7 @@ test("uses Luna-compatible parameters to extract an attached request", async (t)
   t.mock.method(globalThis, "fetch", async (_url: unknown, options: RequestInit) => {
     const body = JSON.parse(String(options.body));
     assert.equal(body.model, "openai/gpt-6-luna");
-    assert.equal(body.reasoning, undefined);
+    assert.deepEqual(body.reasoning, { effort: "none" });
     assert.equal("temperature" in body, false);
     assert.equal(body.response_format.type, "json_schema");
     assert.equal(body.provider.require_parameters, true);

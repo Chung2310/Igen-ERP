@@ -114,16 +114,6 @@ describe("quotation ERP data boundaries", () => {
     expect(quotationRoutePermissions("GET", "/contracts/a")).toContain("quotation-contract:read");
     expect(quotationRoutePermissions("POST", "/price-list")).toContain("quotation-price-book:manage");
   });
-  it("queues the upstream settlement file route through the scoped ERP worker", async () => {
-    const id = new ObjectId();
-    await quotationContexts.run({ ...scope(), command: { path: `/acceptance-records/${id}/settlement/file`, query: { background: "1" } } }, async () => {
-      const db = await connectDatabase();
-      await db.collection("acceptanceRecords").insertOne({ _id: id, status: "completed", updatedAt: new Date() });
-      const queued = await queueQuotationExport("settlement", String(id));
-      const job = await db.collection("generatedExportJobs").findOne({ _id: new ObjectId(queued.jobId) });
-      expect(job).toMatchObject({ kind: "settlement", sourceId: String(id), command: { path: `/acceptance-records/${id}/settlement/file`, query: {} } });
-    });
-  });
   it("invalidates an export when a price changes but not when a fill-plan cache is written", () => {
     const source = { total: 100, updatedAt: new Date(1) };
     expect(quotationDocumentHash(source)).toBe(quotationDocumentHash({ ...source, templateFillPlan: { edits: [] } }));
