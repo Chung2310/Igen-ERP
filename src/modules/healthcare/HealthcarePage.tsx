@@ -19,7 +19,7 @@ import PatientDetailsModal from "./PatientDetailsModal";
 import RecordEditor, { canCancelRecord, type Editor } from "./RecordEditor";
 import {
   appointmentLabels, buttonClass, careLabels, catalogLabels, Cell, dayLabel, Feedback, IconActionButton,
-  messageOf, panelClass, RowLink, StatusBadge, Table, timeLabel, useHealthcareQuery, visitLabels,
+  dateTimeControl, messageOf, panelClass, RowLink, StatusBadge, Table, useHealthcareQuery, visitLabels,
 } from "./ui";
 
 const sections = [
@@ -27,7 +27,7 @@ const sections = [
   { key: "visits", label: "Lượt khám" },
   { key: "appointments", label: "Lịch hẹn" },
   { key: "care", label: "Chăm sóc" },
-  { key: "settings", label: "Cài đặt danh mục" },
+  { key: "settings", label: "Danh mục" },
 ] as const;
 type ListRow = Patient | Visit | Appointment | CareTask;
 type Withdrawal =
@@ -47,23 +47,23 @@ const canFeature = (has: (permission: string) => boolean, tab: Tab, mode: "read"
 const labels = { visits: visitLabels, appointments: appointmentLabels, care: careLabels };
 const sectionHeaders = {
   patients: ["Họ và tên", "Ngày tạo hồ sơ", "Ngày sinh", "Giới tính", "Thao tác"],
-  visits: ["Mã lượt khám", "Bệnh nhân", "Ngày khám", "Tái khám", "Dịch vụ", "Bác sĩ", "Phòng", "Trạng thái", "Thao tác"],
-  appointments: ["Bệnh nhân", "Bắt đầu", "Kết thúc", "Bác sĩ", "Phòng", "Trạng thái", "Thao tác"],
-  care: ["Công việc", "Bệnh nhân", "Phụ trách", "Hạn xử lý", "Trạng thái", "Kết quả", "Thao tác"],
+  visits: ["Bệnh nhân / Mã lượt", "Ngày khám", "Dịch vụ", "Bác sĩ / Phòng", "Trạng thái", "Thao tác"],
+  appointments: ["Bệnh nhân", "Ngày và giờ", "Bác sĩ / Phòng", "Trạng thái", "Thao tác"],
+  care: ["Việc chăm sóc", "Bệnh nhân", "Phụ trách", "Hạn xử lý", "Trạng thái", "Thao tác"],
 };
 const sectionTableWidths: Record<keyof typeof sectionHeaders, string[]> = {
   patients: ["290px", "150px", "140px", "120px", "170px"],
-  visits: ["150px", "230px", "115px", "115px", "180px", "170px", "160px", "165px", "210px"],
-  appointments: ["240px", "190px", "190px", "200px", "180px", "155px", "205px"],
-  care: ["240px", "230px", "190px", "150px", "150px", "250px", "200px"],
+  visits: ["245px", "145px", "185px", "210px", "130px", "215px"],
+  appointments: ["240px", "190px", "230px", "145px", "190px"],
+  care: ["235px", "220px", "170px", "125px", "145px", "190px"],
 };
 const sectionTableMinWidths: Record<keyof typeof sectionHeaders, string> = {
-  patients: "914px", visits: "1495px", appointments: "1360px", care: "1410px",
+  patients: "914px", visits: "1130px", appointments: "995px", care: "1085px",
 };
 const dateLabels = { patients: "Ngày tạo hồ sơ", visits: "Ngày khám", appointments: "Ngày hẹn", care: "Hạn xử lý" };
 const searchHints = {
   patients: "Tìm mã, tên hoặc số điện thoại bệnh nhân",
-  visits: "Tìm mã phiếu, bệnh nhân, bác sĩ, phòng hoặc dịch vụ",
+  visits: "Tìm lượt khám, bệnh nhân, bác sĩ hoặc dịch vụ",
   appointments: "Tìm bệnh nhân theo mã, tên hoặc số điện thoại",
   care: "Tìm tên công việc hoặc bệnh nhân",
 };
@@ -268,13 +268,13 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
     setStatus("");
   }
 
-  function patientLink(id: string) {
+  function patientLink(id: string, compact = false) {
     const found = patientMap.get(id);
-    return <div className="min-w-48">
+    return <div className={compact ? "min-w-0" : "min-w-48"}>
       <RowLink onClick={() => openPatientPreview(id)}>{found?.name || "Mở hồ sơ bệnh nhân"}</RowLink>
       {found && <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-on-surface-variant">
         <span className="rounded bg-surface-container px-1.5 py-0.5">{found.code}</span>
-        {found.phone && <><span aria-hidden="true">•</span><span>{found.phone}</span></>}
+        {!compact && found.phone && <><span aria-hidden="true">•</span><span>{found.phone}</span></>}
       </div>}
     </div>;
   }
@@ -444,7 +444,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
                   <span className="rounded bg-surface-container px-1.5 py-0.5">{row.code}</span>
                 </div>
               </div></Cell>
-              <Cell align="center" className="whitespace-nowrap">{dayLabel(row.createdAt.slice(0, 10))}</Cell><Cell align="center" className="whitespace-nowrap">{birthLabel(row)}</Cell><Cell>{row.hospitalProfile?.gender || "—"}</Cell>
+              <Cell align="center" className="whitespace-nowrap">{dayLabel(row.createdAt?.slice(0, 10) || "")}</Cell><Cell align="center" className="whitespace-nowrap">{birthLabel(row)}</Cell><Cell>{row.hospitalProfile?.gender || "—"}</Cell>
               <Cell align="right"><div className="flex items-center justify-end gap-2">
                 {canManage && <IconActionButton label={`Sửa hồ sơ ${row.code}`} icon={Pencil} ariaHaspopup onClick={() => openEditor({ kind: "patients", record: row })} />}
                 <IconActionButton label={`Xem hồ sơ ${row.code}`} icon={Eye} ariaHaspopup onClick={() => openPatientPreview(row._id)} />
@@ -455,15 +455,22 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
                   }} />}
               </div></Cell>
             </tr>)}
-            {tab === "visits" && (rows as Visit[]).map(row => <tr key={row._id} className="transition-colors hover:bg-surface-container-low/40">
-              <Cell>{row.code}{(row.note || row.paymentNote) && <details className="mt-1 max-w-64 text-xs">
-                <summary className="cursor-pointer rounded-sm underline decoration-primary underline-offset-2 focus-visible:outline-2 focus-visible:outline-primary">Xem ghi chú</summary>
-                {row.note && <p className="mt-1 break-words">{row.note}</p>}
-                {row.paymentNote && <p className="mt-1 break-words">Thanh toán tham khảo — {row.paymentNote}</p>}
-              </details>}</Cell><Cell>{patientLink(row.patientId)}</Cell><Cell align="center" className="whitespace-nowrap">{dayLabel(row.visitedOn)}</Cell><Cell align="center" className="whitespace-nowrap">{dayLabel(row.report?.followUpOn || "")}</Cell>
-              <Cell className="break-words">{catalogMap.get(row.serviceId) || (row.report?.service && <p className="line-clamp-2 max-w-full break-words">{row.report.service}</p>)}</Cell>
-              <Cell className="break-words">{catalogMap.get(row.doctorId) || row.doctorName || row.report?.doctor || "—"}</Cell><Cell className="break-words">{catalogMap.get(row.roomId) || row.report?.department}</Cell>
-              <Cell align="center"><StatusBadge status={row.status} label={visitLabels[row.status]} />{row.report?.sourceStatus && <p className="mt-1 text-xs text-on-surface-variant">{row.report.sourceStatus}</p>}</Cell>
+            {tab === "visits" && (rows as Visit[]).map(row => {
+              const service = catalogMap.get(row.serviceId) || row.report?.service || "—";
+              const doctor = catalogMap.get(row.doctorId) || row.doctorName || row.report?.doctor || "—";
+              const room = catalogMap.get(row.roomId) || row.report?.department || "—";
+              return <tr key={row._id} className="transition-colors hover:bg-surface-container-low/40">
+              <Cell><div className="min-w-0">{patientLink(row.patientId, true)}<span className="mt-1 block text-xs text-on-surface-variant">{row.code}</span>
+                {(row.note || row.paymentNote) && <details className="mt-1 text-xs">
+                  <summary className="cursor-pointer rounded-sm text-on-surface-variant underline decoration-primary underline-offset-2 focus-visible:outline-2 focus-visible:outline-primary">Ghi chú</summary>
+                  {row.note && <p className="mt-1 break-words">{row.note}</p>}
+                  {row.paymentNote && <p className="mt-1 break-words">Thanh toán tham khảo: {row.paymentNote}</p>}
+                </details>}
+              </div></Cell>
+              <Cell className="whitespace-nowrap"><span>{dayLabel(row.visitedOn)}</span>{row.report?.followUpOn && <span className="mt-1 block text-xs text-on-surface-variant">Tái khám {dayLabel(row.report.followUpOn)}</span>}</Cell>
+              <Cell className="min-w-0"><span className="line-clamp-1" title={service}>{service}</span></Cell>
+              <Cell className="min-w-0"><span className="line-clamp-1" title={doctor}>{doctor}</span><span className="mt-1 block line-clamp-1 text-xs text-on-surface-variant" title={room}>{room}</span></Cell>
+              <Cell align="center"><StatusBadge status={row.status} label={visitLabels[row.status]} /></Cell>
               <Cell align="right"><div className="flex items-center justify-end gap-2">
                 {canManage && <IconActionButton label={`Sửa lượt khám ${row.code}`} icon={Pencil} ariaHaspopup onClick={() => openEditor({ kind: "visits", record: row, patient: patientMap.get(row.patientId) })} />}
                 {row.report && <IconActionButton label="Xem phiếu Excel" icon={Eye} ariaHaspopup onClick={() => {
@@ -476,10 +483,21 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
                   <IconActionButton label="Tạo việc chăm sóc từ lượt khám" icon={HeartHandshake} ariaHaspopup onClick={() => openEditor({ kind: "care", patient: patientMap.get(row.patientId), visit: row })} />}
                 {withdrawalAction({ kind: "visits", record: row })}
               </div></Cell>
-            </tr>)}
-            {tab === "appointments" && (rows as Appointment[]).map(row => <tr key={row._id} className="transition-colors hover:bg-surface-container-low/40">
-              <Cell>{patientLink(row.patientId)}</Cell><Cell align="center" className="whitespace-nowrap">{timeLabel(row.startsAt)}</Cell><Cell align="center" className="whitespace-nowrap">{timeLabel(row.endsAt)}</Cell>
-              <Cell>{catalogMap.get(row.doctorId) || row.doctorName || "—"}</Cell><Cell>{catalogMap.get(row.roomId) || "—"}</Cell><Cell align="center"><StatusBadge status={row.status} label={appointmentLabels[row.status]} /></Cell>
+            </tr>;
+            })}
+            {tab === "appointments" && (rows as Appointment[]).map(row => {
+              const doctor = catalogMap.get(row.doctorId) || row.doctorName || "—";
+              const room = catalogMap.get(row.roomId) || "—";
+              const startsAt = dateTimeControl(row.startsAt);
+              const endsAt = dateTimeControl(row.endsAt);
+              const scheduledOn = row.scheduledOn || startsAt.slice(0, 10);
+              return <tr key={row._id} className="transition-colors hover:bg-surface-container-low/40">
+              <Cell>{patientLink(row.patientId, true)}</Cell>
+              <Cell className="whitespace-nowrap"><span>{dayLabel(scheduledOn)}</span><span className="mt-1 block text-xs text-on-surface-variant">
+                {startsAt ? `${startsAt.slice(11, 16)}${endsAt ? `–${endsAt.slice(11, 16)}` : ""}` : "Chưa có giờ"}
+              </span></Cell>
+              <Cell className="min-w-0"><span className="line-clamp-1" title={doctor}>{doctor}</span><span className="mt-1 block line-clamp-1 text-xs text-on-surface-variant" title={room}>{room}</span></Cell>
+              <Cell align="center"><StatusBadge status={row.status} label={appointmentLabels[row.status]} /></Cell>
               <Cell align="right"><div className="flex items-center justify-end gap-2">
                 {canManage && <IconActionButton label="Sửa lịch hẹn" icon={Pencil} ariaHaspopup onClick={() => openEditor({ kind: "appointments", record: row, patient: patientMap.get(row.patientId) })} />}
                 {row.visitId && canFeature(hasPermission, "visits", "read") && <IconActionButton label="Mở lượt khám gốc" icon={FileText} onClick={() => navigate("visits", row.patientId, row.visitId)} />}
@@ -487,10 +505,16 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
                   <IconActionButton label="Giao việc chăm sóc" icon={HeartHandshake} ariaHaspopup onClick={() => openEditor({ kind: "care", patient: patientMap.get(row.patientId), appointment: row })} />}
                 {withdrawalAction({ kind: "appointments", record: row })}
               </div></Cell>
-            </tr>)}
+            </tr>;
+            })}
             {tab === "care" && (rows as CareTask[]).map(row => <tr key={row._id} className="transition-colors hover:bg-surface-container-low/40">
-              <Cell>{row.title}</Cell><Cell>{patientLink(row.patientId)}</Cell><Cell>{staffMap.get(row.assigneeId) || "Nhân viên đã phân công"}</Cell>
-              <Cell align="center">{dayLabel(row.dueOn)}</Cell><Cell align="center"><StatusBadge status={row.status} label={careLabels[row.status]} /></Cell><Cell>{row.result && <p className="max-w-64 break-words">{row.result}</p>}</Cell>
+              <Cell><span className="line-clamp-1 font-medium" title={row.title}>{row.title}</span>{(row.details || row.result) && <details className="mt-1 text-xs">
+                <summary className="cursor-pointer rounded-sm text-on-surface-variant underline decoration-primary underline-offset-2 focus-visible:outline-2 focus-visible:outline-primary">Xem nội dung</summary>
+                {row.details && <p className="mt-1 whitespace-pre-line break-words">{row.details}</p>}
+                {row.result && <p className="mt-1 break-words text-on-surface-variant">Kết quả: {row.result}</p>}
+              </details>}</Cell>
+              <Cell>{patientLink(row.patientId, true)}</Cell><Cell><span className="line-clamp-1" title={row.assigneeId ? staffMap.get(row.assigneeId) || "Nhân viên đã phân công" : "Chưa phân công"}>{row.assigneeId ? staffMap.get(row.assigneeId) || "Nhân viên cũ" : "Chưa giao"}</span></Cell>
+              <Cell align="center" className="whitespace-nowrap">{dayLabel(row.dueOn)}</Cell><Cell align="center"><StatusBadge status={row.status} label={careLabels[row.status]} /></Cell>
               <Cell align="right"><div className="flex items-center justify-end gap-2">
                 {canManage && <IconActionButton label="Cập nhật công việc" icon={Pencil} ariaHaspopup onClick={() => openEditor({ kind: "care", record: row, patient: patientMap.get(row.patientId) })} />}
                 {row.appointmentId && canFeature(hasPermission, "appointments", "read") && <IconActionButton label="Mở lịch hẹn gốc" icon={CalendarPlus} onClick={() => navigate("appointments", row.patientId, row.appointmentId)} />}
@@ -504,6 +528,7 @@ export function HealthcareWorkspace({ branchId, hasPermission }: {
             pageSizeOptions={[10, 25, 50, 100]} />}
         </>}
         {tab === "settings" && <>
+          <p className="max-w-3xl text-sm text-on-surface-variant">Danh sách bác sĩ, phòng khám và dịch vụ để chọn nhanh khi ghi lượt khám hoặc đặt lịch. Bác sĩ bên ngoài ERP vẫn có thể nhập tên trực tiếp trong biểu mẫu.</p>
           <Feedback loading={catalog.loading} error={catalog.error} onRetry={catalog.refresh} />
           {catalog.data && <Table headers={["Loại", "Mã", "Tên", "Trạng thái", "Thao tác"]}
             columnWidths={["150px", "180px", "300px", "160px", "150px"]} minWidth="940px"

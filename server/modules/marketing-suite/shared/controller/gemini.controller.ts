@@ -697,7 +697,7 @@ export const geminiController = {
       }
 
       const { resolveAutoReplyOwner } = await import("../../message/service/ai-auto-reply.service.ts");
-      const preview = await prepareChatPreview({ userId, companyCode, channel, conversationId, platformId, withImages: images.length > 0 }, resolveAutoReplyOwner);
+      const preview = await prepareChatPreview({ userId, companyCode, channel, conversationId, platformId, message, withImages: images.length > 0 }, resolveAutoReplyOwner);
       const aiConfig = images.length ? { ...preview.aiConfig, imageReplyEnabled: true } : preview.aiConfig;
       const aiTrace = aiConfig.imageReplyEnabled ? createChatAiTrace() : undefined;
       const cost = getTextModelCost();

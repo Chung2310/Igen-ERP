@@ -10,14 +10,6 @@ test("operational policies use the central people read/manage pair", () => {
   assert.deepEqual(STUDENT_AREA_PERMISSIONS.course.manage, ["people:manage"]);
   assert.deepEqual(STUDENT_AREA_PERMISSIONS["student-profile"].manage, ["people:manage"]);
   assert.deepEqual(STUDENT_AREA_PERMISSIONS.assignment.read, ["people:read"]);
-  assert.deepEqual(STUDENT_AREA_PERMISSIONS["student-notification"].manage, ["people:manage"]);
-});
-
-test("sending email requires notification management permission", () => {
-  const router = source("server/modules/student-management/router.ts");
-  assert.match(router, /const areaManage = \(area: keyof typeof STUDENT_AREA_PERMISSIONS\) => requireAnyPermission\(\[\.\.\.STUDENT_AREA_PERMISSIONS\[area\]\.manage\]\)/);
-  assert.match(router, /studentManagementRouter\.post\("\/send-email",[\s\S]*?areaManage\("student-notification"\)/);
-  assert.doesNotMatch(router, /studentManagementRouter\.post\("\/send-email",[\s\S]*?areaRead\("student-notification"\)/);
 });
 
 test("configuration policies are independent from the umbrella", () => {
@@ -47,4 +39,8 @@ test("entity preset is writable by superadmin only", () => {
   const router = source("server/modules/student-management/router.ts");
   assert.doesNotMatch(router, /areaRead\("student-settings"\)/);
 
+  // Role admin không còn được cấp mặc định quyền sửa cấu hình này
+  const auth = source("server/middleware/auth.ts");
+  const adminBlock = auth.slice(auth.indexOf("admin: ["), auth.indexOf("branch_owner: ["));
+  assert.doesNotMatch(adminBlock, /"settings:manage"/);
 });

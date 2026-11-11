@@ -61,17 +61,13 @@ it("loads directories on demand and waits for catalog choices before editing an 
   await act(async () => {
     resolveCatalog(Response.json([{ _id: "d1", kind: "doctor", name: "Bác sĩ Minh", active: true }]));
   });
-  const doctor = await screen.findByRole("button", { name: "Chọn bác sĩ trong ERP (nếu có)" });
-  expect(doctor.textContent).toContain("Bác sĩ Minh");
-  expect(new FormData(doctor.closest("form")!).get("doctorId")).toBe("d1");
+  await waitFor(() => expect(document.querySelector<HTMLSelectElement>('select[name="doctorId"]')?.value).toBe("d1"));
   expect(calls).toHaveLength(3);
   expect(calls).toEqual(expect.arrayContaining(["/patients/search", "/appointments", "/catalog"]));
 
   fireEvent.click(editor.getByRole("button", { name: "Đóng biểu mẫu" }));
   fireEvent.click(screen.getByRole("button", { name: "Giao việc chăm sóc" }));
-  const assignee = await screen.findByRole("button", { name: /Nhân viên phụ trách/ });
-  fireEvent.click(assignee);
-  expect(within(await screen.findByRole("listbox")).getByRole("option", { name: "Nhân viên thử" })).toBeTruthy();
+  await waitFor(() => expect(document.querySelector<HTMLSelectElement>('select[name="assigneeId"] option[value="s1"]')?.textContent).toContain("Nhân viên thử"));
   expect(calls.slice(3)).toEqual(["/staff"]);
 });
 
@@ -116,7 +112,6 @@ it("opens patient details and the edit form as popups from the patient list", as
   const patient = {
     _id: "p1", code: "BN01", name: "Nguyễn An", phone: "0900000000", dateOfBirth: "2010-11-07",
     address: "Hà Nội", note: "Ghi chú", hospitalProfile: { gender: "Nữ", birthYear: "2010", phoneText: "0900000000" },
-    createdAt: "2026-11-07T00:00:00.000Z", updatedAt: "2026-11-07T00:00:00.000Z", revision: 1,
   };
   vi.stubGlobal("fetch", async (url: string) => {
     const path = url.replace("/api/v1/healthcare", "").split("?")[0];
@@ -191,7 +186,7 @@ it("applies the shared date and search filters to the server-side visit list", a
   fireEvent.click(screen.getByRole("button", { name: "Lượt khám" }));
   fireEvent.click(screen.getByRole("button", { name: "Hôm nay" }));
   vi.useFakeTimers();
-  fireEvent.change(screen.getByRole("textbox", { name: /Tìm mã phiếu/ }), { target: { value: "BS QA" } });
+  fireEvent.change(screen.getByRole("textbox", { name: /Tìm lượt khám/ }), { target: { value: "BS QA" } });
   await act(async () => { await vi.advanceTimersByTimeAsync(999); });
   expect(search).not.toHaveBeenCalled();
   await act(async () => { await vi.advanceTimersByTimeAsync(1); });
@@ -246,12 +241,12 @@ it("includes the catalog in the shared module sidebar and keeps it selected afte
     Response.json(url.endsWith("/catalog") ? [] : { items: [], total: 0 }));
   render(<HealthcareWorkspace branchId="branch-a" hasPermission={() => true} />);
   const menu = within(screen.getByRole("navigation", { name: "Nghiệp vụ y tế" }));
-  const settings = menu.getByRole("button", { name: "Cài đặt danh mục" });
+  const settings = menu.getByRole("button", { name: "Danh mục" });
   fireEvent.click(settings);
   expect(await screen.findByRole("region", { name: "Danh mục y tế" })).toBeTruthy();
   expect(window.location.search).toBe("?sub=danh-muc");
   expect(settings.getAttribute("aria-current")).toBe("page");
   expect(settings.querySelector(".module-nav-filled svg")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Thu gọn thanh điều hướng" }));
-  expect(menu.getByRole("button", { name: "Cài đặt danh mục" }).getAttribute("aria-current")).toBe("page");
+  expect(menu.getByRole("button", { name: "Danh mục" }).getAttribute("aria-current")).toBe("page");
 });

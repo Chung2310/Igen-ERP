@@ -979,16 +979,19 @@ export const zaloMessengerService = {
       try {
         const token = await this.getAccessTokenByOAId(oaId);
         if (token) {
-          const profileUrl = `https://openapi.zalo.me/v3.0/oa/getprofile?data=${encodeURIComponent(JSON.stringify({ user_id: senderId }))}`;
+          const profileUrl = `https://openapi.zalo.me/v3.0/oa/user/detail?data=${encodeURIComponent(JSON.stringify({ user_id: senderId }))}`;
           const profileResponse = await (globalThis as any).fetch(profileUrl, {
             headers: { "access_token": token }
           });
-          if (profileResponse.ok) {
-            const profileData = await profileResponse.json();
-            if (profileData.data) {
-              senderName = profileData.data.shared_info?.name || profileData.data.display_name || senderName;
-              avatarUrl = profileData.data.avatar || avatarUrl;
-            }
+          const profileData = await profileResponse.json().catch(() => null);
+          if (profileResponse.ok && profileData?.error === 0 && profileData?.data) {
+            senderName = profileData.data.display_name || profileData.data.shared_info?.name || senderName;
+            avatarUrl = profileData.data.avatar || profileData.data.avatars?.["120"] || avatarUrl;
+          } else {
+            console.warn(
+              `[Zalo Service Webhook] Không lấy được profile cho OA ${oaId}; ` +
+              `HTTP ${profileResponse.status}, Zalo error ${profileData?.error ?? "không có"}: ${profileData?.message || "không có chi tiết"}`
+            );
           }
         }
       } catch (err) {

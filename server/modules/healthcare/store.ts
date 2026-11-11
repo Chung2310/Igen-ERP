@@ -44,8 +44,15 @@ export async function healthcareDb() {
       ),
       db.collection(prefix + "appointments").createIndex({ ...scope, startsAt: 1, _id: 1 }),
       db.collection(prefix + "appointments").createIndex({ ...scope, patientId: 1, startsAt: -1 }),
+      db.collection(prefix + "appointments").createIndex({ ...scope, scheduledOn: 1, _id: 1 }),
+      db.collection(prefix + "appointments").createIndex({ ...scope, "source.batchId": 1, "source.sheet": 1, "source.row": 1 }, {
+        unique: true, partialFilterExpression: { "source.batchId": { $exists: true }, "source.sheet": { $exists: true }, "source.row": { $exists: true } },
+      }),
       db.collection(prefix + "care").createIndex({ ...scope, dueOn: 1, _id: 1 }),
       db.collection(prefix + "care").createIndex({ ...scope, patientId: 1, dueOn: -1 }),
+      db.collection(prefix + "care").createIndex({ ...scope, "source.batchId": 1, "source.sheet": 1, "source.row": 1 }, {
+        unique: true, partialFilterExpression: { "source.batchId": { $exists: true }, "source.sheet": { $exists: true }, "source.row": { $exists: true } },
+      }),
       db.collection(prefix + "catalog").createIndex({ ...scope, kind: 1, code: 1 }, { unique: true }),
       db.collection(prefix + "imports").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
       db.collection(prefix + "imports").createIndex({ ...scope, completedAt: -1 }),

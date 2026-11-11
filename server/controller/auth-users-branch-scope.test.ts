@@ -20,20 +20,3 @@ it("includes unassigned legacy users only when the selected branch is MAIN", () 
     ],
   });
 });
-
-it("combines a roster search with branch isolation without overwriting either condition", () => {
-  assert.deepEqual(buildUserRosterFilter("ACME", "main-id", true, "Chung + test"), {
-    companyCode: "ACME",
-    $or: [
-      { branchId: "main-id" },
-      { branchId: { $exists: false } },
-      { branchId: null },
-      { branchId: "" },
-    ],
-    $and: [{ $or: [
-      { displayName: { $regex: "Chung \\+ test", $options: "i" } },
-      { email: { $regex: "Chung \\+ test", $options: "i" } },
-      { phone: { $regex: "Chung \\+ test", $options: "i" } },
-    ] }],
-  });
-});

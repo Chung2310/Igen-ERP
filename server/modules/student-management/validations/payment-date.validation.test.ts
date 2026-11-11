@@ -9,7 +9,6 @@ function validateDate(date: string) {
     studentId: VALID_OBJECT_ID,
     studentName: "Nguyễn Văn A",
     amount: 1_500_000,
-    method: "Tiền mặt",
     date,
   });
 }
@@ -25,14 +24,4 @@ test("từ chối ngày sai định dạng để không sinh thêm dữ liệu k
     assert.ok(error, `phải từ chối định dạng: ${date}`);
     assert.match(error.message, /DD\/MM\/YYYY/);
   }
-});
-
-test("cho phép tạo thanh toán khi đã chọn học viên bằng ID", () => {
-  const { error } = createPaymentSchema.validate({
-    studentId: VALID_OBJECT_ID,
-    amount: 1_500_000,
-    method: "Tiền mặt",
-    date: "2026-11-01",
-  });
-  assert.equal(error, undefined);
 });

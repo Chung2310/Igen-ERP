@@ -4,5 +4,5 @@ import test from "node:test";
 
 test("production image includes server font assets needed for invoice PDFs", () => {
   const dockerfile = readFileSync(new URL("../Dockerfile", import.meta.url), "utf8");
-  assert.match(dockerfile, /COPY --from=builder \/app\/server\/assets\/fonts \.\/server\/assets\/fonts/);
+  assert.match(dockerfile, /COPY --from=builder --chown=node:node \/app\/server\/assets\/fonts \.\/server\/assets\/fonts/);
 });

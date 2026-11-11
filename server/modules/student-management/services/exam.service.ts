@@ -52,10 +52,16 @@ function examDateToIso(value?: string) {
 }
 
 /** Cho phép thi sớm tối đa 15% số buổi theo lịch của lớp. */
-function assertExamDateIsEligible(batch: { startDate: string; endDate: string; daysOfWeek?: number[] }, value?: string) {
+function assertExamDateIsEligible(batch: { startDate: string; endDate: string; daysOfWeek?: number[]; cancelledSessionDates?: string[]; attendanceSessions?: Array<{ date: string }> }, value?: string) {
   const examDate = examDateToIso(value);
   if (!examDate) return;
-  const sessionDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []);
+  const cancelledDates = new Set(batch.cancelledSessionDates || []);
+  const regularDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || [], new Set(), [...cancelledDates]);
+  const regularDateSet = new Set(regularDates);
+  const makeUpDates = (batch.attendanceSessions || [])
+    .map((session) => session.date)
+    .filter((date) => date && !regularDateSet.has(date) && !cancelledDates.has(date));
+  const sessionDates = [...new Set([...regularDates, ...makeUpDates])].sort();
   if (!sessionDates.length) return;
   const earliestIndex = Math.max(0, Math.ceil(sessionDates.length * 0.85) - 1);
   const earliestDate = sessionDates[earliestIndex];
@@ -76,12 +82,18 @@ async function assertExamReadyToGrade(exam: Pick<IExam, "batchId" | "tentativeDa
   const examDate = examDateToIso(exam.officialDate || exam.tentativeDate);
   if (examDate && today < examDate) throw new Error("Chưa đến ngày thi, chưa thể nhập kết quả.");
 
-  const scheduledDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []);
+  const cancelledDates = new Set(batch.cancelledSessionDates || []);
+  const scheduledDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || [], new Set(), [...cancelledDates]);
+  const scheduledDateSet = new Set(scheduledDates);
+  const makeUpDates = (batch.attendanceSessions || [])
+    .map((session) => session.date)
+    .filter((date) => date && !scheduledDateSet.has(date) && !cancelledDates.has(date));
+  const expectedDates = new Set([...scheduledDates, ...makeUpDates]);
   const confirmedDates = new Set((batch.attendanceSessions || [])
-    .filter((session) => scheduledDates.includes(session.date) && session.records.length > 0)
+    .filter((session) => expectedDates.has(session.date) && session.records.length > 0)
     .map((session) => session.date));
-  const requiredSessions = Math.ceil(scheduledDates.length * 0.85);
-  if (confirmedDates.size < requiredSessions) throw new Error(`Cần chốt ít nhất ${requiredSessions}/${scheduledDates.length} buổi học (85%) trước khi nhập kết quả thi.`);
+  const requiredSessions = Math.ceil(expectedDates.size * 0.85);
+  if (confirmedDates.size < requiredSessions) throw new Error(`Cần chốt ít nhất ${requiredSessions}/${expectedDates.size} buổi học (85%) trước khi nhập kết quả thi.`);
 }
 
 /** Tự đóng lớp sau khi toàn bộ kỳ thi của lớp đã có kết quả. */

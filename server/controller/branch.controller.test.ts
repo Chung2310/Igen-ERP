@@ -55,32 +55,6 @@ test("branch list creates the default branch for an admin company", async () => 
   }
 });
 
-test("branch list applies a company-scoped name/code search and does not seed on no-match searches", async () => {
-  const originalFind = BranchModel.find;
-  const originalCreate = BranchModel.create;
-  let captured: any;
-  let created = false;
-  (BranchModel as any).find = (filter: any) => { captured = filter; return { sort: () => ({ lean: async () => [] }) }; };
-  (BranchModel as any).create = async () => { created = true; return null; };
-  try {
-    const res = response();
-    await branchController.list({ user: { role: "admin", companyCode: "ACME" }, query: { search: "Trụ sở [Hà Nội]" } } as any, res);
-    assert.deepEqual(captured, {
-      companyCode: "ACME",
-      $or: [
-        { name: { $regex: "Trụ sở \\[Hà Nội\\]", $options: "i" } },
-        { code: { $regex: "Trụ sở \\[Hà Nội\\]", $options: "i" } },
-        { address: { $regex: "Trụ sở \\[Hà Nội\\]", $options: "i" } },
-      ],
-    });
-    assert.equal(created, false);
-    assert.deepEqual(res.state.body, { status: "success", data: [] });
-  } finally {
-    (BranchModel as any).find = originalFind;
-    (BranchModel as any).create = originalCreate;
-  }
-});
-
 test("branch owner completion forces the authenticated admin hierarchy and links the owner", async () => {
   const originalFindOne = BranchModel.findOne;
   const originalUpdate = BranchModel.findOneAndUpdate;

@@ -11,6 +11,7 @@ vi.mock("../components/settings/CompanyIntegrationsTab", () => ({ default: funct
   return <button type="button" onClick={() => setBroken(true)}>Facebook</button>;
 } }));
 vi.mock("../components/settings/PersonalIntegrationsTab", () => ({ default: () => <p>MXH cá nhân</p> }));
+vi.mock("../components/settings/IntegrationSettingsTab", () => ({ default: () => <p>Nội dung cấu hình tích hợp (Telegram & SePay)</p> }));
 
 afterEach(cleanup);
 
@@ -25,4 +26,19 @@ it("keeps Marketing navigation visible when an integration form fails to render"
   } finally {
     consoleSpy.mockRestore();
   }
+});
+
+it("switches between MXH Doanh nghiệp, MXH Cá nhân and Cấu hình tích hợp tabs", () => {
+  render(<MarketingIntegrationsPage />);
+
+  expect(screen.getByRole("button", { name: "Facebook" })).toBeDefined();
+
+  fireEvent.click(screen.getByRole("button", { name: "MXH Cá nhân" }));
+  expect(screen.getByText("MXH cá nhân")).toBeDefined();
+
+  fireEvent.click(screen.getByRole("button", { name: "Cấu hình tích hợp" }));
+  expect(screen.getByText("Nội dung cấu hình tích hợp (Telegram & SePay)")).toBeDefined();
+
+  fireEvent.click(screen.getByRole("button", { name: "MXH Doanh nghiệp" }));
+  expect(screen.getByRole("button", { name: "Facebook" })).toBeDefined();
 });

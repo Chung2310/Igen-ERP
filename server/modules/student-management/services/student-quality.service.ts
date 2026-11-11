@@ -138,7 +138,14 @@ export class StudentQualityService {
     const rows = filteredPairs.map(({ batchId, studentId }) => {
       const batch = batchMap.get(batchId)!;
       const student = studentMap.get(studentId)!;
-      const scheduledPastDates = new Set(listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []).filter((date) => date < today));
+      const cancelledDates = new Set(batch.cancelledSessionDates || []);
+      const regularDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || [], new Set(), [...cancelledDates]);
+      const scheduledPastDates = new Set(regularDates.filter((date) => date < today));
+      (batch.attendanceSessions || []).forEach((session) => {
+        if (session.date < today && !cancelledDates.has(session.date) && !regularDates.includes(session.date)) {
+          scheduledPastDates.add(session.date);
+        }
+      });
       // Chỉ buổi đã lưu sổ điểm danh mới được dùng để đo chuyên cần.
       const confirmedSessions = (batch.attendanceSessions || []).filter((session) => scheduledPastDates.has(session.date) && session.records.length > 0);
       const confirmedDates = new Set(confirmedSessions.map((session) => session.date));
