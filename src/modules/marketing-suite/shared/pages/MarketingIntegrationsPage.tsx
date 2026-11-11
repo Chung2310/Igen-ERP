@@ -1,9 +1,10 @@
 import { Component, useState, type ReactNode } from "react";
-import { Building2, UserRound } from "lucide-react";
+import { Building2, SlidersHorizontal, UserRound } from "lucide-react";
 import { ModuleNavigation, ModuleNavigationButton } from "../../../../components/common/ModuleNavigation";
 import { useAuth } from "../context/AuthContext";
 import CompanyIntegrationsTab from "../components/settings/CompanyIntegrationsTab";
 import PersonalIntegrationsTab from "../components/settings/PersonalIntegrationsTab";
+import IntegrationSettingsTab from "../components/settings/IntegrationSettingsTab";
 import "../marketing-workspace.css";
 import "../marketing-integrations.css";
 
@@ -38,11 +39,14 @@ export default function MarketingIntegrationsPage() {
         {[
           { id: "company", label: "MXH Doanh nghiệp", icon: Building2 },
           { id: "personal", label: "MXH Cá nhân", icon: UserRound },
+          { id: "integrations", label: "Cấu hình tích hợp", icon: SlidersHorizontal },
         ].map(item => <ModuleNavigationButton key={item.id} id={`marketing_integrations_${item.id}`} active={tab === item.id} icon={<item.icon />} aria-pressed={tab === item.id} aria-controls="marketing_integrations_content" onClick={() => setTab(item.id)}>{item.label}</ModuleNavigationButton>)}
       </ModuleNavigation>
       <section id="marketing_integrations_content" aria-labelledby={`marketing_integrations_${tab}`} className="marketing-integrations-content min-h-0 min-w-0 flex-1 overflow-y-auto bg-surface">
         <IntegrationErrorBoundary key={tab}>
-          {tab === "company" ? <CompanyIntegrationsTab userProfile={userProfile} /> : <PersonalIntegrationsTab />}
+          {tab === "company" && <CompanyIntegrationsTab userProfile={userProfile} />}
+          {tab === "personal" && <PersonalIntegrationsTab />}
+          {tab === "integrations" && <IntegrationSettingsTab userProfile={userProfile} />}
         </IntegrationErrorBoundary>
       </section>
     </div>

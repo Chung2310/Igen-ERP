@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   igen-erp:
     image: ghcr.io/chung2310/igen-erp:${IMAGE_TAG:-latest}

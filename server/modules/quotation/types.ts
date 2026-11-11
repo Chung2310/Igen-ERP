@@ -200,6 +200,9 @@ export interface Quote {
   kind?: "estimate" | "customer" | "budget";
   sourceQuote?: { id: string; quoteNumber: string };
   sourceRequirements?: string;
+  revisionRequirements?: string;
+  requiresAiRecalculation?: boolean;
+  aiAppliedInputs?: { revisionRequirements: string; additionalInformation: Record<string, string> };
   customerPricesCaptured?: boolean;
   missingProducts?: string[];
   priceList?: { id: string; originalFilename: string };
@@ -232,6 +235,7 @@ export interface Quote {
   additionalInformation?: Record<string, string>;
   answersRegeneratedAt?: Date;
   settlement?: {
+    contract?: Pick<Contract, "contractNumber" | "signedDate" | "customerName" | "customerAddress" | "customerRepresentative" | "customerTaxId" | "customerEmail" | "customerPhone" | "companyName" | "companyAddress" | "companyRepresentative" | "companyTaxId" | "companyEmail" | "companyPhone" | "scope" | "deliverables" | "paymentTerms" | "deliveryTerms" | "subtotal" | "taxRate" | "taxAmount" | "shippingFee" | "total" | "currency" | "depositAmount">;
     contractLines?: QuoteLine[];
     contractNumber: string;
     projectName: string;

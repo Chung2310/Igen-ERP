@@ -92,14 +92,16 @@ function applyStatusTimestamps(data: BatchData, batch: IBatch): BatchData {
 }
 
 async function assertBatchReadyToClose(batch: IBatch) {
-  const today = todayInVietnam();
-  const scheduledDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []);
-  const confirmedDates = new Set((batch.attendanceSessions || []).filter((session) => scheduledDates.includes(session.date) && session.records.length > 0).map((session) => session.date));
-  const requiredSessions = Math.ceil(scheduledDates.length * 0.85);
-  if (confirmedDates.size < requiredSessions) throw new Error(`Chỉ có thể kết thúc sớm sau khi đã chốt ít nhất ${requiredSessions}/${scheduledDates.length} buổi học (85%).`);
-  const exams = await Exam.find({ ownerId: batch.ownerId, branchId: batch.branchId, batchId: String(batch._id), status: { $ne: "Đã hủy" } }).lean();
-  const incomplete = exams.find((exam) => (exam.results || []).some((result) => typeof result.score !== "number"));
-  if (incomplete) throw new Error(`Kỳ thi "${incomplete.name}" chưa có kết quả đầy đủ. Hãy xử lý đủ kết quả hoặc hủy kỳ thi trước khi đóng lớp.`);
+  const cancelledDates = batch.cancelledSessionDates || [];
+  const scheduledDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || [], new Set(), cancelledDates);
+  const scheduledDateSet = new Set(scheduledDates);
+  const makeUpDates = (batch.attendanceSessions || [])
+    .map((session) => session.date)
+    .filter((date) => date && !scheduledDateSet.has(date) && !cancelledDates.includes(date));
+  const expectedDates = new Set([...scheduledDates, ...makeUpDates]);
+  const confirmedDates = new Set((batch.attendanceSessions || []).filter((session) => expectedDates.has(session.date) && session.records.length > 0).map((session) => session.date));
+  const requiredSessions = Math.ceil(expectedDates.size * 0.85);
+  if (confirmedDates.size < requiredSessions) throw new Error(`Chỉ có thể kết thúc sớm sau khi đã chốt ít nhất ${requiredSessions}/${expectedDates.size} buổi học (85%).`);
 }
 
 function buildOwnerQuery(ownerId: string | string[]): Record<string, unknown> {
@@ -279,6 +281,7 @@ async function enrichBatches(batches: IBatch[]): Promise<EnrichedBatch[]> {
           startDate: b.startDate,
           endDate: b.endDate,
           daysOfWeek: b.daysOfWeek,
+          cancelledSessionDates: b.cancelledSessionDates,
           attendanceSessions: b.attendanceSessions,
           completedAt: b.completedAt,
           updatedAt: (b as IBatch & { updatedAt?: Date }).updatedAt,
@@ -678,6 +681,7 @@ export class BatchService {
     businessType: "driving" | "language" | "general" = "general",
     branchId?: string,
     actorId?: string,
+    preserveExistingEnrollmentDate = false,
   ): Promise<EnrichedBatch> {
     const batch = await Batch.findOne({ _id: id, ...buildOwnerQuery(ownerId), ...buildBranchScopeQuery(branchId) });
     if (!batch) {
@@ -715,7 +719,7 @@ export class BatchService {
         shouldSaveStudent = true;
       }
 
-      if (batch.status === "Sắp khai giảng" && batch.startDate) {
+      if (batch.status === "Sắp khai giảng" && batch.startDate && (!preserveExistingEnrollmentDate || !student.enrollmentDate)) {
         student.enrollmentDate = batch.startDate.split("-").reverse().join("/");
         shouldSaveStudent = true;
       }
@@ -926,11 +930,17 @@ export class BatchService {
       throw new Error("Không tìm thấy lớp học.");
     }
 
-    const before = batch.attendanceSessions.length;
     const dateStr = date.trim();
-    batch.attendanceSessions = batch.attendanceSessions.filter(s => s.date !== dateStr) as unknown as IAttendanceSession[];
-    if (batch.attendanceSessions.length === before) {
-      throw new Error("Không tìm thấy dữ liệu điểm danh của ngày này để xóa.");
+    const scheduledDates = listScheduledSessionDates(batch.startDate, batch.endDate, batch.daysOfWeek || []);
+    const isScheduledDate = scheduledDates.includes(dateStr);
+    const hasAttendanceSession = (batch.attendanceSessions || []).some((session) => session.date === dateStr);
+    if (!isScheduledDate && !hasAttendanceSession) throw new Error("Không tìm thấy buổi học này để xóa.");
+
+    batch.attendanceSessions = (batch.attendanceSessions || []).filter(s => s.date !== dateStr) as unknown as IAttendanceSession[];
+    batch.markModified("attendanceSessions");
+    if (isScheduledDate) {
+      batch.cancelledSessionDates = [...new Set([...(batch.cancelledSessionDates || []), dateStr])].sort();
+      batch.markModified("cancelledSessionDates");
     }
 
     await StudentBatchEnrollmentService.assertAndSyncAttendanceLimits(batch);
@@ -1026,6 +1036,9 @@ export async function assertWithinSessionQuota(
   dateStr: string,
   records: { studentId: string; status: string }[]
 ): Promise<void> {
+  if ((batch.cancelledSessionDates || []).includes(dateStr)) {
+    throw new Error("Buổi học này đã được hủy khỏi lịch. Hãy tạo ngày học bù mới nếu cần.");
+  }
   const consuming = records
     .filter(r => CONSUMING_ATTENDANCE_STATUSES.includes(r.status))
     .map(r => r.studentId);

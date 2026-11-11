@@ -25,13 +25,15 @@ export function listScheduledSessionDates(
   startDate: string,
   endDate: string,
   daysOfWeek: number[],
-  holidaySet: Set<string> = new Set()
+  holidaySet: Set<string> = new Set(),
+  excludedDates: string[] = [],
 ): string[] {
   if (!DATE_PATTERN.test(startDate || "") || !DATE_PATTERN.test(endDate || "")) return [];
   if (startDate > endDate) return [];
 
   const days = Array.isArray(daysOfWeek) ? daysOfWeek : [];
   if (days.length === 0) return [];
+  const excludedDateSet = new Set(excludedDates);
 
   const dates: string[] = [];
   const cursor = new Date(`${startDate}T00:00:00Z`);
@@ -41,6 +43,7 @@ export function listScheduledSessionDates(
     if (!days.includes(cursor.getUTCDay())) continue;
     const date = cursor.toISOString().slice(0, 10);
     if (holidaySet.has(date)) continue;
+    if (excludedDateSet.has(date)) continue;
     dates.push(date);
   }
 
@@ -52,9 +55,10 @@ export function countTotalSessions(
   startDate: string,
   endDate: string,
   daysOfWeek: number[],
-  holidaySet?: Set<string>
+  holidaySet?: Set<string>,
+  excludedDates: string[] = [],
 ): number {
-  return listScheduledSessionDates(startDate, endDate, daysOfWeek, holidaySet).length;
+  return listScheduledSessionDates(startDate, endDate, daysOfWeek, holidaySet, excludedDates).length;
 }
 
 /**
@@ -66,11 +70,12 @@ export function countRemainingSessions(
   endDate: string,
   startDate: string,
   daysOfWeek: number[],
-  holidaySet?: Set<string>
+  holidaySet?: Set<string>,
+  excludedDates: string[] = [],
 ): number {
   const from = today > startDate ? today : startDate;
   if (from > endDate) return 0;
-  return listScheduledSessionDates(from, endDate, daysOfWeek, holidaySet).length;
+  return listScheduledSessionDates(from, endDate, daysOfWeek, holidaySet, excludedDates).length;
 }
 
 /**

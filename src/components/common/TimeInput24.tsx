@@ -262,7 +262,7 @@ export function DateTimeInput24({ value, onChange, className = "", required, dis
     <div
       className={cn("flex min-h-10 items-center gap-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 text-sm text-on-surface transition-colors focus-within:border-primary", className)}
     >
-        <BrandedDateInput value={datePart} onChange={(date) => emit(date, timePart)} required={required} disabled={disabled} ariaLabel={`${ariaLabel} - ngày`} />
+        <BrandedDateInput value={datePart} onChange={(date) => emit(date, timePart)} required={required} disabled={disabled} ariaLabel={`${ariaLabel} - ngày`} className="pr-1.5" />
       <div className="my-0.5 w-px shrink-0 self-stretch bg-outline-variant" />
       <TimeInput24
         value={timePart}
@@ -282,7 +282,7 @@ const parseDateValue = (value: string) => {
   return year && month && day ? new Date(year, month - 1, day) : null;
 };
 
-function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, showYearSelect = false }: Pick<DateTimeInput24Props, "value" | "onChange" | "required" | "disabled"> & { ariaLabel: string; showYearSelect?: boolean }) {
+function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, showYearSelect = false, className = "" }: Pick<DateTimeInput24Props, "value" | "onChange" | "required" | "disabled"> & { ariaLabel: string; showYearSelect?: boolean; className?: string }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -350,7 +350,7 @@ function BrandedDateInput({ value, onChange, required, disabled, ariaLabel, show
   };
 
   return (
-    <div className="min-w-0 flex-1">
+    <div className={cn("min-w-0 flex-1", className)}>
       <button
         ref={triggerRef}
         type="button"

@@ -86,7 +86,16 @@ export interface OpenRouterChatParams {
   jsonMode?: boolean;
   /** Optional JSON schema — injected into system prompt as instruction */
   responseSchema?: object;
+  /** Let the model perform bounded, multi-step web searches and return source citations. */
+  webSearch?: boolean;
+  /** Exa search depth; use fast for current quotes and deep for research synthesis. */
+  webSearchMode?: "instant" | "fast" | "auto" | "deep-lite" | "deep" | "deep-reasoning";
   maxRetries?: number;
+}
+
+export interface OpenRouterCitation {
+  title: string;
+  url: string;
 }
 
 /**
@@ -96,7 +105,7 @@ export interface OpenRouterChatParams {
  *   2. getFallbackModel() qua OpenRouter (mặc định qwen/qwen3.6-flash)
  *   3. FreeLLM server tự host (FREELLM_API_URL) nếu được cấu hình
  */
-export async function openrouterChat(params: OpenRouterChatParams): Promise<{ text: string }> {
+export async function openrouterChat(params: OpenRouterChatParams): Promise<{ text: string; citations?: OpenRouterCitation[] }> {
   const { model, temperature = 0.7, jsonMode, responseSchema, maxRetries = 4 } = params;
   const apiKey = getApiKey();
   const freeLlm = getFreeLlmConfig();
@@ -122,6 +131,9 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
     }
   }
 
+  if (params.webSearch && !apiKey) {
+    throw new Error("Nghiên cứu web cần OpenRouter API key có quyền sử dụng Web Search.");
+  }
   const jsonRequested = Boolean(jsonMode || responseSchema);
 
   let lastError: any;
@@ -129,7 +141,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
   // Tầng 1 + 2: OpenRouter (model chính → model fallback)
   if (apiKey) {
     try {
-      return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries);
+      return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, mappedModel, messages, temperature, jsonRequested, maxRetries, params.webSearch, params.webSearchMode);
     } catch (error: any) {
       lastError = error;
       const fallbackModel = params.fallbackModel ? mapModelName(params.fallbackModel) : getFallbackModel();
@@ -139,7 +151,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
           `[OpenRouter] Model ${mappedModel} thất bại sau ${maxRetries} lần thử, fallback sang ${fallbackModel}. Lỗi: ${error?.message || error}`
         );
         try {
-          return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, fallbackModel, messages, temperature, jsonRequested, 2);
+          return await chatWithRetries(OPENROUTER_BASE_URL, apiKey, fallbackModel, messages, temperature, jsonRequested, 2, params.webSearch, params.webSearchMode);
         } catch (fallbackError: any) {
           lastError = fallbackError;
         }
@@ -152,6 +164,7 @@ export async function openrouterChat(params: OpenRouterChatParams): Promise<{ te
     console.warn(
       `[OpenRouter] Fallback tầng 3 → FreeLLM server ${freeLlm.baseUrl} | model=${freeLlm.model}. Lỗi trước đó: ${lastError?.message || lastError || "OpenRouter chưa cấu hình"}`
     );
+    if (params.webSearch) throw new Error("Fallback AI hiện không hỗ trợ tìm kiếm web.");
     return await chatWithRetries(freeLlm.baseUrl, freeLlm.apiKey, freeLlm.model, messages, temperature, jsonRequested, 2);
   }
 
@@ -165,8 +178,10 @@ async function chatWithRetries(
   messages: OpenRouterMessage[],
   temperature: number,
   jsonMode: boolean,
-  maxRetries: number
-): Promise<{ text: string }> {
+  maxRetries: number,
+  webSearch = false,
+  webSearchMode: OpenRouterChatParams["webSearchMode"] = "deep",
+): Promise<{ text: string; citations?: OpenRouterCitation[] }> {
   const body: Record<string, any> = {
     model,
     messages,
@@ -175,6 +190,20 @@ async function chatWithRetries(
 
   if (jsonMode) {
     body.response_format = { type: "json_object" };
+  }
+  if (webSearch) {
+    body.tool_choice = "required";
+    body.tools = [{
+      type: "openrouter:web_search",
+      parameters: {
+        engine: "exa",
+        mode: webSearchMode,
+        max_results: 6,
+        max_total_results: 20,
+        max_uses: 4,
+        search_context_size: "medium",
+      },
+    }];
   }
 
   let lastError: any;
@@ -199,10 +228,22 @@ async function chatWithRetries(
       }
 
       const data = (await response.json()) as any;
-      const text: string = data.choices?.[0]?.message?.content || "";
+      const message = data.choices?.[0]?.message;
+      const text: string = typeof message?.content === "string" ? message.content : "";
+      const sources = [
+        ...(Array.isArray(message?.annotations) ? message.annotations : []).map((annotation: any) => annotation?.url_citation || annotation),
+        ...(Array.isArray(data.citations) ? data.citations : []),
+      ].map((citation: any): OpenRouterCitation | null => {
+        const url = typeof citation === "string" ? citation : citation?.url;
+        if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return null;
+        let host: string;
+        try { host = new URL(url).hostname; } catch { return null; }
+        return { title: typeof citation?.title === "string" && citation.title.trim() ? citation.title.trim().slice(0, 240) : host, url: url.slice(0, 2048) };
+      }).filter((source: OpenRouterCitation | null): source is OpenRouterCitation => source !== null);
+      const citations = [...new Map(sources.map(source => [source.url, source])).values()].slice(0, 16);
       const elapsed = Date.now() - startTime;
       console.log(`[OpenRouter] Success | model=${data.model || model} | ${elapsed}ms | len=${text.length}`);
-      return { text };
+      return { text, ...(citations.length ? { citations } : {}) };
     } catch (error: any) {
       lastError = error;
       const status = error?.status ?? 0;

@@ -1,6 +1,7 @@
 import "../../shared/marketing-workspace.css";
 import "../crm-workspace.css";
 import React, { useState, useEffect, useLayoutEffect, useRef, lazy, Suspense } from "react";
+import { createPortal } from "react-dom";
 import { Zap, FileText, DollarSign, MessageSquare, Check } from "lucide-react";
 import { CRMSubTabType, ChatMessage, CustomerInbox, AIChatConfig, ChatPagination } from "../../shared/types/index";
 import { toast } from "../../../../pages/Toast";
@@ -214,6 +215,57 @@ export default function CRMTab() {
   const [selectedTiktokAccountId, setSelectedTiktokAccountId] = useState<string>("");
 
   const [showUnifiedDropdown, setShowUnifiedDropdown] = useState(false);
+  const [unifiedDropdownPosition, setUnifiedDropdownPosition] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
+  const unifiedDropdownTriggerRef = useRef<HTMLButtonElement>(null);
+  const unifiedDropdownPanelRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!showUnifiedDropdown) return;
+
+    const updatePosition = () => {
+      const trigger = unifiedDropdownTriggerRef.current;
+      if (!trigger) return;
+
+      const bounds = trigger.getBoundingClientRect();
+      const viewportPadding = 12;
+      const gap = 8;
+      const width = Math.min(320, Math.max(0, window.innerWidth - viewportPadding * 2));
+      const spaceBelow = Math.max(0, window.innerHeight - bounds.bottom - gap - viewportPadding);
+      const spaceAbove = Math.max(0, bounds.top - gap - viewportPadding);
+      const openAbove = spaceBelow < 280 && spaceAbove > spaceBelow;
+      const availableHeight = openAbove ? spaceAbove : spaceBelow;
+      const maxHeight = Math.max(120, Math.min(360, availableHeight));
+      const left = Math.max(viewportPadding, Math.min(bounds.right - width, window.innerWidth - width - viewportPadding));
+      const top = openAbove
+        ? Math.max(viewportPadding, bounds.top - gap - maxHeight)
+        : Math.min(window.innerHeight - viewportPadding - maxHeight, bounds.bottom + gap);
+
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reposition the portal from measured viewport bounds before it is painted.
+      setUnifiedDropdownPosition({ top, left, width, maxHeight });
+    };
+
+    const handleOutsidePointer = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && !unifiedDropdownPanelRef.current?.contains(target) && !unifiedDropdownTriggerRef.current?.contains(target)) {
+        setShowUnifiedDropdown(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowUnifiedDropdown(false);
+    };
+
+    updatePosition();
+    document.addEventListener("pointerdown", handleOutsidePointer);
+    document.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointer);
+      document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [showUnifiedDropdown]);
 
   // Synchronize selectedFacebookPageId when facebookPages changes
   useEffect(() => {
@@ -1517,17 +1569,22 @@ export default function CRMTab() {
             {/* Unified Account Selector Button */}
             <div className="relative">
               <button
+                ref={unifiedDropdownTriggerRef}
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={showUnifiedDropdown}
+                aria-controls="crm-account-filter-menu"
                 onClick={() => {
                   setShowUnifiedDropdown(!showUnifiedDropdown);
                 }}
-                className="py-1.5 px-3 rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 shadow-xxs text-[10px] font-extrabold transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+                className="flex min-h-10 max-w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-on-surface shadow-sm transition-colors hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 <span className="flex items-center -space-x-1">
                   {facebookPages.length > 0 && <SocialPlatformIcon platform="facebook" className="h-4 w-4 rounded-full bg-white ring-1 ring-white" />}
                   {zaloAccounts.length > 0 && <SocialPlatformIcon platform="zalo" className="h-4 w-4 rounded-full ring-1 ring-white" />}
                   {tiktokAccounts.length > 0 && <SocialPlatformIcon platform="tiktok" className="h-4 w-4 rounded-full bg-white ring-1 ring-white" />}
                 </span>
-                <span className="text-[10px] text-slate-800 font-bold max-w-[150px] truncate">
+                <span className="max-w-[180px] truncate text-xs font-semibold text-on-surface">
                   {activeChannel === "all" && "Tất cả kênh"}
                   {activeChannel === "facebook" && `FB: ${activeFbPageName}`}
                   {activeChannel === "zalo" && `Zalo: ${activeZaloAccountName}`}
@@ -1538,22 +1595,33 @@ export default function CRMTab() {
                 </svg>
               </button>
 
-              {/* Unified Dropdown Menu */}
-              {showUnifiedDropdown && (
-                <>
-                  <div className="fixed inset-0 z-40 cursor-default" onClick={() => setShowUnifiedDropdown(false)} />
-                  <div className="absolute right-0 mt-1.5 w-64 bg-white border border-slate-200/80 rounded-2xl shadow-xl z-50 p-3.5 animate-in fade-in slide-in-from-top-1 duration-150 text-left">
-
-                    <div className="flex justify-between items-center pb-2 border-b border-slate-100 mb-3">
-                      <div className="text-xs font-normal text-black">
-                        Chọn tài khoản hiển thị
+              {/* Portal keeps the account picker above clipped inbox/navigation containers. */}
+              {showUnifiedDropdown && unifiedDropdownPosition && createPortal(
+                  <div
+                    ref={unifiedDropdownPanelRef}
+                    id="crm-account-filter-menu"
+                    role="dialog"
+                    aria-label="Chọn tài khoản hiển thị"
+                    className="fixed z-[121] overflow-y-auto overscroll-contain rounded-xl border border-outline-variant bg-surface-container-lowest p-4 text-left text-on-surface shadow-[0_16px_48px_rgba(15,23,42,0.18)] animate-in fade-in slide-in-from-top-1 duration-150"
+                    style={{
+                      top: unifiedDropdownPosition.top,
+                      left: unifiedDropdownPosition.left,
+                      width: unifiedDropdownPosition.width,
+                      maxHeight: unifiedDropdownPosition.maxHeight,
+                    }}
+                  >
+                    <div className="mb-4 flex items-center justify-between gap-3 border-b border-outline-variant pb-3">
+                      <div>
+                        <div className="text-sm font-semibold text-on-surface">Tài khoản hiển thị</div>
+                        <div className="mt-0.5 text-xs text-on-surface-variant">Lọc hội thoại theo kênh</div>
                       </div>
                       <button
+                        type="button"
                         onClick={() => {
                           setActiveChannel("all");
                           setShowUnifiedDropdown(false);
                         }}
-                        className="rounded-md bg-[#EAF8FF] px-2 py-0.5 text-xs font-normal text-black transition-colors hover:bg-[#DDF4FF] cursor-pointer"
+                        className="shrink-0 cursor-pointer rounded-lg bg-primary-container px-3 py-2 text-xs font-semibold text-on-primary-container transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                       >
                         Hiện tất cả
                       </button>
@@ -1562,8 +1630,8 @@ export default function CRMTab() {
                     <div className="space-y-4">
                       {/* Facebook Page Selection */}
                       {facebookPages.length > 0 && (
-                        <div className="space-y-1">
-                          <label className="flex items-center gap-1.5 text-xs font-normal text-black">
+                        <div className="space-y-2">
+                          <label className="flex items-center gap-2 text-xs font-semibold text-on-surface-variant">
                             <SocialPlatformIcon platform="facebook" className="h-4 w-4" />
                             Facebook Page
                           </label>
@@ -1576,7 +1644,7 @@ export default function CRMTab() {
                               localStorage.setItem("crm_selected_fb_page_id", nextPageId);
                               setActiveChannel("facebook");
                             }}
-                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-xs font-normal text-black hover:bg-slate-100/50 transition-colors outline-none focus:bg-white focus:ring-2 focus:ring-[#00ADFC]/10 cursor-pointer"
+                            className="min-h-10 w-full cursor-pointer rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface transition-colors hover:bg-surface-container-low outline-none focus-visible:outline-2 focus-visible:outline-primary"
                           >
                             {facebookPages.map((page) => (
                               <option key={page._id} value={page.username}>{page.displayName}</option>
@@ -1587,8 +1655,8 @@ export default function CRMTab() {
 
                       {/* Zalo Account Selection */}
                       {zaloAccounts.length > 0 && (
-                        <div className="space-y-1">
-                          <label className="flex items-center gap-1.5 text-xs font-normal text-black">
+                        <div className="space-y-2">
+                          <label className="flex items-center gap-2 text-xs font-semibold text-on-surface-variant">
                             <SocialPlatformIcon platform="zalo" className="h-4 w-4" />
                             Zalo Official Account
                           </label>
@@ -1599,7 +1667,7 @@ export default function CRMTab() {
                               setSelectedZaloAccountId(e.target.value);
                               setActiveChannel("zalo");
                             }}
-                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-xs font-normal text-black hover:bg-slate-100/50 transition-colors outline-none focus:bg-white focus:ring-2 focus:ring-[#00ADFC]/10 cursor-pointer"
+                            className="min-h-10 w-full cursor-pointer rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface transition-colors hover:bg-surface-container-low outline-none focus-visible:outline-2 focus-visible:outline-primary"
                           >
                             {zaloAccounts.map((acc) => (
                               <option key={acc._id} value={acc.username}>{acc.displayName}</option>
@@ -1610,8 +1678,8 @@ export default function CRMTab() {
 
                       {/* TikTok Selection */}
                       {tiktokAccounts.length > 0 && (
-                        <div className="space-y-1">
-                          <label className="flex items-center gap-1.5 text-xs font-normal text-black">
+                        <div className="space-y-2">
+                          <label className="flex items-center gap-2 text-xs font-semibold text-on-surface-variant">
                             <SocialPlatformIcon platform="tiktok" className="h-4 w-4" />
                             TikTok
                           </label>
@@ -1622,7 +1690,7 @@ export default function CRMTab() {
                               setSelectedTiktokAccountId(e.target.value);
                               setActiveChannel("tiktok");
                             }}
-                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg bg-slate-50 text-xs font-normal text-black hover:bg-slate-100/50 transition-colors outline-none focus:bg-white focus:ring-2 focus:ring-[#00ADFC]/10 cursor-pointer"
+                            className="min-h-10 w-full cursor-pointer rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface transition-colors hover:bg-surface-container-low outline-none focus-visible:outline-2 focus-visible:outline-primary"
                           >
                             {tiktokAccounts.map((acc) => (
                               <option key={acc._id} value={acc.username}>{acc.displayName}</option>
@@ -1632,9 +1700,9 @@ export default function CRMTab() {
                       )}
                     </div>
 
-                  </div>
-                </>
-              )}
+                  </div>,
+                  document.body,
+                )}
             </div>
           </div>
         </div>}>

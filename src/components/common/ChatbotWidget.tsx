@@ -12,7 +12,8 @@ import { useBranchOptional } from "../../context/BranchContext";
 import { getPosTerminalId } from "../../modules/retail/posTerminal";
 import { AssistantMessageContent } from "./AssistantMessageContent";
 import { AssistantGeneratedFiles } from "./AssistantGeneratedFiles";
-import type { AssistantChatMessage } from "../../shared/assistant-document";
+import type { AssistantChatMessage, AssistantIllustration, AssistantSource } from "../../shared/assistant-document";
+import { assistantSourceKind, isAssistantImageUrl, safeAssistantHttpUrl, safeAssistantIllustrationUrl } from "./assistant-link-utils";
 import { AssistantSidebarIcon, type AssistantSidebarIconName } from "./AssistantSidebarIcon";
 import { AssistantTools } from "./AssistantTools";
 import { AssistantStudio } from "./AssistantStudio";
@@ -49,6 +50,52 @@ const qaWelcomeMessage: Message = {
   content: "Chào bạn! Bạn có thể hỏi kiến thức, nhờ viết, tóm tắt, tạo file Excel, Word hoặc PDF và yêu cầu chỉnh sửa tiếp. Nội dung ở đây không truy cập hay thay đổi dữ liệu trong iGen ERP.",
 };
 const focusClass = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface";
+
+function AssistantResearchSources({ sources, illustrationUrls = [] }: { sources?: AssistantSource[]; illustrationUrls?: string[] }) {
+  const safeSources = (sources || []).slice(0, 16).flatMap(source => {
+    const safeUrl = safeAssistantHttpUrl(source.url);
+    if (!safeUrl) return [];
+    const url = new URL(safeUrl);
+    return [{ title: source.title?.trim() || url.hostname, url: safeUrl, kind: assistantSourceKind(safeUrl) }];
+  });
+  if (!safeSources.length) return null;
+  return <section aria-label="Nguồn tham khảo" className="mt-3 space-y-2 rounded-xl border border-outline-variant bg-surface-container-low p-3 text-sm">
+    <h3 className="text-balance font-semibold text-on-surface">Nguồn tham khảo</h3>
+    <ol className="list-decimal space-y-1.5 pl-5 text-pretty text-on-surface-variant">
+      {safeSources.map((source, index) => <li key={`${source.url}-${index}`} className="break-words">
+        <a href={source.url} target="_blank" rel="noopener noreferrer" className={cn("text-primary underline underline-offset-2 hover:text-on-surface", focusClass)}>
+          <span className="mr-1 font-medium text-on-surface-variant">{source.kind === "image" ? "Ảnh" : source.kind === "document" ? "Tài liệu" : "Trang web"}:</span>
+          {source.title}
+          {source.kind === "image" && !illustrationUrls.includes(source.url) && isAssistantImageUrl(source.url) && new URL(source.url).protocol === "https:" && <img src={source.url} alt={`Ảnh: ${source.title}`} loading="lazy" referrerPolicy="no-referrer" className="mt-2 block max-h-48 max-w-full rounded-lg border border-outline-variant object-contain" />}
+          <span className="sr-only"> (mở tab mới)</span>
+        </a>
+      </li>)}
+    </ol>
+  </section>;
+}
+
+function AssistantAnswerIllustrations({ illustrations }: { illustrations?: AssistantIllustration[] }) {
+  const safeIllustrations = (illustrations || []).slice(0, 1).flatMap(illustration => {
+    const url = safeAssistantIllustrationUrl(illustration.url);
+    const sourceUrl = illustration.sourceUrl ? safeAssistantHttpUrl(illustration.sourceUrl) : null;
+    return url ? [{
+      alt: illustration.alt?.trim() || "Minh họa cho câu trả lời",
+      url,
+      ...(illustration.sourceTitle?.trim() ? { sourceTitle: illustration.sourceTitle.trim() } : {}),
+      ...(sourceUrl ? { sourceUrl } : {}),
+      ...(illustration.sourceCredit?.trim() ? { sourceCredit: illustration.sourceCredit.trim() } : {}),
+    }] : [];
+  });
+  if (!safeIllustrations.length) return null;
+  return <section className="mt-3 space-y-3" aria-label="Hình minh họa">
+    {safeIllustrations.map((illustration, index) => <figure key={`${illustration.url.slice(0, 80)}-${index}`} className="max-w-2xl space-y-1.5">
+      <img src={illustration.url} alt={illustration.alt} loading="lazy" referrerPolicy="no-referrer" className="max-h-96 max-w-full rounded-xl border border-outline-variant object-contain" />
+      <figcaption className="text-xs text-on-surface-variant">{illustration.sourceUrl
+        ? <>Ảnh minh họa từ <a href={safeAssistantHttpUrl(illustration.sourceUrl) || illustration.url} target="_blank" rel="noopener noreferrer" className={cn("text-primary underline underline-offset-2", focusClass)}>{illustration.sourceTitle?.trim() || "nguồn tham khảo"}<span className="sr-only"> (mở tab mới)</span></a>{illustration.sourceCredit ? ` · ${illustration.sourceCredit}` : ""}</>
+        : illustration.url.startsWith("data:image/") ? "Hình minh họa được tạo bằng AI." : "Hình minh họa từ nguồn tham khảo."}</figcaption>
+    </figure>)}
+  </section>;
+}
 function commandAfterWakeWord(text: string): string | null {
   const match = /\b(?:hey|hei)[,\s]+(?:i\s*gen|ai\s*gen)\b[,:.!?]?\s*/i.exec(text);
   return match ? text.slice(match.index + match[0].length).trim() : null;
@@ -61,18 +108,21 @@ function voiceContextError(): string {
 }
 type LauncherPosition = { x: number; y: number };
 
-function RevealingAssistantMessage({ content, requestId, onComplete, onProgress }: { content: string; requestId: string; onComplete: (requestId: string) => void; onProgress: () => void }) {
+function RevealingAssistantMessage({ content, allowedLinkUrls, requestId, onComplete, onProgress }: { content: string; allowedLinkUrls?: readonly string[]; requestId: string; onComplete: (requestId: string) => void; onProgress: () => void }) {
   const reduceMotion = useReducedMotion();
   const [visibleCharacters, setVisibleCharacters] = useState(0);
 
   useEffect(() => {
     const length = Array.from(content).length;
-    if (reduceMotion || length === 0) {
+    if (length === 0) {
       onComplete(requestId);
       return;
     }
+    // Keep the requested typing effect even when reduced motion is enabled;
+    // use a shorter cadence in that mode while still revealing each character.
+    const charactersPerSecond = reduceMotion ? 24 : 16;
     const playback = animate(0, length, {
-      duration: Math.min(18, Math.max(0.8, length / 32)),
+      duration: Math.min(24, Math.max(0.8, length / charactersPerSecond)),
       ease: "linear",
       onUpdate: value => {
         const next = Math.min(length, Math.floor(value));
@@ -89,7 +139,7 @@ function RevealingAssistantMessage({ content, requestId, onComplete, onProgress 
 
   return <>
     <span className="sr-only">{content}</span>
-    <div aria-hidden="true" className="assistant-message-reveal"><AssistantMessageContent content={content} visibleCharacters={visibleCharacters} /></div>
+    <div aria-hidden="true" className="assistant-message-reveal"><AssistantMessageContent content={content} visibleCharacters={visibleCharacters} allowedLinkUrls={allowedLinkUrls} /></div>
   </>;
 }
 function AssistantRailIcon({ name }: { name: AssistantSidebarIconName }) {
@@ -513,7 +563,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     setError(""); setIsLoading(true);
     try {
       let result = await assistantService.turn(turnRequest, controller.signal, branchId, deviceId);
-      for (let attempt = 0; result.status === "processing" && attempt < 40 && !controller.signal.aborted; attempt++) {
+      for (let attempt = 0; result.status === "processing" && attempt < 100 && !controller.signal.aborted; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         if (controller.signal.aborted) return;
         result = await assistantService.turn(turnRequest, controller.signal, branchId, deviceId);
@@ -537,7 +587,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
       }
       setMessages(current => {
         const last = current[current.length - 1];
-        const next: Message[] = last?.role === "assistant" && last.content === result.reply && last.files?.[0]?.id === result.files?.[0]?.id ? current : [...current, { role: "assistant", content: result.reply, createdAt: new Date().toISOString(), ...(result.files?.length ? { files: result.files } : {}) }];
+        const sameSources = JSON.stringify(last?.sources || []) === JSON.stringify(result.sources || []);
+        const sameIllustrations = JSON.stringify(last?.illustrations || []) === JSON.stringify(result.illustrations || []);
+        const next: Message[] = last?.role === "assistant" && last.content === result.reply && last.files?.[0]?.id === result.files?.[0]?.id && sameSources && sameIllustrations ? current : [...current, { role: "assistant", content: result.reply, createdAt: new Date().toISOString(), ...(result.files?.length ? { files: result.files } : {}), ...(result.sources?.length ? { sources: result.sources } : {}), ...(result.illustrations?.length ? { illustrations: result.illustrations } : {}) }];
         try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* Keep in memory. */ }
         return next;
       });
@@ -668,7 +720,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     const pendingAttachment = assistantMode === "work" && attachment && !attachmentSubmitted ? attachment : undefined;
     saveHistory([...messages, { role: "user", content: `${text}${pendingAttachment ? `\n📎 ${pendingAttachment.fileName} · ${pendingAttachment.rows.length} dòng` : ""}`, createdAt: new Date().toISOString() }]);
     setInput(""); setLastReply(null); setRevealingReply(null); setSelectedReferences({}); setReferenceSelectionError(""); setVoiceError("");
-    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(pendingAttachment ? { attachment: pendingAttachment } : {}) });
+    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(assistantMode === "qa" ? { research: true } : {}), ...(pendingAttachment ? { attachment: pendingAttachment } : {}) });
   };
   const submitRecognizedVoice = async (recognizedText: string) => {
     const text = recognizedText.trim();
@@ -677,7 +729,7 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
     const pendingAttachment = assistantMode === "work" && attachment && !attachmentSubmitted ? attachment : undefined;
     saveHistory([...messages, { role: "user", content: `${text}${pendingAttachment ? `\n📎 ${pendingAttachment.fileName} · ${pendingAttachment.rows.length} dòng` : ""}`, createdAt: new Date().toISOString() }]);
     setInput(""); setLastReply(null); setSelectedReferences({}); setReferenceSelectionError(""); setVoiceError("");
-    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(pendingAttachment ? { attachment: pendingAttachment } : {}) });
+    await submitTurn({ conversationId, requestId: crypto.randomUUID(), mode: assistantMode, text, ...(assistantMode === "qa" ? { research: true } : {}), ...(pendingAttachment ? { attachment: pendingAttachment } : {}) });
   };
   recognizedVoiceHandlerRef.current = text => { void submitRecognizedVoice(text); };
   useEffect(() => {
@@ -1369,12 +1421,15 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
                   ? <RevealingAssistantMessage
                     key={revealingReply.requestId}
                     content={message.content}
+                    allowedLinkUrls={message.sources?.map(source => source.url)}
                     requestId={revealingReply.requestId}
                     onProgress={followReplyReveal}
                     onComplete={finishReplyReveal}
                   />
-                    : <div className="assistant-message-final"><AssistantMessageContent content={message.content} /></div>}
+                    : <div className="assistant-message-final"><AssistantMessageContent content={message.content} allowedLinkUrls={message.sources?.map(source => source.url)} /></div>}
               </div>
+              <AssistantAnswerIllustrations illustrations={message.illustrations} />
+              <AssistantResearchSources sources={message.sources} illustrationUrls={message.illustrations?.map(illustration => illustration.url)} />
               {message.files?.length ? <AssistantGeneratedFiles files={message.files} branchId={branchId} /> : null}
             </div>}
           </div>
@@ -1443,8 +1498,9 @@ function ChatbotSession({ storageScope, launcherStorageScope, branchId, deviceId
             </div>}
           </section>}
           {showReplyDetails && lastReply?.link && <a href={lastReply.link} className={cn("inline-block rounded px-2 py-1 text-sm text-primary underline", focusClass)}>Xem kết quả</a>}
-          {isLoading && isOpen && <div role="status" aria-label={retryRef.current ? "Đang soạn câu trả lời" : "Đang tải cuộc trò chuyện"} className="assistant-thinking-status flex items-center py-1 text-on-surface-variant">
+          {isLoading && isOpen && <div role="status" aria-label={retryRef.current?.research ? "Đang nghiên cứu web nhiều nguồn" : retryRef.current ? "Đang soạn câu trả lời" : "Đang tải cuộc trò chuyện"} className="assistant-thinking-status flex items-center py-1 text-on-surface-variant">
             <span className="assistant-thinking-dots" aria-hidden="true"><span /><span /><span /></span>
+            {retryRef.current?.research && <span className="ml-2 text-sm">Đang nghiên cứu và đối chiếu nhiều nguồn…</span>}
           </div>}
           </div>
         </div>

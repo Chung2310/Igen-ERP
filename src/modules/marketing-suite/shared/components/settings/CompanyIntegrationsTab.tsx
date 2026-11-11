@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   Building2, Plus, Save, Terminal, Key, Eye, EyeOff, Lock,
-  Trash2, FileEdit, CheckCircle, Copy, Globe, RefreshCw, X, Search, Bot, Landmark, Music2
+  Trash2, FileEdit, CheckCircle, Copy, Globe, RefreshCw, X, Search, Music2
 } from "lucide-react";
 import { toast } from "../../../../../pages/Toast";
 import { socialIntegrationService, SocialIntegration } from "../../services/socialIntegrationService";
@@ -768,8 +768,6 @@ export default function CompanyIntegrationsTab({ userProfile }: CompanyIntegrati
 
   return (
     <div className="space-y-3">
-      <TelegramOrderConfigCard userProfile={userProfile} />
-      <SepayConfigCard userProfile={userProfile} />
       <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-4 shadow-xs">
         <div className="mb-3 flex flex-col items-start justify-between gap-3 border-b border-outline-variant pb-3 md:flex-row md:items-center">
           <div className="text-left">

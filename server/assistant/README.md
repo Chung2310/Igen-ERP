@@ -38,6 +38,14 @@ Excel trong chat hỗ trợ tối đa 100 dòng trên một bảng, gồm cả �
 - Nút “Tắt chế độ 2 chiều” luôn dùng được, dừng micro/phát âm thanh và giữ phần chưa gửi trong ô nhập. Đóng trợ lý, chuyển mục trong trợ lý hoặc mở cài đặt cũng dừng chế độ này. Khi có lỗi quyền micro/kết nối, người dùng chủ động bật lại; không tự lặp yêu cầu cấp quyền.
 - Dùng `SpeechRecognition`/`webkitSpeechRecognition` của trình duyệt và cần quyền micro trên HTTPS hoặc localhost. Test controller và giao diện dùng nhận dạng/âm thanh giả lập; vẫn cần kiểm tra bằng micro thật trên trình duyệt triển khai.
 
+## Hỏi đáp đa lĩnh vực trong tab Trò chuyện
+
+Trò chuyện hỗ trợ kiến thức, toán học, lập trình, viết và sửa nội dung, dịch thuật, lập kế hoạch và các chủ đề đời thường; không giới hạn vào nghiệp vụ ERP. Mặc định dùng tiếng Việt, có thể đổi ngôn ngữ, độ dài hoặc định dạng theo yêu cầu hiện tại. Nếu thiếu dữ liệu riêng của công ty hoặc cần thao tác trên bản ghi, trợ lý hướng dẫn dùng mục Trợ lý ERP; không bịa dữ liệu hoặc tự gọi API nghiệp vụ từ tab Trò chuyện.
+
+`general-answer.ts` gửi lịch sử theo đúng vai trò người dùng/trợ lý và câu hỏi hiện tại ở cuối. Hướng dẫn và quy tắc trình bày của tài khoản được áp dụng trong cùng lượt sinh câu trả lời. Nội dung hỏi đáp không đi qua bước biên tập/lọc dành riêng cho kết quả nghiệp vụ; mã nguồn, JSON mẫu, công thức và giải thích về workflow được giữ nguyên cả khi gửi lại yêu cầu hoặc tải lại lịch sử. Không cắt câu trả lời ở 6.000 ký tự. Yêu cầu viết mã và định dạng JSON/Markdown ngay trong chat không tự bị chuyển thành tạo tệp; yêu cầu tải tệp rõ ràng vẫn dùng bộ xuất tài liệu bên dưới.
+
+Mọi lượt Hỏi đáp mặc định dùng web search `deep` qua OpenRouter, kèm nguồn tham khảo; câu hỏi so sánh được yêu cầu trình bày bằng bảng. Với câu hỏi hợp để minh họa, máy chủ tìm ảnh raster có giấy phép trên Wikimedia Commons qua API công khai, không cần API key, rồi lưu thumbnail đã nén cùng nguồn, tác giả và giấy phép để ảnh còn hiện trong lịch sử. Yêu cầu API có User-Agent nhận diện ứng dụng và được cache trong 6 giờ để hạn chế lưu lượng; nếu không tìm được ảnh có giấy phép hoặc API bị giới hạn, câu trả lời vẫn hiển thị bình thường và dùng ảnh trực tiếp từ nguồn nghiên cứu nếu có.
+
 ## Tạo tài liệu trong tab Trò chuyện
 
 - Yêu cầu bằng lời như “Lập kế hoạch 30 ngày và xuất Excel, Word, PDF”. Hỗ trợ XLSX, CSV (một bảng), DOCX, PDF, TXT, Markdown và JSON. AI trả cấu trúc được kiểm tra bằng Joi; máy chủ dựng file thật, không thực thi mã do mô hình sinh ra.

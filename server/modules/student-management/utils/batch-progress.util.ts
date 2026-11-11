@@ -1,4 +1,4 @@
-import { countRemainingSessions, countTotalSessions, listScheduledSessionDates } from "./session-count.util";
+import { countRemainingSessions, listScheduledSessionDates } from "./session-count.util";
 
 /** Ngưỡng cảnh báo vàng: lớp đã hoàn thành từ 80% số buổi theo lịch. */
 export const YELLOW_PROGRESS_THRESHOLD = 0.8;
@@ -23,6 +23,7 @@ interface ProgressInput {
   startDate: string;
   endDate: string;
   daysOfWeek: number[];
+  cancelledSessionDates?: string[];
   attendanceSessions?: Array<{ date: string; records?: unknown[] }>;
   completedAt?: Date | string | null;
   updatedAt?: Date | string | null;
@@ -70,11 +71,20 @@ function computeAgeLabel(input: ProgressInput, today: string): BatchAgeLabel {
  */
 export function computeBatchProgress(input: ProgressInput, options: ProgressOptions): BatchProgress {
   const { today, holidaySet } = options;
-  const { status, startDate, endDate, daysOfWeek, attendanceSessions = [] } = input;
+  const { status, startDate, endDate, daysOfWeek, attendanceSessions = [], cancelledSessionDates = [] } = input;
 
-  const totalSessions = countTotalSessions(startDate, endDate, daysOfWeek, holidaySet);
-  const scheduledRemainingSessions = countRemainingSessions(today, endDate, startDate, daysOfWeek, holidaySet);
-  const scheduledDates = listScheduledSessionDates(startDate, endDate, daysOfWeek, holidaySet);
+  const baseScheduledDates = listScheduledSessionDates(startDate, endDate, daysOfWeek, holidaySet, cancelledSessionDates);
+  const baseScheduledDateSet = new Set(baseScheduledDates);
+  const cancelledDateSet = new Set(cancelledSessionDates);
+  // Buổi bù nằm ngoài lịch tuần sẽ được lưu trong attendanceSessions. Tính nó
+  // như một buổi học để tiến độ và danh sách điểm danh cùng phản ánh lịch mới.
+  const makeUpDates = [...new Set(attendanceSessions
+    .map((session) => session.date)
+    .filter((date) => date && !baseScheduledDateSet.has(date) && !cancelledDateSet.has(date)))];
+  const scheduledDates = [...baseScheduledDates, ...makeUpDates].sort();
+  const totalSessions = scheduledDates.length;
+  const scheduledRemainingSessions = countRemainingSessions(today, endDate, startDate, daysOfWeek, holidaySet, cancelledSessionDates)
+    + makeUpDates.filter((date) => date >= today).length;
   // Buổi hôm nay chỉ được tính sau khi đã điểm danh; các buổi trước hôm nay mà
   // chưa có bản ghi điểm danh phải hiển thị rõ để không tạo tiến độ ảo.
   // Buổi hôm nay được tính ngay khi đã có bản ghi điểm danh; nếu chưa có dữ liệu

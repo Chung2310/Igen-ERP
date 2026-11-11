@@ -80,6 +80,8 @@ export interface Quote {
   kind?: "estimate" | "customer";
   sourceQuote?: { id: string; quoteNumber: string };
   sourceRequirements?: string;
+  revisionRequirements?: string;
+  requiresAiRecalculation?: boolean;
   missingProducts?: string[];
   _id: string;
   template?: { id: string; name?: string; originalFilename: string };

@@ -1,3 +1,6 @@
+import { quoteApprovalBlockers, quoteHasApprovalBlockers } from "./quote-approval";
+import { acceptanceFinancials, settlementContractContext } from "./acceptance-export";
+import { publicErrorMessage } from "./public-errors";
 import { registerCatalogRoutes } from "./catalog.routes";
 import { createCatalogProduct, importCatalogProducts } from "./catalog.service";
 import { mapCatalogRow, type CatalogImportRow } from "./catalog-validation";
@@ -49,16 +52,16 @@ import { makeDocumentWord } from "./document-word.js";
 
 import { contractTemplateMode, renderAcceptanceFile, renderContractFile } from "./contract-template.js";
 
-import { adjustEstimateWithRequirements, estimateAnswers, estimateForRegeneration } from "./quote-estimate-adjustment.js";
+import { recalculateEstimateWithClarifications, adjustEstimateWithRequirements, estimateAnswers, estimateForRegeneration } from "./quote-estimate-adjustment.js";
 import { resolveQuotationJobContext } from "./access";
 
 import { extractCatalogProducts, previewCatalogImport, type PriceListColumnRole, type PriceListSheetMapping } from "./price-list-import.js";
 
-import { cleanMissingInformation, extractQuoteTerms, isResolvedQuoteTermWarning, isShippingInformation, isSupplementalProductInformation, isTaxInformation } from "./quote-terms.js";
+import { cleanMissingInformation, extractQuoteTerms, isAnsweredQuoteChargeQuestion, isResolvedQuoteTermWarning, isShippingInformation, isSupplementalProductInformation, isTaxInformation } from "./quote-terms.js";
 
 import { budgetPlanAsQuote, makeBudgetPlanExcel, makeQuoteExcel } from "./quote-excel.js";
 
-import { assertXlsxWorksheetsPreserved, createTemplateFillPlan, currentTemplate, inspectTemplate, previewDocxHtml, renderAiMappedXlsxTemplate, renderTemplate, savedTemplate, templateDetails, templateFormats, type QuoteTemplate } from "./quote-template.js";
+import { assertXlsxWorksheetsPreserved, createTemplateFillPlan, currentTemplate, inspectTemplate, inspectUploadedTemplate, previewDocxHtml, renderAiMappedXlsxTemplate, renderTemplate, savedTemplate, templateDetails, templateFormats, type QuoteTemplate } from "./quote-template.js";
 
 import type { AcceptanceRecord, CatalogItem, Company, CompanyFile, CompanyProfileDetails, ContactRequestStatus, Contract, GeneratedExportJob, PlanContactRequest, Quote, QuoteRequest, QuoteStatus, SessionUser, SubscriptionPlan, UserAccount } from "./types.js";
 const app = createQuotationRouter();
@@ -103,11 +106,12 @@ function quoteForResponse(quote: Quote): Quote {
   const taxRateConfirmed = quote.taxRateConfirmed ?? !information.some(isTaxInformation);
   const shippingFeeConfirmed = quote.shippingFeeConfirmed ?? (quote.shippingFee != null || !information.some(isShippingInformation));
   const confirmedInformationNeeded = informationNeeded.filter((field) =>
-    !(taxRateConfirmed && isTaxInformation(field)) && !(shippingFeeConfirmed && isShippingInformation(field)),
+    !(taxRateConfirmed && isTaxInformation(field)) && !(shippingFeeConfirmed && isShippingInformation(field))
+    && !isAnsweredQuoteChargeQuestion(field, { taxRate: quote.taxRate, taxRateConfirmed, shippingFee: quote.shippingFee ?? (shippingFeeConfirmed ? 0 : null), shippingFeeConfirmed }),
   );
   if (!taxRateConfirmed && !confirmedInformationNeeded.some(isTaxInformation)) confirmedInformationNeeded.push("VAT: cần xác nhận thuế suất.");
   if (!shippingFeeConfirmed && !confirmedInformationNeeded.some(isShippingInformation)) confirmedInformationNeeded.push("Phí vận chuyển: cần xác nhận số tiền hoặc xác nhận miễn phí.");
-  const unresolved = confirmedInformationNeeded.some((field) => isSupplementalProductInformation(field)
+  const unresolved = quote.requiresAiRecalculation === true || confirmedInformationNeeded.some((field) => isSupplementalProductInformation(field)
     ? !quote.lines.some((line) => line.source === "supplemental" && line.supplementalFor === field && !line.priceUnavailable)
     : !quote.additionalInformation?.[field]?.trim())
     || !taxRateConfirmed || !shippingFeeConfirmed;
@@ -150,15 +154,13 @@ async function customerQuoteWithPrices(db: Db, quote: Quote): Promise<Quote> {
 
 
 function quoteHasUnresolvedInformation(quote: Quote) {
-  const normalized = quoteForResponse(quote);
-  return normalized.informationNeeded.some((field) => isSupplementalProductInformation(field)
-    ? !normalized.lines.some((line) => line.source === "supplemental" && line.supplementalFor === field && !line.priceUnavailable)
-    : !normalized.additionalInformation?.[field]?.trim())
-    || !normalized.taxRateConfirmed || !normalized.shippingFeeConfirmed;
+  return quoteHasApprovalBlockers(quoteForResponse(quote));
 }
 
 
 async function quoteInputContext(db: Db, quote: Quote) {
+  const sourceQuoteId = quote.sourceQuote?.id ? asId(quote.sourceQuote.id) : null;
+  const sourceQuote = sourceQuoteId ? await db.collection<Quote>("quotes").findOne({ _id: sourceQuoteId, companyId: quote.companyId }, { projection: { sourceRequirements: 1 } }) : null;
   const requestId = asId(quote.requestId);
   const source = requestId
     ? await db.collection<QuoteRequest>("quoteRequests").findOne({ _id: requestId, companyId: quote.companyId }, { projection: { requestText: 1, requestFile: 1, createdBy: 1, items: 1, suggestedProducts: 1 } })
@@ -176,6 +178,7 @@ async function quoteInputContext(db: Db, quote: Quote) {
     }
   }
   return [
+    sourceQuote?.sourceRequirements ?? "",
     quote.sourceRequirements ?? "",
     source?.requestText ?? "",
     attachedText,
@@ -251,7 +254,7 @@ function asId(value: string | string[] | undefined) {
 
 
 function fail(response: express.Response, message: string, status = 400) {
-  response.status(status).json({ error: message });
+  response.status(status).json({ error: publicErrorMessage(message) });
 }
 
 
@@ -566,7 +569,7 @@ app.get("/quote-templates", async (request, response) => {
   if (request.query.cursor !== undefined && !cursor) return fail(response, "Trang danh sách mẫu không hợp lệ.");
   const company = await db.collection<Company>("companies").findOne({ _id: new ObjectId(user.companyId) }, { projection: { quoteTemplateId: 1 } });
   const templates = await db.collection<QuoteTemplate>("quoteTemplates")
-    .find({ companyId: user.companyId, deletedAt: { $exists: false }, category: category === "quote" ? { $in: ["quote", null] } : category === "acceptance" ? { $in: ["acceptance", "settlement"] } : category, ...((category === "contract") ? { extension: "docx" } : category === "settlement" ? { extension: "xlsx" } : {}), ...(cursor ? { _id: { $lt: cursor } } : {}) }, { projection: { data: 0, fillPlanCache: 0, xlsxFillPlanCache: 0 } })
+    .find({ companyId: user.companyId, deletedAt: { $exists: false }, category: category === "quote" ? { $in: ["quote", null] } : category === "acceptance" ? { $in: ["acceptance", "settlement"] } : category, ...(cursor ? { _id: { $lt: cursor } } : {}) }, { projection: { data: 0, fillPlanCache: 0, xlsxFillPlanCache: 0 } })
     .sort({ _id: -1 }).limit(13).toArray();
   const page = templates.slice(0, 12);
   response.json({ templates: page.map(templateDetails), defaultTemplateId: category === "quote" ? company?.quoteTemplateId ?? null : page[0]?._id?.toHexString() ?? null, nextCursor: templates.length > 12 ? page[11]._id!.toHexString() : null });
@@ -592,9 +595,7 @@ app.post("/quote-template", enforceTemplateQuota, express.raw({ type: "applicati
   catch { return fail(response, "Tên file không hợp lệ."); }
   if (!originalFilename || originalFilename.length > 255) return fail(response, "Tên file không hợp lệ.");
   const extension = originalFilename.split(".").pop()!.toLowerCase();
-  if (category === "settlement" && extension !== "xlsx") return fail(response, "Mẫu hồ sơ quyết toán chỉ hỗ trợ file Excel (.xlsx).", 422);
-  if ((category === "acceptance" && !["docx", "xlsx"].includes(extension)) || (category === "contract" && extension !== "docx")) return fail(response, "Nhóm nghiệm thu và quyết toán chỉ nhận Word (.docx) hoặc Excel (.xlsx).", 422);
-  try { await inspectTemplate(request.body, extension); }
+  try { await inspectUploadedTemplate(request.body, extension); }
   catch (error) { return fail(response, error instanceof Error ? error.message : "Không đọc được mẫu báo giá.", 422); }
   const db = await connectDatabase();
   const user = userOf(request);
@@ -620,8 +621,7 @@ app.patch("/quote-template/:id/category", async (request, response) => {
   const templates = db.collection<QuoteTemplate>("quoteTemplates");
   const current = await templates.findOne({ _id: id, companyId: user.companyId, deletedAt: { $exists: false } });
   if (!current) return fail(response, "Không tìm thấy mẫu.", 404);
-  if (((category === "contract" && current.extension !== "docx") || (category === "acceptance" && !["docx", "xlsx"].includes(current.extension)))
-    || (category === "settlement" && current.extension !== "xlsx")) return fail(response, category === "settlement" ? "Mẫu quyết toán cần là file Excel (.xlsx)." : "Mẫu hợp đồng và nghiệm thu cần là file Word (.docx).", 422);
+  if (!["docx", "xlsx", "pdf"].includes(current.extension)) return fail(response, "Hãy chọn mẫu Word (.docx), Excel (.xlsx) hoặc PDF.", 422);
   const updated = await templates.findOneAndUpdate(
     { _id: id, companyId: user.companyId, deletedAt: { $exists: false } },
     { $set: { category, updatedAt: new Date() } }, { returnDocument: "after" },
@@ -1435,7 +1435,7 @@ app.patch("/budget-plans/:id", async (request, response) => {
       item = created.item;
     } else return fail(response, "Hãy chọn sản phẩm hoặc thêm sản phẩm mới.", 422);
     if (!result.lines.some((line) => line.catalogItemId === String(item._id))) {
-      result.lines.push({ catalogItemId: String(item._id), sku: item.sku, name: item.name, unit: item.unit, unitPrice: item.price, currency: item.currency, quantity: body.quantity ?? null, lineTotal: body.quantity ? Math.round((item.price * body.quantity + Number.EPSILON) * 100) / 100 : null, reason: `Bổ sung cho hạng mục: ${body.name}`, ...(body.quantity ? { quantityBasis: "measured" as const, quantityNote: "Số lượng do người dùng xác nhận" } : {}) });
+      result.lines.push({ catalogItemId: String(item._id), sku: item.sku, name: item.name, description: item.description, catalogAttributes: item.attributes ?? {}, unit: item.unit, unitPrice: item.price, currency: item.currency, quantity: body.quantity ?? null, lineTotal: body.quantity ? Math.round((item.price * body.quantity + Number.EPSILON) * 100) / 100 : null, reason: `Bổ sung cho hạng mục: ${body.name}`, ...(body.quantity ? { quantityBasis: "measured" as const, quantityNote: "Số lượng do người dùng xác nhận" } : {}) });
     }
     result.missingProducts = result.missingProducts.filter((name) => name !== body.name);
     result.resolvedMissingProducts = [...new Set([...(result.resolvedMissingProducts ?? []), body.name])];
@@ -1456,23 +1456,28 @@ app.get("/budget-plans/:id/export", async (request, response) => {
     .findOne({ _id: id, companyId: userOf(request).companyId });
   if (!plan) return fail(response, "Không tìm thấy phương án.", 404);
   const templateId = request.query.templateId === undefined || request.query.templateId === "none" ? null : asId(String(request.query.templateId));
-  if (request.query.templateId !== undefined && request.query.templateId !== "none" && !templateId) return fail(response, "Mã mẫu Excel không hợp lệ.");
+  if (request.query.templateId !== undefined && request.query.templateId !== "none" && !templateId) return fail(response, "Mã mẫu tài liệu không hợp lệ.");
   const exportQuote = budgetPlanAsQuote(plan);
   const user = userOf(request);
-  const filename = `phuong-an-${id.toHexString()}.xlsx`;
+  const defaultFilename = `phuong-an-${id.toHexString()}.xlsx`;
   let selectedTemplate: QuoteTemplate | null = null;
   if (templateId) {
     selectedTemplate = await db.collection<QuoteTemplate>("quoteTemplates").findOne({ _id: templateId, companyId: plan.companyId, deletedAt: { $exists: false }, category: { $in: ["quote", null] } });
-    if (!selectedTemplate) return fail(response, "Không tìm thấy mẫu Excel.", 404);
-    if (selectedTemplate.extension !== "xlsx") return fail(response, "Hãy chọn mẫu Excel (.xlsx).", 422);
+    if (!selectedTemplate) return fail(response, "Không tìm thấy mẫu tài liệu.", 404);
+    if (!["docx", "xlsx", "pdf"].includes(selectedTemplate.extension)) return fail(response, "Hãy chọn mẫu Word, Excel hoặc PDF.", 422);
   }
+  const extension = selectedTemplate?.extension ?? "xlsx";
+  const filename = `phuong-an-${id.toHexString()}.${extension}`;
+  const mimeType = templateFormats[extension]!;
   const render = async () => ({
     filename,
-    mimeType: templateFormats.xlsx,
+    mimeType,
     bytes: selectedTemplate
-      ? await withAiUsage(db, user, "budget_plan_export_template", () => renderAiMappedXlsxTemplate(selectedTemplate!, exportQuote, plan.input.description))
+      ? await withAiUsage(db, user, "budget_plan_export_template", () => selectedTemplate!.extension === "xlsx"
+        ? renderAiMappedXlsxTemplate(selectedTemplate!, exportQuote, plan.input.description)
+        : renderTemplate(selectedTemplate!, exportQuote, plan.input.description))
       : await withAiUsage(db, user, "budget_plan_export_default", () => renderAiMappedXlsxTemplate(
-        generatedExportTemplate(user, filename, "xlsx", makeBudgetPlanExcel(plan)), exportQuote, plan.input.description,
+        generatedExportTemplate(user, defaultFilename, "xlsx", makeBudgetPlanExcel(plan)), exportQuote, plan.input.description,
       )),
   });
   if (request.query.background === "1") {
@@ -1484,11 +1489,11 @@ app.get("/budget-plans/:id/export", async (request, response) => {
   let bytes: Buffer;
   try {
     ({ bytes } = await render());
-    await storeGeneratedExport(db, user, filename, templateFormats.xlsx, bytes);
+    await storeGeneratedExport(db, user, filename, mimeType, bytes);
   } catch (error) {
     return fail(response, error instanceof Error ? error.message : "Không xuất được hoặc không lưu được file phương án lên Cloudinary.", generatedExportErrorStatus(error));
   }
-  response.setHeader("Content-Type", templateFormats.xlsx);
+  response.setHeader("Content-Type", mimeType);
   response.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   response.send(bytes);
 });
@@ -1904,11 +1909,28 @@ app.patch("/quotes/:id", async (request, response) => {
     return fail(response, "Danh sách sản phẩm trong báo giá đã thay đổi. Vui lòng tải lại trang rồi thử lại.");
   }
   const body = isRecord(request.body) ? request.body : {};
+  if (body.recalculateWithAi !== undefined && typeof body.recalculateWithAi !== "boolean") return fail(response, "Yêu cầu tính lại dự toán không hợp lệ.", 422);
+  const recalculateWithAi = body.recalculateWithAi === true;
+  if (recalculateWithAi) assertQuotationPermission("quotation-ai:manage");
+  if (recalculateWithAi && (quote.kind === "customer" || quote.kind === "budget")) return fail(response, "Chức năng tính lại này chỉ áp dụng cho dự toán.", 422);
+  const revisionRequirements = Object.prototype.hasOwnProperty.call(body, "revisionRequirements") ? body.revisionRequirements : quote.revisionRequirements ?? "";
+  if (typeof revisionRequirements !== "string" || revisionRequirements.length > 10_000) return fail(response, "Yêu cầu cập nhật không được vượt quá 10.000 ký tự.", 422);
   const currentQuote = quoteForResponse(quote);
   let additionalInformation = { ...(currentQuote.additionalInformation ?? {}) };
   if (Object.prototype.hasOwnProperty.call(body, "additionalInformation")) {
-    try { additionalInformation = estimateAnswers(currentQuote, body.additionalInformation); }
-    catch (error) { return fail(response, error instanceof Error ? error.message : "Thông tin bổ sung không hợp lệ."); }
+    if (!isRecord(body.additionalInformation) || Object.keys(body.additionalInformation).length > 30) return fail(response, "Thông tin bổ sung không hợp lệ (tối đa 30 mục).");
+    const allowedFields = new Set([...currentQuote.informationNeeded, ...Object.keys(additionalInformation)]);
+    additionalInformation = {};
+    let totalAnswerLength = 0;
+    for (const [field, value] of Object.entries(body.additionalInformation)) {
+      if (!allowedFields.has(field) || typeof value !== "string" || value.length > 2000) return fail(response, "Mỗi câu trả lời phải ứng với mục còn thiếu và không vượt quá 2.000 ký tự.");
+      const answer = value.trim();
+      if (answer) {
+        totalAnswerLength += field.length + answer.length;
+        if (totalAnswerLength > 12000) return fail(response, "Tổng nội dung bổ sung không được vượt quá 12.000 ký tự.");
+        additionalInformation[field] = answer;
+      }
+    }
   }
   const existingSupplementalLines = quote.lines.filter((line) => line.source === "supplemental");
   const rawSupplementalProducts = Object.prototype.hasOwnProperty.call(body, "supplementalProducts")
@@ -1929,6 +1951,8 @@ app.patch("/quotes/:id", async (request, response) => {
     const unit = typeof rawProduct.unit === "string" ? rawProduct.unit.trim() : "";
     const quantity = rawProduct.quantity;
     const unitPrice = rawProduct.unitPrice;
+    const priceUnavailable = recalculateWithAi && rawProduct.priceUnavailable === true;
+    if (rawProduct.priceUnavailable !== undefined && (typeof rawProduct.priceUnavailable !== "boolean" || (rawProduct.priceUnavailable && !recalculateWithAi))) return fail(response, "Hãy nhập đơn giá trước khi lưu sản phẩm bổ sung.", 422);
     if (!validText(name, 250) || description.length > 2000 || !validText(unit, 50)) return fail(response, "Mỗi dòng bổ sung cần có tên sản phẩm và đơn vị tính hợp lệ.");
     if (typeof quantity !== "number" || !Number.isFinite(quantity) || quantity <= 0 || quantity > 1_000_000) return fail(response, "Số lượng sản phẩm bổ sung phải lớn hơn 0 và không vượt quá 1.000.000.");
     if (typeof unitPrice !== "number" || !Number.isFinite(unitPrice) || unitPrice < 0 || unitPrice > 1e12) return fail(response, "Đơn giá sản phẩm bổ sung phải là số tiền không âm.");
@@ -1941,13 +1965,15 @@ app.patch("/quotes/:id", async (request, response) => {
     usedSupplementalIds.add(id);
     if (rawProduct.informationField !== undefined && typeof rawProduct.informationField !== "string") return fail(response, "Mục thiếu thông tin không hợp lệ.");
     const informationField = typeof rawProduct.informationField === "string" ? rawProduct.informationField : existingLine?.supplementalFor;
-    if (informationField && (!currentQuote.informationNeeded.includes(informationField) || !isSupplementalProductInformation(informationField))) {
+    if (informationField && existingLine?.supplementalFor !== informationField && (!currentQuote.informationNeeded.includes(informationField) || !isSupplementalProductInformation(informationField))) {
       return fail(response, "Mục thông tin cần bổ sung không khớp với sản phẩm.");
     }
     supplementalLines.push({
       catalogItemId: id, source: "supplemental", ...(informationField ? { supplementalFor: informationField } : {}),
-      sku: "", name, description, quantity, unit, unitPrice, currency: quote.currency, catalogAttributes: {}, attributes: {},
-      lineTotal: roundMoney(quantity * unitPrice),
+      sku: "", name, description, quantity, unit, unitPrice: priceUnavailable ? 0 : unitPrice, currency: quote.currency,
+      catalogAttributes: existingLine?.catalogAttributes ?? {}, attributes: existingLine?.attributes ?? {},
+      ...(priceUnavailable ? { priceUnavailable: true, supplementalFor: informationField ?? `Sản phẩm cần bổ sung giá: ${name}` } : {}),
+      lineTotal: priceUnavailable ? 0 : roundMoney(quantity * unitPrice),
     });
   }
   const taxRate = Object.prototype.hasOwnProperty.call(body, "taxRate") ? Number(body.taxRate) : quote.taxRate;
@@ -1992,7 +2018,8 @@ app.patch("/quotes/:id", async (request, response) => {
   }
   const informationConfirmed = request.body?.informationConfirmed === true || quote.informationConfirmed;
   let informationNeeded = currentQuote.informationNeeded.filter((field) =>
-    !(taxRateConfirmed && isTaxInformation(field)) && !(shippingFeeConfirmed && isShippingInformation(field)),
+    !(taxRateConfirmed && isTaxInformation(field)) && !(shippingFeeConfirmed && isShippingInformation(field))
+    && !isAnsweredQuoteChargeQuestion(field, { taxRate, taxRateConfirmed, shippingFee, shippingFeeConfirmed }),
   );
   informationNeeded = removeAnsweredSupplementalPriceQuestions(informationNeeded, supplementalLines);
   if (!taxRateConfirmed && !informationNeeded.some(isTaxInformation)) informationNeeded.push("VAT: cần xác nhận thuế suất.");
@@ -2009,22 +2036,42 @@ app.patch("/quotes/:id", async (request, response) => {
   if (typeof customerPhone !== "string" || customerPhone.length > 50) return fail(response, "Số điện thoại không hợp lệ (tối đa 50 ký tự).");
   if (!validText(customerName, 250) || typeof customerEmail !== "string" || customerEmail.length > 250 || (customerEmail.trim() && !validEmail(customerEmail.trim()))) return fail(response, "Vui lòng nhập tên khách hàng và email hợp lệ (nếu có).");
   const customer = { customerName: customerName.trim(), customerEmail: customerEmail.trim(), customerPhone: customerPhone.trim() };
-  const hadAdditionalInformation = Object.values(currentQuote.additionalInformation ?? {}).some((answer) => answer.trim());
-  const hasAdditionalInformation = Object.values(additionalInformation).some((answer) => answer.trim());
-  const additionalInformationBindingChanged = hadAdditionalInformation !== hasAdditionalInformation
-    || JSON.stringify(currentQuote.additionalInformation ?? {}) !== JSON.stringify(additionalInformation);
-  const updatedQuote = {
+  const additionalInformationBindingChanged = [...new Set([...Object.keys(currentQuote.additionalInformation ?? {}), ...Object.keys(additionalInformation)])]
+    .some((field) => (currentQuote.additionalInformation?.[field] ?? "").trim() !== (additionalInformation[field] ?? "").trim())
+    || revisionRequirements.trim() !== (quote.revisionRequirements ?? "");
+  let updatedQuote: Quote = {
     ...quote, ...totals, ...customer, informationNeeded, additionalInformation, validityDays, completionDate,
+    revisionRequirements: revisionRequirements.trim(), informationConfirmed, status: nextStatus,
     ...(additionalInformationBindingChanged ? { templateFillPlan: undefined, xlsxTemplateFillPlan: undefined } : {}),
   };
-  const unsetFillPlans: Record<string, ""> = {};
-  if (!updatedQuote.templateFillPlan) unsetFillPlans.templateFillPlan = "";
-  if (!updatedQuote.xlsxTemplateFillPlan) unsetFillPlans.xlsxTemplateFillPlan = "";
-  await quotes.updateOne({ _id: id, companyId: user.companyId }, {
-    $set: { ...totals, ...customer, informationNeeded, additionalInformation, validityDays, completionDate, ...(updatedQuote.templateFillPlan ? { templateFillPlan: updatedQuote.templateFillPlan } : {}), ...(updatedQuote.xlsxTemplateFillPlan ? { xlsxTemplateFillPlan: updatedQuote.xlsxTemplateFillPlan } : {}), informationConfirmed, status: nextStatus, updatedAt: new Date() },
-    ...(Object.keys(unsetFillPlans).length ? { $unset: unsetFillPlans } : {}),
-  });
-  await writeAudit(db, user, "quote_recalculated", "quote", id.toHexString(), { total: totals.total });
+  if (quote.kind !== "customer" && quote.kind !== "budget" && additionalInformationBindingChanged) updatedQuote.requiresAiRecalculation = true;
+  if (updatedQuote.requiresAiRecalculation) { updatedQuote.status = "needs_info"; updatedQuote.informationConfirmed = false; }
+  const persist = async () => {
+    const { _id: _quoteId, companyId: _companyId, companyCode: _companyCode, branchId: _branchId, templateFillPlan, xlsxTemplateFillPlan, ...fields } = updatedQuote as Quote & { companyCode?: string; branchId?: string };
+    const unsetFillPlans: Record<string, ""> = {};
+    if (!templateFillPlan) unsetFillPlans.templateFillPlan = "";
+    if (!xlsxTemplateFillPlan) unsetFillPlans.xlsxTemplateFillPlan = "";
+    const result = await quotes.updateOne({ _id: id, companyId: user.companyId, updatedAt: quote.updatedAt, status: quote.status }, {
+      $set: { ...fields, ...(templateFillPlan ? { templateFillPlan } : {}), ...(xlsxTemplateFillPlan ? { xlsxTemplateFillPlan } : {}), updatedAt: new Date() },
+      ...(Object.keys(unsetFillPlans).length ? { $unset: unsetFillPlans } : {}),
+    });
+    if (!result.matchedCount) throw new Error("Dự toán đã thay đổi trong lúc xử lý. Vui lòng tải lại trang rồi thử lại.");
+  };
+  try {
+    if (recalculateWithAi) {
+      await withAiUsage(db, user, "estimate_recalculate", async () => {
+        updatedQuote = await recalculateEstimateWithClarifications(updatedQuote, await quoteInputContext(db, updatedQuote));
+        updatedQuote.templateFillPlan = undefined;
+        updatedQuote.xlsxTemplateFillPlan = undefined;
+        const ctx = quotationContext(), access = await resolveQuotationJobContext(ctx);
+        if (access.scopeId !== ctx.scopeId || !canQuotation("quotation:manage", access) || !canQuotation("quotation-ai:manage", access)) throw Object.assign(new Error("Quyền tính lại dự toán đã thay đổi. Hãy tải lại trang."), { statusCode: 403 });
+        await persist();
+      });
+    } else await persist();
+  } catch (error) {
+    return fail(response, error instanceof Error ? error.message : "Không thể tính lại dự toán.", error instanceof AiQuotaExceededError ? 429 : (error as { statusCode?: number })?.statusCode || 422);
+  }
+  await writeAudit(db, user, recalculateWithAi ? "estimate_recalculated_with_ai" : "quote_recalculated", "quote", id.toHexString(), { total: updatedQuote.total, productCount: updatedQuote.lines.length });
   const updated = await quotes.findOne({ _id: id, companyId: user.companyId });
   response.json({ quote: updated ? quoteForResponse(updated) : null });
 });
@@ -2053,7 +2100,8 @@ app.post("/quotes/:id/approve", async (request, response) => {
   const quotes = db.collection<Quote>("quotes");
   const current = await quotes.findOne({ _id: id, companyId: user.companyId });
   if (!current) return fail(response, "Không tìm thấy báo giá.", 404);
-  if (current.kind !== "customer" && quoteHasUnresolvedInformation(current)) return fail(response, "Hãy bổ sung đơn giá và thông tin còn thiếu trước khi duyệt dự toán.", 409);
+  const blockers = quoteApprovalBlockers(quoteForResponse(current));
+  if (current.kind !== "customer" && blockers.length) return fail(response, blockers.join(" "), 409);
   const approvableStatuses: QuoteStatus[] = ["draft", "needs_info", "pending_review"];
   const result = await quotes.findOneAndUpdate(
     {
@@ -2139,15 +2187,15 @@ app.get("/document-templates/:kind", (request, response) => {
 
 async function usableContractTemplates(db: Db, companyId: string) {
   const saved = await db.collection<QuoteTemplate>("quoteTemplates")
-    .find({ companyId, category: "contract", extension: "docx", deletedAt: { $exists: false } }).sort({ _id: -1 }).limit(100).toArray();
+    .find({ companyId, category: "contract", extension: { $in: ["docx", "xlsx", "pdf"] }, deletedAt: { $exists: false } }).sort({ _id: -1 }).limit(100).toArray();
   return saved.filter((template) => contractTemplateMode(template));
 }
 
 
 async function usableAcceptanceTemplates(db: Db, companyId: string) {
   const saved = await db.collection<QuoteTemplate>("quoteTemplates")
-    .find({ companyId, category: { $in: ["acceptance", "settlement"] }, extension: { $in: ["docx", "xlsx"] }, deletedAt: { $exists: false } }).sort({ _id: -1 }).limit(100).toArray();
-  return saved.filter((template) => template.extension === "xlsx" || Boolean(contractTemplateMode(template)));
+    .find({ companyId, category: { $in: ["acceptance", "settlement"] }, extension: { $in: ["docx", "xlsx", "pdf"] }, deletedAt: { $exists: false } }).sort({ _id: -1 }).limit(100).toArray();
+  return saved.filter((template) => Boolean(contractTemplateMode(template)));
 }
 
 
@@ -2165,7 +2213,7 @@ app.get("/acceptance-templates", async (request, response) => {
 
 app.get("/settlement-templates", async (request, response) => {
   const templates = await (await connectDatabase()).collection<QuoteTemplate>("quoteTemplates")
-    .find({ companyId: userOf(request).companyId, category: { $in: ["acceptance", "settlement"] }, extension: "xlsx", deletedAt: { $exists: false } }, { projection: { data: 0, fillPlanCache: 0, xlsxFillPlanCache: 0 } })
+    .find({ companyId: userOf(request).companyId, category: { $in: ["acceptance", "settlement"] }, extension: { $in: ["docx", "xlsx", "pdf"] }, deletedAt: { $exists: false } }, { projection: { data: 0, fillPlanCache: 0, xlsxFillPlanCache: 0 } })
     .sort({ _id: -1 }).limit(100).toArray();
   response.json({ templates: templates.map(templateDetails) });
 });
@@ -2304,17 +2352,12 @@ app.get(["/contracts/:id/docx", "/contracts/:id/file"], async (request, response
   const savedTemplateId = contract.template?.id ? asId(contract.template.id) : null;
   if (contract.template && !savedTemplateId) return fail(response, "Mẫu hợp đồng đã lưu không hợp lệ.", 422);
   let selectedTemplate = overrideTemplateId
-    ? await templates.findOne({ _id: overrideTemplateId, companyId: user.companyId, category: "contract", extension: "docx", deletedAt: { $exists: false } })
+    ? await templates.findOne({ _id: overrideTemplateId, companyId: user.companyId, category: "contract", extension: { $in: ["docx", "xlsx", "pdf"] }, deletedAt: { $exists: false } })
     : savedTemplateId
     ? await templates.findOne({ _id: savedTemplateId, companyId: user.companyId, category: "contract" })
     : (await usableContractTemplates(db, user.companyId))[0] ?? null;
   if (overrideTemplateId && !selectedTemplate) return fail(response, "Không tìm thấy mẫu hợp đồng đã chọn.", 404);
   if (savedTemplateId && !selectedTemplate) return fail(response, "Không tìm thấy mẫu đã dùng để tạo hợp đồng.", 404);
-  if (!overrideTemplateId && selectedTemplate?.extension !== "docx") {
-    const wordTemplates = await usableContractTemplates(db, user.companyId);
-    const sourceStem = selectedTemplate ? templateFilenameStem(selectedTemplate.originalFilename) : null;
-    selectedTemplate = wordTemplates.find((template) => templateFilenameStem(template.originalFilename) === sourceStem) ?? wordTemplates[0] ?? null;
-  }
   try {
     const exportTemplate = selectedTemplate ?? {
       ...generatedExportTemplate(user, `${contract.contractNumber}.docx`, "docx", makeDocumentWord("contract", contract)),
@@ -2332,7 +2375,7 @@ app.get(["/contracts/:id/docx", "/contracts/:id/file"], async (request, response
     await storeGeneratedExport(db, user, file.filename, file.mimeType, file.bytes);
     if ("fallback" in file && file.fallback) response.setHeader("X-Contract-Template-Status", "fallback-ai-error");
     if (file.extension === "docx") return sendWord(response, file.filename, file.bytes);
-    response.setHeader("Content-Type", "application/pdf");
+    response.setHeader("Content-Type", file.mimeType);
     response.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
     return response.send(file.bytes);
   } catch (error) { return fail(response, error instanceof Error ? error.message : "Không xuất được hợp đồng theo mẫu đã chọn.", generatedExportErrorStatus(error)); }
@@ -2507,17 +2550,10 @@ app.get(["/acceptance-records/:id/docx", "/acceptance-records/:id/file"], async 
     ? await templateCollection.findOne({ _id: savedTemplateId, companyId: user.companyId, category: { $in: ["acceptance", "settlement"] } })
     : null;
   let selectedTemplate = overrideTemplateId
-    ? await templateCollection.findOne({ _id: overrideTemplateId, companyId: user.companyId, category: { $in: ["acceptance", "settlement"] }, extension: { $in: ["docx", "xlsx"] }, deletedAt: { $exists: false } })
+    ? await templateCollection.findOne({ _id: overrideTemplateId, companyId: user.companyId, category: { $in: ["acceptance", "settlement"] }, extension: { $in: ["docx", "xlsx", "pdf"] }, deletedAt: { $exists: false } })
     : savedTemplate ?? (await usableAcceptanceTemplates(db, user.companyId))[0] ?? null;
-  if (!overrideTemplateId && savedTemplate?.extension === "pdf") {
-    const sourceStem = templateFilenameStem(savedTemplate.originalFilename);
-    const wordTemplates = await templateCollection.find({
-      companyId: user.companyId, category: { $in: ["acceptance", "settlement"] }, extension: "docx", deletedAt: { $exists: false },
-    }).sort({ _id: -1 }).limit(24).toArray();
-    selectedTemplate = wordTemplates.find((template) => templateFilenameStem(template.originalFilename) === sourceStem) ?? (await usableAcceptanceTemplates(db, user.companyId))[0] ?? null;
-  }
   if (overrideTemplateId && !selectedTemplate) return fail(response, "Không tìm thấy mẫu nghiệm thu đã chọn.", 404);
-  if (savedTemplateId && !savedTemplate && !selectedTemplate) return fail(response, "Không tìm thấy mẫu đã dùng để tạo biên bản.", 404);
+  if (!overrideTemplateId && savedTemplateId && !savedTemplate) return fail(response, "Không tìm thấy mẫu đã dùng để tạo biên bản. Hãy chọn lại mẫu tài liệu.", 404);
   try {
     const exportTemplate = selectedTemplate ?? {
       ...generatedExportTemplate(user, `${record.acceptanceNumber}.docx`, "docx", makeDocumentWord("acceptance", contract, record)),
@@ -2536,10 +2572,11 @@ app.get(["/acceptance-records/:id/docx", "/acceptance-records/:id/file"], async 
         const exportQuote: Quote = {
           kind: "estimate", companyId: user.companyId, quoteNumber: record.acceptanceNumber, requestId: contract.quoteId,
           customerName: contract.customerName, customerEmail: contract.customerEmail, customerPhone: contract.customerPhone,
-          lines, subtotal: acceptedValue, taxRate: 0, taxAmount: 0, total: record.settlementAmount, currency: contract.currency,
+          lines, ...acceptanceFinancials(contract, record, acceptedValue), currency: contract.currency,
           informationNeeded: [], informationConfirmed: true, status: "approved", createdBy: user.id,
           createdAt: new Date(`${record.acceptedDate}T00:00:00Z`), updatedAt: record.updatedAt,
           settlement: {
+            contract: settlementContractContext(contract),
             contractLines: contract.lines.map((line) => ({ ...line })),
             contractNumber: contract.contractNumber, projectName: contract.projectName, projectAddress: contract.projectAddress,
             acceptanceNumber: record.acceptanceNumber, acceptedDate: record.acceptedDate,
@@ -2571,7 +2608,7 @@ app.get(["/acceptance-records/:id/docx", "/acceptance-records/:id/file"], async 
 });
 
 
-app.get("/acceptance-records/:id/settlement.xlsx", async (request, response) => {
+app.get(["/acceptance-records/:id/settlement/file", "/acceptance-records/:id/settlement.xlsx"], async (request, response) => {
   const id = asId(request.params.id);
   if (!id) return fail(response, "Mã nghiệm thu không hợp lệ.");
   const user = userOf(request);
@@ -2586,10 +2623,12 @@ app.get("/acceptance-records/:id/settlement.xlsx", async (request, response) => 
   if (request.query.templateId !== undefined && !templateId) return fail(response, "Mã mẫu quyết toán không hợp lệ.");
   const templates = db.collection<QuoteTemplate>("quoteTemplates");
   const template = templateId
-    ? await templates.findOne({ _id: templateId, companyId: user.companyId, category: { $in: ["acceptance", "settlement"] }, extension: "xlsx", deletedAt: { $exists: false } })
-    : await templates.find({ companyId: user.companyId, category: { $in: ["acceptance", "settlement"] }, extension: "xlsx", deletedAt: { $exists: false } }).sort({ _id: -1 }).limit(1).next();
+    ? await templates.findOne({ _id: templateId, companyId: user.companyId, category: { $in: ["acceptance", "settlement"] }, extension: { $in: ["docx", "xlsx", "pdf"] }, deletedAt: { $exists: false } })
+    : record.template?.id && asId(record.template.id)
+    ? await templates.findOne({ _id: asId(record.template.id)!, companyId: user.companyId })
+    : await templates.find({ companyId: user.companyId, category: { $in: ["acceptance", "settlement"] }, extension: { $in: ["docx", "xlsx", "pdf"] }, deletedAt: { $exists: false } }).sort({ _id: -1 }).limit(1).next();
   if (templateId && !template) return fail(response, "Không tìm thấy mẫu quyết toán đã chọn.", 404);
-  if (!template) return fail(response, "Hãy tải mẫu Excel vào mục Mẫu quyết toán trước khi xuất hồ sơ.", 409);
+  if (!template) return fail(response, "Hãy tải mẫu Word, Excel hoặc PDF vào mục Nghiệm thu & quyết toán trước khi xuất hồ sơ.", 409);
   const acceptedQuantities = new Map(record.lines.map((line) => [line.lineIndex, line.acceptedQuantity]));
   const lines = contract.lines.flatMap((line, lineIndex) => {
     const quantity = acceptedQuantities.get(lineIndex) ?? 0;
@@ -2602,10 +2641,11 @@ app.get("/acceptance-records/:id/settlement.xlsx", async (request, response) => 
   const exportQuote: Quote = {
     kind: "estimate", companyId: user.companyId, quoteNumber: record.acceptanceNumber, requestId: contract.quoteId,
     customerName: contract.customerName, customerEmail: contract.customerEmail, customerPhone: contract.customerPhone,
-    lines, subtotal: acceptedValue, taxRate: 0, taxAmount: 0, total: record.settlementAmount, currency: contract.currency,
+    lines, ...acceptanceFinancials(contract, record, acceptedValue), currency: contract.currency,
     informationNeeded: [], informationConfirmed: true, status: "approved", createdBy: user.id,
     createdAt: new Date(`${record.acceptedDate}T00:00:00Z`), updatedAt: record.updatedAt,
     settlement: {
+      contract: settlementContractContext(contract),
       contractLines: contract.lines.map((line) => ({ ...line })),
       contractNumber: contract.contractNumber, projectName: contract.projectName, projectAddress: contract.projectAddress,
       acceptanceNumber: record.acceptanceNumber, acceptedDate: record.acceptedDate,
@@ -2616,22 +2656,24 @@ app.get("/acceptance-records/:id/settlement.xlsx", async (request, response) => 
     },
   };
   const inputContext = `Hồ sơ quyết toán theo biên bản nghiệm thu ${record.acceptanceNumber}, hợp đồng ${contract.contractNumber}. Dùng số lượng nghiệm thu đã lưu, không dùng số lượng dự toán/hợp đồng. Giá trị quyết toán: ${record.settlementAmount} ${contract.currency}; đã thanh toán: ${record.amountPaid}; còn phải thanh toán: ${balance}. Ngày nghiệm thu: ${record.acceptedDate}; địa điểm: ${record.location}; kết quả: ${record.result}; bàn giao: ${record.handoverDetails}; đánh giá chất lượng: ${record.qualityAssessment}; thời hạn thanh toán còn lại: ${record.paymentDueDays ?? "chưa nhập"} ngày; ghi chú: ${record.notes}. Chỉ điền tab quyết toán/nghiệm thu phù hợp; giữ nguyên các tab của báo giá, dự toán và hợp đồng.`;
-  const filename = `Ho-so-quyet-toan-${record.acceptanceNumber}.xlsx`;
-  const render = async () => ({
-    filename,
-    mimeType: templateFormats.xlsx,
-    bytes: await withAiUsage(db, user, "settlement_template_map", () => renderAiMappedXlsxTemplate(template, exportQuote, inputContext)),
-  });
+  const render = async () => {
+    if (template.extension === "xlsx") return {
+      filename: `Ho-so-quyet-toan-${record.acceptanceNumber}.xlsx`, mimeType: templateFormats.xlsx,
+      bytes: await withAiUsage(db, user, "settlement_template_map", () => renderAiMappedXlsxTemplate(template, exportQuote, inputContext)),
+    };
+    const file = await renderAcceptanceFile(db, template, contract, record, (work) => withAiUsage(db, user, "settlement_template_map", work), "settlement");
+    return { ...file, filename: `Ho-so-quyet-toan-${record.acceptanceNumber}.${file.extension}`, mimeType: templateFormats[file.extension] };
+  };
   try {
     if (request.query.background === "1") {
       const job = await queueGeneratedExport(db, user, "settlement", id.toHexString(), render);
       return response.status(202).json(job);
     }
-    const { bytes } = await render();
-    await storeGeneratedExport(db, user, filename, templateFormats.xlsx, bytes);
-    response.setHeader("Content-Type", templateFormats.xlsx);
-    response.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
-    return response.send(bytes);
+    const file = await render();
+    await storeGeneratedExport(db, user, file.filename, file.mimeType, file.bytes);
+    response.setHeader("Content-Type", file.mimeType);
+    response.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(file.filename)}`);
+    return response.send(file.bytes);
   } catch (error) {
     return fail(response, error instanceof Error ? error.message : "Không xuất được hồ sơ quyết toán theo mẫu đã chọn.", generatedExportErrorStatus(error));
   }
@@ -2746,14 +2788,11 @@ app.get("/quotes/:id/export", async (request, response) => {
       _id: requestedTemplateId, companyId: quote.companyId, deletedAt: { $exists: false }, category: templateCategory,
     })
     : !useDefaultTemplate && quote.template?.id && asId(quote.template.id) ? await db.collection<QuoteTemplate>("quoteTemplates").findOne({
-      _id: asId(quote.template.id)!, companyId: quote.companyId, deletedAt: { $exists: false }, category: templateCategory,
+      _id: asId(quote.template.id)!, companyId: quote.companyId,
     }) : null;
   if (requestedTemplateId && !selectedTemplate) return fail(response, quote.kind === "customer" ? "Không tìm thấy mẫu báo giá khách." : "Không tìm thấy mẫu dự toán.", 404);
   if (!requestedTemplateId && !useDefaultTemplate && quote.template && !selectedTemplate) {
-    selectedTemplate = await db.collection<QuoteTemplate>("quoteTemplates").find({
-      companyId: quote.companyId, deletedAt: { $exists: false }, category: templateCategory,
-      ...(quote.kind === "customer" ? {} : { extension: "xlsx" }),
-    }).sort({ _id: -1 }).limit(1).next();
+    return fail(response, "Không tìm thấy mẫu đã dùng để tạo dự toán. Hãy chọn lại mẫu tài liệu.", 404);
   }
   if (quote.kind === "customer" && !selectedTemplate && !useDefaultTemplate) {
     const company = await db.collection<Company>("companies").findOne({ _id: asId(quote.companyId) }, { projection: { quoteTemplateId: 1 } });
@@ -2767,7 +2806,7 @@ app.get("/quotes/:id/export", async (request, response) => {
     }
     if (!selectedTemplate) return fail(response, "Hãy tải lên mẫu báo giá Word, Excel hoặc PDF trước khi xuất file.", 409);
   }
-  if (quote.kind !== "customer" && excelExport && quote.status === "approved") {
+  if (quote.kind !== "customer" && excelExport && quote.status === "approved" && (!selectedTemplate || selectedTemplate.extension === "xlsx")) {
     try {
       const source = selectedTemplate?.extension === "xlsx" ? undefined : makeQuoteExcel(quote);
       const exportTemplate = selectedTemplate?.extension === "xlsx" ? selectedTemplate : generatedExportTemplate(userOf(request), `${quote.quoteNumber}.xlsx`, "xlsx", source!);
@@ -2792,7 +2831,7 @@ app.get("/quotes/:id/export", async (request, response) => {
     if (draftExport && quote.status === "approved") {
       return fail(response, "Báo giá đã duyệt; hãy tải file chính thức.", 409);
     }
-    if (quote.kind !== "customer" && draftExport && (template?.extension !== "xlsx" || quote.lines.length === 0)) {
+    if (quote.kind !== "customer" && draftExport && !template) {
       const filename = `${quote.quoteNumber}-nhap.xlsx`;
       const render = async () => ({ filename, mimeType: templateFormats.xlsx, bytes: await withAiUsage(db, userOf(request), "quote_draft_export_default", async () => renderAiMappedXlsxTemplate(
         generatedExportTemplate(userOf(request), filename, "xlsx", makeQuoteExcel(quote)), quote, await quoteInputContext(db, quote),

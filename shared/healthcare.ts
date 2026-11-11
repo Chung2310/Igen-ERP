@@ -67,6 +67,8 @@ export interface Appointment extends HealthcareRecord {
   doctorId: string;
   doctorName?: string;
   roomId: string;
+  /** Local calendar date; supports imported follow-up dates that have no time. */
+  scheduledOn?: string;
   startsAt: string;
   endsAt: string;
   status: AppointmentStatus;
@@ -77,8 +79,9 @@ export interface CareTask extends HealthcareRecord {
   patientId: string;
   appointmentId: string;
   visitId?: string;
-  assigneeId: string;
+  assigneeId?: string;
   title: string;
+  details?: string;
   dueOn: string;
   status: CareStatus;
   result: string;
@@ -102,7 +105,7 @@ export type HealthcareOverview = {
   visitCount: number | null;
   appointmentCount: number | null;
   careCount: number | null;
-  todayAppointments: Pick<Appointment, "_id" | "patientId" | "startsAt" | "status">[];
+  todayAppointments: Pick<Appointment, "_id" | "patientId" | "scheduledOn" | "startsAt" | "status">[];
   dueCare: Pick<CareTask, "_id" | "patientId" | "dueOn" | "title">[];
   patientReferences: PatientReference[];
 };
@@ -124,6 +127,8 @@ export interface ImportJob {
   patientsReady?: number;
   inserted?: number;
   patientsInserted?: number;
+  appointmentsInserted?: number;
+  careInserted?: number;
   skipped?: number;
   createdAt?: string;
   completedAt?: string;
