@@ -51,6 +51,7 @@ const batchSchema = new Schema<IBatch>(
     cancelledAt: { type: Date, default: null },
     ownerId: { type: String, required: true, index: true },
     branchId: { type: String, index: true },
+    cancelledSessionDates: { type: [String], default: [] },
     attendanceSessions: { type: [attendanceSessionSchema], default: [] },
   },
   {

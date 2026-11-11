@@ -49,6 +49,8 @@ export interface IBatch extends Document {
   cancelledAt?: Date | null;
   ownerId: string;
   branchId?: string;
+  /** Các buổi theo lịch tuần đã bị hủy riêng lẻ; số buổi được học vẫn được giữ để dời lịch bù. */
+  cancelledSessionDates?: string[];
   attendanceSessions: IAttendanceSession[];
   createdAt?: Date;
   updatedAt?: Date;

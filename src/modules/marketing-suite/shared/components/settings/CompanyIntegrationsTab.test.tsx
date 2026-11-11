@@ -12,8 +12,6 @@ vi.mock("../../services/socialIntegrationService", () => ({ socialIntegrationSer
 vi.mock("../../services/authService", () => ({ getAccessToken: () => "test-session" }));
 vi.mock("../../../../../pages/Toast", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 vi.mock("./OrderSheetConfigCard", () => ({ default: () => null }));
-vi.mock("./TelegramOrderConfigCard", () => ({ default: () => null }));
-vi.mock("./SepayConfigCard", () => ({ default: () => null }));
 
 const originalDialogMethods = ["showModal", "close"].map((name) => [name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name)] as const);
 beforeEach(() => {

@@ -149,6 +149,7 @@ jobs:
           port: ${{ secrets.SSH_PORT || '22' }}
           envs: ENV_FILE_CONTENT
           script: |
+            set -e
             TARGET_DIR="/opt/igen-erp/staging"
             IMAGE_TAG="develop"
             CONTAINER_NAME="igen-erp-staging"
@@ -168,11 +169,11 @@ jobs:
             IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose pull
 
             # Khởi động lại container mới (Docker compose tự động recreate và restart với downtime tối thiểu)
-            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose up -d --remove-orphans
+            IMAGE_TAG="$IMAGE_TAG" CONTAINER_NAME="$CONTAINER_NAME" docker compose up -d --pull never --remove-orphans
 
             # Giải phóng dung lượng ổ đĩa bằng cách xóa các image dangling/rác cũ và build cache
-            docker image prune -f
-            docker builder prune -f
+            docker image prune -f || echo "Warning: Docker image cleanup failed"
+            docker builder prune -f || echo "Warning: Docker build cache cleanup failed"
 
       # --- Triển khai lên Production (nhánh production) ---
       - name: Copy docker-compose.yml to Production VPS

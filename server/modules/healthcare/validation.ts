@@ -49,12 +49,18 @@ export const hospitalVisitInput = Joi.object<Omit<RecordInput<Visit>, "patientId
 
 export const appointmentInput = Joi.object<RecordInput<Appointment>>({
   patientId: recordId, visitId: optionalId, doctorId: optionalId, doctorName: text(180), roomId: optionalId,
-  startsAt: instant, endsAt: instant, status: Joi.string().valid(...appointmentStatuses).default("scheduled"), note: text(1000),
+  scheduledOn: localDate.optional(), startsAt: instant.allow("").optional(), endsAt: instant.allow("").optional(),
+  status: Joi.string().valid(...appointmentStatuses).default("scheduled"), note: text(1000),
+}).custom((value, helpers) => {
+  if (!value.scheduledOn && !value.startsAt) return helpers.error("any.custom", { message: "Chọn ngày hẹn." });
+  if (Boolean(value.startsAt) !== Boolean(value.endsAt)) return helpers.error("any.custom", { message: "Điền cả giờ bắt đầu và giờ kết thúc, hoặc để trống cả hai." });
+  return value;
 }).required();
 
 export const careInput = Joi.object<RecordInput<CareTask>>({
-  patientId: recordId, appointmentId: optionalId, visitId: optionalId, assigneeId: Joi.string().hex().length(24).required(),
-  title: requiredText(200), dueOn: localDate.required(), status: Joi.string().valid(...careStatuses).default("open"), result: text(1000),
+  patientId: recordId, appointmentId: optionalId, visitId: optionalId,
+  assigneeId: Joi.string().hex().length(24).allow("").optional(),
+  title: requiredText(200), details: text(4000), dueOn: localDate.required(), status: Joi.string().valid(...careStatuses).default("open"), result: text(1000),
 }).required();
 
 export const catalogInput = Joi.object<RecordInput<CatalogItem>>({
@@ -103,11 +109,18 @@ export const isHoldingAppointment = (status: Appointment["status"]) =>
   status === "scheduled" || status === "confirmed" || status === "arrived";
 
 export function appointmentReservations(value: RecordInput<Appointment>) {
+  if (!value.startsAt && !value.endsAt) {
+    return { ...value, scheduledOn: value.scheduledOn!, startsAt: "", endsAt: "", reservations: [] };
+  }
   const start = Date.parse(value.startsAt);
   const end = Date.parse(value.endsAt);
   const step = 15 * 60 * 1000;
   if (!Number.isFinite(start) || !Number.isFinite(end) || start % step || end % step || end <= start || end - start > 8 * 60 * 60 * 1000) {
     throw new ValidationError("VALIDATION_FAILED", "Chọn giờ theo mốc 15 phút. Giờ kết thúc phải sau giờ bắt đầu và lịch tối đa 8 giờ.", { fields: ["startsAt", "endsAt"] });
+  }
+  const startDay = new Date(start + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (value.scheduledOn && value.scheduledOn !== startDay) {
+    throw new ValidationError("VALIDATION_FAILED", "Ngày hẹn phải trùng với ngày của giờ bắt đầu.", { fields: ["scheduledOn", "startsAt"] });
   }
   const reservations: string[] = [];
   if (isHoldingAppointment(value.status)) {
@@ -117,5 +130,6 @@ export function appointmentReservations(value: RecordInput<Appointment>) {
       if (value.roomId) reservations.push(`room:${value.roomId}:${slot}`);
     }
   }
-  return { ...value, startsAt: new Date(start).toISOString(), endsAt: new Date(end).toISOString(), reservations };
+  return { ...value, scheduledOn: value.scheduledOn || startDay,
+    startsAt: new Date(start).toISOString(), endsAt: new Date(end).toISOString(), reservations };
 }

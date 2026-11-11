@@ -124,7 +124,9 @@ export function timeLabel(value: string) {
 }
 
 export function dateTimeControl(value = "") {
-  return value ? new Date(Date.parse(value) + 7 * 3_600_000).toISOString().slice(0, 16) : "";
+  if (!value) return "";
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Date(timestamp + 7 * 3_600_000).toISOString().slice(0, 16) : "";
 }
 
 export function formError(error: unknown) {

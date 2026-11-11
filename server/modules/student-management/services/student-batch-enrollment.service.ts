@@ -119,27 +119,22 @@ export class StudentBatchEnrollmentService {
         attendanceByStudent.set(record.studentId, (attendanceByStudent.get(record.studentId) || 0) + 1);
       }
     }
-    if (attendanceByStudent.size === 0) return;
-
-    const studentIds = [...attendanceByStudent.keys()];
     const enrollments = await StudentBatchEnrollment.find({
       ownerId: batch.ownerId,
       branchId: batch.branchId,
       batchId: String(batch._id),
-      studentId: { $in: studentIds },
     });
-    const enrollmentByStudent = new Map(enrollments.map((enrollment) => [enrollment.studentId, enrollment]));
     const defaultAllowedSessions = getPlannedSessionCount(batch);
 
     const updates: Array<{ enrollment: (typeof enrollments)[number]; attendedSessions: number }> = [];
-    for (const studentId of studentIds) {
+    for (const enrollment of enrollments) {
+      const studentId = enrollment.studentId;
       const attendedSessions = attendanceByStudent.get(studentId) || 0;
-      const enrollment = enrollmentByStudent.get(studentId);
-      const allowedSessions = enrollment?.allowedSessions || defaultAllowedSessions;
+      const allowedSessions = enrollment.allowedSessions || defaultAllowedSessions;
       if (allowedSessions > 0 && attendedSessions > allowedSessions) {
         throw new AttendanceSessionLimitError(studentId, allowedSessions);
       }
-      if (enrollment && enrollment.attendedSessions !== attendedSessions) updates.push({ enrollment, attendedSessions });
+      if (enrollment.attendedSessions !== attendedSessions) updates.push({ enrollment, attendedSessions });
     }
     for (const { enrollment, attendedSessions } of updates) {
       enrollment.attendedSessions = attendedSessions;

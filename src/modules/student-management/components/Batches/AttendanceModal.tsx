@@ -122,12 +122,12 @@ export function AttendanceModal({
   };
 
   const handleDeleteSession = async (date: string) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa dữ liệu điểm danh ngày ${formatDate(date)} không?`)) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa buổi học ngày ${formatDate(date)} khỏi lịch điểm danh? Dữ liệu điểm danh của buổi này (nếu có) cũng sẽ bị xóa. Bạn có thể bổ sung ngày học bù sau.`)) return;
     try {
       await apiFetch(`/batches/${batch.id}/attendance?date=${date}`, {
         method: 'DELETE',
       });
-      toast.success('Đã xóa dữ liệu điểm danh.');
+      toast.success('Đã xóa buổi học. Bạn có thể bổ sung ngày học bù sau.');
       await reloadEnrollments();
       onSuccess();
     } catch (error: unknown) {
@@ -235,8 +235,9 @@ export function AttendanceModal({
               Danh sách buổi học theo lịch trình
             </h5>
             {(() => {
-              const sDates = getScheduledDates(batch.startDate, batch.endDate, batch.daysOfWeek);
-              const exDates = (batch.attendanceSessions || []).map(s => s.date).filter(d => !sDates.includes(d));
+              const cancelledDates = new Set(batch.cancelledSessionDates || []);
+              const sDates = getScheduledDates(batch.startDate, batch.endDate, batch.daysOfWeek).filter(d => !cancelledDates.has(d));
+              const exDates = (batch.attendanceSessions || []).map(s => s.date).filter(d => !sDates.includes(d) && !cancelledDates.has(d));
               const allDates = [...sDates, ...exDates].sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
               if (allDates.length === 0) {
@@ -301,16 +302,15 @@ export function AttendanceModal({
                             >
                               {isTaken ? 'Chỉnh sửa' : 'Điểm danh'}
                             </button>
-                            {isTaken && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteSession(date)}
-                                className="p-1 text-slate-450 hover:text-rose-650 rounded-lg cursor-pointer"
-                                title="Xóa dữ liệu điểm danh"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSession(date)}
+                              className="p-1 text-slate-450 hover:text-rose-650 rounded-lg cursor-pointer"
+                              title="Xóa buổi học khỏi lịch"
+                              aria-label={`Xóa buổi học ngày ${formatDate(date)} khỏi lịch`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
                       </div>

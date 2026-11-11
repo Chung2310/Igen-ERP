@@ -1,13 +1,13 @@
 import { Router, type RequestHandler, type Response } from "express";
 import Joi from "joi";
 import multer from "multer";
-import type { Db } from "mongodb";
+import type { Db, Filter } from "mongodb";
 import { getEffectivePermissions, hasAnyPermission, requirePermission, type AuthenticatedRequest } from "../../middleware/auth";
 import { NotFoundError, PayloadTooLargeError, ValidationError } from "../../errors/app-error";
 import { appointmentStatuses, careStatuses, visitStatuses, type HealthcareList, type HealthcareOverview, type HealthcarePatientList, type ImportKind, type ImportRowStatus } from "../../../shared/healthcare";
 import { getImportJob, importHistory, importTemplate, listImportRows, queueImportCommit, queueImportFile, retryImportJob } from "./imports";
 import { calendarDay, dateRangeFilter, dayBounds, healthcareScope, healthcareStaff, listFilter, prepareAppointment, prepareCare, prepareVisit } from "./operations";
-import { createGeneratedPatient, createRecord, findRecord, healthcareDb, listClinicalRecords, listRecords, patientReferences, patientSearchFilter, privateFields, records, scopeFilter, textMatches, updateRecord, visible, type HealthcareActor } from "./store";
+import { createGeneratedPatient, createRecord, findRecord, healthcareDb, listClinicalRecords, listRecords, patientReferences, patientSearchFilter, privateFields, records, scopeFilter, textMatches, updateRecord, visible, type HealthcareActor, type StoredAppointment } from "./store";
 import { appointmentInput, careInput, catalogInput, input, listInput, listSearchInput, patientCreateInput, patientInput, patientSearchInput, recordId, versioned, visitInput } from "./validation";
 
 export const healthcareRouter = Router();
@@ -42,7 +42,9 @@ healthcareRouter.get("/overview", route(async (req, res, db, actor) => {
   const scope = scopeFilter(actor);
   const visits = listFilter(query, "visitedOn", visitStatuses);
   const range = query.from || query.to ? visits : { visitedOn: today };
-  const appointmentFilter = { ...scope, startsAt: { $gte: start, $lt: end }, status: { $in: ["scheduled", "confirmed", "arrived"] } } as const;
+  const appointmentFilter: Filter<StoredAppointment> = { ...scope, $or: [
+    { scheduledOn: today }, { startsAt: { $gte: start, $lt: end } },
+  ], status: { $in: ["scheduled", "confirmed", "arrived"] } };
   const careFilter = { ...scope, dueOn: { $lte: today }, status: { $in: ["open", "in_progress"] } } as const;
   const grants = await getEffectivePermissions(actor.actorId, req.user!.role, actor.companyCode);
   const can = (area: string) => hasAnyPermission(grants, [`healthcare-${area}:read`]);
@@ -52,8 +54,8 @@ healthcareRouter.get("/overview", route(async (req, res, db, actor) => {
     can("appointments") ? records(db, "appointments").countDocuments(appointmentFilter) : null,
     can("care") ? records(db, "care").countDocuments(careFilter) : null,
     can("appointments") ? records(db, "appointments").find(appointmentFilter)
-      .project<HealthcareOverview["todayAppointments"][number]>({ _id: 1, patientId: 1, startsAt: 1, status: 1 })
-      .sort({ startsAt: 1 }).limit(8).toArray() : [],
+      .project<HealthcareOverview["todayAppointments"][number]>({ _id: 1, patientId: 1, scheduledOn: 1, startsAt: 1, status: 1 })
+      .sort({ scheduledOn: 1, startsAt: 1 }).limit(8).toArray() : [],
     can("care") ? records(db, "care").find(careFilter)
       .project<HealthcareOverview["dueCare"][number]>({ _id: 1, patientId: 1, dueOn: 1, title: 1 })
       .sort({ dueOn: 1 }).limit(8).toArray() : [],
@@ -128,7 +130,7 @@ const appointmentListing = route(async (req, res, db, actor) => {
     ? await records(db, "catalog").distinct("_id", { ...scopeFilter(actor), kind: "doctor", $or: textMatches(query.q, ["code", "name"]) })
     : [];
   const page = await listClinicalRecords(records(db, "appointments"), actor, listFilter(query, "startsAt", appointmentStatuses),
-    { startsAt: -1, _id: -1 }, query, ["doctorName"], doctorIds.length ? [{ doctorId: { $in: doctorIds } }] : []);
+    { scheduledOn: -1, startsAt: -1, _id: -1 }, query, ["doctorName"], doctorIds.length ? [{ doctorId: { $in: doctorIds } }] : []);
   res.json(await withPatients(db, actor, page));
 });
 healthcareRouter.get("/appointments", permission("appointments", "read"), appointmentListing);
@@ -148,7 +150,7 @@ healthcareRouter.patch("/appointments/:id", permission("appointments"), route(as
 const careListing = route(async (req, res, db, actor) => {
   const query = clinicalQuery(req);
   const page = await listClinicalRecords(records(db, "care"), actor, listFilter(query, "dueOn", careStatuses),
-    { dueOn: 1, _id: 1 }, query, ["title"]);
+    { dueOn: 1, _id: 1 }, query, ["title", "details", "result"]);
   res.json(await withPatients(db, actor, page));
 });
 healthcareRouter.get("/care", permission("care", "read"), careListing);
