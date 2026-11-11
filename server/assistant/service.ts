@@ -24,7 +24,7 @@ import { formatHealthcareResult, healthcareValue } from "./healthcare-result";
 import { formatAssistantTemporalValue } from "../../src/shared/assistant-date";
 import { completeAssistantOperation, hasAssistantUpdatePayload as hasUpdatePayload, type AssistantCompletion } from "./completion";
 export { missingOptionalCreateFields } from "./completion";
-export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
+export interface TurnInput { conversationId: string; requestId: string; mode?: "work" | "qa"; research?: boolean; text?: string; attachment?: AssistantTableAttachment; referenceSelections?: Record<string, string[]>; skipReferenceKeys?: string[]; trainingContent?: AssistantTrainingContentForm; decision?: { id: string; confirmed: boolean; password?: string }; }
 interface PendingAction { id: string; actionId: string; provided: Record<string, unknown>; intent: string; resolved?: Record<string, AssistantValue>; selectedProductVariant?: { productId: string; variantId: string }; explicitReferenceKeys?: string[]; workflowVersion: number; preview: NonNullable<AssistantReply["action"]>; attachmentSummary?: { fieldKey: string; fileName: string; rowCount: number }; confirmationDetails?: Record<string, Array<{ label: string; value: string }>>; awaitingReferenceKeys?: string[]; awaitingReferenceLabels?: Record<string, string>; awaitingPathReferenceKeys?: string[]; skippedReferenceKeys?: string[]; referenceSelections?: AssistantReferenceSelection[]; defaultedKeys?: string[]; }
 function restorePendingActionId(pending: PendingAction | null): PendingAction | null {
   if (!pending || operationById(pending.actionId)) return pending;
@@ -56,9 +56,10 @@ function sanitizeActionPreview(preview: NonNullable<AssistantReply["action"]>, o
     return { ...item, value: field ? safeAssistantPreviewFieldValue(field, item.value, item.value) : hideInternalAssistantIds(item.value) };
   }) };
 }
-function sanitizeReplyPreview(reply: AssistantReply | null | undefined, operation?: AssistantOperation): AssistantReply | null {
+function sanitizeReplyPreview(reply: AssistantReply | null | undefined, operation?: AssistantOperation, mode: TurnInput["mode"] = "work"): AssistantReply | null {
   if (!reply) return null;
-  return presentAssistantReply({ ...reply, ...(reply.action ? { action: sanitizeActionPreview(reply.action, operation) } : {}) });
+  const sanitized = { ...reply, ...(reply.action ? { action: sanitizeActionPreview(reply.action, operation) } : {}) };
+  return mode === "qa" ? sanitized : presentAssistantReply(sanitized);
 }
 const isAssistantRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 function parseStructuredAssistantValue(value: unknown) {
@@ -1241,7 +1242,7 @@ export async function conversationState(req: AuthenticatedRequest, conversationI
   const session = await AssistantSessionModel.findOne(scope).lean();
   const turn = await AssistantTurnModel.findOne(scope).sort({ createdAt: -1 }).lean();
   const operation = operationById((session?.pending as PendingAction | undefined)?.actionId || turn?.actionId || "");
-  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null, operation) || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
+  return { messages: session?.messages || [], lastReply: sanitizeReplyPreview(session?.lastReply as AssistantReply | null, operation, session?.mode === "qa" ? "qa" : "work") || null, busy: Boolean(session?.busy), mode: session?.mode === "qa" ? "qa" : "work", requestId: turn && ["processing", "executing"].includes(turn.status) ? turn.requestId : undefined };
 }
 
 export async function conversationMemory(req: AuthenticatedRequest, conversationId: string) {
@@ -1369,7 +1370,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   const scope = scopeOf(req);
   const assistantMode = input.mode || "work";
   await ensureAssistantIndexes();
-  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, mode: assistantMode, text: input.text || "", attachment: input.attachment || null, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
+  const digest = createHash("sha256").update(JSON.stringify({ conversationId: input.conversationId, mode: assistantMode, research: assistantMode === "qa", text: input.text || "", attachment: input.attachment || null, referenceSelections: input.referenceSelections || null, skipReferenceKeys: input.skipReferenceKeys || null, trainingContent: input.trainingContent || null, decision: input.decision ? { id: input.decision.id, confirmed: input.decision.confirmed } : null })).digest("hex");
   const requestFilter = { ...scope, requestId: input.requestId };
   let turn: any;
   try { turn = await AssistantTurnModel.create({ ...requestFilter, conversationId: input.conversationId, digest }); }
@@ -1386,7 +1387,7 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
         const pendingAction = stored?.pending as PendingAction | undefined;
         if (pendingAction?.id === cached.action.id) operation = operationById(pendingAction.actionId);
       }
-      return sanitizeReplyPreview(cached, operation)!;
+      return sanitizeReplyPreview(cached, operation, assistantMode)!;
     }
     return Date.now() - new Date(existing.updatedAt).getTime() > 120_000 ? uncertainReply() : processingReply();
   }
@@ -1828,8 +1829,10 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
           requestId: input.requestId,
           pendingDocumentRequest,
           question: input.text,
+          research: true,
           messages: session.messages as { role: "user" | "assistant"; content: string }[],
           instructions: settings?.instructions || "",
+          responseRules,
           memories,
           sessionMemory,
       });
@@ -2078,21 +2081,34 @@ export async function processTurn(req: AuthenticatedRequest, input: TurnInput): 
   }
   const defaultedLabels = completion?.workflow.fields.filter(field => completion?.defaultedKeys?.includes(field.key))
     .flatMap(field => [field.label, localizedAssistantFieldLabel(field.apiKey || field.key, "", completion?.operation.id)]) || [];
-  reply = presentAssistantReply(reply, defaultedLabels);
-  // Keep uncertainty explicit; stylistic rewriting must not invent a selected operation.
-  if (!needsIntentClarification) reply = await applyAssistantResponseRules(reply, responseRules);
-  reply = {
-    ...reply,
-    reply: hideInternalAssistantIds(normalizeAssistantReply(reply.reply, input.text || "")),
-    ...(reply.action ? { action: sanitizeActionPreview(reply.action) } : {}),
-  };
-  reply = presentAssistantReply(reply, defaultedLabels);
+  // General conversation already applies account preferences in its own prompt.
+  // ERP presentation would strip explanations about workflows and alter code examples.
+  if (assistantMode !== "qa") {
+    reply = presentAssistantReply(reply, defaultedLabels);
+    // Keep uncertainty explicit; stylistic rewriting must not invent a selected operation.
+    if (!needsIntentClarification) reply = await applyAssistantResponseRules(reply, responseRules);
+    reply = {
+      ...reply,
+      reply: hideInternalAssistantIds(normalizeAssistantReply(reply.reply, input.text || "")),
+      ...(reply.action ? { action: sanitizeActionPreview(reply.action) } : {}),
+    };
+    reply = presentAssistantReply(reply, defaultedLabels);
+  }
   try {
     await AssistantTurnModel.updateOne({ _id: turn._id }, { $set: {
       status: reply.status === "uncertain" ? "uncertain" : "completed", result: reply,
       ...(completion?.followUp ? { "payload.__assistantFollowUp": completion.followUp } : {}),
     } });
-    const nextMessages = [...history, { role: "assistant", content: reply.reply, createdAt: new Date().toISOString(), ...(reply.files?.length ? { files: reply.files } : {}) }];
+    const messagesWithReply = [...history, { role: "assistant", content: reply.reply, createdAt: new Date().toISOString(), ...(reply.files?.length ? { files: reply.files } : {}), ...(reply.sources?.length ? { sources: reply.sources } : {}), ...(reply.illustrations?.length ? { illustrations: reply.illustrations } : {}) }].slice(-40);
+    let retainedIllustrations = 0;
+    const nextMessages = messagesWithReply.slice().reverse().map((message: any) => {
+      if (!Array.isArray(message.illustrations) || !message.illustrations.length) return message;
+      retainedIllustrations += 1;
+      if (retainedIllustrations <= 6) return message;
+      const withoutIllustrations = { ...message };
+      delete withoutIllustrations.illustrations;
+      return withoutIllustrations;
+    }).reverse();
     const nextMessageCount = Math.max(Number(session.messageCount) || 0, session.messages.length) + 2;
     const sessionUpdate: Record<string, unknown> = {
       mode: assistantMode,

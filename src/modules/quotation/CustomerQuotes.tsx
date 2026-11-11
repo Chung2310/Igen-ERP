@@ -3,6 +3,7 @@ import ErpCustomerPicker from "./ErpCustomerPicker";
 import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import ThemedSelect from "./ThemedSelect";
 import { catalogSelectionVersion, loadCatalogProducts } from "./catalog-api";
+import { userMessage } from "./user-message";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ApiError, api } from "./api";
 import { TaskProgress } from "./Feedback";
@@ -59,7 +60,7 @@ export default function CustomerQuotes({
         if (live) setQuotes(quotes);
       })
       .catch((cause) => {
-        if (live) setError(cause instanceof Error ? cause.message : "Không tải được danh sách báo giá khách.");
+        if (live) setError(userMessage(cause, "Không tải được danh sách báo giá khách."));
       })
       .finally(() => {
         if (live) setLoading(false);
@@ -430,7 +431,7 @@ function CustomerQuoteDialog({
         setCatalog(products.items);
       })
       .catch((cause) => {
-        if (live) setError(cause instanceof Error ? cause.message : "Không tải được bảng giá sản phẩm.");
+        if (live) setError(userMessage(cause, "Không tải được bảng giá sản phẩm."));
       });
     return () => {
       live = false;
@@ -444,7 +445,7 @@ function CustomerQuoteDialog({
       setTemplates(options);
       if (options.some((entry) => entry.id === defaultTemplateId)) setTemplateId(defaultTemplateId!);
     }).catch((cause) => {
-      if (live) setError(cause instanceof Error ? cause.message : "Không tải được mẫu báo giá.");
+      if (live) setError(userMessage(cause, "Không tải được mẫu báo giá."));
     });
     return () => { live = false; };
   }, []);
@@ -495,7 +496,7 @@ function CustomerQuoteDialog({
       setNotes(result.notes);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 429) onAiUsed();
-      setError(cause instanceof Error ? cause.message : "Không tạo được đề xuất từ AI.");
+      setError(userMessage(cause, "Không tạo được đề xuất từ AI."));
     } finally {
       setAiLoading(false);
       setBusy(false);
@@ -536,7 +537,7 @@ function CustomerQuoteDialog({
       onCreated(quote._id);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 429) onQuotaExceeded();
-      setError(cause instanceof Error ? cause.message : "Không tạo được báo giá khách hàng.");
+      setError(userMessage(cause, "Không tạo được báo giá khách hàng."));
     } finally {
       setBusy(false);
     }

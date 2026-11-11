@@ -1,4 +1,5 @@
 import { downloadQuotationFile } from "./api";
+import { userMessage } from "./user-message";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { ApiError, api, apiUploadWithProgress, formatDate } from "./api";
 import FilePreview, { type PreviewFile } from "./FilePreview";
@@ -6,6 +7,7 @@ import QuotationEmptyIllustration from "./QuotationEmptyIllustration";
 import ThemedSelect from "./ThemedSelect";
 import { TaskProgress, useAppNotification, type ConfirmOptions, type TaskProgressState } from "./Feedback";
 import "./quote-template.css";
+import { templateFileError } from "./template-upload";
 
 export interface TemplateDetails {
   id: string;
@@ -56,7 +58,7 @@ export function QuoteTemplatePanel({
 }) {
   const [template, setTemplate] = useState<TemplateDetails | null>(null);
   const [category, setCategory] = useState<TemplateCategory>(initialCategory === "settlement" ? "acceptance" : initialCategory);
-  const categoryLabel = templateTabs.find((tab) => tab.id === category)!.label;
+  const categoryLabel = templateTabs.find((tab) => tab.id === category)?.label ?? "Mẫu quyết toán";
   const [templates, setTemplates] = useState<TemplateDetails[]>([]);
   const [defaultTemplateId, setDefaultTemplateId] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -107,7 +109,7 @@ export function QuoteTemplatePanel({
     } catch (cause) {
       if (version !== loadVersion.current) return;
       setLoadFailed(true);
-      notify(cause instanceof Error ? cause.message : `Không tải được ${categoryLabel.toLowerCase()}.`, "error");
+      notify(userMessage(cause, `Không tải được ${categoryLabel.toLowerCase()}.`), "error");
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
@@ -132,7 +134,7 @@ export function QuoteTemplatePanel({
       setNextCursor(result.nextCursor);
     } catch (cause) {
       if (version !== loadVersion.current) return;
-      notify(cause instanceof Error ? cause.message : `Không tải thêm được ${categoryLabel.toLowerCase()}.`, "error");
+      notify(userMessage(cause, `Không tải thêm được ${categoryLabel.toLowerCase()}.`), "error");
     } finally {
       if (version === loadVersion.current) setLoadingMore(false);
     }
@@ -157,7 +159,7 @@ export function QuoteTemplatePanel({
       onUsageChanged?.();
       notify(`Đã xóa ${categoryLabel.toLowerCase()} thành công.`, "success");
     } catch (cause) {
-      notify(cause instanceof Error ? cause.message : `Không xóa được ${categoryLabel.toLowerCase()}.`, "error");
+      notify(userMessage(cause, `Không xóa được ${categoryLabel.toLowerCase()}.`), "error");
     } finally {
       setDeletingId(null);
     }
@@ -171,7 +173,7 @@ export function QuoteTemplatePanel({
       await load();
       notify(`Đã chuyển mẫu sang ${templateTabs.find((tab) => tab.id === nextCategory)!.label.toLowerCase()}.`, "success");
     } catch (cause) {
-      notify(cause instanceof Error ? cause.message : "Không chuyển được nhóm mẫu.", "error");
+      notify(userMessage(cause, "Không chuyển được nhóm mẫu."), "error");
     } finally {
       setMovingId(null);
     }
@@ -205,7 +207,7 @@ export function QuoteTemplatePanel({
   return (
     <div className="templates-page">
       {!selecting && <nav className="qt-category-tabs" aria-label="Loại mẫu tài liệu">
-        {templateTabs.map((tab) => <button key={tab.id} type="button" className={category === tab.id ? "active" : ""} aria-current={category === tab.id ? "page" : undefined} onClick={() => { loadVersion.current += 1; setCategory(tab.id); setSearch(""); setFilterFormat("all"); setTemplates([]); setNextCursor(null); setLoadingMore(false); }}>{tab.label}</button>)}
+        {templateTabs.map((tab) => <button key={tab.id} type="button" className={category === tab.id ? "active" : ""} aria-current={category === tab.id ? "page" : undefined} onClick={() => { if (category === tab.id) return; loadVersion.current += 1; setCategory(tab.id); setSearch(""); setFilterFormat("all"); setTemplates([]); setNextCursor(null); setLoadingMore(false); }}>{tab.label}</button>)}
       </nav>}
       {/* Header Hero Banner */}
       <section className="qt-header-banner">
@@ -362,27 +364,27 @@ export function QuoteTemplatePanel({
             >
               {category === "quote" ? "Mặc định" : "Mới nhất"} <span className="qt-filter-count">{defaultTemplateId ? 1 : 0}</span>
             </button>
-            {category !== "settlement" && <button
+            <button
               type="button"
               className={`qt-filter-btn ${filterFormat === "docx" ? "active" : ""}`}
               onClick={() => setFilterFormat("docx")}
             >
               Word (.docx) <span className="qt-filter-count">{stats.docxCount}</span>
-            </button>}
-            {(category !== "contract" && category !== "settlement") && <button
+            </button>
+            <button
               type="button"
               className={`qt-filter-btn ${filterFormat === "xlsx" ? "active" : ""}`}
               onClick={() => setFilterFormat("xlsx")}
             >
               Excel (.xlsx) <span className="qt-filter-count">{stats.xlsxCount}</span>
-            </button>}
-            {(category !== "acceptance" && category !== "contract" && category !== "settlement") && <button
+            </button>
+            <button
               type="button"
               className={`qt-filter-btn ${filterFormat === "pdf" ? "active" : ""}`}
               onClick={() => setFilterFormat("pdf")}
             >
               PDF (.pdf) <span className="qt-filter-count">{stats.pdfCount}</span>
-            </button>}
+            </button>
           </div>
         </div>
 
@@ -519,8 +521,7 @@ export function QuoteTemplatePanel({
                         value=""
                         disabled={movingId === item.id || Boolean(deletingId)}
                         onChange={(next) => { if (next) void moveTemplate(item, next as TemplateCategory); }}
-                        options={[{ value: "", label: "Chuyển nhóm" }, ...templateTabs.filter((tab) => tab.id !== category
-                          && (tab.id === "contract" ? item.extension === "docx" : true))
+                        options={[{ value: "", label: "Chuyển nhóm" }, ...templateTabs.filter((tab) => tab.id !== category)
                           .map((tab) => ({ value: tab.id, label: tab.label }))]}
                       />
                     )}
@@ -614,7 +615,7 @@ function CreateTemplateDialog({
   onSaved: (template: TemplateDetails) => void;
   onQuotaExceeded?: () => void;
 }) {
-  const categoryLabel = templateTabs.find((tab) => tab.id === category)!.label;
+  const categoryLabel = templateTabs.find((tab) => tab.id === category)?.label ?? "Mẫu quyết toán";
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -646,16 +647,10 @@ function CreateTemplateDialog({
 
   const handleFileChange = (selected: File | null) => {
     if (!selected) return;
-    if (category === "settlement" && !/\.xlsx$/i.test(selected.name)) {
-      setError("Mẫu quyết toán chỉ hỗ trợ file Excel (.xlsx).");
-      return;
-    }
-    if (category === "acceptance" && !/\.(docx|xlsx)$/i.test(selected.name)) {
-      setError("Nhóm nghiệm thu và quyết toán chỉ nhận file Word (.docx) hoặc Excel (.xlsx).");
-      return;
-    }
-    if (category === "contract" && !/\.docx$/i.test(selected.name)) {
-      setError("Mẫu hợp đồng và nghiệm thu chỉ hỗ trợ file Word (.docx).");
+    const error = templateFileError(selected, category);
+    if (error) {
+      setFile(null);
+      setError(error);
       return;
     }
     setFile(selected);
@@ -681,24 +676,9 @@ function CreateTemplateDialog({
       setError(`Vui lòng nhập tên ${categoryLabel.toLowerCase()}.`);
       return;
     }
-    if (category === "settlement" && !/\.xlsx$/i.test(file.name)) {
-      setError("Mẫu quyết toán chỉ hỗ trợ file Excel (.xlsx).");
-      return;
-    }
-    if (category === "acceptance" && !/\.(docx|xlsx)$/i.test(file.name)) {
-      setError("Nhóm nghiệm thu và quyết toán chỉ nhận file Word (.docx) hoặc Excel (.xlsx).");
-      return;
-    }
-    if (category === "contract" && !/\.docx$/i.test(file.name)) {
-      setError("Mẫu hợp đồng và nghiệm thu chỉ hỗ trợ file Word (.docx).");
-      return;
-    }
-    if (!/\.(docx|xlsx|pdf)$/i.test(file.name)) {
-      setError("Hãy chọn file Word (.docx), Excel (.xlsx) hoặc PDF.");
-      return;
-    }
-    if (!file.size || file.size > 10 * 1024 * 1024) {
-      setError("File mẫu phải có dung lượng từ 1 byte đến tối đa 10 MB.");
+    const error = templateFileError(file, category);
+    if (error) {
+      setError(error);
       return;
     }
 
@@ -717,14 +697,14 @@ function CreateTemplateDialog({
         (progress) =>
           setTaskProgress(
             progress >= 100
-              ? { label: "Đang kiểm tra và lưu mẫu", detail: "Đang xử lý file trên máy chủ…" }
+              ? { label: "Đang kiểm tra và lưu mẫu", detail: "Đang hoàn thiện file mẫu…" }
               : { label: `Đang tải ${categoryLabel.toLowerCase()} lên`, progress, detail: "Tiến độ gửi file" }
           )
       );
       onSaved(result.template);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 429) onQuotaExceeded?.();
-      setError(cause instanceof Error ? cause.message : `Không lưu được ${categoryLabel.toLowerCase()}.`);
+      setError(userMessage(cause, `Không lưu được ${categoryLabel.toLowerCase()}.`));
     } finally {
       setBusy(false);
       setTaskProgress(null);
@@ -753,7 +733,7 @@ function CreateTemplateDialog({
           </div>
           <div>
             <h2 id="create-template-title">Tải lên {categoryLabel} mới</h2>
-            <p>{category === "settlement" ? "Chỉ hỗ trợ bảng tính Excel (.xlsx)" : (category === "acceptance" || category === "contract") ? "Chỉ hỗ trợ tài liệu Word (.docx)" : "Hỗ trợ tài liệu Word (.docx), bảng tính Excel (.xlsx) hoặc tài liệu PDF"}</p>
+            <p>Hỗ trợ Word (.docx), Excel (.xlsx) hoặc PDF với bố cục tùy ý, không cần trường điền sẵn.</p>
           </div>
         </div>
 
@@ -783,7 +763,7 @@ function CreateTemplateDialog({
               >
                 <input
                   type="file"
-                  accept={category === "settlement" ? ".xlsx" : category === "acceptance" ? ".docx,.xlsx" : category === "contract" ? ".docx" : ".docx,.xlsx,.pdf"}
+                  accept=".docx,.xlsx,.pdf"
                   required
                   disabled={busy}
                   onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
@@ -797,12 +777,12 @@ function CreateTemplateDialog({
                 </div>
                 <div className="qt-dropzone-text">
                   <strong>Kéo thả file mẫu vào đây, hoặc bấm để duyệt file</strong>
-                  <span>{category === "settlement" ? "Chọn file Excel (.xlsx) từ máy tính của bạn" : (category === "acceptance" || category === "contract") ? "Chọn file Word (.docx) từ máy tính của bạn" : "Chọn file Word (.docx), Excel (.xlsx) hoặc PDF từ máy tính của bạn"}</span>
+                  <span>Chọn file Word (.docx), Excel (.xlsx) hoặc PDF từ máy tính của bạn</span>
                 </div>
                 <div className="qt-dropzone-badges">
-                  {category !== "settlement" && <span className="qt-format-pill docx">.DOCX</span>}
-                  {(category !== "contract" && category !== "settlement") && <span className="qt-format-pill xlsx">.XLSX</span>}
-                  {(category !== "acceptance" && category !== "contract" && category !== "settlement") && <span className="qt-format-pill pdf">.PDF</span>}
+                  <span className="qt-format-pill docx">.DOCX</span>
+                  <span className="qt-format-pill xlsx">.XLSX</span>
+                  <span className="qt-format-pill pdf">.PDF</span>
                 </div>
               </div>
             ) : (

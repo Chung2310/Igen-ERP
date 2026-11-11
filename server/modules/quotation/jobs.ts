@@ -37,7 +37,7 @@ export async function quotationSourceHash(kind: string, id: string): Promise<str
   if (!source) throw Object.assign(new Error("Chứng từ nguồn không còn tồn tại."), { statusCode: 404 });
   return quotationDocumentHash(source);
 }
-const allowedExport = /^\/(?:quotes\/[a-f\d]{24}\/export|budget-plans\/[a-f\d]{24}\/export|contracts\/[a-f\d]{24}\/(?:file|docx)|acceptance-records\/[a-f\d]{24}\/(?:file|docx|settlement\.xlsx))$/i;
+const allowedExport = /^\/(?:quotes\/[a-f\d]{24}\/export|budget-plans\/[a-f\d]{24}\/export|contracts\/[a-f\d]{24}\/(?:file|docx)|acceptance-records\/[a-f\d]{24}\/(?:file|docx|settlement\/file|settlement\.xlsx))$/i;
 
 export async function queueQuotationExport(kind: string, sourceId: string) {
   const context = quotationContext();
