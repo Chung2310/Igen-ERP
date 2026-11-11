@@ -70,6 +70,52 @@ describe("quotation routes use ERP scope and capability checks", () => {
     await collection("quotes").insertOne(estimate); return estimate as unknown as Quote & { _id: ObjectId };
   };
   const regenerate = (quote: Quote & { _id: ObjectId }, actor = "manager", answers = { "Câu hỏi bổ sung: Cần bao nhiêu giờ?": "4 giờ" }) => request(`/quotes/${quote._id}/recalculate`, actor, { method: "POST", headers: { "If-Unmodified-Since": quote.updatedAt.toISOString() }, body: JSON.stringify({ additionalInformation: answers }) });
+  const revise = (quote: Quote & { _id: ObjectId }, actor = "manager", extra: Record<string, unknown> = {}) => request(`/quotes/${quote._id}`, actor, {
+    method: "PATCH", headers: { "If-Unmodified-Since": quote.updatedAt.toISOString() },
+    body: JSON.stringify({ items: quote.lines.map(line => ({ catalogItemId: line.catalogItemId, quantity: line.quantity })), revisionRequirements: "Điều chỉnh thành 4 giờ", ...extra }),
+  });
+  it("saves revised requirements, blocks approval and recalculates the same estimate with AI", async () => {
+    const estimate = await seedEstimate();
+    const saved = await revise(estimate);
+    expect(saved.status).toBe(200);
+    const pending = (await saved.json()).quote;
+    expect(pending).toMatchObject({ _id: String(estimate._id), requiresAiRecalculation: true, status: "needs_info", revisionRequirements: "Điều chỉnh thành 4 giờ" });
+    const blocked = await request(`/quotes/${estimate._id}/approve`, "manager", { method: "POST", headers: { "If-Unmodified-Since": pending.updatedAt } });
+    expect(blocked.status).toBe(409);
+    expect((await blocked.json()).error).toContain("chưa được áp dụng");
+    vi.spyOn(aiSubscriptionService, "available").mockResolvedValue(undefined as never);
+    const engine = vi.spyOn(estimateEngine, "recalculateEstimateWithClarifications").mockImplementation(async value => {
+      expect(value.revisionRequirements).toBe("Điều chỉnh thành 4 giờ");
+      return { ...value, requiresAiRecalculation: false, lines: value.lines.map(line => ({ ...line, quantity: 4, lineTotal: 400 })), subtotal: 400, taxAmount: 40, total: 490 };
+    });
+    const result = await revise({ ...estimate, updatedAt: new Date(pending.updatedAt) }, "manager", { recalculateWithAi: true });
+    expect(result.status).toBe(200);
+    expect((await result.json()).quote).toMatchObject({ _id: String(estimate._id), requiresAiRecalculation: false, subtotal: 400, taxAmount: 40, total: 490 });
+    expect(engine).toHaveBeenCalledOnce();
+  });
+  it("requires AI permission for inline recalculation and rejects results arriving after another edit", async () => {
+    const estimate = await seedEstimate();
+    const engine = vi.spyOn(estimateEngine, "recalculateEstimateWithClarifications");
+    expect((await revise(estimate, "editor", { recalculateWithAi: true })).status).toBe(403);
+    expect(engine).not.toHaveBeenCalled();
+    vi.spyOn(aiSubscriptionService, "available").mockResolvedValue(undefined as never);
+    engine.mockImplementation(async value => {
+      await collection("quotes").updateOne({ _id: estimate._id }, { $set: { total: 999, updatedAt: new Date(2000) } });
+      return { ...value, requiresAiRecalculation: false, total: 1 };
+    });
+    expect((await revise(estimate, "manager", { recalculateWithAi: true })).status).toBe(409);
+    expect(await collection("quotes").findOne({ _id: estimate._id })).toMatchObject({ total: 999 });
+  });
+  it("allows unanswered supplemental questions at approval while explaining unconfirmed VAT and shipping", async () => {
+    const estimate = await seedEstimate();
+    const approved = await request(`/quotes/${estimate._id}/approve`, "manager", { method: "POST", headers: { "If-Unmodified-Since": estimate.updatedAt.toISOString() } });
+    expect(approved.status).toBe(200);
+    const missing = await seedEstimate();
+    await collection("quotes").updateOne({ _id: missing._id }, { $set: { taxRateConfirmed: false, shippingFeeConfirmed: false } });
+    const blocked = await request(`/quotes/${missing._id}/approve`, "manager", { method: "POST", headers: { "If-Unmodified-Since": missing.updatedAt.toISOString() } });
+    expect(blocked.status).toBe(409);
+    expect((await blocked.json()).error).toMatch(/VAT chưa chốt.*Phí vận chuyển chưa chốt/);
+  });
   it("regenerates an estimate from answers, preserving snapshot prices, tax and shipping", async () => {
     const estimate = await seedEstimate(), source = new ObjectId();
     await collection("quoteRequests").insertOne({ ...scope(), _id: source, requestText: "Dịch vụ QA", suggestedProducts: [{ name: "Hạng mục cũ", quantity: 1, unit: "cái" }] });

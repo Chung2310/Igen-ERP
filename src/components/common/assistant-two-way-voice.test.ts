@@ -64,11 +64,14 @@ it("submits interim text if the browser never emits end after stop", () => {
   expect(recognition.abort).toHaveBeenCalledOnce();
 });
 
-it("keeps listening through an active utterance until speechend", () => {
+it("keeps listening while a longer utterance continues producing results", () => {
   const { recognition, onSubmit } = setup();
   recognition.onspeechstart?.();
   hear(recognition, "lập kế hoạch");
-  vi.advanceTimersByTime(10000);
+  for (let i = 0; i < 10; i++) {
+    vi.advanceTimersByTime(1000);
+    hear(recognition, `lập kế hoạch ${i + 1}`);
+  }
   expect(recognition.stop).not.toHaveBeenCalled();
   hear(recognition, "lập kế hoạch cho tháng tới");
   recognition.onspeechend?.();
@@ -110,6 +113,28 @@ it("recovers from no-speech without reporting an error", () => {
   expect(Recognition.instances).toHaveLength(2);
   expect(onSubmit).not.toHaveBeenCalled();
   expect(onError).not.toHaveBeenCalled();
+});
+
+it("reconnects after a temporary network error without sending or disabling the conversation", () => {
+  const { recognition, onSubmit, onError } = setup();
+  recognition.onerror?.({ error: "network" });
+  vi.advanceTimersByTime(1000);
+  expect(Recognition.instances).toHaveLength(1);
+  vi.advanceTimersByTime(1000);
+  expect(Recognition.instances).toHaveLength(2);
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect(onError).not.toHaveBeenCalled();
+  hear(Recognition.instances[1], "yêu cầu tiếp theo", true);
+  Recognition.instances[1].onend?.();
+  expect(onSubmit).toHaveBeenCalledExactlyOnceWith("yêu cầu tiếp theo");
+});
+
+it("eventually submits quiet interim text when the browser omits speechend", () => {
+  const { recognition, onSubmit } = setup();
+  recognition.onspeechstart?.();
+  hear(recognition, "xem danh sách khách hàng");
+  vi.advanceTimersByTime(10000);
+  expect(onSubmit).toHaveBeenCalledExactlyOnceWith("xem danh sách khách hàng");
 });
 
 it("stops after a permission error without retrying", () => {

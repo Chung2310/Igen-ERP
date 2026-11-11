@@ -63,11 +63,11 @@ describe("ChatbotWidget workflow conversation", () => {
     const reply = "Mình sẽ hiển thị câu trả lời theo từng ký tự khi đã soạn xong.";
     let finishTurn: (result: { status: "completed"; reply: string }) => void = () => undefined;
     mocks.turn.mockReturnValueOnce(new Promise<{ status: "completed"; reply: string }>(resolve => { finishTurn = resolve; }));
-    vi.stubGlobal("matchMedia", vi.fn((query: string) => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() })));
+    vi.stubGlobal("matchMedia", vi.fn((query: string) => ({ matches: true, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() })));
     render(<ChatbotWidget mode="standalone" storageScope="company:user-a" />);
     await waitFor(() => expect(mocks.state).toHaveBeenCalled());
     await send("Trả lời từ từ giúp mình");
-    expect(await screen.findByText("Đang soạn câu trả lời...")).toBeTruthy();
+    expect(await screen.findByText("Đang nghiên cứu và đối chiếu nhiều nguồn…")).toBeTruthy();
 
     finishTurn({ status: "completed", reply });
     const log = screen.getByRole("log", { name: "Nội dung trò chuyện" });

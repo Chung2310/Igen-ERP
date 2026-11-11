@@ -21,6 +21,7 @@ export type SpeechRecognitionEvent = {
 
 export const voiceSilenceMs = 1400;
 const finalResultWaitMs = 1200;
+const speechEventTimeoutMs = 6000;
 
 type Options = {
   Recognition: SpeechRecognitionConstructor;
@@ -50,7 +51,7 @@ export function startTwoWayVoice(options: Options): () => void {
     options.onRecognitionChange(null, recognition);
   };
   const abort = (recognition: SpeechRecognitionInstance) => { try { recognition.abort(); } catch { /* Already disconnected. */ } };
-  const restart = () => { if (active) restartTimer = setTimeout(begin, 400); };
+  const restart = (delay = 400) => { if (active) restartTimer = setTimeout(begin, delay); };
   function begin() {
     if (!active || current) return;
     let recognition: SpeechRecognitionInstance;
@@ -76,9 +77,9 @@ export function startTwoWayVoice(options: Options): () => void {
       finalTimer = setTimeout(finish, finalResultWaitMs);
       try { recognition.stop(); } catch { finish(); }
     };
-    const schedule = () => {
+    const schedule = (delay = voiceSilenceMs) => {
       clearSilence();
-      if (ownsSession() && !stopping && transcript.trim()) silenceTimer = setTimeout(requestStop, voiceSilenceMs);
+      if (ownsSession() && !stopping && transcript.trim()) silenceTimer = setTimeout(requestStop, delay);
     };
     recognition.lang = "vi-VN";
     recognition.continuous = true;
@@ -90,10 +91,11 @@ export function startTwoWayVoice(options: Options): () => void {
       const results = Array.from(event.results);
       transcript = results.map(result => result[0].transcript.trim()).filter(Boolean).join(" ");
       options.onTranscript(transcript);
-      if (!speaking || results.every(result => result.isFinal)) schedule();
-      else clearSilence();
+      // A missing speechend must not leave the next conversation turn listening forever.
+      // New results keep this fallback alive while a longer utterance is still arriving.
+      schedule(speaking && results.some(result => !result.isFinal) ? speechEventTimeoutMs : voiceSilenceMs);
     };
-    recognition.onspeechstart = () => { if (ownsSession()) { speaking = true; clearSilence(); } };
+    recognition.onspeechstart = () => { if (ownsSession()) { speaking = true; schedule(speechEventTimeoutMs); } };
     recognition.onspeechend = () => { if (ownsSession()) { speaking = false; schedule(); } };
     recognition.onend = finish;
     recognition.onerror = event => {
@@ -101,6 +103,7 @@ export function startTwoWayVoice(options: Options): () => void {
       release(recognition);
       abort(recognition);
       if (event.error === "no-speech" || event.error === "aborted") { restart(); return; }
+      if (event.error === "network") { restart(1500); return; }
       active = false;
       options.onError(event.error);
     };

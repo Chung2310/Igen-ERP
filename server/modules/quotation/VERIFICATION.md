@@ -1,4 +1,19 @@
-# Kiểm tra tích hợp Báo giá — 07/11/2026
+# Kiểm tra tích hợp Báo giá
+
+## Đồng bộ bản nguồn ngày 11/11/2026
+
+- Nguồn: checkout `E:/Igen/Báo giá`, repository `Chung2310/Quote-assistance`, commit `106539f70641efcc94827ff18e665d0bdeb4a612`. Đã cập nhật `source-manifest.json` với hash nguồn; không chỉnh sửa checkout nguồn.
+- Tích hợp popup phần trăm dùng chung cho các luồng AI và xuất file nền, gồm báo giá khách trả kết quả tạo chứng từ trước khi file hoàn tất. Phần trăm ước tính không vượt 94% khi đang xử lý; thiếu file hoặc lỗi không được báo 100%. Đổi phạm vi ERP dọn tác vụ/tiến độ client và bỏ phản hồi đến muộn.
+- Đồng bộ GPT-6 Luna cho cả ba nhóm gọi AI; hỗ trợ mẫu Word/Excel/PDF ở các nhóm chứng từ; sửa bảng Word, dòng Excel thừa, ô gộp/công thức, thông tin các bên và vị trí nội dung PDF. Giữ đường `mapping`, metering AI và audit dọn sandbox của ERP.
+- Đồng bộ lưu yêu cầu chỉnh sửa, tính lại dự toán theo câu trả lời/yêu cầu mới và điều kiện duyệt. Kiểm thử HTTP xác nhận sửa và tính lại trên cùng bản ghi, chặn thiếu quyền AI, chặn ghi đè sau khi tab khác sửa, chặn duyệt khi yêu cầu mới chưa áp dụng và giải thích rõ VAT/vận chuyển chưa chốt. Câu hỏi bổ sung chưa trả lời không tự chặn duyệt.
+- Giữ authentication, công ty/chi nhánh, quyền, phiên bản dữ liệu, catalog riêng, chống tạo trùng và chính sách giữ chứng từ khi xuất lỗi của ERP. Route quyết toán `/acceptance-records/:id/settlement/file` được đăng ký với worker và kiểm thử qua hàng đợi có phạm vi.
+- `npm run test:quotation`: 322 test qua (208 Node và 114 Vitest trong 21 file). Runner giới hạn 4 tiến trình Node và 2 worker Vitest, timeout test 30 giây/hook 120 giây để ổn định trên máy phát triển và CI. Các lần timeout khi tranh tài nguyên đã được chạy lại thành công bằng lệnh chuẩn.
+- `npm run typecheck` và `npm run build` qua trên bản cuối, gồm frontend, API, worker Marketing và worker Báo giá. `git diff --check` qua trong phạm vi đồng bộ.
+- Browser fixture dùng các component thật, CSS build và API giả lập: 57 trạng thái của dự toán, hợp đồng, nghiệm thu, ngân sách, mẫu tài liệu và báo giá khách ở 390/768/1440 px, sáng/tối. Kiểm tra thêm 21 trạng thái sau khi sửa chiều cao/tương phản popup: tiêu đề theo đúng màu theme, popup gọn, tiến độ/error, đóng bằng bàn phím. Không tràn ngang hoặc lỗi JavaScript. Đã xem ảnh render thực tế; đây không phải UAT trên ERP production.
+- Đã áp dụng `baseline-ui` và `fixing-accessibility` cho thay đổi giao diện: dùng token và control sẵn có, dialog gốc giữ focus/trả focus, thông báo trạng thái/lỗi, phần trăm có ARIA, giảm chuyển động và animation bằng transform. Ô câu trả lời/yêu cầu sửa liên kết với phần hướng dẫn; nút chạy lại AI giải thích khi thiếu quyền. CLI `ui-skills` không cài được do cache/khóa file; dùng nội dung skill cục bộ. Các file tiến độ/API/helper mới qua ESLint; ESLint toàn module còn báo các quy tắc hooks và mã chưa dùng ở UI hiện hữu.
+- Không gọi OpenRouter/Cloudinary trả phí, không migration dữ liệu và không triển khai production trong đợt đồng bộ này.
+
+## Kiểm tra ngày 07/11/2026
 
 - Nguồn QUOS: `9fa13e566d3d935b1c432f63badcbcc27fd97745`; checkout QUOS có thay đổi cục bộ được giữ nguyên.
 - `npm run test:quotation`: 184 test qua (92 test engine Node và 92 test Vitest). Gồm công ty/chi nhánh, quyền xem/duyệt/tải, xung đột sửa/duyệt, quản lý sản phẩm, giữ bản nháp khi job lỗi, khử trùng job, transport ERP, ledger AI và registry Tài nguyên.

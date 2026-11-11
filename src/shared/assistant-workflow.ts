@@ -1,5 +1,5 @@
 import type { AssistantSpeechVoice } from "./assistant-speech-voices";
-import type { AssistantGeneratedFile } from "./assistant-document";
+import type { AssistantGeneratedFile, AssistantIllustration, AssistantSource } from "./assistant-document";
 
 export interface AssistantDataShape {
   type: string;
@@ -105,6 +105,8 @@ export interface AssistantTrainingContentForm {
 export interface AssistantReply {
   reply: string;
   files?: AssistantGeneratedFile[];
+  sources?: AssistantSource[];
+  illustrations?: AssistantIllustration[];
   status: "collecting" | "confirmation" | "completed" | "cancelled" | "unsupported" | "failed" | "processing" | "uncertain";
   action?: { requiresPassword?: boolean; id: string; title: string; values: { label: string; value: AssistantValue; defaulted?: boolean }[] };
   referenceSelections?: AssistantReferenceSelection[];

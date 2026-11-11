@@ -616,6 +616,64 @@ describe("assistant spreadsheet import", () => {
 });
 
 describe("assistant general questions", () => {
+  it.each([
+    ["Giải thích định lý Pythagoras", "Trong tam giác vuông, a² + b² = c²."],
+    ["Viết một bài thơ về mùa thu", "Thu về trên phố vắng…"],
+    ["Dịch câu Xin chào sang tiếng Anh", "Hello."],
+    ["Lập kế hoạch học tiếng Anh trong 30 ngày", "Tuần 1: luyện phát âm và từ vựng cơ bản."],
+    ["Giải thích workflow trong CI/CD", "Workflow: tập hợp các bước kiểm tra và triển khai phần mềm."],
+  ])("answers a general topic directly without invoking ERP: %s", async (text, expected) => {
+    mocks.interpret.mockResolvedValueOnce({ text: expected });
+    const conversationId = randomUUID();
+    const response = await send("/turns", { conversationId, requestId: randomUUID(), mode: "qa", text });
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ status: "completed", reply: expected });
+    expect(response.body.data.action).toBeUndefined();
+    expect(mocks.interpret).toHaveBeenCalledOnce();
+    expect(mocks.interpret.mock.calls[0][0].messages.at(-1)).toEqual({ role: "user", content: text });
+    expect((await AssistantSessionModel.findOne({ conversationId }).lean())?.pending).toBeNull();
+    expect(await HrDepartmentModel.countDocuments()).toBe(0);
+    expect(await AssistantDocumentModel.countDocuments()).toBe(0);
+  });
+
+  it("keeps Q&A code and technical explanations intact through retries and reloads", async () => {
+    const settings = (await send("/settings")).body.data;
+    await send("/settings", { ...settings, autoMemoryEnabled: false, responseRules: "Trình bày dễ hiểu." }, "PATCH");
+    const conversationId = randomUUID();
+    const requestId = randomUUID();
+    const reply = 'Workflow: các bước xử lý của chương trình.\n```javascript\nconst data = {"id":"123e4567-e89b-42d3-a456-426614174000","items":[1,2,3]};\n```';
+    const input = { conversationId, requestId, mode: "qa", text: "Viết đoạn mã JavaScript và giải thích workflow xử lý dữ liệu." };
+    mocks.interpret.mockResolvedValueOnce({ text: reply });
+    const response = await send("/turns", input);
+    expect(response.body.data).toMatchObject({ status: "completed", reply });
+    expect(JSON.parse(mocks.interpret.mock.calls[0][0].messages[1].content).responseRules).toBe("Trình bày dễ hiểu.");
+    const retry = await send("/turns", input);
+    expect(retry.body.data.reply).toBe(reply);
+    const restored = (await send(`/conversations/${conversationId}`)).body.data;
+    expect(restored.lastReply.reply).toBe(reply);
+    expect(restored.messages.at(-1).content).toBe(reply);
+    expect(mocks.interpret).toHaveBeenCalledOnce();
+    expect(await AssistantDocumentModel.countDocuments()).toBe(0);
+  });
+
+  it("retains the previous exchange for a follow-up and preserves complete long answers", async () => {
+    const conversationId = randomUUID();
+    const firstQuestion = "Mình mới bắt đầu học tiếng Anh, có 30 phút mỗi ngày.";
+    const firstReply = "Mỗi ngày bạn có thể dành 10 phút nghe, 10 phút từ vựng và 10 phút luyện nói.";
+    mocks.interpret.mockResolvedValueOnce({ text: firstReply });
+    await send("/turns", { conversationId, requestId: randomUUID(), mode: "qa", text: firstQuestion });
+    const reply = "Luyện tập chi tiết từng ngày. ".repeat(300) + "Bạn có thể bắt đầu ngay hôm nay.";
+    mocks.interpret.mockResolvedValueOnce({ text: reply });
+    const response = await send("/turns", { conversationId, requestId: randomUUID(), mode: "qa", text: "Giải thích kỹ hơn cho tuần đầu." });
+    expect(response.body.data.reply).toBe(reply);
+    expect(mocks.interpret.mock.calls.at(-1)![0].messages.slice(-3)).toEqual([
+      { role: "user", content: firstQuestion },
+      { role: "assistant", content: firstReply },
+      { role: "user", content: "Giải thích kỹ hơn cho tuần đầu." },
+    ]);
+    expect((await send(`/conversations/${conversationId}`)).body.data.messages.at(-1).content).toBe(reply);
+  });
+
   it("continues a pending file request after the user supplies missing data, including after reload", async () => {
     const conversationId = randomUUID();
     mocks.interpret.mockResolvedValueOnce({ text: JSON.stringify({ reply: "Bạn cung cấp số liệu nhé.", sourceDocumentId: null, formats: ["xlsx"], document: null }) });
@@ -742,7 +800,7 @@ describe("assistant general questions", () => {
     expect(mocks.interpret).toHaveBeenCalledOnce();
   });
 
-  it("routes the Q&A mode directly to general answers and stores its conversation mode", async () => {
+  it("routes every Q&A turn through deep research by default", async () => {
     const settings = (await send("/settings")).body.data;
     expect((await send("/settings", { ...settings, autoMemoryEnabled: false }, "PATCH")).status).toBe(200);
     mocks.interpret.mockResolvedValueOnce({ text: "Nước sôi ở khoảng 100°C tại áp suất khí quyển tiêu chuẩn." });
@@ -753,10 +811,35 @@ describe("assistant general questions", () => {
     expect(response.body.data.reply).toContain("100°C");
     expect(mocks.interpret).toHaveBeenCalledOnce();
     expect(mocks.interpret.mock.calls[0][0].messages[0].content).toContain("Bạn là trợ lý AI trò chuyện thân thiện");
+    expect(mocks.interpret.mock.calls[0][0]).toMatchObject({ webSearch: true, webSearchMode: "deep" });
     const session = await AssistantSessionModel.findOne({ conversationId }).lean() as any;
     expect(session.mode).toBe("qa");
     expect(session.pending).toBeNull();
     expect(await HrDepartmentModel.countDocuments()).toBe(0);
+  });
+
+  it("returns research citations and restores them with the conversation history", async () => {
+    const settings = (await send("/settings")).body.data;
+    await send("/settings", { ...settings, autoMemoryEnabled: false }, "PATCH");
+    const conversationId = randomUUID();
+    const requestId = randomUUID();
+    const sources = [
+      { title: "Nguồn chính thức", url: "https://example.com/official" },
+      { title: "Nghiên cứu độc lập", url: "https://example.org/study" },
+    ];
+    mocks.interpret.mockResolvedValueOnce({ text: "Kết quả tổng hợp có trích dẫn.", citations: sources });
+
+    const input = { conversationId, requestId, mode: "qa", research: true, text: "Nghiên cứu chủ đề này từ nhiều nguồn." };
+    const response = await send("/turns", input);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ status: "completed", sources });
+    expect(mocks.interpret.mock.calls[0][0].webSearch).toBe(true);
+    const restored = (await send(`/conversations/${conversationId}`)).body.data;
+    expect(restored.lastReply.sources).toEqual(sources);
+    expect(restored.messages.at(-1)).toMatchObject({ role: "assistant", content: "Kết quả tổng hợp có trích dẫn.", sources });
+    expect((await send("/turns", input)).body.data.sources).toEqual(sources);
+    expect(mocks.interpret).toHaveBeenCalledOnce();
   });
 });
 
