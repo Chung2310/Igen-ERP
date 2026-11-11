@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import {
   Search, Download, Printer, Plus,
-  Eye, Trash2, Pencil,
+  Eye, Trash2, Pencil, PauseCircle,
   X,
   Upload, QrCode
 } from 'lucide-react';
@@ -24,6 +24,7 @@ import { useBranch } from '../../../../context/BranchContext';
 import { useAuth } from '../../../../context/AuthContext';
 import { getOperationalStatusLabel, getWorkerOperationalCopy, usesEducationBilling as presetUsesEducationBilling } from '../../config/workerRecruitmentCopy';
 import { primaryCreateButtonClass } from '../../../../components/common/primaryCreateButton';
+import { StudentSuspensionModal } from '../../components/Student/StudentSuspensionModal';
 const EditStudentModal = lazy(() => import('../../components/Student/EditStudentModal').then((m) => ({ default: m.EditStudentModal })));
 const AssignStudentBranchModal = lazy(() => import('../../components/Student/AssignStudentBranchModal').then((m) => ({ default: m.AssignStudentBranchModal })));
 const ImportStudentModal = lazy(() => import('../../components/Student/ImportStudentModal').then((m) => ({ default: m.ImportStudentModal })));
@@ -98,6 +99,8 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
   const pageSize = 10;
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [studentContextMenu, setStudentContextMenu] = useState<{ student: Student; x: number; y: number } | null>(null);
+  const [suspendingStudent, setSuspendingStudent] = useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [assigningStudent, setAssigningStudent] = useState<Student | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -165,6 +168,25 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
     }
     return map;
   }, [batches]);
+
+  React.useEffect(() => {
+    if (!studentContextMenu) return;
+    const closeMenu = () => setStudentContextMenu(null);
+    const handleKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') closeMenu(); };
+    document.addEventListener('click', closeMenu);
+    document.addEventListener('scroll', closeMenu, true);
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('click', closeMenu);
+      document.removeEventListener('scroll', closeMenu, true);
+      window.removeEventListener('resize', closeMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [studentContextMenu]);
+
+  const suspensionBatchOptions = (studentId: string) => (studentBatches.get(studentId) || [])
+    .filter((batch) => batch.status === 'Đang học' || batch.status === 'Sắp khai giảng');
 
   const getBatchLabels = (studentId: string) =>
     (studentBatches.get(studentId) || []).map((b) => b.code || b.courseTitle).filter(Boolean);
@@ -690,7 +712,20 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
               ) : paginatedStudents.length === 0 ? (
                 <tr><td colSpan={usesEducationBilling ? 8 : 7} className="px-4 py-8 text-center"><div className="flex flex-col items-center"><StudentEmptyIllustration kind="student" /><p className="mt-1 text-pretty text-sm text-on-surface-variant">Không tìm thấy {entityLabel.singular} nào phù hợp với bộ lọc.</p></div></td></tr>
               ) : paginatedStudents.map((student) => (
-                <tr key={student.id} className="group transition-colors hover:bg-sky-50/40">
+                <tr
+                  key={student.id}
+                  className="group transition-colors hover:bg-sky-50/40"
+                  onContextMenu={(event) => {
+                    if (!canManage || entityLabel.preset !== 'student' || isUnassignedScope) return;
+                    event.preventDefault();
+                    setConfirmDeleteId(null);
+                    setStudentContextMenu({
+                      student,
+                      x: Math.max(8, Math.min(event.clientX, window.innerWidth - 210)),
+                      y: Math.max(8, Math.min(event.clientY, window.innerHeight - 90)),
+                    });
+                  }}
+                >
                   <td className="px-3 py-1.5 no-print">
                     <input
                       type="checkbox"
@@ -889,6 +924,36 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
           </table>
         </div>
 
+        {studentContextMenu && (() => {
+          const availableBatches = suspensionBatchOptions(studentContextMenu.student.id);
+          return (
+            <div className="fixed inset-0 z-[100]" onClick={() => setStudentContextMenu(null)} onContextMenu={(event) => { event.preventDefault(); setStudentContextMenu(null); }}>
+              <div
+                role="menu"
+                aria-label={`Thao tác ${entityLabel.singular} ${studentContextMenu.student.fullName}`}
+                style={{ left: studentContextMenu.x, top: studentContextMenu.y }}
+                className="fixed w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={availableBatches.length === 0}
+                  onClick={() => {
+                    setSuspendingStudent(studentContextMenu.student);
+                    setStudentContextMenu(null);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-amber-800 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  <PauseCircle className="size-4 shrink-0" />
+                  <span>Bảo lưu</span>
+                </button>
+                {availableBatches.length === 0 ? <p className="px-3 pb-1.5 text-[11px] text-slate-500">Học viên chưa thuộc lớp đang mở.</p> : null}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Pagination Controls */}
         {/* Pagination Controls */}
         <Pagination
@@ -962,6 +1027,19 @@ export function StudentsPage({ onSelectStudent, onAddStudent, selectedCenter, ca
             </div>
           </div>
         </div>
+      )}
+
+      {suspendingStudent && (
+        <StudentSuspensionModal
+          student={suspendingStudent}
+          batches={suspensionBatchOptions(suspendingStudent.id)}
+          onClose={() => setSuspendingStudent(null)}
+          onSuccess={() => {
+            window.dispatchEvent(new Event('batch-mutation'));
+            window.dispatchEvent(new Event('student-mutation'));
+            void Promise.all([refetch(), reloadBatches()]);
+          }}
+        />
       )}
 
       <Suspense fallback={<StudentLoadState label="Đang tải biểu mẫu..." />}>

@@ -163,7 +163,7 @@ export default function ImportPanel({ api, canImport, initialKind, onClose, onCo
               <label htmlFor={id + "-input"} className="block text-sm font-semibold">File Excel</label>
               <p id={id + "-hint"} className="mt-1 text-pretty text-xs text-on-surface-variant">
                 {kind === "hospital-report"
-                  ? `Chọn workbook báo cáo hiện có. ERP đọc toàn bộ sheet, liên kết hồ sơ bệnh nhân và lưu đủ ${Object.keys(hospitalReportColumns).length} cột vào chi tiết từng phiếu khám.`
+                  ? `Chọn workbook báo cáo hiện có. ERP đọc toàn bộ sheet, liên kết hồ sơ bệnh nhân, lưu đủ ${Object.keys(hospitalReportColumns).length} cột vào phiếu khám, tạo lịch tái khám theo ngày (chưa có giờ) và hồ sơ chăm sóc từ nội dung điều trị (chưa phân công nhân viên).`
                   : "Dùng đúng mẫu đã chọn. Với lượt khám, mã bệnh nhân cần có sẵn trong ERP."}
                 {" "}Tối đa {(kind === "hospital-report" ? maxHospitalReportRows : 1_000).toLocaleString("vi-VN")} dòng và 4 MB.
               </p>

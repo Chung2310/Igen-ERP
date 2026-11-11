@@ -284,6 +284,7 @@ export interface Batch {
   cancelledAt?: Date | string | null;
   ownerId: string;
   attendanceSessions?: AttendanceSession[];
+  cancelledSessionDates?: string[];
   // Thông tin server gắn kèm để hiển thị
   courseCode: string;
   courseTitle: string;

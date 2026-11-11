@@ -67,7 +67,9 @@ export async function prepareAppointment(db: Db, actor: HealthcareActor, value: 
     if (previous.patientId !== booking.patientId || previous.visitId !== booking.visitId) {
       throw invalidField("patientId", "Lịch hẹn đã gắn với bệnh nhân và lượt khám đã chọn.");
     }
-    const moved = previous.startsAt !== booking.startsAt || previous.endsAt !== booking.endsAt ||
+    const previousScheduledOn = previous.scheduledOn || (previous.startsAt
+      ? new Date(Date.parse(previous.startsAt) + 7 * 60 * 60 * 1000).toISOString().slice(0, 10) : "");
+    const moved = previousScheduledOn !== booking.scheduledOn || previous.startsAt !== booking.startsAt || previous.endsAt !== booking.endsAt ||
       previous.doctorId !== booking.doctorId || (previous.doctorName || "") !== (booking.doctorName || "") || previous.roomId !== booking.roomId;
     if (moved && !["scheduled", "confirmed"].includes(previous.status)) {
       throw invalidField("startsAt", "Chỉ lịch chờ hoặc đã xác nhận mới có thể đổi giờ, bác sĩ hoặc phòng.");
@@ -90,9 +92,9 @@ export async function prepareCare(db: Db, actor: HealthcareActor, value: RecordI
     (previous.visitId || "") !== (value.visitId || ""))) {
     throw invalidField("patientId", "Việc chăm sóc đã gắn với bệnh nhân, lượt khám và lịch hẹn đã chọn.");
   }
-  if (value.status === "completed" && !value.result) throw invalidField("result", "Cần ghi kết quả trước khi hoàn tất.");
+  if (value.status === "completed" && !value.result?.trim() && !value.details?.trim()) throw invalidField("result", "Cần ghi kết quả hoặc nội dung chăm sóc trước khi hoàn tất.");
   await checkPatient(db, actor, value.patientId);
-  if (value.assigneeId !== previous?.assigneeId && !await UserModel.exists({
+  if (value.assigneeId && value.assigneeId !== previous?.assigneeId && !await UserModel.exists({
     ...scopeFilter(actor), ...activeStaff, _id: value.assigneeId,
   })) throw invalidField("assigneeId", "Người phụ trách phải là nhân viên đang hoạt động ở chi nhánh.");
   if (value.appointmentId && !await records(db, "appointments").findOne({
@@ -121,6 +123,9 @@ export function dateRangeFilter(field: "createdAt" | "visitedOn" | "startsAt" | 
     ...(from ? { $gte: instant ? dayBounds(from).start : from } : {}),
     ...(to ? instant ? { $lt: dayBounds(to).end } : { $lte: to } : {}),
   };
+  if (field === "startsAt") return { $or: [{ scheduledOn: {
+    ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}),
+  } }, { startsAt: dates }] };
   return { [field]: dates };
 }
 

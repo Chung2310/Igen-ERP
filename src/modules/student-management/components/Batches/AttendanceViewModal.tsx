@@ -78,8 +78,9 @@ export function AttendanceViewModal({ isOpen, batch, onClose, students = [] }: A
   }
 
   const today = getLocalDateStr(new Date());
-  const sDates = getScheduledDates(batch.startDate, batch.endDate, batch.daysOfWeek);
-  const exDates = (batch.attendanceSessions || []).map(s => s.date).filter(d => !sDates.includes(d));
+  const cancelledDates = new Set(batch.cancelledSessionDates || []);
+  const sDates = getScheduledDates(batch.startDate, batch.endDate, batch.daysOfWeek).filter(d => !cancelledDates.has(d));
+  const exDates = (batch.attendanceSessions || []).map(s => s.date).filter(d => !sDates.includes(d) && !cancelledDates.has(d));
   const allDates = [...sDates, ...exDates].sort((a, b) => a.localeCompare(b));
   const relevantDates = allDates;
   const takenCount = allDates.filter(d => (batch.attendanceSessions || []).some(s => s.date === d && s.records && s.records.length > 0)).length;

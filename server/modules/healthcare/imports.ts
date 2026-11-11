@@ -3,7 +3,7 @@ import { Binary, MongoBulkWriteError, type Collection, type Db, type Filter } fr
 import PizZip from "pizzip";
 import XLSX from "xlsx";
 import { AppError, ConflictError, NotFoundError, ValidationError } from "../../errors/app-error";
-import { hospitalReportColumns, maxHospitalReportRows, type HealthcareList, type HealthcareRecord, type HospitalReportFields, type ImportJob, type ImportKind, type ImportRowResult, type ImportRowStatus, type Patient, type RecordInput, type Visit } from "../../../shared/healthcare";
+import { hospitalReportColumns, maxHospitalReportRows, type Appointment, type CareTask, type HealthcareList, type HealthcareRecord, type HospitalReportFields, type ImportJob, type ImportKind, type ImportRowResult, type ImportRowStatus, type Patient, type RecordInput, type Visit } from "../../../shared/healthcare";
 import { listRecords, newRecord, records, scopeFilter, textMatches, type HealthcareActor, type HealthcareScope, type Stored } from "./store";
 import { hospitalVisitInput, input, patientInput, visitInput } from "./validation";
 
@@ -13,7 +13,10 @@ const patientHeaders = ["ma_benh_nhan", "ho_ten", "so_dien_thoai", "ngay_sinh", 
 const visitHeaders = ["ma_luot_kham", "ma_benh_nhan", "ngay_kham", "ma_bac_si", "ma_phong", "ma_dich_vu", "trang_thai", "ghi_chu_thanh_toan", "ghi_chu"];
 type PatientRow = { row: number; kind: "patients"; value: RecordInput<Patient> };
 type VisitRow = { row: number; kind: "visits"; value: RecordInput<Visit> };
-type HospitalRow = { row: number; sheet: string; kind: "hospital-report"; patient: RecordInput<Patient>; visit: Omit<RecordInput<Visit>, "patientId"> };
+type HospitalRow = {
+  row: number; sheet: string; kind: "hospital-report"; patient: RecordInput<Patient>;
+  visit: Omit<RecordInput<Visit>, "patientId">; createAppointment?: boolean; createCare?: boolean;
+};
 type ImportRow = PatientRow | VisitRow | HospitalRow;
 type Batch = HealthcareScope & {
   _id: string;
@@ -41,6 +44,8 @@ type Batch = HealthcareScope & {
   expiresAt?: Date;
   inserted?: number;
   patientsInserted?: number;
+  appointmentsInserted?: number;
+  careInserted?: number;
   skipped?: number;
   completedAt?: string;
 };
@@ -52,6 +57,7 @@ const formatError = (message: string) => new ValidationError("VALIDATION_FAILED"
 
 const normalize = (value: unknown) => String(value ?? "").trim().toLocaleLowerCase("vi").normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+const patientNameKey = (value: string) => value.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("vi");
 
 const aliases: Record<string, string> = {
   ma_bn: "ma_benh_nhan", ten_benh_nhan: "ho_ten", ho_va_ten: "ho_ten", sdt: "so_dien_thoai",
@@ -122,7 +128,10 @@ const requiredReportKeys = ["ngay_gio_kham", "ma_phieu", "ten_benh_nhan", "ma_be
 function readHospitalReport(bytes: Buffer) {
   const book = openWorkbook(bytes, true);
   const date1904 = Boolean(book.Workbook?.WBProps?.date1904);
-  const rows: { sheet: string; row: number; fields: HospitalReportFields; visitDate: unknown; birthDate: unknown; followUpDate: unknown }[] = [];
+  const rows: {
+    sheet: string; row: number; fields: HospitalReportFields; visitDate: unknown; birthDate: unknown; followUpDate: unknown;
+    patientCode: unknown; visitCode: unknown; phone: unknown;
+  }[] = [];
   for (const sheetName of book.SheetNames) {
     const sheet = book.Sheets[sheetName];
     if (!sheet?.["!ref"]) continue;
@@ -151,6 +160,9 @@ function readHospitalReport(bytes: Buffer) {
         visitDate: cells[columns.ngay_gio_kham],
         birthDate: cells[columns.ngay_sinh],
         followUpDate: cells[columns.ngay_hen_tai_kham],
+        patientCode: cells[columns.ma_benh_nhan],
+        visitCode: cells[columns.ma_phieu],
+        phone: cells[columns.so_dien_thoai],
       });
       if (rows.length > maxHospitalReportRows) throw formatError("Báo cáo hỗ trợ tối đa 10.000 dòng dữ liệu trong một file.");
     }
@@ -173,6 +185,9 @@ function hospitalVisitDate(value: unknown, date1904: boolean) {
 
 function hospitalRow(row: ReturnType<typeof readHospitalReport>["rows"][number], date1904: boolean): HospitalRow {
   const { fields } = row;
+  if (typeof row.patientCode === "number") throw formatError("Mã bệnh nhân đang là số. Hãy chuyển ô thành Văn bản để tránh mất số 0 ở đầu.");
+  if (typeof row.visitCode === "number") throw formatError("Mã phiếu đang là số. Hãy chuyển ô thành Văn bản để giữ nguyên mã.");
+  if (typeof row.phone === "number") throw formatError("Số điện thoại đang là số. Hãy chuyển ô thành Văn bản để giữ số 0 ở đầu.");
   const rawBirthDate = row.birthDate;
   const numericBirthYear = typeof rawBirthDate === "number" && Number.isInteger(rawBirthDate)
     && rawBirthDate >= 1900 && rawBirthDate <= new Date().getFullYear()
@@ -181,6 +196,12 @@ function hospitalRow(row: ReturnType<typeof readHospitalReport>["rows"][number],
   const birthYear = numericBirthYear || (/^\d{4}$/.test(fields.ngay_sinh) ? fields.ngay_sinh : undefined);
   const normalizedBirthDate = birthYear ? "" : excelDate(rawBirthDate, date1904);
   const followUpOn = excelDate(row.followUpDate, date1904);
+  if (followUpOn) {
+    const followUpMillis = /^\d{4}-\d{2}-\d{2}$/.test(followUpOn) ? Date.parse(`${followUpOn}T00:00:00Z`) : NaN;
+    if (!Number.isFinite(followUpMillis) || new Date(followUpMillis).toISOString().slice(0, 10) !== followUpOn) {
+      throw formatError("Ngày hẹn tái khám không hợp lệ.");
+    }
+  }
   const phone = fields.so_dien_thoai.split("/").map(part => part.trim()).find(part => /^\+?\d[\d ().-]{0,38}$/.test(part)) || "";
   const patient = input(patientInput, {
     code: fields.ma_benh_nhan, name: fields.ten_benh_nhan.normalize("NFC"), phone, address: fields.dia_chi,
@@ -214,13 +235,33 @@ function hospitalRow(row: ReturnType<typeof readHospitalReport>["rows"][number],
 async function prepareHospitalReport(db: Db, actor: HealthcareActor, bytes: Buffer) {
   const { rows, date1904 } = readHospitalReport(bytes);
   const scope = scopeFilter(actor);
-  const [patients, visits] = await Promise.all([
-    records(db, "patients").distinct("code", { ...scope, code: { $in: rows.map(row => row.fields.ma_benh_nhan.toUpperCase()) } }),
-    records(db, "visits").distinct("code", { ...scope, code: { $in: rows.map(row => row.fields.ma_phieu.toUpperCase()) } }),
+  const [patientRows, existingVisitRows] = await Promise.all([
+    records(db, "patients").find({ ...scope, code: { $in: rows.map(row => row.fields.ma_benh_nhan.toUpperCase()) } })
+      .project<{ _id: string; code: string; name: string }>({ _id: 1, code: 1, name: 1 }).toArray(),
+    records(db, "visits").find({ ...scope, code: { $in: rows.map(row => row.fields.ma_phieu.toUpperCase()) } })
+      .project<{ _id: string; code: string; patientId: string; visitedOn: string }>({ _id: 1, code: 1, patientId: 1, visitedOn: 1 }).toArray(),
   ]);
-  const existingPatients = new Set(patients);
-  const existingVisits = new Set(visits);
+  const existingPatients = new Map(patientRows.map(patient => [patient.code, patient]));
+  const existingVisits = new Map(existingVisitRows.map(visit => [visit.code, visit]));
+  const existingVisitIds = existingVisitRows.map(visit => visit._id);
+  const [existingAppointments, existingCare] = existingVisitIds.length ? await Promise.all([
+    records(db, "appointments").find({ ...scope, visitId: { $in: existingVisitIds } })
+      .project<{ visitId: string; scheduledOn?: string; startsAt: string }>({ visitId: 1, scheduledOn: 1, startsAt: 1 }).toArray(),
+    records(db, "care").distinct("visitId", { ...scope, visitId: { $in: existingVisitIds } }),
+  ]) : [[], []];
+  const appointmentDates = new Map<string, Set<string>>();
+  for (const appointment of existingAppointments) {
+    const startsAt = appointment.startsAt ? Date.parse(appointment.startsAt) : NaN;
+    const day = appointment.scheduledOn || (Number.isFinite(startsAt)
+      ? new Date(startsAt + 7 * 60 * 60 * 1000).toISOString().slice(0, 10) : "");
+    if (!day) continue;
+    const dates = appointmentDates.get(appointment.visitId) || new Set<string>();
+    dates.add(day);
+    appointmentDates.set(appointment.visitId, dates);
+  }
+  const careVisitIds = new Set(existingCare);
   const patientCodes = new Set<string>();
+  const seenPatientNames = new Map<string, string>();
   const seen = new Map<string, HospitalRow>();
   const prepared: PreparedRow[] = [];
   for (const row of rows) {
@@ -231,13 +272,33 @@ async function prepareHospitalReport(db: Db, actor: HealthcareActor, bytes: Buff
       if (previous && JSON.stringify(previous.visit) !== JSON.stringify(candidate.visit)) {
         throw formatError("Mã phiếu xuất hiện nhiều lần với dữ liệu khác nhau.");
       }
-      const duplicate = existingVisits.has(code) || Boolean(previous);
-      if (!previous) seen.set(code, candidate);
-      if (!duplicate && !existingPatients.has(candidate.patient.code)) patientCodes.add(candidate.patient.code);
+      const candidateName = patientNameKey(candidate.patient.name);
+      const priorName = seenPatientNames.get(candidate.patient.code);
+      if (priorName && priorName !== candidateName) {
+        throw formatError("Mã bệnh nhân xuất hiện với họ tên khác nhau trong workbook. Hãy kiểm tra dữ liệu trước khi nhập.");
+      }
+      seenPatientNames.set(candidate.patient.code, candidateName);
+      const existingPatient = existingPatients.get(candidate.patient.code);
+      if (existingPatient && patientNameKey(existingPatient.name) !== patientNameKey(candidate.patient.name)) {
+        throw formatError("Mã bệnh nhân đã gắn với hồ sơ có tên khác. Hãy kiểm tra mã bệnh nhân trước khi nhập.");
+      }
+      const existingVisit = existingVisits.get(code);
+      if (existingVisit && (existingVisit.patientId !== existingPatient?._id || existingVisit.visitedOn !== visitedOn)) {
+        throw formatError("Mã phiếu đã gắn với bệnh nhân hoặc ngày khám khác. Hãy kiểm tra mã phiếu trước khi nhập.");
+      }
+      const followUpOn = candidate.visit.report?.followUpOn || "";
+      const careDetails = hospitalCareDetails(candidate.visit.report?.fields);
+      const createAppointment = Boolean(followUpOn && !appointmentDates.get(existingVisit?._id || "")?.has(followUpOn));
+      const createCare = Boolean((careDetails || followUpOn) && (!existingVisit || !careVisitIds.has(existingVisit._id)));
+      const needsImport = !existingVisit || createAppointment || createCare;
+      const duplicate = Boolean(previous) || !needsImport;
+      const candidateWithDerived = { ...candidate, createAppointment, createCare };
+      if (!previous) seen.set(code, candidateWithDerived);
+      if (!duplicate && !existingPatient) patientCodes.add(candidate.patient.code);
       prepared.push({
         sheet: row.sheet, row: row.row, code, label: `${candidate.patient.code} · ${visitedOn}`,
         status: duplicate ? "skipped" : "ready", preview: candidate.visit.report?.fields,
-        ...(duplicate ? {} : { input: candidate }),
+        ...(duplicate ? {} : { input: candidateWithDerived }),
       });
     } catch (error) {
       prepared.push(invalidRow(row, row.fields.ma_phieu, error, row.fields));
@@ -337,7 +398,8 @@ function jobOf(batch: Batch, actorId: string): ImportJob {
     _id: batch._id, kind: batch.kind, filename: batch.filename, status, phase: batch.phase || (batch.completedAt ? "write" : "check"),
     total: batch.total, ready: batch.ready ?? batch.inserted ?? 0, invalid: batch.invalid, duplicates: batch.duplicates ?? batch.skipped ?? 0,
     processed: batch.processed ?? (batch.completedAt ? batch.total : 0), patientsReady: batch.patientsReady,
-    inserted: batch.inserted, patientsInserted: batch.patientsInserted, skipped: batch.skipped, createdAt: batch.createdAt,
+    inserted: batch.inserted, patientsInserted: batch.patientsInserted, appointmentsInserted: batch.appointmentsInserted,
+    careInserted: batch.careInserted, skipped: batch.skipped, createdAt: batch.createdAt,
     completedAt: batch.completedAt, error: batch.error,
     retryable: status === "failed" && batch.actorId === actorId && Boolean(batch.retryUntil && batch.retryUntil > new Date()),
   };
@@ -467,7 +529,116 @@ async function saveRows(db: Db, batchId: string, rows: PreparedRow[], renew: () 
   }
 }
 
-type WriteSource = Pick<Patient | Visit, "_id" | "code" | "source">;
+type WriteSource = { _id: string; code: string; source?: HealthcareRecord["source"]; name?: string };
+type ImportedVisitReference = Pick<Visit, "_id" | "code" | "patientId" | "visitedOn" | "doctorName"> & { source?: HealthcareRecord["source"] };
+
+function hospitalCareDetails(fields?: HospitalReportFields) {
+  if (!fields) return "";
+  const details = [
+    ["Lý do vào viện", fields.ly_do_vao_vien], ["Triệu chứng", fields.trieu_chung],
+    ["Chẩn đoán", fields.chan_doan], ["Phương pháp điều trị", fields.phuong_phap_dieu_tri],
+    ["Dịch vụ điều trị", fields.dich_vu_dieu_tri], ["Kê đơn", fields.ke_don], ["Mua thuốc", fields.mua_thuoc],
+  ].filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`).join("\n");
+  return details.slice(0, 4000);
+}
+
+function importRowSource(batchId: string, row: HospitalRow): NonNullable<HealthcareRecord["source"]> {
+  return { batchId, row: row.row, sheet: row.sheet };
+}
+
+async function upsertHospitalDerivedRecords(db: Db, actor: HealthcareActor, batchId: string, rows: HospitalRow[], importedVisits: Map<string, ImportedVisitReference>) {
+  const appointments: { value: RecordInput<Appointment>; source: NonNullable<HealthcareRecord["source"]> }[] = [];
+  const careTasks: { value: RecordInput<CareTask>; source: NonNullable<HealthcareRecord["source"]> }[] = [];
+  const sourceKey = (source: NonNullable<HealthcareRecord["source"]>) => `${source.sheet || ""}\u0000${source.row}`;
+
+  for (const row of rows) {
+    const source = importRowSource(batchId, row);
+    const visit = importedVisits.get(row.visit.code);
+    const patientId = visit?.patientId;
+    if (!visit || !patientId) throw new Error("IMPORT_VISIT_NOT_FOUND");
+    const followUpOn = row.visit.report?.followUpOn || "";
+    const details = hospitalCareDetails(row.visit.report?.fields);
+    const dueOn = followUpOn || visit.visitedOn;
+    const sourceStatus = normalize(row.visit.report?.sourceStatus);
+    const careStatus: CareTask["status"] = followUpOn
+      ? "open"
+      : ["da_thuc_hien", "hoan_thanh", "da_ke_don"].includes(sourceStatus) ? "completed"
+        : sourceStatus === "dang_kham" ? "in_progress" : "open";
+
+    if (row.createAppointment ?? Boolean(followUpOn)) {
+      const appointment: RecordInput<Appointment> = {
+        patientId, visitId: visit._id, doctorId: "", doctorName: visit.doctorName || row.visit.report?.doctor || "", roomId: "",
+        scheduledOn: followUpOn, startsAt: "", endsAt: "", status: "scheduled",
+        note: "Ngày tái khám được nhập từ Excel; file không có giờ hẹn.",
+      };
+      appointments.push({ value: appointment, source });
+    }
+
+    if (row.createCare ?? Boolean(details || followUpOn)) {
+      const task: RecordInput<CareTask> = {
+        patientId, appointmentId: "", visitId: visit._id, assigneeId: "",
+        title: `${followUpOn ? "Theo dõi tái khám" : "Thông tin chăm sóc"} · ${row.patient.code}`.slice(0, 200),
+        details: details || "Có ngày hẹn tái khám trong báo cáo Excel.", dueOn, status: careStatus, result: "",
+      };
+      careTasks.push({ value: task, source });
+    }
+  }
+
+  const sourceFilter = (source: NonNullable<HealthcareRecord["source"]>) => ({
+    ...scopeFilter(actor), "source.batchId": source.batchId, "source.sheet": source.sheet, "source.row": source.row,
+  });
+  const appointmentCollection = records(db, "appointments");
+  if (appointments.length) {
+    try {
+      await appointmentCollection.bulkWrite(appointments.map(({ value, source }) => ({
+        updateOne: { filter: sourceFilter(source), update: { $setOnInsert: {
+          ...newRecord<Appointment>(actor, value, source), reservations: [],
+        } }, upsert: true },
+      })), { ordered: false });
+    } catch (error) {
+      if (!(error instanceof MongoBulkWriteError) || error.result.getWriteConcernError()) throw error;
+      const failures = Array.isArray(error.writeErrors) ? error.writeErrors : [error.writeErrors];
+      if (!failures.length || failures.some(item => item.code !== 11000)) throw error;
+    }
+  }
+  const visitIds = [...new Set(careTasks.map(entry => entry.value.visitId).filter(Boolean))];
+  const appointmentRows = visitIds.length ? await appointmentCollection.find({
+    ...scopeFilter(actor), visitId: { $in: visitIds },
+  }).project<{ _id: string; visitId: string; scheduledOn?: string; startsAt: string }>({ _id: 1, visitId: 1, scheduledOn: 1, startsAt: 1 }).toArray() : [];
+  const appointmentByVisit = new Map<string, typeof appointmentRows>();
+  for (const appointment of appointmentRows) {
+    const matches = appointmentByVisit.get(appointment.visitId) || [];
+    matches.push(appointment);
+    appointmentByVisit.set(appointment.visitId, matches);
+  }
+  const rowBySource = new Map(rows.map(row => [sourceKey(importRowSource(batchId, row)), row]));
+  for (const entry of careTasks) {
+    const sourceRow = rowBySource.get(sourceKey(entry.source));
+    const followUpOn = sourceRow?.visit.report?.followUpOn;
+    if (!followUpOn) continue;
+    const appointment = (appointmentByVisit.get(entry.value.visitId || "") || []).find(item => {
+      const startsAt = item.startsAt ? Date.parse(item.startsAt) : NaN;
+      const day = item.scheduledOn || (Number.isFinite(startsAt)
+        ? new Date(startsAt + 7 * 60 * 60 * 1000).toISOString().slice(0, 10) : "");
+      return day === followUpOn;
+    });
+    if (appointment) entry.value.appointmentId = appointment._id;
+  }
+
+  const careCollection = records(db, "care");
+  if (careTasks.length) {
+    try {
+      await careCollection.bulkWrite(careTasks.map(({ value, source }) => ({
+        updateOne: { filter: sourceFilter(source), update: { $setOnInsert: newRecord<CareTask>(actor, value, source) }, upsert: true },
+      })), { ordered: false });
+    } catch (error) {
+      if (!(error instanceof MongoBulkWriteError) || error.result.getWriteConcernError()) throw error;
+      const failures = Array.isArray(error.writeErrors) ? error.writeErrors : [error.writeErrors];
+      if (!failures.length || failures.some(item => item.code !== 11000)) throw error;
+    }
+  }
+}
+
 async function writeImportRows(db: Db, actor: HealthcareActor, id: string, kind: ImportKind, rows: StagedRow[]) {
   const patients = records(db, "patients");
   const visits = records(db, "visits");
@@ -487,7 +658,7 @@ async function writeImportRows(db: Db, actor: HealthcareActor, id: string, kind:
   }
   await upsertImportRecords(patients, actor, [...patientEntries.values()]);
   const importedPatients = new Map((await patients.find({ ...scope, code: { $in: [...patientEntries.keys()] } })
-    .project<WriteSource>({ _id: 1, code: 1, source: 1 }).toArray()).map(patient => [patient.code, patient]));
+    .project<WriteSource>({ _id: 1, code: 1, source: 1, name: 1 }).toArray()).map(patient => [patient.code, patient]));
   for (const row of hospitalRows) {
     const patientId = importedPatients.get(row.patient.code)?._id;
     if (!patientId) throw new Error("IMPORT_PATIENT_NOT_FOUND");
@@ -497,13 +668,28 @@ async function writeImportRows(db: Db, actor: HealthcareActor, id: string, kind:
   const imported = kind === "patients" ? importedPatients : new Map((await visits.find({
     ...scope, code: { $in: visitEntries.map(entry => entry.value.code) },
   }).project<WriteSource>({ _id: 1, code: 1, source: 1 }).toArray()).map(visit => [visit.code, visit]));
+  if (kind === "hospital-report") {
+    const importedVisits = new Map((await visits.find({
+      ...scope, code: { $in: hospitalRows.map(row => row.visit.code) },
+    }).project<ImportedVisitReference>({ _id: 1, code: 1, patientId: 1, visitedOn: 1, doctorName: 1, source: 1 }).toArray())
+      .map(visit => [visit.code, visit]));
+    for (const row of hospitalRows) {
+      const patient = importedPatients.get(row.patient.code);
+      const visit = importedVisits.get(row.visit.code);
+      if (!patient || !visit || patientNameKey(patient.name || "") !== patientNameKey(row.patient.name)
+        || visit.patientId !== patient._id || visit.visitedOn !== row.visit.visitedOn) {
+        throw new ConflictError("CONFLICT", "Dữ liệu bệnh nhân hoặc lượt khám đã thay đổi sau khi kiểm tra. Hãy tải lại file để xem trước lại.");
+      }
+    }
+    await upsertHospitalDerivedRecords(db, actor, id, hospitalRows, importedVisits);
+  }
   await staged(db).bulkWrite(rows.map(row => {
     const record = imported.get(row.code);
     if (!record) throw new Error("IMPORT_RECORD_NOT_FOUND");
     return {
       updateOne: {
         filter: { batchId: id, index: row.index, status: "ready" as const },
-        update: { $set: { recordId: record._id, status: record.source?.batchId === id ? "imported" as const : "skipped" as const }, $unset: { input: "" } },
+        update: { $set: { recordId: record._id, status: record.source?.batchId === id || row.input?.kind === "hospital-report" ? "imported" as const : "skipped" as const }, $unset: { input: "" } },
       },
     };
   }), { ordered: false });
@@ -560,14 +746,17 @@ export async function processNextImport(db: Db) {
         processed += rows.length;
       }
       const byBatch = { ...scopeFilter(actor), "source.batchId": batch._id };
-      const [patientsInserted, visitsInserted] = await Promise.all([
+      const [patientsInserted, visitsInserted, appointmentsInserted, careInserted] = await Promise.all([
         batch.kind !== "visits" ? records(db, "patients").countDocuments(byBatch) : 0,
         batch.kind !== "patients" ? records(db, "visits").countDocuments(byBatch) : 0,
+        batch.kind === "hospital-report" ? records(db, "appointments").countDocuments(byBatch) : 0,
+        batch.kind === "hospital-report" ? records(db, "care").countDocuments(byBatch) : 0,
       ]);
-      const inserted = batch.kind === "patients" ? patientsInserted : visitsInserted;
+      const importedReportRows = batch.kind === "hospital-report" ? await staged(db).countDocuments({ batchId: batch._id, status: "imported" }) : 0;
+      const inserted = batch.kind === "patients" ? patientsInserted : batch.kind === "hospital-report" ? importedReportRows : visitsInserted;
       await batches(db).updateOne(key, {
         $set: { status: "completed", processed: batch.total, completedAt: new Date().toISOString(), inserted, skipped: batch.total - inserted,
-          ...(batch.kind === "hospital-report" ? { patientsInserted } : {}) },
+          ...(batch.kind === "hospital-report" ? { patientsInserted, appointmentsInserted, careInserted } : {}) },
         $unset: { leaseUntil: "", claimToken: "", error: "", retryUntil: "" },
       });
     }
