@@ -85,7 +85,7 @@ function formattedText(content: string, allowedLinkUrls?: readonly string[]) {
         return safe && canonical ? [[canonical, safe] as const] : [];
       }),
     );
-  const pattern = /(!?)\[([^\]]+)\]\((https?:\/\/[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)\)|(\*\*.+?\*\*)/g;
+  const pattern = /(!?)\[([^\]]+)\]\((https?:\/\/[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)\)|(\*\*.+?\*\*)|(?<!\*)\*([^*\n]+)\*(?!\*)|(?<![\w])_([^_\n]+)_(?![\w])/g;
   const parts: React.ReactNode[] = [];
   let cursor = 0;
   let key = 0;
@@ -94,6 +94,8 @@ function formattedText(content: string, allowedLinkUrls?: readonly string[]) {
     if (start > cursor) parts.push(content.slice(cursor, start));
     if (match[4]) {
       parts.push(<strong key={key++}>{match[4].slice(2, -2)}</strong>);
+    } else if (match[5] || match[6]) {
+      parts.push(<em key={key++}>{match[5] || match[6]}</em>);
     } else {
       const safeUrl = safeAssistantHttpUrl(match[3]);
       const canonicalUrl = canonicalAssistantLinkUrl(match[3]);
@@ -123,6 +125,88 @@ function formattedText(content: string, allowedLinkUrls?: readonly string[]) {
 
 function MessageParagraph({ content, allowedLinkUrls }: { content: string; allowedLinkUrls?: readonly string[] }) {
   return <p className="whitespace-pre-wrap break-words text-pretty" style={{ overflowWrap: "anywhere" }}>{formattedText(content, allowedLinkUrls)}</p>;
+}
+
+type AssistantTextBlock =
+  | { type: "paragraph"; content: string }
+  | { type: "heading"; level: number; content: string }
+  | { type: "list"; ordered: boolean; items: Array<{ content: string; depth: number }> }
+  | { type: "divider" };
+
+function parseAssistantTextBlocks(content: string): AssistantTextBlock[] {
+  const blocks: AssistantTextBlock[] = [];
+  let paragraph: string[] = [];
+  let list: Extract<AssistantTextBlock, { type: "list" }> | null = null;
+  const flushParagraph = () => {
+    const value = paragraph.join("\n").trim();
+    if (value) blocks.push({ type: "paragraph", content: value });
+    paragraph = [];
+  };
+  const flushList = () => {
+    if (list?.items.length) blocks.push(list);
+    list = null;
+  };
+
+  for (const line of content.split("\n")) {
+    const heading = line.match(/^\s*(#{1,6})\s+(.+?)\s*#*\s*$/);
+    const item = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.+?)\s*$/);
+    const divider = /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line);
+    if (!line.trim()) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+    if (heading) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: "heading", level: heading[1].length, content: heading[2] });
+      continue;
+    }
+    if (divider) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: "divider" });
+      continue;
+    }
+    if (item) {
+      flushParagraph();
+      const ordered = /^\d/.test(item[2]);
+      if (!list || list.ordered !== ordered) {
+        flushList();
+        list = { type: "list", ordered, items: [] };
+      }
+      const indentation = item[1].replace(/\t/g, "  ").length;
+      list.items.push({ content: item[3], depth: Math.min(4, Math.floor(indentation / 2)) });
+      continue;
+    }
+    flushList();
+    paragraph.push(line);
+  }
+  flushParagraph();
+  flushList();
+  return blocks;
+}
+
+function AssistantTextContent({ content, allowedLinkUrls }: { content: string; allowedLinkUrls?: readonly string[] }) {
+  const blocks = parseAssistantTextBlocks(content);
+  return <div className="min-w-0 space-y-2.5 text-pretty">
+    {blocks.map((block, index) => {
+      if (block.type === "paragraph") return <MessageParagraph key={`paragraph-${index}`} content={block.content} allowedLinkUrls={allowedLinkUrls} />;
+      if (block.type === "heading") {
+        const headingTags = ["h3", "h4", "h5", "h6", "h6", "h6"] as const;
+        const Heading = headingTags[block.level - 1];
+        const className = cn("font-semibold text-on-surface", block.level <= 2 ? "text-base" : "text-sm");
+        return <Heading key={`heading-${index}`} className={className}>{formattedText(block.content, allowedLinkUrls)}</Heading>;
+      }
+      if (block.type === "divider") return <hr key={`divider-${index}`} className="border-outline-variant" />;
+      const List = block.ordered ? "ol" : "ul";
+      return <List key={`list-${index}`} className={cn("space-y-1.5", block.ordered ? "list-decimal pl-5" : "list-none pl-0")}>
+        {block.items.map((item, itemIndex) => <li key={itemIndex} className={cn(!block.ordered && "pl-4")} style={{ marginLeft: `${item.depth}rem` }}>
+          {formattedText(item.content, allowedLinkUrls)}
+        </li>)}
+      </List>;
+    })}
+  </div>;
 }
 
 type AssistantMarkdownBlock =
@@ -200,11 +284,11 @@ export function AssistantMessageContent({ content, visibleCharacters, allowedLin
     const successCard = parseAssistantSuccessCard(visibleContent);
     if (!successCard) {
       const blocks = parseAssistantMarkdownBlocks(visibleContent);
-      if (!blocks.some(block => block.type === "table")) return <MessageParagraph content={visibleContent} allowedLinkUrls={allowedLinkUrls} />;
+      if (!blocks.some(block => block.type === "table")) return <AssistantTextContent content={visibleContent} allowedLinkUrls={allowedLinkUrls} />;
       return <div className="min-w-0 space-y-3">
         {blocks.map((block, index) => block.type === "table"
           ? <AssistantMarkdownTable key={`table-${index}`} {...block} allowedLinkUrls={allowedLinkUrls} />
-          : <MessageParagraph key={`text-${index}`} content={block.content} allowedLinkUrls={allowedLinkUrls} />)}
+          : <AssistantTextContent key={`text-${index}`} content={block.content} allowedLinkUrls={allowedLinkUrls} />)}
       </div>;
     }
     return (
@@ -229,7 +313,7 @@ export function AssistantMessageContent({ content, visibleCharacters, allowedLin
           })}
         </dl>
         {successCard.notes.length > 0 && <div className="space-y-2 border-t border-outline-variant px-4 py-3 text-sm text-on-surface-variant">
-          {successCard.notes.map((note, index) => <MessageParagraph key={index} content={note} allowedLinkUrls={allowedLinkUrls} />)}
+          {successCard.notes.map((note, index) => <AssistantTextContent key={index} content={note} allowedLinkUrls={allowedLinkUrls} />)}
         </div>}
       </section>
     );
@@ -240,7 +324,7 @@ export function AssistantMessageContent({ content, visibleCharacters, allowedLin
     ? totalParts
     : Math.min(totalParts, Math.floor(visibleCharacters / Array.from(content).length * totalParts));
   if (visibleCharacters !== undefined && visibleParts === 0) {
-    return <MessageParagraph content={Array.from(resultTable.before.join("\n")).slice(0, visibleCharacters).join("")} allowedLinkUrls={allowedLinkUrls} />;
+    return <AssistantTextContent content={Array.from(resultTable.before.join("\n")).slice(0, visibleCharacters).join("")} allowedLinkUrls={allowedLinkUrls} />;
   }
   const visibleBefore = resultTable.before.slice(0, visibleParts);
   const visibleRows = resultTable.rows.slice(0, Math.max(0, visibleParts - resultTable.before.length));
@@ -248,7 +332,7 @@ export function AssistantMessageContent({ content, visibleCharacters, allowedLin
 
   return (
     <div className="min-w-0 space-y-3">
-      {visibleBefore.map((line, index) => <MessageParagraph key={`before-${index}`} content={line} allowedLinkUrls={allowedLinkUrls} />)}
+      {visibleBefore.map((line, index) => <AssistantTextContent key={`before-${index}`} content={line} allowedLinkUrls={allowedLinkUrls} />)}
       {visibleRows.length > 0 && <div
         role="region"
         aria-label="Bảng kết quả. Có thể cuộn ngang để xem đủ các cột."
@@ -276,7 +360,7 @@ export function AssistantMessageContent({ content, visibleCharacters, allowedLin
           </tbody>
         </table>
       </div>}
-      {visibleAfter.map((line, index) => <MessageParagraph key={`after-${index}`} content={line} allowedLinkUrls={allowedLinkUrls} />)}
+      {visibleAfter.map((line, index) => <AssistantTextContent key={`after-${index}`} content={line} allowedLinkUrls={allowedLinkUrls} />)}
     </div>
   );
 }
