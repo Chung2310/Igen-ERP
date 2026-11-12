@@ -4,6 +4,7 @@ export interface ChatOrderScope {
   companyCode: string;
   pageId: string;
   conversationId: string;
+  platform?: "facebook" | "zalo" | "tiktok";
 }
 
 export interface ChatOrderFlowSession {
@@ -14,12 +15,14 @@ export interface ChatOrderFlowSession {
 
 export interface ChatOrderFlowInput extends ChatOrderScope {
   messageId: string;
+  messageAt?: Date;
   message: string;
   history?: Array<{ sender: string; text: string }>;
   imageUrls: string[];
   observation?: ChatImageObservation;
   visualMode?: boolean;
   simulationMode?: boolean;
+  retryIntake?: boolean;
   freshImage?: boolean;
   replyDeadlineAt?: number;
   businessContext?: string;
@@ -52,7 +55,7 @@ export interface ChatOrderFlowPreview {
 
 export interface ChatOrderFlow {
   key: string;
-  isEnabled(pageId: string): Promise<boolean>;
+  isEnabled(pageId: string, platform?: "facebook" | "zalo" | "tiktok", companyCode?: string): Promise<boolean>;
   isActive(pageId: string, conversationId: string): Promise<boolean>;
   prepareSession(scope: ChatOrderScope, messageId: string): Promise<ChatOrderFlowSession>;
   process(input: ChatOrderFlowInput): Promise<ChatOrderFlowReply | undefined>;

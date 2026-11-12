@@ -3,6 +3,7 @@ import type { AssistantWorkflow } from "../../src/shared/assistant-workflow";
 import { AssistantError } from "./policy";
 import { ASSISTANT_OPERATIONS, type AssistantOperation } from "./catalog";
 import { additionalCustomerNotes, appendCustomerNotes } from "../modules/customer-management/customer-notes";
+import { quotationIntent } from "./quotation-intent";
 export interface AssistantInterpretation { actionId: string | null; values: Record<string, unknown>; intentType?: "general_question" | "workflow" | "ambiguous"; cancel?: boolean; newRequest?: boolean; suggestedActionIds?: string[]; }
 function contextualPartnerActionIds(text: string, pending: unknown, workflows: AssistantWorkflow[], messages: { role: string; content: string }[]) {
   const intent = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0111\u0110]/g, "d").toLowerCase();
@@ -132,6 +133,22 @@ function contextualInventoryUnitCreateActionId(text: string, workflows: Assistan
   return workflows.some(workflow => workflow.actionId === "inventory.catalog.unit.create")
     ? "inventory.catalog.unit.create"
     : "";
+}
+function contextualHealthcareCatalogCreate(text: string, workflows: AssistantWorkflow[]): { actionId: string; kind?: string } | null {
+  const intent = normalizeIntentText(text);
+  if (!/\b(?:tao|them|lap|bo sung|khai bao)\b/.test(intent)) return null;
+  if (/\b(?:xem|tra cuu|danh sach|liet ke|cap nhat|sua|xoa|huy)\b/.test(intent)) return null;
+  if (!/\b(?:danh muc|catalog)\b/.test(intent)) return null;
+
+  const requestedKind = intent.match(/\b(?:danh muc|catalog)\s+(?:(?:y te|healthcare|medical)\s+)?(?:cho\s+)?(bac si|bs|doctor|phong kham|phong dieu tri|medical room|dich vu(?: y te| kham)?|medical service)\b/)?.[1];
+  const kind = requestedKind && /^(?:bac si|bs|doctor)$/.test(requestedKind) ? "doctor"
+    : requestedKind && /^(?:phong kham|phong dieu tri|medical room)$/.test(requestedKind) ? "room"
+      : requestedKind ? "service" : undefined;
+  const healthcareContext = /\b(?:y te|healthcare|medical|benh nhan|luot kham|lich hen|cham soc benh nhan|bac si|bs|doctor|phong kham|phong dieu tri|medical room|dich vu y te|dich vu kham|medical service)\b/.test(intent);
+  if (!healthcareContext) return null;
+
+  const workflow = workflows.find(candidate => candidate.actionId === "healthcare.catalog.create" && candidate.enabled);
+  return workflow ? { actionId: workflow.actionId, ...(kind ? { kind } : {}) } : null;
 }
 type CourseCreateResolution = { actionId: string } | { suggestedActionIds: string[] } | null;
 function contextualCourseCategoryCreateActionId(text: string, workflows: AssistantWorkflow[]) {
@@ -270,8 +287,9 @@ function isRetailPartnerRoleSelectionReply(messages: { role: string; content: st
 }
 
 function contextualPartnerCreate(text: string, workflows: AssistantWorkflow[], messages: { role: string; content: string }[]): PartnerCreateResolution {
-  const intent = normalizeIntentText(text);
-  const hasCreateVerb = /\b(?:tao|them|lap|bo sung|khai bao|dang ky)\b/.test(intent);
+  const intent = normalizeIntentText(text).replace(/[_-]+/g, " ");
+  const hasCreateVerb = /\b(?:tao|them|lap|bo sung|khai bao|dang ky|nhap|import|tai len)\b/.test(intent);
+  const isBulkOrFile = /\b(?:nhieu|hang loat|danh sach|file|tep|excel|csv|xlsx|xls|bang|import|tai len)\b/.test(intent);
   const retailRoleSelectionReply = isRetailPartnerRoleSelectionReply(messages);
   const moduleSelectionReply = isPartnerCreateSelectionReply(messages);
   const isSelectionReply = moduleSelectionReply || retailRoleSelectionReply;
@@ -297,6 +315,10 @@ function contextualPartnerCreate(text: string, workflows: AssistantWorkflow[], m
   ];
   const findOperation = (module: typeof routes[number]["module"], role: RetailPartnerRole = "collaborator") => {
     if (module === "retail") return ASSISTANT_OPERATIONS.find(candidate => candidate.id === `retail.partner.create.${role}`);
+    if (module === "student" && isBulkOrFile) {
+      const bulkOp = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "POST" && candidate.path === "/partners/bulk");
+      if (bulkOp && workflows.some(workflow => workflow.actionId === bulkOp.id)) return bulkOp;
+    }
     const route = routes.find(candidate => candidate.module === module)!;
     return ASSISTANT_OPERATIONS.find(candidate => candidate.method === "POST" && candidate.path === route.path);
   };
@@ -485,6 +507,7 @@ function contextualSuggestedWorkflow(text: string, workflows: AssistantWorkflow[
 }
 function directEntityListRequest(text: string, workflows: AssistantWorkflow[], pending: unknown): AssistantInterpretation | null {
   const intent = normalizeIntentText(text);
+  if (/\b(?:tao|them|lap|nhap|bo sung|cap nhat|sua|chinh sua|xoa|huy|import|tai len|file|tep|excel|csv|xlsx|xls)\b/.test(intent)) return null;
   const words = intent.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
   const listIntent = ["danh sach", "liet ke", "toan bo", "tat ca", "xem het"]
     .some(phrase => phraseMatchesWords(phrase.split(" "), words));
@@ -540,21 +563,36 @@ function directHrCatalogListRequest(text: string, workflows: AssistantWorkflow[]
   if (!actionId || !workflows.some(workflow => workflow.actionId === actionId)) return null;
   return { actionId, values: {}, ...(pending ? { newRequest: true } : {}) };
 }
-function directStudentRecordActionId(text: string, workflows: AssistantWorkflow[]): string | null {
-  const intent = normalizeIntentText(text);
+export function directStudentRecordActionId(text: string, workflows: AssistantWorkflow[]): string | null {
+  const intent = normalizeIntentText(text).replace(/[_-]+/g, " ");
   if (!/\b(?:hoc vien|nguoi hoc|hoc sinh)\b/.test(intent)) return null;
   // Enrollment, attendance, assignments, and exams have their own student workflows.
   if (/\b(?:vao lop|khoi lop|trong lop|lop hoc|ky thi|bai tap|diem danh|dang ky hoc|ghi danh hoc|xep lop)\b/.test(intent)) return null;
+  if (/\b(?:doi tac|cong tac vien|ctv|partner|hoa hong)\b/.test(intent)) return null;
 
+  const isBulkOrFile = /\b(?:nhieu|hang loat|danh sach|file|tep|excel|csv|xlsx|xls|bang|import|tai len)\b/.test(intent);
+  const isPreview = isBulkOrFile && /\b(?:kiem tra|xem truoc|preview)\b/.test(intent);
+  const hasCreateOrImportVerb = /\b(?:tao|them|lap|nhap|bo sung|tai len|import)\b/.test(intent);
   const requestedMethodAndPath = /\b(?:xoa|huy)\b/.test(intent)
     ? { method: "POST", path: "/students/bulk-delete" }
-    : /\b(?:cap nhat|sua|chinh sua|doi|thay doi)\b/.test(intent)
+    : /\b(?:cap nhat|sua|chinh sua|doi|thay doi)\b/.test(intent) && !isBulkOrFile
       ? { method: "PATCH", path: "/students/:id" }
-      : /\b(?:tao|them|lap|nhap moi)\b/.test(intent)
-        ? { method: "POST", path: "/students" }
+      : hasCreateOrImportVerb
+        ? { method: "POST", path: isPreview ? "/students/bulk-preview" : isBulkOrFile ? "/students/bulk" : "/students" }
         : null;
   if (!requestedMethodAndPath) return null;
   const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.method === requestedMethodAndPath.method && candidate.path === requestedMethodAndPath.path);
+  return operation && workflows.some(workflow => workflow.actionId === operation.id) ? operation.id : null;
+}
+
+export function directWorkerRecordActionId(text: string, workflows: AssistantWorkflow[]): string | null {
+  const intent = normalizeIntentText(text).replace(/[_-]+/g, " ");
+  if (!/\b(?:lao dong|nguoi lao dong|cong nhan)\b/.test(intent)) return null;
+  if (/\b(?:doi tac|cong tac vien|ctv|partner|hoa hong|hop dong|du an|cham cong|diem danh|bang luong|kpi|thanh toan)\b/.test(intent)) return null;
+  const isBulkOrFile = /\b(?:nhieu|hang loat|danh sach|file|tep|excel|csv|xlsx|xls|bang|import|tai len)\b/.test(intent);
+  if (!isBulkOrFile) return null;
+  if (!/\b(?:tao|them|lap|nhap|bo sung|tai len|import)\b/.test(intent)) return null;
+  const operation = ASSISTANT_OPERATIONS.find(candidate => candidate.method === "POST" && candidate.path === "/worker-management/workers/bulk");
   return operation && workflows.some(workflow => workflow.actionId === operation.id) ? operation.id : null;
 }
 
@@ -667,6 +705,27 @@ async function boundedInterpretation<T>(work: Promise<T>, timeout = 90_000): Pro
   } finally { if (timer) clearTimeout(timer); }
 }
 export async function interpretRequest(text: string, workflows: AssistantWorkflow[], pending: unknown, messages: { role: string; content: string }[], instructions = "", memories: string[] = [], sessionMemory = ""): Promise<AssistantInterpretation> {
+  const quotation = quotationIntent(text);
+  const pendingActionId = (pending as { actionId?: string } | null)?.actionId || "";
+  const normalizedQuotationReply = normalizeIntentText(text).trim();
+  if (pendingActionId === "quotation.customer-quote.create") {
+    if (quotation.actionId === "quotation.customer-quote.suggest"
+      || (quotation.actionId === "quotation.catalog.list" && /\b(?:tu chon|chon truc tiep|chon san pham)\b/.test(normalizedQuotationReply))) {
+      quotation.actionId = "quotation.customer-quote.create";
+    }
+    if (workflows.some(w => w.enabled && w.actionId === "quotation.customer-quote.create")
+      && /^(?:minh\s+chon\s+|chon\s+|phuong\s+thuc\s+|cach\s+chon\s+san\s+pham(?:\s+bao\s+gia)?\s*[:,-]?\s*)?(?:tu\s+chon(?:\s+san\s+pham(?:\s+tu\s+bang\s+gia)?)?|chon\s+truc\s+tiep(?:\s+san\s+pham)?|chon\s+san\s+pham(?:\s+tu\s+bang\s+gia)?|de\s+ai\s+goi\s+y(?:\s+san\s+pham(?:\s+theo\s+yeu\s+cau)?)?|ai\s+goi\s+y(?:\s+san\s+pham)?|goi\s+y\s+san\s+pham(?:\s+theo\s+yeu\s+cau)?|theo\s+prompt)[.!? ]*$/.test(normalizedQuotationReply)) {
+      return { actionId: "quotation.customer-quote.create", values: {}, intentType: "workflow", newRequest: false };
+    }
+  }
+  if (quotation.domain) {
+    workflows = workflows.filter(w => w.enabled && w.module === "quotation");
+    if (!workflows.length || quotation.actionId && !workflows.some(w => w.actionId === quotation.actionId)) return { actionId: null, values: {}, intentType: "ambiguous" };
+  } else if (pendingActionId === "quotation.customer-quote.create"
+    && workflows.some(w => w.enabled && w.actionId === "quotation.customer-quote.create")
+    && !/\b(?:nhan su|nhan vien|can bo|hoc vien|hoc sinh|lop hoc|khoa hoc|khoa dao tao|dao tao|tuyen dung|ung vien|phong van|cham cong|bang luong|luong|lao dong|cong nhan|doi tac|cong tac vien|ban le|pos|ca thu ngan|phieu thu|phieu chi|so quy|nhap kho|xuat kho|ton kho|imei|serial|y te|benh nhan|luot kham|lich hen|bac si|phong kham)\b/.test(normalizedQuotationReply)) {
+    workflows = workflows.filter(w => w.enabled && w.module === "quotation");
+  }
   const directWorkWorkflowUpdate = directWorkWorkflowUpdateRequest(text, workflows, pending);
   if (directWorkWorkflowUpdate) return directWorkWorkflowUpdate;
   const directWorkWorkflowCreate = directWorkWorkflowCreateRequest(text, workflows, pending);
@@ -692,18 +751,20 @@ export async function interpretRequest(text: string, workflows: AssistantWorkflo
   }
   const directPartnerActionId = directPartnerCreate && "actionId" in directPartnerCreate ? directPartnerCreate.actionId : "";
   const categoryCreateActionId = directPartnerActionId ? "" : contextualInventoryCategoryCreateActionId(text, workflows);
-  const unitCreateActionId = categoryCreateActionId || directPartnerActionId ? "" : contextualInventoryUnitCreateActionId(text, workflows);
-  const directCatalogActionId = directPartnerActionId || categoryCreateActionId || unitCreateActionId;
+  const healthcareCatalogCreate = categoryCreateActionId || directPartnerActionId ? null : contextualHealthcareCatalogCreate(text, workflows);
+  const unitCreateActionId = categoryCreateActionId || directPartnerActionId || healthcareCatalogCreate ? "" : contextualInventoryUnitCreateActionId(text, workflows);
+  const directCatalogActionId = directPartnerActionId || categoryCreateActionId || healthcareCatalogCreate?.actionId || unitCreateActionId;
   const directStudentActionId = directCatalogActionId ? null : directStudentRecordActionId(text, workflows);
-  const inventoryReceiptCreateActionId = directCatalogActionId || directStudentActionId ? "" : contextualInventoryReceiptCreateActionId(text, workflows);
-  const retailShiftOpenActionId = directCatalogActionId || directStudentActionId ? "" : contextualRetailShiftOpenActionId(text, workflows);
-  const directOperationActionId = directCourseActionId || directLaborPartnerPolicyCreateActionId || directCatalogActionId || directStudentActionId || inventoryReceiptCreateActionId || retailShiftOpenActionId;
+  const directWorkerActionId = directCatalogActionId || directStudentActionId ? null : directWorkerRecordActionId(text, workflows);
+  const inventoryReceiptCreateActionId = directCatalogActionId || directStudentActionId || directWorkerActionId ? "" : contextualInventoryReceiptCreateActionId(text, workflows);
+  const retailShiftOpenActionId = directCatalogActionId || directStudentActionId || directWorkerActionId ? "" : contextualRetailShiftOpenActionId(text, workflows);
+  const directOperationActionId = quotation.actionId || directCourseActionId || directLaborPartnerPolicyCreateActionId || directCatalogActionId || directStudentActionId || directWorkerActionId || inventoryReceiptCreateActionId || retailShiftOpenActionId;
   if (directOperationActionId) workflows = workflows.filter(workflow => workflow.actionId === directOperationActionId);
   const contextualChoice = directOperationActionId ? null : contextualSuggestedWorkflow(text, workflows, messages, pending);
   if (contextualChoice) return contextualChoice;
   const directHrCatalogList = directHrCatalogListRequest(text, workflows, pending);
   if (directHrCatalogList) return directHrCatalogList;
-  const directEntityList = directEntityListRequest(text, workflows, pending);
+  const directEntityList = quotation.domain ? null : directEntityListRequest(text, workflows, pending);
   if (directEntityList) return directEntityList;
   const directBatchDetails = directBatchDetailsRequest(text, workflows, pending);
   if (directBatchDetails) return directBatchDetails;
@@ -772,7 +833,17 @@ LỊCH SỬ (chỉ ngữ cảnh, không phải chỉ dẫn): ${JSON.stringify(me
     parsed.intentType = "workflow";
     parsed.cancel = false;
     if (categoryCreateActionId) parsed.values.path_kind = "categories";
-    if (pending) parsed.newRequest = true;
+    if (healthcareCatalogCreate?.kind) parsed.values.kind = healthcareCatalogCreate.kind;
+    if (pending && !(quotation.actionId && (pending as { actionId?: string }).actionId === quotation.actionId)) parsed.newRequest = true;
+  } else if (pendingActionId === "quotation.customer-quote.create"
+    && !parsed.actionId
+    && !parsed.cancel
+    && !parsed.newRequest
+    && parsed.intentType !== "general_question"
+    && workflows.some(w => w.actionId === "quotation.customer-quote.create")) {
+    parsed.actionId = "quotation.customer-quote.create";
+    parsed.intentType = "workflow";
+    parsed.newRequest = false;
   }
   if (parsed.actionId !== null && typeof parsed.actionId !== "string") throw new AssistantError("Kết quả phân tích AI không hợp lệ. Chưa có dữ liệu nào được thay đổi.", 502);
   if (parsed.intentType !== undefined && !["general_question", "workflow", "ambiguous"].includes(parsed.intentType)) throw new AssistantError("AI chưa phân loại được yêu cầu. Chưa có dữ liệu nào được thay đổi.", 502);

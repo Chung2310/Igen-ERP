@@ -7,6 +7,7 @@ import { actorScope, assertOperation } from "./workflows";
 import { validateStructuredField } from "./structured-data";
 import { AssistantError } from "./policy";
 import { callHealthcareOperation, HealthcareUncertainExecutionError, lookupHealthcareRecords, projectHealthcareRecords, resolveHealthcareReferences, suggestHealthcareReferences } from "./healthcare-executor";
+import { callQuotationOperation, lookupQuotationRecords, projectQuotationRecords, QuotationUncertainExecutionError, resolveQuotationReferences, suggestQuotationReferences } from "./quotation-executor";
 
 export class UncertainExecutionError extends Error {}
 export type AssistantRecord = Record<string, AssistantValue>;
@@ -278,6 +279,10 @@ function assertCampaignCalendarRange(input: Record<string, AssistantValue>) {
 
 /** Only calls a code-owned route on this Express listener. Host, URL and credentials are never model inputs. */
 export async function callOperation(req: AuthenticatedRequest, op: AssistantOperation, input: Record<string, AssistantValue>, password?: string, requestId?: string) {
+  if (op.module === "quotation") {
+    try { return await callQuotationOperation(req, op, input, requestId); }
+    catch (error) { if (error instanceof QuotationUncertainExecutionError) throw new UncertainExecutionError(error.message); throw error; }
+  }
   if (op.module === "healthcare") {
     try { return await callHealthcareOperation(req, op, input); }
     catch (error) {
@@ -2957,6 +2962,7 @@ export async function callOperation(req: AuthenticatedRequest, op: AssistantOper
   return result;
 }
 export function projectRecords(op: AssistantOperation, response: any, req: AuthenticatedRequest): AssistantRecord[] {
+  if (op.module === "quotation") return projectQuotationRecords(op, response);
   if (op.module === "healthcare") return projectHealthcareRecords(op, response);
   const responseData = response?.data ?? response?.user ?? response;
   if (op.id === "hr.workflow.list") {
@@ -3624,6 +3630,7 @@ async function loadPathReferenceRows(req: AuthenticatedRequest, op: AssistantOpe
 
 export async function lookupRecords(req: AuthenticatedRequest, operationId: string, search = "", extraValues: Record<string, AssistantValue> = {}) {
   const op = await assertOperation(req, operationId);
+  if (op.module === "quotation") return lookupQuotationRecords(req, op, search, extraValues);
   if (op.module === "healthcare") return lookupHealthcareRecords(req, op, search, extraValues);
   // Some list APIs search business labels, not internal ObjectIds. When a
   // confirmed action rechecks a pinned ID, fetch the scoped page and match it
@@ -3689,7 +3696,7 @@ export async function lookupRecords(req: AuthenticatedRequest, operationId: stri
 
 export async function resolveNamedReferenceSelectors(req: AuthenticatedRequest, op: AssistantOperation, values: Record<string, unknown>) {
   // Healthcare update fields describe new values, never an implicit target to overwrite.
-  if (op.module === "healthcare") return { ...values };
+  if (op.module === "healthcare" || op.module === "quotation") return { ...values };
   const resolved = { ...values };
   const selectors = op.fields.filter(field => ["name", "title", "displayName", "fullName", "code", "email", "phone", "sku"].includes(field.key) && typeof values[field.key] === "string" && String(values[field.key]).trim());
   for (const field of op.fields) {
@@ -3920,6 +3927,7 @@ export async function suggestReferenceOptions(
   values: Record<string, AssistantValue>,
 ) {
   if (!field.reference) return [];
+  if (op.module === "quotation") return suggestQuotationReferences(req, op, field, values, lookupRecords);
   if (op.module === "healthcare") return suggestHealthcareReferences(req, op, field, values, lookupRecords, matchesReference);
   const referenceOperation = operationById(field.reference);
   const context: Record<string, AssistantValue> = {};
@@ -4039,6 +4047,7 @@ function nestedReferenceLabel(shape: NonNullable<AssistantField["structure"]>, k
 }
 
 export async function resolveReferences(req: AuthenticatedRequest, op: AssistantOperation, values: Record<string, AssistantValue>) {
+  if (op.module === "quotation") return resolveQuotationReferences(req, op, values, lookupRecords, matchesReference);
   if (op.module === "healthcare") return resolveHealthcareReferences(req, op, values, lookupRecords, matchesReference);
   const resolved = { ...values };
   const labels: Record<string, string> = {};

@@ -32,5 +32,6 @@ export interface ISocialIntegration extends Document {
   aiAutoReplyConfig?: IAiAutoReplyConfig;
   orderSheetConfig?: IOrderSheetConfig;
   leadSheetConfig?: { enabled: boolean; spreadsheetUrl: string; spreadsheetId: string; sheetName: string; updatedAt?: Date };
+  crmLeadSheetConfig?: { enabled: boolean; spreadsheetUrl: string; spreadsheetId: string; sheetName: string; updatedAt?: Date };
 }
 

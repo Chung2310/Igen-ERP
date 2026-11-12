@@ -1130,10 +1130,6 @@
     min-width: 0;
   }
 
-  .quotation-module .document-dialog-backdrop {
-    display: none;
-  }
-
   .quotation-module {
     background: var(--color-surface-container-lowest);
   }

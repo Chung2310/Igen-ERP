@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
 import React, { useRef, useEffect, useLayoutEffect, useState } from "react";
-import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare, ChevronDown, Facebook, Clock3, Plus, Bot, BadgeCheck, Sparkles } from "lucide-react";
+import { Search, Send, Sliders, Zap, FileText, DollarSign, MessageSquare, ChevronDown, Facebook, Clock3, Plus, Bot, Sparkles } from "lucide-react";
 import { CustomerInbox, ChatMessage, AIChatConfig, ChatPagination } from "../../../shared/types/index";
 import { toast } from "../../../../../pages/Toast";
 import { geminiApi } from "../../../shared/api/gemini";
@@ -24,8 +24,7 @@ type OmniChatTabProps = {
   handleSendChatMessage: (e: React.FormEvent) => void;
   handleLoadOlderMessages: () => void;
   leads: ExtendedLeadCard[];
-  onCreateLeadFromChat: (customer: CustomerInbox, status: "cold" | "warm" | "hot") => void;
-  onUpdateLeadStatus: (id: string, newStatus: "cold" | "warm" | "hot" | "won" | "upsell") => void;
+  onCreateLeadFromChat: (customer: CustomerInbox) => void;
   facebookPages: Array<{ _id: string; displayName: string; username: string; isMock?: boolean }>;
   selectedFacebookPageId: string;
   selectedZaloAccountId: string;
@@ -59,7 +58,6 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   handleLoadOlderMessages,
   leads,
   onCreateLeadFromChat,
-  onUpdateLeadStatus,
   facebookPages,
   selectedFacebookPageId,
   selectedZaloAccountId,
@@ -77,6 +75,10 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
   isInboxLoading,
   onResumeAI,
 }) => {
+  const intakePlatform = activeCustomer?.channel || (activeChannel === "all" ? "facebook" : activeChannel);
+  const intakeAccountId = activeCustomer
+    ? intakePlatform === "facebook" ? activeCustomer.pageId || activeCustomer.accountId || selectedFacebookPageId : activeCustomer.accountId || (intakePlatform === "zalo" ? selectedZaloAccountId : selectedTiktokAccountId)
+    : intakePlatform === "facebook" ? selectedFacebookPageId : intakePlatform === "zalo" ? selectedZaloAccountId : selectedTiktokAccountId;
   const [filterInbox, setFilterInbox] = useState("");
   const [showConfig, setShowConfig] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -783,8 +785,6 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                 })
                 .map((cust) => {
                   const isActive = activeCustomer?.id === cust.id && activeCustomer.channel === cust.channel && activeCustomer.accountId === cust.accountId;
-                  const hasHotTag = cust.tags.includes("Khách Nóng");
-
                   return (
                     <div
                       key={`${cust.channel || ""}:${cust.accountId || ""}:${cust.id}`}
@@ -826,14 +826,7 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                         </p>
 
                         <div className="flex flex-wrap items-center gap-1 mt-2.5">
-                          {hasHotTag && (
-                            <span className="animate-pulse px-1.5 py-0.5 bg-red-500 text-white text-[8px] font-extrabold rounded-md shadow-sm flex items-center gap-0.5">
-                              <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping shrink-0" />
-                              Ưu tiên giờ vàng
-                            </span>
-                          )}
-                          {cust.tags.map((tag, tIdx) => {
-                            if (tag === "Khách Nóng") return null;
+                          {cust.tags.filter(tag => !["Khách Lạnh", "Khách Ấm", "Khách Nóng", "Đã Chốt Đơn", "Khách Up-sell", "Khách bán thêm", "Sắp chốt HD", "Đã gửi báo giá", "Mới tiếp cận"].includes(tag)).map((tag, tIdx) => {
                             return (
                               <span key={tIdx} className={`px-1.5 py-0.5 text-[8px] font-bold border rounded-md uppercase ${tag === "Khách Ấm"
                                 ? "bg-orange-50 text-orange-600 border-orange-100"
@@ -880,14 +873,20 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 bg-white">
             <HrEmptyIllustration kind="notification" className="mb-2 h-24 w-40" />
             <h4 className="mb-1 text-sm font-medium text-on-surface">Chưa chọn cuộc hội thoại</h4>
-            <p className="max-w-xs text-pretty text-xs leading-normal text-on-surface-variant">Vui lòng chọn một cuộc trò chuyện từ danh sách bên trái hoặc nhắn tin từ thẻ cơ hội bán hàng để bắt đầu.</p>
+            <p className="max-w-xs text-pretty text-xs leading-normal text-on-surface-variant">Vui lòng chọn một cuộc trò chuyện từ danh sách bên trái hoặc mở hội thoại từ một dòng Lead để bắt đầu.</p>
           </div>
         ) : (
           <>
             {/* Active Customer Info Top Header */}
             <div className="p-4 border-b border-slate-200/80 bg-white/90 backdrop-blur flex items-center justify-between shrink-0 shadow-sm" id="chat_header">
               {(() => {
-                const linkedLead = leads.find(l => l.customerName.toLowerCase() === activeCustomer.name.toLowerCase());
+                const linkedLead = leads.find(l => l.sourceConversationId === activeCustomer.id
+                  && l.sourcePlatform === (activeCustomer.channel || "facebook")
+                  && l.sourceAccountId === activeCustomer.accountId)
+                  || (() => {
+                    const sameName = leads.filter(lead => lead.customerName.toLowerCase() === activeCustomer.name.toLowerCase());
+                    return sameName.length === 1 ? sameName[0] : undefined;
+                  })();
                 return (
                   <div className="flex items-center gap-3 text-left">
                     <span className="p-1.5 bg-gradient-to-br from-white to-slate-100 border border-slate-200 rounded-full select-none shadow-sm">
@@ -902,77 +901,20 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
                           <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-extrabold rounded-md shadow-sm">VIP</span>
                         )}
 
-                        {/* CRM Pipeline Status Indicator and Actions */}
+                        {/* Lead status reflects data collection, not a sales stage. */}
                         {linkedLead ? (
                           <div className="flex items-center gap-1.5">
-                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${linkedLead.status === 'cold' ? 'bg-slate-100 text-slate-655 border-slate-200' :
-                              linkedLead.status === 'warm' ? 'bg-orange-50 text-orange-655 border-orange-200' :
-                                linkedLead.status === 'hot' ? 'bg-rose-50 text-rose-655 border-rose-200 animate-pulse' :
-                                  linkedLead.status === 'won' ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' :
-                                    'bg-purple-50 text-purple-655 border-purple-200'
-                              }`}>
-                              CRM: {
-                                linkedLead.status === 'cold' ? 'Khách Lạnh' :
-                                  linkedLead.status === 'warm' ? 'Khách Ấm' :
-                                    linkedLead.status === 'hot' ? 'Khách Nóng' :
-                                      linkedLead.status === 'won' ? 'Đã Chốt Đơn' : 'Bán thêm (Up-sell)'
-                              }
+                            <span className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs text-on-surface-variant">
+                              Lead · {linkedLead.collectionStatus === "complete" ? "Đủ thông tin" : linkedLead.collectionStatus === "needs_human" ? "Chờ nhân viên" : "Đang thu thập"}
                             </span>
-
-                            {linkedLead.status === "cold" && (
-                              <button
-                                type="button"
-                                onClick={() => onUpdateLeadStatus(linkedLead.id, "warm")}
-                                className="px-2 py-0.5 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 rounded-md text-[9px] font-bold transition-all cursor-pointer active:scale-95"
-                              >
-                                Lên Ấm →
-                              </button>
-                            )}
-                            {linkedLead.status === "warm" && (
-                              <div className="flex gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => onUpdateLeadStatus(linkedLead.id, "cold")}
-                                  className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-250 rounded-md text-[9px] font-bold transition-all cursor-pointer active:scale-95"
-                                >
-                                  ← Lạnh
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => onUpdateLeadStatus(linkedLead.id, "hot")}
-                                  className="px-1.5 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-250 rounded-md text-[9px] font-bold transition-all cursor-pointer active:scale-95"
-                                >
-                                  Nóng →
-                                </button>
-                              </div>
-                            )}
-                            {linkedLead.status === "hot" && (
-                              <button
-                                type="button"
-                                onClick={() => onUpdateLeadStatus(linkedLead.id, "warm")}
-                                className="px-2 py-0.5 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 rounded-md text-[9px] font-bold transition-all cursor-pointer active:scale-95"
-                              >
-                                ← Về Ấm
-                              </button>
-                            )}
-                            {linkedLead.status !== "won" && linkedLead.status !== "upsell" && (
-                              <button
-                                type="button"
-                                onClick={() => onUpdateLeadStatus(linkedLead.id, "won")}
-                                className="px-2 py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600 rounded-md text-[9px] font-extrabold transition-all cursor-pointer active:scale-95 shadow-sm ml-1"
-                              >
-                                <BadgeCheck size={12} className="mr-1 inline" />Chốt đơn
-                              </button>
-                            )}
+                            {linkedLead.moduleSync && <span className="rounded-md bg-primary/5 px-2 py-1 text-xs text-primary">
+                              Đã chuyển vào {linkedLead.moduleSync.targetModule === "students" ? "Học viên" : linkedLead.moduleSync.targetModule === "healthcare" ? "Y tế" : "Lao động"}
+                            </span>}
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => onCreateLeadFromChat(activeCustomer, "cold")}
-                            className="px-2 py-0.5 bg-[#EAF8FF] hover:bg-[#DDF4FF] text-[#008FCF] border border-[#BEEBFF] rounded-md text-[9px] font-bold transition-all cursor-pointer flex items-center gap-0.5 active:scale-95"
-                          >
-                            <Plus className="w-2.5 h-2.5" />
-                            Đưa vào CRM
+                          <button type="button" onClick={() => onCreateLeadFromChat(activeCustomer)}
+                            className="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-medium text-on-surface hover:bg-surface-container-low focus-visible:outline-1 focus-visible:outline-primary">
+                            <Plus aria-hidden="true" className="mr-1 inline size-3" />Tạo Lead
                           </button>
                         )}
                       </div>
@@ -1243,7 +1185,8 @@ export const OmniChatTab: React.FC<OmniChatTabProps> = ({
       {/* R-Col: Config side-panel sidebar for custom AI assistant parameters (Collapsible) */}
       {showConfig && (
         <AiAssistantConfigPanel
-          pageId={activeChannel === "facebook" || activeCustomer?.channel === "facebook" ? activeCustomer?.pageId || selectedFacebookPageId : ""}
+          pageId={intakeAccountId}
+          platform={intakePlatform}
           onClose={() => setShowConfig(false)}
           localConfig={localConfig}
           setLocalConfig={updateLocalConfig}

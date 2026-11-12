@@ -68,11 +68,11 @@ export function normalizeStudioAudio(input: Buffer, fileName = ""): Promise<Buff
   });
 }
 
-export async function transcribeStudioAudio(input: { buffer: Buffer; fileName: string; companyCode: string; userId: string }) {
+export async function transcribeAudioToText(input: { buffer: Buffer; fileName: string; companyCode: string; userId: string }): Promise<string> {
   const key = process.env.OPENROUTER_API_KEY?.trim();
   if (!key) throw new AssistantError("Chưa cấu hình OPENROUTER_API_KEY trên máy chủ.", 503);
   const audio = await normalizeStudioAudio(input.buffer, input.fileName);
-  const text = await withAiUsage({ companyCode: input.companyCode, userId: input.userId }, () => billAiCall("speech", modelName, async () => {
+  return withAiUsage({ companyCode: input.companyCode, userId: input.userId }, () => billAiCall("speech", modelName, async () => {
     const response = await fetch("https://openrouter.ai/api/v1/audio/transcriptions", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -84,6 +84,10 @@ export async function transcribeStudioAudio(input: { buffer: Buffer; fileName: s
     if (!payload.text?.trim()) throw new AssistantError("Không nhận dạng được lời nói trong tệp âm thanh.", 422);
     return payload.text.trim();
   }));
+}
+
+export async function transcribeStudioAudio(input: { buffer: Buffer; fileName: string; companyCode: string; userId: string }) {
+  const text = await transcribeAudioToText(input);
   const saved = await Transcript.create({ companyCode: input.companyCode, userId: input.userId, fileName: input.fileName, text });
   return { id: String(saved._id), fileName: saved.fileName, text: saved.text, createdAt: saved.createdAt };
 }

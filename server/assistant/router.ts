@@ -24,6 +24,7 @@ import { createStudioChart, deleteStudioChart, editStudioChart, getStudioChart, 
 import { createStudioSlideDeck, getStudioSlideDeck, listStudioSlideDecks, studioSlideDeckUpdateSchema, studioSlideRequestSchema, updateStudioSlideDeck } from "./studio-slides";
 import { createStudioMindmap, studioMindmapRequestSchema } from "./studio-mindmaps";
 import { listAssistantProjects, saveAssistantProjectCollection } from "./projects";
+import { assistantConversationFileFilter } from "./conversation-file";
 
 export const assistantRouter = Router();
 assistantRouter.use(requireAuth as any, requirePermission("chat:read") as any);
@@ -170,6 +171,37 @@ const tableAttachment = Joi.object({
   headers: Joi.array().items(Joi.string().trim().min(1).max(120)).min(1).max(40).required(),
   rows: Joi.array().items(Joi.object().pattern(Joi.string().max(120), Joi.string().max(2000).allow("")).max(40)).min(1).max(100).required(),
 }).max(3);
+const conversationFileUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 1, fieldSize: 4 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => assistantConversationFileFilter(file.originalname, callback),
+});
+const parseConversationFileUpload = (req: any, res: any, next: any) => {
+  if (!req.is("multipart/form-data")) {
+    if (req.body?.conversationFile || req.body?.conversationUpload) return res.status(400).json({ success: false, message: "Tệp trò chuyện không hợp lệ." });
+    return next();
+  }
+  return expensiveApiRateLimiter(req, res, () => conversationFileUpload.single("file")(req, res, async (error: any) => {
+    if (error) {
+      const tooLarge = error.code === "LIMIT_FILE_SIZE" || error.code === "LIMIT_FIELD_VALUE";
+      return res.status(tooLarge ? 413 : 415).json({ success: false, message: tooLarge ? "Tệp đính kèm không được vượt quá 50 MB." : "Định dạng chưa hỗ trợ. Hỗ trợ PDF, DOCX, TXT, ảnh JPG/PNG/WebP và video MP4/MOV/WebM." });
+    }
+    try {
+      const payloadText = req.body?.payload;
+      const payload = typeof payloadText === "string" ? JSON.parse(payloadText) : null;
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new AssistantError("Nội dung lượt chat không hợp lệ.", 400);
+      if (!req.file) throw new AssistantError("Chưa nhận được tệp đính kèm. Hãy chọn lại tệp rồi gửi.", 400);
+      if (payload.mode !== "qa" || payload.attachment) throw new AssistantError("Tệp PDF, ảnh và video chỉ hỗ trợ trong mục Trò chuyện.", 400);
+      payload.conversationUpload = { buffer: req.file.buffer, fileName: req.file.originalname };
+      req.body = payload;
+      return next();
+    } catch (cause) {
+      const status = cause instanceof AssistantError ? cause.status : 400;
+      const message = cause instanceof Error ? cause.message : "Không đọc được tệp đính kèm.";
+      return res.status(status).json({ success: false, message });
+    }
+  }));
+};
 const trainingContent = Joi.object({
   lessons: Joi.array().max(50).items(Joi.object({
     title: Joi.string().trim().min(1).max(300).required(),
@@ -187,7 +219,8 @@ const trainingContent = Joi.object({
     ? helpers.error("any.invalid")
     : quiz)).required(),
 });
-assistantRouter.post("/turns", validateRequest({ body: Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent").with("skipReferenceKeys", "referenceSelections").with("attachment", "text") }), wrap(req => processTurn(req, req.body)));
+const assistantTurnBody = Joi.object({ conversationId: id, requestId: id, projectId: id.optional(), mode: Joi.string().valid("work", "qa"), research: Joi.boolean(), text: Joi.string().trim().min(1).max(6000), attachment: tableAttachment, conversationUpload: Joi.any(), referenceSelections: Joi.object().pattern(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160), Joi.array().items(Joi.string().trim().min(1).max(300)).min(1).max(100)).max(100), skipReferenceKeys: Joi.array().items(Joi.string().pattern(/^[A-Za-z0-9_.\[\]-]+$/).max(160)).max(100), trainingContent, decision: Joi.object({ id, confirmed: Joi.boolean().required(), password: Joi.string().min(6).max(128) }) }).xor("text", "decision", "referenceSelections", "trainingContent").with("skipReferenceKeys", "referenceSelections").with("attachment", "text").with("conversationUpload", "text");
+assistantRouter.post("/turns", parseConversationFileUpload, validateRequest({ body: assistantTurnBody }), wrap(req => processTurn(req, req.body)));
 assistantRouter.post("/speech", expensiveApiRateLimiter, validateRequest({ body: Joi.object({ text: Joi.string().trim().min(1).max(12000).required(), voice: Joi.string().valid(...assistantSpeechVoices) }) }), async (req: any, res: any) => {
   const controller = new AbortController();
   const abortOnClose = () => { if (!res.writableEnded) controller.abort(); };

@@ -63,8 +63,13 @@ export async function readAssistantTableFile(file: File): Promise<AssistantTable
       ? value
       : formattedMatrix[rowIndex]?.[columnIndex] ?? value));
   }
-  const headerRow = matrix.findIndex(row => row.some(value => String(value ?? "").trim()));
+  let headerRow = matrix.findIndex(row => row.some(value => String(value ?? "").trim()));
   if (headerRow < 0) throw new Error("Tệp đang trống. Dòng đầu tiên cần có tên các cột.");
+  const countNonBlankCells = (row: unknown[] | undefined) => (row || []).filter(value => String(value ?? "").trim()).length;
+  if (countNonBlankCells(matrix[headerRow]) <= 1) {
+    const candidateOffset = matrix.slice(headerRow + 1, headerRow + 6).findIndex(row => countNonBlankCells(row) >= 2);
+    if (candidateOffset >= 0) headerRow += candidateOffset + 1;
+  }
   const headers = (matrix[headerRow] || []).map(value => String(value ?? "").trim());
   while (headers.length && !headers.at(-1)) headers.pop();
   if (!headers.length) throw new Error("Dòng đầu tiên cần có tên các cột.");

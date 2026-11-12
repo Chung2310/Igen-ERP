@@ -8,6 +8,7 @@
  */
 
 import { DEFAULT_IMAGE_MODEL, IMAGE_EDIT_MODEL, RECRAFT_ASPECT_RATIOS, RECRAFT_IMAGE_MODEL, TRANSPARENT_IMAGE_EDIT_MODEL, generateImageViaImagesApi, generateRecraftImage } from "./openrouter-image-api";
+import { canonicalAssistantLinkUrl, safeAssistantHttpUrl } from "../../src/components/common/assistant-link-utils";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -230,17 +231,49 @@ async function chatWithRetries(
       const data = (await response.json()) as any;
       const message = data.choices?.[0]?.message;
       const text: string = typeof message?.content === "string" ? message.content : "";
-      const sources = [
-        ...(Array.isArray(message?.annotations) ? message.annotations : []).map((annotation: any) => annotation?.url_citation || annotation),
-        ...(Array.isArray(data.citations) ? data.citations : []),
-      ].map((citation: any): OpenRouterCitation | null => {
-        const url = typeof citation === "string" ? citation : citation?.url;
-        if (typeof url !== "string" || !/^https?:\/\//i.test(url)) return null;
+      const parseCitation = (citation: any): OpenRouterCitation | null => {
+        const rawUrl = typeof citation === "string" ? citation : citation?.url;
+        if (typeof rawUrl !== "string") return null;
+        const safeUrl = safeAssistantHttpUrl(rawUrl);
+        if (!safeUrl) return null;
         let host: string;
-        try { host = new URL(url).hostname; } catch { return null; }
-        return { title: typeof citation?.title === "string" && citation.title.trim() ? citation.title.trim().slice(0, 240) : host, url: url.slice(0, 2048) };
-      }).filter((source: OpenRouterCitation | null): source is OpenRouterCitation => source !== null);
-      const citations = [...new Map(sources.map(source => [source.url, source])).values()].slice(0, 16);
+        try { host = new URL(safeUrl).hostname; } catch { return null; }
+        const rawTitle = typeof citation?.title === "string" ? citation.title.trim() : "";
+        return {
+          title: rawTitle ? rawTitle.slice(0, 240) : host,
+          url: safeUrl.slice(0, 2048),
+        };
+      };
+      const annotationSources = (Array.isArray(message?.annotations) ? message.annotations : [])
+        .map((annotation: any) => parseCitation(annotation?.url_citation || annotation))
+        .filter((source: OpenRouterCitation | null): source is OpenRouterCitation => source !== null);
+      const topLevelSources = (Array.isArray(data.citations) ? data.citations : [])
+        .map((citation: any) => parseCitation(citation))
+        .filter((source: OpenRouterCitation | null): source is OpenRouterCitation => source !== null);
+      const candidateSources = annotationSources.length > 0
+        ? [
+          ...annotationSources,
+          ...topLevelSources.filter(source => {
+            const canonical = canonicalAssistantLinkUrl(source.url);
+            const host = new URL(source.url).hostname.replace(/^www\./i, "");
+            return (canonical && text.includes(canonical)) || text.includes(source.url) || text.includes(host);
+          }),
+        ]
+        : topLevelSources;
+      const citationMap = new Map<string, OpenRouterCitation>();
+      for (const source of candidateSources) {
+        const key = canonicalAssistantLinkUrl(source.url) || source.url;
+        const existing = citationMap.get(key);
+        if (!existing) {
+          citationMap.set(key, source);
+          continue;
+        }
+        const existingHost = new URL(existing.url).hostname;
+        if ((existing.title === existingHost || !existing.title) && source.title && source.title !== existingHost) {
+          citationMap.set(key, source);
+        }
+      }
+      const citations = [...citationMap.values()].slice(0, 16);
       const elapsed = Date.now() - startTime;
       console.log(`[OpenRouter] Success | model=${data.model || model} | ${elapsed}ms | len=${text.length}`);
       return { text, ...(citations.length ? { citations } : {}) };

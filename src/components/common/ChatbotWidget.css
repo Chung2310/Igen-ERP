@@ -292,6 +292,39 @@
   box-sizing: border-box !important;
 }
 
+.assistant-workspace:not([data-chat-home="true"]) textarea#erp-chatbot-input,
+.assistant-workspace:not([data-chat-home="true"]) .assistant-placeholder-highlight {
+  padding-block: 0.375rem 0.125rem !important;
+  transform: translateY(0.25rem);
+}
+
+.assistant-workspace[data-header-panel="true"]:not([data-fullscreen="true"]) textarea#erp-chatbot-input,
+.assistant-workspace[data-header-panel="true"]:not([data-fullscreen="true"]) .assistant-placeholder-highlight {
+  transform: none;
+}
+
+.assistant-workspace[data-header-panel="true"]:not([data-fullscreen="true"]) textarea#erp-chatbot-input {
+  overflow-y: auto !important;
+}
+
+.assistant-workspace[data-standalone="true"] .assistant-conversation-composer textarea#erp-chatbot-input,
+.assistant-workspace[data-standalone="true"] .assistant-conversation-composer .assistant-placeholder-highlight {
+  transform: none;
+}
+
+.assistant-workspace[data-standalone="true"] .assistant-conversation-composer textarea#erp-chatbot-input {
+  overflow-y: auto !important;
+}
+
+.assistant-workspace[data-standalone="true"] .assistant-landing-composer textarea#erp-chatbot-input,
+.assistant-workspace[data-standalone="true"] .assistant-landing-composer .assistant-placeholder-highlight {
+  transform: none;
+}
+
+.assistant-workspace[data-standalone="true"] textarea#erp-chatbot-input {
+  overflow-y: auto !important;
+}
+
 @media (min-width: 640px) {
   .assistant-workspace[data-chat-home="true"] .assistant-landing-composer textarea#erp-chatbot-input,
   .assistant-workspace[data-chat-home="true"] .assistant-landing-composer .assistant-placeholder-highlight {
@@ -301,7 +334,7 @@
 }
 
 .assistant-landing-composer {
-  border-radius: 9999px;
+  border-radius: 1.5rem;
   border-color: var(--color-outline-variant);
   box-shadow: 0 2px 10px color-mix(in srgb, var(--color-on-surface) 6%, transparent);
 }

@@ -250,3 +250,34 @@ it("includes the catalog in the shared module sidebar and keeps it selected afte
   fireEvent.click(screen.getByRole("button", { name: "Thu gọn thanh điều hướng" }));
   expect(menu.getByRole("button", { name: "Danh mục" }).getAttribute("aria-current")).toBe("page");
 });
+
+it("filters, searches, and paginates the healthcare catalog consistently with other tabs", async () => {
+  const catalogItems = [
+    { _id: "c1", kind: "doctor", code: "BS001", name: "Bác sĩ Minh", active: true, revision: 1, createdAt: "", updatedAt: "" },
+    { _id: "c2", kind: "room", code: "PK001", name: "Phòng khám Nội", active: true, revision: 1, createdAt: "", updatedAt: "" },
+    { _id: "c3", kind: "service", code: "DV001", name: "Khám tổng quát", active: false, revision: 1, createdAt: "", updatedAt: "" },
+  ];
+  vi.stubGlobal("fetch", async (url: string) =>
+    Response.json(url.endsWith("/catalog") ? catalogItems : { items: [], total: 0 }));
+  render(<HealthcareWorkspace branchId="branch-a" hasPermission={() => true} />);
+  fireEvent.click(screen.getByRole("button", { name: "Danh mục" }));
+  expect(await screen.findByText("Bác sĩ Minh")).toBeTruthy();
+  expect(screen.getByText("Phòng khám Nội")).toBeTruthy();
+  expect(screen.getByText("Khám tổng quát")).toBeTruthy();
+
+  fireEvent.change(screen.getByRole("textbox", { name: "Tìm mã hoặc tên danh mục" }), { target: { value: "minh" } });
+  expect(screen.getByText("Bác sĩ Minh")).toBeTruthy();
+  expect(screen.queryByText("Phòng khám Nội")).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Xóa bộ lọc" }));
+  expect(screen.getByText("Phòng khám Nội")).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: "Loại danh mục" }));
+  fireEvent.click(screen.getByRole("option", { name: "Phòng khám" }));
+  expect(screen.getByText("Phòng khám Nội")).toBeTruthy();
+  expect(screen.queryByText("Bác sĩ Minh")).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Trạng thái" }));
+  fireEvent.click(screen.getByRole("option", { name: "Ngừng sử dụng" }));
+  expect(screen.getByText("Chưa có dữ liệu phù hợp.")).toBeTruthy();
+});

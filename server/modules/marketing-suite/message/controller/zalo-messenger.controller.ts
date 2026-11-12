@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { zaloMessengerService } from "../service/zalo-messenger.service.ts";
 import { UserModel } from "../../../../model/user.model.ts";
 import { SocialIntegrationModel } from "../../shared/model/social-integration.model.ts";
+import { enqueueZaloWebhook } from "../service/messenger-background-jobs";
 
 async function getZaloOaConfig(userId: string, requestedOaId?: string): Promise<{ isConnected: boolean; oaId?: string }> {
   const dbUser = await UserModel.findById(userId).lean();
@@ -68,18 +69,14 @@ export const zaloMessengerController = {
       }
 
       const { verifyZaloWebhook } = await import("../webhook-signature");
-      if (!verifyZaloWebhook({ signature: req.get("x-zevent-signature"), rawBody: (req as Request & { rawBody?: string }).rawBody, appId: String(body?.app_id || ""), timestamp: body?.timestamp, expectedAppId: process.env.ZALO_APP_ID, secret: process.env.ZALO_OA_SECRET_KEY })) return res.status(401).json({ success: false, message: "Invalid Zalo webhook signature." });
-      
-      // Phản hồi 200 OK nhanh nhất có thể để Zalo không báo timeout
-      res.status(200).send({ success: true, message: "EVENT_RECEIVED" });
+      const rawBody = (req as Request & { rawBody?: string }).rawBody;
+      if (!verifyZaloWebhook({ signature: req.get("x-zevent-signature"), rawBody, appId: String(body?.app_id || ""), timestamp: body?.timestamp, expectedAppId: process.env.ZALO_APP_ID, secret: process.env.ZALO_OA_SECRET_KEY })) return res.status(401).json({ success: false, message: "Invalid Zalo webhook signature." });
 
-      // Xử lý sự kiện ở chế độ nền (asynchronous)
-      zaloMessengerService.handleWebhookEvent(body).catch((err) => {
-        console.error("[Zalo Webhook Event] Lỗi nghiêm trọng khi xử lý event dưới nền:", err);
-      });
-    } catch (error: any) {
-      console.error("[Zalo Webhook Event] Lỗi tiếp nhận webhook:", error);
-      res.status(200).send({ success: false, error: error.message });
+      await enqueueZaloWebhook(body, rawBody);
+      return res.status(200).json({ success: true, message: "EVENT_RECEIVED" });
+    } catch (error) {
+      console.error("[Zalo Webhook Event] Lỗi tiếp nhận webhook:", error instanceof Error ? error.name : "Unknown error");
+      return res.status(503).json({ success: false, message: "Webhook temporarily unavailable." });
     }
   },
 

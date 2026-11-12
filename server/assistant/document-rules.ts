@@ -18,6 +18,7 @@ const commonRules = `QUY ƯỚC TÀI LIỆU IGEN
 
 const spreadsheetRules = `BẢNG TÍNH
 - Giữ chính xác tên sheet, nhãn cột, thứ tự và kiểu dữ liệu; không đổi mã có số 0 đầu thành số.
+- Khi sửa bảng được tải lên, giữ đủ tất cả tiêu đề cột và dòng dữ liệu; chỉ sửa ô được yêu cầu. Nếu chưa rõ giá trị đúng, hỏi lại thay vì tự đoán.
 - Ghi đơn vị trong nhãn khi cần. Không tự đổi chuỗi ngày, tỷ lệ hoặc tiền nếu chưa rõ quy ước.
 - Không tạo công thức dạng chuỗi, không tự điền kết quả tính toán chưa được kiểm chứng. Nếu yêu cầu phụ thuộc công thức, trả document:null và giải thích giới hạn để người dùng chọn dữ liệu tĩnh đã xác nhận.
 - Chỉ thêm ví dụ khi người dùng yêu cầu mẫu/minh họa và ghi rõ đó là ví dụ.`;
