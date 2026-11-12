@@ -391,7 +391,7 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
 
             {/* Edit type picker */}
             <section aria-label="Loại chỉnh sửa" className="w-full max-w-4xl space-y-3.5 pt-6 sm:pt-8">
-              <h3 className="px-1 text-balance text-left text-sm font-semibold text-on-surface">Chọn loại chỉnh sửa</h3>
+              <h3 className="px-1 text-balance text-left text-sm font-semibold text-on-surface">Thư viện mẫu</h3>
               <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
                 {editTypes.map(editType => {
                   const isSelected = mode === editType.id;
@@ -407,7 +407,7 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
                         isSelected && "border-primary ring-2 ring-primary/30"
                       )}
                     >
-                      <div className="aspect-[16/9] w-full bg-surface-container-low">
+                      <div className="aspect-[3/2] w-full bg-surface-container-low">
                         <img
                           src={editType.artwork}
                           alt=""
@@ -416,10 +416,10 @@ export function AssistantStudioEdit({ onBack, historyItem }: { onBack: () => voi
                           height={512}
                           loading="lazy"
                           decoding="async"
-                          className="size-full object-contain"
+                          className="size-full object-cover"
                         />
                       </div>
-                      <span className={cn("block truncate bg-surface-container-lowest px-2 py-1.5 text-left text-xs font-semibold text-on-surface", isSelected && "text-primary")}>{editType.label}</span>
+                      <span className={cn("block truncate bg-surface-container-lowest px-2 py-1.5 text-center text-xs font-semibold text-on-surface", isSelected && "text-primary")}>{editType.label}</span>
                     </button>
                   );
                 })}
