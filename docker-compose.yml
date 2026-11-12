@@ -11,6 +11,7 @@ services:
       - .env
     environment:
       QUOTATION_WORKERS_ENABLED: "true"
+      QUOTATION_QUEUE_PREFIX: "${QUOTATION_QUEUE_PREFIX:-${CONTAINER_NAME:-igen-erp}-quotation}"
     volumes:
       - .env:/app/.env
       - ./logs:/app/logs

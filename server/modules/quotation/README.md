@@ -42,7 +42,7 @@ API và worker dùng cùng MongoDB, Redis, Cloudinary, OpenRouter và `QUOTATION
 npm run dev
 ```
 
-Production và Docker: cấu hình `QUOTATION_QUEUE_PREFIX` riêng cho môi trường trong `.env`. `docker compose up -d igen-erp` chạy API và worker trong cùng container. Nếu chạy ngoài Docker, đặt `QUOTATION_WORKERS_ENABLED=true` cho tiến trình API. Các biến còn lại được mô tả trong `.env.example`.
+Production và Docker: cấu hình `QUOTATION_QUEUE_PREFIX` riêng cho môi trường trong `.env`; Compose tự dùng `${CONTAINER_NAME}-quotation` nếu thiếu. `docker compose up -d igen-erp` chạy API và worker trong cùng container. Nếu chạy ngoài Docker, đặt `QUOTATION_WORKERS_ENABLED=true` cho tiến trình API. Các biến còn lại được mô tả trong `.env.example`.
 
 `QUOTATION_DOCUMENT_EDIT_MODE=direct` giữ cơ chế OpenRouter sửa file trực tiếp của QUOS mới. `mapping` giữ đường dựng file cục bộ của ERP khi cần kiểm thử hoặc vận hành. Toàn bộ luồng AI Báo giá dùng cố định `openai/gpt-6-luna`, giống bản nguồn; các biến model cũ không ghi đè lựa chọn này.
 
